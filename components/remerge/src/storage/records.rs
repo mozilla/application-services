@@ -163,6 +163,21 @@ impl<'a, F: RecordFormat> From<&'a Record<F>> for &'a JsonObject {
     }
 }
 
+impl From<JsonObject> for NativeRecord {
+    #[inline]
+    fn from(o: JsonObject) -> NativeRecord {
+        NativeRecord::new_unchecked(o)
+    }
+}
+
+impl std::convert::TryFrom<JsonValue> for NativeRecord {
+    type Error = Error;
+    #[inline]
+    fn try_from(v: JsonValue) -> Result<NativeRecord, Self::Error> {
+        Ok(Self::from_value_unchecked(v)?)
+    }
+}
+
 impl<F: RecordFormat> std::fmt::Display for Record<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut writer = crate::util::FormatWriter(f);

@@ -1,3 +1,4 @@
+#![deny(unsafe_code)]
 #[macro_use]
 mod util;
 pub mod engine;

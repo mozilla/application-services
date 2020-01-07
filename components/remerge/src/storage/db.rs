@@ -207,7 +207,7 @@ impl RemergeDb {
         self.db.execute_named(
             "INSERT OR IGNORE INTO rec_local
                     (guid, local_modified_ms, is_deleted, sync_status, record_data, vector_clock, last_writer_id, remerge_schema_version)
-             SELECT (guid, :now_ms,           1,          :changed,    '{}',        :vclock,      :own_id,        :schema_ver)
+             SELECT guid, :now_ms,           1,          :changed,    '{}',        :vclock,      :own_id,        :schema_ver
              FROM rec_mirror
              WHERE guid = :guid",
             named_params! {
@@ -325,7 +325,7 @@ impl RemergeDb {
             WHERE guid = :guid
         ";
 
-        self.db.execute_named(
+        let ct = self.db.execute_named(
             &sql,
             named_params! {
                 ":guid": guid,
@@ -337,6 +337,7 @@ impl RemergeDb {
                 ":vclock": vclock,
             },
         )?;
+        debug_assert_eq!(ct, 1);
         tx.commit()?;
         Ok(())
     }
@@ -348,7 +349,7 @@ impl RemergeDb {
         self.client_id.clone()
     }
 
-    pub fn info(&self) -> &SchemaBundle {
+    pub fn bundle(&self) -> &SchemaBundle {
         &self.info
     }
 

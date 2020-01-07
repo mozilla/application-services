@@ -304,4 +304,16 @@ impl SchemaBundle {
         }
         Ok(())
     }
+
+    pub fn collection_name(&self) -> &str {
+        &self.collection_name
+    }
+
+    pub fn native_schema(&self) -> &RecordSchema {
+        &self.native
+    }
+
+    pub fn local_schema(&self) -> &RecordSchema {
+        &self.local
+    }
 }

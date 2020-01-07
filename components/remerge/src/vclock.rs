@@ -60,13 +60,13 @@ impl VClock {
         }
         match (seen_gt, seen_lt) {
             (false, false) => ClockOrdering::Equivalent,
-            (true, false) => ClockOrdering::Ancestor,
-            (false, true) => ClockOrdering::Descendent,
+            (true, false) => ClockOrdering::Descendent,
+            (false, true) => ClockOrdering::Ancestor,
             (true, true) => ClockOrdering::Conflicting,
         }
     }
 
-    pub fn are_equivalent(&self, o: &VClock) -> bool {
+    pub fn is_equivalent(&self, o: &VClock) -> bool {
         self.get_ordering(o) == ClockOrdering::Equivalent
     }
 
@@ -78,7 +78,7 @@ impl VClock {
         self.get_ordering(o) == ClockOrdering::Descendent
     }
 
-    pub fn are_conflicting(&self, o: &VClock) -> bool {
+    pub fn is_conflicting(&self, o: &VClock) -> bool {
         self.get_ordering(o) == ClockOrdering::Conflicting
     }
 
@@ -138,8 +138,8 @@ impl PartialOrd for VClock {
     fn partial_cmp(&self, other: &VClock) -> Option<std::cmp::Ordering> {
         match self.get_ordering(other) {
             ClockOrdering::Equivalent => Some(std::cmp::Ordering::Equal),
-            ClockOrdering::Ancestor => Some(std::cmp::Ordering::Greater),
-            ClockOrdering::Descendent => Some(std::cmp::Ordering::Less),
+            ClockOrdering::Ancestor => Some(std::cmp::Ordering::Less),
+            ClockOrdering::Descendent => Some(std::cmp::Ordering::Greater),
             ClockOrdering::Conflicting => None,
         }
     }
@@ -163,5 +163,103 @@ impl FromSql for VClock {
                 FromSqlError::Other(Box::new(e))
             })
         })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_clock_basic() {
+        let id = Guid::new("000000000000");
+        let a = VClock::new(id.clone(), 1);
+
+        assert!(!a.is_descendent_of(&a));
+        assert!(!a.is_ancestor_of(&a));
+        assert!(!a.is_conflicting(&a));
+        assert!(a.is_equivalent(&a));
+
+        let b = VClock::new(id, 2);
+
+        assert!(!a.is_descendent_of(&b));
+        assert!(b.is_descendent_of(&a));
+        assert!(!b.is_ancestor_of(&a));
+        assert!(a.is_ancestor_of(&b));
+
+        assert!(!b.is_conflicting(&a));
+        assert!(!a.is_conflicting(&b));
+
+        assert!(!b.is_equivalent(&a));
+        assert!(!a.is_equivalent(&b));
+
+        assert!(a < b);
+        assert!(a <= b);
+        assert!(b > a);
+        assert!(b >= a);
+        assert_ne!(a, b);
+
+        // b completely subsumes a, so this just copies b.
+        let b2 = b.clone().combine(&a);
+        assert!(b.is_equivalent(&b2));
+        assert!(b2.is_equivalent(&b));
+        assert_eq!(b2, b);
+    }
+
+    #[test]
+    fn test_clock_multi_ids() {
+        let id0 = Guid::new("000000000000");
+        let id1 = Guid::new("111111111111");
+        let a = VClock::new(id0.clone(), 1).apply(id1, 2);
+        let b = VClock::new(id0, 1);
+
+        assert!(a.is_descendent_of(&b));
+        assert!(!b.is_descendent_of(&a));
+        assert!(b.is_ancestor_of(&a));
+        assert!(!a.is_ancestor_of(&b));
+
+        assert!(!b.is_conflicting(&a));
+        assert!(!a.is_conflicting(&b));
+
+        assert!(!b.is_equivalent(&a));
+        assert!(!a.is_equivalent(&b));
+    }
+
+    #[allow(clippy::neg_cmp_op_on_partial_ord)]
+    #[test]
+    fn test_clock_conflict() {
+        let id0 = Guid::new("000000000000");
+        let id1 = Guid::new("111111111111");
+        let a = VClock::new(id0.clone(), 1).apply(id1, 2);
+        let b = VClock::new(id0, 2);
+        assert!(b.is_conflicting(&a));
+        assert!(a.is_conflicting(&b));
+
+        assert!(!b.is_equivalent(&a));
+        assert!(!a.is_equivalent(&b));
+        // all of these should be false, per partialeq rules
+        assert!(!(a < b));
+        assert!(!(a <= b));
+        assert!(!(b > a));
+        assert!(!(b >= a));
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_clock_combine() {
+        let id0 = Guid::new("000000000000");
+        let id1 = Guid::new("111111111111");
+        let a = VClock::new(id0.clone(), 1).apply(id1, 2);
+        let b = VClock::new(id0, 2);
+        let updated = b.clone().combine(&a);
+        assert!(updated.is_descendent_of(&a));
+        assert!(updated.is_descendent_of(&b));
+        assert!(a.is_ancestor_of(&updated));
+        assert!(b.is_ancestor_of(&updated));
+
+        assert!(!updated.is_conflicting(&a));
+        assert!(!updated.is_conflicting(&b));
+
+        assert!(!updated.is_equivalent(&a));
+        assert!(!updated.is_equivalent(&b));
     }
 }
