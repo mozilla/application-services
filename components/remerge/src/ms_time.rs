@@ -103,13 +103,13 @@ impl std::fmt::Debug for MsTime {
 }
 
 impl ToSql for MsTime {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(self.0))
     }
 }
 
 impl FromSql for MsTime {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         value.as_i64().map(MsTime)
     }
 }

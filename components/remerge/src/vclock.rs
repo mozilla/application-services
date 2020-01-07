@@ -146,7 +146,7 @@ impl PartialOrd for VClock {
 }
 
 impl ToSql for VClock {
-    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput> {
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         // serde_json::to_string only fails for types which can't be encoded as
         // JSON (recursive graphs, maps with non-string keys, etc) so unwrap
         // here is fine.
@@ -155,7 +155,7 @@ impl ToSql for VClock {
 }
 
 impl FromSql for VClock {
-    fn column_result(value: ValueRef) -> FromSqlResult<Self> {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
         value.as_str().and_then(|s| {
             serde_json::from_str(s).map_err(|e| {
                 log::error!("Failed to read vector clock from SQL");
