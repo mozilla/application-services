@@ -19,12 +19,14 @@ use std::sync::Arc;
 ///
 /// XXX Ideally this would just be Arc<RecordSchema>, but during bootstrapping
 /// we need to insert the schema into the database, which requires that we have
-/// the serialized form. Eventually we should allow turning a RecordSchema back
-/// into a JSON (e.g. raw) schema. (We don't really want to support
-/// serializing/deserializing a RecordSchema directly, since we already have a
-/// stable serialization format for schemas, and don't need two).
+/// the serialized form. Eventually we should (maybe?) allow turning a
+/// RecordSchema back into a JSON (e.g. raw) schema. (We don't really want to
+/// support serializing/deserializing a RecordSchema directly, since we already
+/// have a stable serialization format for schemas, and don't need two).
 ///
-/// Initialize with TryFrom.
+/// Note: Create this with TryFrom, e.g. something like
+/// `NativeSchemaAndText::try_from(some_str)` after bringing
+/// `std::convert::TryFrom` into scope.
 ///
 #[derive(Clone)]
 pub struct NativeSchemaAndText<'a> {

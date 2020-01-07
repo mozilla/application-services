@@ -25,7 +25,7 @@ lazy_static::lazy_static! {
 }
 
 impl RemergeDb {
-    pub fn with_connection(
+    pub(crate) fn with_connection(
         mut db: Connection,
         native: super::NativeSchemaAndText<'_>,
     ) -> Result<Self> {
