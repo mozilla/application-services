@@ -74,18 +74,18 @@ open class LoginRecord {
 
     open func toJSONDict() -> [String: Any] {
         var dict: [String: Any] = [
-            "id": self.id,
-            "password": self.password,
-            "hostname": self.hostname,
+            "id": id,
+            "password": password,
+            "hostname": hostname,
 
-            "timesUsed": self.timesUsed,
-            "timeCreated": self.timeCreated,
-            "timeLastUsed": self.timeLastUsed,
-            "timePasswordChanged": self.timePasswordChanged,
+            "timesUsed": timesUsed,
+            "timeCreated": timeCreated,
+            "timeLastUsed": timeLastUsed,
+            "timePasswordChanged": timePasswordChanged,
 
-            "username": self.username,
-            "passwordField": self.passwordField,
-            "usernameField": self.usernameField,
+            "username": username,
+            "passwordField": passwordField,
+            "usernameField": usernameField,
         ]
 
         if let httpRealm = self.httpRealm {
