@@ -1,7 +1,11 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 use crate::error::*;
 use crate::storage::{db::RemergeDb, NativeRecord, NativeSchemaAndText, SchemaBundle};
 use crate::Guid;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::path::Path;
 
 /// "Friendly" public api for using Remerge.
@@ -46,14 +50,16 @@ impl RemergeEngine {
 
     pub fn update<R>(&self, rec: R) -> Result<()>
     where
-        R: std::convert::TryInto<NativeRecord, Error = Error>,
+        R: TryInto<NativeRecord>,
+        Error: From<R::Error>,
     {
         self.db.update_record(&rec.try_into()?)
     }
 
     pub fn insert<R>(&self, rec: R) -> Result<Guid>
     where
-        R: std::convert::TryInto<NativeRecord, Error = Error>,
+        R: TryInto<NativeRecord>,
+        Error: From<R::Error>,
     {
         self.db.create(&rec.try_into()?)
     }
