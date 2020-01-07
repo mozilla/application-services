@@ -150,7 +150,7 @@ mod tests {
             make_csids("qZKAMjhyV6Ti", "8M-HfX6dm-pD")
         );
         assert_eq!(
-            extract_v1_ids_only(Some(s.clone()), "bookmarks"),
+            extract_v1_ids_only(Some(s), "bookmarks"),
             make_csids("qZKAMjhyV6Ti", "AVXtnKkH5OTi")
         );
     }
@@ -164,7 +164,7 @@ mod tests {
         })
         .unwrap();
         assert_eq!(
-            extract_v1_state(Some(s.clone()), "addresses"),
+            extract_v1_state(Some(s), "addresses"),
             (
                 make_csids("qZKAMjhyV6Ti", "8M-HfX6dm-pD"),
                 Some(expected_state)
@@ -184,7 +184,7 @@ mod tests {
         assert_eq!(extract_v1_ids_only(Some(s.clone()), "addresses"), None);
         // bookmarks wasn't reset.
         assert_eq!(
-            extract_v1_ids_only(Some(s.clone()), "bookmarks"),
+            extract_v1_ids_only(Some(s), "bookmarks"),
             make_csids("qZKAMjhyV6Ti", "AVXtnKkH5OTi")
         );
     }
@@ -198,6 +198,6 @@ mod tests {
             make_csids("qZKAMjhyV6Ti", "8M-HfX6dm-pD")
         );
         // bookmarks was reset.
-        assert_eq!(extract_v1_ids_only(Some(s.clone()), "bookmarks"), None);
+        assert_eq!(extract_v1_ids_only(Some(s), "bookmarks"), None);
     }
 }

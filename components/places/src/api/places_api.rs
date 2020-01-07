@@ -105,7 +105,7 @@ impl PlacesApi {
     ) -> Result<Arc<Self>> {
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match target.get(&db_name).and_then(Weak::upgrade) {
-            Some(existing) => Ok(existing.clone()),
+            Some(existing) => Ok(existing),
             None => {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.

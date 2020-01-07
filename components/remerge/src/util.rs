@@ -30,8 +30,9 @@ pub fn is_base64url_byte(b: u8) -> bool {
 /// and is more well-behaved from a type-checking perspective.
 macro_rules! throw {
     ($e:expr $(,)?) => {{
-        log::error!("Error: {}", $e);
-        return Err(std::convert::Into::into($e));
+        let e = $e;
+        log::error!("Error: {}", e);
+        return Err(std::convert::Into::into(e));
     }};
 }
 

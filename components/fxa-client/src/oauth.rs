@@ -209,7 +209,7 @@ impl FirefoxAccount {
         }
 
         self.flow_store.insert(
-            state.clone(), // Since state is supposed to be unique, we use it to key our flows.
+            state, // Since state is supposed to be unique, we use it to key our flows.
             OAuthFlow {
                 scoped_keys_flow: Some(scoped_keys_flow),
                 code_verifier,

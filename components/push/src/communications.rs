@@ -114,7 +114,7 @@ pub fn connect(
     };
     let connection = ConnectHttp {
         uaid,
-        options: options.clone(),
+        options,
         auth,
     };
 
@@ -592,12 +592,8 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body_cl_success)
             .create();
-            let conn = connect(
-                config.clone(),
-                Some(DUMMY_UAID.to_owned()),
-                Some(SECRET.to_owned()),
-            )
-            .unwrap();
+            let conn =
+                connect(config, Some(DUMMY_UAID.to_owned()), Some(SECRET.to_owned())).unwrap();
             let response = conn.channel_list().unwrap();
             ap_mock.assert();
             assert!(response == [DUMMY_CHID.to_owned()]);

@@ -334,7 +334,7 @@ mod test {
                 node_type: BookmarkType::Bookmark,
                 guid: "bookmark4___".into(),
                 title: Some("yes 2".into()),
-                url: Some(url.clone()),
+                url: Some(url),
                 parent_guid: Some(BookmarkRootGuid::Unfiled.into()),
                 position: 3,
                 child_guids: None,

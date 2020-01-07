@@ -694,7 +694,7 @@ mod test {
             .sort_by(RequestOrder::Oldest)
             .older_than(ServerTimestamp(9_876_540))
             .newer_than(ServerTimestamp(1_234_560))
-            .build_url(base.clone())
+            .build_url(base)
             .unwrap();
         assert_eq!(complex.as_str(),
             "https://example.com/sync/storage/specific?full=1&limit=10&older=9876.54&newer=1234.56&sort=oldest");
@@ -828,7 +828,7 @@ mod test {
 
             {
                 let batch = self.cur_batch.as_mut().unwrap();
-                batch.posts.push(post.clone());
+                batch.posts.push(post);
                 batch.records += num_records;
                 batch.bytes += record_payload_bytes;
 

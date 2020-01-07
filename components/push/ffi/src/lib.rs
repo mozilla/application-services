@@ -57,7 +57,7 @@ pub extern "C" fn push_connection_new(
             database_path: db_path,
             ..Default::default()
         };
-        PushManager::new(config.clone())
+        PushManager::new(config)
     })
 }
 

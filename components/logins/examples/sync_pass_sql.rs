@@ -144,7 +144,7 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
                     Value::Null => Cell::new("null").style_spec("Fd"),
                     Value::Integer(i) => Cell::new(&i.to_string()).style_spec("Fb"),
                     Value::Real(r) => Cell::new(&r.to_string()).style_spec("Fb"),
-                    Value::Text(s) => Cell::new(&s.to_string()).style_spec("Fr"),
+                    Value::Text(s) => Cell::new(&s).style_spec("Fr"),
                     Value::Blob(b) => Cell::new(&format!("{}b blob", b.len())),
                 })
             })

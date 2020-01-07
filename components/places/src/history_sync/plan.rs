@@ -161,7 +161,7 @@ fn plan_incoming_record(conn: &PlacesDb, record: HistoryRecord, max_visits: usiz
     if guid_changed || !to_apply.is_empty() {
         let new_title = Some(record.title);
         IncomingPlan::Apply {
-            url: url.clone(),
+            url,
             new_title,
             visits: to_apply,
         }
@@ -797,7 +797,7 @@ mod tests {
         let db = PlacesDb::open_in_memory(ConnectionType::Sync)?;
         let url = Url::parse("https://example.com")?;
         let now = SystemTime::now();
-        let obs = VisitObservation::new(url.clone())
+        let obs = VisitObservation::new(url)
             .with_visit_type(VisitTransition::Link)
             .with_at(Some(now.into()));
         apply_observation(&db, obs)?;

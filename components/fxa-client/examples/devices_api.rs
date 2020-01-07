@@ -70,7 +70,7 @@ fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
 
 fn main() -> Result<(), failure::Error> {
     let cfg = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
-    let mut acct = load_or_create_fxa_creds(cfg.clone())?;
+    let mut acct = load_or_create_fxa_creds(cfg)?;
 
     // Make sure the device and the send-tab command are registered.
     acct.initialize_device(

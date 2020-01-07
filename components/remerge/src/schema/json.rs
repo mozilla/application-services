@@ -457,10 +457,7 @@ impl<'a> SchemaParser<'a> {
 
         ensure!(
             req_version.matches(&cur_version),
-            SchemaError::LocalRequiredVersionNotCompatible(
-                req_version.clone(),
-                cur_version.clone()
-            )
+            SchemaError::LocalRequiredVersionNotCompatible(req_version, cur_version)
         );
         Ok((cur_version, req_version))
     }

@@ -61,7 +61,7 @@ impl UpdatePlan {
 
     pub fn plan_delete(&mut self, id: Guid) {
         self.delete_local.push(id.clone());
-        self.delete_mirror.push(id.clone());
+        self.delete_mirror.push(id);
     }
 
     pub fn plan_mirror_update(&mut self, login: Login, time: ServerTimestamp) {
