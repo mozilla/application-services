@@ -71,6 +71,10 @@ impl RemergeDb {
         })
     }
 
+    pub(crate) fn conn(&self) -> &rusqlite::Connection {
+        &self.db
+    }
+
     pub fn exists(&self, id: &str) -> Result<bool> {
         Ok(self.db.query_row_named(
             "SELECT EXISTS(
@@ -221,8 +225,8 @@ impl RemergeDb {
         Ok(exists)
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<NativeRecord>> {
-        let r: Option<LocalRecord> = self.db.try_query_row(
+    fn get_local_by_id(&self, id: &str) -> Result<Option<LocalRecord>> {
+        Ok(self.db.try_query_row(
             "SELECT record_data FROM rec_local WHERE guid = :guid AND is_deleted = 0
              UNION ALL
              SELECT record_data FROM rec_mirror WHERE guid = :guid AND is_overridden = 0
@@ -230,8 +234,13 @@ impl RemergeDb {
             named_params! { ":guid": id },
             |r| r.get(0),
             true, // cache
-        )?;
-        r.map(|v| self.info.local_to_native(&v)).transpose()
+        )?)
+    }
+
+    pub fn get_by_id(&self, id: &str) -> Result<Option<NativeRecord>> {
+        self.get_local_by_id(id)?
+            .map(|v| self.info.local_to_native(&v))
+            .transpose()
     }
 
     pub fn get_all(&self) -> Result<Vec<NativeRecord>> {
@@ -299,9 +308,42 @@ impl RemergeDb {
         Ok(vc.apply(self.client_id.clone(), counter))
     }
 
+    /// Returns NoSuchRecord if, well, there's no such record.
+    fn get_existing_record(&self, rec: &NativeRecord) -> Result<LocalRecord> {
+        use crate::{
+            schema::desc::{Field, FieldType},
+            JsonValue,
+        };
+        let native = self.info.native_schema();
+        let fidx = native
+            .field_own_guid
+            .expect("FIXME: own_guid should be explicitly mandatory");
+        let field = &native.fields[fidx];
+        assert!(
+            matches::matches!(field.ty, FieldType::OwnGuid { .. }),
+            "Validation/parsing bug -- field_own_guid must point to an own_guid"
+        );
+        // Just treat missing and null the same.
+        let val = rec.get(&field.local_name).unwrap_or(&JsonValue::Null);
+        let guid = Field::validate_guid(&field.local_name, val)?;
+
+        self.get_local_by_id(guid.as_str())?
+            .ok_or_else(|| ErrorKind::NoSuchRecord(guid.into()).into())
+    }
+
     pub fn update_record(&self, record: &NativeRecord) -> Result<()> {
-        let (guid, record) = self.info.native_to_local(record, ToLocalReason::Update)?;
         let tx = self.db.unchecked_transaction()?;
+
+        // fails with NoSuchRecord if the record doesn't exist.
+
+        // Potential optimization: we could skip this for schemas that don't use
+        // types which need `prev` (untyped_map, record_set, ...)
+        let prev = self.get_existing_record(&record)?;
+
+        let (guid, record) = self
+            .info
+            .native_to_local(record, ToLocalReason::Update { prev })?;
+
         if self.dupe_exists(&record)? {
             throw!(InvalidRecord::Duplicate);
         }
