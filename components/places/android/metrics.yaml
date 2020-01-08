@@ -24,8 +24,9 @@ places_manager:
       overall error rate of read operations on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -41,8 +42,9 @@ places_manager:
       - storage_error
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -56,8 +58,9 @@ places_manager:
       overall error rate of write operations on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -76,8 +79,9 @@ places_manager:
       - storage_error
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -88,8 +92,9 @@ places_manager:
       The time taken to execute a read query on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -100,8 +105,9 @@ places_manager:
       The time taken to execute a scan query on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"
@@ -112,8 +118,9 @@ places_manager:
       The time taken to execute a write query on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
+      - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
     notification_emails:
       - synced-client-integrations@mozilla.com
     expires: "2020-07-01"

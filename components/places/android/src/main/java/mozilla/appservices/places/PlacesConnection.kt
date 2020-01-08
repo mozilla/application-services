@@ -1155,7 +1155,7 @@ inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
  *
  * This is a convenince wrapper to measure the two in one shot.
  */
- class PlacesManagerCounterMetrics(
+class PlacesManagerCounterMetrics(
     val count: CounterMetricType,
     val errCount: LabeledMetricType<CounterMetricType>
 ) {
