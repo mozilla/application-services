@@ -18,6 +18,7 @@ members = [
     "components/support/interrupt",
     "components/support/rc_crypto",
     "components/support/rc_crypto/nss",
+    "components/support/rc_crypto/nss/nss_build_common",
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/sql",
     "components/sync_manager",
@@ -37,3 +38,12 @@ members = [
 opt-level = "s"
 debug = true
 lto = true
+
+# Without the change in https://github.com/jgallagher/rusqlite/pull/608, it
+# would be very hard (I can't think of hoq) for remerge to both avoid the NSS
+# dep and keep `cargo test` from the root of a-s working. This is just the
+# bindgen crate more or less, so it seems fine to me to use a rev while we wait
+# for a release.
+[patch.crates-io.libsqlite3-sys]
+git = 'https://github.com/jgallagher/rusqlite.git'
+rev = '844839d9a54fc32874d31002a6f976b06e59049b'
