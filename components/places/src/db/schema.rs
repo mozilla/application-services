@@ -8,10 +8,12 @@
 // db.rs.
 
 use crate::api::places_api::ConnectionType;
-use crate::bookmark_sync::{self, create_synced_bookmark_roots};
+use crate::bookmark_sync::store::LAST_SYNC_META_KEY;
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::bookmarks::create_bookmark_roots;
+use crate::storage::bookmarks::{
+    bookmark_sync::create_synced_bookmark_roots, create_bookmark_roots,
+};
 use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
@@ -193,10 +195,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         &[
             // Changing `moz_bookmarks_synced_structure` to store multiple
             // parents, so we need to re-download all synced bookmarks.
-            &format!(
-                "DELETE FROM moz_meta WHERE key = '{}'",
-                bookmark_sync::store::LAST_SYNC_META_KEY
-            ),
+            &format!("DELETE FROM moz_meta WHERE key = '{}'", LAST_SYNC_META_KEY),
             "DROP TABLE moz_bookmarks_synced",
             "DROP TABLE moz_bookmarks_synced_structure",
             CREATE_SHARED_SCHEMA_SQL,

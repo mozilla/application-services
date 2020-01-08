@@ -175,7 +175,9 @@ public class PlacesAPI {
     }
 
     /**
-     * Reset sync metadata for the bookmarks collection.
+     * Resets all sync metadata for bookmarks, including change flags, sync statuses, and
+     * last sync time. The next sync after reset will behave the same way as a first sync
+     * when connecting a new device.
      *
      * - Throws:
      *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
@@ -186,10 +188,10 @@ public class PlacesAPI {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func resetBookmarksMetadata() throws {
+    open func resetBookmarks() throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
-                places_api_reset_bookmarks(handle, err)
+                bookmarks_reset(handle, err)
             }
         }
     }

@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::create_synced_bookmark_roots;
 use super::incoming::IncomingApplicator;
 use super::record::{
     BookmarkItemRecord, BookmarkRecord, BookmarkRecordId, FolderRecord, QueryRecord,
@@ -13,7 +12,13 @@ use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
-use crate::storage::{bookmarks::BookmarkRootGuid, delete_meta, get_meta, put_meta};
+use crate::storage::{
+    bookmarks::{
+        bookmark_sync::{create_synced_bookmark_roots, reset, reset_meta},
+        BookmarkRootGuid,
+    },
+    get_meta, put_meta,
+};
 use crate::types::{BookmarkType, SyncStatus, Timestamp};
 use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
@@ -893,32 +898,20 @@ impl<'a> BookmarksStore<'a> {
     /// Removes all sync metadata, such that the next sync is treated as a
     /// first sync. Unlike `wipe`, this keeps all local items, but clears
     /// all synced items and pending tombstones. This also forgets the last
-    /// sync time.
+    /// sync time, and either updates or removes the sync ID.
     pub(crate) fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        let tx = self.db.begin_transaction()?;
-        self.db.execute_batch(&format!(
-            "DELETE FROM moz_bookmarks_synced;
-
-             DELETE FROM moz_bookmarks_deleted;
-
-             UPDATE moz_bookmarks
-             SET syncChangeCounter = 1,
-                 syncStatus = {}",
-            (SyncStatus::New as u8)
-        ))?;
-        create_synced_bookmark_roots(self.db)?;
-        put_meta(self.db, LAST_SYNC_META_KEY, &0)?;
         match assoc {
             StoreSyncAssociation::Disconnected => {
-                delete_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
-                delete_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+                reset(self.db)?;
             }
             StoreSyncAssociation::Connected(ids) => {
+                let tx = self.db.begin_transaction()?;
+                reset_meta(self.db)?;
                 put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+                tx.commit()?;
             }
-        };
-        tx.commit()?;
+        }
         Ok(())
     }
 }

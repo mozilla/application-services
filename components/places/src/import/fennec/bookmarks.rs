@@ -10,7 +10,7 @@ use crate::bookmark_sync::{
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
-use crate::storage::bookmarks::PublicNode;
+use crate::storage::bookmarks::{bookmark_sync::create_synced_bookmark_roots, PublicNode};
 use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::NO_PARAMS;
 use serde_derive::*;
@@ -86,7 +86,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     scope.err_if_interrupted()?;
 
     log::debug!("Populating mirror with the bookmarks roots");
-    crate::bookmark_sync::create_synced_bookmark_roots(&conn)?;
+    create_synced_bookmark_roots(&conn)?;
     scope.err_if_interrupted()?;
 
     log::debug!("Creating staging table");

@@ -209,11 +209,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): Pointer?
 
-    fun places_api_reset_bookmarks(
-        handle: PlacesApiHandle,
-        out_err: RustError.ByReference
-    )
-
     fun bookmarks_get_all_with_url(
         handle: PlacesConnectionHandle,
         url: String,
@@ -275,6 +270,11 @@ internal interface LibPlacesFFI : Library {
     ): Byte
 
     fun bookmarks_delete_everything(
+        handle: PlacesConnectionHandle,
+        error: RustError.ByReference
+    )
+
+    fun bookmarks_reset(
         handle: PlacesConnectionHandle,
         error: RustError.ByReference
     )
