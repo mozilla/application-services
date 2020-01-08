@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult, Write};
 
 /// For use with `#[serde(skip_serializing_if = )]`
 #[inline]
@@ -49,6 +50,27 @@ macro_rules! ensure {
     };
 }
 
-/// Release of WorldWideWeb, the first web browser. Synced data could never come
-/// from before this date. XXX this could be untrue for new collections...
-pub const EARLIEST_SANE_TIME: i64 = 662_083_200_000;
+/// Helper to allow passing a std::fmt::Formatter to a function needing
+/// std::io::Write.
+///
+/// Mainly used to implement std::fmt::Display for the Record types without
+/// requiring cloning them (which would be needed because serde_json::Value is
+/// the one that impls Display, not serde_json::Map, aka JsonObject).
+///
+/// Alternatively we could have done `serde_json::to_string(self).unwrap()` or
+/// something, but this this is cleaner.
+pub struct FormatWriter<'a, 'b>(pub &'a mut std::fmt::Formatter<'b>);
+
+impl<'a, 'b> Write for FormatWriter<'a, 'b> {
+    fn write(&mut self, buf: &[u8]) -> IoResult<usize> {
+        std::str::from_utf8(buf)
+            .ok()
+            .and_then(|s| self.0.write_str(s).ok())
+            .ok_or_else(|| IoError::new(IoErrorKind::Other, std::fmt::Error))?;
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> IoResult<()> {
+        Ok(())
+    }
+}
