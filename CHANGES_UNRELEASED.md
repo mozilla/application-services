@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.0...master)
 
+## General
+
+- Revert NSS to version 3.46.
+
 ## Logins
 
 ### What's changed
