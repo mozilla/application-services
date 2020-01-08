@@ -1,3 +1,18 @@
+# v0.48.1 (_2020-01-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.0...v0.48.1)
+
+## General
+
+- Revert NSS to version 3.46.
+
+## Logins
+
+### What's changed
+
+* The error strings returned by `LoginsStorage.importLogins` as part of the migration metrics bundle,
+  no longer include potentially-sensitive information such as guids.
+
 # v0.48.0 (_2020-01-03_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.47.0...v0.48.0)
