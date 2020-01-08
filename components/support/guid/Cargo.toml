@@ -8,11 +8,11 @@ edition = "2018"
 [dependencies]
 rusqlite = { version = "0.20.0", optional = true }
 serde = { version = "1.0.101", optional = true }
-rc_crypto = { path = "../rc_crypto", optional = true }
+rand = { version = "0.7", optional = true }
 base64 = { version = "0.11.0", optional = true }
 
 [features]
-random = ["rc_crypto", "base64"]
+random = ["rand", "base64"]
 rusqlite_support = ["rusqlite"]
 serde_support = ["serde"]
 # By default we support serde, but not rusqlite.
