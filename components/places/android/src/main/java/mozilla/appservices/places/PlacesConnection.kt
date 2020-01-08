@@ -562,6 +562,12 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
+    override fun resetHistory() {
+        rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_reset(this.handle.get(), error)
+        }
+    }
+
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
             rustCall { error ->
@@ -915,6 +921,18 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * should not return.
      */
     fun deleteEverything()
+
+    /**
+     * Resets all sync metadata for history, including change flags,
+     * sync statuses, and last sync time. The next sync after reset
+     * will behave the same way as a first sync when connecting a new
+     * device.
+     *
+     * This method only needs to be called when the user disconnects
+     * from Sync. There are other times when Places resets sync metadata,
+     * but those are handled internally in the Rust code.
+     */
+    fun resetHistory()
 
     /**
      * Deletes all information about the given URL. If the place has previously

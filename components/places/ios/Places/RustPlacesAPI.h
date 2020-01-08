@@ -125,6 +125,9 @@ PlacesRustBuffer places_get_visit_infos(PlacesConnectionHandle handle,
                                         int32_t exclude_types,
                                         PlacesRustError *_Nonnull out_err);
 
+void places_reset(PlacesAPIHandle handle,
+                  PlacesRustError *_Nonnull out_err);
+
 char *_Nonnull sync15_history_sync(PlacesAPIHandle handle,
                                    char const *_Nonnull key_id,
                                    char const *_Nonnull access_token,

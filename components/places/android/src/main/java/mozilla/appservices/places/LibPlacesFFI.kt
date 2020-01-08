@@ -184,6 +184,11 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): Long
 
+    fun places_reset(
+        handle: PlacesConnectionHandle,
+        error: RustError.ByReference
+    )
+
     // Returns a JSON string containing a sync ping.
     fun sync15_history_sync(
         handle: PlacesApiHandle,

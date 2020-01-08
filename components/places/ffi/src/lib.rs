@@ -484,6 +484,15 @@ pub extern "C" fn places_accept_result(
 }
 
 #[no_mangle]
+pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
+    log::debug!("places_reset");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::history_sync::reset(conn)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn sync15_history_sync(
     handle: u64,
     key_id: FfiStr<'_>,

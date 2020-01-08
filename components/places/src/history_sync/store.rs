@@ -5,7 +5,10 @@
 use crate::api::places_api::{ConnectionType, GLOBAL_STATE_META_KEY};
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::history::{delete_everything, history_sync::reset_storage};
+use crate::storage::history::{
+    delete_everything,
+    history_sync::{reset, reset_meta},
+};
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::SqlInterruptScope;
@@ -48,10 +51,6 @@ impl<'a> HistoryStore<'a> {
         crate::storage::get_meta(self.db, key)
     }
 
-    fn delete_meta(&self, key: &str) -> Result<()> {
-        crate::storage::delete_meta(self.db, key)
-    }
-
     fn do_apply_incoming(
         &self,
         inbound: IncomingChangeset,
@@ -90,20 +89,18 @@ impl<'a> HistoryStore<'a> {
     }
 
     pub(crate) fn do_reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        let tx = self.db.begin_transaction()?;
-        reset_storage(self.db)?;
-        self.put_meta(LAST_SYNC_META_KEY, &0)?;
         match assoc {
             StoreSyncAssociation::Disconnected => {
-                self.delete_meta(GLOBAL_SYNCID_META_KEY)?;
-                self.delete_meta(COLLECTION_SYNCID_META_KEY)?;
+                reset(self.db)?;
             }
             StoreSyncAssociation::Connected(ids) => {
+                let tx = self.db.begin_transaction()?;
+                reset_meta(self.db)?;
                 self.put_meta(GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 self.put_meta(COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+                tx.commit()?;
             }
-        };
-        tx.commit()?;
+        }
         Ok(())
     }
 
