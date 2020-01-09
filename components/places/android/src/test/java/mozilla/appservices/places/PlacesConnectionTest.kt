@@ -300,7 +300,6 @@ class PlacesConnectionTest {
         assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
 
-
         db.getVisitInfos(125000, 225000)
 
         assert(PlacesManagerMetrics.readQueryTime.testHasValue())

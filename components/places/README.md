@@ -1,5 +1,12 @@
 ## Places! Yeah, Places...
 
+### Before using this component
+
+Products sending telemetry and using this component *must request* a data-review following
+[this process](https://wiki.mozilla.org/Firefox/Data_Collection).
+This component provides data collection using the [Glean SDK](https://mozilla.github.io/glean/book/index.html).
+The list of metrics being collected is available in the [metrics documentation](../../docs/metrics/places/metrics.md).
+
 The general idea is to be like a rusty desktop Places.
 
 So, instead of:
