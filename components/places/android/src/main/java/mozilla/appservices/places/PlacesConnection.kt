@@ -470,8 +470,12 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
+        return writeQueryCounters.measure {
+            rustCall { error ->
+                PlacesManagerMetrics.writeQueryTime.measure {
+                    LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
+                }
+            }
         }
     }
 
