@@ -309,7 +309,6 @@ fn init_panic_handling_once() {
     INIT_BACKTRACES.call_once(move || {
         #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
         {
-            // Turn on backtraces for failure, if it's still listening.
             std::env::set_var("RUST_BACKTRACE", "1");
         }
         // Turn on a panic hook which logs both backtraces and the panic
@@ -325,10 +324,6 @@ fn init_panic_handling_once() {
                 ("<unknown>", 0)
             };
             log::error!("### Rust `panic!` hit at file '{}', line {}", file, line);
-            // We could use failure for failure::Backtrace (and we enable RUST_BACKTRACE
-            // to opt-in to backtraces on failure errors if possible), however:
-            // - `failure` only checks the RUST_BACKTRACE variable once, and we could have errors
-            //   before this. So we just use the backtrace crate directly.
             #[cfg(all(feature = "log_backtraces", not(target_os = "android")))]
             {
                 log::error!("  Complete stack trace:\n{:?}", backtrace::Backtrace::new());

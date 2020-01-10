@@ -21,8 +21,6 @@ log_backtraces = ["log_panics", "backtrace"]
 [dependencies]
 log = "0.4"
 lazy_static = "1.4.0"
-failure = { version = "0.1.6", default-features = false }
-failure_derive = "0.1.5"
 
 [dependencies.backtrace]
 optional = true
