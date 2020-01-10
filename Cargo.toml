@@ -21,6 +21,7 @@ members = [
     "components/support/rc_crypto/nss/nss_build_common",
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/sql",
+    "components/support/sync15-traits",
     "components/sync_manager",
     "components/sync_manager/ffi",
     "components/sync15",

@@ -1314,7 +1314,7 @@ mod tests {
                 &[
                     // tombstone
                     (
-                        sync15::Payload::new_tombstone("dummy_000001".into()),
+                        sync15::Payload::new_tombstone("dummy_000001"),
                         sync15::ServerTimestamp(10000),
                     ),
                     // invalid

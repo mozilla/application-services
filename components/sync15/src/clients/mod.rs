@@ -11,6 +11,7 @@ mod record;
 mod ser;
 
 pub use engine::Engine;
+pub use sync15_traits::client::{ClientData, DeviceType, RemoteClient};
 
 /// A command processor applies incoming commands like wipes and resets for all
 /// stores, and returns commands to send to other clients. It also manages
@@ -53,14 +54,6 @@ pub enum CommandStatus {
     Unsupported,
 }
 
-/// Information about a remote client in the clients collection.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct RemoteClient {
-    pub fxa_device_id: Option<String>,
-    pub device_name: String,
-    pub device_type: Option<DeviceType>,
-}
-
 impl From<&record::ClientRecord> for RemoteClient {
     fn from(record: &record::ClientRecord) -> RemoteClient {
         RemoteClient {
@@ -83,40 +76,6 @@ pub struct Settings {
     pub device_name: String,
     /// The type of this client: mobile, tablet, desktop, or other.
     pub device_type: DeviceType,
-}
-
-/// The type of a client. Please keep these variants in sync with the device
-/// types in the FxA client and sync manager.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
-pub enum DeviceType {
-    Desktop,
-    Mobile,
-    Tablet,
-    VR,
-    TV,
-}
-
-impl DeviceType {
-    pub fn try_from_str(d: impl AsRef<str>) -> Option<DeviceType> {
-        match d.as_ref() {
-            "desktop" => Some(DeviceType::Desktop),
-            "mobile" => Some(DeviceType::Mobile),
-            "tablet" => Some(DeviceType::Tablet),
-            "vr" => Some(DeviceType::VR),
-            "tv" => Some(DeviceType::TV),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            DeviceType::Desktop => "desktop",
-            DeviceType::Mobile => "mobile",
-            DeviceType::Tablet => "tablet",
-            DeviceType::VR => "vr",
-            DeviceType::TV => "tv",
-        }
-    }
 }
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]

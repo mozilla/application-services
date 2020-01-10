@@ -785,7 +785,8 @@ mod tests {
                     .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                     .collect(),
             };
-            let mut bso = Payload::from_record(record)?.into_bso("crypto".into());
+            let mut bso =
+                crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
             bso.modified = modified;
             Ok(bso.encrypt(root_key)?)
         }

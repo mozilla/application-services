@@ -6,7 +6,7 @@
 #![warn(rust_2018_idioms)]
 
 mod bso_record;
-mod changeset;
+pub mod changeset;
 mod client;
 pub mod clients;
 mod coll_state;
@@ -42,4 +42,4 @@ pub use crate::sync::{synchronize, Store};
 pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };
-pub use crate::util::{ServerTimestamp, SERVER_EPOCH};
+pub use crate::util::ServerTimestamp;

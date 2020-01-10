@@ -9,22 +9,8 @@ use crate::request::InfoConfiguration;
 use crate::state::GlobalState;
 use crate::sync::Store;
 use crate::util::ServerTimestamp;
-use sync_guid::Guid;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct CollSyncIds {
-    pub global: Guid,
-    pub coll: Guid,
-}
-
-/// Defines how a store is associated with Sync.
-#[derive(Debug, Clone, PartialEq)]
-pub enum StoreSyncAssociation {
-    /// This store is disconnected (although it may be connected in the future).
-    Disconnected,
-    /// Sync is connected, and has the following sync IDs.
-    Connected(CollSyncIds),
-}
+pub use sync15_traits::{CollSyncIds, StoreSyncAssociation};
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bso_record::{EncryptedBso, Payload};
+use crate::bso_record::{CleartextBso, EncryptedBso};
 use crate::client::{Sync15ClientResponse, Sync15StorageClient};
 use crate::error::{self, ErrorKind, ErrorResponse, Result};
 use crate::key_bundle::KeyBundle;
@@ -10,84 +10,48 @@ use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
 use crate::CollState;
 
-#[derive(Debug, Clone)]
-pub struct RecordChangeset<Payload> {
-    pub changes: Vec<Payload>,
-    /// For GETs, the last sync timestamp that should be persisted after
-    /// applying the records.
-    /// For POSTs, this is the XIUS timestamp.
-    pub timestamp: ServerTimestamp,
-    pub collection: String,
+pub use sync15_traits::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
+
+pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
+    let RecordChangeset {
+        changes,
+        collection,
+        ..
+    } = o;
+    changes
+        .into_iter()
+        .map(|change| CleartextBso::from_payload(change, collection.clone()).encrypt(key))
+        .collect()
 }
 
-pub type IncomingChangeset = RecordChangeset<(Payload, ServerTimestamp)>;
-pub type OutgoingChangeset = RecordChangeset<Payload>;
-
-// TODO: use a trait to unify this with the non-json versions
-impl<T> RecordChangeset<T> {
-    #[inline]
-    pub fn new(collection: String, timestamp: ServerTimestamp) -> RecordChangeset<T> {
-        RecordChangeset {
-            changes: vec![],
-            timestamp,
-            collection,
-        }
-    }
-}
-
-impl OutgoingChangeset {
-    pub fn encrypt(self, key: &KeyBundle) -> Result<Vec<EncryptedBso>> {
-        let RecordChangeset {
-            changes,
-            collection,
+pub fn fetch_incoming(
+    client: &Sync15StorageClient,
+    state: &mut CollState,
+    collection: String,
+    collection_request: &CollectionRequest,
+) -> Result<IncomingChangeset> {
+    let (records, timestamp) = match client.get_encrypted_records(collection_request)? {
+        Sync15ClientResponse::Success {
+            record,
+            last_modified,
             ..
-        } = self;
-        changes
-            .into_iter()
-            .map(|change| change.into_bso(collection.clone()).encrypt(key))
-            .collect()
+        } => (record, last_modified),
+        other => return Err(other.create_storage_error().into()),
+    };
+    // xxx - duplication below of `timestamp` smells wrong
+    state.last_modified = timestamp;
+    let mut result = IncomingChangeset::new(collection, timestamp);
+    result.changes.reserve(records.len());
+    for record in records {
+        // if we see a HMAC error, we've made an explicit decision to
+        // NOT handle it here, but restart the global state machine.
+        // That should cause us to re-read crypto/keys and things should
+        // work (although if for some reason crypto/keys was updated but
+        // not all storage was wiped we are probably screwed.)
+        let decrypted = record.decrypt(&state.key)?;
+        result.changes.push(decrypted.into_timestamped_payload());
     }
-
-    pub fn post(
-        self,
-        client: &Sync15StorageClient,
-        state: &CollState,
-        fully_atomic: bool,
-    ) -> Result<UploadInfo> {
-        Ok(CollectionUpdate::new_from_changeset(client, state, self, fully_atomic)?.upload()?)
-    }
-}
-
-impl IncomingChangeset {
-    pub fn fetch(
-        client: &Sync15StorageClient,
-        state: &mut CollState,
-        collection: String,
-        collection_request: &CollectionRequest,
-    ) -> Result<IncomingChangeset> {
-        let (records, timestamp) = match client.get_encrypted_records(collection_request)? {
-            Sync15ClientResponse::Success {
-                record,
-                last_modified,
-                ..
-            } => (record, last_modified),
-            other => return Err(other.create_storage_error().into()),
-        };
-        // xxx - duplication below of `timestamp` smells wrong
-        state.last_modified = timestamp;
-        let mut result = IncomingChangeset::new(collection, timestamp);
-        result.changes.reserve(records.len());
-        for record in records {
-            // if we see a HMAC error, we've made an explicit decision to
-            // NOT handle it here, but restart the global state machine.
-            // That should cause us to re-read crypto/keys and things should
-            // work (although if for some reason crypto/keys was updated but
-            // not all storage was wiped we are probably screwed.)
-            let decrypted = record.decrypt(&state.key)?;
-            result.changes.push(decrypted.into_timestamped_payload());
-        }
-        Ok(result)
-    }
+    Ok(result)
 }
 
 #[derive(Debug, Clone)]
@@ -136,7 +100,7 @@ impl<'a> CollectionUpdate<'a> {
                 .into(),
             );
         }
-        let to_update = changeset.encrypt(&state.key)?;
+        let to_update = crate::changeset::encrypt_outgoing(changeset, &state.key)?;
         Ok(CollectionUpdate::new(
             client,
             state,

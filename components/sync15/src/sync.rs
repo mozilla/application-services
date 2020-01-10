@@ -2,68 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::changeset::{CollectionUpdate, IncomingChangeset, OutgoingChangeset};
+use crate::changeset::CollectionUpdate;
 use crate::client::Sync15StorageClient;
 use crate::clients;
-use crate::coll_state::{LocalCollStateMachine, StoreSyncAssociation};
+use crate::coll_state::LocalCollStateMachine;
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
-use crate::request::CollectionRequest;
 use crate::state::GlobalState;
 use crate::telemetry;
-use crate::util::ServerTimestamp;
 use interrupt::Interruptee;
-use sync_guid::Guid;
 
-/// Low-level store functionality. Stores that need custom reconciliation logic should use this.
-///
-/// Different stores will produce errors of different types.  To accommodate this, we force them
-/// all to return failure::Error, which we expose as ErrorKind::StoreError.
-pub trait Store {
-    fn collection_name(&self) -> &'static str;
-
-    /// Prepares the store for syncing. The tabs store currently uses this to
-    /// store the current list of clients, which it uses to look up device names
-    /// and types.
-    ///
-    /// Note that this method is only called by `sync_multiple`, and only if a
-    /// command processor is registered. In particular, `prepare_for_sync` will
-    /// not be called if the store is synced using `sync::synchronize` or
-    /// `sync_multiple::sync_multiple`. It _will_ be called if the store is
-    /// synced via the Sync Manager.
-    fn prepare_for_sync(&self, _: &clients::Engine<'_>) -> Result<(), failure::Error> {
-        Ok(())
-    }
-
-    fn apply_incoming(
-        &self,
-        inbound: IncomingChangeset,
-        telem: &mut telemetry::Engine,
-    ) -> Result<OutgoingChangeset, failure::Error>;
-
-    fn sync_finished(
-        &self,
-        new_timestamp: ServerTimestamp,
-        records_synced: Vec<Guid>,
-    ) -> Result<(), failure::Error>;
-
-    /// The store is responsible for building the collection request. Engines
-    /// typically will store a lastModified timestamp and use that to build
-    /// a request saying "give me full records since that date" - however, other
-    /// engines might do something fancier. This could even later be extended
-    /// to handle "backfills" etc
-    fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error>;
-
-    /// Get persisted sync IDs. If they don't match the global state we'll be
-    /// `reset()` with the new IDs.
-    fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, failure::Error>;
-
-    /// Reset the store without wiping local data, ready for a "first sync".
-    /// `assoc` defines how this store is to be associated with sync.
-    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<(), failure::Error>;
-
-    fn wipe(&self) -> Result<(), failure::Error>;
-}
+pub use sync15_traits::Store;
 
 pub fn synchronize(
     client: &Sync15StorageClient,
@@ -115,12 +64,12 @@ pub fn synchronize_with_clients_engine(
     };
 
     if let Some(clients) = clients {
-        store.prepare_for_sync(clients)?;
+        store.prepare_for_sync(&|| clients.get_client_data())?;
     }
 
     let collection_request = store.get_collection_request()?;
     interruptee.err_if_interrupted()?;
-    let incoming_changes = IncomingChangeset::fetch(
+    let incoming_changes = crate::changeset::fetch_incoming(
         client,
         &mut coll_state,
         collection.into(),

@@ -15,6 +15,7 @@ use crate::{
     state::GlobalState,
 };
 use interrupt::Interruptee;
+use sync15_traits::client::ClientData;
 
 use super::{
     record::{ClientRecord, CommandRecord},
@@ -304,7 +305,7 @@ impl<'a> Engine<'a> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound = IncomingChangeset::fetch(
+        let inbound = crate::changeset::fetch_incoming(
             &storage_client,
             coll_state,
             COLLECTION_NAME.into(),
@@ -318,6 +319,13 @@ impl<'a> Engine<'a> {
         // Bit dirty but it's the easiest way to reach to our own
         // device ID without refactoring the whole sync manager crate.
         self.command_processor.settings().fxa_device_id.clone()
+    }
+
+    pub fn get_client_data(&self) -> ClientData {
+        ClientData {
+            local_client_id: self.local_client_id(),
+            recent_clients: self.recent_clients.clone(),
+        }
     }
 }
 

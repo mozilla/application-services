@@ -98,9 +98,13 @@ impl<'a> Store for TabsStore<'a> {
         "tabs"
     }
 
-    fn prepare_for_sync(&self, engine: &clients::Engine<'_>) -> Result<(), failure::Error> {
-        self.remote_clients.replace(engine.recent_clients.clone());
-        self.local_id.replace(engine.local_client_id());
+    fn prepare_for_sync(
+        &self,
+        get_client_data: &dyn Fn() -> clients::ClientData,
+    ) -> Result<(), failure::Error> {
+        let data = get_client_data();
+        self.remote_clients.replace(data.recent_clients);
+        self.local_id.replace(data.local_client_id);
         Ok(())
     }
 

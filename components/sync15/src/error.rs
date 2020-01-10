@@ -7,6 +7,7 @@ use interrupt::Interrupted;
 use rc_crypto::hawk;
 use std::string;
 use std::time::SystemTime;
+use sync15_traits::request::UnacceptableBaseUrl;
 
 /// This enum is to discriminate `StorageHttpError`, and not used as an error.
 #[derive(Debug, Clone)]
@@ -121,6 +122,18 @@ error_support::define_error! {
         (StoreError, failure::Error),
         (Interrupted, Interrupted),
         (HawkError, hawk::Error),
+    }
+}
+
+impl From<UnacceptableBaseUrl> for ErrorKind {
+    fn from(e: UnacceptableBaseUrl) -> ErrorKind {
+        ErrorKind::UnacceptableUrl(e.to_string())
+    }
+}
+
+impl From<UnacceptableBaseUrl> for Error {
+    fn from(e: UnacceptableBaseUrl) -> Self {
+        Error::from(ErrorKind::from(e))
     }
 }
 
