@@ -1216,8 +1216,8 @@ impl<'a> LoginStore<'a> {
 }
 
 impl<'a> Store for LoginStore<'a> {
-    fn collection_name(&self) -> &'static str {
-        "passwords"
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "passwords".into()
     }
 
     fn apply_incoming(

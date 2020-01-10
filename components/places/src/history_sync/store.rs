@@ -143,8 +143,8 @@ impl<'a> Deref for HistoryStore<'a> {
 }
 
 impl<'a> Store for HistoryStore<'a> {
-    fn collection_name(&self) -> &'static str {
-        "history"
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "history".into()
     }
 
     fn apply_incoming(

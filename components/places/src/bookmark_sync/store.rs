@@ -918,8 +918,8 @@ impl<'a> BookmarksStore<'a> {
 
 impl<'a> Store for BookmarksStore<'a> {
     #[inline]
-    fn collection_name(&self) -> &'static str {
-        "bookmarks"
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "bookmarks".into()
     }
 
     fn apply_incoming(

@@ -94,8 +94,8 @@ impl<'a> TabsStore<'a> {
 }
 
 impl<'a> Store for TabsStore<'a> {
-    fn collection_name(&self) -> &'static str {
-        "tabs"
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "tabs".into()
     }
 
     fn prepare_for_sync(

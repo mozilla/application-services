@@ -29,7 +29,7 @@ pub enum StoreSyncAssociation {
 /// Different stores will produce errors of different types.  To accommodate
 /// this, we force them all to return failure::Error.
 pub trait Store {
-    fn collection_name(&self) -> &'static str;
+    fn collection_name(&self) -> std::borrow::Cow<'static, str>;
 
     /// Prepares the store for syncing. The tabs store currently uses this to
     /// store the current list of clients, which it uses to look up device names

@@ -410,9 +410,9 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         Self {
-            name: name.to_string(),
+            name: name.into(),
             when_took: Stopwatch::new(),
             incoming: None,
             outgoing: Vec::new(),

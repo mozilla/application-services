@@ -124,7 +124,7 @@ impl<'state> LocalCollStateMachine<'state> {
                     let last_modified = self
                         .global_state
                         .collections
-                        .get(name)
+                        .get(name.as_ref())
                         .cloned()
                         .unwrap_or_default();
                     return Ok(Some(CollState {
@@ -222,8 +222,8 @@ mod tests {
     }
 
     impl Store for TestStore {
-        fn collection_name(&self) -> &'static str {
-            self.collection_name
+        fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+            self.collection_name.into()
         }
 
         fn apply_incoming(
