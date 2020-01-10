@@ -11,7 +11,7 @@ pub struct RecordChangeset<P> {
     /// applying the records.
     /// For POSTs, this is the XIUS timestamp.
     pub timestamp: ServerTimestamp,
-    pub collection: String,
+    pub collection: std::borrow::Cow<'static, str>,
 }
 
 pub type IncomingChangeset = RecordChangeset<(Payload, ServerTimestamp)>;
@@ -20,11 +20,14 @@ pub type OutgoingChangeset = RecordChangeset<Payload>;
 // TODO: use a trait to unify this with the non-json versions
 impl<T> RecordChangeset<T> {
     #[inline]
-    pub fn new(collection: String, timestamp: ServerTimestamp) -> RecordChangeset<T> {
+    pub fn new(
+        collection: impl Into<std::borrow::Cow<'static, str>>,
+        timestamp: ServerTimestamp,
+    ) -> RecordChangeset<T> {
         RecordChangeset {
             changes: vec![],
             timestamp,
-            collection,
+            collection: collection.into(),
         }
     }
 }

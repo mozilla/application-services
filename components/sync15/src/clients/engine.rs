@@ -54,7 +54,7 @@ impl<'a> Driver<'a> {
     }
 
     fn sync(&mut self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
-        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME.into(), inbound.timestamp);
+        let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME, inbound.timestamp);
         outgoing.timestamp = inbound.timestamp;
 
         self.interruptee.err_if_interrupted()?;
@@ -305,12 +305,7 @@ impl<'a> Engine<'a> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound = crate::changeset::fetch_incoming(
-            &storage_client,
-            coll_state,
-            COLLECTION_NAME.into(),
-            &coll_request,
-        )?;
+        let inbound = crate::changeset::fetch_incoming(&storage_client, coll_state, &coll_request)?;
 
         Ok(inbound)
     }

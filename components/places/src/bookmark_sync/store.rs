@@ -654,7 +654,7 @@ impl<'a> BookmarksStore<'a> {
 
     /// Inflates Sync records for all staged outgoing items.
     fn fetch_outgoing_records(&self, timestamp: ServerTimestamp) -> Result<OutgoingChangeset> {
-        let mut outgoing = OutgoingChangeset::new(self.collection_name().into(), timestamp);
+        let mut outgoing = OutgoingChangeset::new(self.collection_name(), timestamp);
         let mut child_record_ids_by_local_parent_id: HashMap<i64, Vec<BookmarkRecordId>> =
             HashMap::new();
         let mut tags_by_local_id: HashMap<i64, Vec<String>> = HashMap::new();
@@ -924,9 +924,11 @@ impl<'a> Store for BookmarksStore<'a> {
 
     fn apply_incoming(
         &self,
-        inbound: IncomingChangeset,
+        inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
+        assert_eq!(inbound.len(), 1, "bookmarks only requests one item");
+        let inbound = inbound.into_iter().next().unwrap();
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let timestamp = self.stage_incoming(inbound, &mut incoming_telemetry)?;
@@ -957,11 +959,11 @@ impl<'a> Store for BookmarksStore<'a> {
         Ok(())
     }
 
-    fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
+    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
         let since = get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default();
-        Ok(CollectionRequest::new(self.collection_name())
+        Ok(vec![CollectionRequest::new(self.collection_name())
             .full()
-            .newer_than(ServerTimestamp(since)))
+            .newer_than(ServerTimestamp(since))])
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
@@ -1636,7 +1638,7 @@ mod tests {
         let interrupt_scope = conn.begin_interrupt_scope();
         let store = BookmarksStore::new(&conn, &interrupt_scope);
 
-        let mut incoming = IncomingChangeset::new(store.collection_name().to_string(), remote_time);
+        let mut incoming = IncomingChangeset::new(store.collection_name(), remote_time);
 
         match records_json {
             Value::Array(records) => {
@@ -1668,7 +1670,7 @@ mod tests {
         }
 
         store
-            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
 
         let mut stmt = conn
@@ -1733,8 +1735,7 @@ mod tests {
         let interrupt_scope = conn.begin_interrupt_scope();
         let store = BookmarksStore::new(&conn, &interrupt_scope);
 
-        let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
 
         for record in records {
             let payload = Payload::from_json(record).unwrap();
@@ -2262,15 +2263,14 @@ mod tests {
         let interrupt_scope = syncer.begin_interrupt_scope();
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
-        let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
             incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         let mut outgoing = store
-            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
         assert_eq!(
@@ -2413,15 +2413,14 @@ mod tests {
         let interrupt_scope = syncer.begin_interrupt_scope();
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
-        let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
             incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -2452,7 +2451,10 @@ mod tests {
 
         let outgoing = store
             .apply_incoming(
-                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000)),
+                vec![IncomingChangeset::new(
+                    store.collection_name(),
+                    ServerTimestamp(1000),
+                )],
                 &mut telemetry::Engine::new("bookmarks"),
             )
             .expect("Should fetch outgoing records after making local changes");
@@ -2551,15 +2553,14 @@ mod tests {
         let interrupt_scope = syncer.begin_interrupt_scope();
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
-        let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(0));
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
         for record in records {
             let payload = Payload::from_json(record).unwrap();
             incoming.changes.push((payload, ServerTimestamp(0)));
         }
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming records");
         let mut outgoing_ids = outgoing
             .changes
@@ -2614,15 +2615,14 @@ mod tests {
             "bmkUri": "http://example.com/f-remote",
         });
 
-        let mut incoming =
-            IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1000));
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(1000));
         incoming.changes.push((
             Payload::from_json(record_for_f).unwrap(),
             ServerTimestamp(1000),
         ));
 
         let outgoing = store
-            .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply F and stage tombstones for A-E");
         let (outgoing_tombstones, outgoing_records): (Vec<_>, Vec<_>) =
             outgoing.changes.iter().partition(|record| record.deleted);
@@ -2715,10 +2715,9 @@ mod tests {
 
             assert_eq!(store.get_sync_assoc()?, StoreSyncAssociation::Disconnected);
 
-            let incoming =
-                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
+            let incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(1_000));
             let outgoing =
-                store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
+                store.apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
@@ -2735,10 +2734,9 @@ mod tests {
             let interrupt_scope = syncer.begin_interrupt_scope();
             let store = BookmarksStore::new(&syncer, &interrupt_scope);
 
-            let incoming =
-                IncomingChangeset::new(store.collection_name().to_string(), ServerTimestamp(1_000));
+            let incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(1_000));
             let outgoing =
-                store.apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))?;
+                store.apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))?;
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;

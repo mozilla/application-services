@@ -7,7 +7,6 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub use sync15_traits::ServerTimestamp;
 
-
 /// Finds the maximum of the current value and the argument `val`, and sets the
 /// new value to the result.
 ///

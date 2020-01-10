@@ -149,9 +149,11 @@ impl<'a> Store for HistoryStore<'a> {
 
     fn apply_incoming(
         &self,
-        inbound: IncomingChangeset,
+        inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
+        assert_eq!(inbound.len(), 1, "history only requests one item");
+        let inbound = inbound.into_iter().next().unwrap();
         Ok(self.do_apply_incoming(inbound, telem)?)
     }
 
@@ -164,14 +166,14 @@ impl<'a> Store for HistoryStore<'a> {
         Ok(())
     }
 
-    fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
+    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
         let since = self
             .get_meta::<i64>(LAST_SYNC_META_KEY)?
             .unwrap_or_default();
-        Ok(CollectionRequest::new("history")
+        Ok(vec![CollectionRequest::new("history")
             .full()
             .newer_than(ServerTimestamp(since))
-            .limit(MAX_INCOMING_PLACES))
+            .limit(MAX_INCOMING_PLACES)])
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {

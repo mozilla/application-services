@@ -742,7 +742,7 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     }
 
     let outgoing = store
-        .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+        .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
         .expect("Should apply incoming records");
     let outgoing_ids: HashSet<_> = outgoing
         .changes

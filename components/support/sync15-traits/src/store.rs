@@ -40,13 +40,21 @@ pub trait Store {
     /// not be called if the store is synced using `sync::synchronize` or
     /// `sync_multiple::sync_multiple`. It _will_ be called if the store is
     /// synced via the Sync Manager.
+    // TODO: This is pretty cludgey and will be hard to extend for any case other
+    // than the tabs case. We should find another way to support tabs...
     fn prepare_for_sync(&self, _get_client_data: &dyn Fn() -> ClientData) -> Result<(), Error> {
         Ok(())
     }
 
+    /// `inbound` is a vector to support the case where
+    /// `get_collection_requests` returned multiple requests. The changesets are
+    /// in the same order as the requests were -- e.g. if `vec![req_a, req_b]`
+    /// was returned from `get_collection_requests`, `inbound` will have the
+    /// results from `req_a` as its first index, and those from `req_b` as it's
+    /// second.
     fn apply_incoming(
         &self,
-        inbound: IncomingChangeset,
+        inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> Result<OutgoingChangeset, Error>;
 
@@ -57,11 +65,21 @@ pub trait Store {
     ) -> Result<(), Error>;
 
     /// The store is responsible for building the collection request. Engines
-    /// typically will store a lastModified timestamp and use that to build
-    /// a request saying "give me full records since that date" - however, other
-    /// engines might do something fancier. This could even later be extended
-    /// to handle "backfills" etc
-    fn get_collection_request(&self) -> Result<CollectionRequest, Error>;
+    /// typically will store a lastModified timestamp and use that to build a
+    /// request saying "give me full records since that date" - however, other
+    /// engines might do something fancier. This could even later be extended to
+    /// handle "backfills" etc
+    ///
+    /// To support more advanced use cases (e.g. remerge), multiple requests can
+    /// be returned here. The vast majority of engines will just want to return
+    /// a single-item in their vector, though.
+    ///
+    /// Important: In the case when more than one collection is requested, it's
+    /// assumed the last one is the "canonical" one. (That is, it must be for
+    /// "this" collection, it's timestamp is used to represent the sync, etc).
+    ///
+    /// Finally, it's illegal to return an empty vec here.
+    fn get_collection_requests(&self) -> Result<Vec<CollectionRequest>, Error>;
 
     /// Get persisted sync IDs. If they don't match the global state we'll be
     /// `reset()` with the new IDs.

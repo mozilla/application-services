@@ -228,7 +228,7 @@ mod tests {
 
         fn apply_incoming(
             &self,
-            _inbound: IncomingChangeset,
+            _inbound: Vec<IncomingChangeset>,
             _telem: &mut telemetry::Engine,
         ) -> Result<OutgoingChangeset, failure::Error> {
             unreachable!("these tests shouldn't call these");
@@ -242,7 +242,7 @@ mod tests {
             unreachable!("these tests shouldn't call these");
         }
 
-        fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error> {
+        fn get_collection_requests(&self) -> Result<Vec<CollectionRequest>, failure::Error> {
             unreachable!("these tests shouldn't call these");
         }
 

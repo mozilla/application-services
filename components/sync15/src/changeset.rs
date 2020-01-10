@@ -9,6 +9,7 @@ use crate::key_bundle::KeyBundle;
 use crate::request::{CollectionRequest, NormalResponseHandler, UploadInfo};
 use crate::util::ServerTimestamp;
 use crate::CollState;
+use std::borrow::Cow;
 
 pub use sync15_traits::{IncomingChangeset, OutgoingChangeset, RecordChangeset};
 
@@ -27,9 +28,9 @@ pub fn encrypt_outgoing(o: OutgoingChangeset, key: &KeyBundle) -> Result<Vec<Enc
 pub fn fetch_incoming(
     client: &Sync15StorageClient,
     state: &mut CollState,
-    collection: String,
     collection_request: &CollectionRequest,
 ) -> Result<IncomingChangeset> {
+    let collection = collection_request.collection.clone();
     let (records, timestamp) = match client.get_encrypted_records(collection_request)? {
         Sync15ClientResponse::Success {
             record,
@@ -58,7 +59,7 @@ pub fn fetch_incoming(
 pub struct CollectionUpdate<'a> {
     client: &'a Sync15StorageClient,
     state: &'a CollState,
-    collection: String,
+    collection: Cow<'static, str>,
     xius: ServerTimestamp,
     to_update: Vec<EncryptedBso>,
     fully_atomic: bool,
@@ -68,7 +69,7 @@ impl<'a> CollectionUpdate<'a> {
     pub fn new(
         client: &'a Sync15StorageClient,
         state: &'a CollState,
-        collection: String,
+        collection: Cow<'static, str>,
         xius: ServerTimestamp,
         records: Vec<EncryptedBso>,
         fully_atomic: bool,
@@ -95,7 +96,7 @@ impl<'a> CollectionUpdate<'a> {
             // We know we are going to fail the XIUS check...
             return Err(
                 ErrorKind::StorageHttpError(ErrorResponse::PreconditionFailed {
-                    route: collection,
+                    route: collection.into_owned(),
                 })
                 .into(),
             );

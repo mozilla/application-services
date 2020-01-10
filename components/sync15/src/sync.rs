@@ -22,7 +22,7 @@ pub fn synchronize(
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
     interruptee: &dyn Interruptee,
-) -> Result<(), Error> {
+) -> Result<(), crate::Error> {
     synchronize_with_clients_engine(
         client,
         global_state,
@@ -67,22 +67,32 @@ pub fn synchronize_with_clients_engine(
         store.prepare_for_sync(&|| clients.get_client_data())?;
     }
 
-    let collection_request = store.get_collection_request()?;
-    interruptee.err_if_interrupted()?;
-    let incoming_changes = crate::changeset::fetch_incoming(
-        client,
-        &mut coll_state,
-        collection.into(),
-        &collection_request,
-    )?;
-    assert_eq!(incoming_changes.timestamp, coll_state.last_modified);
+    let collection_requests = store.get_collection_requests()?;
+    // Should this be allowed?
+    assert_ne!(collection_requests.len(), 0);
+    assert_eq!(collection_requests.last().unwrap().collection, collection);
 
-    log::info!(
-        "Downloaded {} remote changes",
-        incoming_changes.changes.len()
-    );
-    let new_timestamp = incoming_changes.timestamp;
-    let mut outgoing = store.apply_incoming(incoming_changes, telem_engine)?;
+    let count = collection_requests.len();
+    let incoming = collection_requests
+        .into_iter()
+        .enumerate()
+        .map(|(idx, collection_request)| {
+            interruptee.err_if_interrupted()?;
+            let incoming_changes =
+                crate::changeset::fetch_incoming(client, &mut coll_state, &collection_request)?;
+
+            log::info!(
+                "Downloaded {} remote changes (request {} of {})",
+                incoming_changes.changes.len(),
+                idx,
+                count,
+            );
+            Ok(incoming_changes)
+        })
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    let new_timestamp = incoming.last().expect("already checked len == 0").timestamp;
+    let mut outgoing = store.apply_incoming(incoming, telem_engine)?;
 
     interruptee.err_if_interrupted()?;
     // xxx - duplication below smells wrong
