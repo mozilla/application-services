@@ -26,7 +26,7 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 
 [dependencies.rusqlite]
-version = "0.20.0"
+version = "0.21.0"
 features = ["sqlcipher", "limits"]
 
 [dev-dependencies]
