@@ -119,7 +119,7 @@ impl IosTables {
 }
 
 fn is_root(g: &Guid) -> bool {
-    g.is_user_content_root() || g == dogear::ROOT_GUID
+    g.is_built_in_root() || g == dogear::ROOT_GUID
 }
 
 impl IosTree {

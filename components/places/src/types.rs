@@ -287,6 +287,16 @@ impl SyncStatus {
     }
 }
 
+impl FromSql for SyncStatus {
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        let v = value.as_i64()?;
+        if v < 0 || v > i64::from(u8::max_value()) {
+            return Err(FromSqlError::OutOfRange(v));
+        }
+        Ok(SyncStatus::from_u8(v as u8))
+    }
+}
+
 impl ToSql for SyncStatus {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
