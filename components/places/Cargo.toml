@@ -25,7 +25,7 @@ url_serde = "0.2.0"
 ffi-support = { path = "../support/ffi" }
 bitflags = "1.2.1"
 idna = "0.2.0"
-memchr = "2.2.1"
+memchr = "2.3.0"
 prost = "0.5.0"
 prost-derive = "0.5.0"
 bytes = "0.4.12"
