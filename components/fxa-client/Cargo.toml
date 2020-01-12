@@ -19,7 +19,7 @@ serde = { version = "1.0.101", features = ["rc"] }
 serde_derive = "1.0.101"
 serde_json = "1.0.44"
 sync15 = { path = "../sync15" }
-url = "1.7.1"
+url = "2.1.1"
 ffi-support = { path = "../support/ffi" }
 viaduct = { path = "../viaduct" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }

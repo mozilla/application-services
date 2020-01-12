@@ -17,7 +17,7 @@ serde_derive = "1.0.101"
 serde_json = "1.0.44"
 failure = "0.1.6"
 log = "0.4.8"
-url = "1.7.1"
+url = "2.1.1"
 prost = "0.5"
 prost-derive = "0.5"
 ffi-support = { path = "../support/ffi" }
