@@ -708,7 +708,7 @@ following steps.
     1. Take the most recently modified record, and delete (uploading tombstones)
        for all others.
         - XXX It's not clear what else we should do here. Sort by modification
-          date and 
+          date and
 
     2. Merge them front to back using two_way_merge until only a
       single record remains.
@@ -846,7 +846,7 @@ that's not the point).
 2. The collection updates its schema to have:
     - Both `"remerge_features": ["binary_blob"]` and `"optional_remerge_features": ["binary_blob"]`
     - A new optional `favicon` field, which is optional and has type `binary_blob`.
-3. 
+3.
 
 ## Future Work
 
