@@ -32,12 +32,15 @@ fn test_validation() {
                 }
             } else {
                 panic!(
-                    "Schema number {} should fail to validate with error {:?}, but passed",
-                    i, e
+                    "Schema number {} should fail to validate with error {:?}, but passed.\nSchema: {:?}",
+                    i, e, schema_str
                 );
             }
         } else if let Err(v) = res {
-            panic!("Schema number {} should pass, but failed with {:?}", i, v);
+            panic!(
+                "Schema number {} should pass, but failed with {:?}.\nSchema: {:?}",
+                i, v, schema_str
+            );
         }
     }
 }

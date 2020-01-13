@@ -332,16 +332,15 @@ impl SchemaBundle {
     fn complain_unless_auto_guid(&self) -> Result<()> {
         let mut required_own_guid_field = None;
         for &schema in &[&*self.local, &*self.native] {
-            if let Some(idx) = schema.field_own_guid {
-                if let FieldType::OwnGuid { auto } = &schema.fields[idx].ty {
-                    if *auto {
-                        return Ok(());
-                    }
-                    required_own_guid_field = Some(schema.fields[idx].name.as_str());
-                } else {
-                    // Validation ensures this.
-                    panic!("bug: field_own_guid refers to non-OwnGuid field");
+            let field = schema.own_guid();
+            if let FieldType::OwnGuid { auto } = &field.ty {
+                if *auto {
+                    return Ok(());
                 }
+                required_own_guid_field = Some(field.name.as_str());
+            } else {
+                // Validation ensures this.
+                panic!("bug: field_own_guid refers to non-OwnGuid field");
             }
         }
         if let Some(name) = required_own_guid_field {

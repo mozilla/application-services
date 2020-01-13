@@ -43,13 +43,23 @@ pub struct RecordSchema {
     pub field_updated_at: Option<FieldIndex>,
 
     // If we have an own_guid field, it's this.
-    pub field_own_guid: Option<FieldIndex>,
+    pub field_own_guid: FieldIndex,
 }
 
 impl RecordSchema {
+    pub fn own_guid(&self) -> &Field {
+        &self.fields[self.field_own_guid]
+    }
     pub fn field<'a, S: ?Sized + AsRef<str>>(&'a self, name: &S) -> Option<&'a Field> {
         let idx = *self.field_map.get(name.as_ref())?;
         Some(&self.fields[idx])
+    }
+}
+
+impl std::ops::Index<FieldIndex> for RecordSchema {
+    type Output = Field;
+    fn index(&self, idx: FieldIndex) -> &Field {
+        &self.fields[idx]
     }
 }
 

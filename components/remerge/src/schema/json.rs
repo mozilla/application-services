@@ -508,15 +508,13 @@ impl<'a> SchemaParser<'a> {
         }
 
         let is_legacy = self.input.legacy;
-        if is_legacy {
-            ensure!(own_guid_idx.is_some(), SchemaError::LegacyMissingId);
-        }
 
         self.check_dedupe_on()?;
 
         let (dedupe_on, composite_roots, composite_fields) = self.get_index_vecs();
 
         self.check_used_features(&self.input.remerge_features_used)?;
+        let field_own_guid = own_guid_idx.ok_or_else(|| SchemaError::MissingOwnGuid)?;
 
         Ok(RecordSchema {
             name: self.input.name.clone(),
@@ -530,7 +528,7 @@ impl<'a> SchemaParser<'a> {
             composite_fields,
             field_map: self.indices,
             field_updated_at: updated_at_idx,
-            field_own_guid: own_guid_idx,
+            field_own_guid,
         })
     }
 

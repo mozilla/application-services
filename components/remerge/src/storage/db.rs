@@ -315,10 +315,7 @@ impl RemergeDb {
             JsonValue,
         };
         let native = self.info.native_schema();
-        let fidx = native
-            .field_own_guid
-            .expect("FIXME: own_guid should be explicitly mandatory");
-        let field = &native.fields[fidx];
+        let field = native.own_guid();
         assert!(
             matches::matches!(field.ty, FieldType::OwnGuid { .. }),
             "Validation/parsing bug -- field_own_guid must point to an own_guid"

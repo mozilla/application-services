@@ -359,6 +359,11 @@
             "name": "test",
             "fields": [
                 {
+                    "name": "id",
+                    "type": "own_guid",
+                    "auto": true
+                },
+                {
                     "name": "field1",
                     "type": "text",
                     "merge": "take_newest"
@@ -368,6 +373,7 @@
                     "type": "text",
                     "composite_root": "field1"
                 }
+
             ],
             "dedupe_on": [
                 "field1",
@@ -413,7 +419,7 @@
         }
     },
     {
-        "error": "LegacyMissingId",
+        "error": "MissingOwnGuid",
         "schema": {
             "version": "1.0.0",
             "name": "test",

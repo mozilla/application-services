@@ -199,8 +199,8 @@ pub enum SchemaError {
     #[fail(display = "Only part of a composite field appears in dedupe_on")]
     PartialCompositeDedupeOn,
 
-    #[fail(display = "Legacy collections must have an `OwnId` field.")]
-    LegacyMissingId,
+    #[fail(display = "All collections must have an `OwnId` field.")]
+    MissingOwnGuid,
 
     #[fail(display = "Only one field with the 'updated_at' timestamp semantic is allowed")]
     MultipleUpdateAt,
