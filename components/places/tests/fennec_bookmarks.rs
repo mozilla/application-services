@@ -437,6 +437,7 @@ fn test_positions() -> Result<()> {
     Ok(())
 }
 
+#[test]
 fn test_empty_db() -> Result<()> {
     // Test we don't break if there's an empty DB (ie, not even the roots)
     let tmpdir = tempdir().unwrap();
