@@ -91,11 +91,12 @@ to fit the needs of existing Firefox applications:
 | `lockbox` | `fxaclient`, `logins` | `org.mozilla.appservices:lockbox-megazord` |
 | `fenix` | `fxaclient`, `logins`, `places` | `org.mozilla.appservices:fenix-megazord` |
 
-Then, simply use gradle's builtin support for [module replacement](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
+Then, use gradle's builtin support for [module replacement](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
 to replace the default "full megazord" with your selected custom build:
 
 ```groovy
 dependencies {
+  implementation 'org.mozilla.appservices:fenix-megazord:X.Y.Z'
   modules {
     module('org.mozilla.appservices:full-megazord') {
       replacedBy('org.mozilla.appservices:fenix-megazord', 'prefer the fenix megazord, to reduce final application size')
@@ -105,6 +106,33 @@ dependencies {
 ```
 
 If you would like a new custom megazord for your project, please reach out via #rust-components in slack.
+
+## Ensuring consistent versions
+
+An application-services component must only be used with the megazord library compiled from
+the exact matching version of the code, otherwise it risks runtime memory unsafety when accessing
+the compiled native code. Each component includes a runtime check to ensure this.
+
+If your project has multiple dependencies that depend on different versions of application-services,
+then gradle's dependency-resolution algorithm may result in a component at version X trying to use
+the megazord library at version Y, and the resulting application will crash at runtime.
+
+You can detect this error at build time by taking a strict version dependency at the application level.
+To avoid interfering with the megazord replacement rules described above, enforce this constraint on the 
+`native-support` component rather than `full-megazord, like this:
+
+```groovy
+dependencies {
+  implementation('org.mozilla.appservices:native-support') {
+    version {
+      strictly 'X.Y.Z'
+    }
+  }
+}
+```
+
+This will cause gradle's dependency-resolution process to error out if any dependencies are using
+a different version of application-services than the one expected by the application.
 
 ## Running unit tests
 
@@ -118,6 +146,11 @@ Simply add this JAR to your classpath when running tests, like so:
 ```groovy
 dependencies {
   testImplementation "org.mozilla.appservices:full-megazord-forUnitTests:X.Y.Z"
+  modules {
+    module('org.mozilla.appservices:full-megazord') {
+      replacedBy('org.mozilla.appservices:full-megazord-forUnitTests', 'prefer the forUnitTests megazord in test configuration')
+    }
+  }
 }
 ```
 
@@ -127,6 +160,11 @@ Or, if you are using a custom megazord library, like this:
 ```groovy
 dependencies {
   testImplementation "org.mozilla.appservices:fenix-megazord-forUnitTests:X.Y.Z"
+  modules {
+    module('org.mozilla.appservices:fenix-megazord') {
+      replacedBy('org.mozilla.appservices:fenix-megazord-forUnitTests', 'prefer the forUnitTests megazord in test configuration')
+    }
+  }
 }
 ```
 
