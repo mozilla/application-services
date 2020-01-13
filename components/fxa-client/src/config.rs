@@ -47,8 +47,9 @@ pub struct RemoteConfig {
     issuer: String,
     jwks_uri: String,
     token_endpoint: String,
-    introspection_endpoint: String,
     userinfo_endpoint: String,
+    // This was added later, and may be mising in serialized configs.
+    introspection_endpoint: Option<String>,
 }
 
 impl Config {
@@ -85,8 +86,8 @@ impl Config {
         issuer: String,
         jwks_uri: String,
         token_endpoint: String,
-        introspection_endpoint: String,
         userinfo_endpoint: String,
+        introspection_endpoint: Option<String>,
         client_id: String,
         redirect_uri: String,
     ) -> Self {
@@ -99,8 +100,8 @@ impl Config {
             issuer,
             jwks_uri,
             token_endpoint,
-            introspection_endpoint,
             userinfo_endpoint,
+            introspection_endpoint,
         };
 
         Config {
@@ -128,7 +129,7 @@ impl Config {
             .require_success()?
             .json()?;
 
-        let remote_config = RemoteConfig {
+        let remote_config = self.set_remote_config(RemoteConfig {
             auth_url: format!("{}/", resp.auth_server_base_url),
             oauth_url: format!("{}/", resp.oauth_server_base_url),
             profile_url: format!("{}/", resp.profile_server_base_url),
@@ -140,13 +141,17 @@ impl Config {
             // and the openid response has been switched to the new endpoint.
             // token_endpoint: openid_resp.token_endpoint,
             token_endpoint: format!("{}/v1/oauth/token", resp.auth_server_base_url),
-            introspection_endpoint: format!("{}/v1/introspect", resp.oauth_server_base_url),
             userinfo_endpoint: openid_resp.userinfo_endpoint,
-        };
+            introspection_endpoint: Some(format!("{}/v1/introspect", resp.oauth_server_base_url)),
+        });
+        Ok(remote_config)
+    }
+
+    fn set_remote_config(&self, remote_config: RemoteConfig) -> Arc<RemoteConfig> {
         let rc = Arc::new(remote_config);
         let result = rc.clone();
         self.remote_config.replace(Some(rc));
-        Ok(result)
+        result
     }
 
     pub fn content_url(&self) -> Result<Url> {
@@ -202,7 +207,22 @@ impl Config {
     }
 
     pub fn introspection_endpoint(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.introspection_endpoint).map_err(Into::into)
+        let remote_config = &self.remote_config()?;
+        // Fill a default on demand if we don't have this in config.
+        if remote_config.introspection_endpoint.is_none() {
+            self.set_remote_config(RemoteConfig {
+                introspection_endpoint: Some(format!("{}/v1/introspect", remote_config.oauth_url)),
+                ..(**remote_config).clone()
+            });
+        }
+        Url::parse(
+            &self
+                .remote_config()?
+                .introspection_endpoint
+                .as_ref()
+                .unwrap(),
+        )
+        .map_err(Into::into)
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
@@ -227,7 +247,9 @@ mod tests {
             issuer: "https://dev.lcip.org/".to_string(),
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
             token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
-            introspection_endpoint: "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
+            introspection_endpoint: Some(
+                "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
+            ),
             userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
         };
 
