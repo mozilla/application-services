@@ -315,3 +315,23 @@ fn test_import() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_empty_db() -> Result<()> {
+    // Test we don't break if there's an empty DB (ie, not even the roots)
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    empty_fennec_db(&fennec_path)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+
+    // There were 0 Fennec bookmarks imported...
+    assert_eq!(metrics.num_total, 0);
+    // But we report a succeeded count of 5 because we still created the roots.
+    // It's slightly odd, but it's OK for this edge case.
+    assert_eq!(metrics.num_succeeded, 5);
+    assert_eq!(metrics.num_failed, 0);
+    assert!(metrics.total_duration > 0);
+    Ok(())
+}
