@@ -315,7 +315,7 @@ lazy_static::lazy_static! {
     static ref FETCH_PINNED: String = format!("
         SELECT
             b.guid,
-            b.position,
+            MAX(0, b.position) as position,
             b.title,
             b.url,
             sanitize_timestamp(b.created) as created,

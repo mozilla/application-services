@@ -263,6 +263,7 @@ fn test_import() -> Result<()> {
         FennecBookmark {
             _id: 11,
             parent: -3,
+            position: -1,
             title: Some("Pinned Bookmark".to_owned()),
             url: Some("https://foo.bar".to_owned()),
             ..Default::default()
@@ -284,14 +285,54 @@ fn test_import() -> Result<()> {
     ];
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
+    // manually add other records with invalid data.
+    // Note we always specify a valid "type" column as there is a CHECK
+    // constraint in that in our staging table.
+    // A parent with an id of -99.
+    fennec_db
+        .prepare(&format!(
+            "
+            INSERT INTO bookmarks(
+                _id, title, url, type,
+                parent, position, keyword, description, tags,
+                favicon_id, created, modified,
+                guid, deleted, localVersion, syncVersion
+            ) VALUES (
+                -99, 'test title', NULL, {},
+                5, -1, NULL, NULL, NULL,
+                -1, -1, -1,
+                'invalid-guid', 0, -1, -1
+            )",
+            FennecBookmarkType::Folder as u8
+        ))?
+        .execute(NO_PARAMS)?;
+    // An item with the parent as -99.
+    fennec_db
+        .prepare(&format!(
+            "
+            INSERT INTO bookmarks(
+                _id, title, url, type,
+                parent, position, keyword, description, tags,
+                favicon_id, created, modified,
+                guid, deleted, localVersion, syncVersion
+            ) VALUES (
+                999, 'test title 2', 'http://example.com/invalid_values', {},
+                -99, 18446744073709551615, NULL, NULL, NULL,
+                -1, -1, -1,
+                'invalid-guid-2', 0, -1, -1
+            )",
+            FennecBookmarkType::Bookmark as u8
+        ))?
+        .execute(NO_PARAMS)?;
+
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
 
     let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
     let expected_metrics = BookmarksMigrationResult {
-        num_succeeded: 11,
+        num_succeeded: 13,
         total_duration: 4,
         num_failed: 4,
-        num_total: 15,
+        num_total: 17,
     };
     assert_eq!(metrics.num_succeeded, expected_metrics.num_succeeded);
     assert_eq!(metrics.num_failed, expected_metrics.num_failed);
@@ -313,6 +354,86 @@ fn test_import() -> Result<()> {
     // );
     // ::std::process::exit(0);
 
+    Ok(())
+}
+
+#[test]
+fn test_positions() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::storage::bookmarks::public_node::fetch_bookmark;
+
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_db = empty_fennec_db(&fennec_path)?;
+    let bm1 = next_guid();
+    let bm2 = next_guid();
+    let bm3 = next_guid();
+
+    let bookmarks = [
+        // Roots.
+        FennecBookmark {
+            _id: 0,
+            parent: 0, // The root node is its own parent.
+            guid: Guid::from("places"),
+            r#type: &FennecBookmarkType::Folder,
+            ..Default::default()
+        },
+        FennecBookmark {
+            _id: 5,
+            parent: 0,
+            guid: Guid::from("unfiled"),
+            title: Some("Other Bookmarks".to_owned()),
+            r#type: &FennecBookmarkType::Folder,
+            ..Default::default()
+        },
+        // End of roots.
+        FennecBookmark {
+            _id: 6,
+            guid: bm1.clone(),
+            position: 99,
+            parent: 5,
+            title: Some("Firefox: About your browser".to_owned()),
+            url: Some("about:firefox".to_owned()),
+            ..Default::default()
+        },
+        FennecBookmark {
+            _id: 7,
+            guid: bm2.clone(),
+            position: -99,
+            parent: 5,
+            title: Some("Foo".to_owned()),
+            url: Some("https://bar.foo".to_owned()),
+            ..Default::default()
+        },
+        FennecBookmark {
+            _id: 8,
+            guid: bm3.clone(),
+            parent: 5,
+            position: 0,
+            r#type: &FennecBookmarkType::Separator,
+            ..Default::default()
+        },
+    ];
+    insert_bookmarks(&fennec_db, &bookmarks)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+
+    let unfiled = fetch_bookmark(
+        &places_api.open_connection(ConnectionType::ReadOnly)?,
+        &Guid::from("unfiled_____"),
+        true,
+    )?
+    .expect("it exists");
+    let children = unfiled.child_nodes.expect("have children");
+    assert_eq!(children.len(), 3);
+    // They should be ordered by the position and the actual positions updated.
+    assert_eq!(children[0].guid, bm2);
+    assert_eq!(children[0].position, 0);
+    assert_eq!(children[1].guid, bm3);
+    assert_eq!(children[1].position, 1);
+    assert_eq!(children[2].guid, bm1);
+    assert_eq!(children[2].position, 2);
     Ok(())
 }
 
