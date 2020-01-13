@@ -139,7 +139,9 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
 
     log::debug!("Counting Fenix bookmarks");
     let num_succeeded = select_count(&conn, &COUNT_FENIX_BOOKMARKS);
-    let num_failed = num_total - num_succeeded;
+    // saturating_sub because num_succeeded could be > num_total due to
+    // us auto-creating missing roots...
+    let num_failed = num_total.saturating_sub(num_succeeded);
 
     auto_detach.execute_now()?;
 

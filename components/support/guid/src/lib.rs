@@ -134,10 +134,7 @@ impl Guid {
     /// feature.
     #[cfg(feature = "random")]
     pub fn random() -> Self {
-        let mut bytes = [0u8; 9];
-        // TODO: investigate if we should replace this with something infallible
-        // (from e.g. `rand`)
-        rc_crypto::rand::fill(&mut bytes).unwrap();
+        let bytes: [u8; 9] = rand::random();
 
         // Note: only first 12 bytes are used, but remaining are required to
         // build the FastGuid
