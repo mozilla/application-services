@@ -10,5 +10,5 @@ failure = "0.1.6"
 fxa-client = { path = "../../fxa-client" }
 log = "0.4.8"
 sync15 = { path = "../../sync15" }
-url = "1.7.1"
+url = "2.1.1"
 webbrowser = "0.5.1"

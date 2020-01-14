@@ -360,9 +360,11 @@ impl Login {
                     u.set_query(None);
                     let _ = u.set_username("");
                     let _ = u.set_password(None);
-                    // We always store without the trailing "/" which Urls have.
                     let mut href = u.into_string();
-                    href.pop().expect("url must have a length");
+                    // We always store without the trailing "/" which Urls have.
+                    if href.ends_with('/') {
+                        href.pop().expect("url must have a length");
+                    }
                     if origin != href {
                         // Needs to be fixed up.
                         return Ok(Some(href));

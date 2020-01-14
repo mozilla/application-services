@@ -10,7 +10,6 @@ use rusqlite::{
     types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef},
 };
 use std::borrow::Cow;
-use url::percent_encoding;
 
 const MAX_CHARS_TO_SEARCH_THROUGH: usize = 255;
 

@@ -226,6 +226,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "COPYING",
         }
     },
+    "futures-task": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/rust-lang/futures-rs/master/LICENSE-APACHE",
+        }
+    },
     # These packages do not include their license file in their release distributions,
     # so we have to fetch it over the network. Each has been manually checked and resolved
     # to a final URL from which the file can be fetched (typically based on the *name* of

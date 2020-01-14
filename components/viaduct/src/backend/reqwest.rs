@@ -10,15 +10,15 @@ use std::io::Read;
 // most things as them.
 
 lazy_static::lazy_static! {
-    static ref CLIENT: reqwest::Client = {
-        reqwest::ClientBuilder::new()
+    static ref CLIENT: reqwest::blocking::Client = {
+        reqwest::blocking::ClientBuilder::new()
             .timeout(GLOBAL_SETTINGS.read_timeout)
             .connect_timeout(GLOBAL_SETTINGS.connect_timeout)
             .redirect(
                 if GLOBAL_SETTINGS.follow_redirects {
-                    reqwest::RedirectPolicy::default()
+                    reqwest::redirect::Policy::default()
                 } else {
-                    reqwest::RedirectPolicy::none()
+                    reqwest::redirect::Policy::none()
                 }
             )
             // Note: no cookie or cache support.
@@ -29,7 +29,7 @@ lazy_static::lazy_static! {
 
 // Implementing From to do this would end up being public
 impl crate::Request {
-    fn into_reqwest(self) -> Result<reqwest::Request, crate::Error> {
+    fn into_reqwest(self) -> Result<reqwest::blocking::Request, crate::Error> {
         let method = match self.method {
             crate::Method::Get => reqwest::Method::GET,
             crate::Method::Head => reqwest::Method::HEAD,
@@ -40,7 +40,7 @@ impl crate::Request {
             crate::Method::Options => reqwest::Method::OPTIONS,
             crate::Method::Trace => reqwest::Method::TRACE,
         };
-        let mut result = reqwest::Request::new(method, self.url);
+        let mut result = reqwest::blocking::Request::new(method, self.url);
         for h in self.headers {
             use reqwest::header::{HeaderName, HeaderValue};
             // Unwraps should be fine, we verify these in `Header`
@@ -49,7 +49,7 @@ impl crate::Request {
                 .headers_mut()
                 .insert(HeaderName::from_bytes(h.name.as_bytes()).unwrap(), value);
         }
-        *result.body_mut() = self.body.map(reqwest::Body::from);
+        *result.body_mut() = self.body.map(reqwest::blocking::Body::from);
         Ok(result)
     }
 }

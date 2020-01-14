@@ -19,20 +19,18 @@ the details of which are reproduced below.
 * [MIT License: kernel32-sys, winapi-build, ws2_32-sys](#mit-license-kernel32-sys-winapi-build-ws2_32-sys)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: matches](#mit-license-matches)
-* [MIT License: memoffset](#mit-license-memoffset)
 * [MIT License: mime_guess](#mit-license-mime_guess)
-* [MIT License: miniz_oxide](#mit-license-miniz_oxide)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
 * [MIT License: schannel](#mit-license-schannel)
-* [MIT License: slab, string](#mit-license-slab-string)
+* [MIT License: slab](#mit-license-slab)
 * [MIT License: strsim](#mit-license-strsim)
 * [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
-* [MIT License: tokio, tokio-buf, tokio-current-thread, tokio-executor, tokio-io, tokio-reactor, tokio-sync, tokio-tcp, tokio-threadpool, tokio-timer](#mit-license-tokio-tokio-buf-tokio-current-thread-tokio-executor-tokio-io-tokio-reactor-tokio-sync-tokio-tcp-tokio-threadpool-tokio-timer)
+* [MIT License: tokio, tokio-tls, tokio-util](#mit-license-tokio-tokio-tls-tokio-util)
+* [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
-* [MIT License: try_from](#mit-license-try_from)
 * [MIT License: want](#mit-license-want)
 * [MIT License: which](#mit-license-which)
 * [MIT License: winapi](#mit-license-winapi)
@@ -43,7 +41,6 @@ the details of which are reproduced below.
 * [BSD-3-Clause License: bindgen](#bsd-3-clause-license-bindgen)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
-* [Zlib License: adler32](#zlib-license-adler32)
 * [OpenSSL License](#openssl-license)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
 -------------
@@ -446,32 +443,27 @@ The following text applies to code linked from these dependencies:
 [cexpr](https://github.com/jethrogb/rust-cexpr),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [clang-sys](https://github.com/KyleMayes/clang-sys),
-[cookie](https://github.com/alexcrichton/cookie-rs),
-[cookie_store](https://github.com/pfernie/cookie_store),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
-[crc32fast](https://github.com/srijs/rust-crc32fast),
-[crossbeam-deque](https://github.com/crossbeam-rs/crossbeam),
-[crossbeam-epoch](https://github.com/crossbeam-rs/crossbeam),
-[crossbeam-queue](https://github.com/crossbeam-rs/crossbeam),
-[crossbeam-utils](https://github.com/crossbeam-rs/crossbeam),
 [dogear](https://github.com/mozilla/dogear),
 [dtoa](https://github.com/dtolnay/dtoa),
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
 [env_logger](https://github.com/sebasmagri/env_logger/),
-[error-chain](https://github.com/rust-lang-nursery/error-chain),
 [failure](https://github.com/rust-lang-nursery/failure),
 [failure_derive](https://github.com/withoutboats/failure_derive),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fixedbitset](https://github.com/bluss/fixedbitset),
-[flate2](https://github.com/alexcrichton/flate2-rs),
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),
 [foreign-types](https://github.com/sfackler/foreign-types),
-[futures-cpupool](https://github.com/alexcrichton/futures-rs),
-[futures](https://github.com/rust-lang-nursery/futures-rs),
+[futures-channel](https://github.com/rust-lang-nursery/futures-rs),
+[futures-core](https://github.com/rust-lang-nursery/futures-rs),
+[futures-io](https://github.com/rust-lang-nursery/futures-rs),
+[futures-sink](https://github.com/rust-lang-nursery/futures-rs),
+[futures-task](https://github.com/rust-lang-nursery/futures-rs),
+[futures-util](https://github.com/rust-lang-nursery/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
 [glob](https://github.com/rust-lang/glob),
 [heck](https://github.com/withoutboats/heck),
@@ -490,10 +482,8 @@ The following text applies to code linked from these dependencies:
 [lazycell](https://github.com/indiv0/lazycell),
 [libc](https://github.com/rust-lang/libc),
 [linked-hash-map](https://github.com/contain-rs/linked-hash-map),
-[lock_api](https://github.com/Amanieu/parking_lot),
 [log](https://github.com/rust-lang/log),
 [lru-cache](https://github.com/contain-rs/lru-cache),
-[maybe-uninit](https://github.com/est31/maybe-uninit),
 [mime](https://github.com/hyperium/mime),
 [miow](https://github.com/alexcrichton/miow),
 [multimap](https://github.com/havarnov/multimap),
@@ -504,11 +494,13 @@ The following text applies to code linked from these dependencies:
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
 [openssl-src](https://github.com/alexcrichton/openssl-src-rs),
 [openssl](https://github.com/sfackler/rust-openssl),
-[parking_lot](https://github.com/Amanieu/parking_lot),
-[parking_lot_core](https://github.com/Amanieu/parking_lot),
 [peeking_take_while](https://github.com/fitzgen/peeking_take_while),
 [percent-encoding](https://github.com/servo/rust-url/),
 [petgraph](https://github.com/bluss/petgraph),
+[pin-project-internal](https://github.com/taiki-e/pin-project),
+[pin-project-lite](https://github.com/taiki-e/pin-project-lite),
+[pin-project](https://github.com/taiki-e/pin-project),
+[pin-utils](https://github.com/rust-lang-nursery/pin-utils),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
@@ -516,31 +508,20 @@ The following text applies to code linked from these dependencies:
 [prost-derive](https://github.com/danburkert/prost),
 [prost-types](https://github.com/danburkert/prost),
 [prost](https://github.com/danburkert/prost),
-[publicsuffix](https://github.com/rushmorem/publicsuffix),
 [quick-error](http://github.com/tailhook/quick-error),
 [quote](https://github.com/dtolnay/quote),
 [rand](https://github.com/rust-random/rand),
 [rand_chacha](https://github.com/rust-random/rand),
 [rand_core](https://github.com/rust-random/rand),
-[rand_hc](https://github.com/rust-random/rand),
-[rand_isaac](https://github.com/rust-random/rand),
-[rand_jitter](https://github.com/rust-random/rand),
-[rand_os](https://github.com/rust-random/rand),
-[rand_pcg](https://github.com/rust-random/rand),
-[rand_xorshift](https://github.com/rust-random/rand),
 [regex-syntax](https://github.com/rust-lang/regex),
 [regex](https://github.com/rust-lang/regex),
 [remove_dir_all](https://github.com/XAMPPRocky/remove_dir_all.git),
 [reqwest](https://github.com/seanmonstar/reqwest),
 [rustc-demangle](https://github.com/alexcrichton/rustc-demangle),
 [rustc-hash](https://github.com/rust-lang-nursery/rustc-hash),
-[rustc_version](https://github.com/Kimundi/rustc-version-rs),
 [ryu](https://github.com/dtolnay/ryu),
-[scopeguard](https://github.com/bluss/scopeguard),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
 [security-framework](https://github.com/kornelski/rust-security-framework),
-[semver-parser](https://github.com/steveklabnik/semver-parser),
-[semver](https://github.com/steveklabnik/semver),
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
@@ -561,8 +542,6 @@ The following text applies to code linked from these dependencies:
 [unicode-width](https://github.com/unicode-rs/unicode-width),
 [unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
-[url_serde](https://github.com/servo/rust-url),
-[uuid](https://github.com/uuid-rs/uuid),
 [vec_map](https://github.com/contain-rs/vec-map),
 [version_check](https://github.com/SergioBenitez/version_check),
 [winapi-x86_64-pc-windows-gnu](https://github.com/retep998/winapi-rs),
@@ -898,7 +877,8 @@ SOFTWARE.
 ## MIT License: bytes
 
 The following text applies to code linked from these dependencies:
-[bytes](https://github.com/carllerche/bytes)
+[bytes](https://github.com/carllerche/bytes),
+[bytes](https://github.com/tokio-rs/bytes)
 
 ```
 Copyright (c) 2018 Carl Lerche
@@ -1180,33 +1160,6 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: memoffset
-
-The following text applies to code linked from these dependencies:
-[memoffset](https://github.com/Gilnaa/memoffset)
-
-```
-Copyright (c) 2017 Gilad Naaman
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
--------------
 ## MIT License: mime_guess
 
 The following text applies to code linked from these dependencies:
@@ -1235,36 +1188,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-
-```
--------------
-## MIT License: miniz_oxide
-
-The following text applies to code linked from these dependencies:
-[miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
-
-```
-MIT License
-
-Copyright (c) 2017 Frommi
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 -------------
@@ -1375,11 +1298,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ```
 -------------
-## MIT License: slab, string
+## MIT License: slab
 
 The following text applies to code linked from these dependencies:
-[slab](https://github.com/carllerche/slab),
-[string](https://github.com/carllerche/string)
+[slab](https://github.com/carllerche/slab)
 
 ```
 Copyright (c) 2019 Carl Lerche
@@ -1488,22 +1410,49 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio, tokio-buf, tokio-current-thread, tokio-executor, tokio-io, tokio-reactor, tokio-sync, tokio-tcp, tokio-threadpool, tokio-timer
+## MIT License: tokio, tokio-tls, tokio-util
 
 The following text applies to code linked from these dependencies:
-[tokio-buf](https://github.com/tokio-rs/tokio),
-[tokio-current-thread](https://github.com/tokio-rs/tokio),
-[tokio-executor](https://github.com/tokio-rs/tokio),
-[tokio-io](https://github.com/tokio-rs/tokio),
-[tokio-reactor](https://github.com/tokio-rs/tokio),
-[tokio-sync](https://github.com/tokio-rs/tokio),
-[tokio-tcp](https://github.com/tokio-rs/tokio),
-[tokio-threadpool](https://github.com/tokio-rs/tokio),
-[tokio-timer](https://github.com/tokio-rs/tokio),
+[tokio-tls](https://github.com/tokio-rs/tokio),
+[tokio-util](https://github.com/tokio-rs/tokio),
 [tokio](https://github.com/tokio-rs/tokio)
 
 ```
 Copyright (c) 2019 Tokio Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tower-service
+
+The following text applies to code linked from these dependencies:
+[tower-service](https://github.com/tower-rs/tower)
+
+```
+Copyright (c) 2019 Tower Contributors
 
 Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated
@@ -1558,36 +1507,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-
-```
--------------
-## MIT License: try_from
-
-The following text applies to code linked from these dependencies:
-[try_from](https://github.com/derekjw/try_from)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Derek Williams
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 -------------
@@ -1989,58 +1908,6 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
 ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-```
--------------
-## Zlib License: adler32
-
-The following text applies to code linked from these dependencies:
-[adler32](https://github.com/remram44/adler32-rs)
-
-```
-Copyright notice for the Rust port:
-
- (C) 2016 Remi Rampin
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-
-
-Copyright notice for the original C code from the zlib project:
-
- (C) 1995-2017 Jean-loup Gailly and Mark Adler
-
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
-
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
-
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-
-  Jean-loup Gailly        Mark Adler
-  jloup@gzip.org          madler@alumni.caltech.edu
 
 ```
 -------------
