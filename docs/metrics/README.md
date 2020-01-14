@@ -10,3 +10,4 @@ before integrating any of the components listed below.
 ### Components that collect telemetry
 
 * [logins](./logins/metrics.md)
+* [places](./places/metrics.md)
