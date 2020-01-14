@@ -15,8 +15,15 @@ fn main() {
     let k_sync: String = prompt_string("k_sync").unwrap();
     println!("Enter kXCS (hex-string):");
     let k_xcs: String = prompt_string("k_xcs").unwrap();
-    fxa.migrate_from_session_token(&session_token, &k_sync, &k_xcs, true)
+    let migration_result = fxa
+        .migrate_from_session_token(&session_token, &k_sync, &k_xcs, true)
         .unwrap();
-    println!("WOW! You've been migrated.");
+
+    if migration_result {
+        println!("WOW! You've been migrated.");
+    } else {
+        println!("OH NO! Migration failed. Are you connected to the internet?");
+    }
+
     println!("JSON: {}", fxa.to_json().unwrap());
 }

@@ -57,6 +57,14 @@ pub struct FirefoxAccount {
     flow_store: HashMap<String, OAuthFlow>,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MigrationData {
+    k_xcs: String,
+    k_sync: String,
+    copy_session_token: bool,
+    session_token: String,
+}
+
 // If this structure is modified, please:
 // 1. Check if a migration needs to be done, as
 // these fields are persisted as a JSON string
@@ -79,6 +87,7 @@ pub(crate) struct StateV2 {
     access_token_cache: HashMap<String, AccessTokenInfo>,
     session_token: Option<String>, // Hex-formatted string.
     last_seen_profile: Option<CachedResponse<Profile>>,
+    in_flight_migration: Option<MigrationData>,
 }
 
 impl StateV2 {
@@ -97,6 +106,7 @@ impl StateV2 {
             access_token_cache: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            in_flight_migration: None,
         }
     }
 }
@@ -125,6 +135,7 @@ impl FirefoxAccount {
             current_device_id: None,
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
+            in_flight_migration: None,
         })
     }
 
@@ -243,10 +254,28 @@ impl FirefoxAccount {
         }
     }
 
-    fn get_refresh_token(&self) -> Result<&str> {
+    fn get_refresh_token(&mut self) -> Result<&str> {
         match self.state.refresh_token {
             Some(ref token_info) => Ok(&token_info.token),
-            None => Err(ErrorKind::NoRefreshToken.into()),
+            None => {
+                log::info!("No refresh_token, attempting to recover via migration state");
+                // if we have no refresh token, check if this is the case of a failed migration
+                if self.state.in_flight_migration.is_some() {
+                    // if there's a pending migration state, then try to provision a refresh_token
+                    // by exchanging the session token for the refresh token
+                    self.helper_migration_network_methods();
+                    // if migration succeeded then return the new refresh token
+                    match self.state.refresh_token {
+                        Some(ref token_info) => Ok(&token_info.token),
+                        None => {
+                            log::info!("No refresh_token obtained");
+                            Err(ErrorKind::NoRefreshToken.into())
+                        }
+                    }
+                } else {
+                    Err(ErrorKind::NoRefreshToken.into())
+                }
+            }
         }
     }
 

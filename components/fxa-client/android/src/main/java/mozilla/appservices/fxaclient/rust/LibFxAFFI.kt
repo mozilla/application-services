@@ -92,7 +92,7 @@ internal interface LibFxAFFI : Library {
         kXCS: String,
         copySessionToken: Boolean,
         e: RustError.ByReference
-    )
+    ): Boolean
 
     fun fxa_str_free(string: Pointer)
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)

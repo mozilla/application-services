@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount};
+use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount, MigrationData};
 
 impl FirefoxAccount {
     /// Migrate from a logged-in with a sessionToken Firefox Account.
@@ -24,20 +24,49 @@ impl FirefoxAccount {
         k_sync: &str,
         k_xcs: &str,
         copy_session_token: bool,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         // if there is already a session token on account, we error out.
         if self.state.session_token.is_some() {
             return Err(ErrorKind::IllegalState("Session Token is already set.").into());
         }
 
-        let migration_session_token = if copy_session_token {
+        self.state.in_flight_migration = Some(MigrationData {
+            k_sync: k_sync.to_string(),
+            k_xcs: k_xcs.to_string(),
+            copy_session_token,
+            session_token: session_token.to_string(),
+        });
+
+        match self.helper_migration_network_methods() {
+            Ok(_) => {
+                log::info!("FxA migration complete");
+                Ok(true)
+            }
+            Err(err) => {
+                log::info!("Failed to perform network requests: {}", err);
+                // don't throw hard error here, let the consumers try again
+                Ok(false)
+            }
+        }
+    }
+
+    pub fn helper_migration_network_methods(&mut self) -> Result<()> {
+        let migration_data = match self.state.in_flight_migration {
+            Some(ref data) => data.clone(),
+            None => {
+                return Err(ErrorKind::NoMigrationData.into());
+            }
+        };
+
+        // First network request to duplicate the session token if needed
+        let migration_session_token = if migration_data.copy_session_token {
             let duplicate_session = self
                 .client
-                .duplicate_session(&self.state.config, &session_token)?;
+                .duplicate_session(&self.state.config, &migration_data.session_token)?;
 
             duplicate_session.session_token
         } else {
-            session_token.to_string()
+            migration_data.session_token.to_string()
         };
 
         // Trade our session token for a refresh token.
@@ -48,16 +77,19 @@ impl FirefoxAccount {
         )?;
         self.handle_oauth_response(oauth_response, None)?;
 
-        // Synthesize a scoped key from our kSync.
-        let k_sync = hex::decode(k_sync)?;
-        let k_sync = base64::encode_config(&k_sync, base64::URL_SAFE_NO_PAD);
-        let k_xcs = hex::decode(k_xcs)?;
-        let k_xcs = base64::encode_config(&k_xcs, base64::URL_SAFE_NO_PAD);
+        // Gather the scope key data
         let scoped_key_data = self.client.scoped_key_data(
             &self.state.config,
             &migration_session_token,
             scopes::OLD_SYNC,
         )?;
+
+        // Synthesize a scoped key from our kSync.
+        let k_sync = hex::decode(&migration_data.k_sync)?;
+        let k_sync = base64::encode_config(&k_sync, base64::URL_SAFE_NO_PAD);
+        let k_xcs = hex::decode(&migration_data.k_xcs)?;
+        let k_xcs = base64::encode_config(&k_xcs, base64::URL_SAFE_NO_PAD);
+
         let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or_else(|| {
             ErrorKind::IllegalState("The session token doesn't have access to kSync!")
         })?;
@@ -68,10 +100,12 @@ impl FirefoxAccount {
             k: k_sync,
             kid,
         };
-        self.state.session_token = Some(migration_session_token);
+        self.state.session_token = Some(migration_session_token.to_string());
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);
+        // clear the migration state, we are done.
+        self.state.in_flight_migration = None;
         Ok(())
     }
 }

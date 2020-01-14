@@ -29,6 +29,9 @@ pub enum ErrorKind {
     #[fail(display = "No stored refresh token")]
     NoRefreshToken,
 
+    #[fail(display = "No stored migration data")]
+    NoMigrationData,
+
     #[fail(display = "No stored session token")]
     NoSessionToken,
 

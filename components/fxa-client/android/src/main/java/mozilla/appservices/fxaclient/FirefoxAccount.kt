@@ -317,11 +317,13 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * @param sessionToken 64 character string of hex-encoded bytes
      * @param kSync 128 character string of hex-encoded bytes
      * @param kXCS 32 character string of hex-encoded bytes
+     * @return [Boolean] True if the migration network requests succeeded
+     *
      * This performs network requests, and should not be used on the main thread.
      */
-    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
+    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String): Boolean {
         rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
+            return LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
                     false, e)
         }
         this.tryPersistState()
@@ -334,11 +336,13 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * @param sessionToken 64 character string of hex-encoded bytes
      * @param kSync 128 character string of hex-encoded bytes
      * @param kXCS 32 character string of hex-encoded bytes
+     * @return [Boolean] True if the migration network requests succeeded
+     *
      * This performs network requests, and should not be used on the main thread.
      */
-    fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
+    fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String): Boolean {
         rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
+            return LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
                     true, e)
         }
         this.tryPersistState()
