@@ -3,15 +3,19 @@
 
 package mozilla.appservices.places
 
+import androidx.test.core.app.ApplicationProvider
 import mozilla.appservices.Megazord
+import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.rules.TemporaryFolder
 import org.junit.Rule
 import org.junit.runner.RunWith
+import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import org.junit.Before
 
 @RunWith(RobolectricTestRunner::class)
@@ -20,6 +24,9 @@ class PlacesConnectionTest {
     @Rule
     @JvmField
     val dbFolder = TemporaryFolder()
+
+    @get:Rule
+    val gleanRule = GleanTestRule(ApplicationProvider.getApplicationContext())
 
     lateinit var api: PlacesApi
     lateinit var db: PlacesWriterConnection
@@ -261,5 +268,117 @@ class PlacesConnectionTest {
         assertEquals(folder.title, "example folder")
         assertEquals(folder.position, 2)
         assertEquals(folder.parentGUID, BookmarkRoot.Unfiled.id)
+    }
+
+    @Test
+    fun testHistoryMetricsGathering() {
+        assert(!PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
+        assert(!PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
+
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitType.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitType.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
+
+        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assertEquals(3, PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assert(!PlacesManagerMetrics.writeQueryErrorCount["__other__"].testHasValue())
+
+        try {
+            db.noteObservation(VisitObservation(url = "4", visitType = VisitType.REDIRECT_TEMPORARY, at = 160000))
+            fail("Should have thrown")
+        } catch (e: UrlParseFailed) {
+            // nothing to do here
+        }
+
+        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assertEquals(4, PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assert(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
+        assertEquals(1, PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
+
+        assert(!PlacesManagerMetrics.readQueryTime.testHasValue())
+        assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
+        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+
+        db.getVisitInfos(125000, 225000)
+
+        assert(PlacesManagerMetrics.readQueryTime.testHasValue())
+        assertEquals(1, PlacesManagerMetrics.readQueryCount.testGetValue())
+        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+
+        db.deleteVisit("https://www.example.com/2a", 130000)
+
+        val infos = db.getVisitInfos(130000, 200000)
+        assertEquals(2, infos.size)
+
+        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assertEquals(5, PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assert(!PlacesManagerMetrics.writeQueryErrorCount["_other_"].testHasValue())
+    }
+
+    @Test
+    fun testBookmarksMetricsGathering() {
+        assert(!PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
+        assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
+
+        val itemGUID = db.createBookmarkItem(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                url = "https://www.example.com/",
+                title = "example")
+
+        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assertEquals(1, PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
+
+        try {
+            db.createBookmarkItem(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                url = "3",
+                title = "example")
+            fail("Should have thrown")
+        } catch (e: UrlParseFailed) {
+            // nothing to do here
+        }
+
+        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
+        assertEquals(2, PlacesManagerMetrics.writeQueryCount.testGetValue())
+        assert(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
+        assertEquals(1, PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
+
+        assert(!PlacesManagerMetrics.readQueryTime.testHasValue())
+        assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
+        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+
+        db.getBookmark(itemGUID)
+
+        assert(PlacesManagerMetrics.readQueryTime.testHasValue())
+        assertEquals(1, PlacesManagerMetrics.readQueryCount.testGetValue())
+        assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
+
+        assert(!PlacesManagerMetrics.scanQueryTime.testHasValue())
+
+        val folderGUID = db.createFolder(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                title = "example folder")
+
+        db.createBookmarkItem(
+                parentGUID = folderGUID,
+                url = "https://www.example2.com/",
+                title = "example2")
+
+        db.createBookmarkItem(
+                parentGUID = folderGUID,
+                url = "https://www.example3.com/",
+                title = "example3")
+
+        db.createBookmarkItem(
+                parentGUID = BookmarkRoot.Unfiled.id,
+                url = "https://www.example4.com/",
+                title = "example4")
+
+        db.getBookmarksTree(folderGUID, false)
+
+        assert(PlacesManagerMetrics.scanQueryTime.testHasValue())
     }
 }
