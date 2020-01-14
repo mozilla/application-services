@@ -44,7 +44,6 @@ struct DesktopItem {
     date_added: Option<u64>,
     last_modified: Option<u64>,
     title: Option<String>,
-    #[serde(with = "url_serde")]
     uri: Option<Url>,
     children: Vec<DesktopItem>,
 }

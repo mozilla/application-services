@@ -192,7 +192,6 @@ pub struct SearchResult {
 
     /// The URL to open when the user confirms a match. This is
     /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`.
-    #[serde(with = "url_serde")]
     pub url: Url,
 
     /// The title of the autocompleted value, to show in the UI. This can be the
@@ -200,7 +199,6 @@ pub struct SearchResult {
     pub title: String,
 
     /// The favicon URL.
-    #[serde(with = "url_serde")]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<Url>,
 

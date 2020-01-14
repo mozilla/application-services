@@ -116,7 +116,7 @@ impl CollectionRequest {
         self
     }
 
-    fn build_query(&self, pairs: &mut Serializer<UrlQuery<'_>>) {
+    fn build_query(&self, pairs: &mut Serializer<'_, UrlQuery<'_>>) {
         if self.full {
             pairs.append_pair("full", "1");
         }

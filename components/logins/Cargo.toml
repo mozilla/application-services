@@ -12,12 +12,12 @@ default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
-serde = "1.0.101"
-serde_derive = "1.0.101"
+serde = "1.0.104"
+serde_derive = "1.0.104"
 serde_json = "1.0.44"
 log = "0.4.8"
 lazy_static = "1.4.0"
-url = "1.7.1"
+url = "2.1.1"
 failure = "0.1.6"
 sql-support = { path = "../support/sql" }
 ffi-support = { path = "../support/ffi" }
