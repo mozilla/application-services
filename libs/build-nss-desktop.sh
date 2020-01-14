@@ -100,7 +100,8 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}pkcs7.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}smime.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}softokn_static.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}ssl.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto-avx.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto-avx2.${EXT}" "${DIST_DIR}/lib"
 
 # HW specific.
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163

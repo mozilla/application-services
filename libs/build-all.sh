@@ -5,10 +5,10 @@ set -euvx
 SQLCIPHER_VERSION="4.3.0"
 SQLCIPHER_SHA256="fccb37e440ada898902b294d02cde7af9e8706b185d77ed9f6f4d5b18b4c305f"
 
-NSS="nss-3.46"
-NSS_ARCHIVE="nss-3.46-with-nspr-4.22.tar.gz"
-NSS_URL="http://ftp.mozilla.org/pub/security/nss/releases/NSS_3_46_RTM/src/${NSS_ARCHIVE}"
-NSS_SHA256="3d4197196e870ab2dccc6ee497e0ec83f45ea070fee929dd931491c024d69f31"
+NSS="nss-3.52"
+NSS_ARCHIVE="nss-3.52-with-nspr-4.25.tar.gz"
+NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_52_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="6c0dccbe4e357539fcbe81407bf26f3c89559ebf3054e75d8d4cec5a618498b1"
 
 # End of configuration.
 
@@ -75,13 +75,15 @@ echo $'\
 diff -r 65efa74ef84a coreconf/config.gypi
 --- a/coreconf/config.gypi      Thu May 16 09:43:04 2019 +0000
 +++ b/coreconf/config.gypi      Thu May 23 19:46:44 2019 -0400
-@@ -138,6 +138,21 @@
+@@ -138,6 +138,23 @@
        \'<(nspr_include_dir)\',
        \'<(nss_dist_dir)/private/<(module)\',
      ],
 +    \'defines\': [
 +      \'HMAC_Update=NSS_HMAC_Update\',
 +      \'HMAC_Init=NSS_HMAC_Init\',
++      \'CMAC_Update=NSS_CMAC_Update\',
++      \'CMAC_Init=NSS_CMAC_Init\',
 +      \'MD5_Update=NSS_MD5_Update\',
 +      \'SHA1_Update=NSS_SHA1_Update\',
 +      \'SHA256_Update=NSS_SHA256_Update\',
