@@ -313,7 +313,7 @@ jobs:
       - image: circleci/python:latest
     steps:
       - sync-bugzilla-to-github
-  Rust tests - stable:
+  Rust tests:
     docker:
       - image: circleci/rust:latest
     # We have to use a machine with more RAM for tests so we don't run out of memory.
@@ -321,15 +321,6 @@ jobs:
     steps:
       - restore-sccache-cache
       - rust-tests
-      - save-sccache-cache
-  Rust tests - beta:
-    docker:
-      - image: circleci/rust:latest
-    resource_class: xlarge
-    steps:
-      - restore-sccache-cache
-      - rust-tests:
-          rust-version: "beta"
       - save-sccache-cache
   Sync integration tests:
     docker:
@@ -511,8 +502,7 @@ workflows:
                 - master
   run-tests:
     jobs:
-      - Rust tests - stable
-      - Rust tests - beta
+      - Rust tests
       - Rust benchmarks
       - Sync integration tests
   carthage-framework:
