@@ -1,7 +1,7 @@
 [package]
 name = "ffi-support"
 edition = "2018"
-version = "0.3.6"
+version = "0.4.0"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 description = "A crate to help expose Rust functions over the FFI."
 repository = "https://github.com/mozilla/application-services"
@@ -21,8 +21,6 @@ log_backtraces = ["log_panics", "backtrace"]
 [dependencies]
 log = "0.4"
 lazy_static = "1.4.0"
-failure = { version = "0.1.6", default-features = false }
-failure_derive = "0.1.5"
 
 [dependencies.backtrace]
 optional = true
