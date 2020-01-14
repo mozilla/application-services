@@ -562,7 +562,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
-    override fun resetHistory() {
+    override fun resetHistorySyncMetadata() {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.places_reset(this.handle.get(), error)
         }
@@ -578,7 +578,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
-    override fun resetBookmarks() {
+    override fun resetBookmarkSyncMetadata() {
         rustCall { error ->
             LibPlacesFFI.INSTANCE.bookmarks_reset(this.handle.get(), error)
         }
@@ -938,7 +938,7 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * from Sync. There are other times when Places resets sync metadata,
      * but those are handled internally in the Rust code.
      */
-    fun resetHistory()
+    fun resetHistorySyncMetadata()
 
     /**
      * Deletes all information about the given URL. If the place has previously

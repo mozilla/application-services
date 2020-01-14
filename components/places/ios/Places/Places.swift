@@ -188,7 +188,7 @@ public class PlacesAPI {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func resetBookmarks() throws {
+    open func resetBookmarkSyncMetadata() throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
                 bookmarks_reset(handle, err)
@@ -559,7 +559,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func resetHistory() throws {
+    open func resetHistorySyncMetadata() throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
                 places_reset(handle, err)

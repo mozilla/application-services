@@ -289,7 +289,7 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
      * from Sync. There are other times when Places resets sync metadata,
      * but those are handled internally in the Rust code.
      */
-    fun resetBookmarks()
+    fun resetBookmarkSyncMetadata()
 
     /**
      * Create a bookmark folder, returning its guid.
