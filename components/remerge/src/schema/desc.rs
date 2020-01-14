@@ -7,8 +7,8 @@ use crate::error::*;
 use crate::ms_time::EARLIEST_SANE_TIME;
 use crate::{JsonObject, JsonValue};
 use index_vec::IndexVec;
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use url::Url;
 
 /// The set of features understood by this client.
@@ -22,7 +22,7 @@ index_vec::define_index_type! {
 
 /// The unserialized representation of the schema, parsed from a `RawSchema` (in
 /// json.rs). If you change this, you may have to change that as well.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct RecordSchema {
     pub name: String,
     pub version: semver::Version,
@@ -44,6 +44,23 @@ pub struct RecordSchema {
 
     // If we have an own_guid field, it's this.
     pub field_own_guid: FieldIndex,
+
+    pub raw: super::json::RawSchema,
+    pub source: Arc<str>,
+}
+
+impl RecordSchema {
+    pub fn from_local(s: impl Into<Arc<str>>) -> Result<Arc<Self>, crate::SchemaError> {
+        crate::schema::parse_from_string(s, false).map(Arc::new)
+    }
+}
+
+impl PartialEq for RecordSchema {
+    fn eq(&self, o: &Self) -> bool {
+        self.name == o.name
+            && self.version == o.version
+            && (self.source == o.source || self.raw == o.raw)
+    }
 }
 
 impl RecordSchema {
@@ -379,8 +396,7 @@ impl TimestampSemantic {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ChangePreference {
     Missing,
     Present,
@@ -491,10 +507,8 @@ impl FieldType {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, PartialOrd, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, PartialOrd)]
 pub enum IfOutOfBounds {
-    #[serde(rename = "clamp")]
     Clamp,
-    #[serde(rename = "discard")]
     Discard,
 }

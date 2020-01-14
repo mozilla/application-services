@@ -48,6 +48,9 @@ pub enum ErrorKind {
     )]
     LocalToNativeError(String),
 
+    #[fail(display = "Error: {}", _0)]
+    Unspecified(String),
+
     #[fail(display = "Error parsing JSON data: {}", _0)]
     JsonError(#[fail(cause)] serde_json::Error),
 
@@ -62,6 +65,9 @@ pub enum ErrorKind {
         display = "UntypedMap has a key and tombstone with the same name when OnCollision::Error was requested"
     )]
     UntypedMapTombstoneCollision,
+
+    #[fail(display = "Operation interrupted")]
+    Interrupted,
 }
 
 error_support::define_error! {
@@ -71,9 +77,22 @@ error_support::define_error! {
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),
         (InvalidRecord, InvalidRecord),
+        (Unspecified, String),
     }
 }
 
+impl From<&str> for ErrorKind {
+    fn from(e: &str) -> ErrorKind {
+        log::error!("error: {}", e);
+        ErrorKind::Unspecified(e.into())
+    }
+}
+
+impl From<&str> for Error {
+    fn from(e: &str) -> Self {
+        Error::from(ErrorKind::from(e))
+    }
+}
 #[derive(Debug, Fail)]
 pub enum InvalidRecord {
     #[fail(display = "Cannot insert non-json object")]

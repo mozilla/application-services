@@ -2,20 +2,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{bundle::ToLocalReason, LocalRecord, NativeRecord, SchemaBundle, SyncStatus};
+use super::{bundle::ToLocalReason, meta, LocalRecord, NativeRecord, SchemaBundle, SyncStatus};
 use crate::error::*;
 use crate::ms_time::MsTime;
 use crate::vclock::{Counter, VClock};
 use crate::Guid;
+use crate::RecordSchema;
 use rusqlite::{named_params, Connection};
-use sql_support::ConnExt;
+use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
 use std::convert::TryFrom;
-use std::sync::Mutex;
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 
 pub struct RemergeDb {
     db: Connection,
     info: SchemaBundle,
     client_id: sync_guid::Guid,
+    interrupt_counter: Arc<AtomicUsize>,
 }
 
 lazy_static::lazy_static! {
@@ -25,10 +27,7 @@ lazy_static::lazy_static! {
 }
 
 impl RemergeDb {
-    pub(crate) fn with_connection(
-        mut db: Connection,
-        native: super::NativeSchemaAndText<'_>,
-    ) -> Result<Self> {
+    pub(crate) fn with_connection(mut db: Connection, native: Arc<RecordSchema>) -> Result<Self> {
         let _g = DB_INIT_MUTEX.lock().unwrap();
         let pragmas = "
             -- The value we use was taken from Desktop Firefox, and seems necessary to
@@ -68,11 +67,18 @@ impl RemergeDb {
             db,
             info,
             client_id,
+            interrupt_counter: Arc::new(AtomicUsize::new(0)),
         })
     }
 
     pub(crate) fn conn(&self) -> &rusqlite::Connection {
         &self.db
+    }
+    pub fn collection(&self) -> &str {
+        &self.info.collection_name
+    }
+    pub fn info(&self) -> &SchemaBundle {
+        &self.info
     }
 
     pub fn exists(&self, id: &str) -> Result<bool> {
@@ -141,7 +147,6 @@ impl RemergeDb {
     }
 
     fn counter_bump(&self) -> Result<Counter> {
-        use super::meta;
         let mut ctr = meta::get::<i64>(&self.db, meta::CHANGE_COUNTER)?;
         assert!(
             ctr >= 0,
@@ -428,5 +433,63 @@ impl RemergeDb {
             });
 
         Ok(dupe_exists)
+    }
+
+    /// Have we seen a schema with a required_version above ours? If we have, we
+    /// only sync metadata until we get unstuck.
+    pub(crate) fn in_sync_lockout(&self) -> Result<bool> {
+        let stored = meta::try_get::<String>(self.conn(), meta::SYNC_NATIVE_VERSION_THRESHOLD)?;
+        if let Some(v) = stored {
+            let ver = match semver::VersionReq::parse(&v) {
+                Ok(v) => v,
+                Err(e) => {
+                    log::error!(
+                        "Illegal semver in {:?}: {}",
+                        meta::SYNC_NATIVE_VERSION_THRESHOLD.0,
+                        e
+                    );
+                    // Discard it -- it's just to avoid a bunch of expensive and pointless work.
+                    meta::delete(self.conn(), meta::SYNC_NATIVE_VERSION_THRESHOLD)?;
+                    return Ok(false);
+                }
+            };
+            Ok(!ver.matches(&self.info.native_schema().version))
+        } else {
+            Ok(false)
+        }
+    }
+
+    pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
+        SqlInterruptHandle::new(
+            self.db.get_interrupt_handle(),
+            self.interrupt_counter.clone(),
+        )
+    }
+
+    pub(crate) fn upgrade_local(&mut self, new_local: Arc<RecordSchema>) -> Result<()> {
+        let tx = self.db.unchecked_transaction()?;
+        let sql = "
+            REPLACE INTO remerge_schemas (is_legacy, version, required_version, schema_text)
+            VALUES (:legacy, :version, :req_version, :text)
+        ";
+        let ver_str = new_local.version.to_string();
+        self.db.execute_named(
+            sql,
+            rusqlite::named_params! {
+                ":legacy": new_local.legacy,
+                ":version": ver_str,
+                ":req_version": new_local.required_version.to_string(),
+                ":text": &*new_local.source,
+            },
+        )?;
+        meta::put(&self.db, meta::LOCAL_SCHEMA_VERSION, &ver_str)?;
+        tx.commit()?;
+        self.info.local = new_local.clone();
+        Ok(())
+    }
+
+    #[inline]
+    pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
+        SqlInterruptScope::new(self.interrupt_counter.clone())
     }
 }

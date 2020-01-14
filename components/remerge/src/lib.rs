@@ -11,6 +11,7 @@ pub mod error;
 pub mod ms_time;
 pub mod schema;
 pub mod storage;
+pub mod sync;
 pub mod untyped_map;
 pub mod vclock;
 
@@ -23,4 +24,5 @@ pub(crate) type JsonObject<Val = JsonValue> = serde_json::Map<String, Val>;
 pub use crate::engine::RemergeEngine;
 pub use crate::error::*;
 pub use crate::ms_time::MsTime;
+pub use crate::schema::{RecordSchema, SchemaError};
 pub use crate::vclock::VClock;

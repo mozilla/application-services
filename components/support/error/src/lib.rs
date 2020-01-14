@@ -78,7 +78,7 @@ macro_rules! define_error_conversions {
             // Cold to optimize in favor of non-error cases.
             #[cold]
             fn from(e: $type) -> Self {
-                Error::from($Kind::$variant(e))
+                Error::from($Kind::from(e))
             }
         }
     )*);

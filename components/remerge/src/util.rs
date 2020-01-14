@@ -24,6 +24,14 @@ pub fn is_base64url_byte(b: u8) -> bool {
     b == b'-' ||
     b == b'_'
 }
+pub(crate) fn compatible_version_req(
+    v: &semver::Version,
+) -> Result<semver::VersionReq, semver::ReqParseError> {
+    let mut without_build = v.clone();
+    without_build.build.clear();
+    let version_req = format!("^ {}", without_build);
+    semver::VersionReq::parse(&version_req)
+}
 
 /// Return with the provided Err(error) after invoking Into conversions
 ///
@@ -32,6 +40,21 @@ pub fn is_base64url_byte(b: u8) -> bool {
 macro_rules! throw {
     ($e:expr $(,)?) => {{
         let e = $e;
+        log::error!("Error: {}", e);
+        return Err(std::convert::Into::into(e));
+    }};
+}
+/// Return with the provided Err(error) after invoking Into conversions
+///
+/// Essentially equivalent to explicitly writing `Err(e)?`, but logs the error,
+/// and is more well-behaved from a type-checking perspective.
+macro_rules! throw_msg {
+    ($lit:literal) => {{
+        log::error!("Error: {}", $lit);
+        return Err(std::convert::Into::into($lit.to_owned()));
+    }};
+    ($lit:literal, $($toks:tt)*) => {{
+        let e = format!($lit, $($toks)*);
         log::error!("Error: {}", e);
         return Err(std::convert::Into::into(e));
     }};

@@ -3,9 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::storage::{db::RemergeDb, NativeRecord, NativeSchemaAndText, SchemaBundle};
+use crate::storage::{db::RemergeDb, NativeRecord, SchemaBundle};
 use crate::Guid;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::path::Path;
 
 /// "Friendly" public api for using Remerge.
@@ -15,14 +15,14 @@ pub struct RemergeEngine {
 
 impl RemergeEngine {
     pub fn open(path: impl AsRef<Path>, schema_json: impl AsRef<str>) -> Result<Self> {
-        let schema = NativeSchemaAndText::try_from(schema_json.as_ref())?;
+        let schema = crate::RecordSchema::from_local(schema_json.as_ref())?;
         let conn = rusqlite::Connection::open(path.as_ref())?;
         let db = RemergeDb::with_connection(conn, schema)?;
         Ok(Self { db })
     }
 
     pub fn open_in_memory(schema_json: impl AsRef<str>) -> Result<Self> {
-        let schema = NativeSchemaAndText::try_from(schema_json.as_ref())?;
+        let schema = crate::RecordSchema::from_local(schema_json.as_ref())?;
         let conn = rusqlite::Connection::open_in_memory()?;
         let db = RemergeDb::with_connection(conn, schema)?;
         Ok(Self { db })

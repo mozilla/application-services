@@ -20,12 +20,20 @@ use index_vec::IndexVec;
 use matches::matches;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use url::Url;
 
-pub const FORMAT_VERSION: usize = 1;
+pub const FORMAT_VERSION: i64 = 1;
 
-pub fn parse_from_string(json: &str, is_remote: bool) -> Result<RecordSchema, SchemaError> {
-    let schema = match serde_json::from_str::<RawSchema>(json) {
+pub fn parse_from_string(
+    json: impl Into<Arc<str>>,
+    is_remote: bool,
+) -> Result<RecordSchema, SchemaError> {
+    parse_from_string_impl(json.into(), is_remote)
+}
+
+fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> Result<RecordSchema, SchemaError> {
+    let raw = match serde_json::from_str::<RawSchema>(&json) {
         Ok(schema) => schema,
         Err(e) => {
             // If it's local then this is just a format error.
@@ -34,11 +42,30 @@ pub fn parse_from_string(json: &str, is_remote: bool) -> Result<RecordSchema, Sc
                 // `e` here, but this works...
                 return Err(SchemaError::FormatError(e));
             }
+            if let Ok(dumb) = serde_json::from_str::<DumbSchema>(&json) {
+                // TODO: Spec says we should treat these as `untyped` if for
+                // remote records if we aren't locked out!
+                for field in &dumb.fields {
+                    if let Some(ty) = field.get("type").and_then(|f| f.as_str()) {
+                        if !KNOWN_FIELD_TYPE_TAGS.contains(&ty) {
+                            return Err(SchemaError::UnknownFieldType(ty.to_owned()));
+                        }
+                    }
+                }
+            }
+            // Can't use map_err without moving `e` (original error), which,
+            // unless we find something better, will probably be the most
+            // accurate
+            let as_json: JsonObject = match serde_json::from_str(&json) {
+                Ok(o) => o,
+                Err(_) => throw!(SchemaError::FormatError(e)),
+            };
+
             // If it's remote, then it failed, but it could have failed because
             // it's from a future version. Check that.
-            let version = match serde_json::from_str::<JustFormatVersion>(json) {
-                Ok(s) => s.format_version,
-                Err(_) => {
+            let version = match as_json.get("format_version") {
+                Some(JsonValue::Number(n)) if n.is_i64() => n.as_i64().unwrap(),
+                _ => {
                     // Ditto with moving `e` (which we want to use because it can give
                     // better error messages).
                     return Err(SchemaError::FormatError(e));
@@ -51,8 +78,10 @@ pub fn parse_from_string(json: &str, is_remote: bool) -> Result<RecordSchema, Sc
             });
         }
     };
-    let parser = SchemaParser::new(&schema, false);
-    Ok(parser.parse()?)
+    let parser = SchemaParser::new(&raw, is_remote);
+    let mut result = parser.parse(json)?;
+    result.raw = raw;
+    Ok(result)
 }
 
 /// Helper trait to make marking results / errors with which field were were
@@ -79,11 +108,6 @@ impl<T> FieldErrorHelper for Result<T, FieldError> {
     }
 }
 
-// Used just to parse out the required version in case JsonSchema changes incompatibly.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct JustFormatVersion {
-    format_version: usize,
-}
 /// The serialized representation of the schema.
 ///
 /// Note that if you change this, you will likely have to change the data in
@@ -91,8 +115,8 @@ struct JustFormatVersion {
 ///
 /// Important: Note that changes to this are in general not allowed to fail to
 /// parse older versions of this format.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct RawSchema {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RawSchemaInfo<FT> {
     /// The name of this collection
     pub name: String,
     /// The version of the schema
@@ -107,11 +131,45 @@ pub struct RawSchema {
     #[serde(default)]
     pub legacy: bool,
 
-    pub fields: Vec<RawFieldType>,
+    pub fields: Vec<FT>,
 
     #[serde(default)]
     pub dedupe_on: Vec<String>,
+
+    #[serde(flatten)]
+    pub unknown: crate::JsonObject,
 }
+
+/// Unvalidated but mostly-understood schema
+pub type RawSchema = RawSchemaInfo<RawFieldType>;
+
+impl RawSchema {
+    /// Returns true if there were no unknown enums, leftover fields in objects,
+    /// etc.
+    pub fn is_understood(&self) -> bool {
+        self.unknown.len() == 0 && self.fields.iter().all(|v| v.is_understood())
+    }
+}
+
+/// Schema containing a field type we don't know about.
+pub type DumbSchema = RawSchemaInfo<JsonObject>;
+
+// Can't derive this :(...
+impl<FT> Default for RawSchemaInfo<FT> {
+    fn default() -> Self {
+        Self {
+            name: "".to_owned(),
+            version: "".to_owned(),
+            required_version: None,
+            remerge_features_used: vec![],
+            legacy: false,
+            fields: vec![],
+            dedupe_on: vec![],
+            unknown: JsonObject::new(),
+        }
+    }
+}
+
 // OptDefaultType not just being the type and made into an Option here is for serde's benefit.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct RawFieldCommon<OptDefaultType: PartialEq + Default> {
@@ -139,20 +197,35 @@ pub struct RawFieldCommon<OptDefaultType: PartialEq + Default> {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_default")]
-    pub change_preference: Option<ChangePreference>,
+    pub change_preference: Option<RawChangePreference>,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_default")]
     pub default: OptDefaultType,
+
+    #[serde(flatten)]
+    pub unknown: JsonObject,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+const KNOWN_FIELD_TYPE_TAGS: &[&str] = &[
+    "untyped",
+    "text",
+    "url",
+    "boolean",
+    "real",
+    "integer",
+    "timestamp",
+    "own_guid",
+    "untyped_map",
+    "record_set",
+];
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type")]
 pub enum RawFieldType {
     #[serde(rename = "untyped")]
     Untyped {
         #[serde(flatten)]
-        // XXX does using JsonValue here still work now that we use json?
         common: RawFieldCommon<Option<JsonValue>>,
     },
 
@@ -191,7 +264,7 @@ pub enum RawFieldType {
 
         #[serde(default)]
         #[serde(skip_serializing_if = "is_default")]
-        if_out_of_bounds: Option<IfOutOfBounds>,
+        if_out_of_bounds: Option<RawIfOutOfBounds>,
     },
 
     #[serde(rename = "integer")]
@@ -209,7 +282,7 @@ pub enum RawFieldType {
 
         #[serde(default)]
         #[serde(skip_serializing_if = "is_default")]
-        if_out_of_bounds: Option<IfOutOfBounds>,
+        if_out_of_bounds: Option<RawIfOutOfBounds>,
     },
 
     #[serde(rename = "timestamp")]
@@ -252,6 +325,45 @@ pub enum RawFieldType {
         #[serde(default)]
         prefer_deletions: bool,
     },
+    // TODO:
+    // #[serde(other)] Unknown,
+    // but see if we can save the JSON by using a custom deserializer...
+}
+
+impl RawFieldType {
+    pub fn is_understood(&self) -> bool {
+        if self.unknown().len() != 0 {
+            return false;
+        }
+        if let Some(RawChangePreference::Unknown(_)) = self.change_preference() {
+            return false;
+        }
+        if let Some(ParsedMerge::Unknown(_)) = self.merge() {
+            return false;
+        }
+        match self {
+            RawFieldType::Integer {
+                if_out_of_bounds: Some(RawIfOutOfBounds::Unknown(_)),
+                ..
+            } => false,
+            RawFieldType::Real {
+                if_out_of_bounds: Some(RawIfOutOfBounds::Unknown(_)),
+                ..
+            } => false,
+            RawFieldType::Timestamp { semantic, common } => {
+                if let Some(RawTimestampSemantic::Unknown(_)) = semantic {
+                    false
+                } else if let Some(RawTimeDefault::Special(RawSpecialTime::Unknown(_))) =
+                    &common.default
+                {
+                    false
+                } else {
+                    true
+                }
+            }
+            _ => true,
+        }
+    }
 }
 
 macro_rules! common_getter {
@@ -274,13 +386,14 @@ macro_rules! common_getter {
 }
 
 impl RawFieldType {
+    common_getter!(unknown, &crate::JsonObject);
     common_getter!(name, &str);
     common_getter!(local_name, &Option<String>);
     common_getter!(required, &bool);
     common_getter!(deprecated, &bool);
     common_getter!(composite_root, &Option<String>);
     common_getter!(merge, &Option<ParsedMerge>);
-    common_getter!(change_preference, &Option<ChangePreference>);
+    common_getter!(change_preference, &Option<RawChangePreference>);
 
     pub fn kind(&self) -> FieldKind {
         match self {
@@ -297,18 +410,29 @@ impl RawFieldType {
         }
     }
 
-    pub fn get_merge(&self) -> Option<ParsedMerge> {
-        self.merge().or_else(|| match self {
-            RawFieldType::Timestamp {
-                semantic: Some(RawTimestampSemantic::CreatedAt),
-                ..
-            } => Some(ParsedMerge::TakeMin),
-            RawFieldType::Timestamp {
-                semantic: Some(RawTimestampSemantic::UpdatedAt),
-                ..
-            } => Some(ParsedMerge::TakeMax),
-            _ => None,
-        })
+    pub fn get_merge(&self) -> Result<Option<ParsedMerge>, FieldError> {
+        self.merge()
+            .clone()
+            .map(Ok)
+            .or_else(|| match self {
+                RawFieldType::Timestamp {
+                    semantic: Some(RawTimestampSemantic::CreatedAt),
+                    ..
+                } => Some(Ok(ParsedMerge::TakeMin)),
+                RawFieldType::Timestamp {
+                    semantic: Some(RawTimestampSemantic::UpdatedAt),
+                    ..
+                } => Some(Ok(ParsedMerge::TakeMax)),
+                RawFieldType::Timestamp {
+                    semantic: Some(RawTimestampSemantic::Unknown(v)),
+                    ..
+                } => Some(Err(FieldError::UnknownVariant(format!(
+                    "unknown timestamp semantic: {}",
+                    v
+                )))),
+                _ => None,
+            })
+            .transpose()
     }
 
     pub fn has_default(&self) -> bool {
@@ -329,39 +453,38 @@ impl RawFieldType {
 
 /// This (and RawSpecialTime) are basically the same as TimestampDefault, just done
 /// in such a way to make serde deserialize things the way we want for us.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RawTimeDefault {
     Num(i64),
     Special(RawSpecialTime),
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub enum RawSpecialTime {
-    #[serde(rename = "now")]
-    Now,
-}
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
-pub enum RawTimestampSemantic {
-    #[serde(rename = "created_at")]
-    CreatedAt,
-
-    #[serde(rename = "updated_at")]
-    UpdatedAt,
-
-    #[serde(other)]
-    Unknown,
-}
-
-impl RawTimestampSemantic {
-    pub fn into_semantic(self) -> Option<TimestampSemantic> {
-        match self {
-            RawTimestampSemantic::CreatedAt => Some(TimestampSemantic::CreatedAt),
-            RawTimestampSemantic::UpdatedAt => Some(TimestampSemantic::UpdatedAt),
-            RawTimestampSemantic::Unknown => None,
-        }
+define_enum_with_unknown! {
+    #[derive(Clone, Debug, PartialEq)]
+    pub enum RawSpecialTime {
+        Now = "now",
     }
 }
+
+define_enum_with_unknown! {
+    #[derive(Clone, Debug, PartialEq)]
+    pub enum RawTimestampSemantic {
+        CreatedAt = "created_at",
+        UpdatedAt = "updated_at",
+    }
+    IMPL_FROM_RAW = TimestampSemantic;
+}
+
+define_enum_with_unknown! {
+    #[derive(Clone, Debug, PartialEq)]
+    pub enum RawChangePreference {
+        Missing = "missing",
+        Present = "present",
+    }
+    IMPL_FROM_RAW = ChangePreference;
+}
+
 struct SchemaParser<'a> {
     input: &'a RawSchema,
     input_fields: HashMap<String, &'a RawFieldType>,
@@ -399,20 +522,13 @@ fn parse_version_req(
     }
 }
 
-fn compatible_version_req(v: &semver::Version) -> semver::VersionReq {
-    let mut without_build = v.clone();
-    without_build.build.clear();
-    let version_req = format!("^ {}", without_build);
-    match semver::VersionReq::parse(&version_req) {
-        Ok(v) => v,
-        Err(e) => {
-            // Include this info in the panic string so we can debug if this ever happens.
-            panic!(
-                "Bug: Failed to parse our generated VersionReq {:?}: {}",
-                version_req, e
-            );
-        }
-    }
+pub(crate) fn compatible_version_req(v: &semver::Version) -> semver::VersionReq {
+    crate::util::compatible_version_req(v).unwrap_or_else(|e| {
+        panic!(
+            "Bug: Failed to parse our generated VersionReq from {:?}: {}",
+            v, e
+        );
+    })
 }
 
 impl<'a> SchemaParser<'a> {
@@ -471,7 +587,7 @@ impl<'a> SchemaParser<'a> {
         self.possible_composite_roots.contains(name)
     }
 
-    pub fn parse(mut self) -> SchemaResult<RecordSchema> {
+    pub fn parse(mut self, source: Arc<str>) -> SchemaResult<RecordSchema> {
         let (version, required_version) = self.check_user_version()?;
 
         let unknown_feat = self
@@ -529,6 +645,9 @@ impl<'a> SchemaParser<'a> {
             field_map: self.indices,
             field_updated_at: updated_at_idx,
             field_own_guid,
+            source,
+            // Filled in at caller
+            raw: RawSchema::default(),
         })
     }
 
@@ -600,15 +719,15 @@ impl<'a> SchemaParser<'a> {
 
         self.check_type_restrictions(field).named(field_name)?;
 
-        let merge = field.get_merge();
+        let merge = field.get_merge().named(field_name)?;
 
         if field.composite_root().is_some() {
-            self.check_composite_member_field(field, merge)
+            self.check_composite_member_field(field, merge.clone())
                 .named(field_name)?;
         }
 
         if self.is_composite_root(field_name) {
-            self.check_composite_root_field(field, merge)
+            self.check_composite_root_field(field, merge.clone())
                 .named(field_name)?;
         }
 
@@ -625,7 +744,16 @@ impl<'a> SchemaParser<'a> {
 
         let deprecated = *field.deprecated();
         let required = *field.required();
-        let change_preference = *field.change_preference();
+        let change_preference = field
+            .change_preference()
+            .as_ref()
+            .map(|v| {
+                ChangePreference::from_raw(v).ok_or_else(|| {
+                    FieldError::UnknownVariant(format!("Unknown change preference {:?}", v))
+                })
+            })
+            .transpose()
+            .named(field_name)?;
 
         if deprecated {
             ensure!(
@@ -782,7 +910,7 @@ impl<'a> SchemaParser<'a> {
         let bad_merge = || {
             FieldError::IllegalMergeForType {
                 ty: field.kind(),
-                merge,
+                merge: merge.clone(),
             }
             .named(field_name)
         };
@@ -833,7 +961,8 @@ impl<'a> SchemaParser<'a> {
                 max,
                 if_out_of_bounds,
             } => {
-                self.check_number_bounds(field, min, max, *if_out_of_bounds, &common.default)
+                let if_out_of_bounds = self
+                    .check_number_bounds(field, min, max, if_out_of_bounds, &common.default)
                     .named(field_name)?;
                 let merge = merge.to_number_merge(field).ok_or_else(bad_merge)?;
                 FieldType::Real {
@@ -850,7 +979,8 @@ impl<'a> SchemaParser<'a> {
                 max,
                 if_out_of_bounds,
             } => {
-                self.check_number_bounds(field, min, max, *if_out_of_bounds, &common.default)
+                let if_out_of_bounds = self
+                    .check_number_bounds(field, min, max, if_out_of_bounds, &common.default)
                     .named(field_name)?;
                 let merge = merge.to_number_merge(field).ok_or_else(bad_merge)?;
                 FieldType::Integer {
@@ -862,8 +992,11 @@ impl<'a> SchemaParser<'a> {
                 }
             }
             RawFieldType::Timestamp { common, semantic } => {
-                let merge = merge.to_timestamp_merge(field).ok_or_else(bad_merge)?;
-                self.get_timestamp_field(merge, common, *semantic)
+                let merge = merge
+                    .clone()
+                    .to_timestamp_merge(field)
+                    .ok_or_else(bad_merge)?;
+                self.get_timestamp_field(merge, common, semantic)
                     .named(field_name)?
             }
             RawFieldType::OwnGuid { auto, .. } => FieldType::OwnGuid {
@@ -890,9 +1023,9 @@ impl<'a> SchemaParser<'a> {
         &self,
         merge: TimestampMerge,
         common: &RawFieldCommon<Option<RawTimeDefault>>,
-        semantic: Option<RawTimestampSemantic>,
+        semantic: &Option<RawTimestampSemantic>,
     ) -> Result<FieldType, FieldError> {
-        let semantic = if let Some(sem) = semantic.and_then(|ts| ts.into_semantic()) {
+        let semantic = if let Some(sem) = semantic.as_ref().and_then(TimestampSemantic::from_raw) {
             let want = sem.required_merge();
             ensure!(
                 merge == want,
@@ -906,10 +1039,17 @@ impl<'a> SchemaParser<'a> {
         } else {
             None
         };
-        let tsd: Option<TimestampDefault> = common.default.map(|d| match d {
-            RawTimeDefault::Num(v) => TimestampDefault::Value(v),
-            RawTimeDefault::Special(RawSpecialTime::Now) => TimestampDefault::Now,
-        });
+        let tsd: Option<TimestampDefault> = common
+            .default
+            .as_ref()
+            .map(|d| match d {
+                RawTimeDefault::Num(v) => Ok(TimestampDefault::Value(*v)),
+                RawTimeDefault::Special(RawSpecialTime::Now) => Ok(TimestampDefault::Now),
+                RawTimeDefault::Special(RawSpecialTime::Unknown(v)) => Err(
+                    FieldError::UnknownVariant(format!("unknown special timestamp value: {}", v)),
+                ),
+            })
+            .transpose()?;
 
         if let Some(TimestampDefault::Value(default)) = tsd {
             ensure!(
@@ -962,9 +1102,17 @@ impl<'a> SchemaParser<'a> {
         field: &RawFieldType,
         min: &Option<T>,
         max: &Option<T>,
-        if_oob: Option<IfOutOfBounds>,
+        if_oob: &Option<RawIfOutOfBounds>,
         default: &Option<T>, // f: &RawFieldType
-    ) -> Result<(), FieldError> {
+    ) -> Result<Option<IfOutOfBounds>, FieldError> {
+        let valid_if_oob = if_oob
+            .as_ref()
+            .map(|v| {
+                IfOutOfBounds::from_raw(v).ok_or_else(|| {
+                    FieldError::UnknownVariant(format!("unknown if_out_of_bounds value: {:?}", v))
+                })
+            })
+            .transpose()?;
         ensure!(
             min.map_or(true, |v| v.sane_value()),
             FieldError::BadNumBounds,
@@ -982,7 +1130,7 @@ impl<'a> SchemaParser<'a> {
         );
         if max.is_some() {
             ensure!(
-                field.get_merge() != Some(ParsedMerge::TakeSum),
+                field.get_merge()? != Some(ParsedMerge::TakeSum),
                 FieldError::MergeTakeSumNoMax,
             );
         }
@@ -992,7 +1140,7 @@ impl<'a> SchemaParser<'a> {
             let max = max.unwrap_or(T::min_max_defaults().1);
             ensure!(min <= *d && *d <= max, FieldError::BadNumDefault);
         }
-        Ok(())
+        Ok(valid_if_oob)
     }
 }
 
@@ -1076,43 +1224,40 @@ impl TypeRestriction {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum ParsedMerge {
-    #[serde(rename = "take_newest")]
-    TakeNewest,
-    #[serde(rename = "prefer_remote")]
-    PreferRemote,
-    #[serde(rename = "duplicate")]
-    Duplicate,
-    #[serde(rename = "take_min")]
-    TakeMin,
-    #[serde(rename = "take_max")]
-    TakeMax,
-    #[serde(rename = "take_sum")]
-    TakeSum,
-    #[serde(rename = "prefer_false")]
-    PreferFalse,
-    #[serde(rename = "prefer_true")]
-    PreferTrue,
+// impl_serde_for_enum_with_unknown! {
+//     RawIfOutOfBounds {
+//         Clamp = "clamp",
+//         Discard = "discard",
+//     }
+//     IMPL_FROM_RAW = IfOutOfBounds;
+// }
+
+define_enum_with_unknown! {
+    #[derive(Clone, Debug, PartialEq, PartialOrd)]
+    pub enum RawIfOutOfBounds {
+        Clamp = "clamp",
+        Discard = "discard",
+    }
+    IMPL_FROM_RAW = IfOutOfBounds;
 }
 
-impl std::fmt::Display for ParsedMerge {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ParsedMerge::TakeNewest => f.write_str("take_newest"),
-            ParsedMerge::PreferRemote => f.write_str("prefer_remote"),
-            ParsedMerge::Duplicate => f.write_str("duplicate"),
-            ParsedMerge::TakeMin => f.write_str("take_min"),
-            ParsedMerge::TakeMax => f.write_str("take_max"),
-            ParsedMerge::TakeSum => f.write_str("take_sum"),
-            ParsedMerge::PreferFalse => f.write_str("prefer_false"),
-            ParsedMerge::PreferTrue => f.write_str("prefer_true"),
-        }
+define_enum_with_unknown! {
+    #[derive(Debug, Clone, PartialEq)]
+    pub enum ParsedMerge {
+        TakeNewest = "take_newest",
+        PreferRemote = "prefer_remote",
+        Duplicate = "duplicate",
+        TakeMin = "take_min",
+        TakeMax = "take_max",
+        TakeSum = "take_sum",
+        PreferFalse = "prefer_false",
+        PreferTrue = "prefer_true",
     }
+    DERIVE_DISPLAY = true;
 }
 
 impl ParsedMerge {
-    fn to_untyped_merge(self, f: &RawFieldType) -> Option<UntypedMerge> {
+    fn to_untyped_merge(&self, f: &RawFieldType) -> Option<UntypedMerge> {
         if f.composite_root().is_some() {
             return Some(UntypedMerge::CompositeMember);
         }
@@ -1124,11 +1269,11 @@ impl ParsedMerge {
         }
     }
 
-    fn to_text_merge(self, f: &RawFieldType) -> Option<TextMerge> {
+    fn to_text_merge(&self, f: &RawFieldType) -> Option<TextMerge> {
         Some(TextMerge::Untyped(self.to_untyped_merge(f)?))
     }
 
-    fn to_number_merge(self, f: &RawFieldType) -> Option<NumberMerge> {
+    fn to_number_merge(&self, f: &RawFieldType) -> Option<NumberMerge> {
         if let Some(u) = self.to_untyped_merge(f) {
             Some(NumberMerge::Untyped(u))
         } else {
@@ -1141,7 +1286,7 @@ impl ParsedMerge {
         }
     }
 
-    fn to_timestamp_merge(self, f: &RawFieldType) -> Option<TimestampMerge> {
+    fn to_timestamp_merge(&self, f: &RawFieldType) -> Option<TimestampMerge> {
         if let Some(u) = self.to_untyped_merge(f) {
             Some(TimestampMerge::Untyped(u))
         } else {
@@ -1153,7 +1298,7 @@ impl ParsedMerge {
         }
     }
 
-    fn to_boolean_merge(self, f: &RawFieldType) -> Option<BooleanMerge> {
+    fn to_boolean_merge(&self, f: &RawFieldType) -> Option<BooleanMerge> {
         if let Some(u) = self.to_untyped_merge(f) {
             Some(BooleanMerge::Untyped(u))
         } else {

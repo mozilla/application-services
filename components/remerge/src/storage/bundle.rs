@@ -353,11 +353,11 @@ impl SchemaBundle {
         &self.collection_name
     }
 
-    pub fn native_schema(&self) -> &RecordSchema {
+    pub fn native_schema(&self) -> &Arc<RecordSchema> {
         &self.native
     }
 
-    pub fn local_schema(&self) -> &RecordSchema {
+    pub fn local_schema(&self) -> &Arc<RecordSchema> {
         &self.local
     }
 }

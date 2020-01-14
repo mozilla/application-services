@@ -2,9 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{Payload, ServerTimestamp};
+use crate::{Guid, Payload, ServerTimestamp};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct RecordChangeset<P> {
     pub changes: Vec<P>,
     /// For GETs, the last sync timestamp that should be persisted after
@@ -29,5 +29,13 @@ impl<T> RecordChangeset<T> {
             timestamp,
             collection: collection.into(),
         }
+    }
+}
+impl IncomingChangeset {
+    pub fn find<T: ?Sized>(&self, id: &T) -> Option<&Payload>
+    where
+        Guid: PartialEq<T>,
+    {
+        self.changes.iter().map(|p| &p.0).find(|p| p.id == *id)
     }
 }

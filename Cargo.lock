@@ -2054,6 +2054,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "sync-guid",
+ "sync15-traits",
  "url",
 ]
 

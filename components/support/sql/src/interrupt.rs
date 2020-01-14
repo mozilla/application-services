@@ -65,12 +65,16 @@ impl SqlInterruptScope {
     pub fn err_if_interrupted(&self) -> Result<(), interrupt::Interrupted> {
         <Self as Interruptee>::err_if_interrupted(self)
     }
+    #[inline]
+    pub fn was_interrupted(&self) -> bool {
+        self.ptr.load(Ordering::SeqCst) != self.start_value
+    }
 }
 
 impl Interruptee for SqlInterruptScope {
     #[inline]
     fn was_interrupted(&self) -> bool {
-        self.ptr.load(Ordering::SeqCst) != self.start_value
+        SqlInterruptScope::was_interrupted(self)
     }
 }
 

@@ -88,6 +88,10 @@ pub enum FieldError {
         display = "Illegal default timestamp. Must be after the release of the first web browser"
     )]
     DefaultTimestampTooOld,
+
+    /// TODO: For incoming remote schemas, many of these cases are actually fine
+    #[fail(display = "Unknown enum variant used: {}", _0)]
+    UnknownVariant(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -132,7 +136,7 @@ pub enum SchemaError {
     FormatError(#[fail(cause)] serde_json::Error),
 
     #[fail(display = "Cannot parse format_version: {}", _0)]
-    WrongFormatVersion(usize),
+    WrongFormatVersion(i64),
 
     #[fail(
         display = "Failed to parse semantic version string {:?} from property '{}': {}",
@@ -237,6 +241,10 @@ pub enum SchemaError {
         version: semver::Version,
         req: semver::VersionReq,
     },
+    /// TODO: These should actually be treated as `untyped` fields according to
+    /// the spec. Serde makes this difficult.
+    #[fail(display = "Unknown field type: {}", _0)]
+    UnknownFieldType(String),
 }
 
 pub type SchemaResult<T> = std::result::Result<T, SchemaError>;

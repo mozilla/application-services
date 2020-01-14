@@ -22,8 +22,8 @@ fn test_validation() {
             eprintln!("Skipping schema number {}", i);
             continue;
         }
-        let schema_str = v.schema.to_string();
-        let res = remerge::schema::parse_from_string(&schema_str, v.remote);
+        let schema_str: std::sync::Arc<str> = v.schema.to_string().into();
+        let res = remerge::schema::parse_from_string(schema_str.clone(), v.remote);
         if let Some(e) = v.error {
             if let Err(val_err) = res {
                 let ve_str = format!("{:?}", val_err);
