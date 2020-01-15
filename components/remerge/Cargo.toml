@@ -17,6 +17,7 @@ index_vec = "0.1.0"
 sql-support = {path = "../support/sql"}
 error-support = {path = "../support/error"}
 sync15-traits = {path = "../support/sync15-traits"}
+string_cache = "0.8"
 sync-guid = {path = "../support/guid", features = ["random", "rusqlite_support"]}
 # it's not clear if we should actually use these deps (they're fine and not
 # uncommon or anything, but we could avoid them at the cost of slightly more
