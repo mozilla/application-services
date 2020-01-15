@@ -18,7 +18,7 @@
 use super::{meta, SchemaBundle};
 use crate::error::*;
 use crate::schema::RecordSchema;
-use crate::Guid;
+use crate::{Guid, Sym};
 use rusqlite::Connection;
 use std::sync::Arc;
 
@@ -26,9 +26,12 @@ pub(super) fn load_or_bootstrap(
     db: &Connection,
     native: Arc<RecordSchema>,
 ) -> Result<(SchemaBundle, Guid)> {
-    if let Some(name) = meta::try_get::<String>(db, meta::COLLECTION_NAME)? {
+    if let Some(name) = meta::try_get::<Sym>(db, meta::COLLECTION_NAME)? {
         if name != native.name {
-            throw!(ErrorKind::SchemaNameMatchError(native.name.clone(), name));
+            throw!(ErrorKind::SchemaNameMatchError(
+                native.name.to_string(),
+                name.into()
+            ));
         }
         let local_ver: String = meta::get(db, meta::LOCAL_SCHEMA_VERSION)?;
         let native_ver: String = meta::get(db, meta::NATIVE_SCHEMA_VERSION)?;

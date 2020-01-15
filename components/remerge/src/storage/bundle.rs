@@ -6,7 +6,7 @@ use super::{LocalRecord, NativeRecord};
 use crate::error::*;
 use crate::schema::{FieldKind, FieldType, RecordSchema};
 use crate::untyped_map::{OnCollision, UntypedMap};
-use crate::{Guid, JsonObject, JsonValue};
+use crate::{Guid, JsonValue, SymObject};
 use std::sync::Arc;
 
 /// Reason for converting a native record to a local record. Essentially a
@@ -28,9 +28,9 @@ pub enum ToLocalReason {
     },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct SchemaBundle {
-    pub(crate) collection_name: String,
+    pub(crate) collection_name: crate::Sym,
     pub(crate) native: Arc<RecordSchema>,
     pub(crate) local: Arc<RecordSchema>,
 }
@@ -79,12 +79,12 @@ impl SchemaBundle {
         use crate::util::into_obj;
         let mut id = Guid::random();
 
-        let mut fields = JsonObject::default();
+        let mut fields = SymObject::default();
         // TODO: Maybe we should ensure this for all `Record`s?
         let mut seen_guid = false;
         let now_ms = crate::MsTime::now();
 
-        for field in &self.local.fields {
+        for field in self.local.fields.values() {
             let native_field = &self.native.field(&field.name);
             // XXX `local_name` in the schema should be renamed to something
             // else. It's the property used to rename a field locally, while
@@ -96,7 +96,7 @@ impl SchemaBundle {
             // from the running local application (which will use `local_name`).
             //
             // Or maybe renaming `LocalRecord` and such would be enough.
-            let native_name = native_field.map(|n| n.local_name.as_str());
+            let native_name = native_field.map(|n| &n.local_name);
 
             let is_guid = FieldKind::OwnGuid == field.ty.kind();
             let is_umap = FieldKind::UntypedMap == field.ty.kind();
@@ -132,9 +132,7 @@ impl SchemaBundle {
                     // consistent with timestamps we generate elsewhere.
                     if native_field.map_or(false, |nf| !nf.is_kind(FieldKind::Timestamp)) {
                         throw!(InvalidRecord::InvalidField(
-                            native_name
-                                .unwrap_or_else(|| field.name.as_str())
-                                .to_owned(),
+                            native_name.unwrap_or_else(|| &field.name).to_owned(),
                             format!(
                                 "A value was provided for timestamp with {:?} semantic",
                                 semantic
@@ -200,9 +198,7 @@ impl SchemaBundle {
                 match &reason {
                     ToLocalReason::Update { .. } => {
                         throw!(InvalidRecord::InvalidField(
-                            native_name
-                                .unwrap_or_else(|| field.name.as_str())
-                                .to_owned(),
+                            native_name.unwrap_or_else(|| &field.name).clone(),
                             "no value provided in ID field for update".into()
                         ));
                     }
@@ -230,9 +226,7 @@ impl SchemaBundle {
                 }
             } else if field.required {
                 throw!(InvalidRecord::MissingRequiredField(
-                    native_name
-                        .unwrap_or_else(|| field.name.as_str())
-                        .to_owned()
+                    native_name.unwrap_or_else(|| &field.name).clone(),
                 ));
             }
         }
@@ -247,11 +241,11 @@ impl SchemaBundle {
     }
 
     pub fn local_to_native(&self, record: &LocalRecord) -> Result<NativeRecord> {
-        let mut fields = JsonObject::default();
+        let mut fields = SymObject::default();
         // Note: we should probably report special telemetry for many of these
         // errors, as they indicate (either a bug in remerge or in the provided
         // schema)
-        for native_field in &self.native.fields {
+        for native_field in self.native.fields.values() {
             // First try the record. Note that the `name` property isnt'
             // supposed to change, barring removal or similar. (This is why
             // `local_name` exists)
@@ -337,14 +331,14 @@ impl SchemaBundle {
                 if *auto {
                     return Ok(());
                 }
-                required_own_guid_field = Some(field.name.as_str());
+                required_own_guid_field = Some(&field.name);
             } else {
                 // Validation ensures this.
                 panic!("bug: field_own_guid refers to non-OwnGuid field");
             }
         }
         if let Some(name) = required_own_guid_field {
-            throw!(InvalidRecord::MissingRequiredField(name.to_string()));
+            throw!(InvalidRecord::MissingRequiredField(name.clone()));
         }
         Ok(())
     }

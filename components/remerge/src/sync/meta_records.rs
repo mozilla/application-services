@@ -4,7 +4,7 @@
 use crate::error::*;
 use crate::schema::json::FORMAT_VERSION;
 use crate::schema::RecordSchema;
-use crate::{Guid, JsonObject};
+use crate::{Guid, JsonObject, Sym};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub struct RemoteSchemaEnvelope {
     pub required_version: Option<semver::VersionReq>,
     pub format_version: i64,
     #[serde(default)]
-    pub remerge_features: Vec<String>,
+    pub remerge_features: Vec<Sym>,
     #[serde(flatten)]
     pub extra: JsonObject,
 }

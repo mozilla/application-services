@@ -101,24 +101,24 @@ pub enum InvalidRecord {
     #[fail(display = "Cannot insert non-json object")]
     NotJsonObject,
     #[fail(display = "The field {:?} is required", _0)]
-    MissingRequiredField(String),
+    MissingRequiredField(crate::Sym),
     #[fail(display = "The field {:?} must be of type \"{}\"", _0, _1)]
-    WrongFieldType(String, crate::schema::FieldKind),
+    WrongFieldType(crate::Sym, crate::schema::FieldKind),
     #[fail(display = "The field {:?} must parse as a valid url", _0)]
-    NotUrl(String),
+    NotUrl(crate::Sym),
     #[fail(display = "The field {:?} must have a non-opaque origin", _0)]
-    OriginWasOpaque(String),
+    OriginWasOpaque(crate::Sym),
     #[fail(display = "The field {:?} has more URL parts than just an origin", _0)]
-    UrlWasNotOrigin(String),
+    UrlWasNotOrigin(crate::Sym),
     #[fail(display = "The field {:?} is out of the required bounds", _0)]
-    OutOfBounds(String),
+    OutOfBounds(crate::Sym),
     #[fail(display = "The field {:?} is not a valid record_set", _0)]
-    InvalidRecordSet(String),
+    InvalidRecordSet(crate::Sym),
     #[fail(display = "The field {:?} is not a valid guid", _0)]
-    InvalidGuid(String),
+    InvalidGuid(crate::Sym),
     // TODO(issue 2232): Should be more specific.
     #[fail(display = "The field {:?} is invalid: {}", _0, _1)]
-    InvalidField(String, String),
+    InvalidField(crate::Sym, String),
     #[fail(display = "A record with the given guid already exists")]
     IdNotUnique,
     #[fail(display = "Record violates a `dedupe_on` constraint")]

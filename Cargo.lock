@@ -973,12 +973,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "index_vec"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1ad55c6c8931aababd9372a9be43cfeab198e6b87cc387bb505a5702d703786"
-
-[[package]]
 name = "indexmap"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2062,7 +2056,6 @@ version = "0.1.0"
 dependencies = [
  "error-support",
  "failure",
- "index_vec",
  "lazy_static",
  "libsqlite3-sys",
  "log",
@@ -2293,7 +2286,6 @@ version = "1.0.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9371ade75d4c2d6cb154141b9752cf3781ec9c05e0e5cf35060e1e70ee7b9c25"
 dependencies = [
- "indexmap",
  "itoa",
  "ryu",
  "serde",

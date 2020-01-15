@@ -5,44 +5,37 @@
 use super::merge_kinds::*;
 use crate::error::*;
 use crate::ms_time::EARLIEST_SANE_TIME;
-use crate::{JsonObject, JsonValue};
-use index_vec::IndexVec;
-use std::collections::{HashMap, HashSet};
+use crate::{JsonObject, JsonValue, Sym, SymMap};
+use std::collections::HashSet;
 use std::sync::Arc;
 use url::Url;
 
 /// The set of features understood by this client.
 pub const REMERGE_FEATURES_UNDERSTOOD: &[&str] = &["record_set"];
 
-index_vec::define_index_type! {
-    /// Newtype wrapper around usize, referring into the `fields` vec in a
-    /// RecordSchema
-    pub struct FieldIndex = usize;
-}
-
 /// The unserialized representation of the schema, parsed from a `RawSchema` (in
 /// json.rs). If you change this, you may have to change that as well.
 pub struct RecordSchema {
-    pub name: String,
+    pub name: Sym,
     pub version: semver::Version,
     pub required_version: semver::VersionReq,
 
-    pub remerge_features_used: Vec<String>,
+    pub remerge_features_used: Vec<Sym>,
 
     pub legacy: bool,
-    pub fields: IndexVec<FieldIndex, Field>,
-    pub field_map: HashMap<String, FieldIndex>,
+    pub fields: SymMap<Field>,
 
-    pub dedupe_on: Vec<FieldIndex>,
+    // pub field_map: HashMap<String, FieldIndex>,
+    pub dedupe_on: Vec<Sym>,
 
-    pub composite_roots: Vec<FieldIndex>,
-    pub composite_fields: Vec<FieldIndex>,
+    pub composite_roots: Vec<Sym>,
+    pub composite_fields: Vec<Sym>,
 
     // If we have a semantic for an UpdatedAt Timestamp, it's this.
-    pub field_updated_at: Option<FieldIndex>,
+    pub field_updated_at: Option<Sym>,
 
     // If we have an own_guid field, it's this.
-    pub field_own_guid: FieldIndex,
+    pub field_own_guid: Sym,
 
     pub raw: super::json::RawSchema,
     pub source: Arc<str>,
@@ -76,33 +69,32 @@ impl PartialEq for RecordSchema {
 
 impl RecordSchema {
     pub fn own_guid(&self) -> &Field {
-        &self.fields[self.field_own_guid]
+        &self.fields[&self.field_own_guid]
     }
     pub fn field<'a, S: ?Sized + AsRef<str>>(&'a self, name: &S) -> Option<&'a Field> {
-        let idx = *self.field_map.get(name.as_ref())?;
-        Some(&self.fields[idx])
+        self.fields.get(name)
     }
 }
 
-impl std::ops::Index<FieldIndex> for RecordSchema {
+impl std::ops::Index<&Sym> for RecordSchema {
     type Output = Field;
-    fn index(&self, idx: FieldIndex) -> &Field {
+    fn index(&self, idx: &Sym) -> &Field {
         &self.fields[idx]
     }
 }
 
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub enum CompositeInfo {
-    Member { root: FieldIndex },
-    Root { children: Vec<FieldIndex> },
+    Member { root: Sym },
+    Root { children: Vec<Sym> },
 }
 
 /// A single field in a record.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Field {
-    pub name: String,
+    pub name: Sym,
     // Note: frequently equal to name.
-    pub local_name: String,
+    pub local_name: Sym,
 
     pub required: bool,
     pub deprecated: bool,
@@ -112,20 +104,19 @@ pub struct Field {
 
     /// The type-specific information about a field.
     pub ty: FieldType,
-    pub own_idx: FieldIndex,
 }
 
 impl Field {
-    pub(crate) fn validate_guid(name: &str, v: &JsonValue) -> Result<crate::Guid, InvalidRecord> {
+    pub(crate) fn validate_guid(name: &Sym, v: &JsonValue) -> Result<crate::Guid, InvalidRecord> {
         if let JsonValue::String(s) = v {
             if s.len() < 8 || !crate::Guid::from(s.as_str()).is_valid_for_sync_server() {
-                throw!(InvalidRecord::InvalidGuid(name.to_string()))
+                throw!(InvalidRecord::InvalidGuid(name.clone()))
             } else {
                 Ok(crate::Guid::from(s.as_str()))
             }
         } else {
             throw!(InvalidRecord::WrongFieldType(
-                name.to_string(),
+                name.clone(),
                 FieldKind::OwnGuid
             ));
         }

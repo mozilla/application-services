@@ -10,7 +10,8 @@
 //! everything passing around `serde_json::Value`s directly, and it matches the
 //! terms used in the RFC. I'm open to name suggestions, though.
 
-use crate::{error::*, JsonObject, JsonValue};
+use crate::SymObject;
+use crate::{error::*, JsonValue};
 use std::marker::PhantomData;
 
 mod private {
@@ -73,7 +74,7 @@ pub type NativeRecord = Record<NativeFormat>;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Record<F: RecordFormat>(pub(crate) JsonObject, PhantomData<F>);
+pub struct Record<F: RecordFormat>(pub(crate) SymObject, PhantomData<F>);
 
 impl<F: RecordFormat> Record<F> {
     /// Create a new record with the format `F` directly.
@@ -82,7 +83,7 @@ impl<F: RecordFormat> Record<F> {
     /// to ensure that the `record_json` is actually in the requested format.
     /// See the [`Record`] docs for how to make this determination.
     #[inline]
-    pub fn new_unchecked(record_json: JsonObject) -> Self {
+    pub fn new_unchecked(record_json: SymObject) -> Self {
         Self(record_json, PhantomData)
     }
 
@@ -94,19 +95,19 @@ impl<F: RecordFormat> Record<F> {
     /// See the [`Record`] docs for how to make this determination.
     pub fn from_value_unchecked(record_json: JsonValue) -> Result<Self, InvalidRecord> {
         if let JsonValue::Object(m) = record_json {
-            Ok(Self::new_unchecked(m))
+            Ok(Self::new_unchecked(m.into()))
         } else {
             Err(crate::error::InvalidRecord::NotJsonObject)
         }
     }
 
     #[inline]
-    pub fn as_obj(&self) -> &JsonObject {
+    pub fn as_obj(&self) -> &SymObject {
         &self.0
     }
 
     #[inline]
-    pub fn into_obj(self) -> JsonObject {
+    pub fn into_obj(self) -> SymObject {
         self.0
     }
 
@@ -120,26 +121,23 @@ impl NativeRecord {
     /// Parse a record from a str given to us over the FFI, returning an error
     /// if it's obviously bad (not a json object).
     pub fn from_native_str(s: &str) -> Result<Self> {
-        let record: JsonValue = serde_json::from_str(s)?;
-        if let JsonValue::Object(m) = record {
-            Ok(Self(m, PhantomData))
-        } else {
-            Err(crate::error::InvalidRecord::NotJsonObject.into())
-        }
+        let record: SymObject =
+            serde_json::from_str(s).map_err(|_| crate::error::InvalidRecord::NotJsonObject)?;
+        Ok(Self(record, PhantomData))
     }
 }
 
 impl<F: RecordFormat> std::ops::Deref for Record<F> {
-    type Target = JsonObject;
+    type Target = SymObject;
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_obj()
     }
 }
 
-impl<F: RecordFormat> AsRef<JsonObject> for Record<F> {
+impl<F: RecordFormat> AsRef<SymObject> for Record<F> {
     #[inline]
-    fn as_ref(&self) -> &JsonObject {
+    fn as_ref(&self) -> &SymObject {
         self.as_obj()
     }
 }
@@ -150,22 +148,22 @@ impl<F: RecordFormat> From<Record<F>> for JsonValue {
         r.into_val()
     }
 }
-impl<F: RecordFormat> From<Record<F>> for JsonObject {
+impl<F: RecordFormat> From<Record<F>> for SymObject {
     #[inline]
-    fn from(r: Record<F>) -> JsonObject {
+    fn from(r: Record<F>) -> SymObject {
         r.into_obj()
     }
 }
-impl<'a, F: RecordFormat> From<&'a Record<F>> for &'a JsonObject {
+impl<'a, F: RecordFormat> From<&'a Record<F>> for &'a SymObject {
     #[inline]
-    fn from(r: &'a Record<F>) -> &'a JsonObject {
+    fn from(r: &'a Record<F>) -> &'a SymObject {
         &r.0
     }
 }
 
-impl From<JsonObject> for NativeRecord {
+impl From<SymObject> for NativeRecord {
     #[inline]
-    fn from(o: JsonObject) -> NativeRecord {
+    fn from(o: SymObject) -> NativeRecord {
         NativeRecord::new_unchecked(o)
     }
 }
@@ -199,13 +197,7 @@ mod sql_impls {
 
     impl FromSql for LocalRecord {
         fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-            match value {
-                ValueRef::Text(s) => serde_json::from_slice(s),
-                ValueRef::Blob(b) => serde_json::from_slice(b),
-                _ => return Err(FromSqlError::InvalidType),
-            }
-            .map(LocalRecord::new_unchecked)
-            .map_err(|err| FromSqlError::Other(err.into()))
+            crate::SymObject::column_result(value).map(Self::new_unchecked)
         }
     }
 }

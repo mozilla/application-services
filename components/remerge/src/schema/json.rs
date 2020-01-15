@@ -16,10 +16,10 @@ use super::error::*;
 use super::merge_kinds::*;
 use crate::util::is_default;
 use crate::{JsonObject, JsonValue};
-use index_vec::IndexVec;
+use crate::{Sym, SymMap, SymObject};
 use matches::matches;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::sync::Arc;
 use url::Url;
 
@@ -118,7 +118,7 @@ impl<T> FieldErrorHelper for Result<T, FieldError> {
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct RawSchemaInfo<FT> {
     /// The name of this collection
-    pub name: String,
+    pub name: Sym,
     /// The version of the schema
     pub version: String,
 
@@ -126,7 +126,7 @@ pub struct RawSchemaInfo<FT> {
     pub required_version: Option<String>,
 
     #[serde(default)]
-    pub remerge_features_used: Vec<String>,
+    pub remerge_features_used: Vec<Sym>,
 
     #[serde(default)]
     pub legacy: bool,
@@ -134,7 +134,7 @@ pub struct RawSchemaInfo<FT> {
     pub fields: Vec<FT>,
 
     #[serde(default)]
-    pub dedupe_on: Vec<String>,
+    pub dedupe_on: Vec<Sym>,
 
     #[serde(flatten)]
     pub unknown: crate::JsonObject,
@@ -152,13 +152,13 @@ impl RawSchema {
 }
 
 /// Schema containing a field type we don't know about.
-pub type DumbSchema = RawSchemaInfo<JsonObject>;
+pub type DumbSchema = RawSchemaInfo<SymObject>;
 
 // Can't derive this :(...
 impl<FT> Default for RawSchemaInfo<FT> {
     fn default() -> Self {
         Self {
-            name: "".to_owned(),
+            name: Sym::default(),
             version: "".to_owned(),
             required_version: None,
             remerge_features_used: vec![],
@@ -173,11 +173,11 @@ impl<FT> Default for RawSchemaInfo<FT> {
 // OptDefaultType not just being the type and made into an Option here is for serde's benefit.
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct RawFieldCommon<OptDefaultType: PartialEq + Default> {
-    pub name: String,
+    pub name: Sym,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_default")]
-    pub local_name: Option<String>,
+    pub local_name: Option<Sym>,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_default")]
@@ -189,7 +189,7 @@ pub struct RawFieldCommon<OptDefaultType: PartialEq + Default> {
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_default")]
-    pub composite_root: Option<String>,
+    pub composite_root: Option<Sym>,
 
     #[serde(default)]
     #[serde(skip_serializing_if = "is_default")]
@@ -204,7 +204,7 @@ pub struct RawFieldCommon<OptDefaultType: PartialEq + Default> {
     pub default: OptDefaultType,
 
     #[serde(flatten)]
-    pub unknown: JsonObject,
+    pub unknown: SymObject,
 }
 
 const KNOWN_FIELD_TYPE_TAGS: &[&str] = &[
@@ -386,12 +386,12 @@ macro_rules! common_getter {
 }
 
 impl RawFieldType {
-    common_getter!(unknown, &crate::JsonObject);
-    common_getter!(name, &str);
-    common_getter!(local_name, &Option<String>);
+    common_getter!(unknown, &SymObject);
+    common_getter!(name, &Sym);
+    common_getter!(local_name, &Option<Sym>);
     common_getter!(required, &bool);
     common_getter!(deprecated, &bool);
-    common_getter!(composite_root, &Option<String>);
+    common_getter!(composite_root, &Option<Sym>);
     common_getter!(merge, &Option<ParsedMerge>);
     common_getter!(change_preference, &Option<RawChangePreference>);
 
@@ -464,7 +464,7 @@ define_enum_with_unknown! {
     #[derive(Clone, PartialEq)]
     pub enum RawSpecialTime {
         Now = "now",
-        .. Unknown(Box<str>),
+        .. Unknown(crate::Sym),
     }
 }
 
@@ -473,7 +473,7 @@ define_enum_with_unknown! {
     pub enum RawTimestampSemantic {
         CreatedAt = "created_at",
         UpdatedAt = "updated_at",
-        .. Unknown(Box<str>),
+        .. Unknown(crate::Sym),
     }
     IMPL_FROM_RAW = TimestampSemantic;
 }
@@ -483,7 +483,7 @@ define_enum_with_unknown! {
     pub enum RawChangePreference {
         Missing = "missing",
         Present = "present",
-        .. Unknown(Box<str>),
+        .. Unknown(crate::Sym),
     }
     IMPL_FROM_RAW = ChangePreference;
     DERIVE_DISPLAY = true;
@@ -491,13 +491,12 @@ define_enum_with_unknown! {
 
 struct SchemaParser<'a> {
     input: &'a RawSchema,
-    input_fields: HashMap<String, &'a RawFieldType>,
+    input_fields: SymMap<&'a RawFieldType>,
 
-    parsed_fields: IndexVec<FieldIndex, Field>,
-    dedupe_ons: HashSet<String>,
-    possible_composite_roots: HashSet<String>,
-    composite_members: HashSet<String>,
-    indices: HashMap<String, FieldIndex>,
+    parsed_fields: SymMap<Field>,
+    dedupe_ons: HashSet<Sym>,
+    possible_composite_roots: HashSet<Sym>,
+    composite_members: HashSet<Sym>,
 }
 
 fn parse_version(v: &str, prop: SemverProp) -> SchemaResult<semver::Version> {
@@ -550,18 +549,18 @@ impl<'a> SchemaParser<'a> {
             .chain(composite_roots.iter().cloned())
             .collect::<HashSet<_>>();
 
-        let indices = repr
-            .fields
-            .iter()
-            .enumerate()
-            .map(|(i, f)| (f.name().to_string(), FieldIndex::from(i)))
-            .collect();
+        // let indices = repr
+        //     .fields
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, f)| (f.name(), FieldIndex::from(i)))
+        //     .collect();
 
         Self {
             input: repr,
-            indices,
-            input_fields: repr.fields.iter().map(|f| (f.name().into(), f)).collect(),
-            parsed_fields: IndexVec::with_capacity(repr.fields.len()),
+            // indices,
+            input_fields: repr.fields.iter().map(|f| (f.name().clone(), f)).collect(),
+            parsed_fields: SymMap::new(),
             // parsed_composites: HashMap::new(),
             dedupe_ons: repr.dedupe_on.iter().cloned().collect(),
             possible_composite_roots: composite_roots,
@@ -600,41 +599,41 @@ impl<'a> SchemaParser<'a> {
             .iter()
             .find(|f| !REMERGE_FEATURES_UNDERSTOOD.contains(&f.as_str()));
         if let Some(f) = unknown_feat {
-            return Err(SchemaError::MissingRemergeFeature(f.clone()));
+            return Err(SchemaError::MissingRemergeFeature(f.to_string()));
         }
 
-        let mut own_guid_idx: Option<FieldIndex> = None;
-        let mut updated_at_idx: Option<FieldIndex> = None;
+        let mut own_guid: Option<Sym> = None;
+        let mut updated_at: Option<Sym> = None;
 
-        for (i, field) in self.input.fields.iter().enumerate() {
+        for field in &self.input.fields {
             let parsed = self.parse_field(field)?;
             // look for 'special' fields.
             match &parsed.ty {
                 FieldType::OwnGuid { .. } => {
-                    ensure!(own_guid_idx.is_none(), SchemaError::MultipleOwnGuid);
-                    own_guid_idx = Some(i.into());
+                    ensure!(own_guid.is_none(), SchemaError::MultipleOwnGuid);
+                    own_guid = Some(parsed.name.clone());
                 }
                 FieldType::Timestamp {
                     semantic: Some(TimestampSemantic::UpdatedAt),
                     ..
                 } => {
-                    ensure!(updated_at_idx.is_none(), SchemaError::MultipleUpdateAt);
-                    updated_at_idx = Some(i.into());
+                    ensure!(updated_at.is_none(), SchemaError::MultipleUpdateAt);
+                    updated_at = Some(parsed.name.clone());
                 }
                 _ => {}
             }
 
-            self.parsed_fields.push(parsed);
+            self.parsed_fields.insert(parsed.name.clone(), parsed);
         }
 
         let is_legacy = self.input.legacy;
 
         self.check_dedupe_on()?;
 
-        let (dedupe_on, composite_roots, composite_fields) = self.get_index_vecs();
+        let (composite_roots, composite_fields) = self.composite_roots_fields();
 
         self.check_used_features(&self.input.remerge_features_used)?;
-        let field_own_guid = own_guid_idx.ok_or_else(|| SchemaError::MissingOwnGuid)?;
+        let field_own_guid = own_guid.ok_or_else(|| SchemaError::MissingOwnGuid)?;
 
         Ok(RecordSchema {
             name: self.input.name.clone(),
@@ -643,11 +642,11 @@ impl<'a> SchemaParser<'a> {
             remerge_features_used: self.input.remerge_features_used.clone(),
             legacy: is_legacy,
             fields: self.parsed_fields,
-            dedupe_on,
+            dedupe_on: self.input.dedupe_on.clone(),
             composite_roots,
             composite_fields,
-            field_map: self.indices,
-            field_updated_at: updated_at_idx,
+            // field_map: self.indices,
+            field_updated_at: updated_at,
             field_own_guid,
             source,
             // Filled in at caller
@@ -655,48 +654,40 @@ impl<'a> SchemaParser<'a> {
         })
     }
 
-    fn get_index_vecs(&self) -> (Vec<FieldIndex>, Vec<FieldIndex>, Vec<FieldIndex>) {
-        let dedupe_on = self
-            .input
-            .dedupe_on
-            .iter()
-            .map(|s| *self.indices.get(s).unwrap())
-            .collect();
-
+    fn composite_roots_fields(&self) -> (Vec<Sym>, Vec<Sym>) {
         let composite_roots = self
             .parsed_fields
-            .iter()
+            .values()
             .filter(|f| matches!(f.composite, Some(CompositeInfo::Root { .. })))
-            .map(|f| f.own_idx)
+            .map(|f| f.name.clone())
             .collect();
 
         let composite_fields = self
             .parsed_fields
-            .iter()
+            .values()
             .filter(|f| f.composite.is_some())
-            .map(|f| f.own_idx)
+            .map(|f| f.name.clone())
             .collect();
 
-        (dedupe_on, composite_roots, composite_fields)
+        (composite_roots, composite_fields)
     }
 
     fn check_dedupe_on(&self) -> Result<(), SchemaError> {
         assert!(self.parsed_fields.len() == self.input_fields.len());
 
         for name in &self.input.dedupe_on {
-            let field_idx = *self
-                .indices
+            let field = self
+                .parsed_fields
                 .get(name)
-                .ok_or_else(|| SchemaError::UnknownDedupeOnField(name.clone()))?;
+                .ok_or_else(|| SchemaError::UnknownDedupeOnField(name.into()))?;
 
             if !self.composite_members.contains(name) {
                 continue;
             }
 
-            let field = &self.parsed_fields[field_idx];
             let root = match field.composite.as_ref().unwrap() {
-                CompositeInfo::Member { root } => &self.parsed_fields[*root],
-                CompositeInfo::Root { .. } => field,
+                CompositeInfo::Member { root } => &self.parsed_fields[root],
+                CompositeInfo::Root { .. } => &field,
             };
             let root_kids =
                 if let CompositeInfo::Root { children } = &root.composite.as_ref().unwrap() {
@@ -708,7 +699,7 @@ impl<'a> SchemaParser<'a> {
                 .chain(
                     root_kids
                         .iter()
-                        .map(|k| self.parsed_fields[*k].name.as_str()),
+                        .map(|k| self.parsed_fields[k].name.as_str()),
                 )
                 .all(|name| self.is_identity(name));
             ensure!(all_id, SchemaError::PartialCompositeDedupeOn);
@@ -771,7 +762,7 @@ impl<'a> SchemaParser<'a> {
         );
 
         let composite = self.get_composite_info(field);
-        let name = field_name.to_string();
+        let name = field_name.clone();
         let f = Field {
             local_name: local_name.unwrap_or_else(|| name.clone()),
             name,
@@ -779,7 +770,6 @@ impl<'a> SchemaParser<'a> {
             required,
             ty: result_field_type,
             change_preference,
-            own_idx: *self.indices.get(field_name).unwrap(),
             composite,
         };
         Ok(f)
@@ -791,26 +781,23 @@ impl<'a> SchemaParser<'a> {
         if self.is_composite_root(field_name) {
             let children = self
                 .input_fields
-                .iter()
-                .filter(|(_, f)| {
-                    f.composite_root().as_ref().map(|r| r.as_str()) == Some(field_name)
-                })
-                .map(|(n, _)| *self.indices.get(n).unwrap())
+                .values()
+                .filter(|f| f.composite_root().as_ref() == Some(&field_name))
+                .map(|f| f.name().clone())
                 .collect();
 
             Some(CompositeInfo::Root { children })
         } else if let Some(root) = field.composite_root() {
-            let root_idx = self.indices.get(root).unwrap();
-            Some(CompositeInfo::Member { root: *root_idx })
+            Some(CompositeInfo::Member { root: root.clone() })
         } else {
             None
         }
     }
 
-    fn check_field_name(&self, field_name: &str, local_name: &Option<String>) -> SchemaResult<()> {
+    fn check_field_name(&self, field_name: &Sym, local_name: &Option<Sym>) -> SchemaResult<()> {
         ensure!(
             self.parsed_fields
-                .iter()
+                .values()
                 .find(|f| f.name == field_name || f.local_name == field_name)
                 .is_none(),
             SchemaError::DuplicateField(field_name.into())
@@ -822,8 +809,8 @@ impl<'a> SchemaParser<'a> {
         if let Some(n) = local_name {
             ensure!(
                 self.parsed_fields
-                    .iter()
-                    .find(|f| &f.name == n || &f.local_name == n)
+                    .values()
+                    .find(|f| f.name == n || f.local_name == n)
                     .is_none(),
                 SchemaError::DuplicateField(n.into())
             );
@@ -864,7 +851,7 @@ impl<'a> SchemaParser<'a> {
         ensure!(merge.is_none(), FieldError::CompositeFieldMergeStrat);
         ensure!(
             self.input_fields.contains_key(root),
-            FieldError::UnknownCompositeRoot(root.clone())
+            FieldError::UnknownCompositeRoot(root.to_string())
         );
         Ok(())
     }
@@ -896,10 +883,10 @@ impl<'a> SchemaParser<'a> {
         Ok(())
     }
 
-    fn check_used_features(&self, declared_features: &[String]) -> SchemaResult<()> {
-        for f in &self.parsed_fields {
+    fn check_used_features(&self, declared_features: &[Sym]) -> SchemaResult<()> {
+        for (_, f) in &self.parsed_fields {
             if let FieldType::RecordSet { .. } = &f.ty {
-                if !declared_features.contains(&"record_set".to_string()) {
+                if !declared_features.contains(&"record_set".into()) {
                     return Err(SchemaError::UndeclaredFeatureRequired(
                         "record_set".to_string(),
                     ));
@@ -1233,7 +1220,7 @@ define_enum_with_unknown! {
     pub enum RawIfOutOfBounds {
         Clamp = "clamp",
         Discard = "discard",
-        .. Unknown(Box<str>),
+        .. Unknown(crate::Sym),
     }
     IMPL_FROM_RAW = IfOutOfBounds;
 }
@@ -1249,7 +1236,7 @@ define_enum_with_unknown! {
         TakeSum = "take_sum",
         PreferFalse = "prefer_false",
         PreferTrue = "prefer_true",
-        .. Unknown(Box<str>),
+        .. Unknown(crate::Sym),
     }
     DERIVE_DISPLAY = true;
 }
