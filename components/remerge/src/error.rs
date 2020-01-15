@@ -68,6 +68,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Operation interrupted")]
     Interrupted,
+
+    #[fail(display = "Not Yet Implemented: {}", _0)]
+    NotYetImplemented(String),
 }
 
 error_support::define_error! {

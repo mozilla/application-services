@@ -2,14 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 mod meta_records;
-mod schema_action;
+pub(crate) mod schema_action;
 mod store;
 use crate::error::*;
-use crate::schema::RecordSchema;
 use crate::storage::{meta, RemergeDb};
 pub(crate) use meta_records::RemoteSchemaEnvelope;
 use meta_records::{CLIENT_INFO_GUID, SCHEMA_GUID};
-use schema_action::RemoteSchemaAction;
+use schema_action::{RemoteSchemaAction, UpgradeLocal, UpgradeRemote};
 use sql_support::ConnExt;
 use sync15_traits::{telemetry::Engine as Telem, *};
 
@@ -18,7 +17,10 @@ pub struct RemergeSync<'a> {
     pub(crate) scope: sql_support::SqlInterruptScope,
     /// If true, we just do a sync of metadata
     in_lockout: bool,
+    remote_upgrade: Option<UpgradeRemote>,
+    local_upgrade: Option<UpgradeLocal>,
     outgoing: OutgoingChangeset,
+    // local_records_for_sync: Vec<crate::storage::LocalRecord>,
 }
 
 impl<'a> RemergeSync<'a> {
@@ -36,6 +38,8 @@ impl<'a> RemergeSync<'a> {
             scope,
             in_lockout,
             outgoing,
+            remote_upgrade: None,
+            local_upgrade: None,
         }
     }
 
@@ -106,8 +110,9 @@ impl<'a> RemergeSync<'a> {
         Ok(())
     }
 
-    fn upload_remote(&mut self, local: &RecordSchema) -> Result<()> {
-        let schema = RemoteSchemaEnvelope::new(&local, self.db.client_id());
+    fn upgrade_remote(&mut self, up: UpgradeRemote) -> Result<()> {
+        self.db.upgrade_remote(&up)?;
+        let schema = RemoteSchemaEnvelope::new(&self.db.info().local, self.db.client_id());
         self.outgoing.changes.push(Payload::from_record(schema)?);
         Ok(())
     }
@@ -122,8 +127,10 @@ impl<'a> RemergeSync<'a> {
         } else {
             self.exit_lockout()?;
             // Avoid borrow issues
-            let local = self.db.info().local.clone();
-            self.upload_remote(&local)?;
+            self.remote_upgrade = Some(UpgradeRemote {
+                from: None,
+                fresh_server: true,
+            });
             return Ok(());
         };
         if when != ServerTimestamp(0) && when <= self.get_last_schema_fetch()? {
@@ -131,28 +138,31 @@ impl<'a> RemergeSync<'a> {
         }
         // XXX Consider error handling here!
         let scm = schema.into_record::<RemoteSchemaEnvelope>()?;
-        use RemoteSchemaAction::*;
-        match schema_action::determine_action(self.db.info(), &scm)? {
-            UpgradeRemote(local) => {
-                self.exit_lockout()?;
-                let schema = RemoteSchemaEnvelope::new(&local, self.db.client_id());
-                self.outgoing.changes.push(Payload::from_record(schema)?);
+        let will_sync = match schema_action::determine_action(self.db.info(), &scm)? {
+            RemoteSchemaAction::UpgradeRemote(up_rem) => {
+                self.remote_upgrade = Some(up_rem);
+                true
             }
-            UpgradeLocal(new) => {
-                self.exit_lockout()?;
-                self.db.upgrade_local(new)?;
+            RemoteSchemaAction::UpgradeLocal(up_local) => {
+                self.local_upgrade = Some(up_local);
+                true
             }
-            SyncNormally => {
-                self.exit_lockout()?;
-            }
-            LockedOut => {
-                self.in_lockout = true;
-                if let Ok(v) = scm.get_version_req() {
-                    self.put_meta(meta::SYNC_NATIVE_VERSION_THRESHOLD, &v.to_string())?;
-                }
-            }
+            RemoteSchemaAction::SyncNormally => true,
+            RemoteSchemaAction::LockedOut => false,
+        };
+        if !will_sync {
+            self.enter_lockout(scm.get_version_req().ok())?;
+        } else {
+            self.exit_lockout()?;
         }
         self.err_if_interrupted()?;
+        Ok(())
+    }
+    fn enter_lockout(&mut self, v: Option<semver::VersionReq>) -> Result<()> {
+        self.in_lockout = true;
+        if let Some(v) = v {
+            self.put_meta(meta::SYNC_NATIVE_VERSION_THRESHOLD, &v.to_string())?;
+        }
         Ok(())
     }
 
@@ -176,50 +186,6 @@ impl<'a> RemergeSync<'a> {
         Ok(reqs)
     }
 
-    fn get_meta_payloads(
-        &mut self,
-        m: IncomingChangeset,
-    ) -> Result<(
-        Option<(Payload, ServerTimestamp)>,
-        Option<(Payload, ServerTimestamp)>,
-    )> {
-        if m.changes.len() > 2 {
-            throw_msg!(
-                "Got {} metadat records, but only 2 were requested.",
-                m.changes.len()
-            );
-        }
-        let changes = m.changes.len();
-        let mut it = m.changes.into_iter();
-        Ok(match changes {
-            0 => (None, None),
-            1 => {
-                let c = it.next().unwrap();
-                if c.0.id == SCHEMA_GUID {
-                    (Some(c), None)
-                } else {
-                    debug_assert_eq!(c.0.id, CLIENT_INFO_GUID);
-                    (None, Some(c))
-                }
-            }
-            2 => {
-                let a = it.next().unwrap();
-                let b = it.next().unwrap();
-                if a.0.id == SCHEMA_GUID {
-                    debug_assert_eq!(b.0.id, CLIENT_INFO_GUID);
-                    (Some(a), Some(b))
-                } else {
-                    debug_assert_eq!(a.0.id, CLIENT_INFO_GUID);
-                    debug_assert_eq!(b.0.id, SCHEMA_GUID);
-                    (Some(b), Some(a))
-                }
-            }
-            n => {
-                throw_msg!("Requested only 2 metadata records, got: {}", n);
-            }
-        })
-    }
-
     pub(crate) fn apply_incoming(
         &mut self,
         inbound: Vec<IncomingChangeset>,
@@ -239,24 +205,28 @@ impl<'a> RemergeSync<'a> {
         let inp = iter.next().unwrap();
         let now = inp.timestamp;
         self.outgoing.timestamp = now;
-        let (schema, clients) = self.get_meta_payloads(inp)?;
-
         self.err_if_interrupted()?;
-        let (record, when) = schema
-            .map(|(p, t)| (Some(p), t))
-            .unwrap_or_else(|| (None, now));
+        let meta = meta_records::MetaPayloads::from_changeset(inp)?;
+
+        let (record, when) = meta.schema;
         self.process_schema_change(record, when)?;
 
-        let (record, when) = clients
-            .map(|(p, t)| (Some(p), t))
-            .unwrap_or_else(|| (None, now));
+        // This is probably not the right time to do these -- I s
+        if let Some(upgrade_l) = self.local_upgrade.clone() {
+            self.db.upgrade_local(upgrade_l.to)?;
+        }
+        if let Some(upgrade_r) = self.remote_upgrade.clone() {
+            self.upgrade_remote(upgrade_r)?;
+        }
 
         if expect_len == 3 {
             let _records = iter.next().unwrap();
             unimplemented!();
             // self.apply_records(records)?;
         }
+
         self.err_if_interrupted()?;
+        let (record, when) = meta.clients;
         self.prepare_client_info_change(record, when)?;
 
         unimplemented!();

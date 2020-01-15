@@ -70,7 +70,7 @@ pub(super) fn load_or_bootstrap(
         // it sane to run validation on schemas already in the DB? If the answer
         // is yes, we should probably have more tests to ensure we never begin
         // rejecting a schema we previously considered valid!
-        let parsed = crate::schema::parse_from_string(local_schema.clone(), false)?;
+        let parsed = crate::schema::parse_from_string(local_schema, false)?;
         Ok((
             SchemaBundle {
                 local: Arc::new(parsed),

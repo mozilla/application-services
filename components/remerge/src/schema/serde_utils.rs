@@ -9,13 +9,6 @@
 /// efficiently represented in some serde data formats (it's identical for
 /// JSON).
 ///
-/// See `define_enum_with_unknown` for a version that
-///
-/// Note: Your `Unknown` variant must be named Unknown. (If you want to figure
-/// out how to make the macro work without that, be my guest -- for us it does
-/// not matter, and getting anything that looked nice syntactically was too hard
-/// for me)
-///
 /// ```
 /// # let _really_ignore = stringify!{
 /// impl_serde_for_enum_with_unknown! {
@@ -40,7 +33,8 @@
 macro_rules! impl_serde_for_enum_with_unknown {
     (
         $Name:ident {
-            $($Variant:ident = $text:literal),+ $(,)?
+            $($Variant:ident = $text:literal,)+
+            .. $Unknown:ident
         }
 
         $($EXTRA:tt = $val:tt;)* $(;)?
@@ -48,7 +42,7 @@ macro_rules! impl_serde_for_enum_with_unknown {
 
         impl $Name {
             pub fn is_known(&self) -> bool {
-                !matches::matches!(self, $Name::Unknown(_))
+                !matches::matches!(self, $Name::$Unknown(_))
             }
         }
 
@@ -56,7 +50,7 @@ macro_rules! impl_serde_for_enum_with_unknown {
             fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
                 match self {
                     $($Name::$Variant => { s.serialize_str($text) })+
-                    $Name::Unknown(v) => { s.serialize_str(&v) }
+                    $Name::$Unknown(v) => { s.serialize_str(&v) }
                 }
             }
         }
@@ -72,7 +66,7 @@ macro_rules! impl_serde_for_enum_with_unknown {
                     fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
                         match v {
                             $($text => { Ok($Name::$Variant) })+
-                            other => { Ok($Name::Unknown(other.into())) }
+                            other => { Ok($Name::$Unknown(other.into())) }
                         }
                     }
                 }
@@ -81,36 +75,36 @@ macro_rules! impl_serde_for_enum_with_unknown {
         }
         impl_serde_for_enum_with_unknown!(
             @extras [$(($EXTRA; $val))*]
-            @repr [$Name { $($Variant = $text),+ }]
+            @repr [$Name { $($Variant = $text,)+ } $Unknown]
         );
     };
     // base case
     (
         @extras []
-        @repr [$Name:ident { $($Variant:ident = $text:literal),+ }]
+        @repr [$Name:ident { $($Variant:ident = $text:literal,)+ } $Unknown:ident]
     ) => {};
 
     // DERIVE_DISPLAY = true
     (
         @extras [(DERIVE_DISPLAY; true) $(($EXTRA:tt; $val:tt))*]
-        @repr [$Name:ident { $($Variant:ident = $text:literal),+ }]
+        @repr [$Name:ident { $($Variant:ident = $text:literal,)+ } $Unknown:ident]
     ) => {
         impl std::fmt::Display for $Name {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
                     $($Name::$Variant => { f.write_str($text) })+
-                    $Name::Unknown(v) => { write!(f, "{} (unknown variant)", v) }
+                    $Name::$Unknown(v) => { write!(f, "{} (unknown variant)", v) }
                 }
             }
         }
         impl_serde_for_enum_with_unknown!(
             @extras [$(($EXTRA; $val))*]
-            @repr [$Name { $($Variant = $text),+ }]
+            @repr [$Name { $($Variant = $text,)+ } $Unknown]
         );
     };
     (
         @extras [(IMPL_FROM_RAW; $Dest:tt) $(($EXTRA:tt; $val:tt))*]
-        @repr [$Name:ident { $($Variant:ident = $text:literal),+ }]
+        @repr [$Name:ident { $($Variant:ident = $text:literal,)+  } $Unknown:ident]
     ) => {
         impl $Dest {
             pub(crate) fn from_raw(raw: &$Name) -> Option<Self> {
@@ -118,7 +112,7 @@ macro_rules! impl_serde_for_enum_with_unknown {
                     $($Name::$Variant => {
                         Some($Dest::$Variant)
                     })+
-                    $Name::Unknown(v) => {
+                    $Name::$Unknown(v) => {
                         log::warn!(concat!("Unknown variant {} in ", stringify!($Name)), v);
                         None
                     }
@@ -127,7 +121,7 @@ macro_rules! impl_serde_for_enum_with_unknown {
         }
         impl_serde_for_enum_with_unknown!(
             @extras [$(($EXTRA; $val))*]
-            @repr [$Name { $($Variant = $text),+ }]
+            @repr [$Name { $($Variant = $text,)+ } $Unknown]
         );
     };
 }
@@ -138,20 +132,22 @@ macro_rules! define_enum_with_unknown {
     (
         $(#[$m:meta])*
         pub enum $Name:ident {
-            $($Variant:ident = $text:literal),+ $(,)?
+            $($Variant:ident = $text:literal,)+
+            .. $Unknown:ident ($string:ty) $(,)?
         }
 
         $($EXTRA:tt = $val:tt;)* $(;)?
     ) => {
         $(#[$m])*
         pub enum $Name {
-            Unknown(Box<str>),
-            $($Variant),+
+            $($Variant,)+
+            $Unknown($string),
         }
 
         impl_serde_for_enum_with_unknown!{
             $Name {
-                $($Variant = $text),+
+                $($Variant = $text,)+
+                .. $Unknown
             }
             $($EXTRA = $val;)*
         }

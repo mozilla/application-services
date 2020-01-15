@@ -8,7 +8,7 @@ use crate::{Guid, JsonObject};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use sync15_traits::ServerTimestamp;
+use sync15_traits::{IncomingChangeset, Payload, ServerTimestamp};
 
 pub const SCHEMA_GUID: &str = "__schema__";
 pub const CLIENT_INFO_GUID: &str = "__client_info__";
@@ -90,4 +90,77 @@ pub struct SingleClientInfo {
     // Be sure to round-trip data from other clients.
     #[serde(flatten)]
     pub extra: JsonObject,
+}
+
+pub(super) struct MetaPayloads {
+    pub(super) clients: (Option<Payload>, ServerTimestamp),
+    pub(super) schema: (Option<Payload>, ServerTimestamp),
+}
+
+impl MetaPayloads {
+    pub(super) fn from_changeset(m: IncomingChangeset) -> Result<Self> {
+        let changes = m.changes.len();
+        let mut it = m.changes.into_iter();
+        Ok(match changes {
+            0 => Self::empty_at(m.timestamp),
+            1 => {
+                let c = it.next().unwrap();
+                if c.0.id == SCHEMA_GUID {
+                    Self::schema_at(c, m.timestamp)
+                } else {
+                    Self::client_at(c, m.timestamp)
+                }
+            }
+            2 => {
+                let a = it.next().unwrap();
+                let b = it.next().unwrap();
+                if a.0.id == CLIENT_INFO_GUID {
+                    Self::from_clients_and_schema_at(a, b, m.timestamp)
+                } else {
+                    Self::from_clients_and_schema_at(b, a, m.timestamp)
+                }
+            }
+            n => {
+                throw_msg!("Requested only 2 metadata records, got: {}", n);
+            }
+        })
+    }
+    fn from_clients_and_schema_at(
+        clients: impl Into<Option<(Payload, ServerTimestamp)>>,
+        schema: impl Into<Option<(Payload, ServerTimestamp)>>,
+        time: ServerTimestamp,
+    ) -> Self {
+        let clients = clients.into();
+        if let Some(v) = &clients {
+            debug_assert_eq!(v.0.id, CLIENT_INFO_GUID);
+        }
+        let schema = schema.into();
+        if let Some(v) = &schema {
+            debug_assert_eq!(v.0.id, SCHEMA_GUID);
+        }
+        Self {
+            clients: ensure_dated(clients, time),
+            schema: ensure_dated(schema, time),
+        }
+    }
+
+    fn empty_at(time: ServerTimestamp) -> Self {
+        Self::from_clients_and_schema_at(None, None, time)
+    }
+
+    fn schema_at(v: impl Into<Option<(Payload, ServerTimestamp)>>, time: ServerTimestamp) -> Self {
+        Self::from_clients_and_schema_at(None, v, time)
+    }
+
+    fn client_at(v: impl Into<Option<(Payload, ServerTimestamp)>>, time: ServerTimestamp) -> Self {
+        Self::from_clients_and_schema_at(v, None, time)
+    }
+}
+
+fn ensure_dated(
+    meta: Option<(Payload, ServerTimestamp)>,
+    time: ServerTimestamp,
+) -> (Option<Payload>, ServerTimestamp) {
+    meta.map(|(p, t)| (Some(p), t))
+        .unwrap_or_else(|| (None, time))
 }

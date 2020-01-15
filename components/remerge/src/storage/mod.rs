@@ -8,6 +8,7 @@ pub mod db;
 pub(crate) mod meta;
 pub mod records;
 pub mod schema;
+pub(crate) mod upgrades;
 
 pub use bundle::SchemaBundle;
 pub use db::RemergeDb;

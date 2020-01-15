@@ -115,7 +115,7 @@ impl<T> FieldErrorHelper for Result<T, FieldError> {
 ///
 /// Important: Note that changes to this are in general not allowed to fail to
 /// parse older versions of this format.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct RawSchemaInfo<FT> {
     /// The name of this collection
     pub name: String,
@@ -147,7 +147,7 @@ impl RawSchema {
     /// Returns true if there were no unknown enums, leftover fields in objects,
     /// etc.
     pub fn is_understood(&self) -> bool {
-        self.unknown.len() == 0 && self.fields.iter().all(|v| v.is_understood())
+        self.unknown.is_empty() && self.fields.iter().all(|v| v.is_understood())
     }
 }
 
@@ -171,7 +171,7 @@ impl<FT> Default for RawSchemaInfo<FT> {
 }
 
 // OptDefaultType not just being the type and made into an Option here is for serde's benefit.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 pub struct RawFieldCommon<OptDefaultType: PartialEq + Default> {
     pub name: String,
 
@@ -220,7 +220,7 @@ const KNOWN_FIELD_TYPE_TAGS: &[&str] = &[
     "record_set",
 ];
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "type")]
 pub enum RawFieldType {
     #[serde(rename = "untyped")]
@@ -332,7 +332,7 @@ pub enum RawFieldType {
 
 impl RawFieldType {
     pub fn is_understood(&self) -> bool {
-        if self.unknown().len() != 0 {
+        if !self.unknown().is_empty() {
             return false;
         }
         if let Some(RawChangePreference::Unknown(_)) = self.change_preference() {
@@ -453,7 +453,7 @@ impl RawFieldType {
 
 /// This (and RawSpecialTime) are basically the same as TimestampDefault, just done
 /// in such a way to make serde deserialize things the way we want for us.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum RawTimeDefault {
     Num(i64),
@@ -461,28 +461,32 @@ pub enum RawTimeDefault {
 }
 
 define_enum_with_unknown! {
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, PartialEq)]
     pub enum RawSpecialTime {
         Now = "now",
+        .. Unknown(Box<str>),
     }
 }
 
 define_enum_with_unknown! {
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, PartialEq)]
     pub enum RawTimestampSemantic {
         CreatedAt = "created_at",
         UpdatedAt = "updated_at",
+        .. Unknown(Box<str>),
     }
     IMPL_FROM_RAW = TimestampSemantic;
 }
 
 define_enum_with_unknown! {
-    #[derive(Clone, Debug, PartialEq)]
+    #[derive(Clone, PartialEq)]
     pub enum RawChangePreference {
         Missing = "missing",
         Present = "present",
+        .. Unknown(Box<str>),
     }
     IMPL_FROM_RAW = ChangePreference;
+    DERIVE_DISPLAY = true;
 }
 
 struct SchemaParser<'a> {
@@ -749,7 +753,7 @@ impl<'a> SchemaParser<'a> {
             .as_ref()
             .map(|v| {
                 ChangePreference::from_raw(v).ok_or_else(|| {
-                    FieldError::UnknownVariant(format!("Unknown change preference {:?}", v))
+                    FieldError::UnknownVariant(format!("Unknown change preference {}", v))
                 })
             })
             .transpose()
@@ -1224,19 +1228,12 @@ impl TypeRestriction {
     }
 }
 
-// impl_serde_for_enum_with_unknown! {
-//     RawIfOutOfBounds {
-//         Clamp = "clamp",
-//         Discard = "discard",
-//     }
-//     IMPL_FROM_RAW = IfOutOfBounds;
-// }
-
 define_enum_with_unknown! {
     #[derive(Clone, Debug, PartialEq, PartialOrd)]
     pub enum RawIfOutOfBounds {
         Clamp = "clamp",
         Discard = "discard",
+        .. Unknown(Box<str>),
     }
     IMPL_FROM_RAW = IfOutOfBounds;
 }
@@ -1252,6 +1249,7 @@ define_enum_with_unknown! {
         TakeSum = "take_sum",
         PreferFalse = "prefer_false",
         PreferTrue = "prefer_true",
+        .. Unknown(Box<str>),
     }
     DERIVE_DISPLAY = true;
 }

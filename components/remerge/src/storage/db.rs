@@ -2,9 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::upgrades::UpgradeKind;
 use super::{bundle::ToLocalReason, meta, LocalRecord, NativeRecord, SchemaBundle, SyncStatus};
 use crate::error::*;
 use crate::ms_time::MsTime;
+use crate::sync::schema_action::UpgradeRemote;
 use crate::vclock::{Counter, VClock};
 use crate::Guid;
 use crate::RecordSchema;
@@ -466,8 +468,38 @@ impl RemergeDb {
         )
     }
 
+    /// TODO: this function should return info about additional changes that
+    /// need to be made.
+    pub(crate) fn upgrade_remote(&mut self, action: &UpgradeRemote) -> Result<()> {
+        let target = &self.info().local;
+        if action.fresh_server {
+            return Ok(());
+        }
+        let source = if let Some(v) = &action.from {
+            v
+        } else {
+            return Ok(());
+        };
+        let compare = UpgradeKind::between(source, target);
+        if compare == UpgradeKind::RequiresDedupe {
+            // How to do this is described in the RFC, just needs impl.
+            throw!(ErrorKind::NotYetImplemented(
+                "Upgrades that add additional items to dedupe_on".to_string()
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn upgrade_local(&mut self, new_local: Arc<RecordSchema>) -> Result<()> {
+        let compare = UpgradeKind::between(&self.info().local, &new_local);
+        if compare == UpgradeKind::RequiresDedupe {
+            // How to do this is described in the RFC, just needs impl.
+            throw!(ErrorKind::NotYetImplemented(
+                "Upgrades that add additional items to dedupe_on".to_string()
+            ));
+        }
         let tx = self.db.unchecked_transaction()?;
+        // TODO: Need to make sure `new_local` doesn't reuse the `native` schema's ID.
         let sql = "
             REPLACE INTO remerge_schemas (is_legacy, version, required_version, schema_text)
             VALUES (:legacy, :version, :req_version, :text)
@@ -484,7 +516,7 @@ impl RemergeDb {
         )?;
         meta::put(&self.db, meta::LOCAL_SCHEMA_VERSION, &ver_str)?;
         tx.commit()?;
-        self.info.local = new_local.clone();
+        self.info.local = new_local;
         Ok(())
     }
 

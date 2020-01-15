@@ -22,7 +22,6 @@ index_vec::define_index_type! {
 
 /// The unserialized representation of the schema, parsed from a `RawSchema` (in
 /// json.rs). If you change this, you may have to change that as well.
-#[derive(Debug)]
 pub struct RecordSchema {
     pub name: String,
     pub version: semver::Version,
@@ -49,9 +48,21 @@ pub struct RecordSchema {
     pub source: Arc<str>,
 }
 
+impl std::fmt::Debug for RecordSchema {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RecordSchema")
+            .field("name", &self.name)
+            .field("version", &self.version)
+            .finish()
+    }
+}
+
 impl RecordSchema {
     pub fn from_local(s: impl Into<Arc<str>>) -> Result<Arc<Self>, crate::SchemaError> {
         crate::schema::parse_from_string(s, false).map(Arc::new)
+    }
+    pub fn from_remote(s: impl Into<Arc<str>>) -> Result<Arc<Self>, crate::SchemaError> {
+        crate::schema::parse_from_string(s, true).map(Arc::new)
     }
 }
 

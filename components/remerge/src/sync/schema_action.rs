@@ -15,9 +15,9 @@ pub enum RemoteSchemaAction {
     /// eventually get an update.
     LockedOut,
     /// It's old, replace with our local schema.
-    UpgradeRemote(Arc<RecordSchema>),
+    UpgradeRemote(UpgradeRemote),
     /// We're old, replace our local schema with this.
-    UpgradeLocal(Arc<RecordSchema>),
+    UpgradeLocal(UpgradeLocal),
 }
 
 pub fn determine_action(
@@ -44,34 +44,61 @@ pub fn determine_action(
         );
         return Ok(RemoteSchemaAction::LockedOut);
     }
-    if local_v == &remote.schema_version {
+    if *local_v == remote.schema_version {
         log::info!("Local and remote schemas are the same");
         return Ok(RemoteSchemaAction::SyncNormally);
     }
+    let futuristic_remote = remote.format_version > crate::schema::json::FORMAT_VERSION
+        || remote.uses_future_features();
 
-    if remote.format_version > crate::schema::json::FORMAT_VERSION || remote.uses_future_features()
-    {
-        throw_msg!("Schema is from future version and can't be understood. Version {} should have been locked out.", native_v);
-    } else if local_v > &remote.schema_version {
+    if futuristic_remote {
+        throw_msg!(
+            "Schema is from future version (format v{}, features = {:?})
+             and can't be understood.
+             Version {} should have been locked out.",
+            remote.format_version,
+            remote.remerge_features,
+            native_v,
+        );
+    } else if *local_v > remote.schema_version {
         log::info!(
-            "Remote version ({:?}) is lower than our native versions ({:?}). Requires update",
+            "Remote version ({:?}) is lower than our local version ({:?}). Requires update",
             remote.schema_version,
             native_v
         );
-        Ok(RemoteSchemaAction::UpgradeRemote(
-            bundle.local_schema().clone(),
-        ))
-    } else if &remote.schema_version > local_v {
-        let schema = crate::schema::parse_from_string(remote.schema_text.clone(), true);
-        match schema {
-            Ok(v) => Ok(RemoteSchemaAction::UpgradeLocal(v.into())),
-            Err(e) => {
-                log::error!("Can't read future schema {:?}", e);
-                // Hrm...
-                return Err(e.into());
-            }
-        }
+        let from = RecordSchema::from_remote(remote.schema_text.clone())
+            .map_err(|e| {
+                log::error!(
+                    "Failed to read older remote schema (version {:?}) prior to replacement...: {}",
+                    remote.schema_version,
+                    e
+                );
+            })
+            .ok();
+        Ok(RemoteSchemaAction::UpgradeRemote(UpgradeRemote {
+            from,
+            fresh_server: false,
+        }))
+    } else if remote.schema_version > *local_v {
+        let schema = RecordSchema::from_remote(remote.schema_text.clone()).map_err(|e| {
+            log::error!("Can't read future schema {:?}", e);
+            e
+        })?;
+        Ok(RemoteSchemaAction::UpgradeLocal(UpgradeLocal {
+            to: schema,
+        }))
     } else {
         Ok(RemoteSchemaAction::SyncNormally)
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpgradeRemote {
+    pub from: Option<Arc<RecordSchema>>,
+    pub fresh_server: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UpgradeLocal {
+    pub to: Arc<RecordSchema>,
 }
