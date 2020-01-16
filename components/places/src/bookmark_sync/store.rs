@@ -2071,6 +2071,83 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_bookmark_keyword() -> Result<()> {
+        let api = new_mem_api();
+
+        let records = json!([{
+            "id": "bookmarkAAAA",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "A",
+            "bmkUri": "http://example.com/a?b=c&d=%s",
+            "keyword": "ex",
+        },
+        {
+            "id": "unfiled",
+            "type": "folder",
+            "parentid": "root",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "Unfiled",
+            "children": ["bookmarkAAAA"],
+        }]);
+
+        let db = api
+            .open_sync_connection()
+            .expect("Should open Sync connection");
+
+        let tx = db.begin_transaction()?;
+        let applicator = IncomingApplicator::new(&db);
+
+        if let Value::Array(records) = records {
+            for record in records {
+                let payload = Payload::from_json(record).unwrap();
+                applicator.apply_payload(payload, ServerTimestamp(0))?;
+            }
+        } else {
+            unreachable!("JSON records must be an array");
+        }
+
+        tx.commit()?;
+
+        // Flag the bookmark with the keyword for reupload, so that we can
+        // ensure the keyword is round-tripped correctly.
+        db.execute_named(
+            "UPDATE moz_bookmarks_synced SET
+                 validity = :validity
+             WHERE guid = :guid",
+            rusqlite::named_params! {
+                ":validity": SyncedBookmarkValidity::Reupload,
+                ":guid": SyncGuid::from("bookmarkAAAA"),
+            },
+        )?;
+
+        let interrupt_scope = db.begin_interrupt_scope();
+        let store = BookmarksStore::new(&db, &interrupt_scope);
+
+        let mut merger = Merger::new(&store, ServerTimestamp(0));
+        merger.merge()?;
+
+        assert_local_json_tree(
+            &db,
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [{"guid": "bookmarkAAAA", "url": "http://example.com/a?b=c&d=%s"}]}),
+        );
+
+        let outgoing = store.fetch_outgoing_records(ServerTimestamp(0))?;
+        let record_for_a = outgoing
+            .changes
+            .iter()
+            .find(|payload| payload.id == "bookmarkAAAA")
+            .expect("Should reupload A");
+        assert_eq!(record_for_a.data["bmkUri"], "http://example.com/a?b=c&d=%s");
+        assert_eq!(record_for_a.data["keyword"], "ex");
+
+        Ok(())
+    }
+
+    #[test]
     fn test_apply_query() {
         // should we add some more query variations here?
         let api = new_mem_api();
