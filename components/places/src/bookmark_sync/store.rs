@@ -1601,10 +1601,13 @@ impl<'a> fmt::Display for RootsFragment<'a> {
 mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, ConnectionType, PlacesApi};
-    use crate::bookmark_sync::store::BookmarksStore;
+    use crate::bookmark_sync::{store::BookmarksStore, tests::SyncedBookmarkItem};
     use crate::db::PlacesDb;
     use crate::storage::{
-        bookmarks::{get_raw_bookmark, update_bookmark, UpdatableBookmark, USER_CONTENT_ROOTS},
+        bookmarks::{
+            get_raw_bookmark, insert_bookmark, update_bookmark, BookmarkPosition,
+            InsertableBookmark, UpdatableBookmark, USER_CONTENT_ROOTS,
+        },
         history::frecency_stale_at,
         tags,
     };
@@ -1954,6 +1957,117 @@ mod tests {
                 .is_none(),
             "Should recalculate frecency for new URL"
         );
+    }
+
+    #[test]
+    fn test_apply_bookmark_tags() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+
+        // insert local with tags
+        insert_bookmark(
+            &writer,
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkAAAA".into()),
+                url: Url::parse("http://example.com/a").unwrap(),
+                title: Some("A".into()),
+            }
+            .into(),
+        )?;
+        tags::tag_url(&writer, &Url::parse("http://example.com/a").unwrap(), "one")?;
+
+        let mut tags_for_a =
+            tags::get_tags_for_url(&writer, &Url::parse("http://example.com/a").unwrap())?;
+        tags_for_a.sort();
+        assert_eq!(tags_for_a, vec!["one".to_owned()]);
+
+        assert_incoming_creates_local_tree(
+            &api,
+            json!([{
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "unfiled",
+                "parentName": "Unfiled",
+                "dateAdded": 1_381_542_355_843u64,
+                "title": "B",
+                "bmkUri": "http://example.com/b",
+                "tags": ["one", "two"],
+            }, {
+                "id": "bookmarkCCCC",
+                "type": "bookmark",
+                "parentid": "unfiled",
+                "parentName": "Unfiled",
+                "dateAdded": 1_381_542_355_843u64,
+                "title": "C",
+                "bmkUri": "http://example.com/c",
+                "tags": ["three"],
+            }, {
+                "id": "unfiled",
+                "type": "folder",
+                "parentid": "root",
+                "dateAdded": 1_381_542_355_843u64,
+                "title": "Unfiled",
+                "children": ["bookmarkBBBB", "bookmarkCCCC"],
+            }]),
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : [
+                  {"guid": "bookmarkBBBB", "url": "http://example.com/b"},
+                  {"guid": "bookmarkCCCC", "url": "http://example.com/c"},
+                  {"guid": "bookmarkAAAA", "url": "http://example.com/a"},
+            ]}),
+        );
+
+        let mut tags_for_a =
+            tags::get_tags_for_url(&writer, &Url::parse("http://example.com/a").unwrap())?;
+        tags_for_a.sort();
+        assert_eq!(tags_for_a, vec!["one".to_owned()]);
+
+        let mut tags_for_b =
+            tags::get_tags_for_url(&writer, &Url::parse("http://example.com/b").unwrap())?;
+        tags_for_b.sort();
+        assert_eq!(tags_for_b, vec!["one".to_owned(), "two".to_owned()]);
+
+        let mut tags_for_c =
+            tags::get_tags_for_url(&writer, &Url::parse("http://example.com/c").unwrap())?;
+        tags_for_c.sort();
+        assert_eq!(tags_for_c, vec!["three".to_owned()]);
+
+        // but doesn't put tags in the mirror? why?
+
+        // does it delete tags? or just not upload them?
+        let synced_item_for_a = SyncedBookmarkItem::get(&writer, &"bookmarkAAAA".into())
+            .expect("Should fetch A")
+            .expect("A should exist");
+        assert_eq!(
+            synced_item_for_a,
+            *SyncedBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .kind(SyncedBookmarkKind::Bookmark)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                .title(Some("A"))
+                .url(Some("http://example.com/a"))
+                .tags(vec!["one".into()])
+        );
+
+        let synced_item_for_b = SyncedBookmarkItem::get(&writer, &"bookmarkBBBB".into())
+            .expect("Should fetch B")
+            .expect("B should exist");
+        assert_eq!(
+            synced_item_for_b,
+            *SyncedBookmarkItem::new()
+                .validity(SyncedBookmarkValidity::Valid)
+                .kind(SyncedBookmarkKind::Bookmark)
+                .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                .title(Some("B"))
+                .url(Some("http://example.com/b"))
+                .tags(vec!["one".into(), "two".into()])
+        );
+
+        Ok(())
     }
 
     #[test]

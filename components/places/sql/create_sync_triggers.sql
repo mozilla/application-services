@@ -31,10 +31,20 @@ BEGIN
            NEW.isDeleted, NEW.kind, NEW.dateAdded, NEW.title,
            NEW.placeId, NEW.keyword);
 
+    -- Update the list of children to reflect what we just uploaded.
     INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
     SELECT guid, NEW.guid, position
     FROM structureToUpload
     WHERE parentId = NEW.id;
+
+    -- ...And tags, too.
+    INSERT INTO moz_bookmarks_synced_tag_relation(itemId, tagId)
+    SELECT v.id, (SELECT t.id FROM moz_tags t
+                  WHERE t.tag = o.tag)
+    FROM tagsToUpload o
+    JOIN itemsToUpload u ON u.id = o.id
+    JOIN moz_bookmarks_synced v ON v.guid = u.guid
+    WHERE o.id = NEW.id;
 END;
 
 CREATE TEMP TRIGGER changeGuids
