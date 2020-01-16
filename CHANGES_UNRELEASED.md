@@ -6,6 +6,9 @@
 
 ## Places
 
+- The Dogear library for merging synced bookmarks has been updated to the latest version.
+  ([#2469](https://github.com/mozilla/application-services/pull/2469))
+
 ### Breaking Changes
 
 - The Android bindings now collect some basic performance and quality metrics via Glean.
