@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount, MigrationData};
+use crate::http_client::FxAClient;
+use std::sync::Arc;
 
 impl FirefoxAccount {
     /// Migrate from a logged-in with a sessionToken Firefox Account.
@@ -37,7 +39,8 @@ impl FirefoxAccount {
             session_token: session_token.to_string(),
         });
 
-        match self.helper_migration_network_methods() {
+        let client = self.client.clone();
+        match self.helper_migration_network_methods(client) {
             Ok(_) => {
                 log::info!("FxA migration complete");
                 Ok(true)
@@ -50,7 +53,7 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn helper_migration_network_methods(&mut self) -> Result<()> {
+    pub fn helper_migration_network_methods(&mut self, client: Arc<dyn FxAClient>) -> Result<()> {
         let migration_data = match self.state.in_flight_migration {
             Some(ref data) => data.clone(),
             None => {
@@ -60,8 +63,7 @@ impl FirefoxAccount {
 
         // First network request to duplicate the session token if needed
         let migration_session_token = if migration_data.copy_session_token {
-            let duplicate_session = self
-                .client
+            let duplicate_session = client
                 .duplicate_session(&self.state.config, &migration_data.session_token)?;
 
             duplicate_session.session_token
@@ -70,7 +72,7 @@ impl FirefoxAccount {
         };
 
         // Trade our session token for a refresh token.
-        let oauth_response = self.client.oauth_tokens_from_session_token(
+        let oauth_response = client.oauth_tokens_from_session_token(
             &self.state.config,
             &migration_session_token,
             &[scopes::PROFILE, scopes::OLD_SYNC],
@@ -78,7 +80,7 @@ impl FirefoxAccount {
         self.handle_oauth_response(oauth_response, None)?;
 
         // Gather the scope key data
-        let scoped_key_data = self.client.scoped_key_data(
+        let scoped_key_data = client.scoped_key_data(
             &self.state.config,
             &migration_session_token,
             scopes::OLD_SYNC,

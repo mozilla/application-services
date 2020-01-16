@@ -20,12 +20,14 @@ use std::collections::{HashMap, HashSet};
 impl FirefoxAccount {
     /// Fetches the list of devices from the current account including
     /// the current one.
-    pub fn get_devices(&self) -> Result<Vec<Device>> {
+    pub fn get_devices(&mut self) -> Result<Vec<Device>> {
+        let client = self.client.clone();
+        let config = &self.state.config.clone();
         let refresh_token = self.get_refresh_token()?;
-        self.client.devices(&self.state.config, &refresh_token)
+        client.devices(config, &refresh_token)
     }
 
-    pub fn get_current_device(&self) -> Result<Option<Device>> {
+    pub fn get_current_device(&mut self) -> Result<Option<Device>> {
         Ok(self
             .get_devices()?
             .into_iter()
@@ -96,14 +98,16 @@ impl FirefoxAccount {
     }
 
     pub(crate) fn invoke_command(
-        &self,
+        &mut self,
         command: &str,
         target: &Device,
         payload: &serde_json::Value,
     ) -> Result<()> {
+        let config = self.state.config.clone();
+        let client = self.client.clone();
         let refresh_token = self.get_refresh_token()?;
-        self.client.invoke_command(
-            &self.state.config,
+        client.invoke_command(
+            &config,
             &refresh_token,
             command,
             &target.id,
@@ -141,10 +145,12 @@ impl FirefoxAccount {
         index: u64,
         limit: Option<u64>,
     ) -> Result<Vec<AccountEvent>> {
+        let client = self.client.clone();
+        let config = self.state.config.clone();
         let refresh_token = self.get_refresh_token()?;
         let pending_commands =
-            self.client
-                .pending_commands(&self.state.config, refresh_token, index, limit)?;
+            client
+                .pending_commands(&config, refresh_token, index, limit)?;
         if pending_commands.messages.is_empty() {
             return Ok(Vec::new());
         }
@@ -154,7 +160,7 @@ impl FirefoxAccount {
         Ok(account_events)
     }
 
-    fn parse_commands_messages(&self, messages: Vec<PendingCommand>) -> Result<Vec<AccountEvent>> {
+    fn parse_commands_messages(&mut self, messages: Vec<PendingCommand>) -> Result<Vec<AccountEvent>> {
         let mut account_events: Vec<AccountEvent> = Vec::with_capacity(messages.len());
         let commands: Vec<_> = messages.into_iter().map(|m| m.data).collect();
         let devices = self.get_devices()?;
@@ -185,12 +191,12 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn set_device_name(&self, name: &str) -> Result<UpdateDeviceResponse> {
+    pub fn set_device_name(&mut self, name: &str) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new().display_name(name).build();
         self.update_device(update)
     }
 
-    pub fn clear_device_name(&self) -> Result<UpdateDeviceResponse> {
+    pub fn clear_device_name(&mut self) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new()
             .clear_display_name()
             .build();
@@ -198,7 +204,7 @@ impl FirefoxAccount {
     }
 
     pub fn set_push_subscription(
-        &self,
+        &mut self,
         push_subscription: &PushSubscription,
     ) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new()
@@ -212,7 +218,7 @@ impl FirefoxAccount {
     // endpoint yet.
     #[allow(dead_code)]
     pub(crate) fn register_command(
-        &self,
+        &mut self,
         command: &str,
         value: &str,
     ) -> Result<UpdateDeviceResponse> {
@@ -227,7 +233,7 @@ impl FirefoxAccount {
     // TODO: this currently deletes every command registered for the device
     // because the server does not have a `PATCH commands` endpoint yet.
     #[allow(dead_code)]
-    pub(crate) fn unregister_command(&self, _: &str) -> Result<UpdateDeviceResponse> {
+    pub(crate) fn unregister_command(&mut self, _: &str) -> Result<UpdateDeviceResponse> {
         let commands = HashMap::new();
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
@@ -236,7 +242,7 @@ impl FirefoxAccount {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn clear_commands(&self) -> Result<UpdateDeviceResponse> {
+    pub(crate) fn clear_commands(&mut self) -> Result<UpdateDeviceResponse> {
         let update = DeviceUpdateRequestBuilder::new()
             .clear_available_commands()
             .build();
@@ -244,7 +250,7 @@ impl FirefoxAccount {
     }
 
     pub(crate) fn replace_device(
-        &self,
+        &mut self,
         display_name: &str,
         device_type: &Type,
         push_subscription: &Option<PushSubscription>,
@@ -260,10 +266,11 @@ impl FirefoxAccount {
         self.update_device(builder.build())
     }
 
-    fn update_device(&self, update: DeviceUpdateRequest<'_>) -> Result<UpdateDeviceResponse> {
+    fn update_device(&mut self, update: DeviceUpdateRequest<'_>) -> Result<UpdateDeviceResponse> {
+        let config = self.state.config.clone();
+        let client = self.client.clone();
         let refresh_token = self.get_refresh_token()?;
-        self.client
-            .update_device(&self.state.config, refresh_token, update)
+        client.update_device(&config, refresh_token, update)
     }
 
     /// Retrieve the current device id from state

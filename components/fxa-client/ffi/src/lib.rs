@@ -239,7 +239,7 @@ pub extern "C" fn fxa_migrate_from_session_token(
     k_xcs: FfiStr<'_>,
     copy_session_token: bool,
     error: &mut ExternError,
-) -> bool {
+) {
     log::debug!("fxa_migrate_from_session_token");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let session_token = session_token.as_str();

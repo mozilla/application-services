@@ -263,7 +263,8 @@ impl FirefoxAccount {
                 if self.state.in_flight_migration.is_some() {
                     // if there's a pending migration state, then try to provision a refresh_token
                     // by exchanging the session token for the refresh token
-                    self.helper_migration_network_methods();
+                    let client = self.client.clone();
+                    self.helper_migration_network_methods(client);
                     // if migration succeeded then return the new refresh token
                     match self.state.refresh_token {
                         Some(ref token_info) => Ok(&token_info.token),
@@ -286,7 +287,7 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn disconnect(&mut self) {
-        if let Some(ref refresh_token) = self.state.refresh_token {
+        if let Some(ref refresh_token) = self.state.refresh_token.clone() {
             // Delete the current device (which deletes the refresh token), or
             // the refresh token directly if we don't have a device.
             let destroy_result = match self.get_current_device() {
