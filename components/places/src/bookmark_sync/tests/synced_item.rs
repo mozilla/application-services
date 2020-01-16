@@ -162,16 +162,19 @@ impl SyncedBookmarkItem {
     // Get a record from the DB.
     pub fn get(conn: &PlacesDb, guid: &SyncGuid) -> Result<Option<Self>> {
         Ok(conn.try_query_row(
-            "SELECT b.*, p.url, group_concat(t.tag) AS tags,
-                    -- This creates a string like `1:bookmarkAAAA`.
-                    group_concat(s.position || ':' || s.guid) AS children
+            "SELECT b.*,
+                    (SELECT p.url FROM moz_places p
+                     WHERE p.id = b.placeId) AS url,
+                    (SELECT group_concat(t.tag)
+                     FROM moz_tags t
+                     JOIN moz_bookmarks_synced_tag_relation r ON r.tagId = t.id
+                     WHERE r.itemId = b.id) AS tags,
+                    -- This creates a string like `1:bookmarkAAAA`
+                    (SELECT group_concat(s.position || ':' || s.guid)
+                     FROM moz_bookmarks_synced_structure s
+                     WHERE s.parentGuid = b.guid) AS children
              FROM moz_bookmarks_synced b
-             LEFT JOIN moz_places p on b.placeId = p.id
-             LEFT JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = b.id
-             LEFT JOIN moz_tags t ON t.id = r.tagId
-             LEFT JOIN moz_bookmarks_synced_structure s ON s.parentGuid = b.guid
-             WHERE b.guid = :guid
-             GROUP BY b.id",
+             WHERE b.guid = :guid",
             &[(":guid", guid)],
             Self::from_row,
             true,

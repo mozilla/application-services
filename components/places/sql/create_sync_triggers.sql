@@ -31,140 +31,39 @@ BEGIN
            NEW.isDeleted, NEW.kind, NEW.dateAdded, NEW.title,
            NEW.placeId, NEW.keyword);
 
+    -- Update the list of children to reflect what we just uploaded.
     INSERT INTO moz_bookmarks_synced_structure(guid, parentGuid, position)
     SELECT guid, NEW.guid, position
     FROM structureToUpload
     WHERE parentId = NEW.id;
+
+    -- ...And tags, too.
+    INSERT INTO moz_bookmarks_synced_tag_relation(itemId, tagId)
+    SELECT v.id, (SELECT t.id FROM moz_tags t
+                  WHERE t.tag = o.tag)
+    FROM tagsToUpload o
+    JOIN itemsToUpload u ON u.id = o.id
+    JOIN moz_bookmarks_synced v ON v.guid = u.guid
+    WHERE o.id = NEW.id;
 END;
 
--- Removes items that are deleted on one or both sides from local items,
--- and inserts new tombstones for non-syncable items to delete remotely.
-CREATE TEMP TRIGGER removeLocalItems
-AFTER DELETE ON itemsToRemove
+CREATE TEMP TRIGGER changeGuids
+AFTER DELETE ON changeGuidOps
 BEGIN
-    -- Note the URL for frecency recalculation.
-    INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
-    SELECT h.id, OLD.removedAt
-    FROM moz_bookmarks b
-    JOIN moz_places h ON h.id = b.fk
-    WHERE b.guid = OLD.guid AND
-          h.frecency <> 0
-    ON CONFLICT(place_id) DO UPDATE SET
-        stale_at = excluded.stale_at;
-
-    -- Don't reupload tombstones for items that are already deleted on the server.
-    DELETE FROM moz_bookmarks_deleted
-    WHERE NOT OLD.shouldUploadTombstone AND
-          guid = OLD.guid;
-
-    -- Upload tombstones for non-syncable items. `shouldUploadTombstone` can be
-    -- removed if we ever persist tombstones (bug 1343103).
-    INSERT OR IGNORE INTO moz_bookmarks_deleted(guid, dateRemoved)
-    SELECT OLD.guid, OLD.removedAt
-    WHERE OLD.shouldUploadTombstone;
-
-    -- Remove the item from Places.
-    DELETE FROM moz_bookmarks
-    WHERE guid = OLD.guid;
-
-    -- Flag applied deletions as merged.
-    UPDATE moz_bookmarks_synced SET
-        needsMerge = 0
-    WHERE needsMerge AND
-          guid = OLD.guid AND
-          -- Don't flag tombstones for items that don't exist in the local
-          -- tree. This check can be removed if we ever persist tombstones
-          -- (bug 1343103).
-          (NOT isDeleted OR OLD.localLevel > -1);
+  UPDATE moz_bookmarks SET
+    guid = OLD.mergedGuid,
+    lastModified = OLD.lastModified,
+    syncStatus = IFNULL(OLD.syncStatus, syncStatus)
+  WHERE guid = OLD.localGuid;
 END;
 
--- The bulk of the logic to apply all remotely changed bookmark items is
--- defined in `INSTEAD OF DELETE` triggers on the `itemsToMerge` and
--- `structureToMerge` views. When we execute `DELETE FROM
--- newRemote{Items, Structure}`, SQLite fires the triggers for each row in the
--- view. This is equivalent to, but more efficient than, issuing
--- `SELECT * FROM newRemote{Items, Structure}`, followed by separate
--- `INSERT` and `UPDATE` statements.
-
--- Changes local GUIDs to remote GUIDs, drops local tombstones for revived
--- remote items, and flags remote items as merged. In the trigger body, `OLD`
--- refers to the row for the unmerged item in `itemsToMerge`.
-CREATE TEMP TRIGGER updateGuidsAndSyncFlags
-INSTEAD OF DELETE ON itemsToMerge
+CREATE TEMP TRIGGER applyNewLocalStructure
+AFTER DELETE ON applyNewLocalStructureOps
 BEGIN
-    UPDATE moz_bookmarks SET
-        -- We update GUIDs here, instead of in the `updateExistingLocalItems`
-        -- trigger, because deduped items with a local merge state won't have
-        -- `useRemote` set.
-        guid = OLD.mergedGuid,
-        syncStatus = CASE WHEN OLD.useRemote
-                     THEN 2 -- SyncStatus::Normal
-                     ELSE syncStatus
-                     END,
-        -- Flag items with local and new structure merge states for upload.
-        syncChangeCounter = OLD.shouldUpload,
-        lastModified = OLD.mergedAt
-    WHERE id = OLD.localId;
-
-    -- Drop local tombstones for revived remote items.
-    DELETE FROM moz_bookmarks_deleted
-    WHERE guid IN (OLD.localGuid, OLD.remoteGuid);
-
-    -- Flag the remote item as merged.
-    UPDATE moz_bookmarks_synced SET
-        needsMerge = 0
-    WHERE needsMerge AND
-          guid IN (OLD.remoteGuid, OLD.localGuid);
-END;
-
-CREATE TEMP TRIGGER updateLocalItems
-INSTEAD OF DELETE ON itemsToMerge WHEN OLD.useRemote
-BEGIN
-    -- Remove all existing tags.
-    DELETE FROM moz_tags_relation
-    WHERE place_id IN (OLD.oldPlaceId, OLD.newPlaceId);
-
-    -- Insert the new item, using the Places root as the placeholder parent, and
-    -- -1 as the position. We'll update these later, when we fire the
-    -- `updateLocalStructure` trigger.
-    INSERT INTO moz_bookmarks(id, guid, parent, position, type, fk, title,
-                              dateAdded, lastModified, syncStatus,
-                              syncChangeCounter)
-    VALUES(OLD.localId, OLD.mergedGuid,
-           (SELECT id FROM moz_bookmarks WHERE guid = "root________"), -1,
-           OLD.newType, OLD.newPlaceId,
-           OLD.newTitle, OLD.newDateAdded,
-           OLD.mergedAt,
-           2, -- SyncStatus::Normal
-           OLD.shouldUpload)
-    ON CONFLICT(id) DO UPDATE SET
-        title = excluded.title,
-        dateAdded = excluded.dateAdded,
-        lastModified = excluded.lastModified,
-        fk = excluded.fk;
-
-    -- Flag the frecency for recalculation.
-    INSERT INTO moz_places_stale_frecencies(place_id, stale_at)
-    SELECT id, OLD.mergedAt
-    FROM moz_places
-    WHERE id IN (OLD.oldPlaceId, OLD.newPlaceId) AND
-          frecency <> 0
-    ON CONFLICT(place_id) DO UPDATE SET
-        stale_at = excluded.stale_at;
-
-    -- Insert new tags for the new URL.
-    INSERT INTO moz_tags_relation(tag_id, place_id)
-    SELECT tagId, OLD.newPlaceId
-    FROM moz_bookmarks_synced_tag_relation
-    WHERE itemId = OLD.remoteId;
-END;
-
--- Updates all parents and positions to reflect the merged tree.
-CREATE TEMP TRIGGER updateLocalStructure
-INSTEAD OF DELETE ON structureToMerge
-BEGIN
-    UPDATE moz_bookmarks SET
-      parent = OLD.newParentId,
-      position = OLD.newPosition
-    WHERE id = OLD.localId;
+  UPDATE moz_bookmarks SET
+    parent = (SELECT id FROM moz_bookmarks
+              WHERE guid = OLD.mergedParentGuid),
+    position = OLD.position,
+    lastModified = OLD.lastModified
+  WHERE guid = OLD.mergedGuid;
 END;

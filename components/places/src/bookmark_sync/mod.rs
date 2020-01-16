@@ -87,6 +87,7 @@ impl SyncedBookmarkKind {
 }
 
 impl From<SyncedBookmarkKind> for dogear::Kind {
+    #[inline]
     fn from(kind: SyncedBookmarkKind) -> dogear::Kind {
         match kind {
             SyncedBookmarkKind::Bookmark => dogear::Kind::Bookmark,
@@ -98,7 +99,21 @@ impl From<SyncedBookmarkKind> for dogear::Kind {
     }
 }
 
+impl From<dogear::Kind> for SyncedBookmarkKind {
+    #[inline]
+    fn from(kind: dogear::Kind) -> SyncedBookmarkKind {
+        match kind {
+            dogear::Kind::Bookmark => SyncedBookmarkKind::Bookmark,
+            dogear::Kind::Query => SyncedBookmarkKind::Query,
+            dogear::Kind::Folder => SyncedBookmarkKind::Folder,
+            dogear::Kind::Livemark => SyncedBookmarkKind::Livemark,
+            dogear::Kind::Separator => SyncedBookmarkKind::Separator,
+        }
+    }
+}
+
 impl ToSql for SyncedBookmarkKind {
+    #[inline]
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
