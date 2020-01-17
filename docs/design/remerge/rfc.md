@@ -1,20 +1,37 @@
 # Remerge: A syncable store for generic data types
 
-Unfortunately, with the (indefinite) "pause" of Mentat, there's no obvious path
-forward for new synced data types beyond 'the Sync team implements a new
-component'. Presumably, at some point we decided this was both desirable, but
-unworkable, hence designing Mentat.
-
-After some thought, I've come up with a design that gets us some of the benefits
-of Mentat with the following major benefits (compared to Mentat)
-
-- Works on top of Sync 1.5, including interfacing with existing collections,
-- Doesn't change the sync data model substantially.
-- Has storage which is straightforward to implement on top of SQLite.
-
-Because the system needs a name, I've decided to call it Remerge.
+The Remerge component provides a data storage mechanism. Using Remerge
+has similar ergonomics to using the venerable
+[JSONFile](https://mozilla.github.io/firefox-browser-architecture/text/0012-jsonfile.html)
+mechanism, but with some ability to sync. It does not go as far as
+being built with true CRDTs, but in exchange it is very easy and
+natural to use for common use cases.
 
 ## Background/Goals/Etc
+
+Synchronization and synchronized data types are table stakes for
+client software in the modern era. Despite this, implementation of
+syncing is technically challenging and often left as an
+afterthought. Implementation of syncing features often relies on the
+Sync team implementing a new component. This is unworkable.
+
+The Mentat project was an attempt to solve this problem globally by
+defining a storage mechanism that could sync natively and was easy to
+use by client developers. Unfortunately, with the (indefinite)
+"[pause](https://mail.mozilla.org/pipermail/firefox-dev/2018-September/006780.html)"
+of Mentat, there's no obvious path forward for new synced data types.
+
+After some thought, I've come up with a design that gets us some of the benefits
+of Mentat with the following major benefits (compared to Mentat):
+
+- Works on top of Sync 1.5, including interfacing with existing
+  collections.  This means we don't need to throw away our existing
+  server-side mechanisms or do costly migrations.
+- Doesn't change the sync data model substantially. Unlike Mentat,
+  which had a very ambitious data model and query language, Remerge is
+  designed around normal collections of records which are "dumb" JSON
+  blobs.
+- Has storage which is straightforward to implement on top of SQLite.
 
 In one of the AllHands, Lina had a presentation which defined three different
 types of sync data stores.
@@ -101,7 +118,7 @@ functions.
 #### 4. Limited write API
 
 The initial version will broadly only support `insert`, `update`, `delete`, and
-`delete_all(include_remote: bool)` functions.
+`delete_all(include_remote: bool)` functions. All storage operations should be explicit.
 
 (Note: a function to set an individual field / subset of fields of a record
 might also be necessary in the initial version for form autofill)
@@ -122,6 +139,8 @@ limit the types of data that can be synced, or introduce a large abstraction
 boundary between the actual data representation that is stored and synced, and
 what the public API is (which would impose a greate deal of implementation
 complexity).
+
+Instead, Remerge records are essentially JSON blobs (that conform to a given schema).
 
 The case where this matters is when conflict occurs. If we detect a conflict,
 then we fall back to the merge algorithm described later.
@@ -708,7 +727,7 @@ following steps.
     1. Take the most recently modified record, and delete (uploading tombstones)
        for all others.
         - XXX It's not clear what else we should do here. Sort by modification
-          date and 
+          date and
 
     2. Merge them front to back using two_way_merge until only a
       single record remains.
@@ -846,7 +865,7 @@ that's not the point).
 2. The collection updates its schema to have:
     - Both `"remerge_features": ["binary_blob"]` and `"optional_remerge_features": ["binary_blob"]`
     - A new optional `favicon` field, which is optional and has type `binary_blob`.
-3. 
+3.
 
 ## Future Work
 
