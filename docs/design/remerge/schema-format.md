@@ -188,8 +188,10 @@ URLs may use the following merge strategies:
 
 ### Options
 
-- `is_origin`: Optional bool to indicate that only the origin of this URL is
-  significant, and the rest should be discarded. Defaults to false.
+- `is_origin`: Optional bool to indicate that this field only stores
+  origins, not full URLs. A URL that contains information besides the
+  origin (e.g. username, password, path, query or fragment) will be
+  rejected for this field. Defaults to false.
 
 - `default`: Optional default value.
 
