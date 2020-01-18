@@ -25,7 +25,8 @@ CREATE TEMP TABLE itemsToApply(
     oldTitle TEXT,
     newTitle TEXT,
     oldPlaceId INTEGER,
-    newPlaceId INTEGER
+    newPlaceId INTEGER,
+    newKeyword TEXT
 );
 
 CREATE INDEX existingItems ON itemsToApply(localId) WHERE localId NOT NULL;
@@ -33,6 +34,8 @@ CREATE INDEX existingItems ON itemsToApply(localId) WHERE localId NOT NULL;
 CREATE INDEX oldPlaceIds ON itemsToApply(newKind, oldPlaceId);
 
 CREATE INDEX newPlaceIds ON itemsToApply(newKind, newPlaceId);
+
+CREATE INDEX newKeywords ON itemsToApply(newKeyword) WHERE newKeyword NOT NULL;
 
 CREATE TEMP TABLE applyNewLocalStructureOps(
     mergedGuid TEXT PRIMARY KEY,

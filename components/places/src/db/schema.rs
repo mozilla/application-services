@@ -18,7 +18,7 @@ use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 10;
+const VERSION: i64 = 11;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -226,6 +226,32 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
             // Add an index for synced bookmark URLs.
             "CREATE INDEX IF NOT EXISTS moz_bookmarks_synced_urls
              ON moz_bookmarks_synced(placeId)",
+        ],
+        || Ok(()),
+    )?;
+    migration(
+        db,
+        10,
+        11,
+        &[
+            // Add a new table to hold synced and migrated search keywords.
+            "CREATE TABLE IF NOT EXISTS moz_keywords(
+                 place_id INTEGER PRIMARY KEY REFERENCES moz_places(id)
+                                  ON DELETE CASCADE,
+                 keyword TEXT NOT NULL UNIQUE
+             )",
+            // Add an index on synced keywords, so that we can search for
+            // mismatched keywords without a table scan.
+            "CREATE INDEX IF NOT EXISTS moz_bookmarks_synced_keywords
+             ON moz_bookmarks_synced(keyword) WHERE keyword NOT NULL",
+            // Migrate synced keywords into their own table, so that they're
+            // available via `bookmarks_get_url_for_keyword` before the next
+            // sync.
+            "INSERT OR IGNORE INTO moz_keywords(keyword, place_id)
+             SELECT keyword, placeId
+             FROM moz_bookmarks_synced
+             WHERE placeId NOT NULL AND
+                   keyword NOT NULL",
         ],
         || Ok(()),
     )?;
@@ -709,5 +735,37 @@ mod tests {
             NO_PARAMS,
         )
         .expect_err("changing the guid should fail");
+    }
+
+    #[test]
+    fn test_downgrade_schema() -> Result<()> {
+        // This test uses SQLite's URI filenames and shared cache features to
+        // create a named in-memory database.
+        let path = "file:downgrade_schema?mode=memory&cache=shared";
+
+        // On the first connection, we downgrade the schema version to 2, the
+        // first one that we support for migrations. We don't actually roll
+        // back any of the schema changes; we just want to make sure that
+        // running through all our migration routines doesn't trigger errors.
+        let downgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
+            .expect("Should open first in-memory database with shared cache");
+        downgrade.execute_batch("PRAGMA user_version = 2")?;
+        assert_eq!(
+            get_current_schema_version(&downgrade)?,
+            2,
+            "Should downgrade schema version"
+        );
+
+        // Now open a second connection to the same named in-memory database.
+        // This should run through all our migrations.
+        let upgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
+            .expect("Should open second in-memory database with shared cache");
+        assert_eq!(
+            get_current_schema_version(&upgrade)?,
+            VERSION,
+            "Should upgrade schema without errors"
+        );
+
+        Ok(())
     }
 }

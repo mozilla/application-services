@@ -68,7 +68,7 @@ impl<'a> IncomingApplicator<'a> {
         let parent_record_id = unpack_optional_id("parentid", b);
         let date_added = unpack_optional_i64("dateAdded", b, &mut validity);
         let title = unpack_optional_str("title", b, &mut validity);
-        let keyword = unpack_optional_str("keyword", b, &mut validity);
+        let keyword = unpack_optional_keyword("keyword", b, &mut validity);
 
         let raw_tags = &b["tags"];
         let tags = if let Some(array) = raw_tags.as_array() {
@@ -542,6 +542,32 @@ fn unpack_optional_i64(
     } else {
         set_reupload(validity);
         None
+    }
+}
+
+fn unpack_optional_keyword(
+    key: &str,
+    data: &JsonValue,
+    validity: &mut SyncedBookmarkValidity,
+) -> Option<String> {
+    match &data[key] {
+        JsonValue::String(ref s) => {
+            // Like Desktop, we don't reupload if a keyword has leading or
+            // trailing whitespace, or isn't lowercase.
+            let k = s.trim();
+            if k.is_empty() {
+                None
+            } else {
+                Some(k.to_lowercase())
+            }
+        }
+        JsonValue::Null => None,
+        _ => {
+            // ...But we do reupload if it's not a string, since older
+            // clients expect that.
+            set_reupload(validity);
+            None
+        }
     }
 }
 
