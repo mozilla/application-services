@@ -432,6 +432,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
+[anyhow](https://github.com/dtolnay/anyhow),
 [autocfg](https://github.com/cuviper/autocfg),
 [backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
 [backtrace](https://github.com/rust-lang/backtrace-rs),
@@ -496,7 +497,7 @@ The following text applies to code linked from these dependencies:
 [openssl](https://github.com/sfackler/rust-openssl),
 [peeking_take_while](https://github.com/fitzgen/peeking_take_while),
 [percent-encoding](https://github.com/servo/rust-url/),
-[petgraph](https://github.com/bluss/petgraph),
+[petgraph](https://github.com/petgraph/petgraph),
 [pin-project-internal](https://github.com/taiki-e/pin-project),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pin-project](https://github.com/taiki-e/pin-project),
