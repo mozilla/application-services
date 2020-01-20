@@ -21,6 +21,14 @@ the details of which are reproduced below.
     <url>https://github.com/taskcluster/rust-hawk/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>Apache License 2.0: anyhow</name>
+    <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: autocfg</name>
+    <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: backtrace</name>
     <url>https://github.com/rust-lang/backtrace-rs/blob/master/LICENSE-APACHE</url>
   </license>
@@ -113,6 +121,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: indexmap</name>
+    <url>https://github.com/bluss/indexmap/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: iovec</name>
     <url>https://github.com/carllerche/iovec/blob/master/LICENSE-APACHE</url>
   </license>
@@ -170,7 +182,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: petgraph</name>
-    <url>https://github.com/bluss/petgraph/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/petgraph/petgraph/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: pkg-config</name>
@@ -179,10 +191,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ppv-lite86</name>
     <url>https://github.com/cryptocorrosion/cryptocorrosion/blob/master/utils-simd/ppv-lite86/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: proc-macro2</name>
-    <url>https://github.com/alexcrichton/proc-macro2/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: proc-macro2</name>
@@ -207,10 +215,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: quick-error</name>
     <url>https://github.com/tailhook/quick-error/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: quote</name>
-    <url>https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: quote</name>
@@ -277,10 +281,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: syn</name>
-    <url>https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: tempfile</name>
     <url>https://github.com/Stebalien/tempfile/blob/master/LICENSE-APACHE</url>
   </license>
@@ -311,10 +311,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: unicode-width</name>
     <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: unicode-xid</name>
-    <url>https://github.com/unicode-rs/unicode-xid/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-xid</name>
@@ -369,6 +365,10 @@ the details of which are reproduced below.
     <url>https://github.com/carllerche/bytes/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: bytes</name>
+    <url>https://github.com/tokio-rs/bytes/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: clap</name>
     <url>https://github.com/clap-rs/clap/blob/master/LICENSE-MIT</url>
   </license>
@@ -399,10 +399,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: textwrap</name>
     <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>MIT License: which</name>
-    <url>https://github.com/harryfei/which-rs/blob/master/LICENSE.txt</url>
   </license>
   <license>
     <name>MIT License: which</name>
