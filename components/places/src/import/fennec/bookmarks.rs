@@ -365,9 +365,13 @@ lazy_static::lazy_static! {
         unknown = SyncStatus::Unknown as u8
     );
 
-    // Count Fennec bookmarks
+    // Count Fennec bookmarks. We exclude guids we know we don't migrate, pinned
+    // and deleted items because this count is used for success metrics.
     static ref COUNT_FENNEC_BOOKMARKS: &'static str =
-        "SELECT COUNT(*) FROM fennec.bookmarks"
+        "SELECT COUNT(*) FROM fennec.bookmarks b
+         WHERE GUID NOT IN ('pinned', 'tags')
+         AND b.parent != -3
+         AND NOT b.deleted"
     ;
 
     // Count Fenix bookmarks

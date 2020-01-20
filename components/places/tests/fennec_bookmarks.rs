@@ -282,6 +282,15 @@ fn test_import() -> Result<()> {
             url: Some("http://xn--r28h.com/%F0%9F%98%8D".to_owned()),
             ..Default::default()
         },
+        FennecBookmark {
+            _id: 14,
+            parent: 7,
+            position: 0,
+            title: Some("Deleted Bookmark".to_owned()),
+            url: Some("https://foo.bar/deleted".to_owned()),
+            deleted: true,
+            ..Default::default()
+        },
     ];
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
@@ -306,7 +315,8 @@ fn test_import() -> Result<()> {
             FennecBookmarkType::Folder as u8
         ))?
         .execute(NO_PARAMS)?;
-    // An item with the parent as -99.
+    // An item with the parent as -99 and an invalid guid - both of these
+    // invalid values will be fixed up and the item will be imported.
     fennec_db
         .prepare(&format!(
             "
@@ -331,8 +341,8 @@ fn test_import() -> Result<()> {
     let expected_metrics = BookmarksMigrationResult {
         num_succeeded: 13,
         total_duration: 4,
-        num_failed: 4,
-        num_total: 17,
+        num_failed: 1, // only failure is our bookmark with an invalid url.
+        num_total: 14,
     };
     assert_eq!(metrics.num_succeeded, expected_metrics.num_succeeded);
     assert_eq!(metrics.num_failed, expected_metrics.num_failed);
