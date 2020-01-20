@@ -13,8 +13,8 @@ failure = "0.1.6"
 hex = "0.4.0"
 lazy_static = "1.4.0"
 log = "0.4"
-prost = "0.5"
-prost-derive = "0.5"
+prost = "0.6.1"
+prost-derive = "0.6.1"
 serde = { version = "1.0.104", features = ["rc"] }
 serde_derive = "1.0.104"
 serde_json = "1.0.44"
@@ -34,7 +34,7 @@ webbrowser = "0.5.1"
 mockiato = "0.9.5"
 
 [build-dependencies]
-prost-build = "0.5"
+prost-build = "0.6.1"
 
 [features]
 reqwest = ["viaduct/reqwest"]

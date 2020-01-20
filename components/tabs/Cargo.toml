@@ -18,15 +18,15 @@ serde_json = "1.0.44"
 failure = "0.1.6"
 log = "0.4.8"
 url = "2.1.1"
-prost = "0.5"
-prost-derive = "0.5"
+prost = "0.6.1"
+prost-derive = "0.6.1"
 ffi-support = { path = "../support/ffi" }
 error-support = { path = "../support/error" }
 interrupt = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 
 [build-dependencies]
-prost-build = "0.5"
+prost-build = "0.6.1"
 
 [dev-dependencies]
 clipboard = "0.5.0"

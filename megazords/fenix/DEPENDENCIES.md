@@ -416,6 +416,8 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
+[anyhow](https://github.com/dtolnay/anyhow),
+[autocfg](https://github.com/cuviper/autocfg),
 [backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
 [backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/alicemaz/rust-base64),
@@ -440,6 +442,7 @@ The following text applies to code linked from these dependencies:
 [hex](https://github.com/KokaKiwi/rust-hex),
 [humantime](https://github.com/tailhook/humantime),
 [idna](https://github.com/servo/rust-url/),
+[indexmap](https://github.com/bluss/indexmap),
 [iovec](https://github.com/carllerche/iovec),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
@@ -454,7 +457,7 @@ The following text applies to code linked from these dependencies:
 [once_cell](https://github.com/matklad/once_cell),
 [peeking_take_while](https://github.com/fitzgen/peeking_take_while),
 [percent-encoding](https://github.com/servo/rust-url/),
-[petgraph](https://github.com/bluss/petgraph),
+[petgraph](https://github.com/petgraph/petgraph),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
@@ -825,7 +828,8 @@ SOFTWARE.
 ## MIT License: bytes
 
 The following text applies to code linked from these dependencies:
-[bytes](https://github.com/carllerche/bytes)
+[bytes](https://github.com/carllerche/bytes),
+[bytes](https://github.com/tokio-rs/bytes)
 
 ```
 Copyright (c) 2018 Carl Lerche
