@@ -32,6 +32,9 @@ pub enum ErrorKind {
     #[fail(display = "No stored session token")]
     NoSessionToken,
 
+    #[fail(display = "No stored migration data")]
+    NoMigrationData,
+
     #[fail(display = "No stored current device id")]
     NoCurrentDeviceId,
 

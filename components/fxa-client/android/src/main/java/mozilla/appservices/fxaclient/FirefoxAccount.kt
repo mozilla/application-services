@@ -13,6 +13,7 @@ import mozilla.appservices.fxaclient.rust.RustError
 import mozilla.appservices.support.native.toNioDirectBuffer
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
+import org.json.JSONObject
 
 /**
  * FirefoxAccount represents the authentication state of a client.
@@ -317,14 +318,28 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * @param sessionToken 64 character string of hex-encoded bytes
      * @param kSync 128 character string of hex-encoded bytes
      * @param kXCS 32 character string of hex-encoded bytes
+     * @return JSONObject JSON object with the result of the migration
      * This performs network requests, and should not be used on the main thread.
      */
-    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
-        rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
-                    false, e)
-        }
+    fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
+        val json = rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, false, e)
+        }.getAndConsumeRustString()
+
         this.tryPersistState()
+        return JSONObject(json)
+    }
+
+    /**
+     * Migrate from a logged-in Firefox Account, takes ownership of the provided session token.
+     *
+     * @return bool Returns a boolean if we are in a migration state
+     */
+    fun isInMigrationState(): Boolean {
+        rustCall { e ->
+            val state = LibFxAFFI.INSTANCE.fxa_is_in_migration_state(this.handle.get(), e)
+            return state.toInt() != 0
+        }
     }
 
     /**
@@ -334,14 +349,32 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * @param sessionToken 64 character string of hex-encoded bytes
      * @param kSync 128 character string of hex-encoded bytes
      * @param kXCS 32 character string of hex-encoded bytes
+     * @return JSONObject JSON object with the result of the migration
      * This performs network requests, and should not be used on the main thread.
      */
-    fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String) {
-        rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS,
-                    true, e)
-        }
+    fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
+        val json = rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, true, e)
+        }.getAndConsumeRustString()
+
         this.tryPersistState()
+        return JSONObject(json)
+    }
+
+    /**
+     * Retry migration from a logged-in Firefox Account.
+     *
+     * Modifies the FirefoxAccount state.
+     * @return JSONObject JSON object with the result of the migration
+     * This performs network requests, and should not be used on the main thread.
+     */
+    fun retryMigrateFromSessionToken(): JSONObject {
+        val json = rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_retry_migrate_from_session_token(this.handle.get(), e)
+        }.getAndConsumeRustString()
+
+        this.tryPersistState()
+        return JSONObject(json)
     }
 
     /**

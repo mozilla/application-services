@@ -2,7 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount};
+use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount, MigrationData};
+use serde_derive::*;
+use std::time::Instant;
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
+pub struct FxAMigrationResult {
+    pub total_duration: u128,
+}
 
 impl FirefoxAccount {
     /// Migrate from a logged-in with a sessionToken Firefox Account.
@@ -24,20 +31,79 @@ impl FirefoxAccount {
         k_sync: &str,
         k_xcs: &str,
         copy_session_token: bool,
-    ) -> Result<()> {
+    ) -> Result<FxAMigrationResult> {
         // if there is already a session token on account, we error out.
         if self.state.session_token.is_some() {
             return Err(ErrorKind::IllegalState("Session Token is already set.").into());
         }
 
-        let migration_session_token = if copy_session_token {
+        self.state.in_flight_migration = Some(MigrationData {
+            k_sync: k_sync.to_string(),
+            k_xcs: k_xcs.to_string(),
+            copy_session_token,
+            session_token: session_token.to_string(),
+        });
+
+        self.try_migration()
+    }
+
+    /// Check if the client is in a pending migration state
+    pub fn is_in_migration_state(&self) -> bool {
+        self.state.in_flight_migration.is_some()
+    }
+
+    pub fn try_migration(&mut self) -> Result<FxAMigrationResult> {
+        let import_start = Instant::now();
+
+        match self.network_migration() {
+            Ok(_) => {}
+            Err(err) => {
+                match err.kind() {
+                    ErrorKind::RemoteError {
+                        code: 500..=599, ..
+                    }
+                    | ErrorKind::RemoteError { code: 429, .. }
+                    | ErrorKind::RequestError(_) => {
+                        // network errors that will allow hopefully migrate later
+                        log::warn!("Network error: {:?}", err);
+                        return Err(err);
+                    }
+                    _ => {
+                        // probably will not recover
+
+                        self.state.in_flight_migration = None;
+
+                        return Err(err);
+                    }
+                };
+            }
+        }
+
+        self.state.in_flight_migration = None;
+
+        let metrics = FxAMigrationResult {
+            total_duration: import_start.elapsed().as_millis(),
+        };
+
+        Ok(metrics)
+    }
+
+    fn network_migration(&mut self) -> Result<()> {
+        let migration_data = match self.state.in_flight_migration {
+            Some(ref data) => data.clone(),
+            None => {
+                return Err(ErrorKind::NoMigrationData.into());
+            }
+        };
+
+        let migration_session_token = if migration_data.copy_session_token {
             let duplicate_session = self
                 .client
-                .duplicate_session(&self.state.config, &session_token)?;
+                .duplicate_session(&self.state.config, &migration_data.session_token)?;
 
             duplicate_session.session_token
         } else {
-            session_token.to_string()
+            migration_data.session_token.to_string()
         };
 
         // Trade our session token for a refresh token.
@@ -49,9 +115,9 @@ impl FirefoxAccount {
         self.handle_oauth_response(oauth_response, None)?;
 
         // Synthesize a scoped key from our kSync.
-        let k_sync = hex::decode(k_sync)?;
+        let k_sync = hex::decode(&migration_data.k_sync)?;
         let k_sync = base64::encode_config(&k_sync, base64::URL_SAFE_NO_PAD);
-        let k_xcs = hex::decode(k_xcs)?;
+        let k_xcs = hex::decode(&migration_data.k_xcs)?;
         let k_xcs = base64::encode_config(&k_xcs, base64::URL_SAFE_NO_PAD);
         let scoped_key_data = self.client.scoped_key_data(
             &self.state.config,
@@ -72,6 +138,7 @@ impl FirefoxAccount {
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);
+
         Ok(())
     }
 }
