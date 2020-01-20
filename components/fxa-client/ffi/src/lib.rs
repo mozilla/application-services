@@ -239,14 +239,40 @@ pub extern "C" fn fxa_migrate_from_session_token(
     k_xcs: FfiStr<'_>,
     copy_session_token: bool,
     error: &mut ExternError,
-) {
+) -> *mut c_char {
     log::debug!("fxa_migrate_from_session_token");
-    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| -> fxa_client::Result<String> {
         let session_token = session_token.as_str();
         let k_sync = k_sync.as_str();
         let k_xcs = k_xcs.as_str();
-        fxa.migrate_from_session_token(session_token, k_sync, k_xcs, copy_session_token)
-    });
+        let migration_metrics =
+            fxa.migrate_from_session_token(session_token, k_sync, k_xcs, copy_session_token)?;
+        let result = serde_json::to_string(&migration_metrics)?;
+        Ok(result)
+    })
+}
+
+/// Check if there is migration state.
+#[no_mangle]
+pub extern "C" fn fxa_is_in_migration_state(handle: u64, error: &mut ExternError) -> u8 {
+    log::debug!("fxa_is_in_migration_state");
+    ACCOUNTS.call_with_result(error, handle, |fxa| -> fxa_client::Result<u8> {
+        Ok(fxa.is_in_migration_state() as u8)
+    })
+}
+
+/// Retry the migration attempt using the stored migration state.
+#[no_mangle]
+pub extern "C" fn fxa_retry_migrate_from_session_token(
+    handle: u64,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_retry_migrate_from_session_token");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| -> fxa_client::Result<String> {
+        let migration_metrics = fxa.try_migration()?;
+        let result = serde_json::to_string(&migration_metrics)?;
+        Ok(result)
+    })
 }
 
 /// Try to get an access token.

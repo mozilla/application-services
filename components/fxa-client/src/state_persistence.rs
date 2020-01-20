@@ -90,6 +90,7 @@ impl From<StateV1> for Result<StateV2> {
             session_token: None,
             current_device_id: None,
             last_seen_profile: None,
+            in_flight_migration: None,
             access_token_cache: HashMap::new(),
         })
     }
