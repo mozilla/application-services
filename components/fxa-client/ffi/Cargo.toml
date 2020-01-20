@@ -14,7 +14,7 @@ ffi-support = { path = "../../support/ffi" }
 log = "0.4.8"
 lazy_static = "1.4.0"
 url = "2.1.1"
-prost = "0.5.0"
+prost = "0.6.1"
 viaduct = { path = "../../viaduct" }
 
 [dependencies.fxa-client]

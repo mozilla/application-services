@@ -52,7 +52,7 @@ pub fn send(request: crate::Request) -> Result<crate::Response, Error> {
     // it. Besides, we already own it.
     let response_bytes = response.into_vec();
 
-    let response: msg_types::Response = match Message::decode(&response_bytes) {
+    let response: msg_types::Response = match Message::decode(response_bytes.as_slice()) {
         Ok(v) => v,
         Err(e) => {
             panic!(
