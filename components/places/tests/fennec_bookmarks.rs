@@ -139,31 +139,8 @@ fn test_import_unsupported_db_version() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_import() -> Result<()> {
-    use places::api::places_api::ConnectionType;
-    use url::Url;
-
-    fn bookmark_exists(places_api: &PlacesApi, url_str: &str) -> Result<bool> {
-        let url = Url::parse(url_str)?;
-        let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
-        Ok(conn.query_row_and_then(
-            "SELECT EXISTS(
-                SELECT 1 FROM main.moz_bookmarks b
-                LEFT JOIN main.moz_places h ON h.id = b.fk
-                WHERE h.url_hash = hash(:url) AND h.url = :url
-            )",
-            &[&url.as_str()],
-            |r| r.get(0),
-        )?)
-    }
-
-    let tmpdir = tempdir().unwrap();
-    let fennec_path = tmpdir.path().join("browser.db");
-    let fennec_path_pinned = fennec_path.clone();
-    let fennec_db = empty_fennec_db(&fennec_path)?;
-
-    let bookmarks = [
+fn get_fennec_roots() -> [FennecBookmark; 7] {
+    [
         // Roots.
         FennecBookmark {
             _id: 0,
@@ -221,7 +198,36 @@ fn test_import() -> Result<()> {
             r#type: &FennecBookmarkType::Folder,
             ..Default::default()
         },
-        // End of roots.
+    ]
+}
+
+#[test]
+fn test_import() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use url::Url;
+
+    let _ = env_logger::try_init();
+
+    fn bookmark_exists(places_api: &PlacesApi, url_str: &str) -> Result<bool> {
+        let url = Url::parse(url_str)?;
+        let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
+        Ok(conn.query_row_and_then(
+            "SELECT EXISTS(
+                SELECT 1 FROM main.moz_bookmarks b
+                LEFT JOIN main.moz_places h ON h.id = b.fk
+                WHERE h.url_hash = hash(:url) AND h.url = :url
+            )",
+            &[&url.as_str()],
+            |r| r.get(0),
+        )?)
+    }
+
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_path_pinned = fennec_path.clone();
+    let fennec_db = empty_fennec_db(&fennec_path)?;
+
+    let bookmarks = [
         FennecBookmark {
             _id: 6,
             parent: 1,
@@ -292,6 +298,7 @@ fn test_import() -> Result<()> {
             ..Default::default()
         },
     ];
+    insert_bookmarks(&fennec_db, &get_fennec_roots())?;
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
     // manually add other records with invalid data.
@@ -368,6 +375,163 @@ fn test_import() -> Result<()> {
 }
 
 #[test]
+fn test_timestamp_sanitization() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::import::common::NOW;
+    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use std::time::{Duration, SystemTime};
+
+    fn get_actual_timestamps(
+        created: Timestamp,
+        modified: Timestamp,
+    ) -> Result<(Timestamp, Timestamp)> {
+        let tmpdir = tempdir().unwrap();
+        let fennec_path = tmpdir.path().join("browser.db");
+        let fennec_db = empty_fennec_db(&fennec_path)?;
+
+        let bookmarks = [FennecBookmark {
+            _id: 6,
+            guid: "bookmarkAAAA".into(),
+            created: Some(created),
+            modified: Some(modified),
+            parent: 5,
+            url: Some("http://example.com".to_owned()),
+            ..Default::default()
+        }];
+        insert_bookmarks(&fennec_db, &get_fennec_roots())?;
+        insert_bookmarks(&fennec_db, &bookmarks)?;
+
+        let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+        places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+
+        let reader = places_api.open_connection(ConnectionType::ReadOnly)?;
+        let b = fetch_bookmark(&reader, &Guid::from("bookmarkAAAA"), true)?.unwrap();
+        // regardless of what our caller asserts, modified must never be earlier than created.
+        assert!(b.last_modified >= b.date_added);
+        Ok((b.date_added, b.last_modified))
+    }
+
+    let now = *NOW;
+    let stnow: SystemTime = now.into();
+    let earlier: Timestamp = (stnow - Duration::new(10, 0)).into();
+    let later: Timestamp = (stnow + Duration::new(10000, 0)).into();
+    println!("Timestamp tests have now as {:?}", now);
+
+    // sane timestamps, times equal -> as specified
+    assert_eq!(get_actual_timestamps(now, now)?, (now, now));
+    assert_eq!(get_actual_timestamps(earlier, earlier)?, (earlier, earlier));
+    // sane timestamps, modified later than created -> as specified
+    assert_eq!(get_actual_timestamps(earlier, now)?, (earlier, now));
+
+    // sane timestamps, modified earlier than created -> both set to created.
+    assert_eq!(get_actual_timestamps(now, earlier)?, (now, now));
+
+    // NOTE: The results of testing not-sane is somewhat arbitrary - there are
+    // a number of results which would be fine - so long as the 'created can't
+    // be after modified' invalirant holds true (which is checked in
+    // get_actual_timestamps())
+
+    // created in the past and sane, modified not sane (too early) -> created as specified, modified = now
+    // (easily argued that modified -> now is better, but that's tricky in the sql)
+    assert_eq!(
+        get_actual_timestamps(earlier, Timestamp(0))?,
+        (earlier, now)
+    );
+
+    // created in the past and sane, modified not sane (too late) -> created as specified, modified = now
+    assert_eq!(get_actual_timestamps(earlier, later)?, (earlier, now));
+
+    // created not sane (too early), modified sane -> both set to now
+    // (easily argued that both set to the earlier `modified` would be better,
+    // but that's tricky in the sql)
+    assert_eq!(get_actual_timestamps(Timestamp(0), earlier)?, (now, now));
+
+    // created not sane (too late), modified sane -> both set to now
+    // (easily argued that both set to the earlier `modified` would be better,
+    // but that's tricky in the sql)
+    assert_eq!(get_actual_timestamps(later, earlier)?, (now, now));
+
+    // both too early -> both set to now
+    assert_eq!(
+        get_actual_timestamps(Timestamp(0), Timestamp(0))?,
+        (now, now)
+    );
+    // both too late, both -> now
+    assert_eq!(get_actual_timestamps(later, later)?, (now, now));
+    Ok(())
+}
+
+// Test that timestamps of records with tags have early but sane dates.
+#[test]
+fn test_timestamp_sanitization_tags() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::import::common::NOW;
+    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use std::time::{Duration, SystemTime};
+
+    fn get_actual_timestamp(created: Timestamp, modified: Timestamp) -> Result<Timestamp> {
+        let tmpdir = tempdir().unwrap();
+        let fennec_path = tmpdir.path().join("browser.db");
+        let fennec_db = empty_fennec_db(&fennec_path)?;
+
+        let bookmarks = [FennecBookmark {
+            _id: 6,
+            guid: "bookmarkAAAA".into(),
+            created: Some(created),
+            modified: Some(modified),
+            parent: 5,
+            url: Some("http://example.com".to_owned()),
+            tags: Some("foo".to_owned()),
+            ..Default::default()
+        }];
+        insert_bookmarks(&fennec_db, &get_fennec_roots())?;
+        insert_bookmarks(&fennec_db, &bookmarks)?;
+
+        let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+        places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+
+        let reader = places_api.open_connection(ConnectionType::ReadOnly)?;
+        let b = fetch_bookmark(&reader, &Guid::from("bookmarkAAAA"), true)?.unwrap();
+        // for items with tags, created and modified are always identical.
+        assert_eq!(b.date_added, b.last_modified);
+        Ok(b.date_added)
+    }
+
+    let now = *NOW;
+    let stnow: SystemTime = now.into();
+    let earlier: Timestamp = (stnow - Duration::new(10, 0)).into();
+    let later: Timestamp = (stnow + Duration::new(10000, 0)).into();
+    println!("Timestamp (tag) tests have now as {:?}", now);
+
+    // sane timestamps, times equal -> as specified
+    assert_eq!(get_actual_timestamp(now, now)?, now);
+    assert_eq!(get_actual_timestamp(earlier, earlier)?, earlier);
+    // sane timestamps, modified later than created -> both to created
+    assert_eq!(get_actual_timestamp(earlier, now)?, earlier);
+
+    // sane timestamps, modified earlier than created -> both set to modified.
+    assert_eq!(get_actual_timestamp(now, earlier)?, earlier);
+
+    // created in the past and sane, modified not sane (too early) -> created
+    assert_eq!(get_actual_timestamp(earlier, Timestamp(0))?, earlier);
+
+    // created in the past and sane, modified not sane (too late) -> created
+    assert_eq!(get_actual_timestamp(earlier, later)?, earlier);
+
+    // created not sane (too early), modified sane -> both set to modified
+    assert_eq!(get_actual_timestamp(Timestamp(0), earlier)?, earlier);
+
+    // created not sane (too late), modified sane -> modified
+    assert_eq!(get_actual_timestamp(later, earlier)?, earlier);
+
+    // both too early, both -> now
+    assert_eq!(get_actual_timestamp(Timestamp(0), Timestamp(0))?, now);
+    // both too late, both -> now
+    assert_eq!(get_actual_timestamp(later, later)?, now);
+    Ok(())
+}
+
+#[test]
 fn test_positions() -> Result<()> {
     use places::api::places_api::ConnectionType;
     use places::storage::bookmarks::public_node::fetch_bookmark;
@@ -380,23 +544,6 @@ fn test_positions() -> Result<()> {
     let bm3 = next_guid();
 
     let bookmarks = [
-        // Roots.
-        FennecBookmark {
-            _id: 0,
-            parent: 0, // The root node is its own parent.
-            guid: Guid::from("places"),
-            r#type: &FennecBookmarkType::Folder,
-            ..Default::default()
-        },
-        FennecBookmark {
-            _id: 5,
-            parent: 0,
-            guid: Guid::from("unfiled"),
-            title: Some("Other Bookmarks".to_owned()),
-            r#type: &FennecBookmarkType::Folder,
-            ..Default::default()
-        },
-        // End of roots.
         FennecBookmark {
             _id: 6,
             guid: bm1.clone(),
@@ -424,6 +571,7 @@ fn test_positions() -> Result<()> {
             ..Default::default()
         },
     ];
+    insert_bookmarks(&fennec_db, &get_fennec_roots())?;
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
@@ -465,4 +613,180 @@ fn test_empty_db() -> Result<()> {
     assert_eq!(metrics.num_failed, 0);
     assert!(metrics.total_duration > 0);
     Ok(())
+}
+
+enum TimestampTestType {
+    LocalNewer,
+    RemoteNewer,
+}
+
+fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::bookmark_sync::store::BookmarksStore;
+    use places::storage::bookmarks::bookmarks_get_url_for_keyword;
+    use places::storage::tags;
+    use serde_json::json;
+    use std::collections::HashSet;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use sync15::{telemetry, IncomingChangeset, Payload, ServerTimestamp, Store};
+    use url::Url;
+
+    let _ = env_logger::try_init();
+
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_db = empty_fennec_db(&fennec_path)?;
+
+    let now = SystemTime::now();
+    // We arrange for the "current time" on the server to be now, and modified
+    // timestamp of our test item on the server to be 10 seconds ago.
+    let item_server_timestamp: ServerTimestamp =
+        (now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as f64 - 10.0).into();
+    let server_timestamp: ServerTimestamp =
+        (now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as f64).into();
+    // The locally modified timestamp is either now or 20 seconds ago
+    let timestamp_local: Timestamp = match test_type {
+        TimestampTestType::LocalNewer => now.into(),
+        TimestampTestType::RemoteNewer => (now - Duration::new(20, 0)).into(),
+    };
+
+    let bookmarks = [
+        // This bookmark will have tags on the server.
+        FennecBookmark {
+            _id: 6,
+            guid: "bookmarkAAAA".into(),
+            created: Some(Timestamp::EARLIEST),
+            modified: Some(timestamp_local),
+            position: 0,
+            parent: 5,
+            // It doesn't matter what the tag is, just that *something* exists,
+            // because our SQL will force the modified date to the create date
+            // if it does.
+            tags: Some("whatever".to_owned()),
+            title: Some("A".to_owned()),
+            url: Some("http://example.com/a".to_owned()),
+            ..Default::default()
+        },
+        // This bookmark will have a keyword on the server.
+        FennecBookmark {
+            _id: 7,
+            guid: "bookmarkBBBB".into(),
+            created: Some(Timestamp::EARLIEST),
+            modified: Some(timestamp_local),
+            position: 1,
+            parent: 5,
+            // As above, it doesn't matter what the keyword is, just that it exists
+            keyword: Some("whatever".to_owned()),
+            title: Some("B".to_owned()),
+            url: Some("http://example.com/b/%s".to_owned()),
+            ..Default::default()
+        },
+    ];
+    insert_bookmarks(&fennec_db, &get_fennec_roots())?;
+    insert_bookmarks(&fennec_db, &bookmarks)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+    assert_eq!(metrics.num_failed, 0);
+
+    let writer = places_api.open_connection(ConnectionType::ReadWrite)?;
+    let syncer = places_api.open_sync_connection()?;
+
+    // Should be no bookmark with keyword 'a' yet.
+    assert_eq!(bookmarks_get_url_for_keyword(&writer, "a")?, None);
+    // And no URL with our test tag yet.
+    assert_eq!(tags::get_urls_with_tag(&writer, "test-tag")?, []);
+
+    // Now setup incoming records from the server with some of the data we
+    // missed.
+    let records = vec![
+        json!({
+            "id": "unfiled",
+            "type": "folder",
+            "parentid": "places",
+            "parentName": "root",
+            "dateAdded": Timestamp::EARLIEST,
+            "title": "unfiled",
+            "children": ["bookmarkAAAA", "bookmarkBBBB"],
+        }),
+        json!({
+            "id": "bookmarkAAAA",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "unfiled",
+            "dateAdded": Timestamp::EARLIEST,
+            "title": "A",
+            "bmkUri": "http://example.com/a",
+            "tags": ["test-tag"],
+        }),
+        json!({
+            "id": "bookmarkBBBB",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "unfiled",
+            "dateAdded": Timestamp::EARLIEST,
+            "title": "B",
+            "bmkUri": "http://example.com/b/%s",
+            "keyword": "b",
+        }),
+    ];
+
+    let interrupt_scope = syncer.begin_interrupt_scope();
+    let store = BookmarksStore::new(&syncer, &interrupt_scope);
+
+    let mut incoming =
+        IncomingChangeset::new(store.collection_name().to_string(), server_timestamp);
+    for record in records {
+        let payload = Payload::from_json(record).unwrap();
+        incoming.changes.push((payload, item_server_timestamp));
+    }
+
+    let outgoing = store
+        .apply_incoming(incoming, &mut telemetry::Engine::new("bookmarks"))
+        .expect("Should apply incoming records");
+    let outgoing_ids: HashSet<_> = outgoing
+        .changes
+        .iter()
+        .map(|p| p.id.clone().into_string())
+        .collect();
+
+    // Note that most of the roots *are* in outgoing - dogear always uploads
+    // roots in this case - all the gory details are explained in
+    // https://github.com/mozilla/application-services/pull/2496#discussion_r369327069
+    // If dogear reverts this behaviour (which it arguably should), this may
+    // change. tl;dr - we can't simply assert outgoing is empty here!
+
+    // Another subtlety:
+    // * If bookmarkAAAA was in outgoing, we'd actually lose the tag (we'd upload
+    //   the record without one) - so it's vital that's not in outgoing.
+    // * If bookmarkBBBB was in outgoing, we'd still keep the keyword (we'd still
+    //   upload the record with it in place) - so this is, basically, an
+    //   optimization. This is explained in detail via
+    //   https://github.com/mozilla/application-services/pull/2496#discussion_r369328161
+    //   but it's basically an implementation detail.
+    assert!(!outgoing_ids.contains("bookmarkAAAA"), "{:?}", outgoing_ids);
+    assert!(!outgoing_ids.contains("bookmarkBBBB"), "{:?}", outgoing_ids);
+
+    // We should always end up with the tag.
+    assert_eq!(
+        tags::get_urls_with_tag(&writer, "test-tag")?,
+        [Url::parse("http://example.com/a")?]
+    );
+    // We should always end up with the keyword.
+    assert_eq!(
+        bookmarks_get_url_for_keyword(&writer, "b")?,
+        Some(Url::parse("http://example.com/b/%s")?)
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_sync_after_migrate_local_newer() -> Result<()> {
+    do_test_sync_after_migrate(TimestampTestType::LocalNewer)
+}
+
+#[test]
+fn test_sync_after_migrate_remote_newer() -> Result<()> {
+    do_test_sync_after_migrate(TimestampTestType::RemoteNewer)
 }
