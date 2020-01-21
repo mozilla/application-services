@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::schema::error::SchemaError;
 use failure::Fail;
 
 #[derive(Debug, Fail)]
@@ -19,7 +20,7 @@ pub enum ErrorKind {
     SchemaNameMatchError(String, String),
 
     #[fail(display = "Invalid schema: {}", _0)]
-    SchemaError(#[fail(cause)] crate::schema::error::SchemaError),
+    SchemaError(#[fail(cause)] SchemaError),
 
     #[fail(
         display = "Schema given is of an earlier version ({}) than previously stored ({})",
@@ -69,6 +70,12 @@ pub enum ErrorKind {
     #[fail(display = "Operation interrupted")]
     Interrupted,
 
+    #[fail(
+        display = "Sync aborted as native schema {:?} has been locked out by a newer remote schema",
+        _0
+    )]
+    LockedOut(String),
+
     #[fail(display = "Not Yet Implemented: {}", _0)]
     NotYetImplemented(String),
 }
@@ -76,11 +83,24 @@ pub enum ErrorKind {
 error_support::define_error! {
     ErrorKind {
         (JsonError, serde_json::Error),
-        (SchemaError, crate::schema::error::SchemaError),
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),
         (InvalidRecord, InvalidRecord),
         (Unspecified, String),
+    }
+}
+
+impl From<Box<SchemaError>> for ErrorKind {
+    #[cold]
+    fn from(e: Box<SchemaError>) -> ErrorKind {
+        ErrorKind::SchemaError(*e)
+    }
+}
+
+impl From<Box<SchemaError>> for Error {
+    #[cold]
+    fn from(e: Box<SchemaError>) -> Error {
+        Error::from(ErrorKind::from(e))
     }
 }
 

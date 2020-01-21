@@ -47,6 +47,7 @@ CREATE TABLE rec_mirror (
     -- in milliseconds (a sync15::ServerTimestamp multiplied by 1000 and truncated)
     server_modified_ms INTEGER NOT NULL,
 
+    is_deleted     TINYINT NOT NULL DEFAULT 0,
     -- Whether or not there have been local changes to the record.
     is_overridden   TINYINT NOT NULL DEFAULT 0,
 

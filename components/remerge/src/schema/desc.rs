@@ -2,11 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::error::SchemaResult;
 use super::merge_kinds::*;
 use crate::error::*;
 use crate::ms_time::EARLIEST_SANE_TIME;
 use crate::{JsonObject, JsonValue, Sym, SymMap};
-use std::collections::HashSet;
+use std::collections::{btree_map, BTreeSet};
 use std::sync::Arc;
 use url::Url;
 
@@ -25,11 +26,9 @@ pub struct RecordSchema {
     pub legacy: bool,
     pub fields: SymMap<Field>,
 
-    // pub field_map: HashMap<String, FieldIndex>,
-    pub dedupe_on: Vec<Sym>,
-
-    pub composite_roots: Vec<Sym>,
-    pub composite_fields: Vec<Sym>,
+    pub dedupe_on: BTreeSet<Sym>,
+    pub composite_roots: BTreeSet<Sym>,
+    pub composite_fields: BTreeSet<Sym>,
 
     // If we have a semantic for an UpdatedAt Timestamp, it's this.
     pub field_updated_at: Option<Sym>,
@@ -41,21 +40,37 @@ pub struct RecordSchema {
     pub source: Arc<str>,
 }
 
+impl RecordSchema {
+    pub fn from_local(s: impl Into<Arc<str>>) -> SchemaResult<Arc<Self>> {
+        crate::schema::parse_from_string(s, false).map(Arc::new)
+    }
+
+    pub fn from_remote(s: impl Into<Arc<str>>) -> SchemaResult<Arc<Self>> {
+        crate::schema::parse_from_string(s, true).map(Arc::new)
+    }
+
+    pub fn own_guid(&self) -> &Field {
+        &self.fields[&self.field_own_guid]
+    }
+
+    pub fn field<'a, S: ?Sized + AsRef<str>>(&'a self, name: &S) -> Option<&'a Field> {
+        self.fields.get(name)
+    }
+    pub fn field_groups(&self) -> FieldGroupIter<'_> {
+        FieldGroupIter {
+            schema: self,
+            inner: self.fields.iter(),
+            seen: Default::default(),
+        }
+    }
+}
+
 impl std::fmt::Debug for RecordSchema {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RecordSchema")
             .field("name", &self.name)
             .field("version", &self.version)
             .finish()
-    }
-}
-
-impl RecordSchema {
-    pub fn from_local(s: impl Into<Arc<str>>) -> Result<Arc<Self>, crate::SchemaError> {
-        crate::schema::parse_from_string(s, false).map(Arc::new)
-    }
-    pub fn from_remote(s: impl Into<Arc<str>>) -> Result<Arc<Self>, crate::SchemaError> {
-        crate::schema::parse_from_string(s, true).map(Arc::new)
     }
 }
 
@@ -67,19 +82,86 @@ impl PartialEq for RecordSchema {
     }
 }
 
-impl RecordSchema {
-    pub fn own_guid(&self) -> &Field {
-        &self.fields[&self.field_own_guid]
-    }
-    pub fn field<'a, S: ?Sized + AsRef<str>>(&'a self, name: &S) -> Option<&'a Field> {
-        self.fields.get(name)
-    }
-}
-
 impl std::ops::Index<&Sym> for RecordSchema {
     type Output = Field;
     fn index(&self, idx: &Sym) -> &Field {
         &self.fields[idx]
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FieldGroup<'a> {
+    pub root: &'a Field,
+    pub children: Vec<&'a Field>,
+}
+
+impl<'a> FieldGroup<'a> {
+    pub fn is_composite_root(&self) -> bool {
+        self.root.composite.is_some()
+    }
+    pub fn merge_strategy(&self) -> AnyMerge {
+        self.root.merge_strategy()
+    }
+}
+
+/// Iterates over every field which is either a composite root, or not part of a
+/// composite.
+#[derive(Clone)]
+pub struct FieldGroupIter<'a> {
+    schema: &'a RecordSchema,
+    inner: btree_map::Iter<'a, Sym, Field>,
+    seen: BTreeSet<Sym>,
+}
+
+impl<'a> Iterator for FieldGroupIter<'a> {
+    type Item = FieldGroup<'a>;
+    // the debug_asserts here all indicate bugs in the schema validation code.
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let (name, field) = if let Some(v) = self.inner.next() {
+                v
+            } else {
+                debug_assert_eq!(
+                    self.seen.len(),
+                    self.schema.fields.len(),
+                    "Should have seen everything"
+                );
+                return None;
+            };
+            debug_assert_eq!(name, field.name);
+            if self.seen.contains(name) {
+                continue;
+            }
+            return Some(match &field.composite {
+                // If a field is a non-root composite member, then we keep going
+                // until we see the root.
+                Some(CompositeInfo::Member { root }) => {
+                    debug_assert!(!self.seen.contains(root), "we shouldn't be in seen");
+                    debug_assert_ne!(root, name);
+                    continue;
+                }
+                Some(CompositeInfo::Root { children }) => {
+                    debug_assert!(!children.contains(name));
+                    debug_assert!(!children.is_empty());
+                    let kids = children.iter().map(|c| &self.schema[c]).collect();
+                    self.seen.insert(name.clone());
+
+                    debug_assert!(!children.iter().any(|c| self.seen.contains(c)));
+                    self.seen.extend(children.iter().cloned());
+                    FieldGroup {
+                        root: field,
+                        children: kids,
+                    }
+                }
+                None => {
+                    self.seen.insert(name.clone());
+                    FieldGroup {
+                        root: field,
+                        children: vec![],
+                    }
+                }
+            });
+        }
     }
 }
 
@@ -122,7 +204,7 @@ impl Field {
         }
     }
 
-    pub fn validate(&self, v: JsonValue) -> Result<JsonValue> {
+    pub fn validate(&self, v: JsonValue) -> Result<JsonValue, InvalidRecord> {
         // TODO(issue 2232): most errors should be more specific.
         use InvalidRecord::*;
         if !self.required && v.is_null() {
@@ -236,10 +318,10 @@ impl Field {
         }
     }
 
-    fn validate_record_set(&self, id_key: &str, v: JsonValue) -> Result<JsonValue> {
+    fn validate_record_set(&self, id_key: &str, v: JsonValue) -> Result<JsonValue, InvalidRecord> {
         use InvalidRecord::*;
         if let JsonValue::Array(a) = v {
-            let mut seen: HashSet<&str> = HashSet::with_capacity(a.len());
+            let mut seen: BTreeSet<&str> = BTreeSet::new();
             for item in &a {
                 if let JsonValue::Object(o) = item {
                     if let Some(JsonValue::String(k)) = o.get(id_key) {
@@ -277,7 +359,7 @@ impl Field {
         min: Option<N>,
         max: Option<N>,
         if_oob: IfOutOfBounds,
-    ) -> Result<N> {
+    ) -> Result<N, InvalidRecord> {
         let mut vc = val;
         if let Some(min) = min {
             if vc < min {
@@ -291,9 +373,7 @@ impl Field {
         }
         if vc != val {
             match if_oob {
-                IfOutOfBounds::Discard => {
-                    throw!(crate::error::InvalidRecord::OutOfBounds(self.name.clone()))
-                }
+                IfOutOfBounds::Discard => throw!(InvalidRecord::OutOfBounds(self.name.clone())),
                 IfOutOfBounds::Clamp => Ok(vc),
             }
         } else {
@@ -310,6 +390,26 @@ impl Field {
 
     pub fn is_kind(&self, k: FieldKind) -> bool {
         self.ty.is_kind(k)
+    }
+    pub fn merge_strategy(&self) -> AnyMerge {
+        if matches::matches!(self.composite, Some(CompositeInfo::Member { .. })) {
+            return AnyMerge::CompositeMember;
+        }
+        match &self.ty {
+            FieldType::Untyped { merge, .. } => (*merge).into(),
+            FieldType::Text { merge, .. } => (*merge).into(),
+            FieldType::Url { merge, .. } => (*merge).into(),
+
+            FieldType::Real { merge, .. } => (*merge).into(),
+            FieldType::Integer { merge, .. } => (*merge).into(),
+            FieldType::Timestamp { merge, .. } => (*merge).into(),
+
+            FieldType::Boolean { merge, .. } => (*merge).into(),
+
+            FieldType::OwnGuid { .. } => AnyMerge::NeverMerge,
+            FieldType::UntypedMap { .. } => AnyMerge::SpecialCasedType,
+            FieldType::RecordSet { .. } => AnyMerge::SpecialCasedType,
+        }
     }
 }
 

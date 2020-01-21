@@ -14,6 +14,8 @@ use crate::SymObject;
 use crate::{error::*, JsonValue};
 use std::marker::PhantomData;
 
+pub type RawRecord = SymObject;
+
 mod private {
     /// Sealed trait to prevent code from outside from implementing RecordFormat
     /// for anything other than the implementations here.
@@ -74,7 +76,7 @@ pub type NativeRecord = Record<NativeFormat>;
 
 #[repr(transparent)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct Record<F: RecordFormat>(pub(crate) SymObject, PhantomData<F>);
+pub struct Record<F: RecordFormat>(pub(crate) RawRecord, PhantomData<F>);
 
 impl<F: RecordFormat> Record<F> {
     /// Create a new record with the format `F` directly.
@@ -83,7 +85,7 @@ impl<F: RecordFormat> Record<F> {
     /// to ensure that the `record_json` is actually in the requested format.
     /// See the [`Record`] docs for how to make this determination.
     #[inline]
-    pub fn new_unchecked(record_json: SymObject) -> Self {
+    pub fn new_unchecked(record_json: RawRecord) -> Self {
         Self(record_json, PhantomData)
     }
 
@@ -102,12 +104,12 @@ impl<F: RecordFormat> Record<F> {
     }
 
     #[inline]
-    pub fn as_obj(&self) -> &SymObject {
+    pub fn as_obj(&self) -> &RawRecord {
         &self.0
     }
 
     #[inline]
-    pub fn into_obj(self) -> SymObject {
+    pub fn into_obj(self) -> RawRecord {
         self.0
     }
 
@@ -121,23 +123,23 @@ impl NativeRecord {
     /// Parse a record from a str given to us over the FFI, returning an error
     /// if it's obviously bad (not a json object).
     pub fn from_native_str(s: &str) -> Result<Self> {
-        let record: SymObject =
+        let record: RawRecord =
             serde_json::from_str(s).map_err(|_| crate::error::InvalidRecord::NotJsonObject)?;
         Ok(Self(record, PhantomData))
     }
 }
 
 impl<F: RecordFormat> std::ops::Deref for Record<F> {
-    type Target = SymObject;
+    type Target = RawRecord;
     #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_obj()
     }
 }
 
-impl<F: RecordFormat> AsRef<SymObject> for Record<F> {
+impl<F: RecordFormat> AsRef<RawRecord> for Record<F> {
     #[inline]
-    fn as_ref(&self) -> &SymObject {
+    fn as_ref(&self) -> &RawRecord {
         self.as_obj()
     }
 }
@@ -148,22 +150,22 @@ impl<F: RecordFormat> From<Record<F>> for JsonValue {
         r.into_val()
     }
 }
-impl<F: RecordFormat> From<Record<F>> for SymObject {
+impl<F: RecordFormat> From<Record<F>> for RawRecord {
     #[inline]
-    fn from(r: Record<F>) -> SymObject {
+    fn from(r: Record<F>) -> RawRecord {
         r.into_obj()
     }
 }
-impl<'a, F: RecordFormat> From<&'a Record<F>> for &'a SymObject {
+impl<'a, F: RecordFormat> From<&'a Record<F>> for &'a RawRecord {
     #[inline]
-    fn from(r: &'a Record<F>) -> &'a SymObject {
+    fn from(r: &'a Record<F>) -> &'a RawRecord {
         &r.0
     }
 }
 
-impl From<SymObject> for NativeRecord {
+impl From<RawRecord> for NativeRecord {
     #[inline]
-    fn from(o: SymObject) -> NativeRecord {
+    fn from(o: RawRecord) -> NativeRecord {
         NativeRecord::new_unchecked(o)
     }
 }
@@ -197,7 +199,7 @@ mod sql_impls {
 
     impl FromSql for LocalRecord {
         fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-            crate::SymObject::column_result(value).map(Self::new_unchecked)
+            super::RawRecord::column_result(value).map(Self::new_unchecked)
         }
     }
 }

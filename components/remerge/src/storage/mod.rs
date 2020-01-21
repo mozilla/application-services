@@ -12,7 +12,7 @@ pub(crate) mod upgrades;
 
 pub use bundle::SchemaBundle;
 pub use db::RemergeDb;
-pub use records::{LocalRecord, NativeRecord};
+pub use records::{LocalRecord, NativeRecord, RawRecord};
 
 // This doesn't really belong here.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

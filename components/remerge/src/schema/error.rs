@@ -245,6 +245,9 @@ pub enum SchemaError {
     /// the spec. Serde makes this difficult.
     #[fail(display = "Unknown field type: {}", _0)]
     UnknownFieldType(String),
+
+    #[fail(display = "dedupe_on may not contain repeated entries")]
+    RepeatedDedupeOn,
 }
 
-pub type SchemaResult<T> = std::result::Result<T, SchemaError>;
+pub type SchemaResult<T> = std::result::Result<T, Box<SchemaError>>;

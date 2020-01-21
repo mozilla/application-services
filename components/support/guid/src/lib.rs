@@ -47,7 +47,7 @@ enum Repr {
 
     // invariants:
     // - _0.len() > MAX_FAST_GUID_LEN
-    Slow(String),
+    Slow(Box<str>),
 }
 
 /// Invariants:
@@ -182,7 +182,7 @@ impl Guid {
     pub fn as_bytes(&self) -> &[u8] {
         match &self.0 {
             Repr::Fast(rep) => rep.bytes(),
-            Repr::Slow(rep) => rep.as_ref(),
+            Repr::Slow(rep) => rep.as_bytes(),
         }
     }
 
@@ -200,7 +200,7 @@ impl Guid {
     pub fn into_string(self) -> String {
         match self.0 {
             Repr::Fast(rep) => rep.as_str().into(),
-            Repr::Slow(rep) => rep,
+            Repr::Slow(rep) => rep.into(),
         }
     }
 
@@ -231,7 +231,9 @@ impl Guid {
             v.len()
         );
         Guid(Repr::Slow(
-            String::from_utf8(v).expect("Invalid slow guid bytes!"),
+            String::from_utf8(v)
+                .expect("Invalid slow guid bytes!")
+                .into(),
         ))
     }
 }

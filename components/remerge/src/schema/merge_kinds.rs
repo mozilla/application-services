@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
+use std::convert::TryFrom;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UntypedMerge {
     TakeNewest,
@@ -87,6 +87,90 @@ impl std::fmt::Display for BooleanMerge {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AnyMerge {
+    TakeNewest,
+    PreferRemote,
+    Duplicate,
+    CompositeMember,
+
+    TakeMin,
+    TakeMax,
+    TakeSum,
+    PreferFalse,
+    PreferTrue,
+    // OwnGuid
+    NeverMerge,
+    // OwnGuid, RecordSet, UntypedMap
+    SpecialCasedType,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum CompositeMerge {
+    TakeNewest,
+    PreferRemote,
+    Duplicate,
+    // requires composite root to be a number
+    TakeMin,
+    TakeMax,
+}
+
+impl From<UntypedMerge> for AnyMerge {
+    fn from(u: UntypedMerge) -> AnyMerge {
+        match u {
+            UntypedMerge::Duplicate => Self::Duplicate,
+            UntypedMerge::TakeNewest => Self::TakeNewest,
+            UntypedMerge::PreferRemote => Self::PreferRemote,
+            UntypedMerge::CompositeMember => Self::CompositeMember,
+        }
+    }
+}
+
+impl PartialEq<AnyMerge> for UntypedMerge {
+    fn eq(&self, m: &AnyMerge) -> bool {
+        match (self, m) {
+            (UntypedMerge::Duplicate, AnyMerge::Duplicate) => true,
+            (UntypedMerge::TakeNewest, AnyMerge::TakeNewest) => true,
+            (UntypedMerge::PreferRemote, AnyMerge::PreferRemote) => true,
+            (UntypedMerge::CompositeMember, AnyMerge::CompositeMember) => true,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<UntypedMerge> for AnyMerge {
+    fn eq(&self, m: &UntypedMerge) -> bool {
+        // reverse order
+        m == self
+    }
+}
+
+impl TryFrom<AnyMerge> for UntypedMerge {
+    type Error = ();
+    fn try_from(m: AnyMerge) -> Result<Self, ()> {
+        match m {
+            AnyMerge::Duplicate => Ok(UntypedMerge::Duplicate),
+            AnyMerge::TakeNewest => Ok(UntypedMerge::TakeNewest),
+            AnyMerge::PreferRemote => Ok(UntypedMerge::PreferRemote),
+            AnyMerge::CompositeMember => Ok(UntypedMerge::CompositeMember),
+            _ => Err(()),
+        }
+    }
+}
+impl TryFrom<AnyMerge> for CompositeMerge {
+    type Error = ();
+    fn try_from(m: AnyMerge) -> Result<Self, ()> {
+        match m {
+            AnyMerge::Duplicate => Ok(CompositeMerge::Duplicate),
+            AnyMerge::TakeNewest => Ok(CompositeMerge::TakeNewest),
+            AnyMerge::PreferRemote => Ok(CompositeMerge::PreferRemote),
+            AnyMerge::TakeMax => Ok(CompositeMerge::TakeMax),
+            AnyMerge::TakeMin => Ok(CompositeMerge::TakeMin),
+            _ => Err(()),
+        }
+    }
+}
+
 // macro to remove boilerplate
 macro_rules! merge_boilerplate {
     // base case.
@@ -121,6 +205,52 @@ macro_rules! merge_boilerplate {
         merge_boilerplate!(@type [$MergeT] $($tt)+);
     };
 
+    // @any_equiv: impl From<$MergeT> for AnyMerge, and PartialEq
+    (@type [$MergeT:ident] @any_equiv [$($T0:ident),* $(,)?] $($tt:tt)+) => {
+        impl From<$MergeT> for AnyMerge {
+            #[inline]
+            fn from(u: $MergeT) -> Self {
+                match u {
+                    $MergeT::Untyped(u) => AnyMerge::from(u),
+                    $($MergeT::$T0 => AnyMerge::$T0,)*
+                }
+            }
+        }
+
+        impl PartialEq<AnyMerge> for $MergeT {
+            fn eq(&self, m: &AnyMerge) -> bool {
+                #[allow(unreachable_patterns)]
+                match (self, m) {
+                    ($MergeT::Untyped(u), m) => u == m,
+                    $(($MergeT::$T0, AnyMerge::$T0) => true,)*
+                    _ => false
+                }
+            }
+        }
+
+        impl PartialEq<$MergeT> for AnyMerge {
+            fn eq(&self, m: &$MergeT) -> bool {
+                // reverse order
+                m == self
+            }
+        }
+
+        impl TryFrom<AnyMerge> for $MergeT {
+            type Error = ();
+            fn try_from(m: AnyMerge) -> Result<Self, ()> {
+                if let Ok(u) = UntypedMerge::try_from(m) {
+                    Ok($MergeT::Untyped(u))
+                } else {
+                    #[allow(unreachable_patterns)]
+                    match m {
+                        $(AnyMerge::$T0 => Ok($MergeT::$T0),)*
+                        _ => Err(()),
+                    }
+                }
+            }
+        }
+        merge_boilerplate!(@type [$MergeT] $($tt)+);
+    };
     // @compare_untyped : implement PartialEq<UntypedMerge> automatically.
     (@type [$MergeT:ident] @compare_untyped $($tt:tt)*) => {
         impl PartialEq<UntypedMerge> for $MergeT {
@@ -209,6 +339,7 @@ macro_rules! merge_boilerplate {
 merge_boilerplate!(
     @type [BooleanMerge]
     @from_untyped
+    @any_equiv [PreferTrue, PreferFalse]
     @common_methods
     @compare_untyped
     @compare_via_untyped [NumberMerge, TextMerge, TimestampMerge]
@@ -217,6 +348,7 @@ merge_boilerplate!(
 merge_boilerplate!(
     @type [TextMerge]
     @from_untyped
+    @any_equiv []
     @common_methods
     @compare_untyped
     @compare_via_untyped [NumberMerge, TimestampMerge]
@@ -225,6 +357,7 @@ merge_boilerplate!(
 merge_boilerplate!(
     @type [NumberMerge]
     @from_untyped
+    @any_equiv [TakeMax, TakeMin, TakeSum]
     @common_methods
     @compare_untyped
     @compare_via_untyped []
@@ -235,6 +368,7 @@ merge_boilerplate!(
 merge_boilerplate!(
     @type [TimestampMerge]
     @from_untyped
+    @any_equiv [TakeMax, TakeMin]
     @common_methods
     @compare_untyped
 );

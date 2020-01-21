@@ -19,20 +19,17 @@ use crate::{JsonObject, JsonValue};
 use crate::{Sym, SymMap, SymObject};
 use matches::matches;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use url::Url;
 
 pub const FORMAT_VERSION: i64 = 1;
 
-pub fn parse_from_string(
-    json: impl Into<Arc<str>>,
-    is_remote: bool,
-) -> Result<RecordSchema, SchemaError> {
+pub fn parse_from_string(json: impl Into<Arc<str>>, is_remote: bool) -> SchemaResult<RecordSchema> {
     parse_from_string_impl(json.into(), is_remote)
 }
 
-fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> Result<RecordSchema, SchemaError> {
+fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> SchemaResult<RecordSchema> {
     let raw = match serde_json::from_str::<RawSchema>(&json) {
         Ok(schema) => schema,
         Err(e) => {
@@ -40,7 +37,7 @@ fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> Result<RecordSchem
             if !is_remote {
                 // For some reason throw! and ensure! both complain about moving
                 // `e` here, but this works...
-                return Err(SchemaError::FormatError(e));
+                throw!(SchemaError::FormatError(e));
             }
             if let Ok(dumb) = serde_json::from_str::<DumbSchema>(&json) {
                 // TODO: Spec says we should treat these as `untyped` if for
@@ -48,7 +45,7 @@ fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> Result<RecordSchem
                 for field in &dumb.fields {
                     if let Some(ty) = field.get("type").and_then(|f| f.as_str()) {
                         if !KNOWN_FIELD_TYPE_TAGS.contains(&ty) {
-                            return Err(SchemaError::UnknownFieldType(ty.to_owned()));
+                            throw!(SchemaError::UnknownFieldType(ty.to_owned()));
                         }
                     }
                 }
@@ -68,17 +65,17 @@ fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> Result<RecordSchem
                 _ => {
                     // Ditto with moving `e` (which we want to use because it can give
                     // better error messages).
-                    return Err(SchemaError::FormatError(e));
+                    throw!(SchemaError::FormatError(e));
                 }
             };
-            return Err(if version != FORMAT_VERSION {
-                SchemaError::WrongFormatVersion(version)
+            if version != FORMAT_VERSION {
+                throw!(SchemaError::WrongFormatVersion(version))
             } else {
-                SchemaError::FormatError(e)
-            });
+                throw!(SchemaError::FormatError(e))
+            };
         }
     };
-    let parser = SchemaParser::new(&raw, is_remote);
+    let parser = SchemaParser::new(&raw, is_remote)?;
     let mut result = parser.parse(json)?;
     result.raw = raw;
     Ok(result)
@@ -92,15 +89,15 @@ trait FieldErrorHelper {
 }
 
 impl FieldErrorHelper for FieldError {
-    type Out = SchemaError;
-    fn named(self, name: &str) -> SchemaError {
-        SchemaError::FieldError(name.into(), self)
+    type Out = Box<SchemaError>;
+    fn named(self, name: &str) -> Self::Out {
+        Box::new(SchemaError::FieldError(name.into(), self))
     }
 }
 
 impl<T> FieldErrorHelper for Result<T, FieldError> {
-    type Out = Result<T, SchemaError>;
-    fn named(self, name: &str) -> Result<T, SchemaError> {
+    type Out = SchemaResult<T>;
+    fn named(self, name: &str) -> Self::Out {
         match self {
             Ok(v) => Ok(v),
             Err(e) => Err(e.named(name)),
@@ -494,16 +491,19 @@ struct SchemaParser<'a> {
     input_fields: SymMap<&'a RawFieldType>,
 
     parsed_fields: SymMap<Field>,
-    dedupe_ons: HashSet<Sym>,
-    possible_composite_roots: HashSet<Sym>,
-    composite_members: HashSet<Sym>,
+    dedupe_ons: BTreeSet<Sym>,
+    possible_composite_roots: BTreeSet<Sym>,
+    composite_members: BTreeSet<Sym>,
 }
 
 fn parse_version(v: &str, prop: SemverProp) -> SchemaResult<semver::Version> {
-    semver::Version::parse(v).map_err(|err| SchemaError::VersionParseFailed {
-        got: v.into(),
-        prop,
-        err,
+    semver::Version::parse(v).map_err(|err| {
+        SchemaError::VersionParseFailed {
+            got: v.into(),
+            prop,
+            err,
+        }
+        .into()
     })
 }
 
@@ -535,37 +535,34 @@ pub(crate) fn compatible_version_req(v: &semver::Version) -> semver::VersionReq 
 }
 
 impl<'a> SchemaParser<'a> {
-    pub fn new(repr: &'a RawSchema, _is_remote: bool) -> Self {
+    pub fn new(repr: &'a RawSchema, _is_remote: bool) -> SchemaResult<Self> {
         let composite_roots = repr
             .fields
             .iter()
             .filter_map(|f| f.composite_root().clone())
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
         let composite_members = repr
             .fields
             .iter()
             .filter_map(|f| f.composite_root().as_ref().map(|_| f.name().into()))
             .chain(composite_roots.iter().cloned())
-            .collect::<HashSet<_>>();
+            .collect::<BTreeSet<_>>();
 
-        // let indices = repr
-        //     .fields
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, f)| (f.name(), FieldIndex::from(i)))
-        //     .collect();
+        let dedupe_on = repr.dedupe_on.iter().cloned().collect::<BTreeSet<_>>();
+        ensure!(
+            dedupe_on.len() == repr.dedupe_on.len(),
+            SchemaError::RepeatedDedupeOn
+        );
 
-        Self {
+        Ok(Self {
             input: repr,
-            // indices,
             input_fields: repr.fields.iter().map(|f| (f.name().clone(), f)).collect(),
             parsed_fields: SymMap::new(),
-            // parsed_composites: HashMap::new(),
-            dedupe_ons: repr.dedupe_on.iter().cloned().collect(),
             possible_composite_roots: composite_roots,
             composite_members,
-        }
+            dedupe_ons: dedupe_on,
+        })
     }
 
     fn check_user_version(&self) -> SchemaResult<(semver::Version, semver::VersionReq)> {
@@ -599,7 +596,7 @@ impl<'a> SchemaParser<'a> {
             .iter()
             .find(|f| !REMERGE_FEATURES_UNDERSTOOD.contains(&f.as_str()));
         if let Some(f) = unknown_feat {
-            return Err(SchemaError::MissingRemergeFeature(f.to_string()));
+            throw!(SchemaError::MissingRemergeFeature(f.to_string()));
         }
 
         let mut own_guid: Option<Sym> = None;
@@ -642,7 +639,7 @@ impl<'a> SchemaParser<'a> {
             remerge_features_used: self.input.remerge_features_used.clone(),
             legacy: is_legacy,
             fields: self.parsed_fields,
-            dedupe_on: self.input.dedupe_on.clone(),
+            dedupe_on: self.dedupe_ons.clone(),
             composite_roots,
             composite_fields,
             // field_map: self.indices,
@@ -654,7 +651,7 @@ impl<'a> SchemaParser<'a> {
         })
     }
 
-    fn composite_roots_fields(&self) -> (Vec<Sym>, Vec<Sym>) {
+    fn composite_roots_fields(&self) -> (BTreeSet<Sym>, BTreeSet<Sym>) {
         let composite_roots = self
             .parsed_fields
             .values()
@@ -887,7 +884,7 @@ impl<'a> SchemaParser<'a> {
         for (_, f) in &self.parsed_fields {
             if let FieldType::RecordSet { .. } = &f.ty {
                 if !declared_features.contains(&"record_set".into()) {
-                    return Err(SchemaError::UndeclaredFeatureRequired(
+                    throw!(SchemaError::UndeclaredFeatureRequired(
                         "record_set".to_string(),
                     ));
                 }
@@ -1062,7 +1059,7 @@ impl<'a> SchemaParser<'a> {
         prefer_deletions: bool,
     ) -> Result<FieldType, FieldError> {
         if let Some(s) = &common.default {
-            let mut seen: HashSet<&str> = HashSet::with_capacity(s.len());
+            let mut seen: BTreeSet<&str> = BTreeSet::new();
             for r in s {
                 let id = r.get(id_key).ok_or_else(|| {
                     FieldError::BadRecordSetDefault(BadRecordSetDefaultKind::IdKeyMissing)

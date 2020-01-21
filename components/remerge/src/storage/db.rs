@@ -6,15 +6,16 @@ use super::upgrades::UpgradeKind;
 use super::{bundle::ToLocalReason, meta, LocalRecord, NativeRecord, SchemaBundle, SyncStatus};
 use crate::error::*;
 use crate::ms_time::MsTime;
+use crate::sync::records as syncing;
 use crate::sync::schema_action::UpgradeRemote;
 use crate::vclock::{Counter, VClock};
 use crate::Guid;
 use crate::RecordSchema;
 use rusqlite::{named_params, Connection};
 use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::{atomic::AtomicUsize, Arc, Mutex};
-
 pub struct RemergeDb {
     db: Connection,
     info: SchemaBundle,
@@ -95,6 +96,129 @@ impl RemergeDb {
             named_params! { ":guid": id },
             |row| row.get(0),
         )?)
+    }
+    pub(crate) fn fetch_for_sync(
+        &self,
+        records: Vec<(sync15_traits::Payload, sync15_traits::ServerTimestamp)>,
+        telem: &mut sync15_traits::telemetry::EngineIncoming,
+        scope: &SqlInterruptScope,
+    ) -> Result<HashMap<Guid, syncing::RecordInfo>> {
+        let mut sync_data: HashMap<Guid, syncing::RecordInfo> =
+            HashMap::with_capacity(records.len());
+        {
+            for (incoming, time) in records.into_iter() {
+                let id = incoming.id.clone();
+                match incoming.into_record::<syncing::RemoteRecord>() {
+                    Ok(rec) => {
+                        sync_data.insert(id, syncing::RecordInfo::new(rec, time));
+                    }
+                    Err(e) => {
+                        log::error!("Failed to deserialize record {:?}: {}", id, e);
+                        // Ideally we'd track new_failed, but it's unclear how
+                        // much value it has.
+                        telem.failed(1);
+                    }
+                }
+            }
+        }
+        scope
+            .err_if_interrupted()
+            .map_err(|_| ErrorKind::Interrupted)?;
+        let mut just_ids = sync_data.keys().cloned().collect::<Vec<_>>();
+
+        sql_support::each_chunk_mapped(
+            &just_ids,
+            |id| id.as_str(),
+            |chunk, offset| -> Result<()> {
+                let query = format!(
+                    "WITH to_fetch(fetch_guid) AS (VALUES {vals})
+                     SELECT
+                         guid,
+                         record_data,
+                         is_overridden,
+                         server_modified_ms,
+                         vector_clock,
+                         last_writer_id,
+                         remerge_schema_version,
+                         NULL as local_modified_ms,
+                         is_deleted,
+                         -- NULL as sync_status,
+                         1 as is_mirror
+                     FROM rec_mirror
+                     JOIN to_fetch
+                         ON rec_mirror.guid = to_fetch.fetch_guid
+
+                     UNION ALL
+
+                     SELECT
+                         guid,
+                         record_data,
+                         NULL as is_overridden,
+                         NULL as server_modified_ms,
+                         vector_clock,
+                         last_writer_id,
+                         remerge_schema_version,
+                         local_modified_ms,
+                         is_deleted,
+                         -- sync_status,
+                         0 as is_mirror
+                     FROM rec_local
+                     JOIN to_fetch
+                         ON rec_local.guid = to_fetch.fetch_guid",
+                    // give each VALUES item 2 entries, an index and the parameter.
+                    vals = sql_support::repeat_sql_values(chunk.len())
+                );
+
+                let mut stmt = self.db.prepare(&query)?;
+
+                let rows = stmt.query_and_then(chunk, |row| {
+                    let guid = row.get::<_, Guid>("guid")?;
+                    let is_mirror: bool = row.get("is_mirror")?;
+                    let vclock = row.get::<_, VClock>("vector_clock")?;
+                    let last_writer = row.get::<_, Guid>("last_writer_id")?;
+                    let is_deleted = row.get::<_, bool>("is_deleted")?;
+                    let recdata = if is_deleted {
+                        let record = row.get::<_, super::RawRecord>("record_data")?;
+                        let schema_ver = row.get::<_, String>("remerge_schema_version")?;
+                        Some((record, schema_ver))
+                    } else {
+                        None
+                    };
+                    let mut targ = &mut sync_data[&guid];
+                    if is_mirror {
+                        let server_modified = row.get::<_, i64>("server_modified_ms")?;
+                        let is_overridden = row.get::<_, bool>("is_overridden")?;
+                        targ.mirror = Some(syncing::MirrorRecord {
+                            id: guid,
+                            // None if tombstone. String is schema version
+                            inner: recdata,
+                            server_modified: server_modified.into(),
+                            vclock,
+                            last_writer,
+                            is_overridden,
+                        });
+                    } else {
+                        let local_modified = row.get::<_, MsTime>("local_modified_ms")?;
+                        targ.local = Some(syncing::LocalRecord {
+                            id: guid,
+                            inner: recdata,
+                            local_modified,
+                            vclock,
+                            last_writer,
+                        });
+                    }
+
+                    scope
+                        .err_if_interrupted()
+                        .map_err(|_| ErrorKind::Interrupted)?;
+                    Ok(())
+                })?;
+                // `rows` is an Iterator<Item = Result<()>>, so we need to collect to handle the errors.
+                rows.collect::<Result<_>>()?;
+                Ok(())
+            },
+        )?;
+        Ok(sync_data)
     }
 
     pub fn create(&self, native: &NativeRecord) -> Result<Guid> {

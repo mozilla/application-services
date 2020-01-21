@@ -3,7 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::Guid;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value as JsonValue};
+use serde_json::Value as JsonValue;
+use std::collections::BTreeMap as Map;
 
 /// Represents the decrypted payload in a Bso. Provides a minimal layer of type
 /// safety to avoid double-encrypting.
@@ -70,22 +71,18 @@ impl Payload {
     }
 
     pub fn into_json_string(self) -> String {
-        serde_json::to_string(&JsonValue::from(self))
-            .expect("JSON.stringify failed, which shouldn't be possible")
+        JsonValue::from(self).to_string()
     }
 }
 
 impl From<Payload> for JsonValue {
     fn from(cleartext: Payload) -> Self {
-        let Payload {
-            mut data,
-            id,
-            deleted,
-        } = cleartext;
-        data.insert("id".to_string(), JsonValue::String(id.into_string()));
+        let Payload { data, id, deleted } = cleartext;
+        let mut m: serde_json::Map<String, JsonValue> = data.into_iter().collect();
+        m.insert("id".to_string(), JsonValue::String(id.into_string()));
         if deleted {
-            data.insert("deleted".to_string(), JsonValue::Bool(true));
+            m.insert("deleted".to_string(), JsonValue::Bool(true));
         }
-        JsonValue::Object(data)
+        JsonValue::Object(m)
     }
 }
