@@ -24,7 +24,7 @@ lazy_static = "1.4.0"
 
 [dependencies.backtrace]
 optional = true
-version = "0.3.38"
+version = "0.3.42"
 
 [dev-dependencies]
 rand = "0.7.2"
