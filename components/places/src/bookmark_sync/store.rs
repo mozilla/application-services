@@ -1093,6 +1093,21 @@ impl<'a> Merger<'a> {
         }
     }
 
+    #[cfg(test)]
+    fn with_localtime(
+        store: &'a BookmarksStore<'_>,
+        remote_time: ServerTimestamp,
+        local_time: Timestamp,
+    ) -> Self {
+        Self {
+            store,
+            remote_time,
+            local_time,
+            external_transaction: false,
+            telem: None,
+        }
+    }
+
     /// Prevent (or re-enable, in principal) using `begin_transaction` in `apply()`.
     ///
     /// The assumption is that if you call this, someone higher up the call_stack is
@@ -1207,7 +1222,7 @@ impl<'a> dogear::Store for Merger<'a> {
     fn fetch_local_tree(&self) -> Result<Tree> {
         let mut stmt = self.store.db.prepare(&format!(
             "SELECT guid, type, syncChangeCounter, syncStatus,
-                    lastModified / 1000 AS localModified,
+                    lastModified AS localModified,
                     NULL AS url
              FROM moz_bookmarks
              WHERE guid = '{root_guid}'",
@@ -1231,7 +1246,7 @@ impl<'a> dogear::Store for Merger<'a> {
         let mut child_guids_by_parent_guid: HashMap<SyncGuid, Vec<dogear::Guid>> = HashMap::new();
         let mut stmt = self.store.db.prepare(&format!(
             "SELECT b.guid, p.guid AS parentGuid, b.type, b.syncChangeCounter,
-                    b.syncStatus, b.lastModified / 1000 AS localModified,
+                    b.syncStatus, b.lastModified AS localModified,
                     IFNULL(b.title, '') AS title,
                     {url_fragment} AS url
              FROM moz_bookmarks b
@@ -1617,6 +1632,7 @@ mod tests {
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
+    use std::time::{Duration, SystemTime};
     use sync_guid::Guid;
     use url::Url;
 
@@ -1781,6 +1797,8 @@ mod tests {
 
     #[test]
     fn test_fetch_local_tree() -> Result<()> {
+        let now = SystemTime::now();
+        let previously_ts: Timestamp = (now - Duration::new(10, 0)).into();
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
@@ -1797,7 +1815,9 @@ mod tests {
                     {
                         "guid": "bookmark1___",
                         "title": "the bookmark",
-                        "url": "https://www.example.com/"
+                        "url": "https://www.example.com/",
+                        "last_modified": previously_ts,
+                        "date_added": previously_ts,
                     },
                 ]
             }),
@@ -1805,7 +1825,7 @@ mod tests {
 
         let interrupt_scope = syncer.begin_interrupt_scope();
         let store = BookmarksStore::new(&syncer, &interrupt_scope);
-        let merger = Merger::new(&store, ServerTimestamp(0));
+        let merger = Merger::with_localtime(&store, ServerTimestamp(0), now.into());
 
         let tree = merger.fetch_local_tree()?;
 
@@ -1818,6 +1838,7 @@ mod tests {
         assert_eq!(node.needs_merge, true);
         assert_eq!(node.level(), 2);
         assert_eq!(node.is_syncable(), true);
+        assert_eq!(node.age, 10000);
 
         let node = tree
             .node_for_guid(&BookmarkRootGuid::Unfiled.as_guid().as_str().into())
@@ -1839,6 +1860,10 @@ mod tests {
         assert_eq!(node.needs_merge, false);
         assert_eq!(node.level(), 0);
         assert_eq!(node.is_syncable(), false);
+        // hard to know the exact age of the root, but we know the max.
+        let max_dur = SystemTime::now().duration_since(now).unwrap();
+        let max_age = max_dur.as_secs() as i64 * 1000 + i64::from(max_dur.subsec_millis());
+        assert!(node.age <= max_age);
 
         // We should have changes.
         assert_eq!(store.has_changes().unwrap(), true);
@@ -2364,6 +2389,8 @@ mod tests {
 
     #[test]
     fn test_keywords() -> Result<()> {
+        use crate::storage::bookmarks::bookmarks_get_url_for_keyword;
+
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
@@ -2385,7 +2412,7 @@ mod tests {
                 "parentName": "toolbar",
                 "dateAdded": 1_552_183_116_885u64,
                 "title": "A",
-                "bmkUri": "http://example.com/a",
+                "bmkUri": "http://example.com/a/%s",
                 "keyword": "a",
             }),
         ];
@@ -2411,6 +2438,11 @@ mod tests {
         outgoing_ids.sort();
         assert_eq!(outgoing_ids, &["menu", "mobile", "toolbar", "unfiled"],);
 
+        assert_eq!(
+            bookmarks_get_url_for_keyword(&writer, "a")?,
+            Some(Url::parse("http://example.com/a/%s")?)
+        );
+
         store
             .sync_finished(ServerTimestamp(0), outgoing_ids)
             .expect("Should push synced changes back to the store");
@@ -2434,6 +2466,10 @@ mod tests {
         assert_eq!(outgoing.changes.len(), 1);
         assert_eq!(outgoing.changes[0].id, "bookmarkAAAA");
         assert_eq!(outgoing.changes[0].data["keyword"], "a");
+        assert_eq!(
+            outgoing.changes[0].data["bmkUri"],
+            "http://example.com/a/%s"
+        );
 
         Ok(())
     }
