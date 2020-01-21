@@ -47,7 +47,7 @@ Sync15PasswordEngineHandle sync15_passwords_state_new_with_salt(char const *_Non
                                                                 Sync15PasswordsError *_Nonnull error_out);
 
 Sync15PasswordEngineHandle sync15_passwords_state_new_with_hex_key(char const *_Nonnull db_path,
-                                                                   uint8_t const *encryption_key_bytes,
+                                                                   uint8_t const *_Nullable encryption_key_bytes,
                                                                    uint32_t encryption_key_len,
                                                                    Sync15PasswordsError *_Nonnull error_out);
 
@@ -95,9 +95,9 @@ void sync15_passwords_rekey_database(Sync15PasswordEngineHandle handle,
                                      Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_rekey_database_with_hex_key(Sync15PasswordEngineHandle handle,
-                                     uint8_t const *new_encryption_key_bytes,
-                                     uint32_t new_encryption_key_len,
-                                     Sync15PasswordsError *_Nonnull error);
+                                                  uint8_t const *_Nonnull new_encryption_key_bytes,
+                                                  uint32_t new_encryption_key_len,
+                                                  Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_reset(Sync15PasswordEngineHandle handle,
                             Sync15PasswordsError *_Nonnull error);

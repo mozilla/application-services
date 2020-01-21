@@ -764,9 +764,9 @@ public class PlacesWriteConnection: PlacesReadConnection {
             }
             let data = try! msg.serializedData()
             let size = Int32(data.count)
-            try data.withUnsafeBytes { (bytes: UnsafePointer<UInt8>) in
+            try data.withUnsafeBytes { bytes in
                 try PlacesError.unwrap { error in
-                    bookmarks_update(self.handle, bytes, size, error)
+                    bookmarks_update(self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error)
                 }
             }
         }
@@ -778,9 +778,9 @@ public class PlacesWriteConnection: PlacesReadConnection {
         // This can only fail if we failed to set the `type` of the msg
         let data = try! msg.serializedData()
         let size = Int32(data.count)
-        return try data.withUnsafeBytes { (bytes: UnsafePointer<UInt8>) -> String in
+        return try data.withUnsafeBytes { bytes -> String in
             let idStr = try PlacesError.unwrap { error in
-                bookmarks_insert(self.handle, bytes, size, error)
+                bookmarks_insert(self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error)
             }
             return String(freeingPlacesString: idStr)
         }
