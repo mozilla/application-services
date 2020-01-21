@@ -175,7 +175,9 @@ public class PlacesAPI {
     }
 
     /**
-     * Reset sync metadata for the bookmarks collection.
+     * Resets all sync metadata for bookmarks, including change flags, sync statuses, and
+     * last sync time. The next sync after reset will behave the same way as a first sync
+     * when connecting a new device.
      *
      * - Throws:
      *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
@@ -186,10 +188,10 @@ public class PlacesAPI {
      *     - `PlacesError.panic`: If the rust code panics while completing this
      *                            operation. (If this occurs, please let us know).
      */
-    open func resetBookmarksMetadata() throws {
+    open func resetBookmarkSyncMetadata() throws {
         return try queue.sync {
             try PlacesError.unwrap { err in
-                places_api_reset_bookmarks(handle, err)
+                bookmarks_reset(handle, err)
             }
         }
     }
@@ -534,6 +536,33 @@ public class PlacesWriteConnection: PlacesReadConnection {
             try self.checkApi()
             try PlacesError.unwrap { error in
                 places_run_maintenance(self.handle, error)
+            }
+        }
+    }
+
+    /**
+     * Resets all sync metadata for history, including change flags,
+     * sync statuses, and last sync time. The next sync after reset
+     * will behave the same way as a first sync when connecting a new
+     * device.
+     *
+     * This method only needs to be called when the user disconnects
+     * from Sync. There are other times when Places resets sync metadata,
+     * but those are handled internally in the Rust code.
+     *
+     * - Throws:
+     *     - `PlacesError.databaseInterrupted`: If a call is made to `interrupt()` on this
+     *                                          object from another thread.
+     *     - `PlacesError.unexpected`: When an error that has not specifically been exposed
+     *                                 to Swift is encountered (for example IO errors from
+     *                                 the database code, etc).
+     *     - `PlacesError.panic`: If the rust code panics while completing this
+     *                            operation. (If this occurs, please let us know).
+     */
+    open func resetHistorySyncMetadata() throws {
+        return try queue.sync {
+            try PlacesError.unwrap { err in
+                places_reset(handle, err)
             }
         }
     }

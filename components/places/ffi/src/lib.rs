@@ -153,15 +153,6 @@ pub extern "C" fn places_api_return_write_conn(
     })
 }
 
-#[no_mangle]
-pub extern "C" fn places_api_reset_bookmarks(api_handle: u64, error: &mut ExternError) {
-    log::debug!("places_api_reset_bookmarks");
-    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
-        api.reset_bookmarks()?;
-        Ok(())
-    })
-}
-
 /// Get the interrupt handle for a connection. Must be destroyed with
 /// `places_interrupt_handle_destroy`.
 #[no_mangle]
@@ -479,6 +470,24 @@ pub extern "C" fn places_accept_result(
             return Ok(());
         };
         matcher::accept_result(conn, search_string, &url)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
+    log::debug!("places_reset");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history::history_sync::reset(conn)?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn bookmarks_reset(handle: u64, error: &mut ExternError) {
+    log::debug!("bookmarks_reset");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::bookmarks::bookmark_sync::reset(conn)?;
         Ok(())
     })
 }

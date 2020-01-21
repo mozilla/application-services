@@ -8,6 +8,12 @@
 
 - The Dogear library for merging synced bookmarks has been updated to the latest version.
   ([#2469](https://github.com/mozilla/application-services/pull/2469))
+- Places now exposes `resetHistorySyncMetadata` and `resetBookmarkSyncMetadata`
+  methods, which cleans up all Sync state, including tracking flags and change
+  counters. These methods should be called by consumers when the user signs out,
+  to avoid tracking changes and causing unexpected behavior the next time they
+  sign in.
+  ([#2447](https://github.com/mozilla/application-services/pull/2447))
 
 ### Breaking Changes
 

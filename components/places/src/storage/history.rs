@@ -975,7 +975,20 @@ pub mod history_sync {
         Ok(())
     }
 
-    pub fn reset_storage(db: &PlacesDb) -> Result<()> {
+    /// Resets all sync metadata, including change counters, sync statuses,
+    /// the last sync time, and sync ID. This should be called when the user
+    /// signs out of Sync.
+    pub fn reset(db: &PlacesDb) -> Result<()> {
+        let tx = db.begin_transaction()?;
+        reset_meta(db)?;
+        put_meta(db, LAST_SYNC_META_KEY, &0)?;
+        delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
+        delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    pub(crate) fn reset_meta(db: &PlacesDb) -> Result<()> {
         db.conn().execute_cached(
             &format!(
                 "
@@ -986,6 +999,7 @@ pub mod history_sync {
             ),
             NO_PARAMS,
         )?;
+        put_meta(db, LAST_SYNC_META_KEY, &0)?;
         Ok(())
     }
 } // end of sync module.
@@ -1778,6 +1792,16 @@ mod tests {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let _ = env_logger::try_init();
+
+        // Add Sync metadata keys, to ensure they're reset.
+        put_meta(&conn, GLOBAL_SYNCID_META_KEY, &"syncAAAAAAAA")?;
+        put_meta(&conn, COLLECTION_SYNCID_META_KEY, &"syncBBBBBBBB")?;
+        put_meta(&conn, LAST_SYNC_META_KEY, &12345)?;
+
+        // Delete everything first, to ensure we keep the high-water mark
+        // (see #2445 for a discussion about that).
+        delete_everything(&conn)?;
+
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
         conn.execute_cached(
             &format!(
@@ -1791,7 +1815,7 @@ mod tests {
             .page;
         assert_eq!(pi.sync_change_counter, 1);
         assert_eq!(pi.sync_status, SyncStatus::Normal);
-        reset_storage(&conn)?;
+        history_sync::reset(&conn)?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
             .page;
@@ -1800,6 +1824,17 @@ mod tests {
         // Ensure we are going to do a full re-upload after a reset.
         let outgoing = fetch_outgoing(&conn, 100, 100)?;
         assert_eq!(outgoing.len(), 1);
+
+        // Ensure we reset Sync metadata, too.
+        let global = get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?;
+        assert!(global.is_none());
+        let coll = get_meta::<SyncGuid>(&conn, COLLECTION_SYNCID_META_KEY)?;
+        assert!(coll.is_none());
+        let since = get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?;
+        assert_eq!(since, Some(0));
+        let mark = get_meta::<Timestamp>(&conn, DELETION_HIGH_WATER_MARK_META_KEY)?;
+        assert!(mark.is_some());
+
         Ok(())
     }
 

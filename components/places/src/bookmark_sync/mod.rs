@@ -9,56 +9,9 @@ pub mod store;
 #[cfg(test)]
 mod tests;
 
-use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::bookmarks::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Result as RusqliteResult;
-use sync_guid::Guid as SyncGuid;
-
-/// Sets up the syncable roots. All items in `moz_bookmarks_synced` descend
-/// from these roots.
-pub fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
-    // NOTE: This is called in a transaction.
-    fn maybe_insert(
-        db: &PlacesDb,
-        guid: &SyncGuid,
-        parent_guid: &SyncGuid,
-        pos: u32,
-    ) -> Result<()> {
-        db.execute_batch(&format!(
-            "INSERT OR IGNORE INTO moz_bookmarks_synced(guid, parentGuid, kind)
-             VALUES('{guid}', '{parent_guid}', {kind});
-
-             INSERT OR IGNORE INTO moz_bookmarks_synced_structure(
-                 guid, parentGuid, position)
-             VALUES('{guid}', '{parent_guid}', {pos});",
-            guid = guid.as_str(),
-            parent_guid = parent_guid.as_str(),
-            kind = SyncedBookmarkKind::Folder as u8,
-            pos = pos
-        ))?;
-        Ok(())
-    }
-
-    // The Places root is its own parent, to ensure it's always in
-    // `moz_bookmarks_synced_structure`.
-    maybe_insert(
-        db,
-        &BookmarkRootGuid::Root.as_guid(),
-        &BookmarkRootGuid::Root.as_guid(),
-        0,
-    )?;
-    for (pos, user_root) in USER_CONTENT_ROOTS.iter().enumerate() {
-        maybe_insert(
-            db,
-            &user_root.as_guid(),
-            &BookmarkRootGuid::Root.as_guid(),
-            pos as u32,
-        )?;
-    }
-    Ok(())
-}
 
 /// Synced item kinds. These are stored in `moz_bookmarks_synced.kind` and match
 /// the definitions in `mozISyncedBookmarksMerger`.

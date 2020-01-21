@@ -125,6 +125,9 @@ PlacesRustBuffer places_get_visit_infos(PlacesConnectionHandle handle,
                                         int32_t exclude_types,
                                         PlacesRustError *_Nonnull out_err);
 
+void places_reset(PlacesAPIHandle handle,
+                  PlacesRustError *_Nonnull out_err);
+
 char *_Nonnull sync15_history_sync(PlacesAPIHandle handle,
                                    char const *_Nonnull key_id,
                                    char const *_Nonnull access_token,
@@ -138,9 +141,6 @@ char *_Nonnull sync15_bookmarks_sync(PlacesAPIHandle handle,
                                      char const *_Nonnull sync_key,
                                      char const *_Nonnull tokenserver_url,
                                      PlacesRustError *_Nonnull out_err);
-
-void places_api_reset_bookmarks(PlacesAPIHandle handle,
-                                PlacesRustError *_Nonnull out_err);
 
 RawPlacesInterruptHandle *_Nullable
 places_new_sync_conn_interrupt_handle(PlacesAPIHandle handle,
@@ -187,6 +187,9 @@ void bookmarks_update(PlacesConnectionHandle handle,
 uint8_t bookmarks_delete(PlacesConnectionHandle handle,
                          char const *_Nonnull guid_to_delete,
                          PlacesRustError *_Nonnull out_err);
+
+void bookmarks_reset(PlacesAPIHandle handle,
+                     PlacesRustError *_Nonnull out_err);
 
 // MARK: memory/lifecycle management
 

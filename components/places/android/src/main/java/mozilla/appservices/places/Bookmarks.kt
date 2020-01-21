@@ -280,6 +280,18 @@ interface WritableBookmarksConnection : ReadableBookmarksConnection {
     fun deleteAllBookmarks()
 
     /**
+     * Resets all sync metadata for bookmarks, including change flags,
+     * sync statuses, and last sync time. The next sync after reset
+     * will behave the same way as a first sync when connecting a new
+     * device.
+     *
+     * This method only needs to be called when the user disconnects
+     * from Sync. There are other times when Places resets sync metadata,
+     * but those are handled internally in the Rust code.
+     */
+    fun resetBookmarkSyncMetadata()
+
+    /**
      * Create a bookmark folder, returning its guid.
      *
      * @param parentGUID The GUID of the (soon to be) parent of this bookmark.
