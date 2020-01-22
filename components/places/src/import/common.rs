@@ -10,8 +10,12 @@ use url::Url;
 
 // sanitize_timestamp can't use `Timestamp::now();` directly because it needs
 // to sanitize both created and modified, plus ensure modified isn't before
-// created - which isn't possible with the non-monotonic timestamp. So we just
-// have a single `now` used by all bookmarks.
+// created - which isn't possible with the non-monotonic timestamp.
+// So we have a static `NOW`, which will be initialized the first time it is
+// referenced, and that value subsequently used for every imported bookmark (and
+// note that it's only used in cases where the existing timestamps are invalid.)
+// This is fine for our use-case, where we do exactly one import as soon as the
+// process starts.
 lazy_static::lazy_static! {
     pub static ref NOW: Timestamp = Timestamp::now();
 }

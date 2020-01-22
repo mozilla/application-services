@@ -428,11 +428,11 @@ fn test_timestamp_sanitization() -> Result<()> {
 
     // NOTE: The results of testing not-sane is somewhat arbitrary - there are
     // a number of results which would be fine - so long as the 'created can't
-    // be after modified' invalirant holds true (which is checked in
+    // be after modified' invaliant holds true (which is checked in
     // get_actual_timestamps())
 
     // created in the past and sane, modified not sane (too early) -> created as specified, modified = now
-    // (easily argued that modified -> now is better, but that's tricky in the sql)
+    // (easily argued that modified -> created is better, but that's tricky in the sql)
     assert_eq!(
         get_actual_timestamps(earlier, Timestamp(0))?,
         (earlier, now)
