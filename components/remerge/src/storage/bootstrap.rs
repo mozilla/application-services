@@ -72,18 +72,18 @@ pub(super) fn bootstrap(
         INSERT INTO remerge_schemas (is_legacy, version, required_version, schema_text)
         VALUES (:legacy, :version, :req_version, :text)
     ";
-    let ver_str = native.parsed.version.to_string();
+    let version = native.parsed.version;
     db.execute_named(
         sql,
         rusqlite::named_params! {
             ":legacy": native.parsed.legacy,
-            ":version": ver_str,
-            ":req_version": native.parsed.required_version.to_string(),
+            ":version": version,
+            ":req_version": native.parsed.required_version,
             ":text": native.source,
         },
     )?;
-    meta::put(db, meta::LOCAL_SCHEMA_VERSION, &ver_str)?;
-    meta::put(db, meta::NATIVE_SCHEMA_VERSION, &ver_str)?;
+    meta::put(db, meta::LOCAL_SCHEMA_VERSION, &version)?;
+    meta::put(db, meta::NATIVE_SCHEMA_VERSION, &version)?;
     meta::put(db, meta::COLLECTION_NAME, &native.parsed.name)?;
     meta::put(db, meta::CHANGE_COUNTER, &1)?;
     Ok((

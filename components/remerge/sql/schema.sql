@@ -7,11 +7,11 @@ CREATE TABLE remerge_schemas (
     is_legacy        TINYINT NOT NULL,
 
     -- The version of this schema
-    version          TEXT NOT NULL UNIQUE,
+    version          INTEGER NOT NULL UNIQUE,
 
     -- If the schema is marked as having a required version, this is that
     -- version
-    required_version TEXT,
+    required_version INTEGER,
 
     -- The schema's text as JSON.
     schema_text      TEXT NOT NULL
@@ -22,7 +22,7 @@ CREATE TABLE rec_local (
     id             INTEGER PRIMARY KEY,
     guid           TEXT NOT NULL UNIQUE,
 
-    remerge_schema_version TEXT,
+    remerge_schema_version INTEGER NOT NULL,
     -- XXX Should this be nullable for the case where is_deleted == true?
     record_data    TEXT NOT NULL,
     -- A local timestamp

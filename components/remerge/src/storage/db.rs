@@ -124,7 +124,7 @@ impl RemergeDb {
             )",
             named_params! {
                 ":guid": id,
-                ":schema_ver": self.info.local.version.to_string(),
+                ":schema_ver": self.info.local.version,
                 ":record": record,
                 ":now": now,
                 ":status": SyncStatus::New as u8,
@@ -213,7 +213,7 @@ impl RemergeDb {
             named_params! {
                 ":now_ms": now_ms,
                 ":guid": id,
-                ":schema_ver": self.info.local.version.to_string(),
+                ":schema_ver": self.info.local.version,
                 ":vclock": vclock,
                 ":changed": SyncStatus::Changed as u8,
             })?;
@@ -331,7 +331,7 @@ impl RemergeDb {
                 ":guid": guid,
                 ":changed": SyncStatus::Changed as u8,
                 ":record": record,
-                ":schema_ver": self.info.local.version.to_string(),
+                ":schema_ver": self.info.local.version,
                 ":now_millis": now_ms,
                 ":own_id": self.client_id,
                 ":vclock": vclock,
