@@ -4,12 +4,10 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use crate::api::matcher::SearchResult;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo};
 use crate::msg_types;
 use ffi_support::{
-    implement_into_ffi_by_delegation, implement_into_ffi_by_json, implement_into_ffi_by_protobuf,
-    ErrorCode, ExternError,
+    implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
 };
 
 pub mod error_codes {
@@ -139,7 +137,7 @@ impl From<Error> for ExternError {
     }
 }
 
-implement_into_ffi_by_json!(SearchResult);
+implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfosWithBound);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
