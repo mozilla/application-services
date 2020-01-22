@@ -108,6 +108,12 @@ EXTRA_PACKAGE_METADATA = {
         "license": "Apache-2.0",
         "license_file": "https://raw.githubusercontent.com/apple/swift-protobuf/master/LICENSE.txt"
     },
+    "ext-swift-keychain-wrapper": {
+        "name": "SwiftKeychainWrapper",
+        "repository": "https://github.com/jrendel/SwiftKeychainWrapper",
+        "license": "MIT",
+        "license_file": "https://raw.githubusercontent.com/jrendel/SwiftKeychainWrapper/develop/LICENSE"
+    },
     "ext-nss": {
         "name": "NSS",
         "repository": "https://hg.mozilla.org/projects/nss",
@@ -642,6 +648,7 @@ class WorkspaceMetadata(object):
                 extras.add("ext-protobuf")
             if self.target_is_ios(target):
                 extras.add("ext-swift-protobuf")
+                extras.add("ext-swift-keychain-wrapper")
         for dep in deps:
             name = self.pkgInfoById[dep]["name"]
             if name in PACKAGES_WITH_EXTRA_DEPENDENCIES:
