@@ -15,20 +15,6 @@ use std::{fmt, num};
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
 pub struct ServerTimestamp(pub i64);
 
-impl From<ServerTimestamp> for i64 {
-    #[inline]
-    fn from(ts: ServerTimestamp) -> Self {
-        ts.0
-    }
-}
-
-impl From<ServerTimestamp> for f64 {
-    #[inline]
-    fn from(ts: ServerTimestamp) -> Self {
-        ts.0 as f64 / 1000.0
-    }
-}
-
 impl From<i64> for ServerTimestamp {
     #[inline]
     fn from(ts: i64) -> Self {

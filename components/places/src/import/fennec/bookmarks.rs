@@ -135,8 +135,6 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     log::debug!("Updating frecencies");
     store.update_frecencies()?;
 
-    log::info!("Successfully imported bookmarks!");
-
     log::debug!("Counting Fenix bookmarks");
     let num_succeeded = select_count(&conn, &COUNT_FENIX_BOOKMARKS);
     // saturating_sub because num_succeeded could be > num_total due to
@@ -151,6 +149,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
         num_failed,
         total_duration: import_start.elapsed().as_millis(),
     };
+    log::info!("Successfully imported bookmarks: {:?}", metrics);
 
     Ok(metrics)
 }
@@ -274,6 +273,21 @@ REPLACE INTO main.moz_bookmarks_synced_structure(guid, parentGuid, position)
 ";
 
 lazy_static::lazy_static! {
+    // Notes on 'date_added' and 'modified' below:
+    // * In all cases, we want to maintain the invariants that:
+    //   - timestamps should be >= Timestamp::EARLIEST and <= now.
+    //   - in all cases, date_added must be <= modified.
+    //   Which is tricky enough to express by itself, but further:
+    // * If a Fennec item has either 'keyword' or 'tags', we want to ensure
+    //   the remote version of the bookmark is considered later than the local
+    //   copy - so in that case, we want the 'modified' value to be equal to the
+    //   (sanitized and checked for not being > than) created value.
+
+    // Note that strictly speaking, the 'keyword' check is an optimization as,
+    // for accidental implementation reasons, we would upload a new version with
+    // the keyword in place. But it's critical for 'tags' because we'd overwrite
+    // the server record with the tag removed.
+    // See the tests in fennec_bookmarks.rs for more detail here.
     static ref POPULATE_STAGING: String = format!(
         "INSERT OR IGNORE INTO temp.fennecBookmarksStaging(
             guid,
@@ -301,8 +315,23 @@ lazy_static::lazy_static! {
             END as uri,
             b.keyword,
             b.tags,
-            sanitize_timestamp(b.created),
-            sanitize_timestamp(b.modified),
+            -- See above for notes about 'date_added' and 'modified'
+            CASE
+                WHEN b.tags IS NOT NULL OR
+                     b.tags <> '' OR
+                     b.keyword IS NOT NULL OR
+                     b.keyword <> '' THEN
+                        min(sanitize_timestamp(b.created), sanitize_timestamp(b.modified))
+                ELSE sanitize_timestamp(b.created)
+            END,
+            CASE
+                WHEN b.tags IS NOT NULL OR
+                     b.tags <> '' OR
+                     b.keyword IS NOT NULL OR
+                     b.keyword <> '' THEN
+                        min(sanitize_timestamp(b.created), sanitize_timestamp(b.modified))
+                ELSE max(sanitize_timestamp(b.created), sanitize_timestamp(b.modified))
+            END,
             1
         FROM fennec.bookmarks b
         WHERE NOT b.deleted

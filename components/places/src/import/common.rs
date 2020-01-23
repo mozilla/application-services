@@ -4,10 +4,24 @@
 
 use crate::api::places_api::SyncConn;
 use crate::error::*;
+use crate::types::Timestamp;
 use rusqlite::named_params;
 use url::Url;
 
+// sanitize_timestamp can't use `Timestamp::now();` directly because it needs
+// to sanitize both created and modified, plus ensure modified isn't before
+// created - which isn't possible with the non-monotonic timestamp.
+// So we have a static `NOW`, which will be initialized the first time it is
+// referenced, and that value subsequently used for every imported bookmark (and
+// note that it's only used in cases where the existing timestamps are invalid.)
+// This is fine for our use-case, where we do exactly one import as soon as the
+// process starts.
+lazy_static::lazy_static! {
+    pub static ref NOW: Timestamp = Timestamp::now();
+}
+
 pub mod sql_fns {
+    use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
     use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Result};
@@ -16,8 +30,8 @@ pub mod sql_fns {
 
     #[inline(never)]
     pub fn sanitize_timestamp(ctx: &Context<'_>) -> Result<Timestamp> {
-        let now = Timestamp::now();
-        let is_sane = |ts: Timestamp| -> bool { Timestamp::EARLIEST < ts && ts < now };
+        let now = *NOW;
+        let is_sane = |ts: Timestamp| -> bool { Timestamp::EARLIEST <= ts && ts <= now };
         if let Ok(ts) = ctx.get::<i64>(0) {
             let ts = Timestamp(u64::try_from(ts).unwrap_or(0));
             if is_sane(ts) {
