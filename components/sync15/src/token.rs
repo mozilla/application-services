@@ -18,13 +18,13 @@ const RETRY_AFTER_DEFAULT_MS: u64 = 10000;
 // The TokenserverToken is the token as received directly from the token server
 // and deserialized from JSON.
 #[derive(Deserialize, Clone, PartialEq, Eq)]
-struct TokenserverToken {
-    id: String,
-    key: String,
-    api_endpoint: String,
-    uid: u64,
-    duration: u64,
-    hashed_fxa_uid: String,
+pub struct TokenserverToken {
+    pub id: String,
+    pub key: String,
+    pub api_endpoint: String,
+    pub uid: u64,
+    pub duration: u64,
+    pub hashed_fxa_uid: String,
 }
 
 impl std::fmt::Debug for TokenserverToken {
@@ -40,14 +40,14 @@ impl std::fmt::Debug for TokenserverToken {
 
 // The struct returned by the TokenFetcher - the token itself and the
 // server timestamp.
-struct TokenFetchResult {
-    token: TokenserverToken,
-    server_timestamp: ServerTimestamp,
+pub struct TokenFetchResult {
+    pub token: TokenserverToken,
+    pub server_timestamp: ServerTimestamp,
 }
 
 // The trait for fetching tokens - we'll provide a "real" implementation but
 // tests will re-implement it.
-trait TokenFetcher {
+pub trait TokenFetcher {
     fn fetch_token(&self) -> super::Result<TokenFetchResult>;
     // We allow the trait to tell us what the time is so tests can get funky.
     fn now(&self) -> SystemTime;
@@ -56,7 +56,7 @@ trait TokenFetcher {
 // Our "real" token fetcher, implementing the TokenFetcher trait, which hits
 // the token server
 #[derive(Debug)]
-struct TokenServerFetcher {
+pub struct TokenServerFetcher {
     // The stuff needed to fetch a token.
     server_url: Url,
     access_token: String,
@@ -84,7 +84,7 @@ fn fixup_server_url(mut url: Url) -> Result<Url> {
 }
 
 impl TokenServerFetcher {
-    fn new(base_url: Url, access_token: String, key_id: String) -> Result<TokenServerFetcher> {
+    pub fn new(base_url: Url, access_token: String, key_id: String) -> Result<TokenServerFetcher> {
         Ok(TokenServerFetcher {
             server_url: fixup_server_url(base_url)?,
             access_token,

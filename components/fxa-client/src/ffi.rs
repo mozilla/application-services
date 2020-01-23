@@ -16,7 +16,7 @@ use crate::{
     commands,
     device::{Capability as DeviceCapability, Device, PushSubscription, Type as DeviceType},
     msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, IntrospectInfo, Profile,
-    ScopedKey,
+    ScopedKey, TokenserverToken,
 };
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
@@ -228,6 +228,20 @@ impl msg_types::Capabilities {
     }
 }
 
+impl From<TokenserverToken> for msg_types::TokenserverToken {
+    fn from(token: TokenserverToken) -> Self {
+        Self {
+            server_timestamp: token.server_timestamp,
+            id: token.id,
+            key: token.key,
+            api_endpoint: token.api_endpoint,
+            uid: token.uid,
+            duration: token.duration,
+            hashed_fxa_uid: token.hashed_fxa_uid,
+        }
+    }
+}
+
 unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
     assert!(len >= 0, "Bad buffer len: {}", len);
     if len == 0 {
@@ -250,3 +264,5 @@ implement_into_ffi_by_delegation!(AccountEvent, msg_types::AccountEvent);
 implement_into_ffi_by_protobuf!(msg_types::AccountEvent);
 implement_into_ffi_by_protobuf!(msg_types::Devices);
 implement_into_ffi_by_protobuf!(msg_types::AccountEvents);
+implement_into_ffi_by_protobuf!(msg_types::TokenserverToken);
+implement_into_ffi_by_delegation!(TokenserverToken, msg_types::TokenserverToken);

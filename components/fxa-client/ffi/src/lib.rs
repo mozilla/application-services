@@ -513,6 +513,18 @@ pub extern "C" fn fxa_send_tab(
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.send_tab(target, title, url))
 }
 
+/// Fetch a server token server using the current account information.
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_fetch_token_server_token(handle: u64, error: &mut ExternError) -> ByteBuffer {
+    log::debug!("fxa_fetch_token_server_token");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_token_server_token())
+}
+
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_string_destructor!(fxa_str_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);

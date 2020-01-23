@@ -250,6 +250,20 @@ impl FirefoxAccount {
         }
     }
 
+    /// Fetch a server token server using the current account information.
+    /// Note that the OLD_SYNC must be authorized.
+    pub fn get_token_server_token(&mut self) -> Result<TokenserverToken> {
+        use sync15::TokenFetcher;
+        let token_server_url = self.state.config.token_server_endpoint_url()?;
+        let access_token = self.get_access_token(scopes::OLD_SYNC)?;
+        let fetcher = sync15::TokenServerFetcher::new(
+            token_server_url,
+            access_token.token,
+            access_token.key.unwrap().kid,
+        )?;
+        Ok(fetcher.fetch_token()?.into())
+    }
+
     /// Disconnect from the account and optionaly destroy our device record. This will
     /// leave the account object in a state where it can eventually reconnect to the same user.
     /// This is a "best effort" infallible method: e.g. if the network is unreachable,
@@ -276,6 +290,32 @@ impl FirefoxAccount {
             }
         }
         self.start_over();
+    }
+}
+
+// This is the same as the sync15 type, but the IntoFFI trait can only be
+// implemented for current crate types.
+pub struct TokenserverToken {
+    pub server_timestamp: i64,
+    pub id: String,
+    pub key: String,
+    pub api_endpoint: String,
+    pub uid: u64,
+    pub duration: u64,
+    pub hashed_fxa_uid: String,
+}
+
+impl From<sync15::TokenFetchResult> for TokenserverToken {
+    fn from(res: sync15::TokenFetchResult) -> Self {
+        Self {
+            server_timestamp: res.server_timestamp.0,
+            id: res.token.id,
+            key: res.token.key,
+            api_endpoint: res.token.api_endpoint,
+            uid: res.token.uid,
+            duration: res.token.duration,
+            hashed_fxa_uid: res.token.hashed_fxa_uid,
+        }
     }
 }
 

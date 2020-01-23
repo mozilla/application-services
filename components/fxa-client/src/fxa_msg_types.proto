@@ -96,3 +96,13 @@ message AccountEvent {
 message AccountEvents {
     repeated AccountEvent events = 1;
 }
+
+message TokenserverToken {
+    required string id = 1;
+    required string key = 2;
+    required string api_endpoint = 3;
+    required uint64 uid = 4;
+    required uint64 duration = 5;
+    required string hashed_fxa_uid = 6;
+    required int64 server_timestamp = 7;
+}

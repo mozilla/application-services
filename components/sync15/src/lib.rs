@@ -43,3 +43,5 @@ pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };
 pub use crate::util::{ServerTimestamp, SERVER_EPOCH};
+// For fxa_client::FirefoxAccount::get_token_server_token.
+pub use crate::token::{TokenFetchResult, TokenFetcher, TokenServerFetcher, TokenserverToken};
