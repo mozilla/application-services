@@ -7,7 +7,7 @@ use crate::{
     commands::send_tab::{self, EncryptedSendTabPayload, PrivateSendTabKeys, PublicSendTabKeys},
     error::*,
     http_client::GetDeviceResponse,
-    scopes, FirefoxAccount,
+    scopes, FirefoxAccount, IncomingDeviceCommand,
 };
 
 impl FirefoxAccount {
@@ -52,7 +52,7 @@ impl FirefoxAccount {
         &self,
         sender: Option<GetDeviceResponse>,
         payload: serde_json::Value,
-    ) -> Result<(Option<GetDeviceResponse>, SendTabPayload)> {
+    ) -> Result<IncomingDeviceCommand> {
         let send_tab_key: PrivateSendTabKeys =
             match self.state.commands_data.get(send_tab::COMMAND_NAME) {
                 Some(s) => PrivateSendTabKeys::deserialize(s)?,
@@ -64,6 +64,7 @@ impl FirefoxAccount {
                 }
             };
         let encrypted_payload: EncryptedSendTabPayload = serde_json::from_value(payload)?;
-        Ok((sender, encrypted_payload.decrypt(&send_tab_key)?))
+        let payload = encrypted_payload.decrypt(&send_tab_key)?;
+        Ok(IncomingDeviceCommand::TabReceived { sender, payload })
     }
 }

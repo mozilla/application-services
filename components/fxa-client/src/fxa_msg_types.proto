@@ -72,15 +72,13 @@ message Capabilities {
     repeated Device.Capability capability = 1;
 }
 
-// This is basically an enum with associated values,
-// but it's a bit harder to model in proto2.
-message AccountEvent {
-    enum AccountEventType {
-        TAB_RECEIVED = 1; // data set to TabReceivedData.
+message IncomingDeviceCommand {
+    enum IncomingDeviceCommandType {
+        TAB_RECEIVED = 1; // `data` set to `tab_received_data`.
     }
-    required AccountEventType type = 1;
+    required IncomingDeviceCommandType type = 1;
 
-    message TabReceivedData {
+    message SendTabData {
         message TabHistoryEntry {
             required string title = 1;
             required string url = 2;
@@ -88,9 +86,34 @@ message AccountEvent {
         optional Device from = 1;
         repeated TabHistoryEntry entries = 2;
     }
+
     oneof data {
-        TabReceivedData tab_received_data = 2;
+        SendTabData tab_received_data = 2;
     };
+}
+
+message IncomingDeviceCommands {
+    repeated IncomingDeviceCommand commands = 1;
+}
+
+// This is basically an enum with associated values,
+// but it's a bit harder to model in proto2.
+message AccountEvent {
+    enum AccountEventType {
+        INCOMING_DEVICE_COMMAND = 1; // `data` set to `device_command`.
+        PROFILE_UPDATED = 2;
+        DEVICE_CONNECTED = 3; // `data` set to `device_connected_name`.
+        ACCOUNT_AUTH_STATE_CHANGED = 4;
+        DEVICE_DISCONNECTED = 5; // `data` set to `device_disconnected_is_local`.
+        ACCOUNT_DESTROYED = 6;
+    }
+    required AccountEventType type = 1;
+
+    oneof data {
+        IncomingDeviceCommand device_command = 2;
+        string device_connected_name = 3;
+        bool device_disconnected_is_local = 4;
+    }
 }
 
 message AccountEvents {

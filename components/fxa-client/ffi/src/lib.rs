@@ -440,9 +440,9 @@ pub extern "C" fn fxa_authorize_auth_code(
 pub extern "C" fn fxa_poll_device_commands(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("fxa_poll_device_commands");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.poll_device_commands().map(|evs| {
-            let events = evs.into_iter().map(|e| e.into()).collect();
-            fxa_client::msg_types::AccountEvents { events }
+        fxa.poll_device_commands().map(|cmds| {
+            let commands = cmds.into_iter().map(|e| e.into()).collect();
+            fxa_client::msg_types::IncomingDeviceCommands { commands }
         })
     })
 }

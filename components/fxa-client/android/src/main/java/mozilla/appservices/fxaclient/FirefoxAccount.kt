@@ -480,16 +480,16 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      *
      * This performs network requests, and should not be used on the main thread.
      *
-     * @return A collection of [AccountEvent] that should be handled by the caller.
+     * @return A collection of [IncomingDeviceCommand] that should be handled by the caller.
      */
-    fun pollDeviceCommands(): Array<AccountEvent> {
+    fun pollDeviceCommands(): Array<IncomingDeviceCommand> {
         val eventsBuffer = rustCall { e ->
             LibFxAFFI.INSTANCE.fxa_poll_device_commands(this.handle.get(), e)
         }
         this.tryPersistState()
         try {
-            val events = MsgTypes.AccountEvents.parseFrom(eventsBuffer.asCodedInputStream()!!)
-            return AccountEvent.fromCollectionMessage(events)
+            val commands = MsgTypes.IncomingDeviceCommands.parseFrom(eventsBuffer.asCodedInputStream()!!)
+            return IncomingDeviceCommand.fromCollectionMessage(commands)
         } finally {
             LibFxAFFI.INSTANCE.fxa_bytebuffer_free(eventsBuffer)
         }

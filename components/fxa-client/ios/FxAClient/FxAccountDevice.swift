@@ -105,20 +105,51 @@ public struct DevicePushSubscription {
     }
 }
 
-public enum DeviceEvent {
+public enum IncomingDeviceCommand {
     case tabReceived(Device?, [TabData])
 
-    internal static func fromCollectionMsg(msg: MsgTypes_AccountEvents) -> [DeviceEvent] {
-        msg.events.map { DeviceEvent.fromMsg(msg: $0) }
+    internal static func fromCollectionMsg(msg: MsgTypes_IncomingDeviceCommands) -> [IncomingDeviceCommand] {
+        msg.commands.map { IncomingDeviceCommand.fromMsg(msg: $0) }
     }
 
-    internal static func fromMsg(msg: MsgTypes_AccountEvent) -> DeviceEvent {
+    internal static func fromMsg(msg: MsgTypes_IncomingDeviceCommand) -> IncomingDeviceCommand {
         switch msg.type {
         case .tabReceived: do {
-            let device = msg.tabReceivedData.hasFrom ? Device(msg: msg.tabReceivedData.from) : nil
-            let entries = msg.tabReceivedData.entries.map { TabData(title: $0.title, url: $0.url) }
+            let data = msg.tabReceivedData
+            let device = data.hasFrom ? Device(msg: data.from) : nil
+            let entries = data.entries.map { TabData(title: $0.title, url: $0.url) }
             return .tabReceived(device, entries)
         }
+        }
+    }
+}
+
+public enum AccountEvent {
+    case incomingDeviceCommand(IncomingDeviceCommand)
+    case deviceConnected(deviceName: String)
+    case deviceDisconnected(isLocalDevice: Bool)
+
+    internal static func fromCollectionMsg(msg: MsgTypes_AccountEvents) -> [AccountEvent] {
+        msg.events.compactMap { AccountEvent.fromMsg(msg: $0) }
+    }
+
+    internal static func fromMsg(msg: MsgTypes_AccountEvent) -> AccountEvent? {
+        switch msg.type {
+        case .incomingDeviceCommand: do {
+            return .incomingDeviceCommand(IncomingDeviceCommand.fromMsg(msg: msg.deviceCommand))
+        }
+        case .deviceConnected: do {
+            return .deviceConnected(deviceName: msg.deviceConnectedName)
+        }
+        case .deviceDisconnected: do {
+            return .deviceDisconnected(isLocalDevice: msg.deviceDisconnectedIsLocal)
+        }
+        // The following push messages are filtered upstream by the FxA server,
+        // because iOS requires all Push messages to show a UI notification to the user
+        // and in these cases it was deemed not useful.
+        case .profileUpdated: return nil
+        case .accountAuthStateChanged: return nil
+        case .accountDestroyed: return nil
         }
     }
 }

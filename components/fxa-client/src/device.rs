@@ -6,13 +6,13 @@ pub use crate::http_client::{
     DeviceLocation as Location, DeviceType as Type, GetDeviceResponse as Device, PushSubscription,
 };
 use crate::{
-    commands::{self, send_tab::SendTabPayload},
+    commands,
     error::*,
     http_client::{
         CommandData, DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand,
         UpdateDeviceResponse,
     },
-    AccountEvent, FirefoxAccount,
+    FirefoxAccount, IncomingDeviceCommand,
 };
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
@@ -116,7 +116,7 @@ impl FirefoxAccount {
     /// commands delivery (push) can sometimes be unreliable on mobile devices.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn poll_device_commands(&mut self) -> Result<Vec<AccountEvent>> {
+    pub fn poll_device_commands(&mut self) -> Result<Vec<IncomingDeviceCommand>> {
         let last_command_index = self.state.last_handled_command.unwrap_or(0);
         // We increment last_command_index by 1 because the server response includes the current index.
         self.fetch_and_parse_commands(last_command_index + 1, None)
@@ -125,22 +125,22 @@ impl FirefoxAccount {
     /// Retrieve and parse a specific command designated by its index.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn fetch_device_command(&mut self, index: u64) -> Result<AccountEvent> {
-        let mut account_events = self.fetch_and_parse_commands(index, Some(1))?;
-        let account_event = account_events
+    pub fn fetch_device_command(&mut self, index: u64) -> Result<IncomingDeviceCommand> {
+        let mut device_commands = self.fetch_and_parse_commands(index, Some(1))?;
+        let device_command = device_commands
             .pop()
             .ok_or_else(|| ErrorKind::IllegalState("Index fetch came out empty."))?;
-        if !account_events.is_empty() {
+        if !device_commands.is_empty() {
             log::warn!("Index fetch resulted in more than 1 element");
         }
-        Ok(account_event)
+        Ok(device_command)
     }
 
     fn fetch_and_parse_commands(
         &mut self,
         index: u64,
         limit: Option<u64>,
-    ) -> Result<Vec<AccountEvent>> {
+    ) -> Result<Vec<IncomingDeviceCommand>> {
         let refresh_token = self.get_refresh_token()?;
         let pending_commands =
             self.client
@@ -149,31 +149,34 @@ impl FirefoxAccount {
             return Ok(Vec::new());
         }
         log::info!("Handling {} messages", pending_commands.messages.len());
-        let account_events = self.parse_commands_messages(pending_commands.messages)?;
+        let device_commands = self.parse_commands_messages(pending_commands.messages)?;
         self.state.last_handled_command = Some(pending_commands.index);
-        Ok(account_events)
+        Ok(device_commands)
     }
 
-    fn parse_commands_messages(&self, messages: Vec<PendingCommand>) -> Result<Vec<AccountEvent>> {
-        let mut account_events: Vec<AccountEvent> = Vec::with_capacity(messages.len());
-        let commands: Vec<_> = messages.into_iter().map(|m| m.data).collect();
+    fn parse_commands_messages(
+        &self,
+        messages: Vec<PendingCommand>,
+    ) -> Result<Vec<IncomingDeviceCommand>> {
         let devices = self.get_devices()?;
-        for data in commands {
-            match self.parse_command(data, &devices) {
-                Ok((sender, tab)) => account_events.push(AccountEvent::TabReceived((sender, tab))),
-                Err(e) => log::error!("Error while processing command: {}", e),
-            };
-        }
-        Ok(account_events)
+        let parsed_commands = messages
+            .into_iter()
+            .filter_map(|msg| match self.parse_command(msg.data, &devices) {
+                Ok(device_command) => Some(device_command),
+                Err(e) => {
+                    log::error!("Error while processing command: {}", e);
+                    None
+                }
+            })
+            .collect();
+        Ok(parsed_commands)
     }
 
-    // Returns SendTabPayload for now because we only receive send-tab commands and
-    // it's way easier, but should probably return AccountEvent or similar in the future.
     fn parse_command(
         &self,
         command_data: CommandData,
         devices: &[Device],
-    ) -> Result<(Option<Device>, SendTabPayload)> {
+    ) -> Result<IncomingDeviceCommand> {
         let sender = command_data
             .sender
             .and_then(|s| devices.iter().find(|i| i.id == s).cloned());

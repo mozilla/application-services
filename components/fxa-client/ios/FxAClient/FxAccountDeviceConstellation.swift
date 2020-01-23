@@ -75,7 +75,7 @@ public class DeviceConstellation {
 
     /// Poll for device events we might have missed (e.g. Push notification missed, or device offline).
     /// Your app should probably call this on a regular basic (e.g. once a day).
-    public func pollForEvents(completionHandler: @escaping (Result<[DeviceEvent], Error>) -> Void) {
+    public func pollForCommands(completionHandler: @escaping (Result<[IncomingDeviceCommand], Error>) -> Void) {
         DispatchQueue.global().async {
             do {
                 let events = try self.account.pollDeviceCommands()
@@ -118,8 +118,8 @@ public class DeviceConstellation {
 
     /// Once Push has decrypted a payload, send the payload to this method
     /// which will tell the app what to do with it in form of `DeviceEvents`.
-    public func processRawIncomingDeviceEvent(pushPayload: String,
-                                              completionHandler: @escaping (Result<[DeviceEvent], Error>) -> Void) {
+    public func processRawIncomingAccountEvent(pushPayload: String,
+                                               completionHandler: @escaping (Result<[AccountEvent], Error>) -> Void) {
         DispatchQueue.global().async {
             do {
                 let events = try self.account.handlePushMessage(payload: pushPayload)

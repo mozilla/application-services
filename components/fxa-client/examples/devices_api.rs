@@ -4,7 +4,7 @@
 
 use cli_support::prompt::prompt_string;
 use dialoguer::Select;
-use fxa_client::{device, AccountEvent, Config, FirefoxAccount};
+use fxa_client::{device, Config, FirefoxAccount, IncomingDeviceCommand};
 use std::{
     collections::HashMap,
     fs,
@@ -94,9 +94,9 @@ fn main() -> Result<(), failure::Error> {
                 persist_fxa_state(&acct.lock().unwrap());
                 for e in evts {
                     match e {
-                        AccountEvent::TabReceived((device, payload)) => {
+                        IncomingDeviceCommand::TabReceived { sender, payload } => {
                             let tab = &payload.entries[0];
-                            match device {
+                            match sender {
                                 Some(ref d) => {
                                     println!("Tab received from {}: {}", d.display_name, tab.url)
                                 }
