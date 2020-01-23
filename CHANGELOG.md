@@ -1,3 +1,42 @@
+# v0.48.3 (_2020-01-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.2...v0.48.3)
+
+## Places
+
+## What's new
+
+- The Dogear library for merging synced bookmarks has been updated to the latest version.
+  ([#2469](https://github.com/mozilla/application-services/pull/2469))
+- Places now exposes `resetHistorySyncMetadata` and `resetBookmarkSyncMetadata`
+  methods, which cleans up all Sync state, including tracking flags and change
+  counters. These methods should be called by consumers when the user signs out,
+  to avoid tracking changes and causing unexpected behavior the next time they
+  sign in.
+  ([#2447](https://github.com/mozilla/application-services/pull/2447))
+
+## What's changed
+
+- Ensure we do the right thing with timestamps, tags and keywords on first sync after migration.
+  ([#2472](https://github.com/mozilla/application-services/pull/2472))
+- Don't count Fennec bookmarks we know we don't import in success metrics.
+  ([#2488](https://github.com/mozilla/application-services/pull/2488))
+- Don't fail if the Fennec database has negative positions when importing top-sites
+  ([#2462](https://github.com/mozilla/application-services/pull/2462))
+- Fix issue with bookmark tags when syncing
+  ([#2480](https://github.com/mozilla/application-services/pull/2480))
+- Quality and usage metrics are recorded (ditto for logins)
+- Fix some swift warnings
+  ([#2491](https://github.com/mozilla/application-services/pull/2491))
+
+### Breaking Changes
+
+- The Android bindings now collect some basic performance and quality metrics via Glean.
+  Applications that submit telemetry via Glean must request a data review for these metrics
+  before integrating the places component. See the component README.md for more details.
+  ([#2431](https://github.com/mozilla/application-services/pull/2431))
+
+
 # v0.48.2 (_2020-01-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.1...v0.48.2)
