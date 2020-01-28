@@ -831,7 +831,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## MIT License: bytes
 
 The following text applies to code linked from these dependencies:
-[bytes](https://github.com/carllerche/bytes),
 [bytes](https://github.com/tokio-rs/bytes)
 
 ```

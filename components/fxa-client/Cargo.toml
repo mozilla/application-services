@@ -8,7 +8,6 @@ license = "MPL-2.0"
 [dependencies]
 base64 = "0.11.0"
 byteorder = "1.3.2"
-bytes = "0.4.12"
 failure = "0.1.6"
 hex = "0.4.0"
 lazy_static = "1.4.0"

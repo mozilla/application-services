@@ -129,10 +129,6 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/indexmap/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: iovec</name>
-    <url>https://github.com/carllerche/iovec/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: itertools</name>
     <url>https://github.com/bluss/rust-itertools/blob/master/LICENSE-APACHE</url>
   </license>
@@ -371,10 +367,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: bincode</name>
     <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
-  </license>
-  <license>
-    <name>MIT License: bytes</name>
-    <url>https://github.com/carllerche/bytes/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: bytes</name>
