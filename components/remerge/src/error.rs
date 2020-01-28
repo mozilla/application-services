@@ -44,6 +44,12 @@ pub enum ErrorKind {
 
     #[fail(display = "Error parsing URL: {}", _0)]
     UrlParseError(#[fail(cause)] url::ParseError),
+
+    /// Note: not an 'InvalidRecord' variant because it doesn't come from the user.
+    #[fail(
+        display = "UntypedMap has a key and tombstone with the same name when OnCollision::Error was requested"
+    )]
+    UntypedMapTombstoneCollision,
 }
 
 error_support::define_error! {

@@ -768,22 +768,12 @@ impl<'a> SchemaParser<'a> {
 
     fn check_used_features(&self, declared_features: &[String]) -> SchemaResult<()> {
         for f in &self.parsed_fields {
-            match &f.ty {
-                FieldType::UntypedMap { .. } => {
-                    if !declared_features.contains(&"untyped_map".to_string()) {
-                        return Err(SchemaError::UndeclaredFeatureRequired(
-                            "untyped_map".to_string(),
-                        ));
-                    }
+            if let FieldType::RecordSet { .. } = &f.ty {
+                if !declared_features.contains(&"record_set".to_string()) {
+                    return Err(SchemaError::UndeclaredFeatureRequired(
+                        "record_set".to_string(),
+                    ));
                 }
-                FieldType::RecordSet { .. } => {
-                    if !declared_features.contains(&"record_set".to_string()) {
-                        return Err(SchemaError::UndeclaredFeatureRequired(
-                            "record_set".to_string(),
-                        ));
-                    }
-                }
-                _ => {}
             }
         }
         Ok(())
