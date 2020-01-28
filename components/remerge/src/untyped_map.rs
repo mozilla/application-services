@@ -10,7 +10,8 @@
 //!   must be provided (of course, it's initially empty), creating an
 //!   `UntypedMap`
 //! - To convert a local map to a native map, the tombstone gets stored in the
-//!   database (if applicable) and then discarded.
+//!   database (if applicable) and then discarded. (Note: this happens in
+//!   storage/records.rs, with the other local -> native conversion code)
 //!
 //! See the RFC for the merge algorithm for these.
 
@@ -31,8 +32,8 @@ pub struct UntypedMap {
 // code
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum OnCollision {
-    /// Remove the map entry, keeping the tombstone (for prefer_deletion: true,
-    /// or if the tombstone)
+    /// Remove the map entry, keeping the tombstone (for prefer_deletion: true, or if
+    /// the tombstone is newer than the data in the map).
     DeleteEntry,
     /// Keep the map entry, remove the tombstone (for prefer_deletion: false, or
     /// if the data in the map is newer than tombstones, e.g. when updating a
