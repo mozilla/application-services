@@ -380,7 +380,7 @@ impl LoginDb {
 
     // It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
     // for each one if they exist)... I can't think of how to write that query, though.
-    fn find_dupe(&self, l: &Login) -> Result<Option<Login>> {
+    fn find_dupe_for_sync(&self, l: &Login) -> Result<Option<Login>> {
         let form_submit_host_port = l
             .form_submit_url
             .as_ref()
@@ -390,13 +390,15 @@ impl LoginDb {
             ":http_realm": l.http_realm,
             ":username": l.username,
             ":form_submit": form_submit_host_port,
+            ":password": l.password,
         };
         let mut query = format!(
             "SELECT {common}
              FROM loginsL
              WHERE hostname IS :hostname
                AND httpRealm IS :http_realm
-               AND username IS :username",
+               AND username IS :username
+               AND password IS :password",
             common = schema::COMMON_COLS,
         );
         if form_submit_host_port.is_some() {
@@ -1057,7 +1059,7 @@ impl LoginDb {
                     telem.reconciled(1);
                 }
                 (None, None) => {
-                    if let Some(dupe) = self.find_dupe(&upstream)? {
+                    if let Some(dupe) = self.find_dupe_for_sync(&upstream)? {
                         log::debug!(
                             "  Incoming record {} was is a dupe of local record {}",
                             upstream.guid,
