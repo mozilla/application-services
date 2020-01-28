@@ -252,10 +252,15 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         ReadableHistoryConnection,
         ReadableBookmarksConnection {
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
-        val json = rustCallForString { error ->
+        val resultBuffer = rustCall { error ->
             LibPlacesFFI.INSTANCE.places_query_autocomplete(this.handle.get(), query, limit, error)
         }
-        return SearchResult.fromJSONArray(json)
+        try {
+            val results = MsgTypes.SearchResultList.parseFrom(resultBuffer.asCodedInputStream()!!)
+            return SearchResult.fromCollectionMessage(results)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(resultBuffer)
+        }
     }
 
     override fun matchUrl(query: String): String? {
@@ -1095,31 +1100,23 @@ fun stringOrNull(jsonObject: JSONObject, key: String): String? {
 }
 
 data class SearchResult(
-    val searchString: String,
     val url: String,
     val title: String,
-    val frecency: Long,
-    val iconUrl: String? = null
+    val frecency: Long
     // Skipping `reasons` for now...
 ) {
     companion object {
-        fun fromJSON(jsonObject: JSONObject): SearchResult {
+        internal fun fromMessage(msg: MsgTypes.SearchResultMessage): SearchResult {
             return SearchResult(
-                searchString = jsonObject.getString("search_string"),
-                url = jsonObject.getString("url"),
-                title = jsonObject.getString("title"),
-                frecency = jsonObject.getLong("frecency"),
-                iconUrl = stringOrNull(jsonObject, "icon_url")
+                url = msg.url,
+                title = msg.title,
+                frecency = msg.frecency
             )
         }
-
-        fun fromJSONArray(jsonArrayText: String): List<SearchResult> {
-            val result: MutableList<SearchResult> = mutableListOf()
-            val array = JSONArray(jsonArrayText)
-            for (index in 0 until array.length()) {
-                result.add(fromJSON(array.getJSONObject(index)))
-            }
-            return result
+        internal fun fromCollectionMessage(msg: MsgTypes.SearchResultList): List<SearchResult> {
+            return msg.resultsList.map {
+                fromMessage(it)
+            }.toTypedArray().toList()
         }
     }
 }

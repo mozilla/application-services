@@ -13,7 +13,7 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
 };
 use places::error::*;
-use places::msg_types::BookmarkNodeList;
+use places::msg_types::{BookmarkNodeList, SearchResultList};
 use places::storage::bookmarks;
 use places::types::VisitTransitionSet;
 use places::{storage, ConnectionType, PlacesApi, PlacesDb};
@@ -192,17 +192,20 @@ pub extern "C" fn places_query_autocomplete(
     search: FfiStr<'_>,
     limit: u32,
     error: &mut ExternError,
-) -> *mut c_char {
+) -> ByteBuffer {
     log::debug!("places_query_autocomplete");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let res = search_frecent(
+        let results = search_frecent(
             conn,
             SearchParams {
                 search_string: search.into_string(),
                 limit,
             },
-        )?;
-        Ok(serde_json::to_string(&res)?)
+        )?
+        .into_iter()
+        .map(|r| r.into())
+        .collect();
+        Ok(SearchResultList { results })
     })
 }
 
