@@ -21,7 +21,7 @@ serde = "1.0.104"
 serde_json = "1.0.44"
 prost = "0.6.1"
 prost-derive = "0.6.1"
-bytes = "0.4.12"
+bytes = "0.5.4"
 ffi-support = { path = "../support/ffi" }
 reqwest = { version = "0.10.1", features = ["blocking", "native-tls-vendored"], optional = true }
 

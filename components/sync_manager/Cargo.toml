@@ -15,7 +15,7 @@ failure = "0.1.6"
 error-support = { path = "../support/error" }
 prost = "0.6.1"
 prost-derive = "0.6.1"
-bytes = "0.4.12"
+bytes = "0.5.4"
 lazy_static = "1.4.0"
 log = "0.4.8"
 sql-support = { path = "../support/sql" }
