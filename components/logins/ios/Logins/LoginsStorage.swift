@@ -372,6 +372,23 @@ open class LoginsStorage {
         }
     }
 
+    /// Get the set of potential duplicates ignoring the username of `login`.
+    open func potentialDupesIgnoringUsername(to login: LoginRecord) throws -> [LoginRecord] {
+        let data = try! login.toProtobuf().serializedData()
+        let size = Int32(data.count)
+        return try queue.sync {
+            let engine = try self.getUnlocked()
+            let buffer = try data.withUnsafeBytes { bytes in
+                try LoginsStoreError.unwrap { err in
+                    sync15_passwords_potential_dupes_ignoring_username(engine, bytes.bindMemory(to: UInt8.self).baseAddress!, size, err)
+                }
+            }
+            defer { sync15_passwords_destroy_buffer(buffer) }
+            let msgList = try MsgTypes_PasswordInfos(serializedData: Data(loginsRustBuffer: buffer))
+            return unpackProtobufInfoList(msgList: msgList)
+        }
+    }
+
     /// Get the list of records for some base domain.
     open func getByBaseDomain(baseDomain: String) throws -> [LoginRecord] {
         return try queue.sync {

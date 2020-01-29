@@ -77,7 +77,12 @@ Sync15PasswordsRustBuffer sync15_passwords_get_by_base_domain(Sync15PasswordEngi
                                           Sync15PasswordsError *_Nonnull error_out);
 
 Sync15PasswordsRustBuffer sync15_passwords_get_all(Sync15PasswordEngineHandle handle,
-                                         Sync15PasswordsError *_Nonnull error_out);
+                                                   Sync15PasswordsError *_Nonnull error_out);
+
+Sync15PasswordsRustBuffer sync15_passwords_potential_dupes_ignoring_username(Sync15PasswordEngineHandle handle,
+                                                                             uint8_t const *_Nonnull data,
+                                                                             int32_t len,
+                                                                             Sync15PasswordsError *_Nonnull error_out);
 
 char *_Nullable sync15_passwords_sync(Sync15PasswordEngineHandle handle,
                                       char const *_Nonnull key_id,

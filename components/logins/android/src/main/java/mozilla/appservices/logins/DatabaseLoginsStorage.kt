@@ -275,6 +275,31 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
         }
     }
 
+    @Synchronized
+    @Throws(LoginsStorageException::class)
+    override fun potentialDupesIgnoringUsername(login: ServerPassword): List<ServerPassword> {
+        return readQueryCounters.measure {
+            val buf = login.toProtobuf()
+            val (nioBuf, len) = buf.toNioDirectBuffer()
+            val rustBuf = rustCallWithLock { raw, error ->
+                val ptr = Native.getDirectBufferPointer(nioBuf)
+                LoginsStoreMetrics.readQueryTime.measure {
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_potential_dupes_ignoring_username(
+                        raw,
+                        ptr,
+                        len,
+                        error
+                    )
+                }
+            }
+            try {
+                ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
+            } finally {
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
+            }
+        }
+    }
+
     @Throws(InvalidRecordException::class)
     override fun ensureValid(login: ServerPassword) {
         readQueryCounters.measure {
