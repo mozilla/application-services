@@ -47,6 +47,11 @@ char *_Nullable fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                      const char *_Nonnull scopes,
                                      FxAError *_Nonnull out);
 
+char *_Nullable fxa_begin_pairing_flow(FirefoxAccountHandle handle,
+                                       const char *_Nonnull pairing_url,
+                                       const char *_Nonnull scopes,
+                                       FxAError *_Nonnull out);
+
 void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
                              const char *_Nonnull code,
                              const char *_Nonnull state,
@@ -79,6 +84,51 @@ FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
 FxARustBuffer fxa_profile(FirefoxAccountHandle handle,
                           bool ignore_cache,
                           FxAError *_Nonnull out);
+
+FxARustBuffer fxa_get_devices(FirefoxAccountHandle handle,
+                              FxAError *_Nonnull out);
+
+FxARustBuffer fxa_poll_device_commands(FirefoxAccountHandle handle,
+                                       FxAError *_Nonnull out);
+
+FxARustBuffer fxa_handle_push_message(FirefoxAccountHandle handle,
+                                      const char *_Nonnull payload,
+                                      FxAError *_Nonnull out);
+
+void fxa_send_tab(FirefoxAccountHandle handle,
+                  const char *_Nonnull targetId,
+                  const char *_Nonnull title,
+                  const char *_Nonnull url,
+                  FxAError *_Nonnull out);
+
+void fxa_set_device_name(FirefoxAccountHandle handle,
+                         const char *_Nonnull displayName,
+                         FxAError *_Nonnull out);
+
+void fxa_set_push_subscription(FirefoxAccountHandle handle,
+                               const char *_Nonnull endpoint,
+                               const char *_Nonnull publicKey,
+                               const char *_Nonnull authKey,
+                               FxAError *_Nonnull out);
+
+void fxa_initialize_device(FirefoxAccountHandle handle,
+                           const char *_Nonnull name,
+                           int32_t device_type,
+                           uint8_t const *_Nonnull capabilities_ptr,
+                           int32_t capabilities_len,
+                           FxAError *_Nonnull out);
+
+void fxa_ensure_capabilities(FirefoxAccountHandle handle,
+                             uint8_t const *_Nonnull capabilities_ptr,
+                             int32_t capabilities_len,
+                             FxAError *_Nonnull out);
+
+void fxa_migrate_from_session_token(FirefoxAccountHandle handle,
+                                    const char *_Nonnull sessionToken,
+                                    const char *_Nonnull kSync,
+                                    const char *_Nonnull kXCS,
+                                    bool copySessionToken,
+                                    FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAError *_Nonnull out);

@@ -10,6 +10,11 @@ public enum FirefoxAccountError: LocalizedError {
     case unspecified(message: String)
     case panic(message: String)
 
+    // Trying to finish an authentication that was never started with begin(...)Flow.
+    case noExistingAuthFlow
+    // Trying to finish a different authentication flow.
+    case wrongAuthFlow
+
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
         switch self {
@@ -21,6 +26,10 @@ public enum FirefoxAccountError: LocalizedError {
             return "FirefoxAccountError.unspecified: \(message)"
         case let .panic(message):
             return "FirefoxAccountError.panic: \(message)"
+        case .noExistingAuthFlow:
+            return "FirefoxAccountError.noExistingAuthFlow"
+        case .wrongAuthFlow:
+            return "FirefoxAccountError.wrongAuthFlow"
         }
     }
 
