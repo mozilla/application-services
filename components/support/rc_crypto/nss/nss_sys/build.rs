@@ -9,7 +9,7 @@ use toml;
 
 use nss_build_common::*;
 
-const BINDINGS_CONFIG: &'static str = "bindings.toml";
+const BINDINGS_CONFIG: &str = "bindings.toml";
 
 // This is the format of a single section of the configuration file.
 #[derive(Deserialize)]
@@ -46,7 +46,7 @@ fn maybe_setup_ndk_clang_path() {
     if target_os.as_ref().map_or(false, |x| x == "android") {
         let mut buf = PathBuf::from(env("ANDROID_NDK_ROOT").unwrap());
         let ndk_api = env_str("ANDROID_NDK_API_VERSION")
-            .unwrap_or(DEFAULT_ANDROID_NDK_API_VERSION.to_owned());
+            .unwrap_or_else(|| DEFAULT_ANDROID_NDK_API_VERSION.to_owned());
 
         if ndk_api.is_empty() {
             println!("cargo:warning=ANDROID_NDK_API_VERSION is unset. Trying unprefixed");
@@ -152,7 +152,7 @@ fn fix_include_dirs(mut builder: Builder) -> Builder {
         }
         _ => {}
     }
-    return builder;
+    builder
 }
 
 fn android_host_tag() -> &'static str {
