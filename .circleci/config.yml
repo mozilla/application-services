@@ -58,7 +58,7 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: "stable"
+        default: "1.40.0"
     steps:
       - run:
           name: Setup Rust toolchain
@@ -115,7 +115,7 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: "stable"
+        default: "1.40.0"
     steps:
       - checkout
       - build-desktop-libs
@@ -134,7 +134,7 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: "stable"
+        default: "1.40.0"
     steps:
       - test-setup:
           rust-version: <<parameters.rust-version>>
@@ -224,7 +224,7 @@ jobs:
       - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose
   Check Rust formatting:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.40.0
     steps:
       - checkout
       - setup-rust-toolchain
@@ -233,7 +233,7 @@ jobs:
       - run: cargo fmt -- --check
   Lint Rust with clippy:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.40.0
     steps:
       - test-setup
       - run: rustup component add clippy
@@ -249,7 +249,7 @@ jobs:
           command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.40.0
     steps:
       - run: sudo apt-get install python3-pip
       - setup-rust-toolchain
@@ -286,7 +286,7 @@ jobs:
       - sync-bugzilla-to-github
   Rust tests:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.40.0
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: xlarge
     steps:
@@ -295,14 +295,14 @@ jobs:
       - save-sccache-cache
   Sync integration tests:
     docker:
-      - image: circleci/rust:latest-browsers
+      - image: circleci/rust:1.40.0-browsers
     steps:
       - restore-sccache-cache
       - sync-tests
       - save-sccache-cache
   Rust benchmarks:
     docker:
-      - image: circleci/rust:latest
+      - image: circleci/rust:1.40.0
     resource_class: large
     steps:
       - restore-sccache-cache
