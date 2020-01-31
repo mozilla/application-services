@@ -17,7 +17,7 @@ fi
 
 EXTRA_ARGS=( "$@" )
 
-cargo clippy --all --all-targets --all-features -- -D warnings  "${EXTRA_ARGS[@]}"
+cargo clippy --all --all-targets --all-features -- -D warnings ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
 # Instead we pull the list of individual package manifest files out of `cargo metadata` and
@@ -27,5 +27,5 @@ for manifest in $(cargo metadata --format-version 1 --no-deps | tr -s '"' '\n' |
     package=$(dirname "$manifest")
     package=$(basename "$package")
     echo "## no-default-features clippy for package $package (manifest @ $manifest)"
-    cargo clippy --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings "${EXTRA_ARGS[@]}"
+    cargo clippy --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 done
