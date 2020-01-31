@@ -57,6 +57,14 @@ pub struct FirefoxAccount {
     flow_store: HashMap<String, OAuthFlow>,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MigrationData {
+    k_xcs: String,
+    k_sync: String,
+    copy_session_token: bool,
+    session_token: String,
+}
+
 // If this structure is modified, please:
 // 1. Check if a migration needs to be done, as
 // these fields are persisted as a JSON string
@@ -79,6 +87,7 @@ pub(crate) struct StateV2 {
     access_token_cache: HashMap<String, AccessTokenInfo>,
     session_token: Option<String>, // Hex-formatted string.
     last_seen_profile: Option<CachedResponse<Profile>>,
+    in_flight_migration: Option<MigrationData>,
 }
 
 impl StateV2 {
@@ -97,6 +106,7 @@ impl StateV2 {
             access_token_cache: HashMap::new(),
             device_capabilities: HashSet::new(),
             session_token: None,
+            in_flight_migration: None,
         }
     }
 }
@@ -125,6 +135,7 @@ impl FirefoxAccount {
             current_device_id: None,
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
+            in_flight_migration: None,
         })
     }
 

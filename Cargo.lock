@@ -813,6 +813,7 @@ dependencies = [
  "lazy_static",
  "log",
  "prost",
+ "serde_json",
  "url",
  "viaduct",
 ]
