@@ -324,10 +324,9 @@ def linux_build_task(name):
         .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"), use_indexed_docker_image)
         .with_env(**build_env, **linux_build_env)
-        # Pin to an earlier version for now.
         .with_script("""
-            rustup toolchain install 1.40.0
-            rustup default 1.40.0
+            rustup toolchain install stable
+            rustup default stable
             rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
         """)
         .with_repo()
