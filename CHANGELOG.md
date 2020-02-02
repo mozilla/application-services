@@ -1,3 +1,22 @@
+# v0.49.0 (_2020-02-03_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.3...v0.49.0)
+
+## FxA Client
+
+### What's New
+
+- Android: `migrateFromSessionToken` now handles offline use cases. It caches the data the consumers
+  originally provide. If there's no network connectivity then the migration could be retried using the
+  new `retryMigrateFromSessionToken` method. Consumers may also use the `isInMigrationState` method
+  to check if there's a migration in progress. ([#2492](https://github.com/mozilla/application-services/pull/2492))
+
+### Breaking changes
+
+- `migrateFromSessionToken` now returns a metrics JSON object if the migration succeeded.
+  ([#2492](https://github.com/mozilla/application-services/pull/2492))
+
+
 # v0.48.3 (_2020-01-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.2...v0.48.3)
