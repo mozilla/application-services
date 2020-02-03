@@ -920,7 +920,7 @@ To be explicit, the following is deferred as future design work.
 These are designed and specced, and I think they're very important for remerge
 to actually be useful, but
 
-1. The `untyped_map` and `record_set` types.
+1. The `record_set` type.
 2. TODO: What else? There's probably a lot we could cut just to support form
    autofill, but if "everything but what form autofill needs" is cut, this would
    not be a very useful system.

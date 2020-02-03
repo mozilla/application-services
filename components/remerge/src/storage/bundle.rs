@@ -5,13 +5,14 @@
 use super::{LocalRecord, NativeRecord};
 use crate::error::*;
 use crate::schema::{FieldKind, FieldType, RecordSchema};
+use crate::untyped_map::{OnCollision, UntypedMap};
 use crate::{Guid, JsonObject, JsonValue};
 use std::sync::Arc;
 
 /// Reason for converting a native record to a local record. Essentially a
 /// typesafe `is_creation: bool`. Exists just to be passed to `native_to_local`,
 /// see that function's docs for more info.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug)]
 pub enum ToLocalReason {
     /// The record is going to be compared with existing records, and won't be
     /// inserted into the DB. This means we're going to perform deduping
@@ -21,7 +22,10 @@ pub enum ToLocalReason {
     Creation,
 
     /// The record is expected to exist, and is being updated.
-    Update,
+    Update {
+        /// Needed for UntypedMap, and eventually RecordSet.
+        prev: LocalRecord,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,6 +76,7 @@ impl SchemaBundle {
         record: &NativeRecord,
         reason: ToLocalReason,
     ) -> Result<(Guid, LocalRecord)> {
+        use crate::util::into_obj;
         let mut id = Guid::random();
 
         let mut fields = JsonObject::default();
@@ -94,6 +99,7 @@ impl SchemaBundle {
             let native_name = native_field.map(|n| n.local_name.as_str());
 
             let is_guid = FieldKind::OwnGuid == field.ty.kind();
+            let is_umap = FieldKind::UntypedMap == field.ty.kind();
             let ts_sema = field.timestamp_semantic();
 
             if let Some(v) = native_name.and_then(|s| record.get(s)) {
@@ -135,17 +141,17 @@ impl SchemaBundle {
                             ),
                         ));
                     }
-                    match (reason, semantic) {
+                    match (&reason, semantic) {
                         (ToLocalReason::Creation, _) => {
                             // Initialize both CreatedAt/UpdatedAt to now_ms on creation
                             fixed = now_ms.into();
                         }
-                        (ToLocalReason::Update, UpdatedAt) => {
+                        (ToLocalReason::Update { .. }, UpdatedAt) => {
                             fixed = now_ms.into();
                         }
                         // Keep these here explicitly to ensure this gets
                         // updated if the enums changed.
-                        (ToLocalReason::Update, CreatedAt) => {}
+                        (ToLocalReason::Update { .. }, CreatedAt) => {}
                         (ToLocalReason::Comparison, _) => {
                             // XXX The result of this won't be "fully" valid...
                             // Shouldn't matter for deduping (what Comparison is
@@ -153,13 +159,46 @@ impl SchemaBundle {
                             // semantic timestamp (validation checks this).
                         }
                     }
+                } else if is_umap {
+                    // Untyped maps have to be converted into a `{ map:
+                    // <payload>, tombs: [...] }` payload to handle storing
+                    // tombstones.
+                    //
+                    // Additionally, for updates, we make sure (inside
+                    // `update_local_from_native` and callees) that:
+                    // - entries which are being removed in this update
+                    //   should get tombstones.
+                    // - entries which are added which have tombstones
+                    //   have the tombstones removed.
+                    match &reason {
+                        ToLocalReason::Update { prev } => {
+                            // Note that the equivalent field in `prev`'s schema
+                            // might not exist (or it might exist but have been
+                            // optional). For now, just
+
+                            if let Some(prev) = prev.get(&field.name) {
+                                fixed = UntypedMap::update_local_from_native(prev.clone(), fixed)?;
+                            } else {
+                                fixed = UntypedMap::from_native(into_obj(fixed)?).into_local_json();
+                            }
+                        }
+                        ToLocalReason::Creation | ToLocalReason::Comparison => {
+                            fixed = UntypedMap::from_native(into_obj(fixed)?).into_local_json();
+                        }
+                    }
                 }
                 fields.insert(field.name.clone(), fixed);
             } else if let Some(def) = field.ty.get_default() {
-                fields.insert(field.name.clone(), def);
+                if is_umap {
+                    let def_obj = into_obj(def)?;
+                    let val = UntypedMap::new(def_obj, vec![], OnCollision::KeepEntry);
+                    fields.insert(field.name.clone(), val.into_local_json());
+                } else {
+                    fields.insert(field.name.clone(), def);
+                }
             } else if is_guid {
-                match reason {
-                    ToLocalReason::Update => {
+                match &reason {
+                    ToLocalReason::Update { .. } => {
                         throw!(InvalidRecord::InvalidField(
                             native_name
                                 .unwrap_or_else(|| field.name.as_str())
@@ -200,7 +239,7 @@ impl SchemaBundle {
         // XXX We should error if there are any fields in the native record we
         // don't know about, instead of silently droppin them.
 
-        if !seen_guid && reason == ToLocalReason::Creation {
+        if !seen_guid && matches::matches!(reason, ToLocalReason::Creation) {
             self.complain_unless_auto_guid()?;
         }
 
@@ -217,7 +256,13 @@ impl SchemaBundle {
             // supposed to change, barring removal or similar. (This is why
             // `local_name` exists)
             if let Some(value) = record.get(&native_field.name) {
-                fields.insert(native_field.local_name.clone(), value.clone());
+                let mut value: JsonValue = value.clone();
+                // If it's an UntypedMap, we need to replace the `{ map:
+                // {payload here}, tombs: ... }` structure with just the payload.
+                if native_field.ty.kind() == FieldKind::UntypedMap {
+                    value = UntypedMap::from_local_json(value)?.into_native().into();
+                }
+                fields.insert(native_field.local_name.clone(), value);
                 continue;
             } else if let Some(default) = native_field.ty.get_default() {
                 // Otherwise, we see if the field has a default value specified

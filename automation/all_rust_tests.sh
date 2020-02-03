@@ -31,5 +31,5 @@ for manifest in $(cargo metadata --format-version 1 --no-deps | tr -s '"' '\n' |
     package=$(dirname "$manifest")
     package=$(basename "$package")
     echo "## no-default-features test for package $package (manifest @ $manifest)"
-    cargo test --manifest-path "$manifest" --no-default-features "${EXTRA_ARGS[@]}"
+    cargo test --manifest-path "$manifest" --no-default-features ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 done

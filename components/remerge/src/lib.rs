@@ -11,6 +11,7 @@ pub mod error;
 pub mod ms_time;
 pub mod schema;
 pub mod storage;
+pub mod untyped_map;
 pub mod vclock;
 
 // Some re-exports we use frequently for local convenience

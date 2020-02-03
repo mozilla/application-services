@@ -5,6 +5,7 @@
 use crate::db::PlacesDb;
 use crate::error::Result;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
+use crate::msg_types::{SearchResultMessage, SearchResultReason};
 use rusqlite::{types::ToSql, Row};
 use serde_derive::*;
 use sql_support::{maybe_log_plan, ConnExt};
@@ -329,6 +330,34 @@ impl SearchResult {
             frecency,
             reasons,
         })
+    }
+}
+
+impl From<SearchResult> for SearchResultMessage {
+    fn from(res: SearchResult) -> Self {
+        Self {
+            url: res.url.into_string(),
+            title: res.title,
+            frecency: res.frecency,
+            reasons: res
+                .reasons
+                .into_iter()
+                .map(|r| Into::<SearchResultReason>::into(r) as i32)
+                .collect::<Vec<i32>>(),
+        }
+    }
+}
+
+impl From<MatchReason> for SearchResultReason {
+    fn from(mr: MatchReason) -> Self {
+        match mr {
+            MatchReason::Keyword => SearchResultReason::Keyword,
+            MatchReason::Origin => SearchResultReason::Origin,
+            MatchReason::Url => SearchResultReason::Url,
+            MatchReason::PreviousUse => SearchResultReason::PreviousUse,
+            MatchReason::Bookmark => SearchResultReason::Bookmark,
+            MatchReason::Tags(_) => SearchResultReason::Tag,
+        }
     }
 }
 

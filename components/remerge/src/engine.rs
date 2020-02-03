@@ -28,6 +28,10 @@ impl RemergeEngine {
         Ok(Self { db })
     }
 
+    pub fn conn(&self) -> &rusqlite::Connection {
+        self.db.conn()
+    }
+
     pub fn bundle(&self) -> &SchemaBundle {
         self.db.bundle()
     }
@@ -67,9 +71,10 @@ impl RemergeEngine {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::untyped_map::UntypedMap;
     use crate::JsonValue;
+    use rusqlite::{params, Connection};
     use serde_json::json;
-
     lazy_static::lazy_static! {
         pub static ref SCHEMA: String = json!({
             "version": "1.0.0",
@@ -111,7 +116,11 @@ mod test {
                 {
                     "name": "username",
                     "type": "text"
-                }
+                },
+                {
+                    "name": "extra",
+                    "type": "untyped_map",
+                },
             ],
             "dedupe_on": [
                 "username",
@@ -237,5 +246,105 @@ mod test {
         assert_eq!(v["password"], "p4ssw0rd0");
         assert_eq!(v["origin"], "https://www.ex4mple.com");
         assert_eq!(v["httpRealm"], "stuff");
+    }
+
+    fn extra(conn: &Connection, id: &str) -> Result<UntypedMap> {
+        let data: JsonValue = conn.query_row_and_then(
+            "SELECT record_data FROM rec_local WHERE guid = ?",
+            params![id],
+            |row| row.get(0),
+        )?;
+        UntypedMap::from_local_json(data["extra"].clone())
+    }
+
+    #[test]
+    fn test_untyped_map_update() {
+        let e: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA).unwrap();
+        let id = e
+            .insert(json!({
+                "username": "test",
+                "password": "p4ssw0rd",
+                "origin": "https://www.example.com",
+                "formActionOrigin": "https://login.example.com",
+                "extra": {
+                    "foo": "a",
+                    "bar": 4,
+                }
+            }))
+            .unwrap();
+        assert!(e.exists(&id).unwrap());
+        let v = e.get(&id).unwrap().expect("should exist").into_val();
+        assert_eq!(v["id"], id.as_str());
+        assert_eq!(v["username"], "test");
+        assert_eq!(v["password"], "p4ssw0rd");
+        assert_eq!(v["origin"], "https://www.example.com");
+        assert_eq!(v["formActionOrigin"], "https://login.example.com");
+        assert_eq!(
+            v["extra"],
+            json!({
+                "foo": "a",
+                "bar": 4,
+            })
+        );
+        let um0: UntypedMap = extra(e.conn(), &id).unwrap();
+        assert_eq!(um0.len(), 2);
+        assert_eq!(um0["foo"], "a");
+        assert_eq!(um0["bar"], 4);
+        assert_eq!(um0.tombstones().len(), 0);
+
+        e.update(json!({
+            "id": id,
+            "username": "test2",
+            "password": "p4ssw0rd0",
+            "origin": "https://www.ex4mple.com",
+            "httpRealm": "stuff",
+            "extra": json!({
+                "foo": "a",
+                "quux": 4,
+            })
+        }))
+        .unwrap();
+
+        let v = e
+            .get(&id)
+            .unwrap()
+            .expect("should (still) exist")
+            .into_val();
+        assert_eq!(v["id"], id.as_str());
+        assert_eq!(v["username"], "test2");
+        assert_eq!(v["password"], "p4ssw0rd0");
+        assert_eq!(v["origin"], "https://www.ex4mple.com");
+        assert_eq!(v["httpRealm"], "stuff");
+        assert_eq!(
+            v["extra"],
+            json!({
+                "foo": "a",
+                "quux": 4,
+            })
+        );
+
+        let um1: UntypedMap = extra(e.conn(), &id).unwrap();
+        assert_eq!(um1.len(), 2);
+        assert_eq!(um1["foo"], "a");
+        assert_eq!(um1["quux"], 4);
+
+        um1.assert_tombstones(vec!["bar"]);
+
+        e.update(json!({
+            "id": id,
+            "username": "test2",
+            "password": "p4ssw0rd0",
+            "origin": "https://www.ex4mple.com",
+            "httpRealm": "stuff",
+            "extra": json!({
+                "bar": "test",
+            })
+        }))
+        .unwrap();
+
+        let um2: UntypedMap = extra(e.conn(), &id).unwrap();
+        assert_eq!(um2.len(), 1);
+        assert_eq!(um2["bar"], "test");
+        um2.assert_tombstones(vec!["foo", "quux"]);
     }
 }
