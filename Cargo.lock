@@ -1292,9 +1292,9 @@ dependencies = [
 
 [[package]]
 name = "mockito"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e524e85ea7c80559354217a6470c14abc2411802a9996aed1821559b9e28e3c"
+checksum = "00e8b35e472255215b2683a19d7d9cfb06e74d294781ede6baf73dedbe3fc884"
 dependencies = [
  "assert-json-diff",
  "colored",
@@ -1302,7 +1302,7 @@ dependencies = [
  "httparse",
  "lazy_static",
  "log",
- "percent-encoding 1.0.1",
+ "percent-encoding",
  "rand 0.7.3",
  "regex",
  "serde_json",
@@ -1548,12 +1548,6 @@ checksum = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 
 [[package]]
 name = "percent-encoding"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
-
-[[package]]
-name = "percent-encoding"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4fd5641d01c8f18a23da7b6fe29298ff4b55afcccdf78973b24cf3175fee32e"
@@ -1630,7 +1624,7 @@ dependencies = [
  "log",
  "memchr",
  "more-asserts",
- "percent-encoding 2.1.0",
+ "percent-encoding",
  "pretty_assertions",
  "prost",
  "prost-build",
@@ -2091,7 +2085,7 @@ dependencies = [
  "mime",
  "mime_guess",
  "native-tls",
- "percent-encoding 2.1.0",
+ "percent-encoding",
  "pin-project-lite",
  "serde",
  "serde_urlencoded",
@@ -2767,7 +2761,7 @@ checksum = "829d4a8476c35c9bf0bbce5a3b23f4106f79728039b726d292bb93bc106787cb"
 dependencies = [
  "idna",
  "matches",
- "percent-encoding 2.1.0",
+ "percent-encoding",
  "serde",
 ]
 
