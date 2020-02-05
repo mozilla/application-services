@@ -1,3 +1,12 @@
+# v0.50.2 (_2020-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.1...v0.50.2)
+
+### What's changed
+
+- Re-releasing to fix misconfigured build options in v0.50.1.
+
+
 # v0.50.1 (_2020-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.0...v0.50.1)
