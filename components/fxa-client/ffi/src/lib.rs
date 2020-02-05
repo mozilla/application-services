@@ -238,7 +238,7 @@ pub extern "C" fn fxa_migrate_from_session_token(
     session_token: FfiStr<'_>,
     k_sync: FfiStr<'_>,
     k_xcs: FfiStr<'_>,
-    copy_session_token: bool,
+    copy_session_token: u8,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_migrate_from_session_token");
@@ -247,7 +247,7 @@ pub extern "C" fn fxa_migrate_from_session_token(
         let k_sync = k_sync.as_str();
         let k_xcs = k_xcs.as_str();
         let migration_metrics =
-            fxa.migrate_from_session_token(session_token, k_sync, k_xcs, copy_session_token)?;
+            fxa.migrate_from_session_token(session_token, k_sync, k_xcs, copy_session_token != 0)?;
         let result = serde_json::to_string(&migration_metrics)?;
         Ok(result)
     })

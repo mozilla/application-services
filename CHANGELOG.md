@@ -1,3 +1,15 @@
+# v0.50.1 (_2020-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.0...v0.50.1)
+
+## FxA Client
+
+### What's changed
+
+- Fixed a potentially-unsafe use of a boolean in the FFI interface for `migrateFromSessionToken`.
+  ([#2592](https://github.com/mozilla/application-services/pull/2592)).
+
+
 # v0.50.0 (_2020-02-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.49.0...v0.50.0)

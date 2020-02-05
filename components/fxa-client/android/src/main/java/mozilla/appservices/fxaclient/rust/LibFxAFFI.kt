@@ -90,7 +90,7 @@ internal interface LibFxAFFI : Library {
         sessionToken: String,
         kSync: String,
         kXCS: String,
-        copySessionToken: Boolean,
+        copySessionToken: Byte,
         e: RustError.ByReference
     ): Pointer?
 
