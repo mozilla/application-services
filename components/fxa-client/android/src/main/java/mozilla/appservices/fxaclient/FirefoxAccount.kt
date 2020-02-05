@@ -346,10 +346,10 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      *
      * @return bool Returns a boolean if we are in a migration state
      */
-    fun isInMigrationState(): Boolean {
+    fun isInMigrationState(): MigrationState {
         rustCall { e ->
             val state = LibFxAFFI.INSTANCE.fxa_is_in_migration_state(this.handle.get(), e)
-            return state.toInt() != 0
+            return MigrationState.fromNumber(state.toInt())
         }
     }
 

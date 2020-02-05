@@ -3,12 +3,36 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount, MigrationData};
+use ffi_support::IntoFfi;
 use serde_derive::*;
 use std::time::Instant;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct FxAMigrationResult {
     pub total_duration: u128,
+}
+
+pub enum MigrationState {
+    // No in-flight migration.
+    None,
+    // An in-flight migration that will copy the sessionToken.
+    CopySessionToken,
+    // An in-flight migration that will re-use the sessionToken.
+    ReuseSessionToken,
+}
+
+unsafe impl IntoFfi for MigrationState {
+    type Value = u8;
+    fn ffi_default() -> u8 {
+        0
+    }
+    fn into_ffi_value(self) -> u8 {
+        match self {
+            MigrationState::None => 0,
+            MigrationState::CopySessionToken => 1,
+            MigrationState::ReuseSessionToken => 2,
+        }
+    }
 }
 
 impl FirefoxAccount {
@@ -49,8 +73,18 @@ impl FirefoxAccount {
     }
 
     /// Check if the client is in a pending migration state
-    pub fn is_in_migration_state(&self) -> bool {
-        self.state.in_flight_migration.is_some()
+    pub fn is_in_migration_state(&self) -> MigrationState {
+        match self.state.in_flight_migration {
+            None => MigrationState::None,
+            Some(MigrationData {
+                copy_session_token: true,
+                ..
+            }) => MigrationState::CopySessionToken,
+            Some(MigrationData {
+                copy_session_token: false,
+                ..
+            }) => MigrationState::ReuseSessionToken,
+        }
     }
 
     pub fn try_migration(&mut self) -> Result<FxAMigrationResult> {
@@ -150,5 +184,203 @@ impl FirefoxAccount {
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::http_client::*;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    fn setup() -> FirefoxAccount {
+        // I'd love to be able to configure a single mocked client here,
+        // but can't work out how to do that within the typesystem.
+        FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar")
+    }
+
+    macro_rules! assert_match {
+        ($value:expr, $pattern:pat) => {
+            assert!(match $value {
+                $pattern => true,
+                _ => false,
+            });
+        };
+    }
+
+    #[test]
+    fn test_migration_can_retry_after_network_errors() {
+        let mut fxa = setup();
+
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+
+        // Initial attempt fails with a server-side failure, which we can retry.
+        let mut client = FxAClientMock::new();
+        client
+            .expect_duplicate_session(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 500,
+                errno: 999,
+                error: "server error".to_string(),
+                message: "there was a server error".to_string(),
+                info: "fyi, there was a server error".to_string(),
+            }
+            .into()));
+        fxa.set_client(Arc::new(client));
+
+        let err = fxa
+            .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
+            .unwrap_err();
+        assert_match!(err.kind(), ErrorKind::RemoteError { code: 500, .. });
+        assert_match!(
+            fxa.is_in_migration_state(),
+            MigrationState::CopySessionToken
+        );
+
+        // Retrying can succeed.
+        // It makes a lot of network requests, so we have a lot to mock!
+        let mut client = FxAClientMock::new();
+        client
+            .expect_duplicate_session(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .returns_once(Ok(DuplicateTokenResponse {
+                uid: "userid".to_string(),
+                session_token: "dup_session".to_string(),
+                verified: true,
+                auth_at: 12345,
+            }));
+        let mut key_data = HashMap::new();
+        key_data.insert(
+            scopes::OLD_SYNC.to_string(),
+            ScopedKeyDataResponse {
+                identifier: scopes::OLD_SYNC.to_string(),
+                key_rotation_secret: "00000000000000000000000000000000".to_string(),
+                key_rotation_timestamp: 12345,
+            },
+        );
+        client
+            .expect_scoped_key_data(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("dup_session"),
+                |arg| arg.partial_eq(scopes::OLD_SYNC),
+            )
+            .returns_once(Ok(key_data));
+        client
+            .expect_oauth_tokens_from_session_token(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("dup_session"),
+                |arg| arg.unordered_vec_eq([scopes::PROFILE, scopes::OLD_SYNC].to_vec()),
+            )
+            .returns_once(Ok(OAuthTokenResponse {
+                keys_jwe: None,
+                refresh_token: Some("refresh".to_string()),
+                session_token: None,
+                expires_in: 12345,
+                scope: "profile oldsync".to_string(),
+                access_token: "access".to_string(),
+            }));
+        client
+            .expect_destroy_access_token(mockiato::Argument::any, |arg| arg.partial_eq("access"))
+            .returns_once(Ok(()));
+        fxa.set_client(Arc::new(client));
+
+        fxa.try_migration().unwrap();
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+    }
+
+    #[test]
+    fn test_migration_cannot_retry_after_other_errors() {
+        let mut fxa = setup();
+
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_duplicate_session(mockiato::Argument::any, |arg| arg.partial_eq("session"))
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 400,
+                errno: 102,
+                error: "invalid token".to_string(),
+                message: "the token was invalid".to_string(),
+                info: "fyi, the provided token was invalid".to_string(),
+            }
+            .into()));
+        fxa.set_client(Arc::new(client));
+
+        let err = fxa
+            .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
+            .unwrap_err();
+        assert_match!(err.kind(), ErrorKind::RemoteError { code: 400, .. });
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+    }
+
+    #[test]
+    fn try_migration_fails_if_nothing_in_flight() {
+        let mut fxa = setup();
+
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+
+        let err = fxa.try_migration().unwrap_err();
+        assert_match!(err.kind(), ErrorKind::NoMigrationData);
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+    }
+
+    #[test]
+    fn test_migration_state_remembers_whether_to_copy_session_token() {
+        let mut fxa = setup();
+
+        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+
+        let mut client = FxAClientMock::new();
+        client
+            .expect_scoped_key_data(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq(scopes::OLD_SYNC),
+            )
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 500,
+                errno: 999,
+                error: "server error".to_string(),
+                message: "there was a server error".to_string(),
+                info: "fyi, there was a server error".to_string(),
+            }
+            .into()));
+        fxa.set_client(Arc::new(client));
+
+        let err = fxa
+            .migrate_from_session_token("session", "aabbcc", "ddeeff", false)
+            .unwrap_err();
+        assert_match!(err.kind(), ErrorKind::RemoteError { code: 500, .. });
+        assert_match!(
+            fxa.is_in_migration_state(),
+            MigrationState::ReuseSessionToken
+        );
+
+        // Retrying should fail again in the same way (as opposed to, say, trying
+        // to duplicate the sessionToken rather than reusing it).
+        let mut client = FxAClientMock::new();
+        client
+            .expect_scoped_key_data(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq(scopes::OLD_SYNC),
+            )
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 500,
+                errno: 999,
+                error: "server error".to_string(),
+                message: "there was a server error".to_string(),
+                info: "fyi, there was a server error".to_string(),
+            }
+            .into()));
+        fxa.set_client(Arc::new(client));
+
+        let err = fxa.try_migration().unwrap_err();
+        assert_match!(err.kind(), ErrorKind::RemoteError { code: 500, .. });
+        assert_match!(
+            fxa.is_in_migration_state(),
+            MigrationState::ReuseSessionToken
+        );
     }
 }
