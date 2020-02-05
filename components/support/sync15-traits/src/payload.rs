@@ -7,11 +7,6 @@ use serde_json::{Map, Value as JsonValue};
 
 /// Represents the decrypted payload in a Bso. Provides a minimal layer of type
 /// safety to avoid double-encrypting.
-///
-/// Note: If we implement a full sync client in rust we may want to consider
-/// using stronger types for each record (we did this in the past as well), but
-/// for now, since everything is just going over the FFI, there's not a lot of
-/// benefit here.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Payload {
     pub id: Guid,
@@ -67,9 +62,10 @@ impl Payload {
     }
 
     pub fn from_record<T: Serialize>(v: T) -> Result<Payload, serde_json::Error> {
-        // TODO: This is dumb, we do to_value and then from_value. If we end up using this
-        // method a lot we should rethink... As it is it should just be for uploading
-        // meta/global or crypto/keys which is rare enough that it doesn't matter.
+        // TODO(issue #2588): This is kind of dumb, we do to_value and then
+        // from_value. In general a more strongly typed API would help us avoid
+        // this sort of thing... But also concretely this could probably be
+        // avoided? At least in some cases.
         Ok(Payload::from_json(serde_json::to_value(v)?)?)
     }
 

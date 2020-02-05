@@ -170,7 +170,7 @@ impl CleartextBso {
         BsoRecord {
             id,
             collection: collection.into(),
-            modified: 0.into(), // Doesn't matter.
+            modified: ServerTimestamp::default(), // Doesn't matter.
             sortindex,
             ttl,
             payload,

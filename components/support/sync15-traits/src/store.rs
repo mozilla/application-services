@@ -40,8 +40,10 @@ pub trait Store {
     /// not be called if the store is synced using `sync::synchronize` or
     /// `sync_multiple::sync_multiple`. It _will_ be called if the store is
     /// synced via the Sync Manager.
-    // TODO: This is pretty cludgey and will be hard to extend for any case other
-    // than the tabs case. We should find another way to support tabs...
+    ///
+    /// TODO(issue #2590): This is pretty cludgey and will be hard to extend for
+    /// any case other than the tabs case. We should find another way to support
+    /// tabs...
     fn prepare_for_sync(&self, _get_client_data: &dyn Fn() -> ClientData) -> Result<(), Error> {
         Ok(())
     }

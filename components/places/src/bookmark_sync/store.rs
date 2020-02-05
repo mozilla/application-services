@@ -2759,7 +2759,7 @@ mod tests {
         // Start with merged items.
         apply_incoming(
             &syncer,
-            ServerTimestamp::from(remote_modified),
+            ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
                 "type": "folder",
@@ -2878,7 +2878,7 @@ mod tests {
         // Start with merged items.
         apply_incoming(
             &syncer,
-            ServerTimestamp::from(remote_modified),
+            ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
                 "type": "folder",
@@ -2975,7 +2975,7 @@ mod tests {
         // Add newer remote items.
         apply_incoming(
             &syncer,
-            ServerTimestamp::from(remote_modified),
+            ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
                 "type": "folder",

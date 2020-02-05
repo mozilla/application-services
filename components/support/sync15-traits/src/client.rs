@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! This module has to be here because of some hard-to-avoid hacks done for the
-//! tabs engine...
+//! tabs engine... See issue #2590
 
 use std::collections::HashMap;
 

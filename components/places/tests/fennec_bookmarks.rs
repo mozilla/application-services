@@ -640,10 +640,12 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     let now = SystemTime::now();
     // We arrange for the "current time" on the server to be now, and modified
     // timestamp of our test item on the server to be 10 seconds ago.
-    let item_server_timestamp: ServerTimestamp =
-        (now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as f64 - 10.0).into();
-    let server_timestamp: ServerTimestamp =
-        (now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as f64).into();
+    let item_server_timestamp: ServerTimestamp = ServerTimestamp::from_float_seconds(
+        now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as f64 - 10.0,
+    );
+    let server_timestamp: ServerTimestamp = ServerTimestamp::from_float_seconds(
+        now.duration_since(UNIX_EPOCH).unwrap_or_default().as_secs() as f64,
+    );
     // The locally modified timestamp is either now or 20 seconds ago
     let timestamp_local: Timestamp = match test_type {
         TimestampTestType::LocalNewer => now.into(),

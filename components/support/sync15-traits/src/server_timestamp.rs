@@ -9,35 +9,25 @@ use std::time::Duration;
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd, Default)]
 pub struct ServerTimestamp(pub i64);
 
-impl From<ServerTimestamp> for i64 {
-    #[inline]
-    fn from(ts: ServerTimestamp) -> Self {
-        ts.0
-    }
-}
-
-impl From<ServerTimestamp> for f64 {
-    #[inline]
-    fn from(ts: ServerTimestamp) -> Self {
-        ts.0 as f64 / 1000.0
-    }
-}
-
-impl From<i64> for ServerTimestamp {
-    #[inline]
-    fn from(ts: i64) -> Self {
-        ServerTimestamp(ts)
-    }
-}
-
-impl From<f64> for ServerTimestamp {
-    fn from(ts: f64) -> Self {
+impl ServerTimestamp {
+    pub fn from_float_seconds(ts: f64) -> Self {
         let rf = (ts * 1000.0).round();
         if !rf.is_finite() || rf < 0.0 || rf >= i64::max_value() as f64 {
             log::error!("Illegal timestamp: {}", ts);
             ServerTimestamp(0)
         } else {
             ServerTimestamp(rf as i64)
+        }
+    }
+
+    pub fn from_millis(ts: i64) -> Self {
+        // Catch it in tests, but just complain and replace with 0 otherwise.
+        debug_assert!(ts >= 0, "Bad timestamp: {}", ts);
+        if ts >= 0 {
+            Self(ts)
+        } else {
+            log::error!("Illegal timestamp, substituting 0: {}", ts);
+            Self(0)
         }
     }
 }
@@ -47,7 +37,7 @@ impl std::str::FromStr for ServerTimestamp {
     type Err = std::num::ParseFloatError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let val = f64::from_str(s)?;
-        Ok(val.into())
+        Ok(Self::from_float_seconds(val))
     }
 }
 
@@ -91,11 +81,11 @@ impl<'de> serde::de::Visitor<'de> for TimestampVisitor {
     type Value = ServerTimestamp;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("A 64 bit float number value.")
+        formatter.write_str("a floating point number")
     }
 
     fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Self::Value, E> {
-        Ok(value.into())
+        Ok(ServerTimestamp::from_float_seconds(value))
     }
 }
 

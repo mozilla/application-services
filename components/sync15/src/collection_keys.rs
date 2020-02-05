@@ -20,7 +20,7 @@ impl CollectionKeys {
     pub fn new_random() -> Result<CollectionKeys> {
         let default = KeyBundle::new_random()?;
         Ok(CollectionKeys {
-            timestamp: 0.into(),
+            timestamp: ServerTimestamp(0),
             default,
             collections: HashMap::new(),
         })
