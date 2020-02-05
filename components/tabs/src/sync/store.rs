@@ -94,21 +94,27 @@ impl<'a> TabsStore<'a> {
 }
 
 impl<'a> Store for TabsStore<'a> {
-    fn collection_name(&self) -> &'static str {
-        "tabs"
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "tabs".into()
     }
 
-    fn prepare_for_sync(&self, engine: &clients::Engine<'_>) -> Result<(), failure::Error> {
-        self.remote_clients.replace(engine.recent_clients.clone());
-        self.local_id.replace(engine.local_client_id());
+    fn prepare_for_sync(
+        &self,
+        get_client_data: &dyn Fn() -> clients::ClientData,
+    ) -> Result<(), failure::Error> {
+        let data = get_client_data();
+        self.remote_clients.replace(data.recent_clients);
+        self.local_id.replace(data.local_client_id);
         Ok(())
     }
 
     fn apply_incoming(
         &self,
-        inbound: IncomingChangeset,
+        inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
+        assert_eq!(inbound.len(), 1, "only requested one item");
+        let inbound = inbound.into_iter().next().unwrap();
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let local_id = self.local_id.borrow().clone();
         let mut remote_tabs = Vec::with_capacity(inbound.changes.len());
@@ -143,7 +149,7 @@ impl<'a> Store for TabsStore<'a> {
             remote_tabs.push(tab);
         }
         self.storage.replace_remote_tabs(remote_tabs);
-        let mut outgoing = OutgoingChangeset::new("tabs".into(), inbound.timestamp);
+        let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
         if let Some(local_tabs) = self.storage.prepare_local_tabs_for_upload() {
             let (client_name, device_type) = self
                 .remote_clients
@@ -183,9 +189,11 @@ impl<'a> Store for TabsStore<'a> {
         Ok(())
     }
 
-    fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
+    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
         let since = self.last_sync.get().unwrap_or_default();
-        Ok(CollectionRequest::new("tabs").full().newer_than(since))
+        Ok(vec![CollectionRequest::new("tabs")
+            .full()
+            .newer_than(since)])
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {

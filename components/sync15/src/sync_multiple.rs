@@ -292,13 +292,13 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
                 log::warn!("Got backoff, bailing out of sync early");
                 break;
             }
-            if global_state.global.declined.iter().any(|e| e == name) {
+            if global_state.global.declined.iter().any(|e| e == &*name) {
                 log::info!("The {} engine is declined. Skipping", name);
                 continue;
             }
             log::info!("Syncing {} engine!", name);
 
-            let mut telem_engine = telemetry::Engine::new(name);
+            let mut telem_engine = telemetry::Engine::new(&*name);
             let result = sync::synchronize_with_clients_engine(
                 &client_info.client,
                 &global_state,
@@ -408,7 +408,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
         for s in self.stores {
             let name = s.collection_name();
-            if changes.local_resets.contains(name) {
+            if changes.local_resets.contains(&*name) {
                 log::info!("Resetting engine {}, as it was declined remotely", name);
                 s.reset(&StoreSyncAssociation::Disconnected)?;
             }

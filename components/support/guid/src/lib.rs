@@ -280,6 +280,12 @@ impl<'a> From<&'a str> for Guid {
         Guid::from_slice(s.as_ref())
     }
 }
+impl<'a> From<&'a &str> for Guid {
+    #[inline]
+    fn from(s: &'a &str) -> Guid {
+        Guid::from_slice(s.as_ref())
+    }
+}
 
 impl<'a> From<&'a [u8]> for Guid {
     #[inline]

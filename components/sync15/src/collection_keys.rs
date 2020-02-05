@@ -20,7 +20,7 @@ impl CollectionKeys {
     pub fn new_random() -> Result<CollectionKeys> {
         let default = KeyBundle::new_random()?;
         Ok(CollectionKeys {
-            timestamp: 0.into(),
+            timestamp: ServerTimestamp(0),
             default,
             collections: HashMap::new(),
         })
@@ -54,7 +54,7 @@ impl CollectionKeys {
                 .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                 .collect(),
         };
-        let bso = Payload::from_record(record)?.into_bso("crypto".into());
+        let bso = crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
         Ok(bso.encrypt(root_key)?)
     }
 

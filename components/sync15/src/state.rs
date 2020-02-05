@@ -785,7 +785,8 @@ mod tests {
                     .map(|kv| (kv.0.clone(), kv.1.to_b64_array()))
                     .collect(),
             };
-            let mut bso = Payload::from_record(record)?.into_bso("crypto".into());
+            let mut bso =
+                crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
             bso.modified = modified;
             Ok(bso.encrypt(root_key)?)
         }
@@ -795,7 +796,7 @@ mod tests {
     fn test_state_machine_ready_from_empty() {
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
-            timestamp: 123_400.into(),
+            timestamp: ServerTimestamp(123_400),
             default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
@@ -820,12 +821,12 @@ mod tests {
             info_collections: mocked_success(InfoCollections::new(
                 vec![("meta", 123_456), ("crypto", 145_000)]
                     .into_iter()
-                    .map(|(key, value)| (key.to_owned(), value.into()))
+                    .map(|(key, value)| (key.to_owned(), ServerTimestamp(value)))
                     .collect(),
             )),
             meta_global: mocked_success_ts(mg, 999_000),
             crypto_keys: mocked_success_ts(
-                keys.to_encrypted_bso_with_timestamp(&root_key, 888_000.into())
+                keys.to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(888_000))
                     .expect("should always work in this test"),
                 888_000,
             ),

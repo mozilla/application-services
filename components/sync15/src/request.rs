@@ -9,163 +9,10 @@ use crate::util::ServerTimestamp;
 use serde_derive::*;
 use std::collections::HashMap;
 use std::default::Default;
-use std::fmt;
 use std::ops::Deref;
+pub use sync15_traits::{CollectionRequest, RequestOrder};
 use sync_guid::Guid;
-use url::{form_urlencoded::Serializer, Url, UrlQuery};
 use viaduct::status_codes;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub enum RequestOrder {
-    Oldest,
-    Newest,
-    Index,
-}
-
-impl fmt::Display for RequestOrder {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RequestOrder::Oldest => f.write_str("oldest"),
-            RequestOrder::Newest => f.write_str("newest"),
-            RequestOrder::Index => f.write_str("index"),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct CollectionRequest {
-    pub collection: String,
-    pub full: bool,
-    pub ids: Option<Vec<Guid>>,
-    pub limit: usize,
-    pub older: Option<ServerTimestamp>,
-    pub newer: Option<ServerTimestamp>,
-    pub order: Option<RequestOrder>,
-    pub commit: bool,
-    pub batch: Option<String>,
-}
-
-impl CollectionRequest {
-    #[inline]
-    pub fn new<S>(collection: S) -> CollectionRequest
-    where
-        S: Into<String>,
-    {
-        CollectionRequest {
-            collection: collection.into(),
-            full: false,
-            ids: None,
-            limit: 0,
-            older: None,
-            newer: None,
-            order: None,
-            commit: false,
-            batch: None,
-        }
-    }
-
-    #[inline]
-    pub fn ids<V>(mut self, v: V) -> CollectionRequest
-    where
-        V: Into<Vec<Guid>>,
-    {
-        self.ids = Some(v.into());
-        self
-    }
-
-    #[inline]
-    pub fn full(mut self) -> CollectionRequest {
-        self.full = true;
-        self
-    }
-
-    #[inline]
-    pub fn older_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
-        self.older = Some(ts);
-        self
-    }
-
-    #[inline]
-    pub fn newer_than(mut self, ts: ServerTimestamp) -> CollectionRequest {
-        self.newer = Some(ts);
-        self
-    }
-
-    #[inline]
-    pub fn sort_by(mut self, order: RequestOrder) -> CollectionRequest {
-        self.order = Some(order);
-        self
-    }
-
-    #[inline]
-    pub fn limit(mut self, num: usize) -> CollectionRequest {
-        self.limit = num;
-        self
-    }
-
-    #[inline]
-    pub fn batch(mut self, batch: Option<String>) -> CollectionRequest {
-        self.batch = batch;
-        self
-    }
-
-    #[inline]
-    pub fn commit(mut self, v: bool) -> CollectionRequest {
-        self.commit = v;
-        self
-    }
-
-    fn build_query(&self, pairs: &mut Serializer<'_, UrlQuery<'_>>) {
-        if self.full {
-            pairs.append_pair("full", "1");
-        }
-        if self.limit > 0 {
-            pairs.append_pair("limit", &format!("{}", self.limit));
-        }
-        if let Some(ids) = &self.ids {
-            pairs.append_pair(
-                "ids",
-                &ids.iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<&str>>()
-                    .join(","),
-            );
-        }
-        if let Some(batch) = &self.batch {
-            pairs.append_pair("batch", &batch);
-        }
-        if self.commit {
-            pairs.append_pair("commit", "true");
-        }
-        if let Some(ts) = self.older {
-            pairs.append_pair("older", &format!("{}", ts));
-        }
-        if let Some(ts) = self.newer {
-            pairs.append_pair("newer", &format!("{}", ts));
-        }
-        if let Some(o) = self.order {
-            pairs.append_pair("sort", &format!("{}", o));
-        }
-        pairs.finish();
-    }
-
-    pub fn build_url(&self, mut base_url: Url) -> Result<Url> {
-        base_url
-            .path_segments_mut()
-            .map_err(|_| ErrorKind::UnacceptableUrl("Storage server URL is not a base".into()))?
-            .extend(&["storage", &self.collection]);
-        self.build_query(&mut base_url.query_pairs_mut());
-        // This is strange but just accessing query_pairs_mut makes you have
-        // a trailing question mark on your url. I don't think anything bad
-        // would happen here, but I don't know, and also, it looks dumb so
-        // I'd rather not have it.
-        if base_url.query() == Some("") {
-            base_url.set_query(None);
-        }
-        Ok(base_url)
-    }
-}
 
 /// Manages a pair of (byte, count) limits for a PostQueue, such as
 /// (max_post_bytes, max_post_records) or (max_total_bytes, max_total_records).
@@ -652,6 +499,7 @@ mod test {
     use std::cell::RefCell;
     use std::collections::VecDeque;
     use std::rc::Rc;
+    use url::Url;
     #[test]
     fn test_url_building() {
         let base = Url::parse("https://example.com/sync").unwrap();
@@ -680,7 +528,7 @@ mod test {
 
         let idreq = CollectionRequest::new("wutang")
             .full()
-            .ids(vec!["rza".into(), "gza".into()])
+            .ids(&["rza", "gza"])
             .build_url(base.clone())
             .unwrap();
         assert_eq!(

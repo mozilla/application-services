@@ -9,22 +9,8 @@ use crate::request::InfoConfiguration;
 use crate::state::GlobalState;
 use crate::sync::Store;
 use crate::util::ServerTimestamp;
-use sync_guid::Guid;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct CollSyncIds {
-    pub global: Guid,
-    pub coll: Guid,
-}
-
-/// Defines how a store is associated with Sync.
-#[derive(Debug, Clone, PartialEq)]
-pub enum StoreSyncAssociation {
-    /// This store is disconnected (although it may be connected in the future).
-    Disconnected,
-    /// Sync is connected, and has the following sync IDs.
-    Connected(CollSyncIds),
-}
+pub use sync15_traits::{CollSyncIds, StoreSyncAssociation};
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain
@@ -138,7 +124,7 @@ impl<'state> LocalCollStateMachine<'state> {
                     let last_modified = self
                         .global_state
                         .collections
-                        .get(name)
+                        .get(name.as_ref())
                         .cloned()
                         .unwrap_or_default();
                     return Ok(Some(CollState {
@@ -236,13 +222,13 @@ mod tests {
     }
 
     impl Store for TestStore {
-        fn collection_name(&self) -> &'static str {
-            self.collection_name
+        fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+            self.collection_name.into()
         }
 
         fn apply_incoming(
             &self,
-            _inbound: IncomingChangeset,
+            _inbound: Vec<IncomingChangeset>,
             _telem: &mut telemetry::Engine,
         ) -> Result<OutgoingChangeset, failure::Error> {
             unreachable!("these tests shouldn't call these");
@@ -256,7 +242,7 @@ mod tests {
             unreachable!("these tests shouldn't call these");
         }
 
-        fn get_collection_request(&self) -> Result<CollectionRequest, failure::Error> {
+        fn get_collection_requests(&self) -> Result<Vec<CollectionRequest>, failure::Error> {
             unreachable!("these tests shouldn't call these");
         }
 

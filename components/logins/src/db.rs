@@ -1094,7 +1094,7 @@ impl LoginDb {
         // process deletions first can; for us it doesn't matter.
         const TOMBSTONE_SORTINDEX: i32 = 5_000_000;
         const DEFAULT_SORTINDEX: i32 = 1;
-        let mut outgoing = OutgoingChangeset::new("passwords".into(), st);
+        let mut outgoing = OutgoingChangeset::new("passwords", st);
         let mut stmt = self.db.prepare_cached(&format!(
             "SELECT * FROM loginsL WHERE sync_status IS NOT {synced}",
             synced = SyncStatus::Synced as u8
@@ -1216,15 +1216,17 @@ impl<'a> LoginStore<'a> {
 }
 
 impl<'a> Store for LoginStore<'a> {
-    fn collection_name(&self) -> &'static str {
-        "passwords"
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "passwords".into()
     }
 
     fn apply_incoming(
         &self,
-        inbound: IncomingChangeset,
+        inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> result::Result<OutgoingChangeset, failure::Error> {
+        assert_eq!(inbound.len(), 1, "logins only requests one item");
+        let inbound = inbound.into_iter().next().unwrap();
         Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
     }
 
@@ -1241,9 +1243,11 @@ impl<'a> Store for LoginStore<'a> {
         Ok(())
     }
 
-    fn get_collection_request(&self) -> result::Result<CollectionRequest, failure::Error> {
+    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
         let since = self.db.get_last_sync()?.unwrap_or_default();
-        Ok(CollectionRequest::new("passwords").full().newer_than(since))
+        Ok(vec![CollectionRequest::new("passwords")
+            .full()
+            .newer_than(since)])
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
@@ -1314,7 +1318,7 @@ mod tests {
                 &[
                     // tombstone
                     (
-                        sync15::Payload::new_tombstone("dummy_000001".into()),
+                        sync15::Payload::new_tombstone("dummy_000001"),
                         sync15::ServerTimestamp(10000),
                     ),
                     // invalid
