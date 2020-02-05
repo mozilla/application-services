@@ -13,8 +13,6 @@ pub struct FxAMigrationResult {
 
 impl FirefoxAccount {
     /// Migrate from a logged-in with a sessionToken Firefox Account.
-    /// As part of this process the server duplicates
-    /// a valid session into a new, independent session.
     ///
     /// * `session_token` - Hex-formatted session token.
     /// * `k_xcs` - Hex-formatted kXCS.
@@ -23,6 +21,9 @@ impl FirefoxAccount {
     ///     and the resulting session will use a new session token. If false, the provided
     ///     token will be reused.
     ///
+    /// This method remembers the provided token details and may persist them in the
+    /// account state if it encounters a temporary failure such as a network error.
+    /// Calling code is expected to store the updated state even if an error is thrown.
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn migrate_from_session_token(
@@ -96,6 +97,10 @@ impl FirefoxAccount {
             }
         };
 
+        // If we need to copy the sessionToken, do that first so we can use it
+        // for subsequent requests. TODO: we should store the duplicated token
+        // in the account state in case we fail in later steps, but need to remember
+        // the original value of `copy_session_token` if we do so.
         let migration_session_token = if migration_data.copy_session_token {
             let duplicate_session = self
                 .client
@@ -106,15 +111,9 @@ impl FirefoxAccount {
             migration_data.session_token.to_string()
         };
 
-        // Trade our session token for a refresh token.
-        let oauth_response = self.client.oauth_tokens_from_session_token(
-            &self.state.config,
-            &migration_session_token,
-            &[scopes::PROFILE, scopes::OLD_SYNC],
-        )?;
-        self.handle_oauth_response(oauth_response, None)?;
-
         // Synthesize a scoped key from our kSync.
+        // Do this before creating OAuth tokens because it doesn't have any side-effects,
+        // so it's low-consequence if we fail in later steps.
         let k_sync = hex::decode(&migration_data.k_sync)?;
         let k_sync = base64::encode_config(&k_sync, base64::URL_SAFE_NO_PAD);
         let k_xcs = hex::decode(&migration_data.k_xcs)?;
@@ -134,7 +133,18 @@ impl FirefoxAccount {
             k: k_sync,
             kid,
         };
+
+        // Trade our session token for a refresh token.
+        let oauth_response = self.client.oauth_tokens_from_session_token(
+            &self.state.config,
+            &migration_session_token,
+            &[scopes::PROFILE, scopes::OLD_SYNC],
+        )?;
+
+        // Store the new tokens in the account state.
+        // We do this all at one at the end to avoid leaving partial state.
         self.state.session_token = Some(migration_session_token);
+        self.handle_oauth_response(oauth_response, None)?;
         self.state
             .scoped_keys
             .insert(scopes::OLD_SYNC.to_string(), k_sync_scoped_key);
