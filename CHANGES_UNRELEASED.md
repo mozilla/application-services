@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.0...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.2...master)
 
 ## FxA Client
 
