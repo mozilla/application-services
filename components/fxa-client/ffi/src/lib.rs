@@ -13,6 +13,7 @@ use ffi_support::{
 };
 use fxa_client::{
     device::{Capability as DeviceCapability, PushSubscription},
+    migrator::MigrationState,
     msg_types, FirefoxAccount,
 };
 use std::os::raw::c_char;
@@ -256,8 +257,8 @@ pub extern "C" fn fxa_migrate_from_session_token(
 #[no_mangle]
 pub extern "C" fn fxa_is_in_migration_state(handle: u64, error: &mut ExternError) -> u8 {
     log::debug!("fxa_is_in_migration_state");
-    ACCOUNTS.call_with_result(error, handle, |fxa| -> fxa_client::Result<u8> {
-        Ok(fxa.is_in_migration_state() as u8)
+    ACCOUNTS.call_with_result(error, handle, |fxa| -> fxa_client::Result<MigrationState> {
+        Ok(fxa.is_in_migration_state())
     })
 }
 
