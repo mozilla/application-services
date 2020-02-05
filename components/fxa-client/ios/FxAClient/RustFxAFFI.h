@@ -80,6 +80,13 @@ FxARustBuffer fxa_profile(FirefoxAccountHandle handle,
                           bool ignore_cache,
                           FxAError *_Nonnull out);
 
+void fxa_migrate_from_session_token(FirefoxAccountHandle handle,
+                                    const char *_Nonnull sessionToken,
+                                    const char *_Nonnull kSync,
+                                    const char *_Nonnull kXCS,
+                                    uint8_t copySessionToken,
+                                    FxAError *_Nonnull out);
+
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAError *_Nonnull out);
 
