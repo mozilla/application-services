@@ -440,7 +440,6 @@ The following text applies to code linked from these dependencies:
 [humantime](https://github.com/tailhook/humantime),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
-[iovec](https://github.com/carllerche/iovec),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [jna](https://github.com/java-native-access/jna),
@@ -794,7 +793,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## MIT License: bytes
 
 The following text applies to code linked from these dependencies:
-[bytes](https://github.com/carllerche/bytes),
 [bytes](https://github.com/tokio-rs/bytes)
 
 ```

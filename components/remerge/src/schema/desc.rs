@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use url::Url;
 
 /// The set of features understood by this client.
-pub const REMERGE_FEATURES_UNDERSTOOD: &[&str] = &["record_set", "untyped_map"];
+pub const REMERGE_FEATURES_UNDERSTOOD: &[&str] = &["record_set"];
 
 index_vec::define_index_type! {
     /// Newtype wrapper around usize, referring into the `fields` vec in a
@@ -78,6 +78,21 @@ pub struct Field {
 }
 
 impl Field {
+    pub(crate) fn validate_guid(name: &str, v: &JsonValue) -> Result<crate::Guid, InvalidRecord> {
+        if let JsonValue::String(s) = v {
+            if s.len() < 8 || !crate::Guid::from(s.as_str()).is_valid_for_sync_server() {
+                throw!(InvalidRecord::InvalidGuid(name.to_string()))
+            } else {
+                Ok(crate::Guid::from(s.as_str()))
+            }
+        } else {
+            throw!(InvalidRecord::WrongFieldType(
+                name.to_string(),
+                FieldKind::OwnGuid
+            ));
+        }
+    }
+
     pub fn validate(&self, v: JsonValue) -> Result<JsonValue> {
         // TODO(issue 2232): most errors should be more specific.
         use InvalidRecord::*;
@@ -86,18 +101,7 @@ impl Field {
         }
         match &self.ty {
             FieldType::Untyped { .. } => Ok(v),
-            FieldType::OwnGuid { .. } => {
-                if let JsonValue::String(s) = v {
-                    if s.len() < 8 || !sync_guid::Guid::from(s.as_str()).is_valid_for_sync_server()
-                    {
-                        throw!(InvalidGuid(self.name.clone()))
-                    } else {
-                        Ok(JsonValue::String(s))
-                    }
-                } else {
-                    throw!(WrongFieldType(self.name.clone(), self.ty.kind()));
-                }
-            }
+            FieldType::OwnGuid { .. } => Ok(Self::validate_guid(&self.name, &v).map(|_| v)?),
             FieldType::Text { .. } => {
                 if v.is_string() {
                     Ok(v)

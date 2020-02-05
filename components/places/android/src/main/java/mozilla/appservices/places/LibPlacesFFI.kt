@@ -69,7 +69,7 @@ internal interface LibPlacesFFI : Library {
         search: String,
         limit: Int,
         out_err: RustError.ByReference
-    ): Pointer?
+    ): RustBuffer.ByValue
 
     /** Returns a URL, or null if no match was found. */
     fun places_match_url(

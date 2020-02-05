@@ -28,8 +28,7 @@ pub fn init_testing() {
     // our network stack) that happen to be particularly noisy (even on `info`
     // level), which get turned on at the warn level. This can still be
     // overridden with RUST_LOG, however.
-    let log_filter =
-        "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,\
+    let log_filter = "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,\
          hyper=warn,want=warn,mio=warn,reqwest=warn,trust_dns_proto=warn,trust_dns_resolver=warn";
     env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", log_filter));
 }

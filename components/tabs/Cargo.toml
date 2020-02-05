@@ -10,7 +10,6 @@ reqwest = ["sync15/reqwest"]
 default = []
 
 [dependencies]
-bytes = "0.4.12"
 sync15 = { path = "../sync15" }
 serde = "1.0.104"
 serde_derive = "1.0.104"

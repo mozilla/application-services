@@ -1,8 +1,8 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use crate::{JsonObject, JsonValue};
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Result as IoResult, Write};
-
 /// For use with `#[serde(skip_serializing_if = )]`
 #[inline]
 pub fn is_default<T: PartialEq + Default>(v: &T) -> bool {
@@ -48,6 +48,29 @@ macro_rules! ensure {
             throw!($e)
         }
     };
+}
+
+/// Like `serde_json::json!` but produces a `JsonObject` (aka a
+/// `serde_json::Map<String, serde_json::Value>`).
+#[cfg(test)]
+macro_rules! json_obj {
+    ($($toks:tt)*) => {
+        match serde_json::json!($($toks)*) {
+            serde_json::Value::Object(o) => o,
+            _ => panic!("bad arg to json_obj!"),
+        }
+    };
+}
+
+pub(crate) fn into_obj(v: JsonValue) -> crate::Result<JsonObject, crate::InvalidRecord> {
+    match v {
+        JsonValue::Object(o) => Ok(o),
+        x => {
+            log::error!("Expected json object");
+            log::trace!("   Got: {:?}", x);
+            Err(crate::InvalidRecord::NotJsonObject)
+        }
+    }
 }
 
 /// Helper to allow passing a std::fmt::Formatter to a function needing

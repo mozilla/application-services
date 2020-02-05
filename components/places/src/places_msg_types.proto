@@ -171,4 +171,26 @@ message BookmarkNodeList {
     repeated BookmarkNode nodes = 1;
 }
 
+// Protobuf allows nesting these, but prost behaves weirdly if we do.
+enum SearchResultReason {
+    // Never used in practice. Maybe remove this from here and from the rust enum?
+    KEYWORD = 1;
+    ORIGIN = 2;
+    URL = 3;
+    PREVIOUS_USE = 4;
+    BOOKMARK = 5;
+    // If we get real tag support, just add `optional string tags` to SearchResult below, but
+    // for now expose that it was because of tags.
+    TAG = 6;
+}
 
+message SearchResultMessage {
+    required string url = 1;
+    required string title = 2;
+    required int64 frecency = 3;
+    repeated SearchResultReason reasons = 4 [packed = true];
+}
+
+message SearchResultList {
+    repeated SearchResultMessage results = 1;
+}
