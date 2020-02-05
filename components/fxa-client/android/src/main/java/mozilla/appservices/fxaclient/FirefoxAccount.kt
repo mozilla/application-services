@@ -323,7 +323,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
         val json = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, false, e)
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, 0, e)
         }.getAndConsumeRustString()
 
         this.tryPersistState()
@@ -354,7 +354,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
         val json = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, true, e)
+            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, 1, e)
         }.getAndConsumeRustString()
 
         this.tryPersistState()
