@@ -1,3 +1,42 @@
+# v0.50.2 (_2020-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.1...v0.50.2)
+
+### What's changed
+
+- Re-releasing to fix misconfigured build options in v0.50.1.
+
+
+# v0.50.1 (_2020-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.0...v0.50.1)
+
+## FxA Client
+
+### What's changed
+
+- Fixed a potentially-unsafe use of a boolean in the FFI interface for `migrateFromSessionToken`.
+  ([#2592](https://github.com/mozilla/application-services/pull/2592)).
+
+
+# v0.50.0 (_2020-02-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.49.0...v0.50.0)
+
+## FxA Client
+
+### What's changed
+
+- Android: `migrateFromSessionToken` now correctly persists in-flight migration state even
+  when throwing an error ([#2586](https://github.com/mozilla/application-services/pull/2586)).
+
+### Breaking changes
+
+- `isInMigrationState` now returns an enum rather than a boolean, to indicate whether
+  the migration will re-use or duplicate the underlying sessionToken.
+  ([#2586](https://github.com/mozilla/application-services/pull/2586))
+
+
 # v0.49.0 (_2020-02-03_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.48.3...v0.49.0)

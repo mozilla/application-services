@@ -322,12 +322,23 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
-        val json = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, false, e)
-        }.getAndConsumeRustString()
-
-        this.tryPersistState()
-        return JSONObject(json)
+        try {
+            val json = rustCallWithLock { e ->
+                LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(
+                    this.handle.get(),
+                    sessionToken,
+                    kSync,
+                    kXCS,
+                    0,
+                    e
+                )
+            }.getAndConsumeRustString()
+            return JSONObject(json)
+        } finally {
+            // Even a failed migration might alter the persisted account state, if it's able to be retried.
+            // It's safe to call this unconditionally, as the underlying code will not leave partial states.
+            this.tryPersistState()
+        }
     }
 
     /**
@@ -335,10 +346,10 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      *
      * @return bool Returns a boolean if we are in a migration state
      */
-    fun isInMigrationState(): Boolean {
+    fun isInMigrationState(): MigrationState {
         rustCall { e ->
             val state = LibFxAFFI.INSTANCE.fxa_is_in_migration_state(this.handle.get(), e)
-            return state.toInt() != 0
+            return MigrationState.fromNumber(state.toInt())
         }
     }
 
@@ -353,12 +364,16 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun copyFromSessionToken(sessionToken: String, kSync: String, kXCS: String): JSONObject {
-        val json = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, true, e)
-        }.getAndConsumeRustString()
-
-        this.tryPersistState()
-        return JSONObject(json)
+        try {
+            val json = rustCallWithLock { e ->
+                LibFxAFFI.INSTANCE.fxa_migrate_from_session_token(this.handle.get(), sessionToken, kSync, kXCS, 1, e)
+            }.getAndConsumeRustString()
+            return JSONObject(json)
+        } finally {
+            // Even a failed migration might alter the persisted account state, if it's able to be retried.
+            // It's safe to call this unconditionally, as the underlying code will not leave partial states.
+            this.tryPersistState()
+        }
     }
 
     /**
@@ -369,12 +384,16 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun retryMigrateFromSessionToken(): JSONObject {
-        val json = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_retry_migrate_from_session_token(this.handle.get(), e)
-        }.getAndConsumeRustString()
-
-        this.tryPersistState()
-        return JSONObject(json)
+        try {
+            val json = rustCallWithLock { e ->
+                LibFxAFFI.INSTANCE.fxa_retry_migrate_from_session_token(this.handle.get(), e)
+            }.getAndConsumeRustString()
+            return JSONObject(json)
+        } finally {
+            // A failure her might alter the persisted account state, if we discover a permanent migration failure.
+            // It's safe to call this unconditionally, as the underlying code will not leave partial states.
+            this.tryPersistState()
+        }
     }
 
     /**
