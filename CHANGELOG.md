@@ -1,3 +1,19 @@
+# v0.51.0 (_2020-02-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.2...v0.51.0)
+
+## FxA Client
+
+### What's New
+
+- `FirefoxAccount` is now deprecated ([#2454](https://github.com/mozilla/application-services/pull/2454)).
+- Introducing `FxAccountManager` which provides a higher-level interface to Firefox Accounts. Among other things, this class handles (and can recover from) authentication errors, exposes device-related account methods, handles its own keychain storage and fires observer notifications for important account events ([#2454](https://github.com/mozilla/application-services/pull/2454)).
+
+### Breaking changes
+
+- `FirefoxAccount.fromJSON(json: String)` has been replaced by the `FirefoxAccount(fromJsonState: String)` constructor ([#2454](https://github.com/mozilla/application-services/pull/2454)).
+
+
 # v0.50.2 (_2020-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.1...v0.50.2)
