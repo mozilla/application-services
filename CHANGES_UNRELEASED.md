@@ -9,3 +9,9 @@
 ### What's new
 
 - Updated android gradle plugin version to 3.5.3 ([#2600](https://github.com/mozilla/application-services/pull/2600))
+
+## Places
+
+### What's changed
+
+- Added a new field `reasons`, which is a `List` of `SearchResultReason`s, in `SearchResult`.
