@@ -1099,24 +1099,49 @@ fun stringOrNull(jsonObject: JSONObject, key: String): String? {
     }
 }
 
+enum class SearchResultReason {
+    KEYWORD,
+    ORIGIN,
+    URL,
+    PREVIOUS_USE,
+    BOOKMARK,
+    TAG;
+
+    companion object {
+        fun fromMessage(reason: MsgTypes.SearchResultReason): SearchResultReason {
+            return when (reason) {
+                MsgTypes.SearchResultReason.KEYWORD -> KEYWORD
+                MsgTypes.SearchResultReason.ORIGIN -> ORIGIN
+                MsgTypes.SearchResultReason.URL -> URL
+                MsgTypes.SearchResultReason.PREVIOUS_USE -> PREVIOUS_USE
+                MsgTypes.SearchResultReason.BOOKMARK -> BOOKMARK
+                MsgTypes.SearchResultReason.TAG -> TAG
+            }
+        }
+    }
+}
+
 data class SearchResult(
     val url: String,
     val title: String,
-    val frecency: Long
-    // Skipping `reasons` for now...
+    val frecency: Long,
+    val reasons: List<SearchResultReason>
 ) {
     companion object {
         internal fun fromMessage(msg: MsgTypes.SearchResultMessage): SearchResult {
             return SearchResult(
                 url = msg.url,
                 title = msg.title,
-                frecency = msg.frecency
+                frecency = msg.frecency,
+                reasons = msg.reasonsList.map {
+                    SearchResultReason.fromMessage(it)
+                }
             )
         }
         internal fun fromCollectionMessage(msg: MsgTypes.SearchResultList): List<SearchResult> {
             return msg.resultsList.map {
                 fromMessage(it)
-            }.toTypedArray().toList()
+            }
         }
     }
 }
