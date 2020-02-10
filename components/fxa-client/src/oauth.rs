@@ -80,7 +80,7 @@ impl FirefoxAccount {
     }
 
     /// Retrieve the current session token from state
-    pub fn get_session_token(&mut self) -> Result<String> {
+    pub fn get_session_token(&self) -> Result<String> {
         match self.state.session_token {
             Some(ref session_token) => Ok(session_token.to_string()),
             None => Err(ErrorKind::NoSessionToken.into()),
@@ -88,7 +88,7 @@ impl FirefoxAccount {
     }
 
     /// Check whether user is authorized using our refresh token.
-    pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
+    pub fn check_authorization_status(&self) -> Result<IntrospectInfo> {
         let resp = match self.state.refresh_token {
             Some(ref refresh_token) => self
                 .client
@@ -163,7 +163,7 @@ impl FirefoxAccount {
     /// * `state` - OAuth state.
     /// * `access_type` - Type of OAuth access, can be "offline" and "online.
     pub fn authorize_code_using_session_token(
-        &mut self,
+        &self,
         client_id: &str,
         scope: &str,
         state: &str,
@@ -314,6 +314,7 @@ impl FirefoxAccount {
         Ok(())
     }
 
+    /// **💾 This method may alter the persisted account state.**
     pub fn clear_access_token_cache(&mut self) {
         self.state.access_token_cache.clear();
     }
