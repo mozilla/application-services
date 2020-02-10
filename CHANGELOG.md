@@ -1,3 +1,14 @@
+# v0.51.1 (_2020-02-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.51.0...v0.51.1)
+
+## Android
+
+### What's new
+
+- Updated android gradle plugin version to 3.5.3 ([#2600](https://github.com/mozilla/application-services/pull/2600))
+
+
 # v0.51.0 (_2020-02-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.50.2...v0.51.0)
