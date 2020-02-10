@@ -5,7 +5,7 @@
 #
 # There are surprisingly many things to run to fully check all the code,
 # since we are simultaneously a rust project, a kotlin/gradle project,
-# and a switch project!
+# and a swift project!
 
 set -eux
 
