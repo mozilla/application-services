@@ -116,16 +116,9 @@ class FxAccount: RustFxAccount {
         }
     }
 
-    override func checkAuthorizationStatus() throws -> IntrospectInfo {
-        return try notifyAuthErrors {
-            try self.checkAuthorizationStatus()
-        }
-    }
-
     override func clearAccessTokenCache() throws {
-        try notifyAuthErrors {
-            try self.clearAccessTokenCache()
-        }
+        defer { tryPersistState() }
+        try super.clearAccessTokenCache()
     }
 
     private func tryPersistState() {
