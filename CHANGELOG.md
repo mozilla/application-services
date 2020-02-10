@@ -120,6 +120,9 @@
   Applications that submit telemetry via Glean must request a data review for these metrics
   before integrating the places component. See the component README.md for more details.
   ([#2431](https://github.com/mozilla/application-services/pull/2431))
+- iOS only: `PlacesAPI.resetBookmarksMetadata` has been renamed to
+  `PlacesAPI.resetBookmarkSyncMetadata`, for consistency with history. The functionality
+  remains the same.
 
 
 # v0.48.2 (_2020-01-13_)
