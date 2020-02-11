@@ -15,8 +15,8 @@
 use crate::{
     commands,
     device::{Capability as DeviceCapability, Device, PushSubscription, Type as DeviceType},
-    msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, IntrospectInfo, Profile,
-    ScopedKey,
+    msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, IncomingDeviceCommand,
+    IntrospectInfo, Profile, ScopedKey,
 };
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
@@ -175,11 +175,49 @@ impl From<PushSubscription> for msg_types::device::PushSubscription {
 impl From<AccountEvent> for msg_types::AccountEvent {
     fn from(e: AccountEvent) -> Self {
         match e {
-            AccountEvent::TabReceived((device, payload)) => Self {
-                r#type: msg_types::account_event::AccountEventType::TabReceived as i32,
-                data: Some(msg_types::account_event::Data::TabReceivedData(
-                    msg_types::account_event::TabReceivedData {
-                        from: device.map(Into::into),
+            AccountEvent::IncomingDeviceCommand(command) => Self {
+                r#type: msg_types::account_event::AccountEventType::IncomingDeviceCommand as i32,
+                data: Some(msg_types::account_event::Data::DeviceCommand(
+                    (*command).into(),
+                )),
+            },
+            AccountEvent::ProfileUpdated => Self {
+                r#type: msg_types::account_event::AccountEventType::ProfileUpdated as i32,
+                data: None,
+            },
+            AccountEvent::AccountAuthStateChanged => Self {
+                r#type: msg_types::account_event::AccountEventType::AccountAuthStateChanged as i32,
+                data: None,
+            },
+            AccountEvent::AccountDestroyed => Self {
+                r#type: msg_types::account_event::AccountEventType::AccountDestroyed as i32,
+                data: None,
+            },
+            AccountEvent::DeviceConnected { device_name } => Self {
+                r#type: msg_types::account_event::AccountEventType::DeviceConnected as i32,
+                data: Some(msg_types::account_event::Data::DeviceConnectedName(
+                    device_name,
+                )),
+            },
+            AccountEvent::DeviceDisconnected { is_local_device } => Self {
+                r#type: msg_types::account_event::AccountEventType::DeviceDisconnected as i32,
+                data: Some(msg_types::account_event::Data::DeviceDisconnectedIsLocal(
+                    is_local_device,
+                )),
+            },
+        }
+    }
+}
+
+impl From<IncomingDeviceCommand> for msg_types::IncomingDeviceCommand {
+    fn from(data: IncomingDeviceCommand) -> Self {
+        match data {
+            IncomingDeviceCommand::TabReceived { sender, payload } => Self {
+                r#type: msg_types::incoming_device_command::IncomingDeviceCommandType::TabReceived
+                    as i32,
+                data: Some(msg_types::incoming_device_command::Data::TabReceivedData(
+                    msg_types::incoming_device_command::SendTabData {
+                        from: sender.map(Into::into),
                         entries: payload.entries.into_iter().map(Into::into).collect(),
                     },
                 )),
@@ -189,7 +227,7 @@ impl From<AccountEvent> for msg_types::AccountEvent {
 }
 
 impl From<send_tab::TabHistoryEntry>
-    for msg_types::account_event::tab_received_data::TabHistoryEntry
+    for msg_types::incoming_device_command::send_tab_data::TabHistoryEntry
 {
     fn from(data: send_tab::TabHistoryEntry) -> Self {
         Self {
@@ -246,7 +284,10 @@ implement_into_ffi_by_protobuf!(msg_types::IntrospectInfo);
 implement_into_ffi_by_delegation!(IntrospectInfo, msg_types::IntrospectInfo);
 implement_into_ffi_by_protobuf!(msg_types::Device);
 implement_into_ffi_by_delegation!(Device, msg_types::Device);
+implement_into_ffi_by_protobuf!(msg_types::Devices);
 implement_into_ffi_by_delegation!(AccountEvent, msg_types::AccountEvent);
 implement_into_ffi_by_protobuf!(msg_types::AccountEvent);
-implement_into_ffi_by_protobuf!(msg_types::Devices);
 implement_into_ffi_by_protobuf!(msg_types::AccountEvents);
+implement_into_ffi_by_delegation!(IncomingDeviceCommand, msg_types::IncomingDeviceCommand);
+implement_into_ffi_by_protobuf!(msg_types::IncomingDeviceCommand);
+implement_into_ffi_by_protobuf!(msg_types::IncomingDeviceCommands);

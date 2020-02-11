@@ -34,6 +34,7 @@ pub mod msg_types {
 mod http_client;
 mod oauth;
 mod profile;
+mod push;
 mod scoped_keys;
 pub mod scopes;
 pub mod send_tab;
@@ -230,30 +231,6 @@ impl FirefoxAccount {
         Ok(url)
     }
 
-    /// Handle any incoming push message payload coming from the Firefox Accounts
-    /// servers that has been decrypted and authenticated by the Push crate.
-    ///
-    /// Due to iOS platform restrictions, a push notification must always show UI,
-    /// and therefore we only retrieve 1 command per message.
-    ///
-    /// **💾 This method alters the persisted account state.**
-    pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
-        let payload = serde_json::from_str(payload)?;
-        match payload {
-            PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
-                if cfg!(target_os = "ios") {
-                    self.fetch_device_command(index).map(|cmd| vec![cmd])
-                } else {
-                    self.poll_device_commands()
-                }
-            }
-            PushPayload::Unknown => {
-                log::info!("Unknown Push command.");
-                Ok(vec![])
-            }
-        }
-    }
-
     fn get_refresh_token(&self) -> Result<&str> {
         match self.state.refresh_token {
             Some(ref token_info) => Ok(&token_info.token),
@@ -291,8 +268,19 @@ impl FirefoxAccount {
 }
 
 pub enum AccountEvent {
-    // In the future: ProfileUpdated etc.
-    TabReceived((Option<Device>, SendTabPayload)),
+    IncomingDeviceCommand(Box<IncomingDeviceCommand>),
+    ProfileUpdated,
+    AccountAuthStateChanged,
+    AccountDestroyed,
+    DeviceConnected { device_name: String },
+    DeviceDisconnected { is_local_device: bool },
+}
+
+pub enum IncomingDeviceCommand {
+    TabReceived {
+        sender: Option<Device>,
+        payload: SendTabPayload,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -300,23 +288,6 @@ pub(crate) struct CachedResponse<T> {
     response: T,
     cached_at: u64,
     etag: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(tag = "command", content = "data")]
-pub enum PushPayload {
-    #[serde(rename = "fxaccounts:command_received")]
-    CommandReceived(CommandReceivedPushPayload),
-    #[serde(other)]
-    Unknown,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CommandReceivedPushPayload {
-    command: String,
-    index: u64,
-    sender: String,
-    url: String,
 }
 
 #[cfg(test)]
@@ -388,21 +359,6 @@ mod tests {
             "https://stable.dev.lcip.org/settings/clients?entrypoint=test&uid=123&email=test%40example.com"
                 .to_string()
         );
-    }
-
-    #[test]
-    fn test_deserialize_push_message() {
-        let json = "{\"version\":1,\"command\":\"fxaccounts:command_received\",\"data\":{\"command\":\"send-tab-recv\",\"index\":1,\"sender\":\"bobo\",\"url\":\"https://mozilla.org\"}}";
-        let _: PushPayload = serde_json::from_str(&json).unwrap();
-    }
-
-    #[test]
-    fn test_handle_push_message_unknown_command() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
-        let json = "{\"version\":1,\"command\":\"huh\"}";
-        let events = fxa.handle_push_message(json).unwrap();
-        assert!(events.is_empty());
     }
 
     #[test]

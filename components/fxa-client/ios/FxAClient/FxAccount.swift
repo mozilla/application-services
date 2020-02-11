@@ -60,7 +60,7 @@ class FxAccount: RustFxAccount {
         try super.disconnect()
     }
 
-    override func pollDeviceCommands() throws -> [DeviceEvent] {
+    override func pollDeviceCommands() throws -> [IncomingDeviceCommand] {
         defer { tryPersistState() }
         return try notifyAuthErrors {
             try super.pollDeviceCommands()
@@ -85,7 +85,7 @@ class FxAccount: RustFxAccount {
         }
     }
 
-    override func handlePushMessage(payload: String) throws -> [DeviceEvent] {
+    override func handlePushMessage(payload: String) throws -> [AccountEvent] {
         defer { tryPersistState() }
         return try notifyAuthErrors {
             try super.handlePushMessage(payload: payload)

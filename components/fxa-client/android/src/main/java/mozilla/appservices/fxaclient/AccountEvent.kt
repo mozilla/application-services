@@ -4,31 +4,34 @@
 
 package mozilla.appservices.fxaclient
 
-data class TabHistoryEntry(
-    val title: String,
-    val url: String
-)
-
 // https://proandroiddev.com/til-when-is-when-exhaustive-31d69f630a8b
 val <T> T.exhaustive: T
     get() = this
 
 sealed class AccountEvent {
     // A tab with all its history entries (back button).
-    class TabReceived(val from: Device?, val entries: Array<TabHistoryEntry>) : AccountEvent()
+    class IncomingDeviceCommand(val command: mozilla.appservices.fxaclient.IncomingDeviceCommand) : AccountEvent()
+    class ProfileUpdated : AccountEvent()
+    class AccountAuthStateChanged : AccountEvent()
+    class AccountDestroyed : AccountEvent()
+    class DeviceConnected(val deviceName: String) : AccountEvent()
+    class DeviceDisconnected(val isLocalDevice: Boolean) : AccountEvent()
 
     companion object {
         private fun fromMessage(msg: MsgTypes.AccountEvent): AccountEvent {
             return when (msg.type) {
-                MsgTypes.AccountEvent.AccountEventType.TAB_RECEIVED -> {
-                    val data = msg.tabReceivedData
-                    TabReceived(
-                        from = if (data.hasFrom()) Device.fromMessage(data.from) else null,
-                        entries = data.entriesList.map {
-                            TabHistoryEntry(title = it.title, url = it.url)
-                        }.toTypedArray()
-                    )
-                }
+                MsgTypes.AccountEvent.AccountEventType.INCOMING_DEVICE_COMMAND -> IncomingDeviceCommand(
+                    command = mozilla.appservices.fxaclient.IncomingDeviceCommand.fromMessage(msg.deviceCommand)
+                )
+                MsgTypes.AccountEvent.AccountEventType.PROFILE_UPDATED -> ProfileUpdated()
+                MsgTypes.AccountEvent.AccountEventType.ACCOUNT_AUTH_STATE_CHANGED -> AccountAuthStateChanged()
+                MsgTypes.AccountEvent.AccountEventType.ACCOUNT_DESTROYED -> AccountDestroyed()
+                MsgTypes.AccountEvent.AccountEventType.DEVICE_CONNECTED -> DeviceConnected(
+                    deviceName = msg.deviceConnectedName
+                )
+                MsgTypes.AccountEvent.AccountEventType.DEVICE_DISCONNECTED -> DeviceDisconnected(
+                    isLocalDevice = msg.deviceDisconnectedIsLocal
+                )
                 null -> throw NullPointerException("AccountEvent type cannot be null.")
             }.exhaustive
         }

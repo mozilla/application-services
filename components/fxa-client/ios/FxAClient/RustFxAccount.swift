@@ -180,22 +180,22 @@ open class RustFxAccount {
         }
     }
 
-    open func pollDeviceCommands() throws -> [DeviceEvent] {
+    open func pollDeviceCommands() throws -> [IncomingDeviceCommand] {
         let ptr = try rustCall { err in
             fxa_poll_device_commands(self.raw, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
-        let msg = try! MsgTypes_AccountEvents(serializedData: Data(rustBuffer: ptr))
-        return DeviceEvent.fromCollectionMsg(msg: msg)
+        let msg = try! MsgTypes_IncomingDeviceCommands(serializedData: Data(rustBuffer: ptr))
+        return IncomingDeviceCommand.fromCollectionMsg(msg: msg)
     }
 
-    open func handlePushMessage(payload: String) throws -> [DeviceEvent] {
+    open func handlePushMessage(payload: String) throws -> [AccountEvent] {
         let ptr = try rustCall { err in
             fxa_handle_push_message(self.raw, payload, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
         let msg = try! MsgTypes_AccountEvents(serializedData: Data(rustBuffer: ptr))
-        return DeviceEvent.fromCollectionMsg(msg: msg)
+        return AccountEvent.fromCollectionMsg(msg: msg)
     }
 
     open func sendSingleTab(targetId: String, title: String, url: String) throws {
