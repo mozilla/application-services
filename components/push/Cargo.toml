@@ -12,7 +12,7 @@ default = []
 [dependencies]
 serde = "1.0.104"
 serde_derive = "1.0.104"
-serde_json = "1.0.44"
+serde_json = "1.0.47"
 bincode = "1.1.4"
 lazy_static = "1.4.0"
 base64 = "0.11.0"
