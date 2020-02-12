@@ -205,17 +205,18 @@ open class FxaAccountManager {
     internal func processEvent(event: Event, completionHandler: @escaping () -> Void) {
         fxaFsmQueue.async {
             var toProcess: Event? = event
-            while let e = toProcess {
-                guard let nextState = FxaAccountManager.nextState(state: self.state, event: e) else {
-                    FxALog.error("Got invalid event \(e) for state \(self.state).")
+            while let evt = toProcess {
+                toProcess = nil // Avoid infinite loop if `toProcess` doesn't get replaced.
+                guard let nextState = FxaAccountManager.nextState(state: self.state, event: evt) else {
+                    FxALog.error("Got invalid event \(evt) for state \(self.state).")
                     continue
                 }
-                FxALog.debug("Processing event \(e) for state \(self.state). Next state is \(nextState).")
+                FxALog.debug("Processing event \(evt) for state \(self.state). Next state is \(nextState).")
                 self.state = nextState
-                toProcess = self.stateActions(forState: self.state, via: e)
+                toProcess = self.stateActions(forState: self.state, via: evt)
                 if let successiveEvent = toProcess {
                     FxALog.debug(
-                        "Ran \(e) side-effects for state \(self.state), got successive event \(successiveEvent)."
+                        "Ran \(evt) side-effects for state \(self.state), got successive event \(successiveEvent)."
                     )
                 }
             }
