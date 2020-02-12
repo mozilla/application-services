@@ -41,7 +41,7 @@ open class FxaAccountManager {
     public required init(
         config: FxAConfig,
         deviceConfig: DeviceConfig,
-        applicationScopes: [String] = [OAuthScope.profile, OAuthScope.oldSync],
+        applicationScopes: [String] = [OAuthScope.profile],
         keychainAccessGroup: String? = nil
     ) {
         self.config = config
@@ -156,6 +156,16 @@ open class FxaAccountManager {
             DispatchQueue.main.async { completionHandler(.success(tokenInfo)) }
         } catch {
             DispatchQueue.main.async { completionHandler(.failure(error)) }
+        }
+    }
+
+    /// Get the session token associated with this account.
+    /// Note that you should have requested the `.session` scope earlier to be able to get this token.
+    public func getSessionToken() -> Result<String, Error> {
+        do {
+            return .success(try requireAccount().getSessionToken())
+        } catch {
+            return .failure(error)
         }
     }
 

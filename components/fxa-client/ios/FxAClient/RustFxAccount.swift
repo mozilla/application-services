@@ -136,6 +136,14 @@ open class RustFxAccount {
         return AccessTokenInfo(msg: msg)
     }
 
+    /// Get the session token. If non-present an error will be thrown.
+    open func getSessionToken() throws -> String {
+        let ptr = try rustCall { err in
+            fxa_get_session_token(self.raw, err)
+        }
+        return String(freeingFxaString: ptr)
+    }
+
     /// Check whether the refreshToken is active
     open func checkAuthorizationStatus() throws -> IntrospectInfo {
         let ptr = try rustCall { err in
