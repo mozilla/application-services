@@ -26,6 +26,7 @@ open class StorageSqlError(msg: String) : PushError(msg)
 open class TranscodingError(msg: String) : PushError(msg)
 open class RecordNotFoundError(msg: String) : PushError(msg)
 open class UrlParseError(msg: String) : PushError(msg)
+open class GeneralError(msg: String) : PushError(msg)
 
 /**
  * This should be considered private, but it needs to be public for JNA.
@@ -61,6 +62,7 @@ open class RustError : Structure() {
         }
         val message = this.consumeErrorMessage()
         when (code) {
+            22 -> return GeneralError(message)
             24 -> return CryptoError(message)
             25 -> return CommunicationError(message)
             26 -> return CommunicationServerError(message)

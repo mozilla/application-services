@@ -30,3 +30,9 @@
   - `FirefoxAccount.pollDeviceCommands` now returns an array of `IncomingDeviceCommand`.
 
 - iOS: The `FxAccountManager` default applications scopes do not include `.oldSync` anymore. ([#2638](https://github.com/mozilla/application-services/pull/2638))
+
+## Push
+
+### What's New
+
+- Android: Exposed `GeneralError` to the Kotlin layer.
