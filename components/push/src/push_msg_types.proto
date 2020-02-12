@@ -26,3 +26,12 @@ message SubscriptionResponse {
     required string channelID = 1;
     required SubscriptionInfo subscriptionInfo = 2;
 }
+
+message SubscriptionChanged {
+    required string channelID = 1;
+    required string scope = 2;
+}
+
+message SubscriptionsChanged {
+    repeated SubscriptionChanged subs = 1;
+}

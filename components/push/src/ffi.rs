@@ -11,3 +11,5 @@ implement_into_ffi_by_protobuf!(msg_types::DispatchInfo);
 implement_into_ffi_by_protobuf!(msg_types::KeyInfo);
 implement_into_ffi_by_protobuf!(msg_types::SubscriptionInfo);
 implement_into_ffi_by_protobuf!(msg_types::SubscriptionResponse);
+implement_into_ffi_by_protobuf!(msg_types::SubscriptionChanged);
+implement_into_ffi_by_protobuf!(msg_types::SubscriptionsChanged);
