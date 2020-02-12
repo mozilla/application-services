@@ -252,6 +252,31 @@ open class RustFxAccount {
         }
     }
 
+    open func migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) throws -> Bool {
+        let json = try nullableRustCall { err in
+            fxa_migrate_from_session_token(self.raw, sessionToken, kSync, kXCS, 0 /* reuse session token */, err)
+        }
+        // We don't parse the JSON coz nobody uses it...
+        return json != nil
+    }
+
+    open func retryMigrateFromSessionToken() throws -> Bool {
+        let json = try nullableRustCall { err in
+            fxa_retry_migrate_from_session_token(self.raw, err)
+        }
+        return json != nil
+    }
+
+    open func isInMigrationState() throws -> Bool {
+        let number = try rustCall { err in
+            fxa_is_in_migration_state(self.raw, err)
+        }
+        let state = MigrationState.fromNumber(number)
+        // We never initiate a "copy-session-token" migration,
+        // so we can just return a boolean.
+        return state == .reuseSessionToken
+    }
+
     private func msgToBuffer(msg: SwiftProtobuf.Message) -> (Data, Int32) {
         let data = try! msg.serializedData()
         let size = Int32(data.count)
@@ -264,6 +289,14 @@ private let fxaRustQueue = DispatchQueue(label: "com.mozilla.fxa-rust")
 
 internal func rustCall<T>(_ cb: (UnsafeMutablePointer<FxAError>) throws -> T?) throws -> T {
     return try FirefoxAccountError.unwrap { err in
+        try fxaRustQueue.sync {
+            try cb(err)
+        }
+    }
+}
+
+internal func nullableRustCall<T>(_ cb: (UnsafeMutablePointer<FxAError>) throws -> T?) throws -> T? {
+    return try FirefoxAccountError.tryUnwrap { err in
         try fxaRustQueue.sync {
             try cb(err)
         }

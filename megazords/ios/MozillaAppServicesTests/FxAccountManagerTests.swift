@@ -19,6 +19,12 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .logout))
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .recoveredFromAuthenticationProblem))
+
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticateViaMigration(sessionToken: "foo", kSync: "bar", kXCS: "bobo")))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticatedViaMigration))
+        XCTAssertEqual(.canAutoretryMigration, FxaAccountManager.nextState(state: state, event: .inFlightMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigrationLater))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigration))
     }
 
     func testStateTransitionsNotAuthenticated() {
@@ -33,6 +39,12 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .logout))
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .recoveredFromAuthenticationProblem))
+
+        XCTAssertEqual(.notAuthenticated, FxaAccountManager.nextState(state: state, event: .authenticateViaMigration(sessionToken: "foo", kSync: "bar", kXCS: "bobo")))
+        XCTAssertEqual(.authenticatedNoProfile, FxaAccountManager.nextState(state: state, event: .authenticatedViaMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .inFlightMigration))
+        XCTAssertEqual(.canAutoretryMigration, FxaAccountManager.nextState(state: state, event: .retryMigrationLater))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigration))
     }
 
     func testStateTransitionsAuthenticatedNoProfile() {
@@ -47,6 +59,12 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertEqual(.authenticatedNoProfile, FxaAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxaAccountManager.nextState(state: state, event: .logout))
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .recoveredFromAuthenticationProblem))
+
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticateViaMigration(sessionToken: "foo", kSync: "bar", kXCS: "bobo")))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticatedViaMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .inFlightMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigrationLater))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigration))
     }
 
     func testStateTransitionsAuthenticatedWithProfile() {
@@ -61,6 +79,12 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxaAccountManager.nextState(state: state, event: .logout))
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .recoveredFromAuthenticationProblem))
+
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticateViaMigration(sessionToken: "foo", kSync: "bar", kXCS: "bobo")))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticatedViaMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .inFlightMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigrationLater))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigration))
     }
 
     func testStateTransitionsAuthenticationProblem() {
@@ -75,6 +99,32 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxaAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxaAccountManager.nextState(state: state, event: .logout))
         XCTAssertEqual(.authenticatedNoProfile, FxaAccountManager.nextState(state: state, event: .recoveredFromAuthenticationProblem))
+
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticateViaMigration(sessionToken: "foo", kSync: "bar", kXCS: "bobo")))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticatedViaMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .inFlightMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigrationLater))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .retryMigration))
+    }
+
+    func testStateTransitionscanAutoretryMigration() {
+        let state: AccountState = .canAutoretryMigration
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .initialize))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .accountNotFound))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .accountRestored))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticationError))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .fetchedProfile))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .failedToFetchProfile))
+        XCTAssertEqual(.notAuthenticated, FxaAccountManager.nextState(state: state, event: .logout))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .recoveredFromAuthenticationProblem))
+
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .authenticateViaMigration(sessionToken: "foo", kSync: "bar", kXCS: "bobo")))
+        XCTAssertEqual(.authenticatedNoProfile, FxaAccountManager.nextState(state: state, event: .authenticatedViaMigration))
+        XCTAssertNil(FxaAccountManager.nextState(state: state, event: .inFlightMigration))
+        XCTAssertEqual(.canAutoretryMigration, FxaAccountManager.nextState(state: state, event: .retryMigrationLater))
+        XCTAssertEqual(.canAutoretryMigration, FxaAccountManager.nextState(state: state, event: .retryMigration))
     }
 
     func testAccountNotFound() {
