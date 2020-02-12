@@ -199,10 +199,16 @@ impl From<AccountEvent> for msg_types::AccountEvent {
                     device_name,
                 )),
             },
-            AccountEvent::DeviceDisconnected { is_local_device } => Self {
+            AccountEvent::DeviceDisconnected {
+                device_id,
+                is_local_device,
+            } => Self {
                 r#type: msg_types::account_event::AccountEventType::DeviceDisconnected as i32,
-                data: Some(msg_types::account_event::Data::DeviceDisconnectedIsLocal(
-                    is_local_device,
+                data: Some(msg_types::account_event::Data::DeviceDisconnectedData(
+                    msg_types::account_event::DeviceDisconnectedData {
+                        device_id,
+                        is_local_device,
+                    },
                 )),
             },
         }
