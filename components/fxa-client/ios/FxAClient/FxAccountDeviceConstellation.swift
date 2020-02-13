@@ -123,10 +123,25 @@ public class DeviceConstellation {
         DispatchQueue.global().async {
             do {
                 let events = try self.account.handlePushMessage(payload: pushPayload)
+                self.processAccountEvents(events)
                 DispatchQueue.main.async { completionHandler(.success(events)) }
             } catch {
                 DispatchQueue.main.async { completionHandler(.failure(error)) }
             }
+        }
+    }
+
+    /// This allows us to be helpful in certain circumstances e.g. refreshing the device list
+    /// if we see a "device disconnected" push notification.
+    internal func processAccountEvents(_ events: [AccountEvent]) {
+        let shouldRefreshDevices = events.contains { evt in
+            switch evt {
+            case .deviceDisconnected, .deviceConnected: return true
+            default: return false
+            }
+        }
+        if shouldRefreshDevices {
+            refreshState()
         }
     }
 
