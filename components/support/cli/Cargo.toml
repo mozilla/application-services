@@ -12,3 +12,4 @@ log = "0.4.8"
 sync15 = { path = "../../sync15" }
 url = "2.1.1"
 webbrowser = "0.5.1"
+lazy_static = "1.4"

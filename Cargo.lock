@@ -286,6 +286,7 @@ version = "0.1.0"
 dependencies = [
  "failure",
  "fxa-client",
+ "lazy_static",
  "log",
  "sync15",
  "url",
@@ -528,6 +529,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
+dependencies = [
+ "cfg-if",
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afa0b23de8fd801745c471deffa6e12d248f962c9fd4b4c33787b055599bde7b"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "redox_users",
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "dogear"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -662,7 +685,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "156072cf5b7e3974da51941bf050f5b8ab5a8df56ad5c1adbd8c07e9d9455b95"
 dependencies = [
- "dirs",
+ "dirs 1.0.5",
  "failure",
  "log",
 ]
@@ -2193,6 +2216,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustyline"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de64be8eecbe428b6924f1d8430369a01719fbb182c26fa431ddbb0a95f5315d"
+dependencies = [
+ "cfg-if",
+ "dirs 2.0.2",
+ "libc",
+ "log",
+ "memchr",
+ "nix",
+ "unicode-segmentation",
+ "unicode-width",
+ "utf8parse",
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2614,7 +2655,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd106a334b7657c10b7c540a0106114feadeb4dc314513e97df481d5d966f42"
 dependencies = [
  "byteorder",
- "dirs",
+ "dirs 1.0.5",
  "winapi 0.3.8",
 ]
 
@@ -2750,6 +2791,34 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e604eb7b43c06650e854be16a2a03155743d3752dd1c943f6829e26b7a36e382"
 
 [[package]]
+name = "twodle"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "cli-support",
+ "colored",
+ "env_logger",
+ "failure",
+ "force-viaduct-reqwest",
+ "fxa-client",
+ "lazy_static",
+ "log",
+ "matches",
+ "num-traits",
+ "prettytable-rs",
+ "remerge",
+ "rusqlite",
+ "rustyline",
+ "serde",
+ "serde_json",
+ "structopt",
+ "sync15",
+ "sync15-traits",
+ "tempdir",
+ "url",
+]
+
+[[package]]
 name = "unicase"
 version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2811,6 +2880,12 @@ dependencies = [
  "percent-encoding",
  "serde",
 ]
+
+[[package]]
+name = "utf8parse"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8772a4ccbb4e89959023bc5b7cb8623a795caa7092d99f3aa9501b9484d4557d"
 
 [[package]]
 name = "vcpkg"

@@ -7,6 +7,24 @@ use sync15_traits::*;
 
 pub struct RemergeStore<'a>(std::cell::RefCell<RemergeSync<'a>>);
 
+impl<'a> RemergeStore<'a> {
+    pub(crate) fn new(r: RemergeSync<'a>) -> Self {
+        Self(std::cell::RefCell::new(r))
+    }
+
+    pub fn get_disc_cached_state(&self) -> Result<Option<String>> {
+        self.0
+            .borrow()
+            .try_get_meta(crate::storage::meta::SYNC15_DISC_CACHED_STATE)
+    }
+    pub fn set_disc_cached_state(&self, val: Option<String>) -> Result<()> {
+        self.0
+            .borrow()
+            .put_meta(crate::storage::meta::SYNC15_DISC_CACHED_STATE, &val)?;
+        Ok(())
+    }
+}
+
 impl<'a> Store for RemergeStore<'a> {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         self.0.borrow().db.collection().to_owned().into()
@@ -35,16 +53,15 @@ impl<'a> Store for RemergeStore<'a> {
     }
 
     fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, failure::Error> {
-        unimplemented!("TODO");
+        Ok(self.0.borrow_mut().get_sync_assoc()?)
     }
 
-    fn reset(&self, _assoc: &StoreSyncAssociation) -> Result<(), failure::Error> {
-        unimplemented!("TODO");
-        // Ok(())
+    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<(), failure::Error> {
+        Ok(self.0.borrow_mut().reset(assoc)?)
     }
 
     fn wipe(&self) -> Result<(), failure::Error> {
-        unimplemented!("TODO");
-        // Ok(())
+        log::warn!("wiping NYI");
+        Ok(())
     }
 }

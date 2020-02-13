@@ -7,6 +7,7 @@ use super::{bundle::ToLocalReason, meta, LocalRecord, NativeRecord, SchemaBundle
 use crate::error::*;
 use crate::ms_time::MsTime;
 use crate::sync::records as syncing;
+use crate::sync::records::*;
 use crate::sync::schema_action::UpgradeRemote;
 use crate::vclock::{Counter, VClock};
 use crate::Guid;
@@ -16,6 +17,7 @@ use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::{atomic::AtomicUsize, Arc, Mutex};
+use sync15_traits::ServerTimestamp;
 pub struct RemergeDb {
     db: Connection,
     info: SchemaBundle,
@@ -124,12 +126,12 @@ impl RemergeDb {
         scope
             .err_if_interrupted()
             .map_err(|_| ErrorKind::Interrupted)?;
-        let mut just_ids = sync_data.keys().cloned().collect::<Vec<_>>();
+        let just_ids = sync_data.keys().cloned().collect::<Vec<_>>();
 
         sql_support::each_chunk_mapped(
             &just_ids,
             |id| id.as_str(),
-            |chunk, offset| -> Result<()> {
+            |chunk, _offset| -> Result<()> {
                 let query = format!(
                     "WITH to_fetch(fetch_guid) AS (VALUES {vals})
                      SELECT
@@ -184,7 +186,7 @@ impl RemergeDb {
                     } else {
                         None
                     };
-                    let mut targ = &mut sync_data[&guid];
+                    let mut targ = &mut sync_data.get_mut(&guid).unwrap();
                     if is_mirror {
                         let server_modified = row.get::<_, i64>("server_modified_ms")?;
                         let is_overridden = row.get::<_, bool>("is_overridden")?;
@@ -192,7 +194,9 @@ impl RemergeDb {
                             id: guid,
                             // None if tombstone. String is schema version
                             inner: recdata,
-                            server_modified: server_modified.into(),
+                            server_modified: sync15_traits::ServerTimestamp::from_millis(
+                                server_modified,
+                            ),
                             vclock,
                             last_writer,
                             is_overridden,
@@ -219,6 +223,158 @@ impl RemergeDb {
             },
         )?;
         Ok(sync_data)
+    }
+
+    pub(crate) fn sync_delete_mirror(&self, r: Guid) -> Result<()> {
+        self.conn()
+            .execute("DELETE FROM rec_mirror WHERE guid = ?", &[r])?;
+        Ok(())
+    }
+    pub(crate) fn sync_delete_local(&self, r: Guid) -> Result<()> {
+        self.conn()
+            .execute("DELETE FROM rec_local WHERE guid = ?", &[r])?;
+        Ok(())
+    }
+
+    pub(crate) fn sync_delete(&self, r: Guid) -> Result<()> {
+        self.sync_delete_local(r.clone())?;
+        self.sync_delete_mirror(r)
+    }
+
+    pub(crate) fn sync_mirror_update(
+        &self,
+        rec: RemoteRecord,
+        vclock: VClock,
+        time: ServerTimestamp,
+    ) -> Result<()> {
+        self.db.execute_named(
+            "UPDATE rec_mirror (
+                guid,
+                remerge_schema_version,
+                record_data,
+                server_modified_ms,
+                vector_clock,
+                last_writer_id
+            ) VALUES (
+                :guid,
+                :schema_ver,
+                :record,
+                :time,
+                :vclock,
+                :writer
+            )",
+            named_params! {
+                ":guid": rec.id,
+                ":schema_ver": rec.schema_version,
+                ":record": rec.payload.unwrap(),
+                ":time": time.as_millis(),
+                ":vclock": vclock,
+                ":writer": rec.last_writer,
+            },
+        )?;
+        Ok(())
+    }
+    pub(crate) fn mark_synchronized(&mut self, ts: ServerTimestamp, guids: &[Guid]) -> Result<()> {
+        let tx = self.db.unchecked_transaction()?;
+        sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
+            self.db.execute(
+                &format!(
+                    "DELETE FROM rec_mirror WHERE guid IN ({vars})",
+                    vars = sql_support::repeat_sql_vars(chunk.len())
+                ),
+                chunk,
+            )?;
+
+            self.db.execute(
+                &format!(
+                    "INSERT OR IGNORE INTO rec_mirror (
+                        guid, remerge_schema_version, record_data, vector_clock, last_writer_id, is_overridden, server_modified_ms
+                     )
+                     SELECT guid, remerge_schema_version, record_data, vector_clock, last_writer_id, 0, {modified_ms_i64}
+                     FROM rec_local
+                     WHERE is_deleted = 0 AND guid IN ({vars})",
+                    // common_cols = schema::COMMON_COLS,
+                    modified_ms_i64 = ts.as_millis() as i64,
+                    vars = sql_support::repeat_sql_vars(chunk.len())
+                ),
+                chunk,
+            )?;
+
+            self.db.execute(
+                &format!(
+                    "DELETE FROM loginsL WHERE guid IN ({vars})",
+                    vars = sql_support::repeat_sql_vars(chunk.len())
+                ),
+                chunk,
+            )?;
+            // scope.err_if_interrupted()?;
+            Ok(())
+        })?;
+        meta::put(&tx, meta::LAST_SYNC_SERVER_MS, &ts.as_millis())?;
+        tx.commit()?;
+        Ok(())
+    }
+    pub fn fetch_outgoing(&self) -> Result<Vec<sync15_traits::Payload>> {
+        let mut stmt = self.db.prepare_cached(&format!(
+            "SELECT * FROM rec_local WHERE sync_status IS NOT {synced}",
+            synced = SyncStatus::Synced as u8
+        ))?;
+        let rows = stmt.query_and_then(rusqlite::NO_PARAMS, |row| {
+            let mut rec = RemoteRecord {
+                id: row.get("guid")?,
+                vclock: row.get("vector_clock")?,
+                last_writer: self.client_id(),
+                schema_version: row.get("remerge_schema_version")?,
+                deleted: row.get("is_deleted")?,
+                payload: row.get("record_data")?,
+            };
+            if rec.deleted {
+                rec.payload = None;
+            }
+            Ok(sync15_traits::Payload::from_record(rec)?)
+        })?;
+        rows.collect::<Result<_>>()
+    }
+
+    pub(crate) fn sync_mirror_insert(
+        &self,
+        rec: RemoteRecord,
+        vclock: VClock,
+        time: ServerTimestamp,
+        is_override: bool,
+    ) -> Result<()> {
+        self.db.execute_named(
+            "INSERT OR IGNORE INTO rec_mirror (
+                guid,
+                remerge_schema_version,
+                record_data,
+                server_modified_ms,
+                is_deleted,
+                is_overridden,
+                vector_clock,
+                last_writer_id
+            ) VALUES (
+                :guid,
+                :schema_ver,
+                :record,
+                :time,
+                0,
+                :overridden,
+                :vclock,
+                :writer
+            )",
+            named_params! {
+                ":guid": rec.id,
+                ":schema_ver": rec.schema_version,
+                ":record": rec.payload.unwrap(),
+                ":time": time.as_millis(),
+                ":status": SyncStatus::New as u8,
+                ":overridden": is_override,
+                ":vclock": vclock,
+                ":writer": rec.last_writer,
+            },
+        )?;
+        Ok(())
     }
 
     pub fn create(&self, native: &NativeRecord) -> Result<Guid> {

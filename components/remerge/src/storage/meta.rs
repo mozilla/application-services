@@ -20,6 +20,11 @@ pub(crate) const CHANGE_COUNTER: MetaKey = MetaKey("remerge/change-counter");
 
 pub(crate) const LAST_SYNC_SERVER_MS: MetaKey = MetaKey("remerge/last-sync-ms");
 pub(crate) const SCHEMA_FETCH_TIMESTAMP: MetaKey = MetaKey("remerge/metadata-timestamp-ms");
+pub(crate) const GLOBAL_SYNCID_META_KEY: MetaKey = MetaKey("remerge/global-syncid-meta-key");
+pub(crate) const COLLECTION_SYNCID_META_KEY: MetaKey =
+    MetaKey("remerge/collection-syncid-meta-key");
+
+pub(crate) const SYNC15_DISC_CACHED_STATE: MetaKey = MetaKey("remerge/sync15-disc-cached-state");
 
 /// We think that we shouldn't do any syncing until our native version is
 /// compatible with this. When this is set, we still will fetch metadata

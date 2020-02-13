@@ -1,0 +1,22 @@
+{
+    "version": "0.0.1",
+    "name": "todos",
+    "fields": [
+        {
+            "name": "id",
+            "type": "own_guid"
+        },
+        {
+            "name": "task",
+            "type": "text"
+        },
+        {
+            "name": "owner",
+            "type": "text"
+        },
+        {
+            "name": "finished",
+            "type": "boolean"
+        }
+    ]
+}

@@ -25,5 +25,6 @@ pub use crate::engine::RemergeEngine;
 pub use crate::error::*;
 pub use crate::ms_time::MsTime;
 pub use crate::schema::{RecordSchema, SchemaError};
+pub use crate::storage::records::*;
 pub use crate::sym::{Sym, SymMap, SymObject};
 pub use crate::vclock::VClock;

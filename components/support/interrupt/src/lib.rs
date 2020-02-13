@@ -36,6 +36,12 @@ impl Interruptee for NeverInterrupts {
         false
     }
 }
+impl Interruptee for () {
+    #[inline]
+    fn was_interrupted(&self) -> bool {
+        false
+    }
+}
 
 /// The error returned by err_if_interrupted.
 #[derive(Debug, Fail, Clone, PartialEq)]

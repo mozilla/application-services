@@ -2,11 +2,14 @@ use super::meta_records::{
     ClientInfos, MetaPayloads, RemoteSchemaEnvelope, SingleClientInfo, CLIENT_INFO_GUID,
     SCHEMA_GUID,
 };
+use super::records::RecordInfo;
 use super::schema_action::{RemoteSchemaAction, UpgradeLocal, UpgradeRemote};
 use crate::error::*;
 use crate::storage::{meta, RemergeDb};
 use sql_support::ConnExt;
+use std::collections::HashMap;
 use sync15_traits::{telemetry::Engine as Telem, *};
+use sync15_traits::{CollSyncIds, StoreSyncAssociation};
 
 pub struct RemergeSync<'a> {
     pub(crate) db: &'a mut RemergeDb,
@@ -20,7 +23,7 @@ pub struct RemergeSync<'a> {
 }
 
 impl<'a> RemergeSync<'a> {
-    pub fn new(db: &'a mut RemergeDb) -> Self {
+    pub(crate) fn new(db: &'a mut RemergeDb) -> Self {
         // We write schema and clients metadata into the collection as records
         // with well-known ids.
         assert!(!db.info().native.legacy, "NYI: legacy schemas");
@@ -48,14 +51,11 @@ impl<'a> RemergeSync<'a> {
 
     pub(crate) fn sync_finished(
         &mut self,
-        _new_timestamp: ServerTimestamp,
-        _records_synced: Vec<Guid>,
+        new_timestamp: ServerTimestamp,
+        mut records_synced: Vec<Guid>,
     ) -> Result<()> {
-        // Now that we've (maybe) bumped our server-side metadata,
-        // if self.in_lockout {
-        // return Err(());
-        // }
-        unimplemented!();
+        records_synced.retain(|g| g != CLIENT_INFO_GUID && g != SCHEMA_GUID);
+        self.db.mark_synchronized(new_timestamp, &records_synced)
     }
 
     fn get_last_sync(&self) -> Result<Option<ServerTimestamp>> {
@@ -189,6 +189,30 @@ impl<'a> RemergeSync<'a> {
         Ok(reqs)
     }
 
+    pub(crate) fn get_sync_assoc(&self) -> Result<StoreSyncAssociation> {
+        let global = self.try_get_meta::<Guid>(meta::GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.try_get_meta::<Guid>(meta::COLLECTION_SYNCID_META_KEY)?;
+        Ok(if let (Some(global), Some(coll)) = (global, coll) {
+            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+        } else {
+            StoreSyncAssociation::Disconnected
+        })
+    }
+
+    pub(crate) fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
+        match assoc {
+            StoreSyncAssociation::Connected(CollSyncIds { global, coll }) => {
+                self.put_meta(meta::GLOBAL_SYNCID_META_KEY, global)?;
+                self.put_meta(meta::GLOBAL_SYNCID_META_KEY, coll)?;
+            }
+            StoreSyncAssociation::Disconnected => {
+                self.del_meta(meta::GLOBAL_SYNCID_META_KEY)?;
+                self.del_meta(meta::GLOBAL_SYNCID_META_KEY)?;
+            }
+        }
+        self.del_meta(meta::LAST_SYNC_SERVER_MS)?;
+        Ok(())
+    }
     pub(crate) fn apply_incoming(
         &mut self,
         inbound: Vec<IncomingChangeset>,
@@ -231,15 +255,24 @@ impl<'a> RemergeSync<'a> {
             let relevant =
                 self.db
                     .fetch_for_sync(records.changes, &mut incoming_telemetry, &self.scope)?;
-
+            self.reconcile(relevant, now, &mut incoming_telemetry)?;
             telem.incoming(incoming_telemetry);
+            let out = self.db.fetch_outgoing()?;
+            self.outgoing.changes.extend(out);
         }
 
         self.err_if_interrupted()?;
         let (record, when) = meta.clients;
         self.prepare_client_info_change(record, when)?;
+        Ok(self.take_outgoing())
+    }
 
-        unimplemented!();
+    fn take_outgoing(&mut self) -> OutgoingChangeset {
+        OutgoingChangeset {
+            timestamp: self.outgoing.timestamp,
+            collection: self.outgoing.collection.clone(),
+            changes: std::mem::replace(&mut self.outgoing.changes, vec![]),
+        }
     }
 
     pub(crate) fn put_meta(&self, key: meta::MetaKey, value: &dyn rusqlite::ToSql) -> Result<()> {
@@ -255,6 +288,79 @@ impl<'a> RemergeSync<'a> {
     ) -> Result<Option<T>> {
         meta::try_get(self.conn(), key)
     }
+
+    pub fn reconcile(
+        &self,
+        records: HashMap<Guid, RecordInfo>,
+        server_now: ServerTimestamp,
+        telem: &mut telemetry::EngineIncoming,
+    ) -> Result<()> {
+        let tx = self.conn().unchecked_transaction()?;
+        for (_, mut record) in records {
+            self.err_if_interrupted()?;
+            log::debug!("Processing remote change {}", record.id);
+            if record.inbound.0.deleted || record.inbound.0.payload.is_none() {
+                log::debug!("  Deletion");
+                self.db.sync_delete(record.id.clone())?;
+                continue;
+            }
+            let (upstream, upstream_time) = record.inbound;
+            // if upstream.vclock.is_ancestor_of()
+            let _remote_age = server_now.duration_since(upstream_time).unwrap_or_default();
+
+            match (record.mirror.take(), record.local.take()) {
+                (Some(_mirror), Some(local)) => {
+                    log::debug!("  Conflict between remote and local, Reconciling");
+
+                    // match upstream.vclock.get_ordering(&local.vclock) {
+
+                    let _local_age = std::time::SystemTime::now()
+                        .duration_since(local.local_modified.into())
+                        .unwrap_or_default();
+                    let vc = local.vclock.combine(&upstream.vclock);
+
+                    self.db.sync_mirror_update(upstream, vc, upstream_time)?;
+                    //     self.db.sync_delete_local(local.id)?;
+                    // }
+                    // self.db.sync_update(upstream, upstream_time)?;
+                    // plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
+                    telem.reconciled(1);
+                }
+                (Some(_mirror), None) => {
+                    log::debug!("  Forwarding mirror to remote");
+                    let vc = upstream.vclock.clone();
+                    self.db.sync_mirror_update(upstream, vc, upstream_time)?;
+                    telem.applied(1);
+                }
+                (None, Some(local)) => {
+                    log::debug!("  Conflicting record without shared parent, using newer");
+                    let vc = local.vclock.combine(&upstream.vclock);
+                    self.db
+                        .sync_mirror_insert(upstream, vc, upstream_time, true)?;
+                    // (&local.login, (upstream, upstream_time));
+                    telem.reconciled(1);
+                }
+                (None, None) => {
+                    // if let Some(dupe) = self.find_dupe(&upstream)? {
+                    //     log::debug!(
+                    //         "  Incoming record {} was is a dupe of local record {}",
+                    //         upstream.guid,
+                    //         dupe.guid
+                    //     );
+                    //     plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
+                    // } else {
+                    log::debug!("New record, inserting into mirror");
+                    let vc = upstream.vclock.clone();
+                    self.db
+                        .sync_mirror_insert(upstream, vc, upstream_time, false)?;
+                    // }
+                    // telem.applied(1);
+                }
+            }
+        }
+        tx.commit()?;
+        Ok(())
+    }
 }
 
 impl<'a> ConnExt for RemergeSync<'a> {
@@ -262,3 +368,13 @@ impl<'a> ConnExt for RemergeSync<'a> {
         self.db.conn()
     }
 }
+
+// #[derive(Default, Debug, Clone)]
+// pub(crate) struct UpdatePlan {
+//     pub delete_mirror: Vec<Guid>,
+//     pub delete_local: Vec<Guid>,
+//     pub local_updates: Vec<(Rec)>,
+//     // the bool is the `is_overridden` flag, the i64 is ServerTimestamp in millis
+//     pub mirror_inserts: Vec<(Login, i64, bool)>,
+//     pub mirror_updates: Vec<(Login, i64)>,
+// }

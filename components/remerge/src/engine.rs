@@ -4,10 +4,10 @@
 
 use crate::error::*;
 use crate::storage::{db::RemergeDb, NativeRecord, SchemaBundle};
+use crate::sync::{RemergeStore, RemergeSync};
 use crate::Guid;
 use std::convert::TryInto;
 use std::path::Path;
-
 /// "Friendly" public api for using Remerge.
 pub struct RemergeEngine {
     pub(crate) db: RemergeDb,
@@ -67,7 +67,12 @@ impl RemergeEngine {
     {
         self.db.create(&rec.try_into()?)
     }
+
+    pub fn sync_store(&mut self) -> RemergeStore<'_> {
+        RemergeStore::new(RemergeSync::new(&mut self.db))
+    }
 }
+
 #[cfg(test)]
 mod test {
     use super::*;

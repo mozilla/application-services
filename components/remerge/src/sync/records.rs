@@ -26,7 +26,6 @@ pub struct RemoteRecord {
     pub payload: Option<RawRecord>,
     // TODO: include a timestamp in here?
 }
-
 #[derive(Clone, Debug)]
 pub struct MirrorRecord {
     pub id: Guid,
@@ -66,65 +65,6 @@ impl RecordInfo {
     }
 }
 
-// pub fn reconcile(
-//     db: &mut RemergeDb,
-//     records: HashMap<Guid, RecordInfo>,
-//     server_now: ServerTimestamp,
-//     telem: &mut telemetry::EngineIncoming,
-//     scope: &SqlInterruptScope,
-// ) -> Result<UpdatePlan> {
-
-// for mut record in records.values() {
-//     scope.err_if_interrupted().map_err(|_| crate::ErrorKind::Interrupted)?;
-//     log::debug!("Processing remote change {}", record.guid());
-//     let upstream = if let Some(inbound) = record.inbound.0.take() {
-//         inbound
-//     } else {
-//         plan.plan_delete(record.guid.clone());
-//         continue;
-//     };
-//     let upstream_time = record.inbound.1;
-//     match (record.mirror.take(), record.local.take()) {
-//         (Some(mirror), Some(local)) => {
-//             log::debug!("  Conflict between remote and local, Resolving with 3WM");
-//             plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
-//             telem.reconciled(1);
-//         }
-//         (Some(_mirror), None) => {
-//             log::debug!("  Forwarding mirror to remote");
-//             plan.plan_mirror_update(upstream, upstream_time);
-//             telem.applied(1);
-//         }
-//         (None, Some(local)) => {
-//             log::debug!("  Conflicting record without shared parent, using newer");
-//             plan.plan_two_way_merge(&local.login, (upstream, upstream_time));
-//             telem.reconciled(1);
-//         }
-//         (None, None) => {
-//             if let Some(dupe) = self.find_dupe(&upstream)? {
-//                 log::debug!(
-//                     "  Incoming record {} was is a dupe of local record {}",
-//                     upstream.guid,
-//                     dupe.guid
-//                 );
-//                 plan.plan_two_way_merge(&dupe, (upstream, upstream_time));
-//             } else {
-//                 log::debug!("  No dupe found, inserting into mirror");
-//                 plan.plan_mirror_insert(upstream, upstream_time, false);
-//             }
-//             telem.applied(1);
-//         }
-//     }
-// }
-// Ok(plan)
-// }
-
-// pub guid: Guid,
-// pub local: Option<LocalLogin>,
-// pub mirror: Option<MirrorLogin>,
-// // None means it's a deletion
-// pub inbound: (Option<Login>, ServerTimestamp),
-
 #[derive(Debug, Clone)]
 pub struct WriteMeta {
     pub vclock: VClock,
@@ -132,13 +72,3 @@ pub struct WriteMeta {
     pub time: i64,
     pub schema: String,
 }
-
-// }
-// pub struct UpdatePlan {
-//     pub delete_mirror: Vec<(Guid, WriteMeta)>,
-//     pub delete_local: Vec<(Guid, WriteMeta)>,
-//     pub local_updates: Vec<MirrorRecord>,
-//     // the bool is the `is_overridden` flag
-//     pub mirror_inserts: Vec<(RawRecord WriteMeta<ServerTimestamp>, bool)>,
-//     pub mirror_updates: Vec<(RawRecord, WriteMeta<ServerTimestamp>)>,
-// }

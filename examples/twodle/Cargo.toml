@@ -1,0 +1,34 @@
+[package]
+name = "twodle"
+version = "0.1.0"
+authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+env_logger = "0.7"
+prettytable-rs = "0.8"
+chrono = "0.4"
+structopt = "0.3"
+sync15 = {path = "../../components/sync15"}
+fxa-client = {path = "../../components/fxa-client"}
+cli-support = { path = "../../components/support/cli" }
+force-viaduct-reqwest = { path = "../../components/support/force-viaduct-reqwest" }
+tempdir = "0.3"
+remerge = {path = "../../components/remerge"}
+sync15-traits = { path = "../../components/support/sync15-traits" }
+serde = { version = "1.0.104", features = ["derive", "rc"] }
+failure = { version = "0.1.6" }
+url = "2.1.1"
+serde_json = "1.0.44"
+log = "0.4.8"
+lazy_static = "1.4.0"
+colored = "1.8"
+rustyline = "6.0"
+
+matches = "0.1.8"
+num-traits = "0.2.8"
+[dependencies.rusqlite]
+version = "0.21.0"
+features = ["functions", "bundled", "serde_json"]

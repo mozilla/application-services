@@ -48,7 +48,7 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
         // Wait for 25 seconds for a selector we're `wait`ing on to appear. We want
         // this to be fairly forgiving since it includes page transitions, redirects,
         // us waiting for the confirmation push message, etc.
-        waitTimeout: 25000,
+        waitTimeout: 5000,
     });
 
     logInfo("Launching headless browser to perform the oauth flow (this can be slow...)");
@@ -90,8 +90,9 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
         // We should be automatically redirected to the lockbox redirect page soon enough (if we
         // haven't already been), so wait for that and get the page's location.
         let redirectUrl = await nightmare
-            .wait("#fxa-oauth-success-header")
-            .evaluate(() => window.location.href);
+            .wait("#fxa-oauth-success-header, .fxa-signed-in")
+            .evaluate(() => window.location.href)
+            .catch(e => nightmare.evaluate(() => window.location.href));
 
         logInfo("Got redirect URL: " + redirectUrl);
 
@@ -112,11 +113,20 @@ async function oauthCommand(emailAddr, password, fxaAuthUrl, oauthFlowUrl) {
 async function request(uri, ...args) {
     let resp = await fetch(uri, ...args);
     if (!resp.ok) {
-        logInfo(`Error: Got HTTP status ${resp.status} during request:`,
+        logInfo(`Warning: Got HTTP status ${resp.status} during request:`,
             "Requesting " + uri,
             resp);
-        logInfo("    Response body: " + await resp.text());
-        throw new Error(`HTTP status ${resp.status} (${resp.statusText})`);
+
+        let text = await resp.text();
+        logInfo("    Response body: " + text);
+        let error = new Error(`HTTP status ${resp.status} (${resp.statusText})`);
+        error.source = resp;
+        try {
+            error.bodyJSON = JSON.parse(text);
+        } catch (e) {
+            // wasn't json
+        }
+        throw error;
     }
     return resp;
 }
@@ -250,6 +260,12 @@ async function createCommand(emailAddr, password, authUrl) {
     } = await postJSON(`${authUrl}/v1/account/create`, {
         email: emailAddr,
         authPW: genAuthPW(emailAddr, password),
+    }).catch(e => {
+        if (e.bodyJSON && (e.bodyJSON.errno == 101 || e.bodyJSON.message == "Account already exists")) {
+            console.log("Account already exists");
+            process.exit(0);
+        }
+        throw e;
     });
 
     logInfo(`POST /v1/account/create succeeded`);
