@@ -256,7 +256,7 @@ impl FxAClient for Client {
 
     fn destroy_access_token(&self, config: &Config, access_token: &str) -> Result<()> {
         let body = json!({
-            "access_token": access_token,
+            "token": access_token,
         });
         self.destroy_token_helper(config, &body)
     }
