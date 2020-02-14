@@ -18,6 +18,9 @@
 
 - Added a new field `reasons`, which is a `List` of `SearchResultReason`s, in `SearchResult`.
 
+- Some places import related issues fixed ([#2536](https://github.com/mozilla/application-services/issues/2536),
+  [#2607](https://github.com/mozilla/application-services/issues/2607))
+
 ### Breaking changes
 
 - Android: The `PlacesWriterConnection.resetHistorySyncMetadata` and `PlacesWriterConnection.resetBookmarkSyncMetadata` methods have been moved to the `PlacesApi` class. ([#2668](https://github.com/mozilla/application-services/pull/2668))
