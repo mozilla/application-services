@@ -5,7 +5,7 @@
 // Utilities for command-line utilities which want to use fxa credentials.
 
 use crate::prompt::prompt_string;
-use fxa_client::{AccessTokenInfo, Config, FirefoxAccount};
+use fxa_client::{error, AccessTokenInfo, Config, FirefoxAccount};
 use std::collections::HashMap;
 use std::{
     fs,
@@ -75,17 +75,35 @@ pub fn get_default_fxa_config() -> Config {
     Config::release(CLIENT_ID, REDIRECT_URI)
 }
 
+fn get_account_and_token(
+    config: Config,
+    cred_file: &str,
+) -> Result<(FirefoxAccount, AccessTokenInfo)> {
+    // TODO: we should probably set a persist callback on acct?
+    let mut acct = load_or_create_fxa_creds(cred_file, config.clone())?;
+    // `scope` could be a param, but I can't see it changing.
+    match acct.get_access_token(SYNC_SCOPE) {
+        Ok(t) => Ok((acct, t)),
+        Err(e) => {
+            match e.kind() {
+                // We can retry an auth error.
+                error::ErrorKind::RemoteError { code: 401, .. } => {
+                    println!("Saw an auth error using stored credentials - recreating them...");
+                    acct = create_fxa_creds(cred_file, config)?;
+                    let token = acct.get_access_token(SYNC_SCOPE)?;
+                    Ok((acct, token))
+                }
+                _ => Err(e.into()),
+            }
+        }
+    }
+}
+
 pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
     let tokenserver_url = config.token_server_endpoint_url()?;
-
-    // TODO: we should probably set a persist callback on acct?
-    let mut acct = load_or_create_fxa_creds(cred_file, config)?;
-    // `scope` could be a param, but I can't see it changing.
-    let token_info: AccessTokenInfo = match acct.get_access_token(SYNC_SCOPE) {
-        Ok(t) => t,
-        Err(e) => {
-            panic!("No creds - run some other tool to set them up. {}", e);
-        }
+    let (acct, token_info) = match get_account_and_token(config, cred_file) {
+        Ok(v) => v,
+        Err(e) => failure::bail!("Failed to use saved credentials. {}", e),
     };
     let key = token_info.key.unwrap();
 
