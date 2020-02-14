@@ -8,7 +8,7 @@
 use crate::{
     commands::send_tab::SendTabPayload,
     device::{Capability as DeviceCapability, Device},
-    oauth::{OAuthFlow, RefreshToken},
+    oauth::{OAuthFlow, RefreshToken, OAUTH_WEBCHANNEL_REDIRECT},
     scoped_keys::ScopedKey,
 };
 pub use crate::{
@@ -207,6 +207,10 @@ impl FirefoxAccount {
     pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
         let mut url = self.state.config.content_url_path("settings")?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
+        if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
+            url.query_pairs_mut()
+                .append_pair("context", "oauth_webchannel_v1");
+        }
         self.add_account_identifiers_to_url(url)
     }
 
@@ -343,6 +347,22 @@ mod tests {
         assert_eq!(
             url,
             "https://stable.dev.lcip.org/settings?entrypoint=test&uid=123&email=test%40example.com"
+                .to_string()
+        );
+    }
+
+    #[test]
+    fn test_get_manage_account_url_with_webchannel_redirect() {
+        let mut fxa = FirefoxAccount::new(
+            "https://stable.dev.lcip.org",
+            "12345678",
+            OAUTH_WEBCHANNEL_REDIRECT,
+        );
+        fxa.add_cached_profile("123", "test@example.com");
+        let url = fxa.get_manage_account_url("test").unwrap().to_string();
+        assert_eq!(
+            url,
+            "https://stable.dev.lcip.org/settings?entrypoint=test&context=oauth_webchannel_v1&uid=123&email=test%40example.com"
                 .to_string()
         );
     }

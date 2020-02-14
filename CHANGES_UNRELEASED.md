@@ -22,8 +22,11 @@
   - `.DeviceDisconnected` should be handled by showing a "re-auth" state to the user if `isLocalDevice` is true. There is no need to call `FirefoxAccount.disconnect` as it will fail.
 
 - iOS: Added `FxAccountManager.getSessionToken`. Note that you should request the `.session` scope in the constructor for this to work properly. ([#2638](https://github.com/mozilla/application-services/pull/2638))
+- iOS: Added `FxAccountManager.getManageAccountURL`. ([#2658](https://github.com/mozilla/application-services/pull/2658))
+- iOS: Added `FxAccountManager.getTokenServerEndpointURL`. ([#2658](https://github.com/mozilla/application-services/pull/2658))
 
 - Added a `deviceId` property to the `AccountEvent.deviceDisconnected` enum case. ([#2645](https://github.com/mozilla/application-services/pull/2645))
+- Added `context=oauth_webchannel_v1` in `getManageDevicesURL` methods for WebChannel redirect URLs. ([#2658](https://github.com/mozilla/application-services/pull/2658))
 
 ### Breaking changes
 

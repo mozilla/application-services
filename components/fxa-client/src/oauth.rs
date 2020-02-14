@@ -22,7 +22,7 @@ use url::Url;
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
 // Special redirect urn based on the OAuth native spec, signals that the
 // WebChannel flow is used
-const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
+pub const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
 
 impl FirefoxAccount {
     /// Fetch a short-lived access token using the saved refresh token.

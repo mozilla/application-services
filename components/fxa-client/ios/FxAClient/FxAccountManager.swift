@@ -169,6 +169,24 @@ open class FxaAccountManager {
         }
     }
 
+    /// Get the account management URL.
+    public func getManageAccountURL(entrypoint: String) -> Result<URL, Error> {
+        do {
+            return .success(try requireAccount().getManageAccountURL(entrypoint: entrypoint))
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    /// Get the token server URL.
+    public func getTokenServerEndpointURL() -> Result<URL, Error> {
+        do {
+            return .success(try requireAccount().getTokenServerEndpointURL())
+        } catch {
+            return .failure(error)
+        }
+    }
+
     /// Refresh the user profile in the background.
     ///
     /// If it succeeds, a `.accountProfileUpdate` notification will get fired.
