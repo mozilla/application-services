@@ -272,8 +272,13 @@ pub enum AccountEvent {
     ProfileUpdated,
     AccountAuthStateChanged,
     AccountDestroyed,
-    DeviceConnected { device_name: String },
-    DeviceDisconnected { is_local_device: bool },
+    DeviceConnected {
+        device_name: String,
+    },
+    DeviceDisconnected {
+        device_id: String,
+        is_local_device: bool,
+    },
 }
 
 pub enum IncomingDeviceCommand {

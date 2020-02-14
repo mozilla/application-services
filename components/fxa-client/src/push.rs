@@ -46,7 +46,10 @@ impl FirefoxAccount {
                 if is_local_device {
                     self.disconnect();
                 }
-                Ok(vec![AccountEvent::DeviceDisconnected { is_local_device }])
+                Ok(vec![AccountEvent::DeviceDisconnected {
+                    device_id,
+                    is_local_device,
+                }])
             }
             PushPayload::AccountDestroyed(AccountDestroyedPushPayload { account_uid }) => {
                 let is_local_account = match &self.state.last_seen_profile {
@@ -161,8 +164,14 @@ mod tests {
         let events = fxa.handle_push_message(json).unwrap();
         assert!(fxa.state.refresh_token.is_none());
         assert_eq!(events.len(), 1);
-        match events[0] {
-            AccountEvent::DeviceDisconnected { is_local_device } => assert!(is_local_device),
+        match &events[0] {
+            AccountEvent::DeviceDisconnected {
+                device_id,
+                is_local_device,
+            } => {
+                assert!(is_local_device);
+                assert_eq!(device_id, "my_id");
+            }
             _ => unreachable!(),
         };
     }
@@ -174,8 +183,14 @@ mod tests {
         let json = "{\"version\":1,\"command\":\"fxaccounts:device_disconnected\",\"data\":{\"id\":\"remote_id\"}}";
         let events = fxa.handle_push_message(json).unwrap();
         assert_eq!(events.len(), 1);
-        match events[0] {
-            AccountEvent::DeviceDisconnected { is_local_device } => assert!(!is_local_device),
+        match &events[0] {
+            AccountEvent::DeviceDisconnected {
+                device_id,
+                is_local_device,
+            } => {
+                assert!(!is_local_device);
+                assert_eq!(device_id, "remote_id");
+            }
             _ => unreachable!(),
         };
     }
