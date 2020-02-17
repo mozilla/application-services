@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.51.1...master)
 
+## Sync
+
+### What's changed
+
+- Better caching of the tokenserver token and info/configuration response ([#2616](https://github.com/mozilla/application-services/issues/2616))
+
 ## Places
 
 ### What's changed

@@ -166,6 +166,7 @@ fn run_native_export(db: &PlacesDb, filename: String) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn sync(
     api: &PlacesApi,
     mut engine_names: Vec<String>,
@@ -173,6 +174,8 @@ fn sync(
     wipe_all: bool,
     wipe: bool,
     reset: bool,
+    nsyncs: u32,
+    wait: u64,
 ) -> Result<()> {
     let conn = api.open_sync_connection()?;
 
@@ -237,40 +240,49 @@ fn sync(
 
     let mut error_to_report = None;
     let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
-    let mut result = sync_multiple(
-        &stores_to_sync,
-        &mut global_state,
-        &mut mem_cached_state,
-        &cli_fxa.client_init.clone(),
-        &cli_fxa.root_sync_key,
-        &interruptee,
-        None,
-    );
 
-    for (name, result) in result.engine_results.drain() {
-        match result {
-            Ok(()) => log::info!("Status for {:?}: Ok", name),
-            Err(e) => {
-                log::warn!("Status for {:?}: {:?}", name, e);
-                error_to_report = Some(e);
+    for n in 0..nsyncs {
+        let mut result = sync_multiple(
+            &stores_to_sync,
+            &mut global_state,
+            &mut mem_cached_state,
+            &cli_fxa.client_init.clone(),
+            &cli_fxa.root_sync_key,
+            &interruptee,
+            None,
+        );
+
+        for (name, result) in result.engine_results.drain() {
+            match result {
+                Ok(()) => log::info!("Status for {:?}: Ok", name),
+                Err(e) => {
+                    log::warn!("Status for {:?}: {:?}", name, e);
+                    error_to_report = Some(e);
+                }
             }
         }
-    }
 
-    match result.result {
-        Err(e) => {
-            log::warn!("Sync failed! {}", e);
-            log::warn!("BT: {:?}", e.backtrace());
-            error_to_report = Some(e);
+        match result.result {
+            Err(e) => {
+                log::warn!("Sync failed! {}", e);
+                log::warn!("BT: {:?}", e.backtrace());
+                error_to_report = Some(e);
+            }
+            Ok(()) => log::info!("Sync was successful!"),
         }
-        Ok(()) => log::info!("Sync was successful!"),
+
+        println!("Sync service status: {:?}", result.service_status);
+        println!(
+            "Sync telemetry: {}",
+            serde_json::to_string_pretty(&result.telemetry).unwrap()
+        );
+
+        if n < nsyncs - 1 {
+            log::info!("Waiting {}ms before syncing again...", wait);
+            std::thread::sleep(std::time::Duration::from_millis(wait));
+        }
     }
 
-    println!("Sync service status: {:?}", result.service_status);
-    println!(
-        "Sync telemetry: {}",
-        serde_json::to_string_pretty(&result.telemetry).unwrap()
-    );
     // return an error if any engine failed.
     match error_to_report {
         Some(e) => Err(e.into()),
@@ -324,6 +336,14 @@ enum Command {
         /// Reset the store before syncing
         #[structopt(name = "reset", long)]
         reset: bool,
+
+        /// Number of syncs to perform
+        #[structopt(name = "nsyncs", long, default_value = "1")]
+        nsyncs: u32,
+
+        /// Number of milliseconds to wait between syncs
+        #[structopt(name = "wait", long, default_value = "0")]
+        wait: u64,
     },
 
     #[structopt(name = "export-bookmarks")]
@@ -376,7 +396,18 @@ fn main() -> Result<()> {
             wipe_all,
             wipe,
             reset,
-        } => sync(&api, engines, credential_file, wipe_all, wipe, reset),
+            nsyncs,
+            wait,
+        } => sync(
+            &api,
+            engines,
+            credential_file,
+            wipe_all,
+            wipe,
+            reset,
+            nsyncs,
+            wait,
+        ),
         Command::ExportBookmarks { output_file } => run_native_export(&db, output_file),
         Command::ImportBookmarks { input_file } => run_native_import(&db, input_file),
         Command::ImportIosBookmarks { input_file } => run_ios_import(&api, input_file),
