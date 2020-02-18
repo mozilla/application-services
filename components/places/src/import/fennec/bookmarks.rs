@@ -303,18 +303,18 @@ lazy_static::lazy_static! {
             isLocal
         )
         SELECT
-            normalize_root_guid(b.guid),
+            normalize_root_guid(sanitize_utf8(b.guid)),
             b.type,
-            (SELECT normalize_root_guid(p.guid) FROM fennec.bookmarks p WHERE p._id = b.parent),
+            IFNULL((SELECT normalize_root_guid(sanitize_utf8(p.guid)) FROM fennec.bookmarks p WHERE p._id = b.parent), 'unfiled_____'),
             b.position,
-            b.title,
+            sanitize_utf8(b.title),
             CASE
                 WHEN b.url IS NOT NULL
                     THEN validate_url(b.url)
                 ELSE NULL
             END as uri,
-            b.keyword,
-            b.tags,
+            sanitize_utf8(b.keyword),
+            sanitize_utf8(b.tags),
             -- See above for notes about 'date_added' and 'modified'
             CASE
                 WHEN b.tags IS NOT NULL OR
@@ -428,13 +428,14 @@ fn public_node_from_fennec_pinned(
 }
 
 mod sql_fns {
-    use crate::import::common::sql_fns::{sanitize_timestamp, validate_url};
+    use crate::import::common::sql_fns::{sanitize_timestamp, sanitize_utf8, validate_url};
     use rusqlite::{functions::Context, Connection, Result};
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
         c.create_scalar_function("normalize_root_guid", 1, true, normalize_root_guid)?;
         c.create_scalar_function("validate_url", 1, true, validate_url)?;
         c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
+        c.create_scalar_function("sanitize_utf8", 1, true, sanitize_utf8)?;
         Ok(())
     }
 

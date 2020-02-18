@@ -320,3 +320,51 @@ fn test_import() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_invalid_utf8() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::storage::history::history_sync::fetch_visits;
+    use url::Url;
+
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_db = empty_fennec_db(&fennec_path)?;
+
+    // use sqlites blob literal syntax to create "invalid char ->???<" where '???' are 3 invalid utf8 bytes.
+    //                i n v a l i d   c h a r   - > ? ? ? <
+    let bad = "CAST(X'696e76616c69642063686172202d3eF090803c' AS TEXT)";
+    // this is what we expect it to end up as (note the replacement char)
+    let fixed = "invalid char ->�<".to_string();
+
+    fennec_db
+        .prepare(&format!(
+            "INSERT INTO history(title, url, guid)
+                VALUES ({bad}, 'http://example.com/' || {bad}, {bad})",
+            bad = bad
+        ))?
+        .execute(NO_PARAMS)?;
+
+    fennec_db
+        .prepare(&format!(
+            "INSERT INTO visits(history_guid, date)
+                VALUES ({bad}, 0)",
+            bad = bad
+        ))?
+        .execute(NO_PARAMS)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+
+    let metrics = places::import::import_fennec_history(&places_api, fennec_path)?;
+    println!("metrics: {:?}", metrics);
+
+    let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
+    let url = Url::parse(&format!("http://example.com/{}", fixed))?;
+    let (page_info, visits) = fetch_visits(&conn, &url, 1)?.unwrap();
+    assert_eq!(page_info.title, fixed);
+    // Note we will have dropped the visit on the floor because we don't bother
+    // sanitizing when joining between these 2 tables, so the guids don't match.
+    assert_eq!(visits.len(), 0);
+
+    Ok(())
+}

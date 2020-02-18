@@ -118,11 +118,11 @@ lazy_static::lazy_static! {
     static ref FILL_STAGING: &'static str = "
         INSERT OR IGNORE INTO temp.fennecHistoryStaging(guid, url, url_hash, title)
             SELECT
-                guid, -- The places record in our DB may be different, but we
-                      -- need this to join to Fennec's visits table.
+                sanitize_utf8(guid), -- The places record in our DB may be different, but we
+                                     -- need this to join to Fennec's visits table.
                 validate_url(h.url),
                 hash(validate_url(h.url)),
-                h.title
+                sanitize_utf8(h.title)
             FROM fennec.history h
             WHERE url IS NOT NULL"
         ;
@@ -153,6 +153,10 @@ lazy_static::lazy_static! {
                 v.visit_type, -- Fennec stores visit types maps 1:1 to ours.
                 v.is_local
             FROM fennec.visits v
+            -- Note that we *do not* `sanitize_utf8(v.history_guid)` here due to
+            -- perf concerns. It just means if there happens to be non-utf8
+            -- guids in both tables we will not migrate their visits - which
+            -- seems fine as it should impact ~ 0 users.
             LEFT JOIN temp.fennecHistoryStaging t on v.history_guid = t.guid"
     ;
 
@@ -186,6 +190,12 @@ pub(super) fn define_sql_functions(c: &Connection) -> Result<()> {
         0,
         false,
         crate::db::db::sql_fns::generate_guid,
+    )?;
+    c.create_scalar_function(
+        "sanitize_utf8",
+        1,
+        true,
+        crate::import::common::sql_fns::sanitize_utf8,
     )?;
     Ok(())
 }
