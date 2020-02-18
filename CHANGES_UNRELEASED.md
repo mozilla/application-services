@@ -26,3 +26,9 @@
 ### What's fixed
 
 - `PushManager.dispatchInfoForChid` does not throw `KotlinNullPointerException` anymore if the method returned nothing. ([#2703](https://github.com/mozilla/application-services/issues/2703))
+
+## Sync
+
+### What's changed
+
+- Fewer updates to the 'clients' collection will be made ([#2624](https://github.com/mozilla/application-services/issues/2624))

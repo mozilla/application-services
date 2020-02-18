@@ -19,7 +19,7 @@ use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -40,6 +40,9 @@ impl ClientInfo {
     }
 }
 
+// How often we want the client engine to be refreshed.
+static CLIENT_REFRESH_INTERVAL_SECONDS: u64 = 24 * 60 * 60;
+
 /// Info we want callers to store *in memory* for us so that subsequent
 /// syncs are faster. This should never be persisted to storage as it holds
 /// sensitive information, such as the sync decryption keys.
@@ -47,9 +50,10 @@ impl ClientInfo {
 pub struct MemoryCachedState {
     last_client_info: Option<ClientInfo>,
     last_global_state: Option<GlobalState>,
-    // This is just stored in memory, as persisting an invalid value far in the
+    // These are just stored in memory, as persisting an invalid value far in the
     // future has the potential to break sync for good.
     next_sync_after: Option<SystemTime>,
+    next_client_refresh_after: Option<SystemTime>,
 }
 
 impl MemoryCachedState {
@@ -62,6 +66,16 @@ impl MemoryCachedState {
     }
     pub fn get_next_sync_after(&self) -> Option<SystemTime> {
         self.next_sync_after
+    }
+    pub fn should_refresh_client(&self) -> bool {
+        match self.next_client_refresh_after {
+            Some(t) => SystemTime::now() > t,
+            None => true,
+        }
+    }
+    pub fn note_client_refresh(&mut self) {
+        self.next_client_refresh_after =
+            Some(SystemTime::now() + Duration::from_secs(CLIENT_REFRESH_INTERVAL_SECONDS));
     }
 }
 
@@ -220,8 +234,14 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
         let clients_engine = if let Some(command_processor) = self.command_processor {
             log::info!("Synchronizing clients engine");
+            let should_refresh = self.mem_cached_state.should_refresh_client();
             let mut engine = clients::Engine::new(command_processor, self.interruptee);
-            if let Err(e) = engine.sync(&client_info.client, &global_state, &self.root_sync_key) {
+            if let Err(e) = engine.sync(
+                &client_info.client,
+                &global_state,
+                &self.root_sync_key,
+                should_refresh,
+            ) {
                 // Record telemetry with the error just in case...
                 let mut telem_sync = telemetry::SyncTelemetry::new();
                 let mut telem_engine = telemetry::Engine::new("clients");
@@ -239,6 +259,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             if self.was_interrupted() {
                 return Ok(());
             }
+            self.mem_cached_state.note_client_refresh();
             Some(engine)
         } else {
             None
