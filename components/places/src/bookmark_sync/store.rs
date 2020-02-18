@@ -959,11 +959,19 @@ impl<'a> Store for BookmarksStore<'a> {
         Ok(())
     }
 
-    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
-        let since = get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default();
-        Ok(vec![CollectionRequest::new(self.collection_name())
-            .full()
-            .newer_than(ServerTimestamp(since))])
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+        let since =
+            ServerTimestamp(get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default());
+        Ok(if since == server_timestamp {
+            vec![]
+        } else {
+            vec![CollectionRequest::new(self.collection_name())
+                .full()
+                .newer_than(since)]
+        })
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {

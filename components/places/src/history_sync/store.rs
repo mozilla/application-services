@@ -166,14 +166,22 @@ impl<'a> Store for HistoryStore<'a> {
         Ok(())
     }
 
-    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
-        let since = self
-            .get_meta::<i64>(LAST_SYNC_META_KEY)?
-            .unwrap_or_default();
-        Ok(vec![CollectionRequest::new("history")
-            .full()
-            .newer_than(ServerTimestamp(since))
-            .limit(MAX_INCOMING_PLACES)])
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+        let since = ServerTimestamp(
+            self.get_meta::<i64>(LAST_SYNC_META_KEY)?
+                .unwrap_or_default(),
+        );
+        Ok(if since == server_timestamp {
+            vec![]
+        } else {
+            vec![CollectionRequest::new("history")
+                .full()
+                .newer_than(since)
+                .limit(MAX_INCOMING_PLACES)]
+        })
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {

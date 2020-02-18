@@ -12,7 +12,7 @@ use crate::state::GlobalState;
 use crate::telemetry;
 use interrupt::Interruptee;
 
-pub use sync15_traits::Store;
+pub use sync15_traits::{IncomingChangeset, Store};
 
 pub fn synchronize(
     client: &Sync15StorageClient,
@@ -67,34 +67,38 @@ pub fn synchronize_with_clients_engine(
         store.prepare_for_sync(&|| clients.get_client_data())?;
     }
 
-    let collection_requests = store.get_collection_requests()?;
-    // Should this be allowed?
-    assert_ne!(collection_requests.len(), 0);
-    assert_eq!(collection_requests.last().unwrap().collection, collection);
+    let collection_requests = store.get_collection_requests(coll_state.last_modified)?;
+    let incoming = if collection_requests.is_empty() {
+        log::info!("skipping incoming for {} - not needed.", collection);
+        vec![IncomingChangeset::new(collection, coll_state.last_modified)]
+    } else {
+        assert_eq!(collection_requests.last().unwrap().collection, collection);
 
-    let count = collection_requests.len();
-    let incoming = collection_requests
-        .into_iter()
-        .enumerate()
-        .map(|(idx, collection_request)| {
-            interruptee.err_if_interrupted()?;
-            let incoming_changes =
-                crate::changeset::fetch_incoming(client, &mut coll_state, &collection_request)?;
+        let count = collection_requests.len();
+        collection_requests
+            .into_iter()
+            .enumerate()
+            .map(|(idx, collection_request)| {
+                interruptee.err_if_interrupted()?;
+                let incoming_changes =
+                    crate::changeset::fetch_incoming(client, &mut coll_state, &collection_request)?;
 
-            log::info!(
-                "Downloaded {} remote changes (request {} of {})",
-                incoming_changes.changes.len(),
-                idx,
-                count,
-            );
-            Ok(incoming_changes)
-        })
-        .collect::<Result<Vec<_>, Error>>()?;
+                log::info!(
+                    "Downloaded {} remote changes (request {} of {})",
+                    incoming_changes.changes.len(),
+                    idx,
+                    count,
+                );
+                Ok(incoming_changes)
+            })
+            .collect::<Result<Vec<_>, Error>>()?
+    };
 
-    let new_timestamp = incoming.last().expect("already checked len == 0").timestamp;
+    let new_timestamp = incoming.last().expect("must have >= 1").timestamp;
     let mut outgoing = store.apply_incoming(incoming, telem_engine)?;
 
     interruptee.err_if_interrupted()?;
+    // Bump the timestamps now just incase the upload fails.
     // xxx - duplication below smells wrong
     outgoing.timestamp = new_timestamp;
     coll_state.last_modified = new_timestamp;

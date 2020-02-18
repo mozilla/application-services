@@ -1243,11 +1243,16 @@ impl<'a> Store for LoginStore<'a> {
         Ok(())
     }
 
-    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
         let since = self.db.get_last_sync()?.unwrap_or_default();
-        Ok(vec![CollectionRequest::new("passwords")
-            .full()
-            .newer_than(since)])
+        Ok(if since == server_timestamp {
+            vec![]
+        } else {
+            vec![CollectionRequest::new("passwords").full().newer_than(since)]
+        })
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {

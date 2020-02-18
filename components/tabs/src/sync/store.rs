@@ -189,11 +189,16 @@ impl<'a> Store for TabsStore<'a> {
         Ok(())
     }
 
-    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
         let since = self.last_sync.get().unwrap_or_default();
-        Ok(vec![CollectionRequest::new("tabs")
-            .full()
-            .newer_than(since)])
+        Ok(if since == server_timestamp {
+            vec![]
+        } else {
+            vec![CollectionRequest::new("tabs").full().newer_than(since)]
+        })
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
