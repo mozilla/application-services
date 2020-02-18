@@ -480,8 +480,8 @@ pub extern "C" fn places_accept_result(
 #[no_mangle]
 pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
     log::debug!("places_reset");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::history_sync::reset(conn)?;
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        api.reset_history()?;
         Ok(())
     })
 }
@@ -489,8 +489,8 @@ pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
 #[no_mangle]
 pub extern "C" fn bookmarks_reset(handle: u64, error: &mut ExternError) {
     log::debug!("bookmarks_reset");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::bookmarks::bookmark_sync::reset(conn)?;
+    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+        api.reset_bookmarks()?;
         Ok(())
     })
 }

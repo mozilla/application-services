@@ -16,6 +16,11 @@
 
 - Added a new field `reasons`, which is a `List` of `SearchResultReason`s, in `SearchResult`.
 
+### Breaking changes
+
+- Android: The `PlacesWriterConnection.resetHistorySyncMetadata` and `PlacesWriterConnection.resetBookmarkSyncMetadata` methods have been moved to the `PlacesApi` class. ([#2668](https://github.com/mozilla/application-services/pull/2668))
+- iOS: The `PlacesWriteConnection.resetHistorySyncMetadata` method has been moved to the `PlacesAPI` class. ([#2668](https://github.com/mozilla/application-services/pull/2668))
+
 ## FxA Client
 
 ### What's New
