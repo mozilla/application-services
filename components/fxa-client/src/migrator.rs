@@ -2,10 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount, MigrationData};
+use crate::{error::*, scoped_keys::ScopedKey, scopes, FirefoxAccount};
 use ffi_support::IntoFfi;
 use serde_derive::*;
 use std::time::Instant;
+
+// Values to pass back to calling code over the FFI.
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct FxAMigrationResult {
@@ -33,6 +35,16 @@ unsafe impl IntoFfi for MigrationState {
             MigrationState::ReuseSessionToken => 2,
         }
     }
+}
+
+// Migration-related data that we may need to serialize in the persisted account state.
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct MigrationData {
+    k_xcs: String,
+    k_sync: String,
+    copy_session_token: bool,
+    session_token: String,
 }
 
 impl FirefoxAccount {
