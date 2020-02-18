@@ -68,6 +68,17 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
         project.afterEvaluate {
             forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
         }
+
+        // For inscrutable reasons, the various android packaging gradle tasks do
+        // not get re-run when the underlying rust code changes. Something is not
+        // correctly configuring gradle's up-to-date checks, but I've reached the
+        // limit of how much time I'm willing to spend on figuring it out. Deleting
+        // these intermediate files forces re-execution of the task.
+        // Ref https://github.com/mozilla/application-services/issues/2659
+        task forceGradleToRefreshPackagedLibsWhenTheRustCodeChanges(type: Delete) {
+          delete "$buildDir/intermediates/merged_jni_libs"
+        }
+        preBuild.dependsOn(forceGradleToRefreshPackagedLibsWhenTheRustCodeChanges)
     }
 
     task sourcesJar(type: Jar) {
