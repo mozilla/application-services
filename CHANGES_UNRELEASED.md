@@ -10,6 +10,8 @@
 
 - Better caching of the tokenserver token and info/configuration response ([#2616](https://github.com/mozilla/application-services/issues/2616))
 
+- Less network requests will be made in the case when nothing has changed on the server ([#2623](https://github.com/mozilla/application-services/issues/2623))
+
 ## Places
 
 ### What's changed

@@ -242,7 +242,10 @@ mod tests {
             unreachable!("these tests shouldn't call these");
         }
 
-        fn get_collection_requests(&self) -> Result<Vec<CollectionRequest>, failure::Error> {
+        fn get_collection_requests(
+            &self,
+            _server_timestamp: ServerTimestamp,
+        ) -> Result<Vec<CollectionRequest>, failure::Error> {
             unreachable!("these tests shouldn't call these");
         }
 
