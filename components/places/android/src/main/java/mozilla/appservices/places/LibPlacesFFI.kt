@@ -185,7 +185,7 @@ internal interface LibPlacesFFI : Library {
     ): Long
 
     fun places_reset(
-        handle: PlacesConnectionHandle,
+        handle: PlacesApiHandle,
         error: RustError.ByReference
     )
 
@@ -275,7 +275,7 @@ internal interface LibPlacesFFI : Library {
     )
 
     fun bookmarks_reset(
-        handle: PlacesConnectionHandle,
+        handle: PlacesApiHandle,
         error: RustError.ByReference
     )
 

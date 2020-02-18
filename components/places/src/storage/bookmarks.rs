@@ -1454,7 +1454,7 @@ pub mod bookmark_sync {
     /// Removes all sync metadata, including synced bookmarks, pending tombstones,
     /// change counters, sync statuses, the last sync time, and sync ID. This
     /// should be called when the user signs out of Sync.
-    pub fn reset(db: &PlacesDb) -> Result<()> {
+    pub(crate) fn reset(db: &PlacesDb) -> Result<()> {
         let tx = db.begin_transaction()?;
         reset_meta(db)?;
         delete_meta(db, GLOBAL_SYNCID_META_KEY)?;

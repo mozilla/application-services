@@ -154,6 +154,18 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         }
         return JSONObject(json)
     }
+
+    override fun resetHistorySyncMetadata() {
+        rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_reset(this.handle.get(), error)
+        }
+    }
+
+    override fun resetBookmarkSyncMetadata() {
+        rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.bookmarks_reset(this.handle.get(), error)
+        }
+    }
 }
 
 internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) -> U): U {
@@ -567,12 +579,6 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
-    override fun resetHistorySyncMetadata() {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_reset(this.handle.get(), error)
-        }
-    }
-
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
             rustCall { error ->
@@ -580,12 +586,6 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
                     LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
                 }
             }
-        }
-    }
-
-    override fun resetBookmarkSyncMetadata() {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.bookmarks_reset(this.handle.get(), error)
         }
     }
 
@@ -769,6 +769,30 @@ interface PlacesManager {
      * @return A list of pinned websites.
      */
     fun importPinnedSitesFromFennec(path: String): List<BookmarkItem>
+
+    /**
+     * Resets all sync metadata for history, including change flags,
+     * sync statuses, and last sync time. The next sync after reset
+     * will behave the same way as a first sync when connecting a new
+     * device.
+     *
+     * This method only needs to be called when the user disconnects
+     * from Sync. There are other times when Places resets sync metadata,
+     * but those are handled internally in the Rust code.
+     */
+    fun resetHistorySyncMetadata()
+
+    /**
+     * Resets all sync metadata for bookmarks, including change flags,
+     * sync statuses, and last sync time. The next sync after reset
+     * will behave the same way as a first sync when connecting a new
+     * device.
+     *
+     * This method only needs to be called when the user disconnects
+     * from Sync. There are other times when Places resets sync metadata,
+     * but those are handled internally in the Rust code.
+     */
+    fun resetBookmarkSyncMetadata()
 }
 
 interface InterruptibleConnection : AutoCloseable {
@@ -932,18 +956,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * should not return.
      */
     fun deleteEverything()
-
-    /**
-     * Resets all sync metadata for history, including change flags,
-     * sync statuses, and last sync time. The next sync after reset
-     * will behave the same way as a first sync when connecting a new
-     * device.
-     *
-     * This method only needs to be called when the user disconnects
-     * from Sync. There are other times when Places resets sync metadata,
-     * but those are handled internally in the Rust code.
-     */
-    fun resetHistorySyncMetadata()
 
     /**
      * Deletes all information about the given URL. If the place has previously
