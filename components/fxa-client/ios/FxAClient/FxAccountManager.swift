@@ -218,10 +218,14 @@ open class FxAccountManager {
         }
     }
 
-    /// Get the token server URL.
+    /// Get the token server URL with `1.0/sync/1.5` appended at the end.
     public func getTokenServerEndpointURL() -> Result<URL, Error> {
         do {
-            return .success(try requireAccount().getTokenServerEndpointURL())
+            return .success(
+                try requireAccount()
+                    .getTokenServerEndpointURL()
+                    .appendingPathComponent("1.0/sync/1.5")
+            )
         } catch {
             return .failure(error)
         }

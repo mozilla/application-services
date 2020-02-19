@@ -324,4 +324,27 @@ class FxAccountManagerTests: XCTestCase {
 
         XCTAssertTrue(account.invocations.contains(MockAccount.MethodInvocation.checkAuthorizationStatus))
     }
+
+    func testGetTokenServerEndpointURL() {
+        class MockAccount: MockFxAccount {
+            override func getTokenServerEndpointURL() throws -> URL {
+                return URL(string: "https://token.services.mozilla.com/")!
+            }
+        }
+        let mgr = mockFxAManager()
+        let account = MockAccount()
+        mgr.storedAccount = account
+
+        let initDone = XCTestExpectation(description: "Initialization done")
+        mgr.initialize { _ in
+            initDone.fulfill()
+        }
+        wait(for: [initDone], timeout: 10)
+
+        let url = try! mgr.getTokenServerEndpointURL().get()
+        XCTAssertEqual(
+            url.absoluteString,
+            "https://token.services.mozilla.com/1.0/sync/1.5"
+        )
+    }
 }
