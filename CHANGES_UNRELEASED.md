@@ -54,6 +54,7 @@
 
 - iOS: The `FxaAccountManager` class has been renamed to `FxAccountManager`. ([#2637](https://github.com/mozilla/application-services/pull/2637))
 - iOS: The `FxAccountManager` default applications scopes do not include `.oldSync` anymore. ([#2638](https://github.com/mozilla/application-services/pull/2638))
+- iOS: `FxaAccountManager.getTokenServerEndpointURL` now returns the full token server URL such as `https://token.services.mozilla.com/1.0/sync/1.5`. ([#2675](https://github.com/mozilla/application-services/pull/2675))
 
 ## Push
 
