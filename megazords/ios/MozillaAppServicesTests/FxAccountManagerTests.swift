@@ -155,6 +155,7 @@ class FxAccountManagerTests: XCTestCase {
         mgr.initialize { _ in
             initDone.fulfill()
         }
+        wait(for: [initDone], timeout: 5)
         waitForExpectations(timeout: 5, handler: nil)
 
         // Fetch devices is run async, so it could happen after getProfile, hence we don't do a strict
@@ -187,6 +188,7 @@ class FxAccountManagerTests: XCTestCase {
         mgr.initialize { _ in
             initDone.fulfill()
         }
+        wait(for: [initDone], timeout: 5)
         waitForExpectations(timeout: 5, handler: nil)
 
         XCTAssertTrue(account.invocations.contains(MockFxAccount.MethodInvocation.registerPersistCallback))
@@ -223,6 +225,7 @@ class FxAccountManagerTests: XCTestCase {
         mgr.initialize { _ in
             initDone.fulfill()
         }
+        wait(for: [initDone], timeout: 5)
         waitForExpectations(timeout: 5, handler: nil)
 
         XCTAssertTrue(mgr.accountNeedsReauth())
@@ -318,6 +321,7 @@ class FxAccountManagerTests: XCTestCase {
         mgr.initialize { _ in
             initDone.fulfill()
         }
+        wait(for: [initDone], timeout: 5)
         waitForExpectations(timeout: 10, handler: nil)
 
         XCTAssertFalse(mgr.accountNeedsReauth())
