@@ -40,7 +40,9 @@
 - iOS: Added `FxAccountManager.getSessionToken`. Note that you should request the `.session` scope in the constructor for this to work properly. ([#2638](https://github.com/mozilla/application-services/pull/2638))
 - iOS: Added `FxAccountManager.getManageAccountURL`. ([#2658](https://github.com/mozilla/application-services/pull/2658))
 - iOS: Added `FxAccountManager.getTokenServerEndpointURL`. ([#2658](https://github.com/mozilla/application-services/pull/2658))
-
+- iOS: Added migration methods to `FxAccountManager` ([#2637](https://github.com/mozilla/application-services/pull/2637)):
+  - `authenticateViaMigration` will try to authenticate an account without any user interaction using previously stored account information.
+  - `accountMigrationInFlight` and `retryMigration` should be used in conjunction to handle cases where the migration could not be completed but is still recoverable.
 - Added a `deviceId` property to the `AccountEvent.deviceDisconnected` enum case. ([#2645](https://github.com/mozilla/application-services/pull/2645))
 - Added `context=oauth_webchannel_v1` in `getManageDevicesURL` methods for WebChannel redirect URLs. ([#2658](https://github.com/mozilla/application-services/pull/2658))
 
@@ -50,6 +52,7 @@
   - `AccountEvent` enum has been refactored: `.TabReceived` has been replaced by `.IncomingDeviceCommand(IncomingDeviceCommand)`, `IncomingDeviceCommand` itself is another enum that contains `TabReceived`.
   - `FirefoxAccount.pollDeviceCommands` now returns an array of `IncomingDeviceCommand`.
 
+- iOS: The `FxaAccountManager` class has been renamed to `FxAccountManager`. ([#2637](https://github.com/mozilla/application-services/pull/2637))
 - iOS: The `FxAccountManager` default applications scopes do not include `.oldSync` anymore. ([#2638](https://github.com/mozilla/application-services/pull/2638))
 
 ## Push

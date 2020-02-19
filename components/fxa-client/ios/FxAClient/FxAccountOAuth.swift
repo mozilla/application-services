@@ -4,7 +4,7 @@
 
 import Foundation
 
-public enum OAuthScope {
+public class OAuthScope {
     // Necessary to fetch a profile.
     public static let profile: String = "profile"
     // Necessary to obtain sync keys.

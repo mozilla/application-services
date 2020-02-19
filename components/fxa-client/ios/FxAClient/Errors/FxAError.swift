@@ -56,12 +56,7 @@ public enum FirefoxAccountError: LocalizedError {
 
     @discardableResult
     public static func unwrap<T>(_ callback: (UnsafeMutablePointer<FxAError>) throws -> T?) throws -> T {
-        var err = FxAError(code: FxA_NoError, message: nil)
-        let returnedVal = try callback(&err)
-        if let fxaErr = FirefoxAccountError.fromConsuming(err) {
-            throw fxaErr
-        }
-        guard let result = returnedVal else {
+        guard let result = try tryUnwrap(callback) else {
             throw ResultError.empty
         }
         return result

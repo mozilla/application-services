@@ -6,7 +6,7 @@ import Foundation
 
 /// This class provides low-level access to `RustFxAccount` through various asynchronous wrappers.
 /// It should not be used anymore and is kept for backwards compatbility for the Lockwise iOS project.
-@available(*, deprecated, message: "Use FxaAccountManager instead")
+@available(*, deprecated, message: "Use FxAccountManager instead")
 open class FirefoxAccount: RustFxAccount {
     /// Gets the logged-in user profile.
     /// Throws `FirefoxAccountError.Unauthorized` if we couldn't find any suitable access token
