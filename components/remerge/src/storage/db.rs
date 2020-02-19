@@ -395,10 +395,41 @@ impl RemergeDb {
         &self.info
     }
 
-    fn dupe_exists(&self, _record: &LocalRecord) -> Result<bool> {
-        // XXX FIXME: this is obviously wrong, but should work for
-        // extension-storage / engines that don't do deduping. (Is it correct
-        // that ext-storage won't want to dedupe on anything?)
-        Ok(false)
+    fn dupe_exists(&self, record: &LocalRecord) -> Result<bool> {
+        let dedupe_field_indexes = &self.info.local.dedupe_on;
+        let mut dupe_exists = false;
+
+        // Return false if the schema contains no dedupe_on fields.
+        if dedupe_field_indexes.is_empty() {
+            return Ok(dupe_exists);
+        }
+
+        let db_records = self.get_all().unwrap_or_default();
+
+        // Return false if there are no records in the database.
+        if db_records.is_empty() {
+            return Ok(dupe_exists);
+        }
+
+        dupe_exists = db_records
+            .iter()
+            .filter(|db_record| {
+                let db_id = &db_record.as_obj()["id"];
+                let local_id = &record.as_obj()["id"];
+
+                //Filter out updates.
+                db_id != local_id
+            })
+            .any(|db_record| {
+                dedupe_field_indexes.iter().all(|dedupe_field_index| {
+                    let dedupe_field = &self.info.local.fields[*dedupe_field_index];
+                    let db_field_value = &db_record.as_obj()[&dedupe_field.local_name];
+                    let local_field_value = &record.as_obj()[&dedupe_field.name];
+
+                    db_field_value == local_field_value
+                })
+            });
+
+        Ok(dupe_exists)
     }
 }
