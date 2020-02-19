@@ -71,7 +71,7 @@ class MockFxAccount: FxAccount {
     }
 }
 
-class MockFxaAccountManager: FxaAccountManager {
+class MockFxAccountManager: FxAccountManager {
     var invocations: [MethodInvocation] = []
     enum MethodInvocation {}
 
@@ -118,8 +118,8 @@ class MockDeviceConstellation: DeviceConstellation {
     }
 }
 
-func mockFxAManager() -> MockFxaAccountManager {
-    return MockFxaAccountManager(
+func mockFxAManager() -> MockFxAccountManager {
+    return MockFxAccountManager(
         config: .release(clientId: "clientid", redirectUri: "redirect"),
         deviceConfig: DeviceConfig(name: "foo", type: .mobile, capabilities: [])
     )

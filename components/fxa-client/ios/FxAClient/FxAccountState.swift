@@ -5,7 +5,7 @@
 import Foundation
 
 /**
- * States of the [FxaAccountManager].
+ * States of the [FxAccountManager].
  */
 internal enum AccountState {
     case start
@@ -17,7 +17,7 @@ internal enum AccountState {
 }
 
 /**
- * Base class for [FxaAccountManager] state machine events.
+ * Base class for [FxAccountManager] state machine events.
  * Events aren't a simple enum class because we might want to pass data along with some of the events.
  */
 internal enum Event {
@@ -43,7 +43,7 @@ internal enum Event {
     case migrationFailure
 }
 
-extension FxaAccountManager {
+extension FxAccountManager {
     // State transition matrix. Returns nil if there's no transition.
     // swiftlint:disable function_body_length
     internal static func nextState(state: AccountState, event: Event) -> AccountState? {

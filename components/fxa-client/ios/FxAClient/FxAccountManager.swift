@@ -13,7 +13,7 @@ public extension Notification.Name {
 }
 
 // swiftlint:disable type_body_length
-open class FxaAccountManager {
+open class FxAccountManager {
     let accountStorage: KeyChainAccountStorage
     let config: FxAConfig
     let deviceConfig: DeviceConfig
@@ -265,7 +265,7 @@ open class FxaAccountManager {
             var toProcess: Event? = event
             while let evt = toProcess {
                 toProcess = nil // Avoid infinite loop if `toProcess` doesn't get replaced.
-                guard let nextState = FxaAccountManager.nextState(state: self.state, event: evt) else {
+                guard let nextState = FxAccountManager.nextState(state: self.state, event: evt) else {
                     FxALog.error("Got invalid event \(evt) for state \(self.state).")
                     continue
                 }
@@ -565,9 +565,9 @@ extension Notification.Name {
 }
 
 class FxAStatePersistenceCallback: PersistCallback {
-    weak var manager: FxaAccountManager?
+    weak var manager: FxAccountManager?
 
-    public init(manager: FxaAccountManager) {
+    public init(manager: FxAccountManager) {
         self.manager = manager
     }
 
