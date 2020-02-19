@@ -45,6 +45,7 @@
   - `accountMigrationInFlight` and `retryMigration` should be used in conjunction to handle cases where the migration could not be completed but is still recoverable.
 - Added a `deviceId` property to the `AccountEvent.deviceDisconnected` enum case. ([#2645](https://github.com/mozilla/application-services/pull/2645))
 - Added `context=oauth_webchannel_v1` in `getManageDevicesURL` methods for WebChannel redirect URLs. ([#2658](https://github.com/mozilla/application-services/pull/2658))
+- iOS: Swift binary now built with module stability flags so minor Swift compiler version mismatches will be tolerated by Carthage consumers. ([#2675](https://github.com/mozilla/application-services/pull/2675)) 
 
 ### Breaking changes
 
