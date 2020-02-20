@@ -277,6 +277,9 @@ impl RemergeDb {
     pub(crate) fn mark_synchronized(&mut self, ts: ServerTimestamp, guids: &[Guid]) -> Result<()> {
         let tx = self.db.unchecked_transaction()?;
         sql_support::each_chunk(&guids, |chunk, _| -> Result<()> {
+            if chunk.is_empty() {
+                return Ok(());
+            }
             self.db.execute(
                 &format!(
                     "DELETE FROM rec_mirror WHERE guid IN ({vars})",
@@ -302,7 +305,7 @@ impl RemergeDb {
 
             self.db.execute(
                 &format!(
-                    "DELETE FROM loginsL WHERE guid IN ({vars})",
+                    "DELETE FROM rec_local WHERE guid IN ({vars})",
                     vars = sql_support::repeat_sql_vars(chunk.len())
                 ),
                 chunk,
@@ -368,7 +371,6 @@ impl RemergeDb {
                 ":schema_ver": rec.schema_version,
                 ":record": rec.payload.unwrap(),
                 ":time": time.as_millis(),
-                ":status": SyncStatus::New as u8,
                 ":overridden": is_override,
                 ":vclock": vclock,
                 ":writer": rec.last_writer,

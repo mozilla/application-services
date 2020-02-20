@@ -246,7 +246,7 @@ impl<'a> RemergeSync<'a> {
             self.upgrade_remote(upgrade_r)?;
         }
 
-        if !self.in_lockout && expect_len == 3 {
+        if !self.in_lockout && expect_len == 2 {
             let mut incoming_telemetry = telemetry::EngineIncoming::new();
             let mut records = iter.next().unwrap();
             records

@@ -28,7 +28,7 @@ fn init_logging() {
     if cfg!(debug_assertions) {
         std::env::set_var("RUST_BACKTRACE", "1");
         // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
-        let spec = "warn,rustyline=error,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
+        let spec = "trace,rustyline=error,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
         env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
     }
 }
@@ -116,13 +116,13 @@ fn show_all(engine: &RemergeEngine) -> Result<Vec<TodoItem>> {
 #[structopt(name = "twodle", about = "remerge todo list demo")]
 pub struct Opts {
     /// Device name
-    #[structopt(long, short, default_value = "local")]
-    pub name: String,
+    #[structopt(long = "device", short = "d", default_value = "local")]
+    pub device_name: String,
 
     #[structopt(long, short)]
     pub quiet: bool,
 
-    #[structopt(long, short = "a")]
+    #[structopt(long = "account", short = "a")]
     pub autocreate_restmail: Option<String>,
 
     #[structopt(long, short = "2")]
@@ -145,6 +145,7 @@ fn main() -> Result<()> {
     let mut mcs = sync15::MemoryCachedState::default();
 
     let db = dev_root.join("todo.db");
+    println!("DB located at {:?}", db);
     let mut engine = RemergeEngine::open(db, include_str!("./schema.json")).unwrap();
 
     println!("Engine has {} records", engine.list()?.len());
@@ -198,6 +199,7 @@ pub struct TodoItem {
     finished: bool,
     #[serde(rename = "task")]
     title: String,
+    #[serde(skip_serializing_if = "is_default")]
     owner: Option<String>,
 }
 

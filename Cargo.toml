@@ -32,7 +32,7 @@ members = [
     "megazords/ios/rust",
     "megazords/lockbox",
     "testing/sync-test",
-    "examples/remerge-todo",
+    "examples/twodle",
 ]
 
 [profile.release]
