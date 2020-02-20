@@ -311,6 +311,10 @@ impl FirefoxAccount {
                 log::warn!("Device information restoration failed: {:?}", err);
             }
         }
+        // When our keys change, we might need to re-register device capabilities with the server.
+        // Ensure that this happens on the next call to ensure_capabilities.
+        self.state.device_capabilities.clear();
+
         Ok(())
     }
 
