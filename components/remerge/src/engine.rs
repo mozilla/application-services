@@ -421,4 +421,27 @@ mod test {
             panic!("permitted going backwards in schema versions");
         }
     }
+
+    #[test]
+    fn test_schema_doesnt_change_same_version() {
+        const FILENAME: &str = "test_schema_change_without_version.sqlite";
+        let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
+        let backwards_schema: String = json!({
+            "version": "1.0.0",
+            "name": "logins-example",
+            "fields": [],
+        })
+        .to_string();
+        let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
+        std::fs::remove_file(FILENAME).expect("uh oh, couldn't clean up test");
+
+        if let Err(e) = open_result {
+            assert_eq!(
+                e.to_string(),
+                "Schema version did not change (1.0.0) but contents are different"
+            );
+        } else {
+            panic!("permitted changing without version bump");
+        }
+    }
 }
