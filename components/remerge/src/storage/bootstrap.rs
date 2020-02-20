@@ -36,7 +36,14 @@ pub(super) fn load_or_bootstrap(
 
         if native_ver != native.version.to_string() {
             // XXX migrate existing records here!
-            // XXX Ensure we only move native version forward and not backwards!
+            let native_ver = semver::Version::parse(&*native_ver)
+                .expect("previously-written version is no longer semver");
+            if native.version < native_ver {
+                throw!(ErrorKind::SchemaVersionWentBackwards(
+                    native.version.to_string(),
+                    native_ver.to_string()
+                ));
+            }
             meta::put(db, meta::NATIVE_SCHEMA_VERSION, &native.version.to_string())?;
         }
         let local_schema: String = db.query_row(

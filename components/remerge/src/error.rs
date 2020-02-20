@@ -21,6 +21,12 @@ pub enum ErrorKind {
     #[fail(display = "Invalid schema: {}", _0)]
     SchemaError(#[fail(cause)] crate::schema::error::SchemaError),
 
+    #[fail(
+        display = "Schema given is of an earlier version ({}) than previously stored ({})",
+        _0, _1
+    )]
+    SchemaVersionWentBackwards(String, String),
+
     #[fail(display = "Invalid record: {}", _0)]
     InvalidRecord(#[fail(cause)] InvalidRecord),
 
