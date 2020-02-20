@@ -45,6 +45,18 @@ pub(super) fn load_or_bootstrap(
                 ));
             }
             meta::put(db, meta::NATIVE_SCHEMA_VERSION, &native.version.to_string())?;
+        } else {
+            let previous_native: String = db.query_row(
+                "SELECT schema_text FROM remerge_schemas WHERE version = ?",
+                rusqlite::params![native_ver],
+                |r| r.get(0),
+            )?;
+            let previous_native = crate::schema::parse_from_string(&*previous_native, false)?;
+            if *native != previous_native {
+                throw!(ErrorKind::SchemaChangedWithoutVersionBump(
+                    native.version.to_string()
+                ));
+            }
         }
         let local_schema: String = db.query_row(
             "SELECT schema_text FROM remerge_schemas WHERE version = ?",

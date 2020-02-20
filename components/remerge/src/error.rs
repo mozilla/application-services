@@ -27,6 +27,12 @@ pub enum ErrorKind {
     )]
     SchemaVersionWentBackwards(String, String),
 
+    #[fail(
+        display = "Schema version did not change ({}) but contents are different",
+        _0
+    )]
+    SchemaChangedWithoutVersionBump(String),
+
     #[fail(display = "Invalid record: {}", _0)]
     InvalidRecord(#[fail(cause)] InvalidRecord),
 
