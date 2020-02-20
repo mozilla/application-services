@@ -398,4 +398,27 @@ mod test {
         assert_eq!(um2["bar"], "test");
         um2.assert_tombstones(vec!["foo", "quux"]);
     }
+
+    #[test]
+    fn test_schema_cant_go_backwards() {
+        const FILENAME: &str = "test_schema_go_backwards.sqlite";
+        let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
+        let backwards_schema: String = json!({
+            "version": "0.1.0",
+            "name": "logins-example",
+            "fields": [],
+        })
+        .to_string();
+        let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
+        std::fs::remove_file(FILENAME).expect("uh oh, couldn't clean up test");
+
+        if let Err(e) = open_result {
+            assert_eq!(
+                e.to_string(),
+                "Schema given is of an earlier version (0.1.0) than previously stored (1.0.0)"
+            );
+        } else {
+            panic!("permitted going backwards in schema versions");
+        }
+    }
 }
