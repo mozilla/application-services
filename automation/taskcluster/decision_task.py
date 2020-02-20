@@ -172,12 +172,12 @@ def android_linux_x86_64():
             task.with_script("./automation/check_megazord.sh {}".format(module[0:-9].replace("-", "_")))
     return task.create()
 
-def gradle_module_task_name(module, gradle_task_name):
-    return ":%s:%s" % (module, gradle_task_name)
+def gradle_modules_tasks_names(modules_info, gradle_task_name):
+    return " ".join(map(lambda m: ":%s:%s" % (m["name"], gradle_task_name), modules_info))
 
-def gradle_module_task(libs_tasks, module_info, deploy_environment):
-    module = module_info['name']
-    task = android_task("{} - Build and test".format(module), libs_tasks)
+def gradle_module_bucket_task(libs_tasks, modules_info, deploy_environment):
+    task_name_prefix = '{} modules'.format(len(modules_info)) if len(modules_info) > 1 else modules_info[0]['name']
+    task = android_task("{} - Build and test".format(task_name_prefix), libs_tasks)
     # This is important as by default the Rust plugin will only cross-compile for Android + host platform.
     task.with_script('echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties')
     (
@@ -187,112 +187,132 @@ def gradle_module_task(libs_tasks, module_info, deploy_environment):
             yes | sdkmanager --licenses
             ./gradlew --no-daemon clean
         """)
-        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "testDebug")))
-        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "assembleRelease")))
-        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "publish")))
-        .with_script("./gradlew --no-daemon {}".format(gradle_module_task_name(module, "checkMavenArtifacts")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_modules_tasks_names(modules_info, "testDebug")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_modules_tasks_names(modules_info, "assembleRelease")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_modules_tasks_names(modules_info, "publish")))
+        .with_script("./gradlew --no-daemon {}".format(gradle_modules_tasks_names(modules_info, "checkMavenArtifacts")))
     )
-    for publication in module_info['publications']:
-        for artifact in publication.to_artifacts(('', '.sha1', '.md5')):
-            task.with_artifacts(artifact['build_fs_path'], artifact['taskcluster_path'])
+    for module_info in modules_info:
+        for publication in module_info['publications']:
+            for artifact in publication.to_artifacts(('', '.sha1', '.md5')):
+                task.with_artifacts(artifact['build_fs_path'], artifact['taskcluster_path'])
+        if deploy_environment == DeployEnvironment.RELEASE and module_info['uploadSymbols']:
+            task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
     if deploy_environment == DeployEnvironment.RELEASE and module_info['uploadSymbols']:
         task.with_scopes("secrets:get:project/application-services/symbols-token")
-        task.with_script("./automation/upload_android_symbols.sh {}".format(module_info['path']))
     return task.create()
 
 def build_gradle_modules_tasks(deploy_environment):
     libs_tasks = libs_for(deploy_environment, "android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
-    module_build_tasks = {}
+    # Ideally we should just run all tasks in a single task, however after building
+    # the full-megazord then lockbox-megazord, full-megazord will end up being recompiled despite
+    # being compiled earlier.
+    # This is a cargo limitation that someday will be worked upon. In the meantime,
+    # we create 1 task per non-full-megazord, and 1 task for the full-megazord and its dependents.
+    full_megazord_bucket = []
+    # modules_buckets will end up as [[lockbox-megazord-module], [full-megazord-module, push-module, fxa-module...]...]
+    modules_buckets = [full_megazord_bucket]
     for module_info in module_definitions():
-        module_build_tasks[module_info['name']] = gradle_module_task(libs_tasks, module_info, deploy_environment)
-    return module_build_tasks
+        if module_info['name'].endswith("-megazord") and not module_info['name'] == "full-megazord":
+            modules_buckets.append([module_info])
+        else:
+            full_megazord_bucket.append(module_info)
+
+    # Create 1 task per "module bucket".
+    modules_build_tasks = {}
+    for module_bucket in modules_buckets:
+        task = gradle_module_bucket_task(libs_tasks, module_bucket, deploy_environment)
+        modules_build_tasks[task] = module_bucket
+
+    return modules_build_tasks
 
 def android_multiarch():
     ktlint_detekt()
     build_gradle_modules_tasks(DeployEnvironment.NONE)
 
 def android_multiarch_release(is_staging):
-    module_build_tasks = build_gradle_modules_tasks(DeployEnvironment.STAGING_RELEASE if is_staging else DeployEnvironment.RELEASE)
+    modules_build_tasks = build_gradle_modules_tasks(DeployEnvironment.STAGING_RELEASE if is_staging else DeployEnvironment.RELEASE)
 
     version = appservices_version()
     bucket_name = os.environ['BEETMOVER_BUCKET']
     bucket_public_url = os.environ['BEETMOVER_BUCKET_PUBLIC_URL']
 
-    for module_info in module_definitions():
-        module = module_info['name']
-        build_task = module_build_tasks[module]
-        sign_task = (
-            SignTask("Sign Android module: {}".format(module))
-            .with_description("Signs module")
-            .with_worker_type("appservices-t-signing" if is_staging else "appservices-3-signing")
-            # We want to make sure ALL builds succeeded before doing a release.
-            .with_dependencies(*module_build_tasks.values())
-            .with_upstream_artifact({
-                "paths": [artifact["taskcluster_path"]
-                          for publication in module_info["publications"]
-                          for artifact in publication.to_artifacts(('',))],
-                "formats": ["autograph_gpg"],
-                "taskId": build_task,
-                "taskType": "build"
-            })
-            .with_scopes(
-                "project:mozilla:application-services:releng:signing:cert:{}-signing".format(
-                    "dep" if is_staging else "release")
+    all_build_tasks = [item for sublist in modules_build_tasks.values() for item in sublist]
+    for build_task, modules in modules_build_tasks.items():
+        for module_info in modules:
+            module = module_info['name']
+            sign_task = (
+                SignTask("Sign Android module: {}".format(module))
+                .with_description("Signs module")
+                .with_worker_type("appservices-t-signing" if is_staging else "appservices-3-signing")
+                # We want to make sure ALL builds succeeded before doing a release.
+                .with_dependencies(*all_build_tasks)
+                .with_upstream_artifact({
+                    "paths": [artifact["taskcluster_path"]
+                            for publication in module_info["publications"]
+                            for artifact in publication.to_artifacts(('',))],
+                    "formats": ["autograph_gpg"],
+                    "taskId": build_task,
+                    "taskType": "build"
+                })
+                .with_scopes(
+                    "project:mozilla:application-services:releng:signing:cert:{}-signing".format(
+                        "dep" if is_staging else "release")
+                )
+                .create()
             )
-            .create()
-        )
 
-        (
-            BeetmoverTask("Publish Android module: {} via beetmover".format(module))
-            .with_description("Publish release module {} to {}".format(module, bucket_public_url))
-            .with_worker_type(os.environ['BEETMOVER_WORKER_TYPE'])
-            .with_dependencies(sign_task)
-            .with_upstream_artifact({
-                "paths": [artifact['taskcluster_path']
-                          for publication in module_info["publications"]
-                          for artifact in publication.to_artifacts(('', '.sha1', '.md5'))],
-                "taskId": build_task,
-                "taskType": "build",
-            })
-            .with_upstream_artifact({
-                "paths": [artifact['taskcluster_path']
-                          for publication in module_info["publications"]
-                          for artifact in publication.to_artifacts(('.asc',))],
-                "taskId": sign_task,
-                "taskType": "signing",
-            })
-            .with_app_name("appservices")
-            .with_artifact_map([{
-                "locale": "en-US",
-                "taskId": build_task,
-                "paths": {
-                    artifact["taskcluster_path"]: {
-                        "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
-                        "destinations": [artifact["maven_destination"]],
+            (
+                BeetmoverTask("Publish Android module: {} via beetmover".format(module))
+                .with_description("Publish release module {} to {}".format(module, bucket_public_url))
+                .with_worker_type(os.environ['BEETMOVER_WORKER_TYPE'])
+                .with_dependencies(sign_task)
+                .with_upstream_artifact({
+                    "paths": [artifact['taskcluster_path']
+                            for publication in module_info["publications"]
+                            for artifact in publication.to_artifacts(('', '.sha1', '.md5'))],
+                    "taskId": build_task,
+                    "taskType": "build",
+                })
+                .with_upstream_artifact({
+                    "paths": [artifact['taskcluster_path']
+                            for publication in module_info["publications"]
+                            for artifact in publication.to_artifacts(('.asc',))],
+                    "taskId": sign_task,
+                    "taskType": "signing",
+                })
+                .with_app_name("appservices")
+                .with_artifact_map([{
+                    "locale": "en-US",
+                    "taskId": build_task,
+                    "paths": {
+                        artifact["taskcluster_path"]: {
+                            "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
+                            "destinations": [artifact["maven_destination"]],
+                        }
+                        for publication in module_info["publications"]
+                        for artifact in publication.to_artifacts(('', '.sha1', '.md5'))
                     }
-                    for publication in module_info["publications"]
-                    for artifact in publication.to_artifacts(('', '.sha1', '.md5'))
-                }
-            }, {
-                "locale": "en-US",
-                "taskId": sign_task,
-                "paths": {
-                    artifact["taskcluster_path"]: {
-                        "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
-                        "destinations": [artifact["maven_destination"]],
-                    }
-                    for publication in module_info["publications"]
-                    for artifact in publication.to_artifacts(('.asc',))
-                },
-            }])
-            .with_app_version(version)
-            .with_scopes(
-                "project:mozilla:application-services:releng:beetmover:bucket:{}".format(bucket_name),
-                "project:mozilla:application-services:releng:beetmover:action:push-to-maven"
+                }, {
+                    "locale": "en-US",
+                    "taskId": sign_task,
+                    "paths": {
+                        artifact["taskcluster_path"]: {
+                            "checksums_path": "",  # TODO beetmover marks this as required, but it's not needed
+                            "destinations": [artifact["maven_destination"]],
+                        }
+                        for publication in module_info["publications"]
+                        for artifact in publication.to_artifacts(('.asc',))
+                    },
+                }])
+                .with_app_version(version)
+                .with_scopes(
+                    "project:mozilla:application-services:releng:beetmover:bucket:{}".format(bucket_name),
+                    "project:mozilla:application-services:releng:beetmover:action:push-to-maven"
+                )
+                .with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
+                .create()
             )
-            .with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
-            .create()
-        )
 
 def dockerfile_path(name):
     return os.path.join(os.path.dirname(__file__), "docker", name + ".dockerfile")
