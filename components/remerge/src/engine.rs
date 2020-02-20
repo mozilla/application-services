@@ -401,7 +401,7 @@ mod test {
 
     #[test]
     fn test_schema_cant_go_backwards() {
-        const FILENAME: &str = "test_schema_go_backwards.sqlite";
+        const FILENAME: &str = "file:test_schema_go_backwards.sqlite?mode=memory&cache=shared";
         let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
         let backwards_schema: String = json!({
             "version": "0.1.0",
@@ -410,7 +410,6 @@ mod test {
         })
         .to_string();
         let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
-        std::fs::remove_file(FILENAME).expect("uh oh, couldn't clean up test");
 
         if let Err(e) = open_result {
             assert_eq!(
@@ -424,7 +423,8 @@ mod test {
 
     #[test]
     fn test_schema_doesnt_change_same_version() {
-        const FILENAME: &str = "test_schema_change_without_version.sqlite";
+        const FILENAME: &str =
+            "file:test_schema_change_without_version.sqlite?mode=memory&cache=shared";
         let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
         let backwards_schema: String = json!({
             "version": "1.0.0",
@@ -433,7 +433,6 @@ mod test {
         })
         .to_string();
         let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
-        std::fs::remove_file(FILENAME).expect("uh oh, couldn't clean up test");
 
         if let Err(e) = open_result {
             assert_eq!(
