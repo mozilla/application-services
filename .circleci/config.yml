@@ -22,6 +22,8 @@ commands:
             echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
             echo 'export "SCCACHE_ERROR_LOG"="/tmp/sccache.log"' >> $BASH_ENV
             echo 'export "RUST_LOG"="sccache=info"' >> $BASH_ENV
+            # Incremental compilation isn't supported by sccache.
+            echo 'export "CARGO_INCREMENTAL"="0"' >> $BASH_ENV
             sccache --version
   install-xcpretty:
     steps:
