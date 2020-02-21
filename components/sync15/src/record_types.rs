@@ -21,7 +21,9 @@ pub struct MetaGlobalRecord {
     pub sync_id: Guid,
     #[serde(rename = "storageVersion")]
     pub storage_version: usize,
+    #[serde(default)]
     pub engines: HashMap<String, MetaGlobalEngine>,
+    #[serde(default)]
     pub declined: Vec<String>,
 }
 
@@ -31,4 +33,19 @@ pub struct CryptoKeysRecord {
     pub collection: String,
     pub default: [String; 2],
     pub collections: HashMap<String, [String; 2]>,
+}
+
+#[cfg(test)]
+#[test]
+fn test_deserialize_meta_global() {
+    let record = serde_json::json!({
+        "syncID": "abcd1234abcd",
+        "storageVersion": 1,
+    })
+    .to_string();
+    let r = serde_json::from_str::<MetaGlobalRecord>(&record).unwrap();
+    assert_eq!(r.sync_id, "abcd1234abcd");
+    assert_eq!(r.storage_version, 1);
+    assert_eq!(r.engines.len(), 0);
+    assert_eq!(r.declined.len(), 0);
 }
