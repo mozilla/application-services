@@ -140,9 +140,11 @@ commands:
           rust-version: <<parameters.rust-version>>
       # Test with 1. only default features on, 2. all features on, 3. no features on.
       # This is not perfect (really we want the cartesian product), but is good enough in practice.
+      - run: sccache --zero-stats
       - run:
           name: Test (default features, no features, and all features)
           command: bash automation/all_rust_tests.sh --verbose
+      - run: sccache --show-stats
   dependency-checks:
     steps:
       - run:
