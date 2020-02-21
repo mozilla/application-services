@@ -19,7 +19,7 @@ commands:
             # Do not forget to re-export these variables in xc-universal-binary.sh!
             echo 'export "RUSTC_WRAPPER"="sccache"' >> $BASH_ENV
             echo 'export "SCCACHE_IDLE_TIMEOUT"="1200"' >> $BASH_ENV
-            echo 'export "SCCACHE_CACHE_SIZE"="1G"' >> $BASH_ENV
+            echo 'export "SCCACHE_CACHE_SIZE"="2G"' >> $BASH_ENV
             echo 'export "SCCACHE_ERROR_LOG"="/tmp/sccache.log"' >> $BASH_ENV
             echo 'export "RUST_LOG"="sccache=info"' >> $BASH_ENV
             # Incremental compilation isn't supported by sccache.
