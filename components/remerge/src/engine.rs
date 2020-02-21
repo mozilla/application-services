@@ -398,4 +398,49 @@ mod test {
         assert_eq!(um2["bar"], "test");
         um2.assert_tombstones(vec!["foo", "quux"]);
     }
+
+    #[test]
+    fn test_schema_cant_go_backwards() {
+        const FILENAME: &str = "file:test_schema_go_backwards.sqlite?mode=memory&cache=shared";
+        let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
+        let backwards_schema: String = json!({
+            "version": "0.1.0",
+            "name": "logins-example",
+            "fields": [],
+        })
+        .to_string();
+        let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
+
+        if let Err(e) = open_result {
+            assert_eq!(
+                e.to_string(),
+                "Schema given is of an earlier version (0.1.0) than previously stored (1.0.0)"
+            );
+        } else {
+            panic!("permitted going backwards in schema versions");
+        }
+    }
+
+    #[test]
+    fn test_schema_doesnt_change_same_version() {
+        const FILENAME: &str =
+            "file:test_schema_change_without_version.sqlite?mode=memory&cache=shared";
+        let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
+        let backwards_schema: String = json!({
+            "version": "1.0.0",
+            "name": "logins-example",
+            "fields": [],
+        })
+        .to_string();
+        let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
+
+        if let Err(e) = open_result {
+            assert_eq!(
+                e.to_string(),
+                "Schema version did not change (1.0.0) but contents are different"
+            );
+        } else {
+            panic!("permitted changing without version bump");
+        }
+    }
 }
