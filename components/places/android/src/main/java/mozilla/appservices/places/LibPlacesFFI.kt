@@ -113,7 +113,7 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
-    fun places_delete_place(
+    fun places_delete_visits_for(
         handle: PlacesConnectionHandle,
         url: String,
         out_err: RustError.ByReference
