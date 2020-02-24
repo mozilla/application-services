@@ -119,6 +119,7 @@ pub fn apply_observation_direct(
             Some(visit_ob.get_redirect_frecency_boost()),
         )?;
     }
+    delete_pending_temp_tables(db)?;
     Ok(visit_row_id)
 }
 
@@ -537,9 +538,6 @@ fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
         Ok(())
     })?;
 
-    // desktop now updates moz_updateoriginsdelete_temp, icons, annos, etc
-    // some of which might end up making sense for us too.
-    // XXX - moz_updateoriginsdelete_temp is part of https://github.com/mozilla/application-services/pull/429
     Ok(())
 }
 
@@ -2287,6 +2285,58 @@ mod tests {
             conn.query_one::<i64>("SELECT COUNT(*) FROM moz_historyvisits")
                 .unwrap(),
         );
+    }
+
+    // See https://github.com/mozilla-mobile/fenix/issues/8531#issuecomment-590498878.
+    #[test]
+    fn test_delete_everything_deletes_origins() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        let u = Url::parse("https://www.reddit.com/r/climbing").expect("Should parse URL");
+        let ts = Timestamp::now().0 - 5_000_000;
+        let obs = VisitObservation::new(u)
+            .with_visit_type(VisitTransition::Link)
+            .with_at(Timestamp(ts));
+        apply_observation(&conn, obs).expect("Should apply observation");
+
+        delete_everything(&conn).expect("Should delete everything");
+
+        // We should clear all origins after deleting everythig.
+        let origin_count = conn
+            .query_one::<i64>("SELECT COUNT(*) FROM moz_origins")
+            .expect("Should fetch origin count");
+        assert_eq!(0, origin_count);
+    }
+
+    #[test]
+    fn test_apply_observation_updates_origins() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        let obs_for_a = VisitObservation::new(
+            Url::parse("https://example1.com/a").expect("Should parse URL A"),
+        )
+        .with_visit_type(VisitTransition::Link)
+        .with_at(Timestamp(Timestamp::now().0 - 5_000_000));
+        apply_observation(&conn, obs_for_a).expect("Should apply observation for A");
+
+        let obs_for_b = VisitObservation::new(
+            Url::parse("https://example2.com/b").expect("Should parse URL B"),
+        )
+        .with_visit_type(VisitTransition::Link)
+        .with_at(Timestamp(Timestamp::now().0 - 2_500_000));
+        apply_observation(&conn, obs_for_b).expect("Should apply observation for B");
+
+        let mut origins = conn
+            .prepare("SELECT host FROM moz_origins")
+            .expect("Should prepare origins statement")
+            .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
+                Ok(row.get::<_, String>(0)?)
+            })
+            .expect("Should fetch all origins")
+            .map(|r| r.expect("Should get origin from row"))
+            .collect::<Vec<_>>();
+        origins.sort();
+        assert_eq!(origins, &["example1.com", "example2.com",]);
     }
 
     #[test]
