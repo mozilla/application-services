@@ -2,9 +2,11 @@
 
 This document describes how to make local builds of the Android components in
 this repository. Most consumers of these components *do not* need to follow
-this process, but will instead use pre-built components [todo: link to this]
+this process, but will instead use pre-built components published by the
+[android-components](https://github.com/mozilla-mobile/android-components/) project.
 
-This document, and the build process itself, is a work-in-progress - please file issues (or just update the wiki!) if you notice errors or omissions.
+This document, and the build process itself, is a work-in-progress - please file issues
+(or even better, pull requests!) if you notice errors or omissions.
 
 ## Prepare your build environment
 
@@ -84,7 +86,7 @@ You can also publish single projects - eg:
 
     ./gradlew service-sync-places:publishToMavenLocal
 
-For more information about using the local maven repo, see this [android components guide](https://mozilla-mobile.github.io/android-components/contributing/testing-components-inside-app)
+For more information about using the local maven repo, see this [android components guide](https://mozilla-mobile.github.io/android-components/contributing/testing-components-inside-app).
 
 ### Other build types
 
