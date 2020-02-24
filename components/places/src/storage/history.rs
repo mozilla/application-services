@@ -625,12 +625,6 @@ pub mod history_sync {
         Ok(Some((page_info, visits)))
     }
 
-    /// Called when incoming changes are finished, but before we commit the
-    /// transaction prior to fetching outgoing ones.
-    pub fn finish_incoming(db: &PlacesDb) -> Result<()> {
-        delete_pending_temp_tables(db)
-    }
-
     /// Apply history visit from sync. This assumes they have all been
     /// validated, deduped, etc - it's just the storage we do here.
     pub fn apply_synced_visits(
