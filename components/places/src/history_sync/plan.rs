@@ -7,9 +7,12 @@ use super::{HISTORY_TTL, MAX_OUTGOING_PLACES, MAX_VISITS};
 use crate::api::history::can_add_url;
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::history::history_sync::{
-    apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
-    fetch_visits, finish_incoming, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
+use crate::storage::{
+    delete_pending_temp_tables,
+    history::history_sync::{
+        apply_synced_deletion, apply_synced_reconciliation, apply_synced_visits, fetch_outgoing,
+        fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
+    },
 };
 use crate::types::{Timestamp, VisitTransition};
 use interrupt::Interruptee;
@@ -203,7 +206,6 @@ pub fn apply_plan(
     let mut outgoing = OutgoingChangeset::new("history", inbound.timestamp);
     for (guid, plan) in plans {
         interruptee.err_if_interrupted()?;
-        tx.maybe_commit()?;
         match &plan {
             IncomingPlan::Skip => {
                 log::trace!("incoming: skipping item {:?}", guid);
@@ -247,8 +249,17 @@ pub fn apply_plan(
                 apply_synced_reconciliation(&db, &guid)?;
             }
         };
+        if tx.should_commit() {
+            // Trigger frecency and origin updates before committing the
+            // transaction, so that our origins table is consistent even
+            // if we're interrupted.
+            delete_pending_temp_tables(db)?;
+        }
+        tx.maybe_commit()?;
     }
-    finish_incoming(&db)?;
+    // ...And commit the final chunk of plans, making sure we trigger
+    // frecency and origin updates.
+    delete_pending_temp_tables(db)?;
     tx.commit()?;
     // It might make sense for fetch_outgoing to manage its own
     // begin_transaction - even though doesn't seem a large bottleneck
