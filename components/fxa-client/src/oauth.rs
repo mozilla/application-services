@@ -79,15 +79,6 @@ impl FirefoxAccount {
         Ok(token_info)
     }
 
-    /// [Currently unused]
-    /// Retrieve the current session token from state
-    pub fn get_session_token(&self) -> Result<String> {
-        match self.state.session_token {
-            Some(ref session_token) => Ok(session_token.to_string()),
-            None => Err(ErrorKind::NoSessionToken.into()),
-        }
-    }
-
     /// Check whether user is authorized using our refresh token.
     pub fn check_authorization_status(&self) -> Result<IntrospectInfo> {
         let resp = match self.state.refresh_token {
