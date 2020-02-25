@@ -25,7 +25,7 @@ sql-support = { path = "../support/sql" }
 ffi-support = { path = "../support/ffi" }
 bitflags = "1.2.1"
 idna = "0.2.0"
-memchr = "2.2.1"
+memchr = "2.3.3"
 prost = "0.6.1"
 prost-derive = "0.6.1"
 dogear = "0.4.0"
