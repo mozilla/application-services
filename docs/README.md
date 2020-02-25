@@ -34,6 +34,7 @@ you work on app-services projects.  We have:
       * [How to set up your local android build environment](./howtos/setup-android-build-environment.md)
       * [How to try out local changes in Fenix](./howtos/locally-published-components-in-fenix.md)
       * [How to try out local changes in the Reference Browser](./howtos/working-with-reference-browser.md)
+      * [How to try out local changes in Firefox for iOS](./howtos/locally-published-components-in-ios.md)
       * [How to access logs for debugging](./logging.md)
     * Process guidelines:
       * [How to cut a new release](./howtos/cut-a-new-release.md)
