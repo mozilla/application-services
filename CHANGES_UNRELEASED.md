@@ -20,3 +20,9 @@
   now flush pending origin and frecency updates. This fixes a bug where origins
   might be flushed at surprising times, like right after clearing history
   ([#2693](https://github.com/mozilla/application-services/issues/2693)).
+
+## Push
+
+### What's fixed
+
+- `PushManager.dispatchInfoForChid` does not throw `KotlinNullPointerException` anymore if the method returned nothing. ([#2703](https://github.com/mozilla/application-services/issues/2703))
