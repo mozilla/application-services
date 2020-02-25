@@ -178,15 +178,12 @@ pub extern "C" fn push_dispatch_info_for_chid(
     use push::msg_types::DispatchInfo;
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<Option<_>> {
         let chid = chid.as_str();
-        match mgr.get_record_by_chid(chid)? {
-            Some(record) => Ok(Some(DispatchInfo {
-                uaid: record.uaid,
-                scope: record.scope,
-                endpoint: record.endpoint,
-                app_server_key: record.app_server_key,
-            })),
-            None => Ok(None),
-        }
+        Ok(mgr.get_record_by_chid(chid)?.map(|record| DispatchInfo {
+            uaid: record.uaid,
+            scope: record.scope,
+            endpoint: record.endpoint,
+            app_server_key: record.app_server_key,
+        }))
     })
 }
 
