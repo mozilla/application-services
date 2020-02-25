@@ -19,4 +19,4 @@ hawk = { version = "3.1.0", default-features = false, optional = true }
 ece = { version = "1.1.0", default-features = false, features = ["serializable-keys"], optional = true }
 
 [dev-dependencies]
-hex = "0.4.0"
+hex = "0.4.2"
