@@ -30,11 +30,6 @@ android {
     // packagingOptions { doNotStrip "**/*.so" }
 }
 
-afterEvaluate {
-    android.sourceSets.debug.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-    android.sourceSets.release.jniLibs.srcDirs = android.sourceSets.main.jniLibs.srcDirs
-}
-
 configurations {
     // There's an interaction between Gradle's resolution of dependencies with different types
     // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
@@ -95,7 +90,7 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(tasks["cargoBuild"])
+        tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
     }
 }
 
