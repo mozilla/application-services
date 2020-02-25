@@ -31,7 +31,7 @@ prost-derive = "0.6.1"
 
 [dev-dependencies]
 env_logger = "0.7.0"
-mockito = "0.23.1"
+mockito = "0.23.3"
 hex = "0.4.0"
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 
