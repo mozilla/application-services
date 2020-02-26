@@ -95,7 +95,7 @@ impl TokenServerFetcher {
 
 impl TokenFetcher for TokenServerFetcher {
     fn fetch_token(&self) -> Result<TokenFetchResult> {
-        log::trace!("Fetching token from {}", self.server_url);
+        log::debug!("Fetching token from {}", self.server_url);
         let resp = Request::get(self.server_url.clone())
             .header(
                 header_names::AUTHORIZATION,
