@@ -19,6 +19,11 @@
   given capabilities are already registered with the server.
   ([#2681](https://github.com/mozilla/application-services/pull/2681)).
 
+### What's fixed
+
+- Ensure an offline migration recovery succeeding does not happen multiple times.
+  ([#2706](https://github.com/mozilla/application-services/pull/2706))
+
 ## Places
 
 ### What's fixed

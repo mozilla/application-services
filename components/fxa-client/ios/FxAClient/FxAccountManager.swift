@@ -334,8 +334,8 @@ open class FxAccountManager {
                 account = createAccount()
             }
             case let .authenticateViaMigration(sessionToken, kSync, kXCS): do {
-                FxALog.info("Registering persistence callback")
                 let acct = requireAccount()
+                FxALog.info("Registering persistence callback")
                 acct.registerPersistCallback(statePersistenceCallback)
 
                 if acct.migrateFromSessionToken(
@@ -356,6 +356,9 @@ open class FxAccountManager {
             switch via {
             case .retryMigration, .inFlightMigration: do {
                 let acct = requireAccount()
+                FxALog.info("Registering persistence callback")
+                acct.registerPersistCallback(statePersistenceCallback)
+
                 // Case 1: Success!
                 if acct.retryMigrateFromSessionToken() {
                     return .authenticatedViaMigration
@@ -412,7 +415,8 @@ open class FxAccountManager {
             case .authenticatedViaMigration: do {
                 // Note that we are not registering an account persistence callback here like
                 // we do in other `.authenticatedNoProfile` cases, because it would have been
-                // already registered while handling `Event.authenticateViaMigration`.
+                // already registered while handling any of the precursor events, such as
+                // `.authenticateViaMigration`, `.retryMigration` or `.inFlightMigration`
                 FxALog.info("Ensuring device capabilities...")
                 // At the minimum, we need to ensure the device capabilities.
                 requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
