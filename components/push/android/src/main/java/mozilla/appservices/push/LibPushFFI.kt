@@ -40,7 +40,7 @@ internal interface LibPushFFI : Library {
         scope: String,
         appServerKey: String?,
         out_err: RustError.ByReference
-    ): RustBuffer.ByValue?
+    ): RustBuffer.ByValue
 
     /** Returns bool */
     fun push_unsubscribe(
@@ -79,7 +79,7 @@ internal interface LibPushFFI : Library {
         mgr: PushManagerHandle,
         channelID: String,
         out_err: RustError.ByReference
-    ): RustBuffer.ByValue?
+    ): RustBuffer.ByValue
 
     /** Destroy strings returned from libpush_ffi calls. */
     fun push_destroy_string(s: Pointer)

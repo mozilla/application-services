@@ -139,7 +139,7 @@ pub fn sync_multiple_with_command_processor(
         result: &mut sync_result,
         persisted_global_state,
         mem_cached_state,
-        any_failed_engines: false,
+        saw_auth_error: false,
         ignore_soft_backoff: req_info.is_user_action,
     };
     match driver.sync() {
@@ -189,7 +189,7 @@ struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
     persisted_global_state: &'pgs mut Option<String>,
     mem_cached_state: &'mcs mut MemoryCachedState,
     ignore_soft_backoff: bool,
-    any_failed_engines: bool,
+    saw_auth_error: bool,
 }
 
 impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
@@ -249,15 +249,10 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         let telem_sync = self.sync_stores(&client_info, &mut global_state, clients_engine.as_ref());
         self.result.telemetry.sync(telem_sync);
 
-        log::info!(
-            "Finished syncing stores. All successful: {}",
-            !self.any_failed_engines
-        );
+        log::info!("Finished syncing stores.");
 
-        if self.any_failed_engines {
-            // XXX - not clear if we should really only do this on full success,
-            // particularly if it's just a network error.
-            log::info!("Updating persisted global state");
+        if !self.saw_auth_error {
+            log::trace!("Updating persisted global state");
             self.mem_cached_state.last_client_info = Some(client_info);
             self.mem_cached_state.last_global_state = Some(global_state);
         }
@@ -313,15 +308,12 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             match result {
                 Ok(()) => log::info!("Sync of {} was successful!", name),
                 Err(ref e) => {
-                    self.any_failed_engines = true;
-                    // XXX - while we arrange to reset the global state machine
-                    // here via the `any_failed_engines` check below, ideally we'd be more
-                    // fine-grained about it - eg, a simple network error shouldn't
-                    // cause this.
-                    // However, the costs of restarting the state machine from
-                    // scratch really isn't that bad for now.
                     log::warn!("Sync of {} failed! {:?}", name, e);
                     let this_status = ServiceStatus::from_err(&e);
+                    // The only error which forces us to discard our state is an
+                    // auth error.
+                    self.saw_auth_error =
+                        self.saw_auth_error || this_status == ServiceStatus::AuthenticationError;
                     telem_engine.failure(e);
                     // If the failure from the store looks like anything other than
                     // a "store error" we don't bother trying the others.

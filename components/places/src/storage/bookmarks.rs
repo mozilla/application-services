@@ -494,6 +494,7 @@ pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> 
     let existing = get_raw_bookmark(db, guid)?
         .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
     let result = update_bookmark_in_tx(db, guid, item, existing);
+    super::delete_pending_temp_tables(db)?;
     // Note: `tx` automatically rolls back on drop if we don't commit
     tx.commit()?;
     result
@@ -1454,7 +1455,7 @@ pub mod bookmark_sync {
     /// Removes all sync metadata, including synced bookmarks, pending tombstones,
     /// change counters, sync statuses, the last sync time, and sync ID. This
     /// should be called when the user signs out of Sync.
-    pub fn reset(db: &PlacesDb) -> Result<()> {
+    pub(crate) fn reset(db: &PlacesDb) -> Result<()> {
         let tx = db.begin_transaction()?;
         reset_meta(db)?;
         delete_meta(db, GLOBAL_SYNCID_META_KEY)?;

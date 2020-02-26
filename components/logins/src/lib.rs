@@ -23,3 +23,7 @@ pub use crate::db::LoginStore;
 pub use crate::engine::*;
 pub use crate::error::*;
 pub use crate::login::*;
+
+pub mod msg_types {
+    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+}

@@ -74,14 +74,16 @@ pub trait Store {
     ///
     /// To support more advanced use cases (e.g. remerge), multiple requests can
     /// be returned here. The vast majority of engines will just want to return
-    /// a single-item in their vector, though.
+    /// zero or one item in their vector (zero is a valid optimization when the
+    /// server timestamp is the same as the engine last saw, one when it is not)
     ///
     /// Important: In the case when more than one collection is requested, it's
     /// assumed the last one is the "canonical" one. (That is, it must be for
-    /// "this" collection, it's timestamp is used to represent the sync, etc).
-    ///
-    /// Finally, it's illegal to return an empty vec here.
-    fn get_collection_requests(&self) -> Result<Vec<CollectionRequest>, Error>;
+    /// "this" collection, its timestamp is used to represent the sync, etc).
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> Result<Vec<CollectionRequest>, Error>;
 
     /// Get persisted sync IDs. If they don't match the global state we'll be
     /// `reset()` with the new IDs.

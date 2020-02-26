@@ -201,26 +201,26 @@ fn get_fennec_roots() -> [FennecBookmark; 7] {
     ]
 }
 
-#[test]
-fn test_import() -> Result<()> {
+fn bookmark_exists(places_api: &PlacesApi, url_str: &str) -> Result<bool> {
     use places::api::places_api::ConnectionType;
     use url::Url;
 
-    let _ = env_logger::try_init();
+    let url = Url::parse(url_str)?;
+    let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
+    Ok(conn.query_row_and_then(
+        "SELECT EXISTS(
+            SELECT 1 FROM main.moz_bookmarks b
+            LEFT JOIN main.moz_places h ON h.id = b.fk
+            WHERE h.url_hash = hash(:url) AND h.url = :url
+        )",
+        &[&url.as_str()],
+        |r| r.get(0),
+    )?)
+}
 
-    fn bookmark_exists(places_api: &PlacesApi, url_str: &str) -> Result<bool> {
-        let url = Url::parse(url_str)?;
-        let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
-        Ok(conn.query_row_and_then(
-            "SELECT EXISTS(
-                SELECT 1 FROM main.moz_bookmarks b
-                LEFT JOIN main.moz_places h ON h.id = b.fk
-                WHERE h.url_hash = hash(:url) AND h.url = :url
-            )",
-            &[&url.as_str()],
-            |r| r.get(0),
-        )?)
-    }
+#[test]
+fn test_import() -> Result<()> {
+    let _ = env_logger::try_init();
 
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
@@ -592,6 +592,117 @@ fn test_positions() -> Result<()> {
     assert_eq!(children[1].position, 1);
     assert_eq!(children[2].guid, bm1);
     assert_eq!(children[2].position, 2);
+    Ok(())
+}
+
+#[test]
+fn test_null_parent() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::storage::bookmarks::public_node::fetch_bookmark;
+
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_db = empty_fennec_db(&fennec_path)?;
+
+    insert_bookmarks(&fennec_db, &get_fennec_roots())?;
+
+    // manually add a bookmark with a null parent.
+    fennec_db
+        .prepare(&format!(
+            "
+            INSERT INTO bookmarks(
+                _id, title, url, type,
+                parent, position, keyword, description, tags,
+                favicon_id, created, modified,
+                guid, deleted, localVersion, syncVersion
+            ) VALUES (
+                10, 'test title', NULL, {},
+                NULL, -1, NULL, NULL, NULL,
+                -1, -1, -1,
+                'folderAAAAAA', 0, -1, -1
+            )",
+            FennecBookmarkType::Folder as u8
+        ))?
+        .execute(NO_PARAMS)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+
+    // should have ended up in unfiled.
+    let unfiled = fetch_bookmark(
+        &places_api.open_connection(ConnectionType::ReadOnly)?,
+        &Guid::from("unfiled_____"),
+        true,
+    )?
+    .expect("it exists");
+    let children = unfiled.child_nodes.expect("have children");
+    assert_eq!(children.len(), 1);
+    assert_eq!(children[0].guid, "folderAAAAAA");
+    Ok(())
+}
+
+#[test]
+fn test_invalid_utf8() -> Result<()> {
+    use places::api::places_api::ConnectionType;
+    use places::storage::bookmarks::public_node::fetch_bookmark;
+    use url::Url;
+
+    let tmpdir = tempdir().unwrap();
+    let fennec_path = tmpdir.path().join("browser.db");
+    let fennec_db = empty_fennec_db(&fennec_path)?;
+
+    let _ = env_logger::try_init();
+
+    insert_bookmarks(&fennec_db, &get_fennec_roots())?;
+
+    // use sqlites blob literal syntax to create "invalid char ->???<" where '???' are 3 invalid utf8 bytes.
+    //                i n v a l i d   c h a r   - > ? ? ? <
+    let bad = "CAST(X'696e76616c69642063686172202d3eF090803c' AS TEXT)";
+    // this is what we expect it to end up as (note the replacement char)
+    let fixed = "invalid char ->�<".to_string();
+
+    // manually add a bookmark with a null parent.
+    fennec_db
+        .prepare(&format!(
+            "
+            INSERT INTO bookmarks(
+                _id, title, url, type,
+                parent, position, keyword, description,
+                tags,
+                favicon_id, created, modified,
+                guid, deleted, localVersion, syncVersion
+            ) VALUES (
+                10, {bad}, 'http://example.com/' || {bad}, {bm_type},
+                NULL, -1, {bad}, {bad},
+                -- We don't migrate tags, so it doesn't matter if they are in
+                -- the correct JSON format - we just want to ensure bad utf-8
+                -- there doesn't kill the migration.
+                {bad},
+                -1, -1, -1,
+                {bad}, 0, -1, -1
+            )",
+            bm_type = FennecBookmarkType::Bookmark as u8,
+            bad = bad,
+        ))?
+        .execute(NO_PARAMS)?;
+
+    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
+    let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
+
+    // should have ended up in unfiled.
+    let unfiled = fetch_bookmark(&conn, &Guid::from("unfiled_____"), true)?.expect("it exists");
+
+    let url = Url::parse(&format!("http://example.com/{}", fixed))?;
+    assert!(bookmark_exists(&places_api, url.as_str())?);
+
+    let children = unfiled.child_nodes.expect("have children");
+    assert_eq!(children.len(), 1);
+    assert_eq!(children[0].title, Some(fixed));
+    // We can't know exactly what the fixed guid is, but it must be valid.
+    assert!(children[0].guid.is_valid_for_places());
+    // Can't check keyword or tags because we drop them except for sync users
+    // (and for them, we've dropped them until their first sync)
     Ok(())
 }
 

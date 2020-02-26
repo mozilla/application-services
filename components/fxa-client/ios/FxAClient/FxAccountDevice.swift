@@ -127,7 +127,7 @@ public enum IncomingDeviceCommand {
 public enum AccountEvent {
     case incomingDeviceCommand(IncomingDeviceCommand)
     case deviceConnected(deviceName: String)
-    case deviceDisconnected(isLocalDevice: Bool)
+    case deviceDisconnected(deviceId: String, isLocalDevice: Bool)
 
     internal static func fromCollectionMsg(msg: MsgTypes_AccountEvents) -> [AccountEvent] {
         msg.events.compactMap { AccountEvent.fromMsg(msg: $0) }
@@ -142,7 +142,10 @@ public enum AccountEvent {
             return .deviceConnected(deviceName: msg.deviceConnectedName)
         }
         case .deviceDisconnected: do {
-            return .deviceDisconnected(isLocalDevice: msg.deviceDisconnectedIsLocal)
+            return .deviceDisconnected(
+                deviceId: msg.deviceDisconnectedData.deviceID,
+                isLocalDevice: msg.deviceDisconnectedData.isLocalDevice
+            )
         }
         // The following push messages are filtered upstream by the FxA server,
         // because iOS requires all Push messages to show a UI notification to the user

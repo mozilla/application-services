@@ -15,7 +15,7 @@ sealed class AccountEvent {
     class AccountAuthStateChanged : AccountEvent()
     class AccountDestroyed : AccountEvent()
     class DeviceConnected(val deviceName: String) : AccountEvent()
-    class DeviceDisconnected(val isLocalDevice: Boolean) : AccountEvent()
+    class DeviceDisconnected(val deviceId: String, val isLocalDevice: Boolean) : AccountEvent()
 
     companion object {
         private fun fromMessage(msg: MsgTypes.AccountEvent): AccountEvent {
@@ -30,7 +30,8 @@ sealed class AccountEvent {
                     deviceName = msg.deviceConnectedName
                 )
                 MsgTypes.AccountEvent.AccountEventType.DEVICE_DISCONNECTED -> DeviceDisconnected(
-                    isLocalDevice = msg.deviceDisconnectedIsLocal
+                    deviceId = msg.deviceDisconnectedData.deviceId,
+                    isLocalDevice = msg.deviceDisconnectedData.isLocalDevice
                 )
                 null -> throw NullPointerException("AccountEvent type cannot be null.")
             }.exhaustive

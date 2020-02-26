@@ -17,7 +17,7 @@ use crate::storage::{
         bookmark_sync::{create_synced_bookmark_roots, reset, reset_meta},
         BookmarkRootGuid,
     },
-    get_meta, put_meta,
+    delete_pending_temp_tables, get_meta, put_meta,
 };
 use crate::types::{BookmarkType, SyncStatus, Timestamp};
 use dogear::{
@@ -85,15 +85,17 @@ impl<'a> BookmarksStore<'a> {
         for incoming in inbound.changes {
             applicator.apply_payload(incoming.0, incoming.1)?;
             incoming_telemetry.applied(1);
+            if tx.should_commit() {
+                // Trigger frecency updates for all new origins.
+                log::debug!("Updating origins for new synced URLs since last commit");
+                delete_pending_temp_tables(&self.db)?;
+            }
             tx.maybe_commit()?;
             self.interruptee.err_if_interrupted()?;
         }
 
-        // Trigger frecency updates for all new origins.
-        log::debug!("Updating origins for new incoming URLs");
-        self.interruptee.err_if_interrupted()?;
-        self.db
-            .execute_batch("DELETE FROM moz_updateoriginsinsert_temp")?;
+        log::debug!("Updating origins for new synced URLs in last chunk");
+        delete_pending_temp_tables(&self.db)?;
 
         tx.commit()?;
         Ok(timestamp)
@@ -959,11 +961,19 @@ impl<'a> Store for BookmarksStore<'a> {
         Ok(())
     }
 
-    fn get_collection_requests(&self) -> result::Result<Vec<CollectionRequest>, failure::Error> {
-        let since = get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default();
-        Ok(vec![CollectionRequest::new(self.collection_name())
-            .full()
-            .newer_than(ServerTimestamp(since))])
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+        let since =
+            ServerTimestamp(get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default());
+        Ok(if since == server_timestamp {
+            vec![]
+        } else {
+            vec![CollectionRequest::new(self.collection_name())
+                .full()
+                .newer_than(since)]
+        })
     }
 
     fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {

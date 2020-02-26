@@ -116,6 +116,50 @@ class FxAccount: RustFxAccount {
         }
     }
 
+    override func migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) -> Bool {
+        defer { tryPersistState() }
+        do {
+            return try super.migrateFromSessionToken(sessionToken: sessionToken, kSync: kSync, kXCS: kXCS)
+        } catch {
+            FxALog.error("migrateFromSessionToken error: \(error).")
+            reportAccountMigrationError(error)
+            return false
+        }
+    }
+
+    override func retryMigrateFromSessionToken() -> Bool {
+        defer { tryPersistState() }
+        do {
+            return try super.retryMigrateFromSessionToken()
+        } catch {
+            FxALog.error("retryMigrateFromSessionToken error: \(error).")
+            reportAccountMigrationError(error)
+            return false
+        }
+    }
+
+    internal func reportAccountMigrationError(_ error: Error) {
+        // Not in migration state after throwing during migration = unrecoverable error.
+        if !isInMigrationState() {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(
+                    name: .accountMigrationFailed,
+                    object: nil,
+                    userInfo: ["error": error]
+                )
+            }
+        }
+    }
+
+    override func isInMigrationState() -> Bool {
+        do {
+            return try super.isInMigrationState()
+        } catch {
+            FxALog.error("isInMigrationState error: \(error).")
+            return false
+        }
+    }
+
     override func clearAccessTokenCache() throws {
         defer { tryPersistState() }
         try super.clearAccessTokenCache()

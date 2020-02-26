@@ -52,18 +52,30 @@ pub mod sql_fns {
     pub fn validate_url(ctx: &Context<'_>) -> Result<Option<String>> {
         let val = ctx.get_raw(0);
         let href = if let ValueRef::Text(s) = val {
-            std::str::from_utf8(s)?
+            String::from_utf8_lossy(s).to_string()
         } else {
             return Ok(None);
         };
         if href.len() > URL_LENGTH_MAX {
             return Ok(None);
         }
-        if let Ok(url) = Url::parse(href) {
+        if let Ok(url) = Url::parse(&href) {
             Ok(Some(url.into_string()))
         } else {
             Ok(None)
         }
+    }
+
+    // Sanitize a text column into valid utf-8. Leave NULLs alone, but all other
+    // types are converted to an empty string.
+    #[inline(never)]
+    pub fn sanitize_utf8(ctx: &Context<'_>) -> Result<Option<String>> {
+        let val = ctx.get_raw(0);
+        Ok(match val {
+            ValueRef::Text(s) => Some(String::from_utf8_lossy(s).to_string()),
+            ValueRef::Null => None,
+            _ => Some("".to_owned()),
+        })
     }
 }
 

@@ -24,6 +24,8 @@ ffi-support = { path = "../support/ffi" }
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
+prost = "0.6.1"
+prost-derive = "0.6.1"
 
 [dependencies.rusqlite]
 version = "0.21.0"
@@ -39,3 +41,6 @@ clap = "2.32.0"
 cli-support = { path = "../support/cli" }
 force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 tempdir = "0.3.7"
+
+[build-dependencies]
+prost-build = "0.6.1"

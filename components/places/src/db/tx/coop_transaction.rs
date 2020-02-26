@@ -134,12 +134,25 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         })
     }
 
+    /// Returns `true` if the current transaction has been open for longer than
+    /// the requested time, and should be committed; `false` otherwise. In most
+    /// cases, there's no need to use this method, since `maybe_commit()` does
+    /// so internally. It's exposed for consumers that need to run additional
+    /// pre-commit logic, like cleaning up temp tables.
+    ///
+    /// If this method returns `true`, it's guaranteed that `maybe_commit()`
+    /// will commit the transaction.
+    #[inline]
+    pub fn should_commit(&self) -> bool {
+        self.tx.started_at.elapsed() >= self.commit_after
+    }
+
     /// Checks to see if we have held a transaction for longer than the
     /// requested time, and if so, commits the current transaction and opens
     /// another.
     #[inline]
     pub fn maybe_commit(&mut self) -> Result<()> {
-        if self.tx.started_at.elapsed() >= self.commit_after {
+        if self.should_commit() {
             log::debug!("ChunkedCoopTransaction commiting after taking allocated time");
             self.commit_and_start_new_tx()?;
         }

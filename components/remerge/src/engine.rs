@@ -159,6 +159,57 @@ mod test {
     }
 
     #[test]
+    fn test_duplicate_insert() {
+        let e: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA).unwrap();
+        let id = e
+            .insert(json!({
+                "username": "test2",
+                "password": "p4ssw0rd2",
+                "origin": "https://www.example2.com",
+                "formActionOrigin": "https://login.example2.com",
+            }))
+            .unwrap();
+        assert!(e.exists(&id).unwrap());
+        e.get(&id).unwrap().expect("should exist");
+
+        let id2 = e
+            .insert(json!({
+                "username": "test3",
+                "password": "p4ssw0rd2",
+                "origin": "https://www.example3.com",
+                "formActionOrigin": "https://login.example3.com",
+            }))
+            .unwrap();
+        assert!(e.exists(&id2).unwrap());
+        e.get(&id2).unwrap().expect("should exist");
+
+        let r = e
+            .insert(json!({
+                "username": "test2",
+                "password": "p4ssw0rd2",
+                "origin": "https://www.example2.com",
+                "formActionOrigin": "https://login.example2.com",
+            }))
+            .unwrap_err();
+
+        assert_eq!(
+            r.to_string(),
+            "Invalid record: Record violates a `dedupe_on` constraint"
+        );
+
+        let id3 = e
+            .insert(json!({
+                "username": "test4",
+                "password": "p4ssw0rd2",
+                "origin": "https://www.example3.com",
+                "formActionOrigin": "https://login.example3.com",
+            }))
+            .unwrap();
+        assert!(e.exists(&id3).unwrap());
+        e.get(&id3).unwrap().expect("should exist");
+    }
+
+    #[test]
     fn test_list_delete() {
         let e: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA).unwrap();
         let id = e
@@ -346,5 +397,50 @@ mod test {
         assert_eq!(um2.len(), 1);
         assert_eq!(um2["bar"], "test");
         um2.assert_tombstones(vec!["foo", "quux"]);
+    }
+
+    #[test]
+    fn test_schema_cant_go_backwards() {
+        const FILENAME: &str = "file:test_schema_go_backwards.sqlite?mode=memory&cache=shared";
+        let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
+        let backwards_schema: String = json!({
+            "version": "0.1.0",
+            "name": "logins-example",
+            "fields": [],
+        })
+        .to_string();
+        let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
+
+        if let Err(e) = open_result {
+            assert_eq!(
+                e.to_string(),
+                "Schema given is of an earlier version (0.1.0) than previously stored (1.0.0)"
+            );
+        } else {
+            panic!("permitted going backwards in schema versions");
+        }
+    }
+
+    #[test]
+    fn test_schema_doesnt_change_same_version() {
+        const FILENAME: &str =
+            "file:test_schema_change_without_version.sqlite?mode=memory&cache=shared";
+        let _e: RemergeEngine = RemergeEngine::open(FILENAME, &*SCHEMA).unwrap();
+        let backwards_schema: String = json!({
+            "version": "1.0.0",
+            "name": "logins-example",
+            "fields": [],
+        })
+        .to_string();
+        let open_result = RemergeEngine::open(FILENAME, &*backwards_schema);
+
+        if let Err(e) = open_result {
+            assert_eq!(
+                e.to_string(),
+                "Schema version did not change (1.0.0) but contents are different"
+            );
+        } else {
+            panic!("permitted changing without version bump");
+        }
     }
 }

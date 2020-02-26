@@ -61,6 +61,9 @@ FxARustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
                                    const char *_Nonnull scope,
                                    FxAError *_Nonnull out);
 
+char *_Nullable fxa_get_session_token(FirefoxAccountHandle handle,
+                                      FxAError *_Nonnull out);
+
 void fxa_clear_access_token_cache(FirefoxAccountHandle handle,
                                   FxAError *_Nonnull out);
 
@@ -123,12 +126,18 @@ void fxa_ensure_capabilities(FirefoxAccountHandle handle,
                              int32_t capabilities_len,
                              FxAError *_Nonnull out);
 
-void fxa_migrate_from_session_token(FirefoxAccountHandle handle,
-                                    const char *_Nonnull sessionToken,
-                                    const char *_Nonnull kSync,
-                                    const char *_Nonnull kXCS,
-                                    uint8_t copySessionToken,
-                                    FxAError *_Nonnull out);
+char *_Nullable fxa_migrate_from_session_token(FirefoxAccountHandle handle,
+                                               const char *_Nonnull sessionToken,
+                                               const char *_Nonnull kSync,
+                                               const char *_Nonnull kXCS,
+                                               uint8_t copySessionToken,
+                                               FxAError *_Nonnull out);
+
+char *_Nullable fxa_retry_migrate_from_session_token(FirefoxAccountHandle handle,
+                                                     FxAError *_Nonnull out);
+
+uint8_t fxa_is_in_migration_state(FirefoxAccountHandle handle,
+                                  FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAError *_Nonnull out);

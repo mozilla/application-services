@@ -120,6 +120,10 @@ follow the examples of the other steps it takes.
       `ffi_support::ByteBuffer` (if it returned via JSON before, this should be
       a change of `-> *mut c_char` to `-> ByteBuffer`).
 
+       Sometimes you may want to return an *optional* protobuf. Since we are returning the `RustBuffer` struct **by value** in our FFI code, it cannot be "nulled". However this structure has a `data` pointer, which will can get nulled: instead of returning a `Result<T>`, simply return `Result<Option<T>>`. In practice this means [very little changes](https://github.com/mozilla/application-services/blob/2df37a4c8c9d3b9c9159b0f80542303088027618/components/tabs/ffi/src/lib.rs#L85-L95) in Rust code.
+       We have also outlined in the specific Kotlin/Swift implementations below the small changes to make to your code.
+
+
     2. You must add a call to
     `ffi_support::define_bytebuffer_destructor!(mylib_destroy_bytebuffer)`.
 
@@ -186,6 +190,12 @@ follow the examples of the other steps it takes.
             MyLibFFI.INSTANCE.call_thing_returning_rustbuffer(...)
         }
         try {
+            // Note: if conceptually your function returns Option<ByteBuffer>
+            // from rust, you should do the following here instead:
+            //
+            // val message = rustBuffer.asCodedInputStream()?.let { stream ->
+            //   MsgTypes.SomeMessageData.parseFrom(stream)
+            // }
             val message = MsgTypes.SomeMessageData.parseFrom(
                     infoBuffer.asCodedInputStream()!!)
             // use `message` to produce the higher level type you want to return.
@@ -305,7 +315,6 @@ Note: If Xcode has trouble locating the types generated from the .proto file,
 even though the build works, restarting Xcode may fix the issue.
 
 # Using protobuf to pass data *into* Rust code
-
 
 Don't pass `ffi_support::ByteBuffer`/`RustBuffer` into rust.
 It is a type for going in the other direction.
