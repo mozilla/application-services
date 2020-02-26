@@ -171,3 +171,26 @@ open class LoginRecord {
         return [LoginRecord]()
     }
 }
+
+internal func unpackProtobufInfo(msg: MsgTypes_PasswordInfo) -> LoginRecord {
+    return LoginRecord(
+        id: msg.id,
+        password: msg.password,
+        hostname: msg.hostname,
+        username: msg.username,
+        formSubmitURL: msg.hasFormSubmitURL ? msg.formSubmitURL : nil,
+        httpRealm: msg.hasHTTPRealm ? msg.httpRealm : nil,
+        timesUsed: Int(msg.timesUsed),
+        timeLastUsed: msg.timeLastUsed,
+        timeCreated: msg.timeCreated,
+        timePasswordChanged: msg.timePasswordChanged,
+        usernameField: msg.usernameField,
+        passwordField: msg.passwordField
+    )
+}
+
+internal func unpackProtobufInfoList(msgList: MsgTypes_PasswordInfos) -> [LoginRecord] {
+    return msgList.infos.map { info in
+        unpackProtobufInfo(msg: info)
+    }
+}

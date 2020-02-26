@@ -164,8 +164,6 @@ commands:
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
-            python3 ./tools/dependency_summary.py --all-android-targets --package fenix --check megazords/fenix/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package fenix --format pom --check megazords/fenix/android/dependency-licenses.xml
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --format pom --check megazords/lockbox/android/dependency-licenses.xml
 

@@ -9,6 +9,7 @@ import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import mozilla.appservices.support.native.loadIndirect
+import mozilla.appservices.support.native.RustBuffer
 import org.mozilla.appservices.logins.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
@@ -37,14 +38,14 @@ internal interface PasswordSyncAdapter : Library {
     // String will work but either force us to leak them, or cause us to corrupt the heap (when we
     // free them).
 
-    // Returns null if the id does not exist, otherwise json
-    fun sync15_passwords_get_by_id(handle: LoginsDbHandle, id: String, error: RustError.ByReference): Pointer?
+    // Returns null if the id does not exist, otherwise protocol buffer
+    fun sync15_passwords_get_by_id(handle: LoginsDbHandle, id: String, error: RustError.ByReference): RustBuffer.ByValue
 
-    // return json array
-    fun sync15_passwords_get_all(handle: LoginsDbHandle, error: RustError.ByReference): Pointer?
+    // return protocol buffer
+    fun sync15_passwords_get_all(handle: LoginsDbHandle, error: RustError.ByReference): RustBuffer.ByValue
 
-    // return json array
-    fun sync15_passwords_get_by_base_domain(handle: LoginsDbHandle, basedomain: String, error: RustError.ByReference): Pointer?
+    // return protocol buffer
+    fun sync15_passwords_get_by_base_domain(handle: LoginsDbHandle, basedomain: String, error: RustError.ByReference): RustBuffer.ByValue
 
     // Returns a JSON string containing a sync ping.
     fun sync15_passwords_sync(
@@ -75,6 +76,7 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_import(handle: LoginsDbHandle, logins_json: String, error: RustError.ByReference): Pointer?
 
     fun sync15_passwords_destroy_string(p: Pointer)
+    fun sync15_passwords_destroy_buffer(b: RustBuffer.ByValue)
 
     fun sync15_passwords_new_interrupt_handle(handle: LoginsDbHandle, error: RustError.ByReference): RawLoginsInterruptHandle?
     fun sync15_passwords_interrupt(handle: RawLoginsInterruptHandle, error: RustError.ByReference)

@@ -89,7 +89,6 @@ to fit the needs of existing Firefox applications:
 | Name | Components | Maven publication |
 | --- | --- | --- |
 | `lockbox` | `fxaclient`, `logins` | `org.mozilla.appservices:lockbox-megazord` |
-| `fenix` | `fxaclient`, `logins`, `places` | `org.mozilla.appservices:fenix-megazord` |
 
 Then, simply use gradle's builtin support for [module replacement](https://docs.gradle.org/current/userguide/customizing_dependency_resolution_behavior.html#sec:module_replacement)
 to replace the default "full megazord" with your selected custom build:
@@ -98,7 +97,7 @@ to replace the default "full megazord" with your selected custom build:
 dependencies {
   modules {
     module('org.mozilla.appservices:full-megazord') {
-      replacedBy('org.mozilla.appservices:fenix-megazord', 'prefer the fenix megazord, to reduce final application size')
+      replacedBy('org.mozilla.appservices:lockbox-megazord', 'prefer the lockbox megazord, to reduce final application size')
     }
   }
 }
@@ -126,7 +125,7 @@ Or, if you are using a custom megazord library, like this:
 
 ```groovy
 dependencies {
-  testImplementation "org.mozilla.appservices:fenix-megazord-forUnitTests:X.Y.Z"
+  testImplementation "org.mozilla.appservices:lockbox-megazord-forUnitTests:X.Y.Z"
 }
 ```
 

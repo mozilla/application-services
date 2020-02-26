@@ -10,8 +10,10 @@
 
 use ffi_support::ConcurrentHandleMap;
 use ffi_support::{
-    define_box_destructor, define_handle_map_deleter, define_string_destructor, ExternError, FfiStr,
+    define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
+    define_string_destructor, ByteBuffer, ExternError, FfiStr,
 };
+use logins::msg_types::{PasswordInfo, PasswordInfos};
 use logins::{Login, LoginDb, PasswordEngine, Result};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
@@ -287,12 +289,17 @@ pub extern "C" fn sync15_passwords_interrupt(
 }
 
 #[no_mangle]
-pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> *mut c_char {
+pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("sync15_passwords_get_all");
-    ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let all_passwords = state.lock().unwrap().list()?;
-        let result = serde_json::to_string(&all_passwords)?;
-        Ok(result)
+    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+        let infos = state
+            .lock()
+            .unwrap()
+            .list()?
+            .into_iter()
+            .map(Login::into)
+            .collect();
+        Ok(PasswordInfos { infos })
     })
 }
 
@@ -301,15 +308,17 @@ pub extern "C" fn sync15_passwords_get_by_base_domain(
     handle: u64,
     base_domain: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut c_char {
+) -> ByteBuffer {
     log::debug!("sync15_passwords_get_by_base_domain");
-    ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let passwords = state
+    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+        let infos = state
             .lock()
             .unwrap()
-            .get_by_base_domain(base_domain.as_str())?;
-        let result = serde_json::to_string(&passwords)?;
-        Ok(result)
+            .get_by_base_domain(base_domain.as_str())?
+            .into_iter()
+            .map(Login::into)
+            .collect();
+        Ok(PasswordInfos { infos })
     })
 }
 
@@ -318,10 +327,10 @@ pub extern "C" fn sync15_passwords_get_by_id(
     handle: u64,
     id: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut c_char {
+) -> ByteBuffer {
     log::debug!("sync15_passwords_get_by_id");
-    ENGINES.call_with_result(error, handle, |state| {
-        state.lock().unwrap().get(id.as_str())
+    ENGINES.call_with_result(error, handle, |state| -> Result<Option<PasswordInfo>> {
+        Ok(state.lock().unwrap().get(id.as_str())?.map(Login::into))
     })
 }
 
@@ -372,6 +381,7 @@ pub extern "C" fn sync15_passwords_update(
 }
 
 define_string_destructor!(sync15_passwords_destroy_string);
+define_bytebuffer_destructor!(sync15_passwords_destroy_buffer);
 define_handle_map_deleter!(ENGINES, sync15_passwords_state_destroy);
 define_box_destructor!(
     sql_support::SqlInterruptHandle,

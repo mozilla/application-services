@@ -341,6 +341,7 @@ impl SyncManager {
                 is_user_action: params.reason == (SyncReason::User as i32),
             }),
         );
+        self.mem_cached_state = Some(mem_cached_state);
 
         log::info!("Sync finished with status {:?}", result.service_status);
         let status = ServiceStatus::from(result.service_status) as i32;
