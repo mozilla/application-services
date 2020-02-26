@@ -10,10 +10,18 @@ logins = { path = "../../components/logins", features = ["reqwest"] }
 sync15 = { path = "../../components/sync15", features = ["reqwest"] }
 tabs = { path = "../../components/tabs", features = ["reqwest"] }
 fxa-client = { path = "../../components/fxa-client", features = ["reqwest"] }
+rc_crypto = { path = "../../components/support/rc_crypto" }
+viaduct = { path = "../../components/viaduct", features = ["reqwest"] }
 url = "2.1.1"
 env_logger = "0.7.0"
+hex = "0.4.0"
 log = "0.4.8"
 failure = "0.1.6"
 rand = "0.7.2"
 lazy_static = "1.4.0"
+# We could implement PBKDF2 in rc_crypto but it might not be worth the time spent!
+pbkdf2 = "0.3.0"
+sha2 = "0.8.1" # pbkdf2 dep
+hmac = "0.7.1" # pbkdf2 dep
+serde_json = "1.0.48"
 structopt = "0.3.7"
