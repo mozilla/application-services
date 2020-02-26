@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.52.0...master)
 
+## Sync
+
+### What's fixed
+
+- Rust sync code is now more robust in the face of corrupt meta/global
+  records. ([#2688](https://github.com/mozilla/application-services/pull/2688))
+
 ## FxA Client
 
 ### What's changed
