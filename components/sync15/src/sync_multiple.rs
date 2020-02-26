@@ -6,7 +6,7 @@
 // global and local state between syncs.
 
 use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
-use crate::clients::{self, CommandProcessor};
+use crate::clients::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
 use crate::coll_state::StoreSyncAssociation;
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
@@ -40,9 +40,6 @@ impl ClientInfo {
     }
 }
 
-// How often we want the client engine to be refreshed.
-static CLIENT_REFRESH_INTERVAL_SECONDS: u64 = 24 * 60 * 60;
-
 /// Info we want callers to store *in memory* for us so that subsequent
 /// syncs are faster. This should never be persisted to storage as it holds
 /// sensitive information, such as the sync decryption keys.
@@ -75,7 +72,7 @@ impl MemoryCachedState {
     }
     pub fn note_client_refresh(&mut self) {
         self.next_client_refresh_after =
-            Some(SystemTime::now() + Duration::from_secs(CLIENT_REFRESH_INTERVAL_SECONDS));
+            Some(SystemTime::now() + Duration::from_secs(CLIENTS_TTL_REFRESH));
     }
 }
 

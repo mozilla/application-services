@@ -13,6 +13,10 @@ mod ser;
 pub use engine::Engine;
 pub use sync15_traits::client::{ClientData, DeviceType, RemoteClient};
 
+// These are what desktop uses.
+const CLIENTS_TTL: u32 = 1_814_400; // 21 days
+pub(crate) const CLIENTS_TTL_REFRESH: u64 = 604_800; // 7 days
+
 /// A command processor applies incoming commands like wipes and resets for all
 /// stores, and returns commands to send to other clients. It also manages
 /// settings like the device name and type, which is stored in the special

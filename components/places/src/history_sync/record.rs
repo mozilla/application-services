@@ -33,6 +33,7 @@ pub struct HistoryRecord {
     // BSO record, so are not expected to be on the unencrypted payload
     // when incoming and are not put on the unencrypted payload when outgoing.
     // There are hysterical raisens for this, which we should fix.
+    // https://github.com/mozilla/application-services/issues/2712
     #[serde(default)]
     pub sortindex: i32,
 

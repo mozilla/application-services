@@ -20,7 +20,7 @@ use sync15_traits::client::ClientData;
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus, RemoteClient,
+    Command, CommandProcessor, CommandStatus, RemoteClient, CLIENTS_TTL,
 };
 use crate::error::Result;
 
@@ -194,6 +194,7 @@ impl<'a> Driver<'a> {
             app_package: None,
             application: None,
             device: None,
+            ttl: CLIENTS_TTL,
         }
     }
 
