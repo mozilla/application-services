@@ -136,5 +136,28 @@ data class ServerPassword(
             }
             return result
         }
+
+        fun fromMessage(msg: MsgTypes.PasswordInfo): ServerPassword {
+            return ServerPassword(
+                id = msg.id,
+                hostname = msg.hostname,
+                username = msg.username,
+                password = msg.password,
+                httpRealm = if (msg.hasHttpRealm()) msg.httpRealm else null,
+                formSubmitURL = if (msg.hasFormSubmitURL()) msg.formSubmitURL else null,
+                timesUsed = msg.timesUsed.toInt(),
+                timeCreated = msg.timeCreated,
+                timeLastUsed = msg.timeLastUsed,
+                timePasswordChanged = msg.timePasswordChanged,
+                usernameField = msg.usernameField,
+                passwordField = msg.passwordField
+            )
+        }
+
+        fun fromCollectionMessage(msgs: MsgTypes.PasswordInfos): List<ServerPassword> {
+            return msgs.infosList.map {
+                fromMessage(it)
+            }
+        }
     }
 }

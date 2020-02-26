@@ -177,12 +177,18 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun get(id: String): ServerPassword? {
         return readQueryCounters.measure {
-            val json = nullableRustCallWithLock { raw, error ->
+            val rustBuf = rustCallWithLock { raw, error ->
                 LoginsStoreMetrics.readQueryTime.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
                 }
-            }?.getAndConsumeRustString()
-            json?.let { ServerPassword.fromJSON(it) }
+            }
+            try {
+                rustBuf.asCodedInputStream()?.let { stream ->
+                    ServerPassword.fromMessage(MsgTypes.PasswordInfo.parseFrom(stream))
+                }
+            } finally {
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
+            }
         }
     }
 
@@ -200,22 +206,30 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun list(): List<ServerPassword> {
         return readQueryCounters.measure {
-            val json = rustCallWithLock { raw, error ->
+            val rustBuf = rustCallWithLock { raw, error ->
                 LoginsStoreMetrics.readQueryTime.measure {
                     PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
                 }
-            }.getAndConsumeRustString()
-            ServerPassword.fromJSONArray(json)
+            }
+            try {
+                ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
+            } finally {
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
+            }
         }
     }
 
     @Throws(LoginsStorageException::class)
     override fun getByBaseDomain(baseDomain: String): List<ServerPassword> {
         return readQueryCounters.measure {
-            val json = rustCallWithLock { raw, error ->
+            val rustBuf = rustCallWithLock { raw, error ->
                 PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_base_domain(raw, baseDomain, error)
-            }.getAndConsumeRustString()
-            ServerPassword.fromJSONArray(json)
+            }
+            try {
+                ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
+            } finally {
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
+            }
         }
     }
 

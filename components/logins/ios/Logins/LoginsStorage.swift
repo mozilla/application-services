@@ -338,14 +338,15 @@ open class LoginsStorage {
     open func get(id: String) throws -> LoginRecord? {
         return try queue.sync {
             let engine = try self.getUnlocked()
-            let ptr = try LoginsStoreError.tryUnwrap { err in
+            let buffer = try LoginsStoreError.unwrap { err in
                 sync15_passwords_get_by_id(engine, id, err)
             }
-            guard let rustStr = ptr else {
+            if buffer.data == nil {
                 return nil
             }
-            let jsonStr = String(freeingRustString: rustStr)
-            return try LoginRecord(fromJSONString: jsonStr)
+            defer { sync15_passwords_destroy_buffer(buffer) }
+            let msg = try MsgTypes_PasswordInfo(serializedData: Data(loginsRustBuffer: buffer))
+            return unpackProtobufInfo(msg: msg)
         }
     }
 
@@ -353,11 +354,12 @@ open class LoginsStorage {
     open func list() throws -> [LoginRecord] {
         return try queue.sync {
             let engine = try self.getUnlocked()
-            let rustStr = try LoginsStoreError.unwrap { err in
+            let buffer = try LoginsStoreError.unwrap { err in
                 sync15_passwords_get_all(engine, err)
             }
-            let jsonStr = String(freeingRustString: rustStr)
-            return try LoginRecord.fromJSONArray(jsonStr)
+            defer { sync15_passwords_destroy_buffer(buffer) }
+            let msgList = try MsgTypes_PasswordInfos(serializedData: Data(loginsRustBuffer: buffer))
+            return unpackProtobufInfoList(msgList: msgList)
         }
     }
 
@@ -365,11 +367,12 @@ open class LoginsStorage {
     open func getByBaseDomain(baseDomain: String) throws -> [LoginRecord] {
         return try queue.sync {
             let engine = try self.getUnlocked()
-            let rustStr = try LoginsStoreError.unwrap { err in
+            let buffer = try LoginsStoreError.unwrap { err in
                 sync15_passwords_get_by_base_domain(engine, baseDomain, err)
             }
-            let jsonStr = String(freeingRustString: rustStr)
-            return try LoginRecord.fromJSONArray(jsonStr)
+            defer { sync15_passwords_destroy_buffer(buffer) }
+            let msgList = try MsgTypes_PasswordInfos(serializedData: Data(loginsRustBuffer: buffer))
+            return unpackProtobufInfoList(msgList: msgList)
         }
     }
 
