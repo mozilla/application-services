@@ -645,19 +645,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
-name = "fenix"
-version = "0.1.0"
-dependencies = [
- "fxaclient_ffi",
- "logins_ffi",
- "places-ffi",
- "push-ffi",
- "rc_log_ffi",
- "sync_manager_ffi",
- "viaduct",
-]
-
-[[package]]
 name = "ffi-support"
 version = "0.4.0"
 dependencies = [

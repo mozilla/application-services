@@ -4,6 +4,20 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.52.0...master)
 
+## Megazords
+
+### What's changed
+
+- The fenix megazord is no more! ([#2565](https://github.com/mozilla/application-services/pull/2565))
+
+  The full megazord should be used instead. The two are functionally identical,
+  however this should reduce the configuration surface required to use the
+  application-services code.
+
+  An example PR showing the changes typically required for this is available
+  here: https://github.com/MozillaReality/FirefoxReality/pull/2867. Please feel
+  free to reach out if you have any issues.
+
 ## Sync
 
 ### What's fixed
