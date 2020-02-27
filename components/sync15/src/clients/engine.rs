@@ -20,7 +20,7 @@ use sync15_traits::client::ClientData;
 use super::{
     record::{ClientRecord, CommandRecord},
     ser::shrink_to_fit,
-    Command, CommandProcessor, CommandStatus, RemoteClient,
+    Command, CommandProcessor, CommandStatus, RemoteClient, CLIENTS_TTL,
 };
 use crate::error::Result;
 
@@ -53,7 +53,11 @@ impl<'a> Driver<'a> {
         self.recent_clients.insert(client.id.clone(), client.into());
     }
 
-    fn sync(&mut self, inbound: IncomingChangeset) -> Result<OutgoingChangeset> {
+    fn sync(
+        &mut self,
+        inbound: IncomingChangeset,
+        should_refresh_client: bool,
+    ) -> Result<OutgoingChangeset> {
         let mut outgoing = OutgoingChangeset::new(COLLECTION_NAME, inbound.timestamp);
         outgoing.timestamp = inbound.timestamp;
 
@@ -69,9 +73,10 @@ impl<'a> Driver<'a> {
             // clients collection, so we don't check for `is_tombstone`.
             // https://github.com/mozilla/application-services/issues/1801
             // tracks deleting these from the server.
-            let mut client: ClientRecord = payload.into_record()?;
+            let client: ClientRecord = payload.into_record()?;
 
             if client.id == self.command_processor.settings().fxa_device_id {
+                log::debug!("Found my record on the server");
                 // If we see our own client record, apply any incoming commands,
                 // remove them from the list, and reupload the record. Any
                 // commands that we don't understand also go back in the list.
@@ -79,7 +84,7 @@ impl<'a> Driver<'a> {
                 // tracks if that's the right thing to do.
                 has_own_client_record = true;
                 let mut current_client_record = self.current_client_record();
-                for c in client.commands {
+                for c in &client.commands {
                     let status = match c.as_command() {
                         Some(command) => self.command_processor.apply_incoming_command(command)?,
                         None => CommandStatus::Unsupported,
@@ -91,7 +96,7 @@ impl<'a> Driver<'a> {
                         }
                         CommandStatus::Unsupported => {
                             log::warn!("Don't know how to apply command {:?}", c);
-                            current_client_record.commands.push(c);
+                            current_client_record.commands.push(c.clone());
                         }
                     }
                 }
@@ -110,11 +115,20 @@ impl<'a> Driver<'a> {
                 // access them.
                 self.note_recent_client(&current_client_record);
 
-                // We always upload our own client record on each sync, even if it
+                // We periodically upload our own client record, even if it
                 // doesn't change, to keep it fresh.
-                outgoing
-                    .changes
-                    .push(Payload::from_record(current_client_record)?);
+                // (but this part sucks - if the ttl on the server happens to be
+                // different (as some other client did something strange) we
+                // still want the records to compare equal - but the ttl hack
+                // doesn't allow that.)
+                let mut client_compare = client.clone();
+                client_compare.ttl = current_client_record.ttl;
+                if should_refresh_client || client_compare != current_client_record {
+                    log::debug!("Will update our client record on the server");
+                    outgoing
+                        .changes
+                        .push(Payload::from_record(current_client_record)?);
+                }
             } else {
                 // Add the other client to our map of recently synced clients.
                 self.note_recent_client(&client);
@@ -127,7 +141,6 @@ impl<'a> Driver<'a> {
 
                 // Determine if we have new commands, that aren't already in the
                 // client's command list.
-                let old_len = client.commands.len();
                 let current_commands: HashSet<Command> = client
                     .commands
                     .iter()
@@ -139,10 +152,11 @@ impl<'a> Driver<'a> {
                     .collect::<Vec<_>>();
                 // Sort, to ensure deterministic ordering for tests.
                 new_outgoing_commands.sort();
-                client
+                let mut new_client = client.clone();
+                new_client
                     .commands
                     .extend(new_outgoing_commands.into_iter().map(CommandRecord::from));
-                if client.commands.len() == old_len {
+                if new_client.commands.len() == client.commands.len() {
                     continue;
                 }
 
@@ -150,11 +164,14 @@ impl<'a> Driver<'a> {
                 // fits in the maximum record size, or the server will reject
                 // our upload.
                 shrink_to_fit(
-                    &mut client.commands,
+                    &mut new_client.commands,
                     self.memcache_max_record_payload_size(),
                 )?;
 
-                outgoing.changes.push(Payload::from_record(client)?);
+                // We want to ensure the TTL for all records we write, which
+                // may not be true for incoming ones - so make sure it is.
+                new_client.ttl = CLIENTS_TTL;
+                outgoing.changes.push(Payload::from_record(new_client)?);
             }
         }
 
@@ -186,6 +203,7 @@ impl<'a> Driver<'a> {
             app_package: None,
             application: None,
             device: None,
+            ttl: CLIENTS_TTL,
         }
     }
 
@@ -251,6 +269,7 @@ impl<'a> Engine<'a> {
         storage_client: &Sync15StorageClient,
         global_state: &GlobalState,
         root_sync_key: &KeyBundle,
+        should_refresh_client: bool,
     ) -> Result<()> {
         log::info!("Syncing collection clients");
 
@@ -274,7 +293,7 @@ impl<'a> Engine<'a> {
             &global_state.config,
         );
 
-        let outgoing = driver.sync(inbound)?;
+        let outgoing = driver.sync(inbound, should_refresh_client)?;
         self.recent_clients = driver.recent_clients;
 
         coll_state.last_modified = outgoing.timestamp;
@@ -367,6 +386,22 @@ mod tests {
         }
     }
 
+    fn inbound_from_clients(clients: Value) -> IncomingChangeset {
+        if let Value::Array(clients) = clients {
+            let changes = clients
+                .into_iter()
+                .map(|c| (Payload::from_json(c).unwrap(), ServerTimestamp(0)))
+                .collect();
+            IncomingChangeset {
+                changes,
+                timestamp: ServerTimestamp(0),
+                collection: COLLECTION_NAME.into(),
+            }
+        } else {
+            unreachable!("`clients` must be an array of client records")
+        }
+    }
+
     #[test]
     fn test_clients_sync() {
         let processor = TestProcessor {
@@ -388,7 +423,7 @@ mod tests {
 
         let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
 
-        let clients = json!([{
+        let inbound = inbound_from_clients(json!([{
             "id": "deviceBBBBBB",
             "name": "iPhone",
             "type": "mobile",
@@ -424,22 +459,11 @@ mod tests {
                 "args": [],
             }],
             "fxaDeviceId": "deviceAAAAAA",
-        }]);
-        let inbound = if let Value::Array(clients) = clients {
-            let changes = clients
-                .into_iter()
-                .map(|c| (Payload::from_json(c).unwrap(), ServerTimestamp(0)))
-                .collect();
-            IncomingChangeset {
-                changes,
-                timestamp: ServerTimestamp(0),
-                collection: COLLECTION_NAME.into(),
-            }
-        } else {
-            unreachable!("`clients` must be an array of client records")
-        };
+        }]));
 
-        let mut outgoing = driver.sync(inbound).expect("Should sync clients");
+        // Passing false for `should_refresh_client` - it should be ignored
+        // because we've changed the commands.
+        let mut outgoing = driver.sync(inbound, false).expect("Should sync clients");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
 
         // Make sure the list of recently synced remote clients is correct.
@@ -489,6 +513,7 @@ mod tests {
             }],
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
+            "ttl": CLIENTS_TTL,
         }, {
             "id": "deviceBBBBBB",
             "name": "iPhone",
@@ -503,6 +528,7 @@ mod tests {
             "fxaDeviceId": "iPhooooooone",
             "protocols": ["1.5"],
             "device": "iPhone",
+            "ttl": CLIENTS_TTL,
         }, {
             "id": "deviceCCCCCC",
             "name": "Fenix",
@@ -515,6 +541,7 @@ mod tests {
                 "args": ["history"],
             }],
             "fxaDeviceId": "deviceCCCCCC",
+            "ttl": CLIENTS_TTL,
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
@@ -523,6 +550,75 @@ mod tests {
         } else {
             unreachable!("`expected_clients` must be an array of client records")
         }
+    }
+
+    #[test]
+    fn test_clients_sync_explicit_refresh() {
+        let processor = TestProcessor {
+            settings: Settings {
+                fxa_device_id: "deviceAAAAAA".into(),
+                device_name: "Laptop".into(),
+                device_type: DeviceType::Desktop,
+            },
+            outgoing_commands: [].iter().cloned().collect(),
+        };
+
+        let config = InfoConfiguration::default();
+
+        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+
+        let inbound = inbound_from_clients(json!([{
+            "id": "deviceBBBBBB",
+            "name": "iPhone",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }],
+            "fxaDeviceId": "iPhooooooone",
+            "protocols": ["1.5"],
+            "device": "iPhone",
+            "ttl": CLIENTS_TTL,
+        }, {
+            "id": "deviceAAAAAA",
+            "name": "Laptop",
+            "type": "desktop",
+            "commands": [],
+            "fxaDeviceId": "deviceAAAAAA",
+            "protocols": ["1.5"],
+            "ttl": CLIENTS_TTL,
+        }]));
+
+        let outgoing = driver
+            .sync(inbound.clone(), false)
+            .expect("Should sync clients");
+        // should be no outgoing changes.
+        assert_eq!(outgoing.changes.len(), 0);
+
+        // Make sure the list of recently synced remote clients is correct and
+        // still includes our record we didn't update.
+        let expected_ids = &["deviceAAAAAA", "deviceBBBBBB"];
+        let mut actual_ids = driver.recent_clients.keys().collect::<Vec<&String>>();
+        actual_ids.sort();
+        assert_eq!(actual_ids, expected_ids);
+
+        // Do it again - still no changes, but force a refresh.
+        let outgoing = driver.sync(inbound, true).expect("Should sync clients");
+        assert_eq!(outgoing.changes.len(), 1);
+
+        // Do it again - but this time with our own client record needing
+        // some change.
+        let inbound = inbound_from_clients(json!([{
+            "id": "deviceAAAAAA",
+            "name": "Laptop with New Name",
+            "type": "desktop",
+            "commands": [],
+            "fxaDeviceId": "deviceAAAAAA",
+            "protocols": ["1.5"],
+        }]));
+        let outgoing = driver.sync(inbound, false).expect("Should sync clients");
+        // should still be outgoing because the name changed.
+        assert_eq!(outgoing.changes.len(), 1);
     }
 
     #[test]
@@ -567,7 +663,9 @@ mod tests {
             unreachable!("`clients` must be an array of client records")
         };
 
-        let mut outgoing = driver.sync(inbound).expect("Should sync clients");
+        // Passing false here for should_refresh_client, but it should be
+        // ignored as we don't have an existing record yet.
+        let mut outgoing = driver.sync(inbound, false).expect("Should sync clients");
         outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
 
         // Make sure the list of recently synced remote clients is correct.
@@ -601,6 +699,7 @@ mod tests {
             "type": "desktop",
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
+            "ttl": CLIENTS_TTL,
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {

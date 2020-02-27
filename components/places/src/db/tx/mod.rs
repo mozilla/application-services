@@ -33,6 +33,16 @@ enum PlacesTransactionRepr<'conn> {
 }
 
 impl<'conn> PlacesTransaction<'conn> {
+    /// Returns `true` if the current transaction should be committed at the
+    /// earliest opportunity.
+    #[inline]
+    pub fn should_commit(&self) -> bool {
+        match &self.0 {
+            PlacesTransactionRepr::ChunkedWrite(tx) => tx.should_commit(),
+            _ => true,
+        }
+    }
+
     /// - For transactions on sync connnections: Checks to see if we have held a
     ///   transaction for longer than the requested time, and if so, commits the
     ///   current transaction and opens another.

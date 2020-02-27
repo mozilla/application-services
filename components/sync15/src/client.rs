@@ -78,7 +78,7 @@ impl<T> Sync15ClientResponse<T> {
                 .and_then(|s| ServerTimestamp::from_str(s).ok())
                 .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
             log::info!(
-                "Request \"{}\" has incoming x-last-modified {:?}",
+                "Successful request to \"{}\", incoming x-last-modified={:?}",
                 route,
                 last_modified
             );
@@ -90,8 +90,8 @@ impl<T> Sync15ClientResponse<T> {
                 route,
             }
         } else {
-            log::info!("Request \"{}\" was an error!", route,);
             let status = resp.status;
+            log::info!("Request \"{}\" was an error (status={})", route, status);
             match status {
                 404 => Sync15ClientResponse::Error(ErrorResponse::NotFound { route }),
                 401 => Sync15ClientResponse::Error(ErrorResponse::Unauthorized { route }),

@@ -494,6 +494,7 @@ pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> 
     let existing = get_raw_bookmark(db, guid)?
         .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(guid.to_string()))?;
     let result = update_bookmark_in_tx(db, guid, item, existing);
+    super::delete_pending_temp_tables(db)?;
     // Note: `tx` automatically rolls back on drop if we don't commit
     tx.commit()?;
     result

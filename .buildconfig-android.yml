@@ -91,13 +91,3 @@ projects:
       - name: full-megazord-forUnitTests
         type: jar
     description: Megazord containing all features
-  fenix-megazord:
-    uploadSymbols: true
-    path: megazords/fenix/android
-    artifactId: fenix-megazord
-    publications:
-      - name: fenix-megazord
-        type: aar
-      - name: fenix-megazord-forUnitTests
-        type: jar
-    description: Megazord of [fxaclient, places, push, logging].

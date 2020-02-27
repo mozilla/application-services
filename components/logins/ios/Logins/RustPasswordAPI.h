@@ -35,6 +35,11 @@ typedef uint64_t Sync15PasswordEngineHandle;
 
 typedef struct Sync15PasswordsInterruptHandle Sync15PasswordsInterruptHandle;
 
+typedef struct Sync15PasswordsRustBuffer {
+    int64_t len;
+    uint8_t *_Nullable data;
+} Sync15PasswordsRustBuffer;
+
 uint64_t sync15_passwords_num_open_connections(Sync15PasswordsError *_Nonnull error_out);
 
 Sync15PasswordEngineHandle sync15_passwords_state_new(char const *_Nonnull db_path,
@@ -63,15 +68,15 @@ void sync15_passwords_migrate_plaintext_header(char const *_Nonnull db_path,
                                                char const *_Nonnull salt,
                                                Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
+Sync15PasswordsRustBuffer sync15_passwords_get_by_id(Sync15PasswordEngineHandle handle,
                                           char const *_Nonnull id,
                                           Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_by_base_domain(Sync15PasswordEngineHandle handle,
+Sync15PasswordsRustBuffer sync15_passwords_get_by_base_domain(Sync15PasswordEngineHandle handle,
                                           char const *_Nonnull baseDomain,
                                           Sync15PasswordsError *_Nonnull error_out);
 
-char *_Nullable sync15_passwords_get_all(Sync15PasswordEngineHandle handle,
+Sync15PasswordsRustBuffer sync15_passwords_get_all(Sync15PasswordEngineHandle handle,
                                          Sync15PasswordsError *_Nonnull error_out);
 
 char *_Nullable sync15_passwords_sync(Sync15PasswordEngineHandle handle,
@@ -121,6 +126,8 @@ char *_Nullable sync15_passwords_add(Sync15PasswordEngineHandle handle,
 void sync15_passwords_update(Sync15PasswordEngineHandle handle,
                              char const *_Nonnull json,
                              Sync15PasswordsError *_Nonnull error);
+
+void sync15_passwords_destroy_buffer(Sync15PasswordsRustBuffer bb);
 
 void sync15_passwords_destroy_string(char const *_Nonnull str);
 

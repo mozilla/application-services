@@ -28,7 +28,6 @@ members = [
     "components/tabs",
     "components/tabs/ffi",
     "components/viaduct",
-    "megazords/fenix",
     "megazords/full",
     "megazords/ios/rust",
     "megazords/lockbox",
