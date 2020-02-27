@@ -25,6 +25,15 @@
 - Rust sync code is now more robust in the face of corrupt meta/global
   records. ([#2688](https://github.com/mozilla/application-services/pull/2688))
 
+- In v0.52.0 we reported some network related fixes. We lied. This time
+  we promise they are actually fixed ([#2616](https://github.com/mozilla/application-services/issues/2616),
+  [#2617](https://github.com/mozilla/application-services/issues/2617)
+  [#2623](https://github.com/mozilla/application-services/issues/2623))
+
+### What's changed
+
+- Fewer updates to the 'clients' collection will be made ([#2624](https://github.com/mozilla/application-services/issues/2624))
+
 ## FxA Client
 
 ### What's changed
@@ -52,12 +61,3 @@
 ### What's fixed
 
 - `PushManager.dispatchInfoForChid` does not throw `KotlinNullPointerException` anymore if the method returned nothing. ([#2703](https://github.com/mozilla/application-services/issues/2703))
-
-## Sync
-
-### What's fixed
-
-- In v0.52.0 we reported some network related fixes. We lied. This time
-  we promise they are actually fixed ([#2616](https://github.com/mozilla/application-services/issues/2616),
-  [#2617](https://github.com/mozilla/application-services/issues/2617)
-  [#2623](https://github.com/mozilla/application-services/issues/2623))
