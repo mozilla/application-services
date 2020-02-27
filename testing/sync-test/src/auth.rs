@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
-use crate::Opts;
+use crate::{restmail_helper, Opts};
 use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use rc_crypto::{digest, hkdf, hmac};
@@ -114,9 +114,36 @@ impl TestAccount {
         no_delete: bool,
     ) -> Result<Arc<TestAccount>, failure::Error> {
         log::info!("Creating temporary fx account");
-        // `create` doesn't return anything we care about.
-        let auth_url = cfg.auth_url()?;
-        run_helper_command("create", &[&email, &pass, auth_url.as_str()])?;
+
+        restmail_helper::clear_mailbox(&email);
+
+        let create_endpoint = cfg.auth_url_path("v1/account/create").unwrap();
+        let body = json!({
+            "email": &email,
+            "authPW": auth_pwd(&email, &pass)
+        });
+        let req = Request::post(create_endpoint).json(&body).send().unwrap();
+        let resp: serde_json::Value = req.json().unwrap();
+        let uid = resp["uid"].as_str().unwrap();
+
+        log::info!("POST /v1/account/create succeeded");
+        log::info!("Autoverifying account on restmail... uid = {}", uid);
+
+        let verification_email = restmail_helper::find_email(&email, |email| {
+            email["headers"]["x-uid"] == uid && email["headers"]["x-template-name"] == "verify"
+        });
+
+        let verify_endpoint = cfg.auth_url_path("v1/recovery_email/verify_code").unwrap();
+        let body = json!({
+            "uid": &uid,
+            "code": verification_email["headers"]["x-verify-code"].as_str().unwrap(),
+        });
+        let resp = Request::post(verify_endpoint).json(&body).send().unwrap();
+        if !resp.is_success() {
+            panic!("Failed to verify the account: {}", resp.text());
+        }
+
+        log::info!("Account created and verified!");
         Ok(Arc::new(TestAccount {
             email,
             pass,

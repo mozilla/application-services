@@ -8,6 +8,7 @@ use structopt::StructOpt;
 
 mod auth;
 mod logins;
+mod restmail_helper;
 mod tabs;
 mod testing;
 
