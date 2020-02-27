@@ -259,9 +259,48 @@ impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self, failure::Error> {
         log::info!("Doing oauth flow!");
 
-        let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
-        let auth_url = acct.cfg.auth_url()?;
+        // let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
+        // let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
+        // let auth_url = acct.cfg.auth_url()?;
+
+        // let login_endpoint = acct.cfg.auth_url_path("v1/account/login").unwrap();
+        // let body = json!({
+        //     "email": &acct.email,
+        //     "authPW": auth_pwd(&acct.email, &email.pass),
+        //     "service": &acct.cfg.client_id,
+        //     "verificationMethod": "email-otp",
+        // });
+        // let req = Request::post(login_endpoint).json(&body).send().unwrap();
+        // let resp: serde_json::Value = req.json().unwrap();
+
+        // let session_token: String = resp["sessionToken"];
+        // let verified: bool = resp["verified"];
+        // if !verified {
+        //     let code = "123456"; // TODO
+        //     let verify_endpoint = acct.cfg.auth_url_path("v1/session/verify_code").unwrap();
+        //     let body = json!({
+        //         "code": &code,
+        //     });
+        //     // TODO: hawk auth
+        //     let req = Request::post(verify_endpoint).json(&body).send().unwrap();
+        // }
+
+        // let auth_endpoint = acct.cfg.auth_url_path("v1/oauth/authorization").unwrap();
+        // let body = json!({
+        //     "access_type": "offline",
+        //     "client_id": &acct.cfg.client_id,
+        //     "code_challenge": // TODO,
+        //     "code_challenge_method": // TODO,
+        //     "keys_jwe": // TODO,
+        //     "scope": // TODO,
+        //     "state": // TODO,
+        // });
+        // // TODO: hawk auth
+        // let req = Request::post(auth_endpoint).json(&body).send().unwrap();
+        // let resp: serde_json::Value = req.json().unwrap();
+        // let code: String = resp["code"];
+        // let state: String = resp["state"];
+
         let redirected_to = run_helper_command(
             "oauth",
             &[&acct.email, &acct.pass, auth_url.as_str(), &oauth_uri],
@@ -275,7 +314,6 @@ impl TestClient {
             .into_owned()
             .collect::<HashMap<String, String>>();
 
-        // should we be using the OAuthInfo this returns?
         fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
         log::info!("OAuth flow finished");
 
