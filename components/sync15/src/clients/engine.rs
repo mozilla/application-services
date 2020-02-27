@@ -117,7 +117,13 @@ impl<'a> Driver<'a> {
 
                 // We periodically upload our own client record, even if it
                 // doesn't change, to keep it fresh.
-                if should_refresh_client || client != current_client_record {
+                // (but this part sucks - if the ttl on the server happens to be
+                // different (as some other client did something strange) we
+                // still want the records to compare equal - but the ttl hack
+                // doesn't allow that.)
+                let mut client_compare = client.clone();
+                client_compare.ttl = current_client_record.ttl;
+                if should_refresh_client || client_compare != current_client_record {
                     log::debug!("Will update our client record on the server");
                     outgoing
                         .changes
@@ -162,6 +168,9 @@ impl<'a> Driver<'a> {
                     self.memcache_max_record_payload_size(),
                 )?;
 
+                // We want to ensure the TTL for all records we write, which
+                // may not be true for incoming ones - so make sure it is.
+                new_client.ttl = CLIENTS_TTL;
                 outgoing.changes.push(Payload::from_record(new_client)?);
             }
         }
@@ -504,6 +513,7 @@ mod tests {
             }],
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
+            "ttl": 1814400,
         }, {
             "id": "deviceBBBBBB",
             "name": "iPhone",
@@ -518,6 +528,7 @@ mod tests {
             "fxaDeviceId": "iPhooooooone",
             "protocols": ["1.5"],
             "device": "iPhone",
+            "ttl": 1814400,
         }, {
             "id": "deviceCCCCCC",
             "name": "Fenix",
@@ -530,6 +541,7 @@ mod tests {
                 "args": ["history"],
             }],
             "fxaDeviceId": "deviceCCCCCC",
+            "ttl": 1814400,
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
@@ -566,6 +578,7 @@ mod tests {
             "fxaDeviceId": "iPhooooooone",
             "protocols": ["1.5"],
             "device": "iPhone",
+            "ttl": 1814400,
         }, {
             "id": "deviceAAAAAA",
             "name": "Laptop",
@@ -573,6 +586,7 @@ mod tests {
             "commands": [],
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
+            "ttl": 1814400,
         }]));
 
         let outgoing = driver
@@ -685,6 +699,7 @@ mod tests {
             "type": "desktop",
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
+            "ttl": 1814400,
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
