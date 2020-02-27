@@ -513,7 +513,7 @@ mod tests {
             }],
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
-            "ttl": 1814400,
+            "ttl": CLIENTS_TTL,
         }, {
             "id": "deviceBBBBBB",
             "name": "iPhone",
@@ -528,7 +528,7 @@ mod tests {
             "fxaDeviceId": "iPhooooooone",
             "protocols": ["1.5"],
             "device": "iPhone",
-            "ttl": 1814400,
+            "ttl": CLIENTS_TTL,
         }, {
             "id": "deviceCCCCCC",
             "name": "Fenix",
@@ -541,7 +541,7 @@ mod tests {
                 "args": ["history"],
             }],
             "fxaDeviceId": "deviceCCCCCC",
-            "ttl": 1814400,
+            "ttl": CLIENTS_TTL,
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
@@ -578,7 +578,7 @@ mod tests {
             "fxaDeviceId": "iPhooooooone",
             "protocols": ["1.5"],
             "device": "iPhone",
-            "ttl": 1814400,
+            "ttl": CLIENTS_TTL,
         }, {
             "id": "deviceAAAAAA",
             "name": "Laptop",
@@ -586,7 +586,7 @@ mod tests {
             "commands": [],
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
-            "ttl": 1814400,
+            "ttl": CLIENTS_TTL,
         }]));
 
         let outgoing = driver
@@ -699,7 +699,7 @@ mod tests {
             "type": "desktop",
             "fxaDeviceId": "deviceAAAAAA",
             "protocols": ["1.5"],
-            "ttl": 1814400,
+            "ttl": CLIENTS_TTL,
         }]);
         if let Value::Array(expected) = expected {
             for (i, record) in expected.into_iter().enumerate() {
