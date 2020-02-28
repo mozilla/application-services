@@ -19,5 +19,4 @@ tee raw_xcodebuild.log | \
 xcpretty
 
 # Exclude SwiftProtobuf.
-rm -rf Carthage/Build/iOS/SwiftProtobuf.framework*
-zip -r "${FRAMEWORK_NAME}" Carthage/Build/iOS megazords/ios/DEPENDENCIES.md
+zip -r "${FRAMEWORK_NAME}" Carthage/Build/iOS megazords/ios/DEPENDENCIES.md -x '*SwiftProtobuf.framework*/*'
