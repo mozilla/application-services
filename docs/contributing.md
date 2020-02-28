@@ -1,11 +1,11 @@
 # Contributing to Application Services
 
-Anyone is welcome to help with the Application Services project. Feel free to get in touch with other community members on IRC, the
-mailing list or through issues here on GitHub.
+Anyone is welcome to help with the Application Services project. Feel free to get in touch with other community members on Matrix, the mailing list or through issues here on GitHub.
 
-- IRC: `#sync` on `irc.mozilla.org`
+- Matrix: [#sync:mozilla.org](https://chat.mozilla.org/#/room/#sync:mozilla.org)
 - Mailing list: <https://mail.mozilla.org/listinfo/sync-dev>
 - and of course, [the issues list](https://github.com/mozilla/application-services/issues)
+
 
 Participation in this project is governed by the
 [Mozilla Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/).
@@ -18,6 +18,16 @@ you saw the issue.
 ## Building the project ##
 
 Build instructions are available [here](building.md). Do not hesitate to let us know which pain-points you had with setting up your environment!
+
+## Finding issues ##
+
+Below are a few different queries you can use to find appropriate issues to work on.  Feel free to reach out if you need any additional clarification before picking up an issue.
+
+- **[good first issues](https://github.com/mozilla/application-services/issues?q=is%3Aopen+is%3Aissue+label%3Agood-first-issue)** -  If you are a new contributor, search for issues labeled `good-first-issue`
+- **[good second issues](https://github.com/mozilla/application-services/labels/good-second-issue)** Once you've got that first PR approved and you are looking for something a little more challenging, we are keeping a list of next-level issues. Search for the `good-second-issue` label.
+- **[papercuts](https://github.com/mozilla/application-services/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+%22Epic%3A+papercuts%22+)** A collection of smaller sized issues that may be a bit more advanced than a first or second issue.
+- **[important, but not urgent](https://github.com/mozilla/application-services/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+%22Epic%3A+important+not+urgent%22)** - For more advanced contributors, we have a collection of issues that we consider important and would like to resolve sooner, but work isn't currently prioritized by the core team.
+
 
 ## Sending Pull Requests ##
 
