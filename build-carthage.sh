@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 
-set -euvx
+set -eu
 
-FRAMEWORK_NAME="${1:-MozillaAppServices.framework.zip}"
-CONFIGURATION="${2:-Release}"
+CONFIGURATION="Release"
+FRAMEWORK_NAME="MozillaAppServices.framework.zip"
+
+while [[ "$#" -gt 0 ]]; do case $1 in
+  --configuration) CONFIGURATION="$2"; shift;shift;;
+  --out) FRAMEWORK_NAME="$2"; shift;shift;;
+  *) echo "Unknown parameter: $1"; exit 1;
+esac; done
+
+set -vx
 
 # Help out iOS folks who might want to run this but haven't
 # updated rust recently.
