@@ -9,7 +9,7 @@ CONFIGURATION="${2:-Release}"
 # updated rust recently.
 rustup update stable
 
-carthage update --platform iOS --cache-builds swift-protobuf
+carthage bootstrap --platform iOS --cache-builds
 ## When https://github.com/Carthage/Carthage/issues/2623 is fixed,
 ## carthage build --archive should work to produce a zip
 
