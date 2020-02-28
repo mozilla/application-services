@@ -14,7 +14,7 @@ carthage bootstrap --platform iOS --cache-builds
 ## carthage build --archive should work to produce a zip
 
 set -o pipefail && \
-carthage build --no-skip-current --platform iOS --verbose --configuration "${CONFIGURATION}" | \
+carthage build --no-skip-current --platform iOS --verbose --configuration "${CONFIGURATION}" --cache-builds | \
 tee raw_xcodebuild.log | \
 xcpretty
 
