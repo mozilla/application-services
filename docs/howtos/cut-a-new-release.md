@@ -40,7 +40,7 @@ These are the steps needed to cut a new release from latest master.
         $ brew install swift-protobuf
         $ carthage bootstrap
         ```
-    2. Run `bash build-carthage.sh MozillaAppServices.framework.zip` in the root of the repository.
+    2. Run `./build-carthage.sh` in the root of the repository.
     3. Upload the resulting `MozillaAppServices.framework.zip` as an attachment on the github release.
 6. In order for consumers to have access, we need to update in [android-components](https://github.com/mozilla-mobile/android-components).
     1. If the changes expose new functionality, or otherwise require changes to code or documentation in https://github.com/mozilla-mobile/android-components, perform those. This part is often done at the same time as the changes in application-services, to avoid being blocked on steps 3-4 of this document.

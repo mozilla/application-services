@@ -327,9 +327,9 @@ jobs:
               # XCode tests build in Debug configuration, save us a full
               # Rust rebuild in Release mode by forcing Debug mode on
               # non-release builds.
-              bash build-carthage.sh MozillaAppServices.framework.zip Debug
+              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
             else
-              bash build-carthage.sh MozillaAppServices.framework.zip
+              bash build-carthage.sh --out MozillaAppServices.framework.zip
             fi
       - store_artifacts:
           path: raw_xcodebuild.log
