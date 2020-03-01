@@ -1,14 +1,11 @@
 /*
-*This compiles, the relative file paths need to be messed with i think.
-*Apparently to grt the most_recent_version variable we need to read it from
-*something that was updated durring a PR.
-*This means we need to edit their PR process such that when someone makes a change
-*that effects libs, they have to enter a new version number.
+* This is a script to clobber the {desktop, ios, android} directories
+* and rebuild libs via the build-all.sh script..
 */
-
 
 use std::fs;
 use std::path::Path;
+use std::env;
 use std::process::Command;
 use std::io::prelude::*;
 
@@ -17,28 +14,32 @@ fn main() -> std::io::Result<()> {
     let most_recent_version = String::new();
     //this line may not be working for some reason:
     //this should be the equivalent of the cd command
-    let root = Path::new("/libs");
-
+    let root = Path::new("../libs");
     println!("moving to {} directory\n", root.display());
+    assert!(env::set_current_dir(&root).is_ok());
+    println!("changed working directory to {}.\n", root.display());
+
     let mut file = fs::File::open("libs-version")?;
-    println!("here\n");
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
+    println!("{}\n", contents);
 
     // Deletes the following directories if they exist
     // then rebuilds libs
-    if contents != most_recent_version {
+    if contents.to_uppercase() != "UPDATED: TRUE" {
 
         println!("deleting old directories and rebuilding /libs...\n");
         //I think we can ignore errors generated here.
         //for example deleting directories that don't exist.
-        fs::remove_dir_all("/libs/desktop");
+        fs::remove_dir_all("/desktop");
+        println!("here/n");
         //println!("0\n");
-        fs::remove_dir_all("/libs/android");
-        fs::remove_dir_all("/libs/ios");
+        //fs::remove_dir_all("/libs/android");
+        //fs::remove_dir_all("/libs/ios");
 
         //the rest of this code is for calling the .sh script
         let mut cmd = Command::new("bash");
+        println!("here/n");
         cmd.arg("./build-all.sh");
 
         match cmd.output(){
@@ -51,8 +52,9 @@ fn main() -> std::io::Result<()> {
         }
 
     }
+    println!("Build script done.\n");
     //this will create a file if it doesn't yet exist
     //and write the new version code to it.
-    fs::write("/ibs/version", most_recent_version)?;
+    fs::write("libs-version", "UPDATED: FALSE")?;
     Ok(())
 }
