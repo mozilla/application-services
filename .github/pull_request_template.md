@@ -8,4 +8,4 @@
   - Any breaking changes to Swift or Kotlin binding APIs are noted explicitly
 - [ ] **Dependencies**: This PR follows our [dependency management guidelines](https://github.com/mozilla/application-services/blob/master/docs/dependency-management.md)
   - Any new dependencies are accompanied by a summary of the due dilligence applied in selecting them.
-- [ ] **Library Version** This PR makes a change that will require /libs to be rebuilt, go to /libs/ilbs-version, and change UPDATED_VERSION to TRUE.
+- [ ] **Library Version** This PR makes a change that will require /libs to be rebuilt, go to /libs/ilbs-version, and change "UPDATED: FALSE" to "UPDATED: TRUE".
