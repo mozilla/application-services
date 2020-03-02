@@ -314,6 +314,9 @@ jobs:
             # See https://circleci.com/docs/2.0/testing-ios/#pre-starting-the-simulator
             xcrun instruments -w "iPhone 8 (13.0) [" || true
       - run:
+          name: Verify the build environment
+          command: ./libs/verify-ios-environment.sh
+      - run:
           name: Run XCode tests
           command: bash automation/run_ios_tests.sh
       - store_artifacts:
