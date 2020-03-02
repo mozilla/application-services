@@ -42,20 +42,11 @@ You can try building using:
 
 ## iOS development
 
-We should really do a bootstrap script just like Android and Desktop. In the meantime you will need:
-- Rust of course (https://rustup.rs/) and the proper iOS targets installed (`rustup target add aarch64-apple-ios x86_64-apple-ios`).
-- `gyp` and `ninja-build`.
-- Carthage: `brew install carthage`.
-- Swift Protobuf: `brew install swift-protobuf`.
-- The carthage dependencies installed: `carthage bootstrap --platform iOS`.
-
-You can find the iOS project in
-```
-open megazords/ios/MozillaAppServices.xcodeproj
-```
-
-The tests can also be run in the command line using
+You will need Carthage, swift-protobuf and xcpretty.
+The following command will ensure your environment is ready to build the project for iOS:
 
 ```
-bash run-ios-tests.sh
-```
+./libs/verify-ios-environment.sh
+````
+
+The Xcode project is located at `megazords/ios/MozillaAppServices.xcodeproj`.
