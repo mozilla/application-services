@@ -13,7 +13,6 @@ import com.google.protobuf.CodedOutputStream
 import com.google.protobuf.MessageLite
 import com.sun.jna.Library
 import com.sun.jna.Native
-import java.lang.reflect.Proxy
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -47,11 +46,6 @@ sealed class MegazordError : Exception {
         this.componentName = componentName
     }
 }
-
-class MegazordNotAvailable(
-    componentName: String,
-    cause: UnsatisfiedLinkError
-) : MegazordError(componentName, "Failed to locate megazord library: '$componentName'", cause)
 
 class IncompatibleMegazordVersion(
     componentName: String,
@@ -175,17 +169,7 @@ inline fun <reified Lib : Library> loadIndirect(
     componentVersion: String
 ): Lib {
     val mzLibrary = findMegazordLibraryName(componentName, componentVersion)
-    return try {
-        Native.load<Lib>(mzLibrary, Lib::class.java)
-    } catch (e: UnsatisfiedLinkError) {
-        // TODO: This should probably be a hard error now, right?
-        Proxy.newProxyInstance(
-            Lib::class.java.classLoader,
-            arrayOf(Lib::class.java)
-        ) { _, _, _ ->
-            throw MegazordNotAvailable(componentName, e)
-        } as Lib
-    }
+    return Native.load<Lib>(mzLibrary, Lib::class.java)
 }
 
 // See the comment on full_megazord_get_version for background
