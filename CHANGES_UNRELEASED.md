@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.53.0...master)
 
+## Android
+
+### What's changed
+
+- A megazord loading failure will throw as soon as possible rather than at call time.
+  ([#2739](https://github.com/mozilla/application-services/issues/2739))
+
 ## iOS
 
 ### What's New
