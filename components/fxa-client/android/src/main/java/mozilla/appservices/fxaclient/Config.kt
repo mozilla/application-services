@@ -13,7 +13,8 @@ class Config constructor(val contentUrl: String, val clientId: String, val redir
     enum class Server(val contentUrl: String) {
         RELEASE("https://accounts.firefox.com"),
         STABLE("https://stable.dev.lcip.org"),
-        DEV("https://accounts.stage.mozaws.net")
+        DEV("https://accounts.stage.mozaws.net"),
+        CHINA("https://accounts.firefox.com.cn")
     }
 
     constructor(server: Server, clientId: String, redirectUri: String) :
@@ -49,6 +50,17 @@ class Config constructor(val contentUrl: String, val clientId: String, val redir
          */
         fun dev(clientId: String, redirectUri: String): Config {
             return Config(Server.DEV.contentUrl, clientId, redirectUri)
+        }
+
+        /**
+         * Set up endpoints used in the production Firefox Accounts China
+         * instance.
+         *
+         * @param clientId Client Id of the FxA relier
+         * @param redirectUri Redirect Uri of the FxA relier
+         */
+        fun china(clientId: String, redirectUri: String): Config {
+            return Config(Server.CHINA.contentUrl, clientId, redirectUri)
         }
     }
 }

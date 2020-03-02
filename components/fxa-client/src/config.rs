@@ -65,6 +65,10 @@ impl Config {
         Self::new("https://accounts.stage.mozaws.net", client_id, redirect_uri)
     }
 
+    pub fn china(client_id: &str, redirect_uri: &str) -> Self {
+        Self::new("https://accounts.firefox.com.cn", client_id, redirect_uri)
+    }
+
     pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         Self {
             content_url: content_url.to_string(),

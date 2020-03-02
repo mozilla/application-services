@@ -11,6 +11,7 @@ open class FxAConfig {
         case Release = "https://accounts.firefox.com"
         case Stable = "https://stable.dev.lcip.org"
         case Dev = "https://accounts.stage.mozaws.net"
+        case China = "https://accounts.firefox.com.cn"
     }
 
     // swiftlint:enable identifier_name
@@ -41,5 +42,9 @@ open class FxAConfig {
 
     public static func dev(clientId: String, redirectUri: String) -> FxAConfig {
         return FxAConfig(withServer: FxAConfig.Server.Dev, clientId: clientId, redirectUri: redirectUri)
+    }
+
+    public static func china(clientId: String, redirectUri: String) -> FxAConfig {
+        return FxAConfig(withServer: FxAConfig.Server.China, clientId: clientId, redirectUri: redirectUri)
     }
 }
