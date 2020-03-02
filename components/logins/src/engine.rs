@@ -175,7 +175,8 @@ mod test {
     }
 
     #[test]
-    fn test_logins_and_updates() {
+    fn test_logins_and_updates()
+    {
         let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
         let start_us = util::system_time_ms_i64(SystemTime::now()); //initialize time - ben and ryan
         //initialize test items ben and ryan
@@ -196,11 +197,17 @@ mod test {
             username: "asdf".into(),
             password: "fdsa".into(),
             ..Login::default()
-        };        //Get item a's ID, make sure no errors getting a and for a's ID to exist - ben and ryan
+        };
+
+        let a_id = engine.add(a.clone()).expect("added a");
+        let b_id = engine.add(b.clone()).expect("added b");
+
+         //Get item a's ID, make sure no errors getting a and for a's ID to exist - ben and ryan
         let a_from_db = engine
             .get(&a_id)
             .expect("Not to error getting a")
             .expect("a to exist");
+
 
         assert_logins_equiv(&a, &a_from_db);
         assert_ge!(a_from_db.time_created, start_us); //make sure our times created/password changed/last used are correct - ben  and ryan
@@ -228,7 +235,7 @@ mod test {
             guid: Guid::from(b_id.as_str()),
             ..b
         };
-        // testing out update function - ben
+        // testing out update function - ben and ryan
         engine.update(b2.clone()).expect("update b should work");
 
         let b_after_update = engine
@@ -246,12 +253,15 @@ mod test {
     }
 
     #[test]
-    fn test_general() {
-        // initialize a new Password Engine - ben
+    fn test_general()
+    {
+        // initialize a new Password Engine - ben and ryan
         let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
         let list = engine.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0); //Make sure Empty list works - ben  and ryan
-        let start_us = util::system_time_ms_i64(SystemTime::now()); //initialize time - ben  and ryan        let a = Login {
+        let start_us = util::system_time_ms_i64(SystemTime::now()); //initialize time - ben  and ryan
+
+        let a = Login {
             guid: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
             form_submit_url: Some("https://www.example.com".into()),
@@ -316,7 +326,7 @@ mod test {
         let list = engine.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
     }
-
+}
 
 #[test]
 fn test_send() {

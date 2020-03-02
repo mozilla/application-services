@@ -1178,13 +1178,6 @@ mod tests {
             password: "💖".into(),
             ..Login::default()
         };
-        let login_with_bad_username = {
-            hostname: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
-            username: "💖".into(),
-            password: "test".into(),
-            ..Login::default()
-        };
 
         let test_cases = [
             TestCase {
@@ -1293,11 +1286,6 @@ mod tests {
                 login: login_with_bad_password,
                 should_err: false,
                 expected_err: "",
-            },
-            TestCase{
-                login: login_with_bad_username,
-                should_err: false,
-                expected_err: ""
             },
 
         ];
