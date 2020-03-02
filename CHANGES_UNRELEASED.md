@@ -9,3 +9,9 @@
 ### What's New
 
 - Developers can now run `./libs/verify-ios-environment.sh` to ensure their machine is ready to build the iOS Xcode project smoothly. ([#2737](https://github.com/mozilla/application-services/pull/2737))
+
+## FxA Client
+
+### What's new
+
+- Added `FxAConfig.china` helper function to use FxA/Sync chinese servers. ([#2736](https://github.com/mozilla/application-services/issues/2736))
