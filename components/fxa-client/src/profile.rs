@@ -188,7 +188,7 @@ mod tests {
             }.into()));
         // Then we'll try to get a new access token.
         client
-            .expect_oauth_token_with_refresh_token(
+            .expect_access_token_with_refresh_token(
                 mockiato::Argument::any,
                 |token| token.partial_eq("refreshtok"),
                 mockiato::Argument::any,

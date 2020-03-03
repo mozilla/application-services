@@ -45,7 +45,7 @@ impl FirefoxAccount {
         let resp = match self.state.refresh_token {
             Some(ref refresh_token) => {
                 if refresh_token.scopes.contains(scope) {
-                    self.client.oauth_token_with_refresh_token(
+                    self.client.access_token_with_refresh_token(
                         &self.state.config,
                         &refresh_token.token,
                         &[scope],
@@ -55,7 +55,7 @@ impl FirefoxAccount {
                 }
             }
             None => match self.state.session_token {
-                Some(ref session_token) => self.client.oauth_token_with_session_token(
+                Some(ref session_token) => self.client.access_token_with_session_token(
                     &self.state.config,
                     &session_token,
                     &[scope],
@@ -229,7 +229,7 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        let resp = self.client.oauth_tokens_from_code(
+        let resp = self.client.refresh_token_with_code(
             &self.state.config,
             &code,
             &oauth_flow.code_verifier,

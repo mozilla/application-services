@@ -181,7 +181,7 @@ impl FirefoxAccount {
         };
 
         // Trade our session token for a refresh token.
-        let oauth_response = self.client.oauth_tokens_from_session_token(
+        let oauth_response = self.client.refresh_token_with_session_token(
             &self.state.config,
             &migration_session_token,
             &[scopes::PROFILE, scopes::OLD_SYNC],
@@ -278,7 +278,7 @@ mod tests {
             )
             .returns_once(Ok(key_data));
         client
-            .expect_oauth_tokens_from_session_token(
+            .expect_refresh_token_with_session_token(
                 mockiato::Argument::any,
                 |arg| arg.partial_eq("dup_session"),
                 |arg| arg.unordered_vec_eq([scopes::PROFILE, scopes::OLD_SYNC].to_vec()),
