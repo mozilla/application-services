@@ -209,6 +209,13 @@ open class FxAccountManager {
         }
     }
 
+    /// The account password has been changed locally and a new session token has been sent to us through WebChannel.
+    public func handlePasswordChanged(newSessionToken: String, completionHandler: @escaping () -> Void) {
+        processEvent(event: .changedPassword(newSessionToken: newSessionToken)) {
+            DispatchQueue.main.async { completionHandler() }
+        }
+    }
+
     /// Get the account management URL.
     public func getManageAccountURL(entrypoint: String) -> Result<URL, Error> {
         do {
@@ -439,6 +446,24 @@ open class FxAccountManager {
                 postAuthenticated(authType: .recovered)
 
                 return Event.fetchProfile
+            }
+            case let .changedPassword(newSessionToken): do {
+                do {
+                    try requireAccount().handleSessionTokenChange(sessionToken: newSessionToken)
+
+                    FxALog.info("Initializing device")
+                    requireConstellation().initDevice(
+                        name: deviceConfig.name,
+                        type: deviceConfig.type,
+                        capabilities: deviceConfig.capabilities
+                    )
+
+                    postAuthenticated(authType: .existingAccount)
+
+                    return Event.fetchProfile
+                } catch {
+                    FxALog.error("Error handling the session token change: \(error)")
+                }
             }
             case .fetchProfile: do {
                 // Profile fetching and account authentication issues:

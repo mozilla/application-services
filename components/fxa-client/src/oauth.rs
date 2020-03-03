@@ -271,10 +271,9 @@ impl FirefoxAccount {
             log::warn!("Access token destruction failure: {:?}", err);
         }
         let old_refresh_token = self.state.refresh_token.clone();
-        let new_refresh_token = match resp.refresh_token {
-            Some(ref refresh_token) => refresh_token.clone(),
-            None => return Err(ErrorKind::RefreshTokenNotPresent.into()),
-        };
+        let new_refresh_token = resp
+            .refresh_token
+            .ok_or_else(|| ErrorKind::RefreshTokenNotPresent)?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -314,7 +313,40 @@ impl FirefoxAccount {
         // When our keys change, we might need to re-register device capabilities with the server.
         // Ensure that this happens on the next call to ensure_capabilities.
         self.state.device_capabilities.clear();
+        Ok(())
+    }
 
+    /// Typically called during a password change flow.
+    /// Invalidates all tokens and fetches a new refresh token.
+    /// Because the old refresh token is not valid anymore, we can't do like `handle_oauth_response`
+    /// and re-create the device, so it is the responsibility of the caller to do so after we're
+    /// done.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    pub fn handle_session_token_change(&mut self, session_token: &str) -> Result<()> {
+        let old_refresh_token = self
+            .state
+            .refresh_token
+            .as_ref()
+            .ok_or_else(|| ErrorKind::NoRefreshToken)?;
+        let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
+        let resp = self.client.refresh_token_with_session_token(
+            &self.state.config,
+            &session_token,
+            &scopes,
+        )?;
+        let new_refresh_token = resp
+            .refresh_token
+            .ok_or_else(|| ErrorKind::RefreshTokenNotPresent)?;
+        self.state.refresh_token = Some(RefreshToken {
+            token: new_refresh_token,
+            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
+        });
+        self.state.session_token = Some(session_token.to_owned());
+        self.clear_access_token_cache();
+        // When our keys change, we might need to re-register device capabilities with the server.
+        // Ensure that this happens on the next call to ensure_capabilities.
+        self.state.device_capabilities.clear();
         Ok(())
     }
 

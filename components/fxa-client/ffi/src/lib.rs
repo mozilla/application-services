@@ -430,6 +430,21 @@ pub extern "C" fn fxa_authorize_auth_code(
     })
 }
 
+/// Typically called during a password change flow.
+/// Invalidate all tokens and get a new refresh token.
+#[no_mangle]
+pub extern "C" fn fxa_handle_session_token_change(
+    handle: u64,
+    new_session_token: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("fxa_handle_session_token_change");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let new_session_token = new_session_token.as_str();
+        fxa.handle_session_token_change(new_session_token)
+    })
+}
+
 /// Poll and parse available remote commands targeted to our own device.
 ///
 /// # Safety

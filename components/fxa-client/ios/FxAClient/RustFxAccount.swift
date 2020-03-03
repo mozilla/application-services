@@ -277,6 +277,12 @@ open class RustFxAccount {
         return state == .reuseSessionToken
     }
 
+    open func handleSessionTokenChange(sessionToken: String) throws {
+        try rustCall { err in
+            fxa_handle_session_token_change(self.raw, sessionToken, err)
+        }
+    }
+
     private func msgToBuffer(msg: SwiftProtobuf.Message) -> (Data, Int32) {
         let data = try! msg.serializedData()
         let size = Int32(data.count)

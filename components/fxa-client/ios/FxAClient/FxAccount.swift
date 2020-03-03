@@ -138,6 +138,13 @@ class FxAccount: RustFxAccount {
         }
     }
 
+    override func handleSessionTokenChange(sessionToken: String) throws {
+        defer { tryPersistState() }
+        try notifyAuthErrors {
+            try super.handleSessionTokenChange(sessionToken: sessionToken)
+        }
+    }
+
     internal func reportAccountMigrationError(_ error: Error) {
         // Not in migration state after throwing during migration = unrecoverable error.
         if !isInMigrationState() {
