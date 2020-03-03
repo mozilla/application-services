@@ -39,7 +39,7 @@ fn parse_from_string_impl(json: Arc<str>, is_remote: bool) -> SchemaResult<Recor
                 // `e` here, but this works...
                 throw!(SchemaError::FormatError(e));
             }
-            if let Ok(dumb) = serde_json::from_str::<DumbSchema>(&json) {
+            if let Ok(dumb) = serde_json::from_str::<UntypedSchema>(&json) {
                 // TODO: Spec says we should treat these as `untyped` if for
                 // remote records if we aren't locked out!
                 for field in &dumb.fields {
@@ -149,7 +149,7 @@ impl RawSchema {
 }
 
 /// Schema containing a field type we don't know about.
-pub type DumbSchema = RawSchemaInfo<SymObject>;
+pub type UntypedSchema = RawSchemaInfo<SymObject>;
 
 // Can't derive this :(...
 impl<FT> Default for RawSchemaInfo<FT> {

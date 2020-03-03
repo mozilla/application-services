@@ -48,7 +48,11 @@ impl<'a> Store for RemergeStore<'a> {
             .sync_finished(new_timestamp, records_synced)?)
     }
 
-    fn get_collection_requests(&self) -> Result<Vec<CollectionRequest>, failure::Error> {
+    fn get_collection_requests(
+        &self,
+        _server_timestamp: ServerTimestamp,
+    ) -> Result<Vec<CollectionRequest>, failure::Error> {
+        // TODO: Use _server_timestamp
         Ok(self.0.borrow_mut().get_collection_requests()?)
     }
 

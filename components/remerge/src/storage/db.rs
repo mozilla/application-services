@@ -708,7 +708,7 @@ impl RemergeDb {
             })
             .any(|db_record| {
                 dedupe_field_indexes.iter().all(|dedupe_field_index| {
-                    let dedupe_field = &self.info.local.fields[*dedupe_field_index];
+                    let dedupe_field = &self.info.local.fields[dedupe_field_index];
                     let db_field_value = &db_record.as_obj()[&dedupe_field.local_name];
                     let local_field_value = &record.as_obj()[&dedupe_field.name];
 

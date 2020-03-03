@@ -16,6 +16,7 @@ pub const CLIENT_INFO_GUID: &str = "__client_info__";
 #[derive(Serialize, Deserialize, Clone)]
 pub struct RemoteSchemaEnvelope {
     pub id: Guid, // Always SCHEMA_GUID
+    /// This is the client that last uploaded the schema
     pub uploader_id: Guid,
     pub schema_text: Arc<str>,
     pub schema_version: semver::Version,

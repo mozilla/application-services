@@ -49,10 +49,10 @@ impl Deref for Sym {
 
 // string_cache precomputes the hash code. This is faster, but means it can't
 // implement std::borrow::Borrow<str>, which hurts usability with
-// HashMap/BTreeMap, in exchange for a faster implementation. I don't really
-// care about that case very much here, so manually implment this It's worth
-// noting that while PartialEq/PartialOrd/etc have similar optimizations in
-// string_cache, they stay compatable with `str`.
+// HashMap/BTreeMap, in exchange for a faster implementation. We don't really
+// care about that case very much here, so we manually implement this. It's
+// worth noting that while PartialEq/PartialOrd/etc have similar optimizations
+// in string_cache, they stay compatable with `str`.
 #[allow(clippy::derive_hash_xor_eq)]
 impl std::hash::Hash for Sym {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

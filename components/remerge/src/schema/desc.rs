@@ -37,6 +37,8 @@ pub struct RecordSchema {
     pub field_own_guid: Sym,
 
     pub raw: super::json::RawSchema,
+    // An Arc to avoid expensive clones. Might be unnecessary now that
+    // RecordSchema itself is generally behind an Arc.
     pub source: Arc<str>,
 }
 

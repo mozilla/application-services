@@ -219,6 +219,7 @@ impl<'a> RemergeSync<'a> {
         telem: &mut Telem,
     ) -> Result<OutgoingChangeset> {
         self.err_if_interrupted()?;
+        // Either "Just metadata" or "metadata + records"
         let expect_len = if self.in_lockout { 1 } else { 2 };
         ensure!(
             inbound.len() == expect_len,
