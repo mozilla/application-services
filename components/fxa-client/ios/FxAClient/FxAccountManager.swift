@@ -16,7 +16,7 @@ public extension Notification.Name {
 open class FxAccountManager {
     let accountStorage: KeyChainAccountStorage
     let config: FxAConfig
-    let deviceConfig: DeviceConfig
+    var deviceConfig: DeviceConfig
     let applicationScopes: [String]
 
     var acct: FxAccount?
@@ -49,7 +49,7 @@ open class FxAccountManager {
         self.deviceConfig = deviceConfig
         self.applicationScopes = applicationScopes
         accountStorage = KeyChainAccountStorage(keychainAccessGroup: keychainAccessGroup)
-        setupAuthExceptionsListener()
+        setupInternalListeners()
     }
 
     private lazy var statePersistenceCallback: FxAStatePersistenceCallback = {
@@ -567,10 +567,25 @@ open class FxAccountManager {
         requireConstellation().refreshState()
     }
 
-    // Handle auth exceptions caught in classes that don't hold a reference to the manager.
-    internal func setupAuthExceptionsListener() {
+    internal func setupInternalListeners() {
+        // Handle auth exceptions caught in classes that don't hold a reference to the manager.
         _ = NotificationCenter.default.addObserver(forName: .accountAuthException, object: nil, queue: nil) { _ in
             self.processEvent(event: .authenticationError) {}
+        }
+        // Reflect updates to the local device to our own in-memory model.
+        _ = NotificationCenter.default.addObserver(
+            forName: .constellationStateUpdate, object: nil, queue: nil
+        ) { notification in
+            if let userInfo = notification.userInfo, let newState = userInfo["newState"] as? ConstellationState {
+                if let localDevice = newState.localDevice {
+                    self.deviceConfig = DeviceConfig(
+                        name: localDevice.displayName,
+                        // The other properties are likely to not get modified.
+                        type: self.deviceConfig.type,
+                        capabilities: self.deviceConfig.capabilities
+                    )
+                }
+            }
         }
     }
 
