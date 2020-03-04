@@ -517,7 +517,7 @@ impl<'a> BookmarksStore<'a> {
         log::debug!("Inserting new tags for new URLs");
         self.interruptee.err_if_interrupted()?;
         self.db.execute_batch(
-            "INSERT INTO moz_tags_relation(tag_id, place_id)
+            "INSERT OR IGNORE INTO moz_tags_relation(tag_id, place_id)
              SELECT r.tagId, n.newPlaceId
              FROM itemsToApply n
              JOIN moz_bookmarks_synced_tag_relation r ON r.itemId = n.remoteId",
