@@ -1,7 +1,9 @@
 # Logins Component
 
-![status-img](https://img.shields.io/static/v1?label=production&message=Lockwise,%20Firefox%20iOS&color=darkgreen)
-![status-img](https://img.shields.io/static/v1?label=not%20implemented&message=Firefox%20Preview,%20Desktop&color=darkred)
+![status-img](https://img.shields.io/static/v1?label=production&message=Lockwise,%20Firefox%20for%20iOS&color=darkgreen)
+![status-img](https://img.shields.io/static/v1?label=beta&message=Firefox%20for%20Android&color=yellow)
+![status-img](https://img.shields.io/static/v1?label=not%20implemented&message=Desktop&color=darkred)
+
 
 The Logins component can be used to store website logins (i.e. usernames, passwords, and related metadata)
 and to sync them between applications using [Firefox Sync](../sync_manager/README.md).
