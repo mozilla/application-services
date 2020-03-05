@@ -17,13 +17,13 @@ const HAWK_KEY_LENGTH: usize = 32;
 
 #[cfg_attr(test, mockiato::mockable)]
 pub trait FxAClient {
-    fn oauth_tokens_from_code(
+    fn refresh_token_with_code(
         &self,
         config: &Config,
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse>;
-    fn oauth_tokens_from_session_token(
+    fn refresh_token_with_session_token(
         &self,
         config: &Config,
         session_token: &str,
@@ -34,13 +34,13 @@ pub trait FxAClient {
         config: &Config,
         refresh_token: &str,
     ) -> Result<IntrospectResponse>;
-    fn oauth_token_with_refresh_token(
+    fn access_token_with_refresh_token(
         &self,
         config: &Config,
         refresh_token: &str,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
-    fn oauth_token_with_session_token(
+    fn access_token_with_session_token(
         &self,
         config: &Config,
         session_token: &str,
@@ -129,7 +129,7 @@ impl FxAClient for Client {
 
     // For the one-off generation of a `refresh_token` and associated meta from transient credentials.
 
-    fn oauth_tokens_from_code(
+    fn refresh_token_with_code(
         &self,
         config: &Config,
         code: &str,
@@ -143,7 +143,7 @@ impl FxAClient for Client {
         self.make_oauth_token_request(config, body)
     }
 
-    fn oauth_tokens_from_session_token(
+    fn refresh_token_with_session_token(
         &self,
         config: &Config,
         session_token: &str,
@@ -165,7 +165,7 @@ impl FxAClient for Client {
 
     // For the regular generation of an `access_token` from long-lived credentials.
 
-    fn oauth_token_with_refresh_token(
+    fn access_token_with_refresh_token(
         &self,
         config: &Config,
         refresh_token: &str,
@@ -180,7 +180,7 @@ impl FxAClient for Client {
         self.make_oauth_token_request(config, body)
     }
 
-    fn oauth_token_with_session_token(
+    fn access_token_with_session_token(
         &self,
         config: &Config,
         session_token: &str,

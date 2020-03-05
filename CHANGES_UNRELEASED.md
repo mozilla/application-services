@@ -22,3 +22,4 @@
 ### What's new
 
 - Added `FxAConfig.china` helper function to use FxA/Sync chinese servers. ([#2736](https://github.com/mozilla/application-services/issues/2736))
+- iOS: Added `FxAccountManager.handlePasswordChanged` method that should be called after... a password change! ([#2744](https://github.com/mozilla/application-services/issues/2744))

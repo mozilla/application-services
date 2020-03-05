@@ -16,7 +16,7 @@ public extension Notification.Name {
 open class FxAccountManager {
     let accountStorage: KeyChainAccountStorage
     let config: FxAConfig
-    let deviceConfig: DeviceConfig
+    var deviceConfig: DeviceConfig
     let applicationScopes: [String]
 
     var acct: FxAccount?
@@ -49,7 +49,7 @@ open class FxAccountManager {
         self.deviceConfig = deviceConfig
         self.applicationScopes = applicationScopes
         accountStorage = KeyChainAccountStorage(keychainAccessGroup: keychainAccessGroup)
-        setupAuthExceptionsListener()
+        setupInternalListeners()
     }
 
     private lazy var statePersistenceCallback: FxAStatePersistenceCallback = {
@@ -206,6 +206,13 @@ open class FxAccountManager {
             return .success(try requireAccount().getSessionToken())
         } catch {
             return .failure(error)
+        }
+    }
+
+    /// The account password has been changed locally and a new session token has been sent to us through WebChannel.
+    public func handlePasswordChanged(newSessionToken: String, completionHandler: @escaping () -> Void) {
+        processEvent(event: .changedPassword(newSessionToken: newSessionToken)) {
+            DispatchQueue.main.async { completionHandler() }
         }
     }
 
@@ -440,6 +447,24 @@ open class FxAccountManager {
 
                 return Event.fetchProfile
             }
+            case let .changedPassword(newSessionToken): do {
+                do {
+                    try requireAccount().handleSessionTokenChange(sessionToken: newSessionToken)
+
+                    FxALog.info("Initializing device")
+                    requireConstellation().initDevice(
+                        name: deviceConfig.name,
+                        type: deviceConfig.type,
+                        capabilities: deviceConfig.capabilities
+                    )
+
+                    postAuthenticated(authType: .existingAccount)
+
+                    return Event.fetchProfile
+                } catch {
+                    FxALog.error("Error handling the session token change: \(error)")
+                }
+            }
             case .fetchProfile: do {
                 // Profile fetching and account authentication issues:
                 // https://github.com/mozilla/application-services/issues/483
@@ -542,10 +567,25 @@ open class FxAccountManager {
         requireConstellation().refreshState()
     }
 
-    // Handle auth exceptions caught in classes that don't hold a reference to the manager.
-    internal func setupAuthExceptionsListener() {
+    internal func setupInternalListeners() {
+        // Handle auth exceptions caught in classes that don't hold a reference to the manager.
         _ = NotificationCenter.default.addObserver(forName: .accountAuthException, object: nil, queue: nil) { _ in
             self.processEvent(event: .authenticationError) {}
+        }
+        // Reflect updates to the local device to our own in-memory model.
+        _ = NotificationCenter.default.addObserver(
+            forName: .constellationStateUpdate, object: nil, queue: nil
+        ) { notification in
+            if let userInfo = notification.userInfo, let newState = userInfo["newState"] as? ConstellationState {
+                if let localDevice = newState.localDevice {
+                    self.deviceConfig = DeviceConfig(
+                        name: localDevice.displayName,
+                        // The other properties are likely to not get modified.
+                        type: self.deviceConfig.type,
+                        capabilities: self.deviceConfig.capabilities
+                    )
+                }
+            }
         }
     }
 
