@@ -173,20 +173,16 @@ class FxAccount: RustFxAccount {
     }
 
     private func tryPersistState() {
-        DispatchQueue.global().async {
-            guard let cb = self.persistCallback else {
-                return
-            }
-            do {
-                let json = try self.toJSON()
-                DispatchQueue.global(qos: .background).async {
-                    cb.persist(json: json)
-                }
-            } catch {
-                // Ignore the error because the prior operation might have worked,
-                // but still log it.
-                FxALog.error("FxAccounts internal state serialization failed.")
-            }
+        guard let cb = persistCallback else {
+            return
+        }
+        do {
+            let json = try toJSON()
+            cb.persist(json: json)
+        } catch {
+            // Ignore the error because the prior operation might have worked,
+            // but still log it.
+            FxALog.error("FxAccounts internal state serialization failed.")
         }
     }
 
