@@ -1,3 +1,14 @@
+# v0.53.2 (_2020-03-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.53.1...v0.53.2)
+
+## FxA Client
+
+### What's fixed
+
+- iOS: `FxAccountManager.logout` will now properly clear the persisted account state. ([#2755](https://github.com/mozilla/application-services/issues/2755))
+- iOS: `FxAccountManager.getAccessToken` now runs in a background thread. ([#2755](https://github.com/mozilla/application-services/issues/2755))
+
 # v0.53.1 (_2020-03-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.53.0...v0.53.1)
