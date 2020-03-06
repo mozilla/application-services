@@ -9,9 +9,7 @@
 use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
 use crate::config::PushConfiguration;
 use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
-use crate::storage::{Storage, Store};
-
-use crate::msg_types::SubscriptionChanged;
+use crate::storage::{PushRecord, Storage, Store};
 
 use crate::error::{self, ErrorKind, Result};
 
@@ -126,7 +124,7 @@ impl PushManager {
         Ok(result)
     }
 
-    pub fn verify_connection(&mut self) -> Result<Vec<SubscriptionChanged>> {
+    pub fn verify_connection(&mut self) -> Result<Vec<PushRecord>> {
         let uaid = self
             .conn
             .uaid
@@ -140,13 +138,10 @@ impl PushManager {
             return Ok(Vec::new());
         }
 
-        let mut subscriptions: Vec<SubscriptionChanged> = Vec::new();
+        let mut subscriptions: Vec<PushRecord> = Vec::new();
         for channel in channels {
             if let Some(record) = self.store.get_record_by_chid(&channel)? {
-                subscriptions.push(SubscriptionChanged {
-                    channel_id: record.channel_id,
-                    scope: record.scope,
-                });
+                subscriptions.push(record);
             }
         }
         Ok(subscriptions)
