@@ -6,20 +6,19 @@ First of all, let us remind the reader that were are not dealing with a classic 
 In fact, the project involves multiple build systems: `autoconf` for dependencies such as NSS or SQLCipher, `cargo` for the Rust common code, then either `gradle` (Android) or `XCode` (iOS) for the platform-specific wrappers.
 The guide will make sure your system is configured appropriately to run these build systems without issues.
 
-## Rust-only development
+## Rust-only (desktop) development
 
-This part assumes you are not interested in building the Android or iOS wrappers and only want to run the Rust tests.
-The easiest way to get started is to source the following script in your terminal:
-
-```
-source ./libs/bootstrap-desktop.sh
-```
-
-This script will build your dependencies, check your system configuration and export the necessary environment variables. Because of the latter, **do not forget to re-source this script in every new terminal window**.
-Once the previous script runs successfully, you are ready to run the following command to execute all Rust tests:
+This part assumes you are not interested in building the Android or iOS wrappers and only want to do rust development/run tests.  
+The following command will ensure your environment variables are set properly and build the dependencies needed by the project:
 
 ```
-cargo test --all
+./libs/verify-desktop-environment.sh
+```
+
+You can then run the Rust tests using:
+
+```
+cargo test
 ```
 
 ## Android development

@@ -13,7 +13,7 @@ if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   exit 1
 fi
 
-"$(pwd)/libs/bootstrap-common.sh"
+"$(pwd)/libs/verify-common.sh"
 
 rustup target add "${RUST_TARGETS[@]}"
 
