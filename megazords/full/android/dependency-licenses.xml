@@ -86,7 +86,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: failure_derive</name>
-    <url>https://github.com/withoutboats/failure_derive/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fallible-iterator</name>
