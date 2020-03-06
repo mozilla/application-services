@@ -15,7 +15,7 @@ if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   exit 1
 fi
 
-"$(pwd)/libs/bootstrap-common.sh"
+"$(pwd)/libs/verify-common.sh"
 
 # If you add a dependency below, mention it in building.md in the Android section!
 
