@@ -217,13 +217,12 @@ class PushTest {
     @Test
     fun testVerifyConnection() {
         val manager = getPushManager()
-        // Client will call verifyConnection() on initial setup, before UAID set.
-        manager.verifyConnection()
         // Register a subscription
         manager.subscribe(testChannelid, "foo")
         // and call verifyConnection again to emulate a set value.
         val result = manager.verifyConnection()
-        assertEquals("Check changed endpoint", false, result)
+        assertEquals("Endpoints updated", true, result.isNotEmpty())
+        assertEquals("Endpoints updated", "foo", result.first().scope)
     }
 
     @Test

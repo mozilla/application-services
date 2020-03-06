@@ -63,7 +63,7 @@ internal interface LibPushFFI : Library {
     fun push_verify_connection(
         mgr: PushManagerHandle,
         out_err: RustError.ByReference
-    ): Byte
+    ): RustBuffer.ByValue
 
     fun push_decrypt(
         mgr: PushManagerHandle,
