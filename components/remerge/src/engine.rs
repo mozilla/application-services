@@ -137,6 +137,11 @@ mod test {
     }
 
     #[test]
+    fn test_migrate_records() {
+
+    }
+
+    #[test]
     fn test_insert() {
         let e: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA).unwrap();
         let id = e

@@ -15,10 +15,12 @@
 //!   - remerge/client-id
 //!   - remerge/change-counter
 
-use super::{meta, SchemaBundle};
+use super::{bundle::ToLocalReason, meta, LocalRecord, NativeRecord, SchemaBundle};
+use crate::schema::desc::RecordSchema;
+use crate::schema::error::SchemaError;
 use crate::error::*;
 use crate::Guid;
-use rusqlite::Connection;
+use rusqlite::{Connection, named_params};
 use std::sync::Arc;
 
 pub(super) fn load_or_bootstrap(
@@ -34,8 +36,22 @@ pub(super) fn load_or_bootstrap(
         let native_ver: String = meta::get(db, meta::NATIVE_SCHEMA_VERSION)?;
         let client_id: sync_guid::Guid = meta::get(db, meta::OWN_CLIENT_ID)?;
 
+        // XXX need to think about what to do if this fails! More generally, is
+        // it sane to run validation on schemas already in the DB? If the answer
+        // is yes, we should probably have more tests to ensure we never begin
+        // rejecting a schema we previously considered valid!
+        // let parsed = crate::schema::parse_from_string(&local_schema, false)?;
+        let parsed = get_schema(&db, &local_ver)?;
+        let previous_native = get_schema(&db, &native_ver)?;
+        let previous_bundle = SchemaBundle {
+            local: Arc::new(parsed.clone()),
+            native: Arc::new(previous_native.clone()),
+            collection_name: name.to_string(),
+        };
+
         if native_ver != native.version.to_string() {
             // XXX migrate existing records here!
+            // migrate_records(&db, &previous_bundle, &new_bundle)?;
             let native_ver = semver::Version::parse(&*native_ver)
                 .expect("previously-written version is no longer semver");
             if native.version < native_ver {
@@ -46,32 +62,17 @@ pub(super) fn load_or_bootstrap(
             }
             meta::put(db, meta::NATIVE_SCHEMA_VERSION, &native.version.to_string())?;
         } else {
-            let previous_native: String = db.query_row(
-                "SELECT schema_text FROM remerge_schemas WHERE version = ?",
-                rusqlite::params![native_ver],
-                |r| r.get(0),
-            )?;
-            let previous_native = crate::schema::parse_from_string(&*previous_native, false)?;
             if *native != previous_native {
                 throw!(ErrorKind::SchemaChangedWithoutVersionBump(
                     native.version.to_string()
                 ));
             }
         }
-        let local_schema: String = db.query_row(
-            "SELECT schema_text FROM remerge_schemas WHERE version = ?",
-            rusqlite::params![local_ver],
-            |r| r.get(0),
-        )?;
-        // XXX need to think about what to do if this fails! More generally, is
-        // it sane to run validation on schemas already in the DB? If the answer
-        // is yes, we should probably have more tests to ensure we never begin
-        // rejecting a schema we previously considered valid!
-        let parsed = crate::schema::parse_from_string(&local_schema, false)?;
+        let parsed = get_schema(&db, &local_ver)?;
         Ok((
             SchemaBundle {
                 local: Arc::new(parsed),
-                native,
+                native: native.clone(),
                 collection_name: name,
             },
             client_id,
@@ -113,4 +114,70 @@ pub(super) fn bootstrap(
         },
         guid,
     ))
+}
+
+fn get_schema(
+    db: &Connection,
+    schema_ver: &String
+) -> Result<RecordSchema, SchemaError> {
+    let native: String = db.query_row(
+        "SELECT schema_text FROM remerge_schemas WHERE version = ?",
+        rusqlite::params![schema_ver],
+        |r| r.get(0),
+    )
+    .unwrap();
+
+    crate::schema::parse_from_string(&*native, false)
+}
+
+fn migrate_records(
+    db: &Connection,
+    previous_native: &SchemaBundle,
+    // local: &RecordSchema
+    new_native: &SchemaBundle
+) -> Result<()> {
+    // Check if there are dedupe_on fields
+    if !new_native.local.dedupe_on.is_empty() {
+        unimplemented!("FIXME: migration");
+    }
+
+    // Get existing records with old schema version
+    let mut stmt = db.prepare_cached("SELECT record_data FROM rec_mirror WHERE is_overridden = 0")?;
+    let rows = stmt.query_and_then(rusqlite::NO_PARAMS, |row| -> Result<NativeRecord> {
+        let r: LocalRecord = row.get("record_data")?;
+        previous_native.local_to_native(&r)
+    })?;
+    let old_records: Vec<NativeRecord> = rows.collect::<Result<_>>().unwrap_or_default();
+    // let mut new_records: Vec<NativeRecord> = Vec::new();
+
+    for old_record in old_records {
+        let mut new_record_data = crate::JsonObject::default();
+
+        for new_record_field in &new_native.local.fields {
+            let value = old_record.as_obj()[new_record_field.name.as_str()].clone();
+
+            //  Apply defaults from the new schema where applicable.
+            new_record_data.insert(new_record_field.clone().name, value);
+        }
+        // &new_records.push(NativeRecord::new_unchecked(new_record_data));
+        let new_native_record = NativeRecord::new_unchecked(new_record_data);
+        let (id, record) = new_native.native_to_local(&new_native_record, ToLocalReason::Creation)?;
+    }
+
+    // x Apply field restrictions from the new schema where applicable (min, max, etc. via the `field.validate` function).
+
+    // TODO: Insert updated records into `rec_local` with the new schema version number in the `remerge_schema_version` field.
+
+
+    // Remove records with old schema version
+    db.execute_named(
+        "UPDATE rec_mirror
+         SET is_overridden = 1
+         WHERE remerge_schema_version = :previous_ver",
+        named_params! {
+            ":previous_ver": new_native.local.version.to_string(),
+        },
+    )?;
+
+    Ok(())
 }
