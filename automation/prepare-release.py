@@ -11,6 +11,8 @@ import re
 import webbrowser
 import yaml
 
+from shared import step_msg, fatal_err, run_cmd_checked, ensure_working_tree_clean
+
 parser = argparse.ArgumentParser(description="Prepares an application-services release "
                                              "(increment versions, write changelog, send PR to GitHub).")
 parser.add_argument("release_type",
@@ -34,19 +36,6 @@ BUILDCONFIG_VERSION_FIELD = "libraryVersion"
 UNRELEASED_CHANGES_FILE = "CHANGES_UNRELEASED.md"
 CHANGELOG_FILE = "CHANGELOG.md"
 
-def run_cmd(*args, **kwargs):
-    # Let subprocess throw an exception when a command returns a non-zero status.
-    if "check" not in kwargs:
-        kwargs["check"] = True
-    return subprocess.run(*args, **kwargs)
-
-def step_msg(msg):
-    print(f"> \033[34m{msg}\033[0m")
-
-def fatal_err(msg):
-    print(f"\033[31mError: {msg}\033[0m")
-    exit(1)
-
 # 1. Calculate new version number.
 
 with open(BUILDCONFIG_FILE, "r") as stream:
@@ -68,24 +57,16 @@ next_version_full = f"v{next_version}"
 
 step_msg(f"Preparing release {next_version_full}")
 
-# 2. Switch to proper branch and do some consistency checks.
+# 2. Create a new branch based on the branch we want to release from.
 
-if run_cmd(["git", "status", "--porcelain"], capture_output=True).stdout:
-    fatal_err("This branch has un-commited or staged files.")
+ensure_working_tree_clean()
 
 step_msg(f"Updating remote {remote}")
-run_cmd(["git", "remote", "update", remote])
-
-step_msg(f"Checking remote {remote} agrees with us")
-remote_hash = run_cmd(["git", "rev-parse", f"{remote}/{base_branch}"], capture_output=True, text=True).stdout
-local_hash = run_cmd(["git", "rev-parse", base_branch], capture_output=True, text=True).stdout
-if remote_hash != local_hash:
-    fatal_err(f"{base_branch} is different from {remote}/{base_branch}")
+run_cmd_checked(["git", "remote", "update", remote])
 
 release_branch = f"cut-{next_version_full}"
 step_msg(f"Creating release branch {release_branch} from {base_branch}")
-run_cmd(["git", "branch", release_branch, base_branch])
-run_cmd(["git", "checkout", release_branch])
+run_cmd_checked(["git", "checkout", "-b", release_branch, "--no-track", f"{remote}/{base_branch}"])
 
 # 3. Bump YML version
 
@@ -133,11 +114,11 @@ with open(UNRELEASED_CHANGES_FILE, "w") as stream:
 # 5. Create a commit and send a PR
 
 step_msg(f"Creating a commit with the changes")
-run_cmd(["git", "add", "-A"]) # We can use -A since we checked the working dir is clean.
-run_cmd(["git", "commit", "-m", f"Cut release {next_version_full}"])
+run_cmd_checked(["git", "add", "-A"]) # We can use -A since we checked the working dir is clean.
+run_cmd_checked(["git", "commit", "-m", f"Cut release {next_version_full}"])
 
-response = input("Great! Would you like to open a pull-request? ([Y]/N)").lower()
+response = input("Great! Would you like to push and open a pull-request? ([Y]/N)").lower()
 if response != "y" and response != "" and response != "yes":
     exit(0)
-run_cmd(["git", "push", remote, release_branch])
+run_cmd_checked(["git", "push", remote, release_branch])
 webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{release_branch}")
