@@ -30,3 +30,6 @@ raw_xcodetest.log
 # Generated debug symbols
 crashreporter-symbols*
 automation/symbols-generation/bin/
+
+# Python
+__pycache__
