@@ -27,11 +27,11 @@ message SubscriptionResponse {
     required SubscriptionInfo subscriptionInfo = 2;
 }
 
-message SubscriptionChanged {
+message PushSubscriptionChanged {
     required string channelID = 1;
     required string scope = 2;
 }
 
-message SubscriptionsChanged {
-    repeated SubscriptionChanged subs = 1;
+message PushSubscriptionsChanged {
+    repeated PushSubscriptionChanged subs = 1;
 }

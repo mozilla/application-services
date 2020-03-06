@@ -141,10 +141,20 @@ pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut Ex
 #[no_mangle]
 pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("push_verify");
-    use push::msg_types::SubscriptionsChanged;
+    use push::msg_types::PushSubscriptionChanged;
+    use push::msg_types::PushSubscriptionsChanged;
+
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
-        mgr.verify_connection()
-            .map(|subs| SubscriptionsChanged { subs })
+        let subs = mgr
+            .verify_connection()?
+            .iter()
+            .map(|record| PushSubscriptionChanged {
+                channel_id: record.channel_id.clone(),
+                scope: record.scope.clone(),
+            })
+            .collect();
+
+        Ok(PushSubscriptionsChanged { subs })
     })
 }
 
