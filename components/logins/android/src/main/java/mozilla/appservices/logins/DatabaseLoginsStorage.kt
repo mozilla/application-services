@@ -251,11 +251,8 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun importLogins(logins: Array<ServerPassword>): JSONObject {
         return writeQueryCounters.measure {
-            val builder = MsgTypes.PasswordInfos.newBuilder()
-            logins.forEach {
-                builder.addInfos(it.toProtobuf())
-            }
-            val (nioBuf, len) = builder.build().toNioDirectBuffer()
+            val buf = logins.toCollectionMessage()
+            val (nioBuf, len) = buf.toNioDirectBuffer()
             val ptr = Native.getDirectBufferPointer(nioBuf)
             val json = rustCallWithLock { raw, error ->
                 PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, ptr, len, error)

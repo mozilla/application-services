@@ -96,3 +96,13 @@ data class Device(
         }
     }
 }
+
+fun Set<Device.Capability>.toCollectionMessage(): MsgTypes.Capabilities {
+    val builder = MsgTypes.Capabilities.newBuilder()
+    this.forEach {
+        when (it) {
+            Device.Capability.SEND_TAB -> builder.addCapability(MsgTypes.Device.Capability.SEND_TAB)
+        }.exhaustive
+    }
+    return builder.build()
+}

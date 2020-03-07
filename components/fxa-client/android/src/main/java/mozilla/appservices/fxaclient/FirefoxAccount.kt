@@ -11,7 +11,6 @@ import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
 import mozilla.appservices.support.native.toNioDirectBuffer
-import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 
@@ -524,7 +523,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun initializeDevice(name: String, deviceType: Device.Type, supportedCapabilities: Set<Device.Capability>) {
-        val (nioBuf, len) = capabilitiesToBuffer(supportedCapabilities)
+        val (nioBuf, len) = supportedCapabilities.toCollectionMessage().toNioDirectBuffer()
         rustCall { e ->
             val ptr = Native.getDirectBufferPointer(nioBuf)
             LibFxAFFI.INSTANCE.fxa_initialize_device(this.handle.get(), name, deviceType.toNumber(), ptr, len, e)
@@ -543,23 +542,12 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun ensureCapabilities(supportedCapabilities: Set<Device.Capability>) {
-        val (nioBuf, len) = capabilitiesToBuffer(supportedCapabilities)
+        val (nioBuf, len) = supportedCapabilities.toCollectionMessage().toNioDirectBuffer()
         rustCall { e ->
             val ptr = Native.getDirectBufferPointer(nioBuf)
             LibFxAFFI.INSTANCE.fxa_ensure_capabilities(this.handle.get(), ptr, len, e)
         }
         this.tryPersistState()
-    }
-
-    private fun capabilitiesToBuffer(capabilities: Set<Device.Capability>): Pair<ByteBuffer, Int> {
-        val capabilitiesBuilder = MsgTypes.Capabilities.newBuilder()
-        capabilities.forEach {
-            when (it) {
-                Device.Capability.SEND_TAB -> capabilitiesBuilder.addCapability(MsgTypes.Device.Capability.SEND_TAB)
-            }.exhaustive
-        }
-        val buf = capabilitiesBuilder.build()
-        return buf.toNioDirectBuffer()
     }
 
     /**

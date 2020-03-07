@@ -111,3 +111,11 @@ data class ServerPassword(
         }
     }
 }
+
+fun Array<ServerPassword>.toCollectionMessage(): MsgTypes.PasswordInfos {
+    val builder = MsgTypes.PasswordInfos.newBuilder()
+    this.forEach {
+        builder.addInfos(it.toProtobuf())
+    }
+    return builder.build()
+}
