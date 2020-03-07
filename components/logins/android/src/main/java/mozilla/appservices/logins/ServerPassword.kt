@@ -3,9 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 package mozilla.appservices.logins
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
 
 /**
  * Raw password data that is stored by the LoginsStorage implementation.
@@ -71,71 +68,24 @@ data class ServerPassword(
     val passwordField: String
 ) {
 
-    fun toJSON(): JSONObject {
-        val o = JSONObject()
-        o.put("id", this.id)
-        o.put("hostname", this.hostname)
-        o.put("password", password)
-        o.put("timesUsed", timesUsed)
-        o.put("timeCreated", timeCreated)
-        o.put("timeLastUsed", timeLastUsed)
-        o.put("timePasswordChanged", timePasswordChanged)
-        o.put("username", username)
-        if (httpRealm != null) {
-            o.put("httpRealm", httpRealm)
-        }
-        if (formSubmitURL != null) {
-            o.put("formSubmitURL", formSubmitURL)
-        }
-        o.put("usernameField", usernameField)
-        o.put("passwordField", passwordField)
-        return o
+    fun toProtobuf(): MsgTypes.PasswordInfo {
+        val builder = MsgTypes.PasswordInfo.newBuilder()
+                .setId(this.id)
+                .setHostname(this.hostname)
+                .setPassword(this.password)
+                .setUsername(this.username)
+                .setUsernameField(this.usernameField)
+                .setPasswordField(this.passwordField)
+                .setTimesUsed(this.timesUsed.toLong())
+                .setTimeCreated(this.timeCreated)
+                .setTimeLastUsed(this.timeLastUsed)
+                .setTimePasswordChanged(this.timePasswordChanged)
+        this.formSubmitURL?.let { builder.setFormSubmitURL(it) }
+        this.httpRealm?.let { builder.setHttpRealm(it) }
+        return builder.build()
     }
 
     companion object {
-        fun fromJSON(jsonObject: JSONObject): ServerPassword {
-
-            fun stringOrNull(key: String): String? {
-                return try {
-                    jsonObject.getString(key)
-                } catch (e: JSONException) {
-                    null
-                }
-            }
-
-            return ServerPassword(
-                    id = jsonObject.getString("id"),
-
-                    hostname = jsonObject.getString("hostname"),
-                    password = jsonObject.getString("password"),
-                    username = jsonObject.getString("username"),
-
-                    httpRealm = stringOrNull("httpRealm"),
-                    formSubmitURL = stringOrNull("formSubmitURL"),
-
-                    usernameField = jsonObject.getString("usernameField"),
-                    passwordField = jsonObject.getString("passwordField"),
-
-                    timesUsed = jsonObject.getInt("timesUsed"),
-
-                    timeCreated = jsonObject.getLong("timeCreated"),
-                    timeLastUsed = jsonObject.getLong("timeLastUsed"),
-                    timePasswordChanged = jsonObject.getLong("timePasswordChanged")
-            )
-        }
-
-        fun fromJSON(jsonText: String): ServerPassword {
-            return fromJSON(JSONObject(jsonText))
-        }
-
-        fun fromJSONArray(jsonArrayText: String): List<ServerPassword> {
-            val result: MutableList<ServerPassword> = mutableListOf()
-            val array = JSONArray(jsonArrayText)
-            for (index in 0 until array.length()) {
-                result.add(fromJSON(array.getJSONObject(index)))
-            }
-            return result
-        }
 
         fun fromMessage(msg: MsgTypes.PasswordInfo): ServerPassword {
             return ServerPassword(

@@ -99,10 +99,26 @@ open class LoginRecord {
         return dict
     }
 
-    open func toJSON() throws -> String {
-        // We need a String to pass back to rust.
-        let data: Data = try JSONSerialization.data(withJSONObject: toJSONDict())
-        return String(data: data, encoding: String.Encoding.utf8)!
+    internal func toProtobuf() -> MsgTypes_PasswordInfo {
+        var buf = MsgTypes_PasswordInfo()
+        buf.id = id
+        buf.hostname = hostname
+        buf.password = password
+        buf.username = username
+        buf.timesUsed = Int64(timesUsed)
+        buf.timeCreated = timeCreated
+        buf.timeLastUsed = timeLastUsed
+        buf.timePasswordChanged = timePasswordChanged
+        buf.usernameField = usernameField
+        buf.passwordField = passwordField
+        if let h = httpRealm {
+            buf.httpRealm = h
+        }
+        if let f = formSubmitURL {
+            buf.formSubmitURL = f
+        }
+
+        return buf
     }
 
     // TODO: handle errors in these... (they shouldn't ever happen

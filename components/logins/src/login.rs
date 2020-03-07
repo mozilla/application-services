@@ -563,6 +563,25 @@ impl From<Login> for PasswordInfo {
     }
 }
 
+impl From<PasswordInfo> for Login {
+    fn from(info: PasswordInfo) -> Self {
+        Self {
+            guid: Guid::from_string(info.id),
+            hostname: info.hostname,
+            password: info.password,
+            username: info.username,
+            http_realm: info.http_realm,
+            form_submit_url: info.form_submit_url,
+            username_field: info.username_field,
+            password_field: info.password_field,
+            times_used: info.times_used,
+            time_created: info.time_created,
+            time_last_used: info.time_last_used,
+            time_password_changed: info.time_password_changed,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {
     pub login: Login,

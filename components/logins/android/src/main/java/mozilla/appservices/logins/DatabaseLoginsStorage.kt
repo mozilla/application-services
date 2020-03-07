@@ -4,12 +4,13 @@
 
 package mozilla.appservices.logins
 
+import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.logins.rust.PasswordSyncAdapter
 import mozilla.appservices.logins.rust.RustError
+import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import java.util.concurrent.atomic.AtomicLong
-import org.json.JSONArray
 import org.json.JSONObject
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
@@ -236,10 +237,12 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun add(login: ServerPassword): String {
         return writeQueryCounters.measure {
-            val s = login.toJSON().toString()
+            val buf = login.toProtobuf()
+            val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
+                val ptr = Native.getDirectBufferPointer(nioBuf)
                 LoginsStoreMetrics.writeQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, s, error)
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, ptr, len, error)
                 }
             }.getAndConsumeRustString()
         }
@@ -248,13 +251,14 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun importLogins(logins: Array<ServerPassword>): JSONObject {
         return writeQueryCounters.measure {
-            val s = JSONArray().apply {
-                logins.forEach {
-                    put(it.toJSON())
-                }
-            }.toString()
+            val builder = MsgTypes.PasswordInfos.newBuilder()
+            logins.forEach {
+                builder.addInfos(it.toProtobuf())
+            }
+            val (nioBuf, len) = builder.build().toNioDirectBuffer()
+            val ptr = Native.getDirectBufferPointer(nioBuf)
             val json = rustCallWithLock { raw, error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, s, error)
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, ptr, len, error)
             }.getAndConsumeRustString()
             JSONObject(json)
         }
@@ -263,10 +267,12 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(LoginsStorageException::class)
     override fun update(login: ServerPassword) {
         return writeQueryCounters.measure {
-            val s = login.toJSON().toString()
+            val buf = login.toProtobuf()
+            val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
+                val ptr = Native.getDirectBufferPointer(nioBuf)
                 LoginsStoreMetrics.writeQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, s, error)
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, ptr, len, error)
                 }
             }
         }
@@ -275,10 +281,12 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     @Throws(InvalidRecordException::class)
     override fun ensureValid(login: ServerPassword) {
         readQueryCounters.measure {
-            val s = login.toJSON().toString()
+            val buf = login.toProtobuf()
+            val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
+                val ptr = Native.getDirectBufferPointer(nioBuf)
                 LoginsStoreMetrics.readQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, s, error)
+                    PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, ptr, len, error)
                 }
             }
         }

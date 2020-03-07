@@ -286,11 +286,14 @@ open class LoginsStorage {
 
     /// Ensure that the record is valid and a duplicate record doesn't exist.
     open func ensureValid(login: LoginRecord) throws {
-        let json = try login.toJSON()
-        return try queue.sync {
-            let engine = try self.getUnlocked()
-            try LoginsStoreError.unwrap { err in
-                sync15_passwords_check_valid(engine, json, err)
+        let data = try! login.toProtobuf().serializedData()
+        let size = Int32(data.count)
+        try queue.sync {
+            try data.withUnsafeBytes { bytes in
+                let engine = try self.getUnlocked()
+                try LoginsStoreError.unwrap { err in
+                    sync15_passwords_check_valid(engine, bytes.bindMemory(to: UInt8.self).baseAddress!, size, err)
+                }
             }
         }
     }
@@ -312,24 +315,30 @@ open class LoginsStorage {
     ///
     /// Returns the `id` of the newly inserted record.
     open func add(login: LoginRecord) throws -> String {
-        let json = try login.toJSON()
+        let data = try! login.toProtobuf().serializedData()
+        let size = Int32(data.count)
         return try queue.sync {
-            let engine = try self.getUnlocked()
-            let ptr = try LoginsStoreError.unwrap { err in
-                sync15_passwords_add(engine, json, err)
+            return try data.withUnsafeBytes { bytes in
+                let engine = try self.getUnlocked()
+                let ptr = try LoginsStoreError.unwrap { err in
+                    sync15_passwords_add(engine, bytes.bindMemory(to: UInt8.self).baseAddress!, size, err)
+                }
+                return String(freeingRustString: ptr)
             }
-            return String(freeingRustString: ptr)
         }
     }
 
     /// Update `login` in the database. If `login.id` does not refer to a known
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
     open func update(login: LoginRecord) throws {
-        let json = try login.toJSON()
-        return try queue.sync {
-            let engine = try self.getUnlocked()
-            return try LoginsStoreError.unwrap { err in
-                sync15_passwords_update(engine, json, err)
+        let data = try! login.toProtobuf().serializedData()
+        let size = Int32(data.count)
+        try queue.sync {
+            try data.withUnsafeBytes { bytes in
+                let engine = try self.getUnlocked()
+                try LoginsStoreError.unwrap { err in
+                    sync15_passwords_update(engine, bytes.bindMemory(to: UInt8.self).baseAddress!, size, err)
+                }
             }
         }
     }
