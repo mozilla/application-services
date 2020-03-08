@@ -1142,6 +1142,7 @@ dependencies = [
  "lazy_static",
  "log",
  "logins",
+ "prost",
  "rusqlite",
  "serde_json",
  "sql-support",
