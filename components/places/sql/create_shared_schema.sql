@@ -197,6 +197,8 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced(
     siteURL TEXT
 );
 
+CREATE INDEX IF NOT EXISTS moz_bookmarks_synced_urls ON moz_bookmarks_synced(placeId);
+
 -- This table holds parent-child relationships and positions for synced items,
 -- from each folder's `children`. Unlike `moz_bookmarks`, this is stored
 -- separately because we might see an incoming folder before its children. This

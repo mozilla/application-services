@@ -1128,6 +1128,7 @@ impl<'a> Merger<'a> {
         }
         // Merge and stage outgoing items via dogear.
         let driver = Driver::default();
+        self.prepare()?;
         let result = self.merge_with_driver(&driver, &MergeInterruptee(self.store.interruptee));
         log::debug!("merge completed");
 
@@ -1136,6 +1137,71 @@ impl<'a> Merger<'a> {
             telem.validation(driver.validation.into_inner());
         }
         result
+    }
+
+    /// Prepares synced bookmarks for merging.
+    fn prepare(&self) -> Result<()> {
+        // Like keywords, Sync associates tags with bookmarks, but Places
+        // associates them with URLs. This means multiple bookmarks with the
+        // same URL should have the same tags. In practice, different tags for
+        // bookmarks with the same URL are some of the most common validation
+        // errors we see.
+        //
+        // Unlike keywords, the relationship between URLs and tags in many-many:
+        // multiple URLs can have the same tag, and a URL can have multiple
+        // tags. So, to find mismatches, we need to compare the tags for each
+        // URL with the tags for each item.
+        //
+        // We could fetch both lists of tags, sort them, and then compare them.
+        // But there's a trick here: we're only interested in whether the tags
+        // _match_, not the tags themselves. So we sum the tag IDs!
+        //
+        // This has two advantages: we don't have to sort IDs, since addition is
+        // commutative, and we can compare two integers much more efficiently
+        // than two string lists! If a bookmark has mismatched tags, the sum of
+        // its tag IDs in `tagsByItemId` won't match the sum in `tagsByPlaceId`,
+        // and we'll flag the item for reupload.
+        log::debug!("Flagging tags with mismatched URLs for reupload");
+        self.store.interruptee.err_if_interrupted()?;
+        let sql = format!(
+            "WITH
+             tagsByPlaceId(placeId, tagIds) AS (
+                 /* For multiple bookmarks with the same URL, each group will
+                    have one tag per bookmark. So, if bookmarks A1, A2, and A3
+                    have the same URL A with tag T, T will be in the group three
+                    times. But we only want to count each tag once per URL, so
+                    we use `SUM(DISTINCT)`. */
+                 SELECT v.placeId, SUM(DISTINCT t.tagId)
+                 FROM moz_bookmarks_synced v
+                 JOIN moz_bookmarks_synced_tag_relation t ON t.itemId = v.id
+                 WHERE v.placeId NOT NULL
+                 GROUP BY v.placeId
+             ),
+             tagsByItemId(itemId, tagIds) AS (
+                 /* But here, we can use a plain `SUM`, since we're grouping by
+                    item ID, and an item can't have duplicate tags thanks to the
+                    primary key on the relation table. */
+                 SELECT t.itemId, SUM(t.tagId)
+                 FROM moz_bookmarks_synced_tag_relation t
+                 GROUP BY t.itemId
+             )
+             UPDATE moz_bookmarks_synced SET
+                 validity = {reupload}
+             WHERE validity = {valid} AND id IN (
+                 SELECT v.id FROM moz_bookmarks_synced v
+                 JOIN tagsByPlaceId u ON v.placeId = u.placeId
+                 /* This left join is important: if A1 has tags and A2 doesn't,
+                    we want to flag A2 for reupload. */
+                 LEFT JOIN tagsByItemId t ON t.itemId = v.id
+                 /* Unlike `<>`, `IS NOT` compares NULLs. */
+                 WHERE t.tagIds IS NOT u.tagIds
+             )",
+            reupload = SyncedBookmarkValidity::Reupload as u8,
+            valid = SyncedBookmarkValidity::Valid as u8,
+        );
+        self.store.db.execute_batch(&sql)?;
+
+        Ok(())
     }
 
     /// Creates a local tree item from a row in the `localItems` CTE.
