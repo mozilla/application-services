@@ -18,3 +18,12 @@
   See [`onpushsubscriptionchange`][0] events on how this change can be propagated to notify web content.
 
 [0]: https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerGlobalScope/onpushsubscriptionchange
+
+## Places
+
+### What's fixed
+
+- Improve handling of tags for bookmarks with the same URL. These bookmarks no
+  longer cause syncs to fail ([#2750](https://github.com/mozilla/application-services/pull/2750)),
+  and bookmarks with duplicate or mismatched tags are reuploaded
+  ([#2774](https://github.com/mozilla/application-services/pull/2774)).

@@ -2055,11 +2055,446 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_complex_bookmark_tags() -> Result<()> {
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+
+        // Insert two local bookmarks with the same URL A (so they'll have
+        // identical tags) and a third with a different URL B, but one same
+        // tag as A.
+        let local_bookmarks = &[
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkAAA1".into()),
+                url: Url::parse("http://example.com/a").unwrap(),
+                title: Some("A1".into()),
+            }
+            .into(),
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Menu.as_guid(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkAAA2".into()),
+                url: Url::parse("http://example.com/a").unwrap(),
+                title: Some("A2".into()),
+            }
+            .into(),
+            &InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.as_guid(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some("bookmarkBBBB".into()),
+                url: Url::parse("http://example.com/b").unwrap(),
+                title: Some("B".into()),
+            }
+            .into(),
+        ];
+        let local_tags = &[
+            ("http://example.com/a", vec!["one", "two"]),
+            (
+                "http://example.com/b",
+                // Local duplicate tags should be ignored.
+                vec!["two", "three", "three", "four"],
+            ),
+        ];
+        for bm in local_bookmarks {
+            insert_bookmark(&writer, bm)?;
+        }
+        for (url, tags) in local_tags {
+            let url = Url::parse(url)?;
+            for t in tags.iter() {
+                tags::tag_url(&writer, &url, t)?;
+            }
+        }
+
+        // Now for some fun server data. Only B and C have problems; D and E
+        // are fine, and shouldn't be reuploaded.
+        let remote_records = json!([{
+            // Change B's tags on the server, and duplicate `two` for good
+            // measure. We should reupload B with only one `two` tag.
+            "id": "bookmarkBBBB",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "B",
+            "bmkUri": "http://example.com/b",
+            "tags": ["two", "two", "three", "eight"],
+        }, {
+            // C is an example of bad data on the server: bookmarks with the
+            // same URL should have the same tags, but C1/C2 have different tags
+            // than C3. We should reupload all of them.
+            "id": "bookmarkCCC1",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "C1",
+            "bmkUri": "http://example.com/c",
+            "tags": ["four", "five", "six"],
+        }, {
+            "id": "bookmarkCCC2",
+            "type": "bookmark",
+            "parentid": "menu",
+            "parentName": "Menu",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "C2",
+            "bmkUri": "http://example.com/c",
+            "tags": ["four", "five", "six"],
+        }, {
+            "id": "bookmarkCCC3",
+            "type": "bookmark",
+            "parentid": "menu",
+            "parentName": "Menu",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "C3",
+            "bmkUri": "http://example.com/c",
+            "tags": ["six", "six", "seven"],
+        }, {
+            // D has the same tags as C1/2, but a different URL. This is
+            // perfectly fine, since URLs and tags are many-many! D also
+            // isn't duplicated, so it'll be filtered out by the
+            // `HAVING COUNT(*) > 1` clause.
+            "id": "bookmarkDDDD",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "D",
+            "bmkUri": "http://example.com/d",
+            "tags": ["four", "five", "six"],
+        }, {
+            // E1 and E2 have the same URLs and the same tags, so we shouldn't
+            // reupload either.
+            "id": "bookmarkEEE1",
+            "type": "bookmark",
+            "parentid": "toolbar",
+            "parentName": "Toolbar",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "E1",
+            "bmkUri": "http://example.com/e",
+            "tags": ["nine", "ten", "eleven"],
+        }, {
+            "id": "bookmarkEEE2",
+            "type": "bookmark",
+            "parentid": "mobile",
+            "parentName": "Mobile",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "E2",
+            "bmkUri": "http://example.com/e",
+            "tags": ["nine", "ten", "eleven"],
+        }, {
+            // F1 and F2 have mismatched tags, but with a twist: F2 doesn't
+            // have _any_ tags! We should only reupload F2.
+            "id": "bookmarkFFF1",
+            "type": "bookmark",
+            "parentid": "toolbar",
+            "parentName": "Toolbar",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "F1",
+            "bmkUri": "http://example.com/f",
+            "tags": ["twelve"],
+        }, {
+            "id": "bookmarkFFF2",
+            "type": "bookmark",
+            "parentid": "mobile",
+            "parentName": "Mobile",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "F2",
+            "bmkUri": "http://example.com/f",
+        }, {
+            "id": "unfiled",
+            "type": "folder",
+            "parentid": "root",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "Unfiled",
+            "children": ["bookmarkBBBB", "bookmarkCCC1", "bookmarkDDDD"],
+        }, {
+            "id": "menu",
+            "type": "folder",
+            "parentid": "root",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "Menu",
+            "children": ["bookmarkCCC2", "bookmarkCCC3"],
+        }, {
+            "id": "toolbar",
+            "type": "folder",
+            "parentid": "root",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "Toolbar",
+            "children": ["bookmarkEEE1", "bookmarkFFF1"],
+        }, {
+            "id": "mobile",
+            "type": "folder",
+            "parentid": "root",
+            "dateAdded": 1_381_542_355_843u64,
+            "title": "Mobile",
+            "children": ["bookmarkEEE2", "bookmarkFFF2"],
+        }]);
+
+        // Boilerplate to apply incoming records, since we want to check
+        // outgoing record contents.
+        let syncer = api.open_sync_connection()?;
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
+        if let Value::Array(records) = remote_records {
+            for record in records {
+                let payload = Payload::from_json(record).unwrap();
+                incoming.changes.push((payload, ServerTimestamp(0)));
+            }
+        } else {
+            unreachable!("JSON records must be an array");
+        }
+        let mut outgoing = store
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
+            .expect("Should apply incoming and stage outgoing records with tags");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        // Verify that we applied all incoming records correctly.
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Root.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Root.as_guid(),
+                "children": [{
+                    "guid": &BookmarkRootGuid::Menu.as_guid(),
+                    "children": [{
+                        "guid": "bookmarkCCC2",
+                        "title": "C2",
+                        "url": "http://example.com/c",
+                    }, {
+                        "guid": "bookmarkCCC3",
+                        "title": "C3",
+                        "url": "http://example.com/c",
+                    }, {
+                        "guid": "bookmarkAAA2",
+                        "title": "A2",
+                        "url": "http://example.com/a",
+                    }],
+                }, {
+                    "guid": &BookmarkRootGuid::Toolbar.as_guid(),
+                    "children": [{
+                        "guid": "bookmarkEEE1",
+                        "title": "E1",
+                        "url": "http://example.com/e",
+                    }, {
+                        "guid": "bookmarkFFF1",
+                        "title": "F1",
+                        "url": "http://example.com/f",
+                    }],
+                }, {
+                    "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                    "children": [{
+                        "guid": "bookmarkBBBB",
+                        "title": "B",
+                        "url": "http://example.com/b",
+                    }, {
+                        "guid": "bookmarkCCC1",
+                        "title": "C1",
+                        "url": "http://example.com/c",
+                    }, {
+                        "guid": "bookmarkDDDD",
+                        "title": "D",
+                        "url": "http://example.com/d",
+                    }, {
+                        "guid": "bookmarkAAA1",
+                        "title": "A1",
+                        "url": "http://example.com/a",
+                    }],
+                }, {
+                    "guid": &BookmarkRootGuid::Mobile.as_guid(),
+                    "children": [{
+                        "guid": "bookmarkEEE2",
+                        "title": "E2",
+                        "url": "http://example.com/e",
+                    }, {
+                        "guid": "bookmarkFFF2",
+                        "title": "F2",
+                        "url": "http://example.com/f",
+                    }],
+                }],
+            }),
+        );
+        // And verify our local tags are correct, too.
+        let expected_local_tags = &[
+            ("http://example.com/a", vec!["one", "two"]),
+            ("http://example.com/b", vec!["eight", "three", "two"]),
+            ("http://example.com/c", vec!["five", "four", "seven", "six"]),
+            ("http://example.com/d", vec!["five", "four", "six"]),
+            ("http://example.com/e", vec!["eleven", "nine", "ten"]),
+            ("http://example.com/f", vec!["twelve"]),
+        ];
+        for (href, expected) in expected_local_tags {
+            let mut actual = tags::get_tags_for_url(&writer, &Url::parse(href).unwrap())?;
+            actual.sort();
+            assert_eq!(&actual, expected);
+        }
+
+        let expected_outgoing_ids = &[
+            "bookmarkAAA1", // A is new locally.
+            "bookmarkAAA2",
+            "bookmarkBBBB", // B has a duplicate tag.
+            "bookmarkCCC1", // C has mismatched tags.
+            "bookmarkCCC2",
+            "bookmarkCCC3",
+            "bookmarkFFF2", // F2 is missing tags.
+            "menu",         // Roots always get uploaded on the first sync.
+            "mobile",
+            "toolbar",
+            "unfiled",
+        ];
+        assert_eq!(
+            outgoing
+                .changes
+                .iter()
+                .map(|p| p.id.as_str())
+                .collect::<Vec<_>>(),
+            expected_outgoing_ids,
+            "Should upload new bookmarks and fix up tags",
+        );
+
+        // Now push the records back to the store, so we can check what we're
+        // uploading.
+        store
+            .sync_finished(
+                ServerTimestamp(0),
+                expected_outgoing_ids.iter().map(SyncGuid::from).collect(),
+            )
+            .expect("Should push synced changes back to the store");
+
+        // A and C should have the same URL and tags, and should be valid now.
+        // Because the builder methods take a `&mut SyncedBookmarkItem`, and we
+        // want to hang on to our base items for cloning later, we can't use
+        // one-liners to create them.
+        let mut synced_item_for_a = SyncedBookmarkItem::new();
+        synced_item_for_a
+            .validity(SyncedBookmarkValidity::Valid)
+            .kind(SyncedBookmarkKind::Bookmark)
+            .url(Some("http://example.com/a"))
+            .tags(["one", "two"].iter().map(|&tag| tag.into()).collect());
+        let mut synced_item_for_b = SyncedBookmarkItem::new();
+        synced_item_for_b
+            .validity(SyncedBookmarkValidity::Valid)
+            .kind(SyncedBookmarkKind::Bookmark)
+            .url(Some("http://example.com/b"))
+            .tags(
+                ["eight", "three", "two"]
+                    .iter()
+                    .map(|&tag| tag.into())
+                    .collect(),
+            )
+            .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+            .title(Some("B"));
+        let mut synced_item_for_c = SyncedBookmarkItem::new();
+        synced_item_for_c
+            .validity(SyncedBookmarkValidity::Valid)
+            .kind(SyncedBookmarkKind::Bookmark)
+            .url(Some("http://example.com/c"))
+            .tags(
+                ["five", "four", "seven", "six"]
+                    .iter()
+                    .map(|&tag| tag.into())
+                    .collect(),
+            );
+        let mut synced_item_for_f = SyncedBookmarkItem::new();
+        synced_item_for_f
+            .validity(SyncedBookmarkValidity::Valid)
+            .kind(SyncedBookmarkKind::Bookmark)
+            .url(Some("http://example.com/f"))
+            .tags(vec!["twelve".into()]);
+        type Test<'a> = &'a [(
+            &'static str,
+            &'a SyncedBookmarkItem,
+            Option<Box<dyn Fn(&mut SyncedBookmarkItem) -> &mut SyncedBookmarkItem>>,
+        )];
+        // A table-driven test to clean up some of the boilerplate. We clone
+        // the base item for each test, and pass it to the boxed closure to set
+        // additional properties.
+        let expected_synced_items: Test<'_> = &[
+            (
+                "bookmarkAAA1",
+                &synced_item_for_a,
+                Some(Box::new(|a| {
+                    a.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                        .title(Some("A1"))
+                })),
+            ),
+            (
+                "bookmarkAAA2",
+                &synced_item_for_a,
+                Some(Box::new(|a| {
+                    a.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                        .title(Some("A2"))
+                })),
+            ),
+            ("bookmarkBBBB", &synced_item_for_b, None),
+            (
+                "bookmarkCCC1",
+                &synced_item_for_c,
+                Some(Box::new(|c| {
+                    c.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                        .title(Some("C1"))
+                })),
+            ),
+            (
+                "bookmarkCCC2",
+                &synced_item_for_c,
+                Some(Box::new(|c| {
+                    c.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                        .title(Some("C2"))
+                })),
+            ),
+            (
+                "bookmarkCCC3",
+                &synced_item_for_c,
+                Some(Box::new(|c| {
+                    c.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                        .title(Some("C3"))
+                })),
+            ),
+            (
+                // We didn't reupload F1, but let's make sure it's still valid.
+                "bookmarkFFF1",
+                &synced_item_for_f,
+                Some(Box::new(|f| {
+                    f.parent_guid(Some(&BookmarkRootGuid::Toolbar.as_guid()))
+                        .title(Some("F1"))
+                })),
+            ),
+            (
+                "bookmarkFFF2",
+                &synced_item_for_f,
+                Some(Box::new(|f| {
+                    f.parent_guid(Some(&BookmarkRootGuid::Mobile.as_guid()))
+                        .title(Some("F2"))
+                })),
+            ),
+        ];
+        for (guid, base, func) in expected_synced_items {
+            let actual = SyncedBookmarkItem::get(&writer, &SyncGuid::from(guid))?
+                .expect("Expected remote item should exist");
+            let mut expected = SyncedBookmarkItem::clone(base);
+            match func {
+                Some(f) => assert_eq!(&actual, f(&mut expected)),
+                None => assert_eq!(actual, expected),
+            }
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn test_apply_bookmark_tags() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
 
-        // insert local with tags
+        // Insert local item with tagged URL.
         insert_bookmark(
             &writer,
             &InsertableBookmark {
@@ -2131,9 +2566,6 @@ mod tests {
         tags_for_c.sort();
         assert_eq!(tags_for_c, vec!["three".to_owned()]);
 
-        // but doesn't put tags in the mirror? why?
-
-        // does it delete tags? or just not upload them?
         let synced_item_for_a = SyncedBookmarkItem::get(&writer, &"bookmarkAAAA".into())
             .expect("Should fetch A")
             .expect("A should exist");
