@@ -130,6 +130,65 @@ mod test {
         }).to_string();
     }
 
+    lazy_static::lazy_static! {
+        pub static ref SCHEMA2: String = json!({
+            "version": "2.0.0",
+            "name": "logins-examplev2",
+            "legacy": true,
+            "fields": [
+                {
+                    "name": "id",
+                    "type": "own_guid"
+                },
+                {
+                    "name": "formSubmitUrl",
+                    "type": "url",
+                    "is_origin": true,
+                    "local_name": "formActionOrigin"
+                },
+                {
+                    "name": "httpRealm",
+                    "type": "text",
+                    "composite_root": "formSubmitUrl"
+                },
+                {
+                    "name": "timesUsed",
+                    "type": "integer",
+                    "merge": "take_sum"
+                },
+                {
+                    "name": "hostname",
+                    "local_name": "origin",
+                    "type": "url",
+                    "is_origin": true,
+                    "required": true
+                },
+                {
+                    "name": "password",
+                    "type": "text",
+                    "required": true
+                },
+                {
+                    "name": "username",
+                    "type": "text"
+                },
+                {
+                    "name": "is_deleted",
+                    "type": "boolean"
+                },
+                {
+                    "name": "extra",
+                    "type": "untyped_map",
+                },
+            ],
+            "dedupe_on": [
+                "username",
+                "password",
+                "hostname"
+            ]
+        }).to_string();
+    }
+
     #[test]
     fn test_init() {
         let e: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA).unwrap();
@@ -138,7 +197,36 @@ mod test {
 
     #[test]
     fn test_migrate_records() {
+        let e: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA).unwrap();
+        assert_eq!(e.bundle().collection_name(), "logins-example");
 
+        let id = e
+            .insert(json!({
+                "username": "test",
+                "password": "p4ssw0rd",
+                "origin": "https://www.example.com",
+                "formActionOrigin": "https://login.example.com",
+            }))
+            .unwrap();
+        assert!(e.exists(&id).unwrap());
+        let r = e.get(&id).unwrap().expect("should exist");
+
+        let e2: RemergeEngine = RemergeEngine::open_in_memory(&*SCHEMA2).unwrap();
+        assert_eq!(e2.bundle().collection_name(), "logins-examplev2");
+
+        let id2 = e2
+            .insert(json!({
+                "username": "test2",
+                "password": "p4ssw0rd2",
+                "origin": "https://www.example2.com",
+                "formActionOrigin": "https://login.example2.com",
+                "is_deleted": false,
+            }))
+            .unwrap();
+        assert!(e2.exists(&id2).unwrap());
+        let r2 = e2.get(&id2).unwrap().expect("should exist");
+
+        assert_eq!(2, 3);
     }
 
     #[test]

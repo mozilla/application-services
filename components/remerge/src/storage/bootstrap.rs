@@ -27,6 +27,7 @@ pub(super) fn load_or_bootstrap(
     db: &Connection,
     native: super::NativeSchemaAndText<'_>,
 ) -> Result<(SchemaBundle, Guid)> {
+    println!("URGHHH!! {:?}", meta::try_get::<String>(db, meta::COLLECTION_NAME));
     if let Some(name) = meta::try_get::<String>(db, meta::COLLECTION_NAME)? {
         let native = native.parsed;
         if name != native.name {
@@ -48,10 +49,16 @@ pub(super) fn load_or_bootstrap(
             native: Arc::new(previous_native.clone()),
             collection_name: name.to_string(),
         };
+        // println!("GOT HERE! {}, {}", native_ver, native.version.to_string());
 
         if native_ver != native.version.to_string() {
             // XXX migrate existing records here!
-            // migrate_records(&db, &previous_bundle, &new_bundle)?;
+            let new_bundle = SchemaBundle {
+                local: Arc::new(parsed),
+                native: native.clone(),
+                collection_name: name.to_string(),
+            };
+            migrate_records(&db, &previous_bundle, &new_bundle)?;
             let native_ver = semver::Version::parse(&*native_ver)
                 .expect("previously-written version is no longer semver");
             if native.version < native_ver {
@@ -163,7 +170,6 @@ fn migrate_records(
         let new_native_record = NativeRecord::new_unchecked(new_record_data);
         let (id, record) = new_native.native_to_local(&new_native_record, ToLocalReason::Creation)?;
     }
-
     // x Apply field restrictions from the new schema where applicable (min, max, etc. via the `field.validate` function).
 
     // TODO: Insert updated records into `rec_local` with the new schema version number in the `remerge_schema_version` field.
