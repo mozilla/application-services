@@ -267,11 +267,11 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "failure_derive": {
         "repository": {
-            "check": "https://github.com/withoutboats/failure_derive",
+            "check": "https://github.com/rust-lang-nursery/failure",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/withoutboats/failure_derive/master/LICENSE-APACHE",
+            "fixup": "https://raw.githubusercontent.com/rust-lang-nursery/failure/master/LICENSE-APACHE",
         }
     },
     "fxhash": {

@@ -445,7 +445,7 @@ The following text applies to code linked from these dependencies:
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
 [env_logger](https://github.com/sebasmagri/env_logger/),
 [failure](https://github.com/rust-lang-nursery/failure),
-[failure_derive](https://github.com/withoutboats/failure_derive),
+[failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fixedbitset](https://github.com/bluss/fixedbitset),
