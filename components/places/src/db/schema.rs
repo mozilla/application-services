@@ -18,7 +18,7 @@ use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 9;
+const VERSION: i64 = 10;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -215,6 +215,17 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
                  WHERE syncStatus = {}",
                 SyncStatus::New as u8
             ),
+        ],
+        || Ok(()),
+    )?;
+    migration(
+        db,
+        9,
+        10,
+        &[
+            // Add an index for synced bookmark URLs.
+            "CREATE INDEX IF NOT EXISTS moz_bookmarks_synced_urls
+             ON moz_bookmarks_synced(placeId)",
         ],
         || Ok(()),
     )?;

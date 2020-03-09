@@ -13,7 +13,7 @@ use crate::storage::{
 use rusqlite::Connection;
 use serde_json::Value as JsonValue;
 use sql_support::{self, ConnExt};
-use std::iter;
+use std::{collections::HashSet, iter};
 use sync15::ServerTimestamp;
 use sync_guid::Guid as SyncGuid;
 use url::Url;
@@ -66,15 +66,38 @@ impl<'a> IncomingApplicator<'a> {
         let title = unpack_optional_str("title", b, &mut validity);
         let keyword = unpack_optional_str("keyword", b, &mut validity);
 
-        let mut tags = vec![];
-        if let Some(array) = b["tags"].as_array() {
+        let raw_tags = &b["tags"];
+        let tags = if let Some(array) = raw_tags.as_array() {
+            let mut seen = HashSet::with_capacity(array.len());
             for v in array {
                 if let JsonValue::String(s) = v {
-                    tags.push(validate_tag(&s));
+                    let tag = match validate_tag(&s) {
+                        ValidatedTag::Invalid(t) => {
+                            log::trace!("Incoming bookmark has invalid tag: {:?}", t);
+                            set_reupload(&mut validity);
+                            continue;
+                        }
+                        ValidatedTag::Normalized(t) => {
+                            set_reupload(&mut validity);
+                            t
+                        }
+                        ValidatedTag::Original(t) => t,
+                    };
+                    if !seen.insert(tag) {
+                        log::trace!("Incoming bookmark has duplicate tag: {:?}", tag);
+                        set_reupload(&mut validity);
+                    }
                 } else {
+                    log::trace!("Incoming bookmark has unexpected tag: {:?}", v);
                     set_reupload(&mut validity);
                 }
             }
+            seen
+        } else {
+            if !raw_tags.is_array() {
+                log::trace!("Incoming bookmark has unexpected tags list: {:?}", raw_tags);
+            }
+            HashSet::new()
         };
 
         let url = unpack_optional_str("bmkUri", b, &mut validity);
@@ -87,15 +110,6 @@ impl<'a> IncomingApplicator<'a> {
                 None
             }
         };
-
-        for t in &tags {
-            if !t.is_original() && validity < SyncedBookmarkValidity::Reupload {
-                // The bookmark has a valid URL, but invalid or normalized tags. We
-                // can apply it, but should also reupload it with the new tags.
-                validity = SyncedBookmarkValidity::Reupload;
-                break;
-            }
-        }
 
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
@@ -125,27 +139,19 @@ impl<'a> IncomingApplicator<'a> {
             ],
         )?;
         for t in tags {
-            match t {
-                ValidatedTag::Invalid(ref t) => {
-                    log::trace!("Ignoring invalid tag on incoming bookmark: {:?}", t);
-                    continue;
-                }
-                ValidatedTag::Normalized(ref t) | ValidatedTag::Original(ref t) => {
-                    self.db.execute_named_cached(
-                        "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
-                         VALUES(:tag, now())",
-                        &[(":tag", t)],
-                    )?;
-                    self.db.execute_named_cached(
-                        "INSERT INTO moz_bookmarks_synced_tag_relation(itemId, tagId)
-                         VALUES((SELECT id FROM moz_bookmarks_synced
-                                 WHERE guid = :guid),
-                                (SELECT id FROM moz_tags
-                                 WHERE tag = :tag))",
-                        &[(":guid", &record_id.as_guid().as_str()), (":tag", t)],
-                    )?;
-                }
-            };
+            self.db.execute_named_cached(
+                "INSERT OR IGNORE INTO moz_tags(tag, lastModified)
+                 VALUES(:tag, now())",
+                &[(":tag", &t)],
+            )?;
+            self.db.execute_named_cached(
+                "INSERT INTO moz_bookmarks_synced_tag_relation(itemId, tagId)
+                 VALUES((SELECT id FROM moz_bookmarks_synced
+                         WHERE guid = :guid),
+                        (SELECT id FROM moz_tags
+                         WHERE tag = :tag))",
+                &[(":guid", &record_id.as_guid().as_str()), (":tag", &t)],
+            )?;
         }
         Ok(())
     }

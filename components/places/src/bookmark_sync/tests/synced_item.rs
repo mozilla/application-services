@@ -24,7 +24,7 @@ use url::Url;
 /// target of the comparison. We use this instead of Option<> so that we
 /// can correctly check Option<> fields (ie, so that None isn't ambiguous
 /// between "no value specified" and "value is exactly None"
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum SyncedBookmarkValue<T> {
     Unspecified,
     Specified(T),
@@ -48,7 +48,7 @@ where
     }
 }
 
-#[derive(Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct SyncedBookmarkItem {
     pub id: SyncedBookmarkValue<RowId>,
     pub guid: SyncedBookmarkValue<SyncGuid>,
