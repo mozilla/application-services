@@ -164,8 +164,8 @@ impl<'a> IncomingApplicator<'a> {
         let date_added = unpack_optional_i64("dateAdded", f, &mut validity);
         let title = unpack_optional_str("title", f, &mut validity);
 
-        let mut children: Vec<BookmarkRecordId> = vec![];
-        if let Some(array) = f["children"].as_array() {
+        let children = if let Some(array) = f["children"].as_array() {
+            let mut children = Vec::with_capacity(array.len());
             for v in array {
                 if v.is_string() {
                     children.push(BookmarkRecordId::from_payload_id(
@@ -177,6 +177,9 @@ impl<'a> IncomingApplicator<'a> {
                     );
                 }
             }
+            children
+        } else {
+            vec![]
         };
 
         self.db.execute_named_cached(
@@ -244,15 +247,16 @@ impl<'a> IncomingApplicator<'a> {
         Ok(())
     }
 
-    fn determine_query_url_and_validity(
+    fn maybe_rewrite_and_store_query_url(
         &self,
         tag_folder_name: Option<&str>,
         record_id: &BookmarkRecordId,
         url: Url,
-    ) -> Result<(Option<Url>, SyncedBookmarkValidity)> {
+        validity: &mut SyncedBookmarkValidity,
+    ) -> Result<Option<Url>> {
         // wow - this  is complex, but markh is struggling to see how to
         // improve it
-        let (maybe_url, validity) = {
+        let maybe_url = {
             // If the URL has `type={RESULTS_AS_TAG_CONTENTS}` then we
             // rewrite the URL as `place:tag=...`
             // Sadly we can't use `url.query_pairs()` here as the format of
@@ -267,10 +271,17 @@ impl<'a> IncomingApplicator<'a> {
                     validate_tag(t)
                         .ensure_valid()
                         .and_then(|tag| Ok(Url::parse(&format!("place:tag={}", tag))?))
-                        .map(|url| (Some(url), SyncedBookmarkValidity::Reupload))
-                        .unwrap_or((None, SyncedBookmarkValidity::Replace))
+                        .map(|url| {
+                            set_reupload(validity);
+                            Some(url)
+                        })
+                        .unwrap_or_else(|_| {
+                            set_replace(validity);
+                            None
+                        })
                 } else {
-                    (None, SyncedBookmarkValidity::Replace)
+                    set_replace(validity);
+                    None
                 }
             } else {
                 // If we have `folder=...` the folder value is a row_id
@@ -278,7 +289,7 @@ impl<'a> IncomingApplicator<'a> {
                 // if it isn't already there.
                 if parse.clone().any(|(k, _)| k == "folder") {
                     if parse.clone().any(|(k, v)| k == "excludeItems" && v == "1") {
-                        (Some(url), SyncedBookmarkValidity::Valid)
+                        Some(url)
                     } else {
                         // need to add excludeItems, and I guess we should do
                         // it properly without resorting to string manipulation...
@@ -286,28 +297,28 @@ impl<'a> IncomingApplicator<'a> {
                             .extend_pairs(parse.clone())
                             .append_pair("excludeItems", "1")
                             .finish();
-                        (
-                            Some(Url::parse(&format!("place:{}", tail))?),
-                            SyncedBookmarkValidity::Reupload,
-                        )
+                        set_reupload(validity);
+                        Some(Url::parse(&format!("place:{}", tail))?)
                     }
                 } else {
                     // it appears to be fine!
-                    (Some(url), SyncedBookmarkValidity::Valid)
+                    Some(url)
                 }
             }
         };
         Ok(match self.maybe_store_url(maybe_url) {
-            Ok(url) => (Some(url), validity),
+            Ok(url) => Some(url),
             Err(e) => {
                 log::warn!("query {} has invalid URL: {:?}", record_id.as_guid(), e);
-                (None, SyncedBookmarkValidity::Replace)
+                set_replace(validity);
+                None
             }
         })
     }
 
     fn store_incoming_query(&self, modified: ServerTimestamp, q: &JsonValue) -> Result<()> {
         let mut validity = SyncedBookmarkValidity::Valid;
+
         let record_id = unpack_id("id", q)?;
         let parent_record_id = unpack_optional_id("parentid", q);
         let date_added = unpack_optional_i64("dateAdded", q, &mut validity);
@@ -315,17 +326,19 @@ impl<'a> IncomingApplicator<'a> {
         let url = unpack_optional_str("bmkUri", q, &mut validity);
         let tag_folder_name = unpack_optional_str("folderName", q, &mut validity);
 
-        let (url, url_validity) = match url.and_then(|href| Url::parse(href).ok()) {
-            Some(url) => self.determine_query_url_and_validity(tag_folder_name, &record_id, url)?,
+        let url = match url.and_then(|href| Url::parse(href).ok()) {
+            Some(url) => self.maybe_rewrite_and_store_query_url(
+                tag_folder_name,
+                &record_id,
+                url,
+                &mut validity,
+            )?,
             None => {
                 log::warn!("query {} has invalid URL", &record_id.as_guid(),);
-                (None, SyncedBookmarkValidity::Replace)
+                set_replace(&mut validity);
+                None
             }
         };
-
-        if validity < url_validity {
-            validity = url_validity;
-        }
 
         self.db.execute_named_cached(
             r#"REPLACE INTO moz_bookmarks_synced(guid, parentGuid, serverModified, needsMerge, kind,
@@ -391,8 +404,8 @@ impl<'a> IncomingApplicator<'a> {
         let feed_url = validate_href(feed_url, &record_id.as_guid(), "feed");
         let site_url = validate_href(site_url, &record_id.as_guid(), "site");
 
-        if feed_url.is_none() && validity < SyncedBookmarkValidity::Replace {
-            validity = SyncedBookmarkValidity::Replace;
+        if feed_url.is_none() {
+            set_replace(&mut validity);
         }
 
         self.db.execute_named_cached(
