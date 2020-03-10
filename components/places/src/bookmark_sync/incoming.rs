@@ -51,7 +51,11 @@ impl<'a> IncomingApplicator<'a> {
                 Some("folder") => self.store_incoming_folder(timestamp, &value)?,
                 Some("livemark") => self.store_incoming_livemark(timestamp, &value)?,
                 Some("separator") => self.store_incoming_sep(timestamp, &value)?,
-                t => log::warn!("Incoming payload has invalid type: {:?}", t),
+                _ => {
+                    return Err(
+                        ErrorKind::UnsupportedIncomingBookmarkType(value["type"].clone()).into(),
+                    )
+                }
             };
         }
         Ok(())
@@ -859,5 +863,28 @@ mod tests {
                 .feed_url(Some("http://example.com/"))
                 .site_url(Some("http://example.com/something")),
         );
+    }
+
+    #[test]
+    fn test_apply_unknown() {
+        let api = new_mem_api();
+        let conn = api.open_sync_connection().expect("should get a connection");
+        let applicator = IncomingApplicator::new(&conn);
+
+        let record = json!({
+            "id": "unknownAAAA",
+            "type": "fancy",
+        });
+        let payload = Payload::from_json(record).unwrap();
+        match applicator
+            .apply_payload(payload, ServerTimestamp(0))
+            .expect_err("Should not apply record with unknown type")
+            .kind()
+        {
+            ErrorKind::UnsupportedIncomingBookmarkType(t) => {
+                assert_eq!(t.as_str().unwrap(), "fancy")
+            }
+            kind => panic!("Wrong error kind for unknown type: {:?}", kind),
+        }
     }
 }
