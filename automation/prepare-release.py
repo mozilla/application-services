@@ -47,8 +47,11 @@ cur_version_full = f"v{cur_version}"
 
 if release_type == "major":
     major += 1
+    minor = 0
+    patch = 0
 elif release_type == "minor":
     minor += 1
+    patch = 0
 elif release_type == "patch":
     patch += 1
 
