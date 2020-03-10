@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.53.2...master)
 
+## General
+
+### What's changed
+
+- iOS: Xcode version changed to 11.3.1 from 11.3.0.
+
 ## Rust
 
 ### What's New
