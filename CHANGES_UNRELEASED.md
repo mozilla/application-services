@@ -27,3 +27,10 @@
   longer cause syncs to fail ([#2750](https://github.com/mozilla/application-services/pull/2750)),
   and bookmarks with duplicate or mismatched tags are reuploaded
   ([#2774](https://github.com/mozilla/application-services/pull/2774)).
+
+### Breaking changes
+
+- Synced items with unknown types now fail the sync, instead of being silently
+  ignored. We'll monitor this error in telemetry, and add logic to delete these
+  items on the server if needed
+  ([#2780](https://github.com/mozilla/application-services/pull/2780)).

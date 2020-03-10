@@ -7,6 +7,7 @@ use crate::types::BookmarkType;
 use dogear;
 use failure::Fail;
 use interrupt::Interrupted;
+use serde_json::Value as JsonValue;
 
 // Note: If you add new error types that should be returned to consumers on the other side of the
 // FFI, update `get_code` in `ffi.rs`
@@ -52,7 +53,7 @@ pub enum ErrorKind {
     MissingBookmarkKind,
 
     #[fail(display = "Incoming bookmark has unsupported type {}", _0)]
-    UnsupportedIncomingBookmarkType(String),
+    UnsupportedIncomingBookmarkType(JsonValue),
 
     #[fail(display = "Synced bookmark has unsupported kind {}", _0)]
     UnsupportedSyncedBookmarkKind(u8),
