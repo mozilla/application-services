@@ -678,10 +678,8 @@ pub struct OAuthAuthResponse {
 #[derive(Deserialize)]
 pub struct IntrospectResponse {
     pub active: bool,
-    pub token_type: String,
-    pub scope: Option<String>,
-    pub exp: Option<u64>,
-    pub iss: Option<String>,
+    // Technically the response has a lot of other fields,
+    // but in practice we only use `active`.
 }
 
 #[derive(Clone, Serialize, Deserialize)]

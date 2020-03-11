@@ -76,13 +76,7 @@ impl From<AccessTokenInfo> for msg_types::AccessTokenInfo {
 
 impl From<IntrospectInfo> for msg_types::IntrospectInfo {
     fn from(a: IntrospectInfo) -> Self {
-        msg_types::IntrospectInfo {
-            active: a.active,
-            token_type: a.token_type,
-            scope: a.scope,
-            exp: a.exp,
-            iss: a.iss,
-        }
+        msg_types::IntrospectInfo { active: a.active }
     }
 }
 
