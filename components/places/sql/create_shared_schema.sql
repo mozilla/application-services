@@ -232,6 +232,6 @@ CREATE TABLE IF NOT EXISTS moz_bookmarks_synced_tag_relation(
 -- doesn't write it.
 CREATE TABLE IF NOT EXISTS moz_keywords(
     place_id INTEGER PRIMARY KEY REFERENCES moz_places(id)
-                     ON DELETE CASCADE,
+                     ON DELETE RESTRICT,
     keyword TEXT NOT NULL UNIQUE
 );

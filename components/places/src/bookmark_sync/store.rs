@@ -1739,6 +1739,7 @@ mod tests {
     };
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
+    use rusqlite::{Error as RusqlError, ErrorCode};
     use serde_json::{json, Value};
     use std::{
         borrow::Cow,
@@ -3007,6 +3008,36 @@ mod tests {
             outgoing.changes[0].data["bmkUri"],
             "http://example.com/a/%s"
         );
+
+        // URLs with keywords should have a foreign count of 3 (one for the
+        // local bookmark, one for the synced bookmark, and one for the
+        // keyword), and we shouldn't allow deleting them until the keyword
+        // is removed.
+        let foreign_count = writer
+            .try_query_row(
+                "SELECT foreign_count FROM moz_places
+             WHERE url_hash = hash(:url) AND
+                   url = :url",
+                &[(":url", &"http://example.com/a/%s")],
+                |row| -> rusqlite::Result<_> { Ok(row.get::<_, i64>(0)?) },
+                false,
+            )?
+            .expect("Should fetch foreign count for URL A");
+        assert_eq!(foreign_count, 3);
+        let err = writer
+            .execute_named(
+                "DELETE FROM moz_places
+             WHERE url_hash = hash(:url) AND
+                   url = :url",
+                rusqlite::named_params! {
+                    ":url": "http://example.com/a/%s",
+                },
+            )
+            .expect_err("Should fail to delete URL A with keyword");
+        match err {
+            RusqlError::SqliteFailure(e, _) => assert_eq!(e.code, ErrorCode::ConstraintViolation),
+            _ => panic!("Wanted constraint violation error; got {:?}", err),
+        }
 
         Ok(())
     }
