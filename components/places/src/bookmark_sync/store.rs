@@ -168,12 +168,14 @@ impl<'a> BookmarksStore<'a> {
                                               remoteGuid, newLevel, newKind,
                                               localDateAdded, remoteDateAdded,
                                               lastModified, oldTitle, newTitle,
-                                              oldPlaceId, newPlaceId)
+                                              oldPlaceId, newPlaceId,
+                                              newKeyword)
                      SELECT n.mergedGuid, b.id, v.id,
                             v.guid, n.level, n.remoteType,
                             b.dateAdded, v.dateAdded,
                             MAX(v.dateAdded, {now}), b.title, v.title,
-                            b.fk, v.placeId
+                            b.fk, v.placeId,
+                            v.keyword
                      FROM ops n
                      JOIN moz_bookmarks_synced v ON v.guid = n.remoteGuid
                      LEFT JOIN moz_bookmarks b ON b.guid = n.localGuid",
@@ -450,6 +452,22 @@ impl<'a> BookmarksStore<'a> {
     }
 
     fn apply_remote_items(&self, now: Timestamp) -> Result<()> {
+        // Remove all keywords from old and new URLs, and remove new keywords
+        // from all existing URLs. The `NOT NULL` conditions are important; they
+        // ensure that SQLite uses our partial indexes on `itemsToApply`,
+        // instead of a table scan.
+        log::debug!("Removing old keywords");
+        self.interruptee.err_if_interrupted()?;
+        self.db.execute_batch(
+            "DELETE FROM moz_keywords
+             WHERE place_id IN (SELECT oldPlaceId FROM itemsToApply
+                                WHERE oldPlaceId NOT NULL) OR
+                   place_id IN (SELECT newPlaceId FROM itemsToApply
+                                WHERE newPlaceId NOT NULL) OR
+                   keyword IN (SELECT newKeyword FROM itemsToApply
+                               WHERE newKeyword NOT NULL)",
+        )?;
+
         log::debug!("Removing old tags");
         self.interruptee.err_if_interrupted()?;
         self.db.execute_batch(
@@ -514,6 +532,15 @@ impl<'a> BookmarksStore<'a> {
             bookmark_kind = SyncedBookmarkKind::Bookmark as u8,
         ))?;
 
+        log::debug!("Inserting new keywords for new URLs");
+        self.interruptee.err_if_interrupted()?;
+        self.db.execute_batch(
+            "INSERT OR IGNORE INTO moz_keywords(keyword, place_id)
+             SELECT newKeyword, newPlaceId
+             FROM itemsToApply
+             WHERE newKeyword NOT NULL",
+        )?;
+
         log::debug!("Inserting new tags for new URLs");
         self.interruptee.err_if_interrupted()?;
         self.db.execute_batch(
@@ -557,50 +584,27 @@ impl<'a> BookmarksStore<'a> {
              {}
              JOIN itemsToApply n ON n.mergedGuid = b.guid
              WHERE n.localDateAdded < n.remoteDateAdded",
-            UploadItemsFragment {
-                alias: "b",
-                remote_guid_column_name: "n.remoteGuid",
-            },
+            UploadItemsFragment("b")
         ))?;
 
         log::debug!("Staging remaining locally changed items for upload");
-        sql_support::each_sized_chunk(
+        sql_support::each_chunk_mapped(
             upload_items,
-            sql_support::default_max_variable_number() / 2,
+            |op| op.merged_node.guid.as_str(),
             |chunk, _| -> Result<()> {
                 let sql = format!(
-                    "WITH ops(mergedGuid, remoteGuid) AS (VALUES {vars})
-                     INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
+                    "INSERT OR IGNORE INTO itemsToUpload(id, guid, syncChangeCounter,
                                                       parentGuid, parentTitle,
                                                       dateAdded, kind, title,
                                                       placeId, url, keyword,
                                                       position)
                      {upload_items_fragment}
-                     JOIN ops n ON n.mergedGuid = b.guid",
-                    vars =
-                        sql_support::repeat_display(chunk.len(), ",", |_, f| write!(f, "(?, ?)")),
-                    upload_items_fragment = UploadItemsFragment {
-                        alias: "b",
-                        remote_guid_column_name: "n.remoteGuid",
-                    },
+                     WHERE b.guid IN ({vars})",
+                    vars = sql_support::repeat_sql_vars(chunk.len()),
+                    upload_items_fragment = UploadItemsFragment("b")
                 );
 
-                let mut params = Vec::with_capacity(chunk.len() * 2);
-                for op in chunk.iter() {
-                    self.interruptee.err_if_interrupted()?;
-
-                    let merged_guid = op.merged_node.guid.as_str();
-                    params.push(Some(merged_guid));
-
-                    let remote_guid = op
-                        .merged_node
-                        .merge_state
-                        .remote_node()
-                        .map(|node| node.guid.as_str());
-                    params.push(remote_guid);
-                }
-
-                self.db.execute(&sql, &params)?;
+                self.db.execute(&sql, chunk)?;
                 Ok(())
             },
         )?;
@@ -1141,6 +1145,46 @@ impl<'a> Merger<'a> {
 
     /// Prepares synced bookmarks for merging.
     fn prepare(&self) -> Result<()> {
+        // Sync and Fennec associate keywords with bookmarks, and don't sync
+        // POST data; Rust Places associates them with URLs, and also doesn't
+        // support POST data; Desktop associates keywords with (URL, POST data)
+        // pairs, and multiple bookmarks may have the same URL.
+        //
+        // When a keyword changes, clients should reupload all bookmarks with
+        // the affected URL (bug 1328737). Just in case, we flag any synced
+        // bookmarks that have different keywords for the same URL, or the same
+        // keyword for different URLs, for reupload.
+        self.store.interruptee.err_if_interrupted()?;
+        log::debug!("Flagging bookmarks with mismatched keywords for reupload");
+        let sql = format!(
+            "UPDATE moz_bookmarks_synced SET
+               validity = {reupload}
+             WHERE validity = {valid} AND (
+               placeId IN (
+                 /* Same URL, different keywords. `COUNT` ignores NULLs, so
+                    we need to count them separately. This handles cases where
+                    a keyword was removed from one, but not all bookmarks with
+                    the same URL. */
+                 SELECT placeId FROM moz_bookmarks_synced
+                 GROUP BY placeId
+                 HAVING COUNT(DISTINCT keyword) +
+                        COUNT(DISTINCT CASE WHEN keyword IS NULL
+                                       THEN 1 END) > 1
+               ) OR keyword IN (
+                 /* Different URLs, same keyword. Bookmarks with keywords but
+                    without URLs are already invalid, so we don't need to handle
+                    NULLs here. */
+                 SELECT keyword FROM moz_bookmarks_synced
+                 WHERE keyword NOT NULL
+                 GROUP BY keyword
+                 HAVING COUNT(DISTINCT placeId) > 1
+               )
+             )",
+            reupload = SyncedBookmarkValidity::Reupload as u8,
+            valid = SyncedBookmarkValidity::Valid as u8,
+        );
+        self.store.db.execute_batch(&sql)?;
+
         // Like keywords, Sync associates tags with bookmarks, but Places
         // associates them with URLs. This means multiple bookmarks with the
         // same URL should have the same tags. In practice, different tags for
@@ -1161,8 +1205,8 @@ impl<'a> Merger<'a> {
         // than two string lists! If a bookmark has mismatched tags, the sum of
         // its tag IDs in `tagsByItemId` won't match the sum in `tagsByPlaceId`,
         // and we'll flag the item for reupload.
-        log::debug!("Flagging tags with mismatched URLs for reupload");
         self.store.interruptee.err_if_interrupted()?;
+        log::debug!("Flagging bookmarks with mismatched tags for reupload");
         let sql = format!(
             "WITH
              tagsByPlaceId(placeId, tagIds) AS (
@@ -1536,12 +1580,7 @@ impl fmt::Display for ItemTypeFragment {
 
 /// Formats a `SELECT` statement for staging local items in the `itemsToUpload`
 /// table.
-struct UploadItemsFragment {
-    /// The alias to use for the Places `moz_bookmarks` table.
-    alias: &'static str,
-    /// The name of the column containing the synced item's GUID.
-    remote_guid_column_name: &'static str,
-}
+struct UploadItemsFragment(&'static str);
 
 impl fmt::Display for UploadItemsFragment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1551,16 +1590,14 @@ impl fmt::Display for UploadItemsFragment {
                     p.guid AS parentGuid, p.title AS parentTitle,
                     {alias}.dateAdded, {kind_fragment} AS kind,
                     {alias}.title, h.id AS placeId, h.url,
-                    (SELECT v.keyword FROM moz_bookmarks_synced v
-                     WHERE v.guid = {remote_guid_column_name}),
+                    (SELECT k.keyword FROM moz_keywords k
+                     WHERE k.place_id = h.id) AS keyword,
                     {alias}.position
                 FROM moz_bookmarks {alias}
                 JOIN moz_bookmarks p ON p.id = {alias}.parent
                 LEFT JOIN moz_places h ON h.id = {alias}.fk",
-            alias = self.alias,
-            kind_fragment =
-                item_kind_fragment(self.alias, "type", UrlOrPlaceIdFragment::Url("h.url")),
-            remote_guid_column_name = self.remote_guid_column_name,
+            alias = self.0,
+            kind_fragment = item_kind_fragment(self.0, "type", UrlOrPlaceIdFragment::Url("h.url")),
         )
     }
 }
@@ -1703,11 +1740,43 @@ mod tests {
     use dogear::{Store as DogearStore, Validity};
     use pretty_assertions::assert_eq;
     use serde_json::{json, Value};
-    use std::time::{Duration, SystemTime};
+    use std::{
+        borrow::Cow,
+        time::{Duration, SystemTime},
+    };
     use sync_guid::Guid;
     use url::Url;
 
     use sync15::{CollSyncIds, Payload};
+
+    // A helper type to simplify writing table-driven tests with synced items.
+    struct ExpectedSyncedItem<'a>(SyncGuid, Cow<'a, SyncedBookmarkItem>);
+
+    impl<'a> ExpectedSyncedItem<'a> {
+        fn new(
+            guid: impl Into<SyncGuid>,
+            expected: &'a SyncedBookmarkItem,
+        ) -> ExpectedSyncedItem<'a> {
+            ExpectedSyncedItem(guid.into(), Cow::Borrowed(expected))
+        }
+
+        fn with_properties(
+            guid: impl Into<SyncGuid>,
+            expected: &'a SyncedBookmarkItem,
+            f: impl FnOnce(&mut SyncedBookmarkItem) -> &mut SyncedBookmarkItem + 'static,
+        ) -> ExpectedSyncedItem<'a> {
+            let mut expected = expected.clone();
+            f(&mut expected);
+            ExpectedSyncedItem(guid.into(), Cow::Owned(expected))
+        }
+
+        fn check(&self, conn: &PlacesDb) -> Result<()> {
+            let actual =
+                SyncedBookmarkItem::get(conn, &self.0)?.expect("Expected synced item should exist");
+            assert_eq!(&actual, &*self.1);
+            Ok(())
+        }
+    }
 
     fn apply_incoming(conn: &PlacesDb, remote_time: ServerTimestamp, records_json: Value) {
         // suck records into the store.
@@ -2112,8 +2181,8 @@ mod tests {
             }
         }
 
-        // Now for some fun server data. Only B and C have problems; D and E
-        // are fine, and shouldn't be reuploaded.
+        // Now for some fun server data. Only B, C, and F2 have problems;
+        // D and E are fine, and shouldn't be reuploaded.
         let remote_records = json!([{
             // Change B's tags on the server, and duplicate `two` for good
             // measure. We should reupload B with only one `two` tag.
@@ -2408,82 +2477,47 @@ mod tests {
             .kind(SyncedBookmarkKind::Bookmark)
             .url(Some("http://example.com/f"))
             .tags(vec!["twelve".into()]);
-        type Test<'a> = &'a [(
-            &'static str,
-            &'a SyncedBookmarkItem,
-            Option<Box<dyn Fn(&mut SyncedBookmarkItem) -> &mut SyncedBookmarkItem>>,
-        )];
         // A table-driven test to clean up some of the boilerplate. We clone
         // the base item for each test, and pass it to the boxed closure to set
         // additional properties.
-        let expected_synced_items: Test<'_> = &[
-            (
-                "bookmarkAAA1",
-                &synced_item_for_a,
-                Some(Box::new(|a| {
-                    a.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
-                        .title(Some("A1"))
-                })),
-            ),
-            (
-                "bookmarkAAA2",
-                &synced_item_for_a,
-                Some(Box::new(|a| {
-                    a.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
-                        .title(Some("A2"))
-                })),
-            ),
-            ("bookmarkBBBB", &synced_item_for_b, None),
-            (
-                "bookmarkCCC1",
-                &synced_item_for_c,
-                Some(Box::new(|c| {
-                    c.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
-                        .title(Some("C1"))
-                })),
-            ),
-            (
-                "bookmarkCCC2",
-                &synced_item_for_c,
-                Some(Box::new(|c| {
-                    c.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
-                        .title(Some("C2"))
-                })),
-            ),
-            (
-                "bookmarkCCC3",
-                &synced_item_for_c,
-                Some(Box::new(|c| {
-                    c.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
-                        .title(Some("C3"))
-                })),
-            ),
-            (
+        let expected_synced_items = &[
+            ExpectedSyncedItem::with_properties("bookmarkAAA1", &synced_item_for_a, |a| {
+                a.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                    .title(Some("A1"))
+            }),
+            ExpectedSyncedItem::with_properties("bookmarkAAA2", &synced_item_for_a, |a| {
+                a.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                    .title(Some("A2"))
+            }),
+            ExpectedSyncedItem::new("bookmarkBBBB", &synced_item_for_b),
+            ExpectedSyncedItem::with_properties("bookmarkCCC1", &synced_item_for_c, |c| {
+                c.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                    .title(Some("C1"))
+            }),
+            ExpectedSyncedItem::with_properties("bookmarkCCC2", &synced_item_for_c, |c| {
+                c.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                    .title(Some("C2"))
+            }),
+            ExpectedSyncedItem::with_properties("bookmarkCCC3", &synced_item_for_c, |c| {
+                c.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                    .title(Some("C3"))
+            }),
+            ExpectedSyncedItem::with_properties(
                 // We didn't reupload F1, but let's make sure it's still valid.
                 "bookmarkFFF1",
                 &synced_item_for_f,
-                Some(Box::new(|f| {
+                |f| {
                     f.parent_guid(Some(&BookmarkRootGuid::Toolbar.as_guid()))
                         .title(Some("F1"))
-                })),
+                },
             ),
-            (
-                "bookmarkFFF2",
-                &synced_item_for_f,
-                Some(Box::new(|f| {
-                    f.parent_guid(Some(&BookmarkRootGuid::Mobile.as_guid()))
-                        .title(Some("F2"))
-                })),
-            ),
+            ExpectedSyncedItem::with_properties("bookmarkFFF2", &synced_item_for_f, |f| {
+                f.parent_guid(Some(&BookmarkRootGuid::Mobile.as_guid()))
+                    .title(Some("F2"))
+            }),
         ];
-        for (guid, base, func) in expected_synced_items {
-            let actual = SyncedBookmarkItem::get(&writer, &SyncGuid::from(guid))?
-                .expect("Expected remote item should exist");
-            let mut expected = SyncedBookmarkItem::clone(base);
-            match func {
-                Some(f) => assert_eq!(&actual, f(&mut expected)),
-                None => assert_eq!(actual, expected),
-            }
+        for item in expected_synced_items {
+            item.check(&writer)?;
         }
 
         Ok(())
@@ -2973,6 +3007,266 @@ mod tests {
             outgoing.changes[0].data["bmkUri"],
             "http://example.com/a/%s"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_apply_complex_bookmark_keywords() -> Result<()> {
+        use crate::storage::bookmarks::bookmarks_get_url_for_keyword;
+
+        // We don't provide an API for setting keywords locally, but we'll
+        // still round-trip and fix up keywords on the server.
+
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+
+        // Let's add some remote bookmarks with keywords.
+        let remote_records = json!([{
+            // A1 and A2 have the same URL and keyword, so we shouldn't
+            // reupload them.
+            "id": "bookmarkAAA1",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "title": "A1",
+            "bmkUri": "http://example.com/a",
+            "keyword": "one",
+        }, {
+            "id": "bookmarkAAA2",
+            "type": "bookmark",
+            "parentid": "menu",
+            "parentName": "Menu",
+            "title": "A2",
+            "bmkUri": "http://example.com/a",
+            "keyword": "one",
+        }, {
+            // B1 and B2 have mismatched keywords, and we should reupload
+            // both of them. It's not specified which keyword wins, but
+            // reuploading both means we make them consistent.
+            "id": "bookmarkBBB1",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "title": "B1",
+            "bmkUri": "http://example.com/b",
+            "keyword": "two",
+        }, {
+            "id": "bookmarkBBB2",
+            "type": "bookmark",
+            "parentid": "menu",
+            "parentName": "Menu",
+            "title": "B2",
+            "bmkUri": "http://example.com/b",
+            "keyword": "three",
+        }, {
+            // C1 has a keyword; C2 doesn't. As with B, which one wins
+            // depends on which record we apply last, and how SQLite
+            // processes the rows, but we should reupload both.
+            "id": "bookmarkCCC1",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "title": "C1",
+            "bmkUri": "http://example.com/c",
+            "keyword": "four",
+        }, {
+            "id": "bookmarkCCC2",
+            "type": "bookmark",
+            "parentid": "menu",
+            "parentName": "Menu",
+            "title": "C2",
+            "bmkUri": "http://example.com/c",
+        }, {
+            // D has a keyword that needs to be cleaned up before
+            // inserting. In this case, we intentionally don't reupload.
+            "id": "bookmarkDDDD",
+            "type": "bookmark",
+            "parentid": "unfiled",
+            "parentName": "Unfiled",
+            "title": "D",
+            "bmkUri": "http://example.com/d",
+            "keyword": " FIVE ",
+        }, {
+            "id": "unfiled",
+            "type": "folder",
+            "parentid": "root",
+            "title": "Unfiled",
+            "children": ["bookmarkAAA1", "bookmarkBBB1", "bookmarkCCC1", "bookmarkDDDD"],
+        }, {
+            "id": "menu",
+            "type": "folder",
+            "parentid": "root",
+            "title": "Menu",
+            "children": ["bookmarkAAA2", "bookmarkBBB2", "bookmarkCCC2"],
+        }]);
+
+        let syncer = api.open_sync_connection()?;
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
+        if let Value::Array(records) = remote_records {
+            for record in records {
+                let payload = Payload::from_json(record).unwrap();
+                incoming.changes.push((payload, ServerTimestamp(0)));
+            }
+        } else {
+            unreachable!("JSON records must be an array");
+        }
+        let mut outgoing = store
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
+            .expect("Should apply incoming and stage outgoing records with keywords");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Root.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Root.as_guid(),
+                "children": [{
+                    "guid": &BookmarkRootGuid::Menu.as_guid(),
+                    "children": [{
+                        "guid": "bookmarkAAA2",
+                        "title": "A2",
+                        "url": "http://example.com/a",
+                    }, {
+                        "guid": "bookmarkBBB2",
+                        "title": "B2",
+                        "url": "http://example.com/b",
+                    }, {
+                        "guid": "bookmarkCCC2",
+                        "title": "C2",
+                        "url": "http://example.com/c",
+                    }],
+                }, {
+                    "guid": &BookmarkRootGuid::Toolbar.as_guid(),
+                    "children": [],
+                }, {
+                    "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                    "children": [{
+                        "guid": "bookmarkAAA1",
+                        "title": "A1",
+                        "url": "http://example.com/a",
+                    }, {
+                        "guid": "bookmarkBBB1",
+                        "title": "B1",
+                        "url": "http://example.com/b",
+                    }, {
+                        "guid": "bookmarkCCC1",
+                        "title": "C1",
+                        "url": "http://example.com/c",
+                    }, {
+                        "guid": "bookmarkDDDD",
+                        "title": "D",
+                        "url": "http://example.com/d",
+                    }],
+                }, {
+                    "guid": &BookmarkRootGuid::Mobile.as_guid(),
+                    "children": [],
+                }],
+            }),
+        );
+        // And verify our local keywords are correct, too.
+        let url_for_one = bookmarks_get_url_for_keyword(&writer, "one")?
+            .expect("Should have URL for keyword `one`");
+        assert_eq!(url_for_one.as_str(), "http://example.com/a");
+
+        let keyword_for_b = match (
+            bookmarks_get_url_for_keyword(&writer, "two")?,
+            bookmarks_get_url_for_keyword(&writer, "three")?,
+        ) {
+            (Some(url), None) => {
+                assert_eq!(url.as_str(), "http://example.com/b");
+                "two"
+            }
+            (None, Some(url)) => {
+                assert_eq!(url.as_str(), "http://example.com/b");
+                "three"
+            }
+            (Some(_), Some(_)) => panic!("Should pick `two` or `three`, not both"),
+            (None, None) => panic!("Should have URL for either `two` or `three`"),
+        };
+
+        let keyword_for_c = match bookmarks_get_url_for_keyword(&writer, "four")? {
+            Some(url) => {
+                assert_eq!(url.as_str(), "http://example.com/c");
+                Some("four")
+            }
+            None => None,
+        };
+
+        let url_for_five = bookmarks_get_url_for_keyword(&writer, "five")?
+            .expect("Should have URL for keyword `five`");
+        assert_eq!(url_for_five.as_str(), "http://example.com/d");
+
+        let expected_outgoing_keywords = &[
+            ("bookmarkBBB1", Some(keyword_for_b)),
+            ("bookmarkBBB2", Some(keyword_for_b)),
+            ("bookmarkCCC1", keyword_for_c),
+            ("bookmarkCCC2", keyword_for_c),
+            ("menu", None), // Roots always get uploaded on the first sync.
+            ("mobile", None),
+            ("toolbar", None),
+            ("unfiled", None),
+        ];
+        assert_eq!(
+            outgoing
+                .changes
+                .iter()
+                .map(|p| (
+                    p.id.as_str(),
+                    p.data.get("keyword").and_then(|v| v.as_str())
+                ))
+                .collect::<Vec<_>>(),
+            expected_outgoing_keywords,
+            "Should upload new bookmarks and fix up keywords",
+        );
+
+        // Now push the records back to the store, so we can check what we're
+        // uploading.
+        store
+            .sync_finished(
+                ServerTimestamp(0),
+                expected_outgoing_keywords
+                    .iter()
+                    .map(|(id, _)| SyncGuid::from(id))
+                    .collect(),
+            )
+            .expect("Should push synced changes back to the store");
+
+        let mut synced_item_for_b = SyncedBookmarkItem::new();
+        synced_item_for_b
+            .validity(SyncedBookmarkValidity::Valid)
+            .kind(SyncedBookmarkKind::Bookmark)
+            .url(Some("http://example.com/b"))
+            .keyword(Some(&keyword_for_b));
+        let mut synced_item_for_c = SyncedBookmarkItem::new();
+        synced_item_for_c
+            .validity(SyncedBookmarkValidity::Valid)
+            .kind(SyncedBookmarkKind::Bookmark)
+            .url(Some("http://example.com/c"))
+            .keyword(keyword_for_c.to_owned());
+        let expected_synced_items = &[
+            ExpectedSyncedItem::with_properties("bookmarkBBB1", &synced_item_for_b, |a| {
+                a.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                    .title(Some("B1"))
+            }),
+            ExpectedSyncedItem::with_properties("bookmarkBBB2", &synced_item_for_b, |a| {
+                a.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                    .title(Some("B2"))
+            }),
+            ExpectedSyncedItem::with_properties("bookmarkCCC1", &synced_item_for_c, |a| {
+                a.parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
+                    .title(Some("C1"))
+            }),
+            ExpectedSyncedItem::with_properties("bookmarkCCC2", &synced_item_for_c, |a| {
+                a.parent_guid(Some(&BookmarkRootGuid::Menu.as_guid()))
+                    .title(Some("C2"))
+            }),
+        ];
+        for item in expected_synced_items {
+            item.check(&writer)?;
+        }
 
         Ok(())
     }

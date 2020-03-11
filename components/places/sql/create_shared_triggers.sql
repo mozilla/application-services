@@ -306,3 +306,35 @@ BEGIN
         foreign_count = foreign_count - 1
     WHERE id = OLD.place_id;
 END;
+
+-- These triggers adjust the foreign count for URLs with keywords, so that
+-- they won't be expired or automatically removed.
+
+CREATE TEMP TRIGGER moz_keywords_afterinsert_trigger
+AFTER INSERT ON moz_keywords
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.place_id;
+END;
+
+CREATE TEMP TRIGGER moz_keywords_afterupdate_trigger
+AFTER UPDATE OF place_id ON moz_keywords
+WHEN OLD.place_id <> NEW.place_id
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count + 1
+    WHERE id = NEW.place_id;
+
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.place_id;
+END;
+
+CREATE TEMP TRIGGER moz_keywords_afterdelete_trigger
+AFTER DELETE ON moz_keywords
+BEGIN
+    UPDATE moz_places SET
+        foreign_count = foreign_count - 1
+    WHERE id = OLD.place_id;
+END;
