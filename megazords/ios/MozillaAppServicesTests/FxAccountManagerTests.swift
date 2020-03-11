@@ -210,7 +210,7 @@ class FxAccountManagerTests: XCTestCase {
 
             override func checkAuthorizationStatus() throws -> IntrospectInfo {
                 _ = try super.checkAuthorizationStatus()
-                return IntrospectInfo(active: false, tokenType: "refresh_token")
+                return IntrospectInfo(active: false)
             }
         }
         let mgr = mockFxAManager()

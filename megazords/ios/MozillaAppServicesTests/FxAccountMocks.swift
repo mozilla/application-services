@@ -49,7 +49,7 @@ class MockFxAccount: FxAccount {
 
     override func checkAuthorizationStatus() throws -> IntrospectInfo {
         invocations.append(.checkAuthorizationStatus)
-        return IntrospectInfo(active: true, tokenType: "refresh_token")
+        return IntrospectInfo(active: true)
     }
 
     override func clearAccessTokenCache() throws {

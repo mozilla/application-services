@@ -97,10 +97,6 @@ impl FirefoxAccount {
         };
         Ok(IntrospectInfo {
             active: resp.active,
-            token_type: resp.token_type,
-            scope: resp.scope,
-            exp: resp.exp,
-            iss: resp.iss,
         })
     }
 
@@ -396,10 +392,6 @@ impl std::fmt::Debug for AccessTokenInfo {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct IntrospectInfo {
     pub active: bool,
-    pub token_type: String,
-    pub scope: Option<String>,
-    pub exp: Option<u64>,
-    pub iss: Option<String>,
 }
 
 #[cfg(test)]
@@ -635,20 +627,10 @@ mod tests {
                 token.partial_eq("refresh_token")
             })
             .times(1)
-            .returns_once(Ok(IntrospectResponse {
-                active: true,
-                token_type: "refresh".to_string(),
-                scope: None,
-                exp: None,
-                iss: None,
-            }));
+            .returns_once(Ok(IntrospectResponse { active: true }));
         fxa.set_client(Arc::new(client));
 
         let auth_status = fxa.check_authorization_status().unwrap();
         assert_eq!(auth_status.active, true);
-        assert_eq!(auth_status.token_type, "refresh".to_string());
-        assert_eq!(auth_status.scope, None);
-        assert_eq!(auth_status.exp, None);
-        assert_eq!(auth_status.iss, None);
     }
 }
