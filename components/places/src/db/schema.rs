@@ -237,7 +237,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
             // Add a new table to hold synced and migrated search keywords.
             "CREATE TABLE IF NOT EXISTS moz_keywords(
                  place_id INTEGER PRIMARY KEY REFERENCES moz_places(id)
-                                  ON DELETE CASCADE,
+                                  ON DELETE RESTRICT,
                  keyword TEXT NOT NULL UNIQUE
              )",
             // Add an index on synced keywords, so that we can search for
