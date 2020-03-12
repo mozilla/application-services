@@ -86,6 +86,7 @@ char *_Nullable fxa_to_json(FirefoxAccountHandle handle,
 FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              const char *_Nonnull client_id,
                              const char *_Nonnull redirect_uri,
+                             const char *_Nullable token_server_url_override,
                              FxAError *_Nonnull out);
 
 FxARustBuffer fxa_profile(FirefoxAccountHandle handle,

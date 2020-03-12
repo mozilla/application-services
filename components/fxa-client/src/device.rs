@@ -319,14 +319,15 @@ mod tests {
     use crate::http_client::*;
     use crate::oauth::RefreshToken;
     use crate::scoped_keys::ScopedKey;
+    use crate::Config;
     use std::collections::HashSet;
     use std::sync::Arc;
 
     fn setup() -> FirefoxAccount {
         // I'd love to be able to configure a single mocked client here,
         // but can't work out how to do that within the typesystem.
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),
             scopes: HashSet::default(),

@@ -96,10 +96,20 @@ impl FirefoxAccount {
     /// * `content_url` - The Firefox Account content server URL.
     /// * `client_id` - The OAuth `client_id`.
     /// * `redirect_uri` - The OAuth `redirect_uri`.
+    /// * `token_server_url_override` - Override the Token Server URL provided
+    ///                                 by the FxA's autoconfig endpoint.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
-        let config = Config::new(content_url, client_id, redirect_uri);
+    pub fn new(
+        content_url: &str,
+        client_id: &str,
+        redirect_uri: &str,
+        token_server_url_override: Option<&str>,
+    ) -> Self {
+        let mut config = Config::new(content_url, client_id, redirect_uri);
+        if let Some(token_server_url_override) = token_server_url_override {
+            config.override_token_server_url(token_server_url_override);
+        }
         Self::with_config(config)
     }
 
@@ -263,8 +273,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let fxa1 =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let fxa1 = FirefoxAccount::with_config(config);
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
@@ -274,7 +284,8 @@ mod tests {
 
     #[test]
     fn test_get_connection_success_url() {
-        let fxa = FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let fxa = FirefoxAccount::with_config(config);
         let url = fxa.get_connection_success_url().unwrap().to_string();
         assert_eq!(
             url,
@@ -285,8 +296,8 @@ mod tests {
 
     #[test]
     fn test_get_manage_account_url() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
         match fxa.get_manage_account_url("test").unwrap_err().kind() {
             ErrorKind::NoCachedToken(_) => {}
@@ -304,11 +315,12 @@ mod tests {
 
     #[test]
     fn test_get_manage_account_url_with_webchannel_redirect() {
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://stable.dev.lcip.org",
             "12345678",
             OAUTH_WEBCHANNEL_REDIRECT,
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         fxa.add_cached_profile("123", "test@example.com");
         let url = fxa.get_manage_account_url("test").unwrap().to_string();
         assert_eq!(
@@ -320,8 +332,8 @@ mod tests {
 
     #[test]
     fn test_get_manage_devices_url() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
         match fxa.get_manage_devices_url("test").unwrap_err().kind() {
             ErrorKind::NoCachedToken(_) => {}
@@ -339,8 +351,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_no_refresh_token() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.add_cached_token(
             "profile",
@@ -362,8 +374,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_device() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),
@@ -431,8 +443,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_no_device() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),
@@ -478,8 +490,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_network_errors() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),

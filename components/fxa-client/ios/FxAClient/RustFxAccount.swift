@@ -17,7 +17,7 @@ open class RustFxAccount {
     /// OAuth Flow.
     public required convenience init(config: FxAConfig) throws {
         let pointer = try rustCall { err in
-            fxa_new(config.contentUrl, config.clientId, config.redirectUri, err)
+            fxa_new(config.contentUrl, config.clientId, config.redirectUri, config.tokenServerUrlOverride, err)
         }
         self.init(raw: pointer)
     }

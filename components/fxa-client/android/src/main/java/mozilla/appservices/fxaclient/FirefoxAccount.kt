@@ -28,7 +28,13 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     constructor(config: Config, persistCallback: PersistCallback? = null) :
     this(rustCall { e ->
-        LibFxAFFI.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
+        LibFxAFFI.INSTANCE.fxa_new(
+            config.contentUrl,
+            config.clientId,
+            config.redirectUri,
+            config.tokenServerUrlOverride,
+            e
+        )
     }, persistCallback) {
         // Persist the newly created instance state.
         this.tryPersistState()

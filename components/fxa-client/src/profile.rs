@@ -85,6 +85,7 @@ mod tests {
     use crate::{
         http_client::*,
         oauth::{AccessTokenInfo, RefreshToken},
+        Config,
     };
     use std::sync::Arc;
 
@@ -109,8 +110,8 @@ mod tests {
 
     #[test]
     fn test_fetch_profile() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.add_cached_token(
             "profile",
@@ -151,8 +152,8 @@ mod tests {
 
     #[test]
     fn test_expired_access_token_refetch() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.add_cached_token(
             "profile",

@@ -120,7 +120,7 @@ class MockDeviceConstellation: DeviceConstellation {
 
 func mockFxAManager() -> MockFxAccountManager {
     return MockFxAccountManager(
-        config: .release(clientId: "clientid", redirectUri: "redirect"),
+        config: FxAConfig(server: .release, clientId: "clientid", redirectUri: "redirect"),
         deviceConfig: DeviceConfig(name: "foo", type: .mobile, capabilities: [])
     )
 }

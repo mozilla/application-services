@@ -202,14 +202,15 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::*;
+    use crate::{http_client::*, Config};
     use std::collections::HashMap;
     use std::sync::Arc;
 
     fn setup() -> FirefoxAccount {
         // I'd love to be able to configure a single mocked client here,
         // but can't work out how to do that within the typesystem.
-        FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar")
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        FirefoxAccount::with_config(config)
     }
 
     macro_rules! assert_match {

@@ -176,6 +176,7 @@ impl From<StateV1> for Result<StateV2> {
                 None,
                 state.client_id,
                 state.redirect_uri,
+                None,
             ),
             refresh_token,
             scoped_keys: all_scoped_keys,
