@@ -26,3 +26,6 @@ interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 sync15-traits = {path = "../support/sync15-traits"}
+
+[dev-dependencies]
+env_logger = "0.7.0"

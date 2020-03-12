@@ -2430,6 +2430,7 @@ version = "0.1.0"
 dependencies = [
  "base16",
  "base64 0.11.0",
+ "env_logger",
  "error-support",
  "failure",
  "ffi-support",
