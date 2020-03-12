@@ -1,3 +1,18 @@
+# v0.53.3 (_2020-03-12_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.53.2...v0.53.3)
+
+## General
+
+This backports some fixes to the v0.53.2 release.
+
+## Sync
+
+### What's fixed
+
+- Engine disabled/enabled state changes now work again after a regression in
+  0.53.0.
+
 # v0.53.2 (_2020-03-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.53.1...v0.53.2)
