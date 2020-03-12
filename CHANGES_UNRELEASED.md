@@ -6,6 +6,8 @@
 
 ## Sync
 
+### What's fixed
+
 - Engine disabled/enabled state changes now work again after a regression in
   0.53.0.
 
