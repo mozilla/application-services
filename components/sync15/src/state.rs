@@ -869,16 +869,13 @@ mod tests {
         let sm_seq_used_previous = vec!["WithPreviousState", "Ready"];
 
         // do the actual test.
-        // (clippy gets upset with `expected_states: &Vec<&str>` - wants it
-        // declared as `&[&str]` - which `assert_eq!()` then fails on!)
-        #[allow(clippy::ptr_arg)]
         fn do_test(
             client: &dyn SetupStorageClient,
             root_key: &KeyBundle,
             mut pgs: &mut PersistedGlobalState,
             engine_updates: Option<&HashMap<String, bool>>,
             old_state: GlobalState,
-            expected_states: &Vec<&str>,
+            expected_states: &[&str],
         ) {
             let mut state_machine = SetupStateMachine::for_full_sync(
                 client,
@@ -891,7 +888,7 @@ mod tests {
                 state_machine.run_to_ready(Some(old_state)).is_ok(),
                 "Should drive state machine to ready"
             );
-            assert_eq!(state_machine.sequence, *expected_states);
+            assert_eq!(state_machine.sequence, expected_states);
         }
 
         // and all the complicated setup...
@@ -899,7 +896,7 @@ mod tests {
         let ts_keys = 145_000;
         let root_key = KeyBundle::new_random().unwrap();
         let keys = CollectionKeys {
-            timestamp: ServerTimestamp(123_400),
+            timestamp: ServerTimestamp(ts_keys + 1),
             default: KeyBundle::new_random().unwrap(),
             collections: HashMap::new(),
         };
