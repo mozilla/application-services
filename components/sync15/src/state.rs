@@ -512,7 +512,8 @@ impl<'a> SetupStateMachine<'a> {
                     record: collections,
                     ..
                 } => Ok(
-                    if is_same_timestamp(old_state.global_timestamp, &collections, "meta")
+                    if self.engine_updates.is_none()
+                        && is_same_timestamp(old_state.global_timestamp, &collections, "meta")
                         && is_same_timestamp(old_state.keys.modified, &collections, "crypto")
                     {
                         Ready {
@@ -714,7 +715,6 @@ mod tests {
             xius: ServerTimestamp,
             global: &MetaGlobalRecord,
         ) -> error::Result<ServerTimestamp> {
-            assert_eq!(xius, ServerTimestamp(999_000));
             // Ensure that the meta/global record we uploaded is "fixed up"
             assert!(DEFAULT_ENGINES
                 .iter()
@@ -722,7 +722,8 @@ mod tests {
                 .all(|&(k, _v)| global.engines.contains_key(k)));
             assert!(!global.engines.contains_key("logins"));
             assert_eq!(global.declined, vec!["logins".to_string()]);
-            Ok(ServerTimestamp(999_900))
+            // return a different timestamp.
+            Ok(ServerTimestamp(xius.0 + 1))
         }
 
         fn fetch_crypto_keys(&self) -> error::Result<Sync15ClientResponse<EncryptedBso>> {
@@ -850,6 +851,186 @@ mod tests {
             ],
             "Should cycle through all states"
         );
+    }
+
+    #[test]
+    fn test_from_previous_state_declined() {
+        let _ = env_logger::try_init();
+        // The state-machine sequence where we didn't use the previous state
+        // (ie, where the state machine restarted)
+        let sm_seq_restarted = vec![
+            "WithPreviousState",
+            "InitialWithConfig",
+            "InitialWithInfo",
+            "InitialWithMetaGlobal",
+            "Ready",
+        ];
+        // The state-machine sequence where we used the previous state.
+        let sm_seq_used_previous = vec!["WithPreviousState", "Ready"];
+
+        // do the actual test.
+        fn do_test(
+            client: &dyn SetupStorageClient,
+            root_key: &KeyBundle,
+            mut pgs: &mut PersistedGlobalState,
+            engine_updates: Option<&HashMap<String, bool>>,
+            old_state: GlobalState,
+            expected_states: &[&str],
+        ) {
+            let mut state_machine = SetupStateMachine::for_full_sync(
+                client,
+                root_key,
+                &mut pgs,
+                engine_updates,
+                &NeverInterrupts,
+            );
+            assert!(
+                state_machine.run_to_ready(Some(old_state)).is_ok(),
+                "Should drive state machine to ready"
+            );
+            assert_eq!(state_machine.sequence, expected_states);
+        }
+
+        // and all the complicated setup...
+        let ts_metaglobal = 123_456;
+        let ts_keys = 145_000;
+        let root_key = KeyBundle::new_random().unwrap();
+        let keys = CollectionKeys {
+            timestamp: ServerTimestamp(ts_keys + 1),
+            default: KeyBundle::new_random().unwrap(),
+            collections: HashMap::new(),
+        };
+        let mg = MetaGlobalRecord {
+            sync_id: "syncIDAAAAAA".into(),
+            storage_version: 5usize,
+            engines: vec![(
+                "bookmarks",
+                MetaGlobalEngine {
+                    version: 1usize,
+                    sync_id: "syncIDBBBBBB".into(),
+                },
+            )]
+            .into_iter()
+            .map(|(key, value)| (key.to_owned(), value))
+            .collect(),
+            // We ensure that the record we upload doesn't have a logins record.
+            declined: vec!["logins".to_string()],
+        };
+        let collections = InfoCollections::new(
+            vec![("meta", ts_metaglobal), ("crypto", ts_keys)]
+                .into_iter()
+                .map(|(key, value)| (key.to_owned(), ServerTimestamp(value)))
+                .collect(),
+        );
+        let client = InMemoryClient {
+            info_configuration: mocked_success(InfoConfiguration::default()),
+            info_collections: mocked_success(collections.clone()),
+            meta_global: mocked_success_ts(mg.clone(), ts_metaglobal),
+            crypto_keys: mocked_success_ts(
+                keys.to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .expect("should always work in this test"),
+                ts_keys,
+            ),
+        };
+
+        // First a test where the "previous" global state is OK to reuse.
+        {
+            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            // A "previous" global state.
+            let old_state = GlobalState {
+                config: InfoConfiguration::default(),
+                collections: collections.clone(),
+                global: mg.clone(),
+                global_timestamp: ServerTimestamp(ts_metaglobal),
+                keys: keys
+                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .expect("should always work in this test"),
+            };
+            do_test(
+                &client,
+                &root_key,
+                &mut pgs,
+                None,
+                old_state,
+                &sm_seq_used_previous,
+            );
+        }
+
+        // Now where the meta/global record on the server is later.
+        {
+            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            // A "previous" global state.
+            let old_state = GlobalState {
+                config: InfoConfiguration::default(),
+                collections: collections.clone(),
+                global: mg.clone(),
+                global_timestamp: ServerTimestamp(999_999),
+                keys: keys
+                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .expect("should always work in this test"),
+            };
+            do_test(
+                &client,
+                &root_key,
+                &mut pgs,
+                None,
+                old_state,
+                &sm_seq_restarted,
+            );
+        }
+
+        // Where keys on the server is later.
+        {
+            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            // A "previous" global state.
+            let old_state = GlobalState {
+                config: InfoConfiguration::default(),
+                collections: collections.clone(),
+                global: mg.clone(),
+                global_timestamp: ServerTimestamp(ts_metaglobal),
+                keys: keys
+                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(999_999))
+                    .expect("should always work in this test"),
+            };
+            do_test(
+                &client,
+                &root_key,
+                &mut pgs,
+                None,
+                old_state,
+                &sm_seq_restarted,
+            );
+        }
+
+        // Where there are engine-state changes.
+        {
+            let mut pgs = PersistedGlobalState::V2 { declined: None };
+            // A "previous" global state.
+            let old_state = GlobalState {
+                config: InfoConfiguration::default(),
+                collections,
+                global: mg,
+                global_timestamp: ServerTimestamp(ts_metaglobal),
+                keys: keys
+                    .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
+                    .expect("should always work in this test"),
+            };
+            let mut engine_updates = HashMap::<String, bool>::new();
+            engine_updates.insert("logins".to_string(), false);
+            do_test(
+                &client,
+                &root_key,
+                &mut pgs,
+                Some(&engine_updates),
+                old_state,
+                &sm_seq_restarted,
+            );
+            let declined = match pgs {
+                PersistedGlobalState::V2 { declined: d } => d,
+            };
+            // and check we now consider logins as declined.
+            assert_eq!(declined, Some(vec!["logins".to_string()]));
+        }
     }
 
     fn string_set(s: &[&str]) -> HashSet<String> {
