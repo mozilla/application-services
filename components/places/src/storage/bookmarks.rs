@@ -306,7 +306,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
     let bookmark_type = bm.bookmark_type();
     match bm {
         InsertableItem::Bookmark(ref b) => {
-            let title = maybe_truncate_title(&b.title.as_ref().map(String::as_str));
+            let title = maybe_truncate_title(&b.title.as_deref());
             db.execute_named_cached(
                 sql,
                 &[
@@ -339,7 +339,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
             )?;
         }
         InsertableItem::Folder(ref f) => {
-            let title = maybe_truncate_title(&f.title.as_ref().map(String::as_str));
+            let title = maybe_truncate_title(&f.title.as_deref());
             db.execute_named_cached(
                 sql,
                 &[
@@ -629,10 +629,7 @@ fn update_bookmark_in_tx(
             (":fk", &place_id),
             (":parent", &parent_id),
             (":position", &position),
-            (
-                ":title",
-                &maybe_truncate_title(&title.as_ref().map(String::as_str)),
-            ),
+            (":title", &maybe_truncate_title(&title.as_deref())),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
             (":id", &raw.row_id),
