@@ -869,6 +869,9 @@ mod tests {
         let sm_seq_used_previous = vec!["WithPreviousState", "Ready"];
 
         // do the actual test.
+        // (clippy gets upset with `expected_states: &Vec<&str>` - wants it
+        // declared as `&[&str]` - which `assert_eq!()` then fails on!)
+        #[allow(clippy::ptr_arg)]
         fn do_test(
             client: &dyn SetupStorageClient,
             root_key: &KeyBundle,
@@ -1008,8 +1011,8 @@ mod tests {
             // A "previous" global state.
             let old_state = GlobalState {
                 config: InfoConfiguration::default(),
-                collections: collections.clone(),
-                global: mg.clone(),
+                collections,
+                global: mg,
                 global_timestamp: ServerTimestamp(ts_metaglobal),
                 keys: keys
                     .to_encrypted_bso_with_timestamp(&root_key, ServerTimestamp(ts_keys))
@@ -1026,7 +1029,7 @@ mod tests {
                 &sm_seq_restarted,
             );
             let declined = match pgs {
-                PersistedGlobalState::V2 { declined: d } => d.clone(),
+                PersistedGlobalState::V2 { declined: d } => d,
             };
             // and check we now consider logins as declined.
             assert_eq!(declined, Some(vec!["logins".to_string()]));
