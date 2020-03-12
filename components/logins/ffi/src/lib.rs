@@ -97,7 +97,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
         let path = db_path.as_str();
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
-        let opt_key_ref = key.as_ref().map(String::as_str);
+        let opt_key_ref = key.as_deref();
         Ok(Arc::new(Mutex::new(PasswordEngine::new(
             path,
             opt_key_ref,
