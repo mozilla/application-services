@@ -9,6 +9,11 @@ def libProjectName = properties.libProjectName
 def libUrl = properties.libUrl
 def libVcsUrl = properties.libVcsUrl
 
+static def getLocalPublicationTimestamp() {
+    def date = new Date()
+    return date.format('yyyyMMddHHmmss')
+}
+
 // `jnaForTestConfiguration` is a hacky way to say yes, I'm using JNA and want
 // to pack the JNA dispatch libraries and my Rust libraries into a single JAR
 // for use in unit tests that run on a development host (and not an Android
@@ -109,9 +114,11 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                     groupId = theGroupId
                     artifactId = theArtifactId
                     description = theDescription
-                    version = rootProject.ext.library.version
+                    // For mavenLocal publishing workflow, increment the version number every publish.
+                    // We only do this to the .pom file and not in $MEGAZORD_VERSION, because otherwise we
+                    // would need to rebuild the megazord .so on every publish, even if nothing else had changed.
+                    version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + getLocalPublicationTimestamp() : '')
                     packaging = "aar"
-
 
                     license {
                         name = libLicense
@@ -156,7 +163,8 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                         groupId = theGroupId
                         artifactId = "${theArtifactId}-forUnitTests"
                         description = theDescription
-                        version = rootProject.ext.library.version
+                        // For mavenLocal publishing workflow, increment the version number every publish.
+                        version = rootProject.ext.library.version + (rootProject.hasProperty('local') ? '-' + getLocalPublicationTimestamp() : '')
                         packaging = "jar"
 
                         licenses {

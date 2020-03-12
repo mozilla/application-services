@@ -277,3 +277,15 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
     main = "com.github.shyiko.ktlint.Main"
     args "-F", "${projectDir}/components/**/*.kt", "${projectDir}/gradle-plugin/**/*.kt", "buildSrc/**/*.kt", "!**/build"
 }
+
+// Extremely unsophisticated way to publish a local development version while hiding implementation details.
+//
+// For now we just run `publishToMavenLocal` while setting the special property `local`, and have some logic
+// in our gradle scripts to construct an auto-incrementing version number when this property is set.
+//
+// I hope to grow this into something more sophisticated over time (e.g. to avoid re-publishing when nothing
+// has changed, perhaps cleanup old versions, etc) while keeping a stable `./gradlew autoPublishForLocalDevelopment`
+// interface  for consumers.
+task autoPublishForLocalDevelopment(type: Exec) {
+  commandLine "./gradlew", "publishToMavenLocal", "-Plocal=true"
+}

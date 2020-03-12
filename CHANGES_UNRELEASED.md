@@ -9,6 +9,14 @@
 - Engine disabled/enabled state changes now work again after a regression in
   0.53.0.
 
+## Android
+
+### What's changed
+
+- There is now preliminary support for an "autoPublish" local-development workflow similar
+  to the one used when working with Fenix and android-components; see
+  [this howto guide](./docs/howtos/locally-published-components-in-fenix.md) for details.
+
 ## Places
 
 ### What's fixed
