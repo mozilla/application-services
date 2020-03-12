@@ -4,6 +4,11 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.54.0...master)
 
+## Sync
+
+- Engine disabled/enabled state changes now work again after a regression in
+  0.53.0.
+
 ## Places
 
 ### What's fixed
