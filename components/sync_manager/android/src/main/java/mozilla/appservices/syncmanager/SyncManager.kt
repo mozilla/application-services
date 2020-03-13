@@ -29,7 +29,10 @@ object SyncManager {
      */
     fun setLogins(loginsDbHandle: Long) {
         rustCall { err ->
-            LibSyncManagerFFI.INSTANCE.sync_manager_set_logins(loginsDbHandle, err)
+            // XXX TODO: Whoops! A typo during a refactor of this interface code
+            // has lead to us calling the wrong underlying FFI function.
+            // Will we catch this in CI?
+            LibSyncManagerFFI.INSTANCE.sync_manager_set_places(loginsDbHandle, err)
         }
     }
 
