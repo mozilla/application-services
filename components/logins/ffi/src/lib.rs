@@ -394,17 +394,19 @@ pub unsafe extern "C" fn sync15_passwords_import(
 /// Deref pointer, thus unsafe
 #[no_mangle]
 pub unsafe extern "C" fn sync15_passwords_update(
-    handle: u64,
-    data: *const u8,
-    len: i32,
-    error: &mut ExternError,
+    _handle: u64,
+    _data: *const u8,
+    _len: i32,
+    _error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_update");
-    ENGINES.call_with_result(error, handle, |state| {
-        let buffer = get_buffer(data, len);
-        let login: PasswordInfo = prost::Message::decode(buffer)?;
-        state.lock().unwrap().update(login.into())
-    });
+    // XXX TODO: Whoops! Something has gone terribly wrong, and we're not persisting
+    // logins to disk. Will consumers be able to catch this in CI?
+    //ENGINES.call_with_result(error, handle, |state| {
+    //    let buffer = get_buffer(data, len);
+    //    let login: PasswordInfo = prost::Message::decode(buffer)?;
+    //    state.lock().unwrap().update(login.into())
+    //});
 }
 
 define_string_destructor!(sync15_passwords_destroy_string);
