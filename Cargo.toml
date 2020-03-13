@@ -28,6 +28,7 @@ members = [
     "components/tabs",
     "components/tabs/ffi",
     "components/viaduct",
+    "components/webext-storage",
     "megazords/full",
     "megazords/ios/rust",
     "megazords/lockbox",
