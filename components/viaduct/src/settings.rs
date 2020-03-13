@@ -24,7 +24,7 @@ pub(crate) struct Settings {
 }
 
 #[cfg(target_os = "ios")]
-const TIMEOUT_DURATION: Duration = Duration::from_secs(30);
+const TIMEOUT_DURATION: Duration = Duration::from_secs(7);
 
 #[cfg(not(target_os = "ios"))]
 const TIMEOUT_DURATION: Duration = Duration::from_secs(10);
