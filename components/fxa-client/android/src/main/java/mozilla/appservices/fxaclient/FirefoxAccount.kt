@@ -148,7 +148,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getProfile(ignoreCache: Boolean): Profile {
         val profileBuffer = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_profile(this.handle.get(), ignoreCache, e)
+            LibFxAFFI.INSTANCE.fxa_profil(this.handle.get(), ignoreCache, e)
         }
         this.tryPersistState()
         try {

@@ -42,7 +42,9 @@ internal interface LibFxAFFI : Library {
         e: RustError.ByReference
     ): Pointer?
 
-    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: RustError.ByReference): RustBuffer.ByValue
+    // XXX TODO: Whoops! Something has gone wrong in the build and the Kotlin side is trying
+    // to reference a symbol that doesn't exist on the Rust side. Will we catch this in CI?
+    fun fxa_profil(fxa: FxaHandle, ignoreCache: Boolean, e: RustError.ByReference): RustBuffer.ByValue
 
     fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_pairing_authority_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?

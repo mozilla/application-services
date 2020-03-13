@@ -89,7 +89,7 @@ FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              const char *_Nullable token_server_url_override,
                              FxAError *_Nonnull out);
 
-FxARustBuffer fxa_profile(FirefoxAccountHandle handle,
+FxARustBuffer fxa_profil(FirefoxAccountHandle handle,
                           bool ignore_cache,
                           FxAError *_Nonnull out);
 

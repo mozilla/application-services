@@ -54,7 +54,7 @@ open class RustFxAccount {
     /// the "profile" scope.
     open func getProfile() throws -> Profile {
         let ptr = try rustCall { err in
-            fxa_profile(self.raw, false, err)
+            fxa_profil(self.raw, false, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
         let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: ptr))
