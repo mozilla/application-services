@@ -93,9 +93,9 @@ RawPlacesInterruptHandle *_Nullable places_new_interrupt_handle(PlacesConnection
 void places_interrupt(RawPlacesInterruptHandle *_Nonnull interrupt,
                       PlacesRustError *_Nonnull out_err);
 
-void places_delete_place(PlacesConnectionHandle handle,
-                         const char *_Nonnull place_url,
-                         PlacesRustError *_Nonnull out_err);
+void places_delete_visits_for(PlacesConnectionHandle handle,
+                              const char *_Nonnull place_url,
+                              PlacesRustError *_Nonnull out_err);
 
 void places_delete_visit(PlacesConnectionHandle handle,
                          const char *_Nonnull place_url,
