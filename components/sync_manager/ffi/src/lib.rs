@@ -56,6 +56,7 @@ pub extern "C" fn sync_manager_disconnect(error: &mut ExternError) {
     });
 }
 
+#[cfg(not(target_arch = "arm"))]
 unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
     assert!(len >= 0, "Bad buffer len: {}", len);
     if len == 0 {
@@ -68,6 +69,10 @@ unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
 }
 /// # Safety
 /// Reads pointer, thus unsafe.
+// XXX TODO: Whoops! Some architecture-specific build issue means
+// the symbols for this are not available on ARM devices.
+// Will we be able to detect this before shipping?
+#[cfg(not(target_arch = "arm"))]
 #[no_mangle]
 pub unsafe extern "C" fn sync_manager_sync(
     params_data: *const u8,
