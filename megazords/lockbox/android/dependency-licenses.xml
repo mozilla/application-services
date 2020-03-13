@@ -45,12 +45,12 @@ the details of which are reproduced below.
     <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: bitflags</name>
-    <url>https://github.com/bitflags/bitflags/blob/master/LICENSE-APACHE</url>
+    <name>Apache License 2.0: base64</name>
+    <url>https://github.com/marshallpierce/rust-base64/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: c2-chacha</name>
-    <url>https://github.com/cryptocorrosion/cryptocorrosion/blob/master/stream-ciphers/chacha/LICENSE-APACHE</url>
+    <name>Apache License 2.0: bitflags</name>
+    <url>https://github.com/bitflags/bitflags/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cc</name>
