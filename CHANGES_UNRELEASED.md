@@ -28,3 +28,5 @@
   - iOS: `FxAConfig.release(contentURL, clientID)` is now `FxAConfig(server: .release, contentURL, clientID)`.
   - Android: `Config.release(contentURL, clientID)` is now `Config(Server.RELEASE, contentURL, clientID)`.
   - These constructors also take a new `tokenServerUrlOverride` optional 4th parameter that overrides the token server URL.
+
+- iOS: `FxAccountManager`'s `getManageAccountURL` and `getTokenServerEndpointURL` methods now run on background thread and return their results in a callback function. ([#2813](https://github.com/mozilla/application-services/pull/2813))
