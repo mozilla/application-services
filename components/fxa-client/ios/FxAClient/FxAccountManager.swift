@@ -219,24 +219,33 @@ open class FxAccountManager {
     }
 
     /// Get the account management URL.
-    public func getManageAccountURL(entrypoint: String) -> Result<URL, Error> {
-        do {
-            return .success(try requireAccount().getManageAccountURL(entrypoint: entrypoint))
-        } catch {
-            return .failure(error)
+    public func getManageAccountURL(
+        entrypoint: String,
+        completionHandler: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global().async {
+            do {
+                let url = try self.requireAccount().getManageAccountURL(entrypoint: entrypoint)
+                DispatchQueue.main.async { completionHandler(.success(url)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
         }
     }
 
     /// Get the token server URL with `1.0/sync/1.5` appended at the end.
-    public func getTokenServerEndpointURL() -> Result<URL, Error> {
-        do {
-            return .success(
-                try requireAccount()
+    public func getTokenServerEndpointURL(
+        completionHandler: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global().async {
+            do {
+                let url = try self.requireAccount()
                     .getTokenServerEndpointURL()
                     .appendingPathComponent("1.0/sync/1.5")
-            )
-        } catch {
-            return .failure(error)
+                DispatchQueue.main.async { completionHandler(.success(url)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
         }
     }
 
