@@ -34,6 +34,7 @@ pub extern "C" fn fxa_new(
     content_url: FfiStr<'_>,
     client_id: FfiStr<'_>,
     redirect_uri: FfiStr<'_>,
+    token_server_url_override: FfiStr<'_>,
     err: &mut ExternError,
 ) -> u64 {
     log::debug!("fxa_new");
@@ -41,7 +42,13 @@ pub extern "C" fn fxa_new(
         let content_url = content_url.as_str();
         let client_id = client_id.as_str();
         let redirect_uri = redirect_uri.as_str();
-        FirefoxAccount::new(content_url, client_id, redirect_uri)
+        let token_server_url_override = token_server_url_override.as_opt_str();
+        FirefoxAccount::new(
+            content_url,
+            client_id,
+            redirect_uri,
+            token_server_url_override,
+        )
     })
 }
 

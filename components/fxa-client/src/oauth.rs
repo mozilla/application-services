@@ -397,7 +397,7 @@ pub struct IntrospectInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::*;
+    use crate::{http_client::*, Config};
     use std::borrow::Cow;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -412,11 +412,12 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "https://foo.bar",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -475,8 +476,8 @@ mod tests {
 
     #[test]
     fn test_force_auth_url() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         let email = "test@example.com";
         fxa.add_cached_profile("123", email);
         let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
@@ -492,11 +493,12 @@ mod tests {
     #[test]
     fn test_webchannel_context_url() {
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -510,11 +512,12 @@ mod tests {
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -529,11 +532,12 @@ mod tests {
         const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
         const EXPECTED_URL: &str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "https://foo.bar",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
         let flow_url = Url::parse(&url).unwrap();
         let expected_parsed_url = Url::parse(EXPECTED_URL).unwrap();
@@ -589,11 +593,8 @@ mod tests {
     #[test]
     fn test_pairing_flow_origin_mismatch() {
         static PAIRING_URL: &str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
-        let mut fxa = FirefoxAccount::new(
-            "https://accounts.firefox.com",
-            "12345678",
-            "https://foo.bar",
-        );
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         let url =
             fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
 
@@ -612,8 +613,8 @@ mod tests {
 
     #[test]
     fn test_check_authorization_status() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         let refresh_token_scopes = std::collections::HashSet::new();
         fxa.state.refresh_token = Some(RefreshToken {

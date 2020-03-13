@@ -22,6 +22,7 @@ internal interface LibFxAFFI : Library {
         contentUrl: String,
         clientId: String,
         redirectUri: String,
+        tokenServerUrlOverride: String?,
         e: RustError.ByReference
     ): FxaHandle
 

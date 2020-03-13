@@ -30,6 +30,7 @@ pub struct Config {
     content_url: String,
     // RemoteConfig is lazily fetched from the server.
     remote_config: RefCell<Option<Arc<RemoteConfig>>>,
+    token_server_url_override: Option<String>,
     pub client_id: String,
     pub redirect_uri: String,
 }
@@ -75,7 +76,20 @@ impl Config {
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             remote_config: RefCell::new(None),
+            token_server_url_override: None,
         }
+    }
+
+    /// Override the token server URL that would otherwise be provided by the
+    /// FxA .well-known/fxa-client-configuration endpoint.
+    /// This is used by self-hosters that still use the product FxA servers
+    /// for authentication purposes but use their own Sync storage backend.
+    pub fn override_token_server_url<'a>(
+        &'a mut self,
+        token_server_url_override: &str,
+    ) -> &'a mut Self {
+        self.token_server_url_override = Some(token_server_url_override.to_owned());
+        self
     }
 
     // FIXME
@@ -94,6 +108,7 @@ impl Config {
         introspection_endpoint: Option<String>,
         client_id: String,
         redirect_uri: String,
+        token_server_url_override: Option<String>,
     ) -> Self {
         let remote_config = RemoteConfig {
             auth_url,
@@ -113,6 +128,7 @@ impl Config {
             remote_config: RefCell::new(Some(Arc::new(remote_config))),
             client_id,
             redirect_uri,
+            token_server_url_override,
         }
     }
 
@@ -191,7 +207,12 @@ impl Config {
     }
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
-        Url::parse(&self.remote_config()?.token_server_endpoint_url).map_err(Into::into)
+        if let Some(token_server_url_override) = &self.token_server_url_override {
+            return Ok(Url::parse(&token_server_url_override)?);
+        }
+        Ok(Url::parse(
+            &self.remote_config()?.token_server_endpoint_url,
+        )?)
     }
 
     pub fn authorization_endpoint(&self) -> Result<Url> {
@@ -262,6 +283,7 @@ mod tests {
             remote_config: RefCell::new(Some(Arc::new(remote_config))),
             client_id: "263ceaa5546dce83".to_string(),
             redirect_uri: "https://127.0.0.1:8080".to_string(),
+            token_server_url_override: None,
         };
         assert_eq!(
             config.auth_url_path("v1/account/keys").unwrap().to_string(),
@@ -292,6 +314,41 @@ mod tests {
         assert_eq!(
             config.introspection_endpoint().unwrap().to_string(),
             "https://oauth-stable.dev.lcip.org/v1/introspect"
+        );
+    }
+
+    #[test]
+    fn test_tokenserver_url_override() {
+        let remote_config = RemoteConfig {
+            auth_url: "https://stable.dev.lcip.org/auth/".to_string(),
+            oauth_url: "https://oauth-stable.dev.lcip.org/".to_string(),
+            profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
+            token_server_endpoint_url: "https://stable.dev.lcip.org/syncserver/token/1.0/sync/1.5"
+                .to_string(),
+            authorization_endpoint: "https://oauth-stable.dev.lcip.org/v1/authorization"
+                .to_string(),
+            issuer: "https://dev.lcip.org/".to_string(),
+            jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
+            token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
+            introspection_endpoint: Some(
+                "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
+            ),
+            userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
+        };
+
+        let mut config = Config {
+            content_url: "https://stable.dev.lcip.org/".to_string(),
+            remote_config: RefCell::new(Some(Arc::new(remote_config))),
+            client_id: "263ceaa5546dce83".to_string(),
+            redirect_uri: "https://127.0.0.1:8080".to_string(),
+            token_server_url_override: None,
+        };
+
+        config.override_token_server_url("https://foo.bar");
+
+        assert_eq!(
+            config.token_server_endpoint_url().unwrap().to_string(),
+            "https://foo.bar/"
         );
     }
 }

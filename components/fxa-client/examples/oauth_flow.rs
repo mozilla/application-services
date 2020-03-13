@@ -1,5 +1,5 @@
 use cli_support::prompt::prompt_string;
-use fxa_client::FirefoxAccount;
+use fxa_client::{Config, FirefoxAccount};
 use std::collections::HashMap;
 use url::Url;
 
@@ -9,7 +9,8 @@ const REDIRECT_URI: &str = "https://mozilla.github.io/notes/fxa/android-redirect
 const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
 
 fn main() {
-    let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
+    let config = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
+    let mut fxa = FirefoxAccount::with_config(config);
     let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
     println!("Open the following URL:");
     println!("{}", url);
