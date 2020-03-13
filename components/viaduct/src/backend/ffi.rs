@@ -101,13 +101,20 @@ impl Backend for FfiBackend {
         )
         .map_err(|e| backend_error!("Response has illegal URL: {}", e))?;
 
-        Ok(crate::Response {
-            url,
-            request_method: method,
-            body: response.body.unwrap_or_default(),
-            status: status as u16,
-            headers,
-        })
+        // XXX TODO: oh no, the application has somehow configured a buggy viaduct backend.
+        // We we be able to catch such configuration errors in CI?
+        panic!(
+            "viaduct backend is viagoosed ({:?} {:?} failed)",
+            method, url
+        )
+
+        //Ok(crate::Response {
+        //    url,
+        //    request_method: method,
+        //    body: response.body.unwrap_or_default(),
+        //    status: status as u16,
+        //    headers,
+        //})
     }
 }
 
