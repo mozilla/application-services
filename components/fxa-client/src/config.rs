@@ -53,9 +53,11 @@ pub struct RemoteConfig {
     introspection_endpoint: Option<String>,
 }
 
+pub(crate) const CONTENT_URL_RELEASE: &str = "https://accounts.firefox.com";
+
 impl Config {
     pub fn release(client_id: &str, redirect_uri: &str) -> Self {
-        Self::new("https://accounts.firefox.com", client_id, redirect_uri)
+        Self::new(CONTENT_URL_RELEASE, client_id, redirect_uri)
     }
 
     pub fn stable_dev(client_id: &str, redirect_uri: &str) -> Self {

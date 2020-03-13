@@ -144,6 +144,16 @@ impl FirefoxAccount {
         self.state.config.token_server_endpoint_url()
     }
 
+    /// Get the pairing URL to navigate to on the Auth side (typically
+    /// a computer).
+    pub fn get_pairing_authority_url(&self) -> Result<Url> {
+        // Special case for the production server, we use the shorter firefox.com/pair URL.
+        if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
+            return Ok(Url::parse("https://firefox.com/pair")?);
+        }
+        Ok(self.state.config.content_url_path("pair")?)
+    }
+
     /// Get the "connection succeeded" page URL.
     /// It is typically used to redirect the user after
     /// having intercepted the OAuth login-flow state/code
@@ -523,5 +533,22 @@ mod tests {
         assert!(fxa.state.refresh_token.is_some());
         fxa.disconnect();
         assert!(fxa.state.refresh_token.is_none());
+    }
+
+    #[test]
+    fn test_get_pairing_authority_url() {
+        let config = Config::new("https://foo.bar", "12345678", "https://foo.bar");
+        let fxa = FirefoxAccount::with_config(config);
+        assert_eq!(
+            fxa.get_pairing_authority_url().unwrap().as_str(),
+            "https://foo.bar/pair"
+        );
+
+        let config = Config::release("12345678", "https://foo.bar");
+        let fxa = FirefoxAccount::with_config(config);
+        assert_eq!(
+            fxa.get_pairing_authority_url().unwrap().as_str(),
+            "https://firefox.com/pair"
+        )
     }
 }

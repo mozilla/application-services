@@ -233,6 +233,20 @@ open class FxAccountManager {
         }
     }
 
+    /// Get the pairing URL to navigate to on the Auth side (typically a computer).
+    public func getPairingAuthorityURL(
+        completionHandler: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global().async {
+            do {
+                let url = try self.requireAccount().getPairingAuthorityURL()
+                DispatchQueue.main.async { completionHandler(.success(url)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
+        }
+    }
+
     /// Get the token server URL with `1.0/sync/1.5` appended at the end.
     public func getTokenServerEndpointURL(
         completionHandler: @escaping (Result<URL, Error>) -> Void

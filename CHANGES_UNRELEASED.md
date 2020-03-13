@@ -22,6 +22,10 @@
 
 ## FxA Client
 
+### What's new
+
+- Added `getPairingAuthorityURL` method returning the URL the user should navigate to on their Desktop computer to perform a pairing flow. ([#2815](https://github.com/mozilla/application-services/pull/2815))
+
 ### Breaking changes
 
 - In order to account better for self-hosted FxA/Sync backends, the FxAConfig objects have been reworked. ([#2801](https://github.com/mozilla/application-services/pull/2801))
