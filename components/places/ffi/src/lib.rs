@@ -544,12 +544,14 @@ pub extern "C" fn sync15_bookmarks_sync(
 #[no_mangle]
 pub extern "C" fn bookmarks_get_tree(
     handle: u64,
-    guid: FfiStr<'_>,
+    _guid: FfiStr<'_>,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("bookmarks_get_tree");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let root_id = SyncGuid::from(guid.as_str());
+        // XXX TODO: Whoops! Someone is not passing the correct guid here.
+        // Will we catch this in CI?
+        let root_id = SyncGuid::from("");
         Ok(bookmarks::public_node::fetch_public_tree(conn, &root_id)?)
     })
 }
