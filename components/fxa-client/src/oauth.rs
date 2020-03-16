@@ -106,7 +106,7 @@ impl FirefoxAccount {
     /// the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
-        let mut url = self.state.config.content_url_path("/pair/supp")?;
+        let mut url = self.state.config.pair_supp_url()?;
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
@@ -120,7 +120,7 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
         let mut url = if self.state.last_seen_profile.is_some() {
-            self.state.config.content_url_path("/oauth/force_auth")?
+            self.state.config.oauth_force_auth_url()?
         } else {
             self.state.config.authorization_endpoint()?
         };

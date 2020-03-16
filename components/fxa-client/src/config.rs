@@ -184,6 +184,33 @@ impl Config {
         self.content_url()?.join(path).map_err(Into::into)
     }
 
+    pub fn connect_another_device_url(&self) -> Result<Url> {
+        self.content_url_path("connect_another_device")
+            .map_err(Into::into)
+    }
+
+    pub fn pair_url(&self) -> Result<Url> {
+        self.content_url_path("pair").map_err(Into::into)
+    }
+
+    pub fn pair_supp_url(&self) -> Result<Url> {
+        self.content_url_path("pair/supp").map_err(Into::into)
+    }
+
+    pub fn oauth_force_auth_url(&self) -> Result<Url> {
+        self.content_url_path("oauth/force_auth")
+            .map_err(Into::into)
+    }
+
+    pub fn settings_url(&self) -> Result<Url> {
+        self.content_url_path("settings").map_err(Into::into)
+    }
+
+    pub fn settings_clients_url(&self) -> Result<Url> {
+        self.content_url_path("settings/clients")
+            .map_err(Into::into)
+    }
+
     pub fn auth_url(&self) -> Result<Url> {
         Url::parse(&self.remote_config()?.auth_url).map_err(Into::into)
     }
