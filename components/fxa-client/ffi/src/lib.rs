@@ -98,6 +98,23 @@ pub extern "C" fn fxa_profile(
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache))
 }
 
+/// Get the pairing URL to navigate to on the Auth side (typically a computer).
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_pairing_authority_url(
+    handle: u64,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_get_pairing_authority_url");
+    ACCOUNTS.call_with_result(error, handle, |fxa| {
+        fxa.get_pairing_authority_url().map(Url::into_string)
+    })
+}
+
 /// Get the Sync token server endpoint URL.
 ///
 /// # Safety

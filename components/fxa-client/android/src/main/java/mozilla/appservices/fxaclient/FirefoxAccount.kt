@@ -176,11 +176,22 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     /**
      * Fetches the token server endpoint, for authenticating to Firefox Sync via OAuth.
      *
-     * This does not make network requests, and can be used on the main thread.
+     * This performs network requests, and should not be used on the main thread.
      */
     fun getTokenServerEndpointURL(): String {
         return rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_get_token_server_endpoint_url(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
+     * Get the pairing URL to navigate to on the Auth side (typically a computer).
+     *
+     * This does not make network requests, and can be used on the main thread.
+     */
+    fun getPairingAuthorityURL(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_pairing_authority_url(this.handle.get(), e)
         }.getAndConsumeRustString()
     }
 

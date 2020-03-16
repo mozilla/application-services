@@ -147,6 +147,9 @@ uint8_t fxa_is_in_migration_state(FirefoxAccountHandle handle,
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAError *_Nonnull out);
 
+char *_Nullable fxa_get_pairing_authority_url(FirefoxAccountHandle handle,
+                                              FxAError *_Nonnull out);
+
 char *_Nullable fxa_get_connection_success_url(FirefoxAccountHandle handle,
                                                FxAError *_Nonnull out);
 

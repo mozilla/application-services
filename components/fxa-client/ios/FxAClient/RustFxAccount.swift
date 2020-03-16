@@ -68,6 +68,13 @@ open class RustFxAccount {
         return URL(string: String(freeingFxaString: ptr))!
     }
 
+    open func getPairingAuthorityURL() throws -> URL {
+        let ptr = try rustCall { err in
+            fxa_get_pairing_authority_url(self.raw, err)
+        }
+        return URL(string: String(freeingFxaString: ptr))!
+    }
+
     open func getConnectionSuccessURL() throws -> URL {
         let ptr = try rustCall { err in
             fxa_get_connection_success_url(self.raw, err)

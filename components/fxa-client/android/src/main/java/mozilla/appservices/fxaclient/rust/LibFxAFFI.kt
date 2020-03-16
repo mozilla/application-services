@@ -45,6 +45,7 @@ internal interface LibFxAFFI : Library {
     fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: RustError.ByReference): RustBuffer.ByValue
 
     fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
+    fun fxa_get_pairing_authority_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_connection_success_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_manage_account_url(fxa: FxaHandle, entrypoint: String, e: RustError.ByReference): Pointer?
     fun fxa_get_manage_devices_url(fxa: FxaHandle, entrypoint: String, e: RustError.ByReference): Pointer?
