@@ -174,7 +174,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
-     * Fetches the token server endpoint, for authentication using the SAML bearer flow.
+     * Fetches the token server endpoint, for authenticating to Firefox Sync via OAuth.
      *
      * This does not make network requests, and can be used on the main thread.
      */
