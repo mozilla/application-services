@@ -8,5 +8,5 @@
 
 ### What's changed
 
-- The project now builds with version 4.3.0 of SQL Cipher instead of a fork
+- The project now builds with version 4.3.0 of SQLCipher instead of a fork
   of version 4.2.0. Newest version has NSS crypto backend. ([#2822](https://github.com/mozilla/application-services/pull/2822)).
