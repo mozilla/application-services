@@ -3,3 +3,10 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...master)
+
+## Libs
+
+### What's changed
+
+- The project now builds with version 4.3.0 of SQL Cipher instead of a fork
+  of version 4.2.0. Newest version has NSS crypto backend. ([#2822](https://github.com/mozilla/application-services/pull/2822)).

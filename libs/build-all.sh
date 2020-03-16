@@ -2,8 +2,8 @@
 
 set -euvx
 
-# SQLCIPHER_VERSION="4.1.0"
-# SQLCIPHER_SHA256="65144ca3ba4c0f9cd4bae8c20bb42f2b84424bf29d1ebcf04c44a728903b1faa"
+SQLCIPHER_VERSION="4.3.0"
+SQLCIPHER_SHA256="fccb37e440ada898902b294d02cde7af9e8706b185d77ed9f6f4d5b18b4c305f"
 
 NSS="nss-3.46"
 NSS_ARCHIVE="nss-3.46-with-nspr-4.22.tar.gz"
@@ -46,22 +46,17 @@ if ! [[ -x "$(command -v tclsh)" ]]; then
   exit 1
 fi
 
-# Delete the following...
-rm -rf sqlcipher
-git clone --single-branch --branch nss-crypto-impl --depth 1 "https://github.com/eoger/sqlcipher.git"
-SQLCIPHER_SRC_PATH=$(abspath "sqlcipher")
-# ... and uncomment the following once SQLCipher has an NSS crypto backend.
-# SQLCIPHER="v${SQLCIPHER_VERSION}"
-# rm -rf "${SQLCIPHER}"
-# if [[ ! -e "${SQLCIPHER}.tar.gz" ]]; then
-#   echo "Downloading ${SQLCIPHER}.tar.gz"
-#   curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/sqlcipher/sqlcipher/archive/${SQLCIPHER}.tar.gz"
-# else
-#   echo "Using ${SQLCIPHER}.tar.gz"
-# fi
-# echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.tar.gz" | shasum -a 256 -c - || exit 2
-# tar xfz "${SQLCIPHER}.tar.gz"
-# SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
+SQLCIPHER="v${SQLCIPHER_VERSION}"
+rm -rf "${SQLCIPHER}"
+if [[ ! -e "${SQLCIPHER}.tar.gz" ]]; then
+ echo "Downloading ${SQLCIPHER}.tar.gz"
+ curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/sqlcipher/sqlcipher/archive/${SQLCIPHER}.tar.gz"
+else
+ echo "Using ${SQLCIPHER}.tar.gz"
+fi
+echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.tar.gz" | shasum -a 256 -c - || exit 2
+tar xfz "${SQLCIPHER}.tar.gz"
+SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
 rm -rf "${NSS}"
 if [[ ! -e "${NSS_ARCHIVE}" ]]; then
