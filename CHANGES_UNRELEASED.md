@@ -4,6 +4,13 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...master)
 
+## Logins
+
+### ⚠️ Breaking changes ⚠️
+
+- Android: `MemoryLoginsStorage` has been removed. Use DatabaseLoginsStorage(":memory:") instead.
+  ([#2833](https://github.com/mozilla/application-services/pull/2823)).
+
 ## Libs
 
 ### What's changed
