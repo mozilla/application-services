@@ -13,6 +13,10 @@ open class RustFxAccount {
         self.raw = raw
     }
 
+    public struct MigrationData {
+        public var totalDuration: Int64
+    }
+
     /// Create a `RustFxAccount` from scratch. This is suitable for callers using the
     /// OAuth Flow.
     public required convenience init(config: FxAConfig) throws {
@@ -259,19 +263,35 @@ open class RustFxAccount {
         }
     }
 
-    open func migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) throws -> Bool {
-        let json = try nullableRustCall { err in
-            fxa_migrate_from_session_token(self.raw, sessionToken, kSync, kXCS, 0 /* reuse session token */, err)
-        }
-        // We don't parse the JSON coz nobody uses it...
-        return json != nil
+    func migrationMetricsData(json: String?) -> MigrationData? {
+        guard let data = json?.data(using: .utf8),
+            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let duration = dict["total_duration"] as? Int64 else { return nil }
+        return MigrationData(totalDuration: duration)
     }
 
-    open func retryMigrateFromSessionToken() throws -> Bool {
-        let json = try nullableRustCall { err in
+    open func migrateFromSessionToken(sessionToken: String, kSync: String, kXCS: String) throws -> MigrationData? {
+        let ptrToJson = try nullableRustCall { err in
+            fxa_migrate_from_session_token(self.raw, sessionToken, kSync, kXCS, 0 /* reuse session token */, err)
+        }
+
+        if let ptrToJson = ptrToJson {
+            return migrationMetricsData(json: String(freeingFxaString: ptrToJson))
+        }
+
+        return nil
+    }
+
+    open func retryMigrateFromSessionToken() throws -> MigrationData? {
+        let ptrToJson = try nullableRustCall { err in
             fxa_retry_migrate_from_session_token(self.raw, err)
         }
-        return json != nil
+
+        if let ptrToJson = ptrToJson {
+            return migrationMetricsData(json: String(freeingFxaString: ptrToJson))
+        }
+
+        return nil
     }
 
     open func isInMigrationState() throws -> Bool {

@@ -374,7 +374,7 @@ open class FxAccountManager {
                     sessionToken: sessionToken,
                     kSync: kSync,
                     kXCS: kXCS
-                ) {
+                ) != nil {
                     return .authenticatedViaMigration
                 }
                 if acct.isInMigrationState() {
@@ -392,7 +392,7 @@ open class FxAccountManager {
                 acct.registerPersistCallback(statePersistenceCallback)
 
                 // Case 1: Success!
-                if acct.retryMigrateFromSessionToken() {
+                if acct.retryMigrateFromSessionToken() != nil {
                     return .authenticatedViaMigration
                 }
                 // Case 2: Transient error, we can still retry later.

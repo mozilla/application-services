@@ -4,6 +4,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...master)
 
+## FxA
+
+### ⚠️ Breaking changes ⚠️
+
+- iOS: `migrateFromSessionToken` and `retryMigrateFromSessionToken` no longer return a boolean.
+Instead they return a `MigrationData?`, if migrated successfully the structure returns `{ total_duration }`,
+where `total_duration` is the time the migration took in milliseconds. ([#2824](https://github.com/mozilla/application-services/pull/2824)).
+
 ## Libs
 
 ### What's changed
