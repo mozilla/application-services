@@ -17,7 +17,7 @@ class Config constructor(
     enum class Server(val contentUrl: String) {
         RELEASE("https://accounts.firefox.com"),
         STABLE("https://stable.dev.lcip.org"),
-        DEV("https://accounts.stage.mozaws.net"),
+        STAGE("https://accounts.stage.mozaws.net"),
         CHINA("https://accounts.firefox.com.cn")
     }
 
