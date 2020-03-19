@@ -18,7 +18,6 @@ group.add_argument("--remote-repo-url",
                     metavar="REMOTE_REPO_PATH",
                     help="Clone a different firefox-ios repository.")
 parser.add_argument("--branch",
-                    default="master",
                     help="Branch of firefox-ios to use.")
 parser.add_argument("--action",
                     choices=["open-project", "run-tests", "do-nothing"],
@@ -40,7 +39,10 @@ if local_repo_path is None:
         remote_repo_url = DEFAULT_REMOTE_REPO_URL
     step_msg(f"Cloning {remote_repo_url}")
     run_cmd_checked(["git", "clone", remote_repo_url, repo_path])
-    run_cmd_checked(["git", "checkout", firefox_ios_branch], cwd=repo_path)
+    if firefox_ios_branch is not None:
+        run_cmd_checked(["git", "checkout", firefox_ios_branch], cwd=repo_path)
+elif firefox_ios_branch is not None:
+    fatal_err("Cannot specify branch when using a local repo; check it out locally and try again.")
 
 if not Path(repo_path, "Carthage").exists():
     step_msg("Carthage folder not present. Running the firefox-ios bootstrap script")
