@@ -319,12 +319,15 @@ jobs:
       - run:
           name: Verify the build environment
           command: ./libs/verify-ios-environment.sh
+      # - run:
+      #     name: Run XCode tests
+      #     command: bash automation/run_ios_tests.sh
+      # - store_artifacts:
+      #     path: raw_xcodetest.log
+      #     destination: logs/raw_xcodetest.log
       - run:
-          name: Run XCode tests
-          command: bash automation/run_ios_tests.sh
-      - store_artifacts:
-          path: raw_xcodetest.log
-          destination: logs/raw_xcodetest.log
+          name: (Optional) Run firefox-ios tests
+          command: ./automation/maybe_run_fxios_tests.py
       - run:
           name: Build Carthage archive
           no_output_timeout: 20m
