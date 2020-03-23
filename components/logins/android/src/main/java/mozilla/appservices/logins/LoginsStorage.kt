@@ -165,8 +165,7 @@ interface LoginsStorage : AutoCloseable {
      * generated automatically. The format of generated guids
      * are left up to the implementation of LoginsStorage (in
      * practice the [DatabaseLoginsStorage] generates 12-character
-     * base64url (RFC 4648) encoded strings, and [MemoryLoginsStorage]
-     * generates strings using [java.util.UUID.toString])
+     * base64url (RFC 4648) encoded strings
      *
      * This will return an error result if a GUID is provided but
      * collides with an existing record, or if the provided record
