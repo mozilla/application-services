@@ -181,7 +181,7 @@ impl FirefoxAccount {
         };
 
         // Trade our session token for a refresh token.
-        let oauth_response = self.client.oauth_tokens_from_session_token(
+        let oauth_response = self.client.refresh_token_with_session_token(
             &self.state.config,
             &migration_session_token,
             &[scopes::PROFILE, scopes::OLD_SYNC],
@@ -202,14 +202,15 @@ impl FirefoxAccount {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::*;
+    use crate::{http_client::*, Config};
     use std::collections::HashMap;
     use std::sync::Arc;
 
     fn setup() -> FirefoxAccount {
         // I'd love to be able to configure a single mocked client here,
         // but can't work out how to do that within the typesystem.
-        FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar")
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        FirefoxAccount::with_config(config)
     }
 
     macro_rules! assert_match {
@@ -278,7 +279,7 @@ mod tests {
             )
             .returns_once(Ok(key_data));
         client
-            .expect_oauth_tokens_from_session_token(
+            .expect_refresh_token_with_session_token(
                 mockiato::Argument::any,
                 |arg| arg.partial_eq("dup_session"),
                 |arg| arg.unordered_vec_eq([scopes::PROFILE, scopes::OLD_SYNC].to_vec()),

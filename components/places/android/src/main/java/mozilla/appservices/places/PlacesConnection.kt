@@ -514,11 +514,11 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
-    override fun deletePlace(url: String) {
+    override fun deleteVisitsFor(url: String) {
         return writeQueryCounters.measure {
             rustCall { error ->
                 PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_delete_place(
+                    LibPlacesFFI.INSTANCE.places_delete_visits_for(
                         this.handle.get(), url, error)
                 }
             }
@@ -958,20 +958,22 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
     fun deleteEverything()
 
     /**
-     * Deletes all information about the given URL. If the place has previously
-     * been synced, a tombstone will be written to the sync server, meaning
-     * the place should be deleted on all synced devices.
+     * Deletes all visits from the given URL. If the page has previously
+     * been synced, a tombstone will be written to the Sync server, meaning
+     * visits for the page should be deleted from all synced devices. If
+     * the page is bookmarked, or has a keyword or tags, only its visits
+     * will be removed; otherwise, the page will be removed completely.
      *
-     * The exception to this is if the place is duplicated on the sync server
-     * (duplicate server-side places are a form of corruption), in which case
-     * only the place whose GUID corresponds to the local GUID will be
-     * deleted. This is (hopefully) rare, and sadly there is not much we can
-     * do about it. It indicates a client-side bug that occurred at some
-     * point in the past.
+     * Note that, if the page is duplicated on the Sync server (that is,
+     * the server has a record with the page URL, but its GUID is different
+     * than the one we have locally), only the record whose GUID matches the
+     * local GUID will be deleted. This is (hopefully) rare, and sadly there
+     * is not much we can do about it. It indicates a client-side bug that
+     * occurred at some point in the past.
      *
      * @param url the url to be removed.
      */
-    fun deletePlace(url: String)
+    fun deleteVisitsFor(url: String)
 
     /**
      * Deletes all visits which occurred since the specified time. If the

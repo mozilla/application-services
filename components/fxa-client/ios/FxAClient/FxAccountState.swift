@@ -29,6 +29,7 @@ internal enum Event {
         kSync: String,
         kXCS: String
     )
+    case changedPassword(newSessionToken: String)
     case authenticated(authData: FxaAuthData)
     case authenticatedViaMigration
     case authenticationError /* (error: AuthException) */
@@ -79,12 +80,14 @@ extension FxAccountManager {
             case .fetchProfile: return .authenticatedNoProfile
             case .fetchedProfile: return .authenticatedWithProfile
             case .failedToFetchProfile: return .authenticatedNoProfile
+            case .changedPassword: return .authenticatedNoProfile
             case .logout: return .notAuthenticated
             default: return nil
             }
         case .authenticatedWithProfile:
             switch event {
             case .authenticationError: return .authenticationProblem
+            case .changedPassword: return .authenticatedNoProfile
             case .logout: return .notAuthenticated
             default: return nil
             }

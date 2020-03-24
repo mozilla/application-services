@@ -45,7 +45,7 @@ impl FirefoxAccount {
         let resp = match self.state.refresh_token {
             Some(ref refresh_token) => {
                 if refresh_token.scopes.contains(scope) {
-                    self.client.oauth_token_with_refresh_token(
+                    self.client.access_token_with_refresh_token(
                         &self.state.config,
                         &refresh_token.token,
                         &[scope],
@@ -55,7 +55,7 @@ impl FirefoxAccount {
                 }
             }
             None => match self.state.session_token {
-                Some(ref session_token) => self.client.oauth_token_with_session_token(
+                Some(ref session_token) => self.client.access_token_with_session_token(
                     &self.state.config,
                     &session_token,
                     &[scope],
@@ -97,10 +97,6 @@ impl FirefoxAccount {
         };
         Ok(IntrospectInfo {
             active: resp.active,
-            token_type: resp.token_type,
-            scope: resp.scope,
-            exp: resp.exp,
-            iss: resp.iss,
         })
     }
 
@@ -110,7 +106,7 @@ impl FirefoxAccount {
     /// the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
-        let mut url = self.state.config.content_url_path("/pair/supp")?;
+        let mut url = self.state.config.pair_supp_url()?;
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
@@ -124,7 +120,7 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
         let mut url = if self.state.last_seen_profile.is_some() {
-            self.state.config.content_url_path("/oauth/force_auth")?
+            self.state.config.oauth_force_auth_url()?
         } else {
             self.state.config.authorization_endpoint()?
         };
@@ -229,7 +225,7 @@ impl FirefoxAccount {
             Some(oauth_flow) => oauth_flow,
             None => return Err(ErrorKind::UnknownOAuthState.into()),
         };
-        let resp = self.client.oauth_tokens_from_code(
+        let resp = self.client.refresh_token_with_code(
             &self.state.config,
             &code,
             &oauth_flow.code_verifier,
@@ -271,10 +267,9 @@ impl FirefoxAccount {
             log::warn!("Access token destruction failure: {:?}", err);
         }
         let old_refresh_token = self.state.refresh_token.clone();
-        let new_refresh_token = match resp.refresh_token {
-            Some(ref refresh_token) => refresh_token.clone(),
-            None => return Err(ErrorKind::RefreshTokenNotPresent.into()),
-        };
+        let new_refresh_token = resp
+            .refresh_token
+            .ok_or_else(|| ErrorKind::RefreshTokenNotPresent)?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -314,7 +309,40 @@ impl FirefoxAccount {
         // When our keys change, we might need to re-register device capabilities with the server.
         // Ensure that this happens on the next call to ensure_capabilities.
         self.state.device_capabilities.clear();
+        Ok(())
+    }
 
+    /// Typically called during a password change flow.
+    /// Invalidates all tokens and fetches a new refresh token.
+    /// Because the old refresh token is not valid anymore, we can't do like `handle_oauth_response`
+    /// and re-create the device, so it is the responsibility of the caller to do so after we're
+    /// done.
+    ///
+    /// **💾 This method alters the persisted account state.**
+    pub fn handle_session_token_change(&mut self, session_token: &str) -> Result<()> {
+        let old_refresh_token = self
+            .state
+            .refresh_token
+            .as_ref()
+            .ok_or_else(|| ErrorKind::NoRefreshToken)?;
+        let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
+        let resp = self.client.refresh_token_with_session_token(
+            &self.state.config,
+            &session_token,
+            &scopes,
+        )?;
+        let new_refresh_token = resp
+            .refresh_token
+            .ok_or_else(|| ErrorKind::RefreshTokenNotPresent)?;
+        self.state.refresh_token = Some(RefreshToken {
+            token: new_refresh_token,
+            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
+        });
+        self.state.session_token = Some(session_token.to_owned());
+        self.clear_access_token_cache();
+        // When our keys change, we might need to re-register device capabilities with the server.
+        // Ensure that this happens on the next call to ensure_capabilities.
+        self.state.device_capabilities.clear();
         Ok(())
     }
 
@@ -364,16 +392,12 @@ impl std::fmt::Debug for AccessTokenInfo {
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct IntrospectInfo {
     pub active: bool,
-    pub token_type: String,
-    pub scope: Option<String>,
-    pub exp: Option<u64>,
-    pub iss: Option<String>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::http_client::*;
+    use crate::{http_client::*, Config};
     use std::borrow::Cow;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -388,11 +412,12 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "https://foo.bar",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
         let flow_url = Url::parse(&url).unwrap();
 
@@ -451,8 +476,8 @@ mod tests {
 
     #[test]
     fn test_force_auth_url() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         let email = "test@example.com";
         fxa.add_cached_profile("123", email);
         let url = fxa.begin_oauth_flow(&["profile"]).unwrap();
@@ -468,11 +493,12 @@ mod tests {
     #[test]
     fn test_webchannel_context_url() {
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -486,11 +512,12 @@ mod tests {
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -505,11 +532,12 @@ mod tests {
         const PAIRING_URL: &str = "https://accounts.firefox.com/pair#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
         const EXPECTED_URL: &str = "https://accounts.firefox.com/pair/supp?client_id=12345678&redirect_uri=https%3A%2F%2Ffoo.bar&scope=https%3A%2F%2Fidentity.mozilla.com%2Fapps%2Foldsync&state=SmbAA_9EA5v1R2bgIPeWWw&code_challenge_method=S256&code_challenge=ZgHLPPJ8XYbXpo7VIb7wFw0yXlTa6MUOVfGiADt0JSM&access_type=offline&keys_jwk=eyJjcnYiOiJQLTI1NiIsImt0eSI6IkVDIiwieCI6Ing5LUltQjJveDM0LTV6c1VmbW5sNEp0Ti14elV2eFZlZXJHTFRXRV9BT0kiLCJ5IjoiNXBKbTB3WGQ4YXdHcm0zREl4T1pWMl9qdl9tZEx1TWlMb1RkZ1RucWJDZyJ9#channel_id=658db7fe98b249a5897b884f98fb31b7&channel_key=1hIDzTj5oY2HDeSg_jA2DhcOcAn5Uqq0cAYlZRNUIo4";
 
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
             "https://foo.bar",
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_pairing_flow(&PAIRING_URL, &SCOPES).unwrap();
         let flow_url = Url::parse(&url).unwrap();
         let expected_parsed_url = Url::parse(EXPECTED_URL).unwrap();
@@ -565,11 +593,8 @@ mod tests {
     #[test]
     fn test_pairing_flow_origin_mismatch() {
         static PAIRING_URL: &str = "https://bad.origin.com/pair#channel_id=foo&channel_key=bar";
-        let mut fxa = FirefoxAccount::new(
-            "https://accounts.firefox.com",
-            "12345678",
-            "https://foo.bar",
-        );
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         let url =
             fxa.begin_pairing_flow(&PAIRING_URL, &["https://identity.mozilla.com/apps/oldsync"]);
 
@@ -588,8 +613,8 @@ mod tests {
 
     #[test]
     fn test_check_authorization_status() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         let refresh_token_scopes = std::collections::HashSet::new();
         fxa.state.refresh_token = Some(RefreshToken {
@@ -603,20 +628,10 @@ mod tests {
                 token.partial_eq("refresh_token")
             })
             .times(1)
-            .returns_once(Ok(IntrospectResponse {
-                active: true,
-                token_type: "refresh".to_string(),
-                scope: None,
-                exp: None,
-                iss: None,
-            }));
+            .returns_once(Ok(IntrospectResponse { active: true }));
         fxa.set_client(Arc::new(client));
 
         let auth_status = fxa.check_authorization_status().unwrap();
         assert_eq!(auth_status.active, true);
-        assert_eq!(auth_status.token_type, "refresh".to_string());
-        assert_eq!(auth_status.scope, None);
-        assert_eq!(auth_status.exp, None);
-        assert_eq!(auth_status.iss, None);
     }
 }

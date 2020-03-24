@@ -440,7 +440,6 @@ The following text applies to code linked from these dependencies:
 [base64](https://github.com/alicemaz/rust-base64),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
-[c2-chacha](https://github.com/cryptocorrosion/cryptocorrosion),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cexpr](https://github.com/jethrogb/rust-cexpr),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
@@ -453,7 +452,7 @@ The following text applies to code linked from these dependencies:
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
 [env_logger](https://github.com/sebasmagri/env_logger/),
 [failure](https://github.com/rust-lang-nursery/failure),
-[failure_derive](https://github.com/withoutboats/failure_derive),
+[failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [fixedbitset](https://github.com/bluss/fixedbitset),
@@ -1257,7 +1256,7 @@ The following text applies to code linked from these dependencies:
 [nom](https://github.com/Geal/nom)
 
 ```
-Copyright (c) 2014-2018 Geoffroy Couprie
+Copyright (c) 2014-2019 Geoffroy Couprie
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the

@@ -138,6 +138,13 @@ class FxAccount: RustFxAccount {
         }
     }
 
+    override func handleSessionTokenChange(sessionToken: String) throws {
+        defer { tryPersistState() }
+        try notifyAuthErrors {
+            try super.handleSessionTokenChange(sessionToken: sessionToken)
+        }
+    }
+
     internal func reportAccountMigrationError(_ error: Error) {
         // Not in migration state after throwing during migration = unrecoverable error.
         if !isInMigrationState() {
@@ -166,20 +173,16 @@ class FxAccount: RustFxAccount {
     }
 
     private func tryPersistState() {
-        DispatchQueue.global().async {
-            guard let cb = self.persistCallback else {
-                return
-            }
-            do {
-                let json = try self.toJSON()
-                DispatchQueue.global(qos: .background).async {
-                    cb.persist(json: json)
-                }
-            } catch {
-                // Ignore the error because the prior operation might have worked,
-                // but still log it.
-                FxALog.error("FxAccounts internal state serialization failed.")
-            }
+        guard let cb = persistCallback else {
+            return
+        }
+        do {
+            let json = try toJSON()
+            cb.persist(json: json)
+        } catch {
+            // Ignore the error because the prior operation might have worked,
+            // but still log it.
+            FxALog.error("FxAccounts internal state serialization failed.")
         }
     }
 

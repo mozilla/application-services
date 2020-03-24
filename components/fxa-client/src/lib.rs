@@ -96,10 +96,20 @@ impl FirefoxAccount {
     /// * `content_url` - The Firefox Account content server URL.
     /// * `client_id` - The OAuth `client_id`.
     /// * `redirect_uri` - The OAuth `redirect_uri`.
+    /// * `token_server_url_override` - Override the Token Server URL provided
+    ///                                 by the FxA's autoconfig endpoint.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
-        let config = Config::new(content_url, client_id, redirect_uri);
+    pub fn new(
+        content_url: &str,
+        client_id: &str,
+        redirect_uri: &str,
+        token_server_url_override: Option<&str>,
+    ) -> Self {
+        let mut config = Config::new(content_url, client_id, redirect_uri);
+        if let Some(token_server_url_override) = token_server_url_override {
+            config.override_token_server_url(token_server_url_override);
+        }
         Self::with_config(config)
     }
 
@@ -134,15 +144,22 @@ impl FirefoxAccount {
         self.state.config.token_server_endpoint_url()
     }
 
+    /// Get the pairing URL to navigate to on the Auth side (typically
+    /// a computer).
+    pub fn get_pairing_authority_url(&self) -> Result<Url> {
+        // Special case for the production server, we use the shorter firefox.com/pair URL.
+        if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
+            return Ok(Url::parse("https://firefox.com/pair")?);
+        }
+        Ok(self.state.config.pair_url()?)
+    }
+
     /// Get the "connection succeeded" page URL.
     /// It is typically used to redirect the user after
     /// having intercepted the OAuth login-flow state/code
     /// redirection.
     pub fn get_connection_success_url(&self) -> Result<Url> {
-        let mut url = self
-            .state
-            .config
-            .content_url_path("connect_another_device")?;
+        let mut url = self.state.config.connect_another_device_url()?;
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
         Ok(url)
@@ -156,7 +173,7 @@ impl FirefoxAccount {
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
     pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
-        let mut url = self.state.config.content_url_path("settings")?;
+        let mut url = self.state.config.settings_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
             url.query_pairs_mut()
@@ -173,7 +190,7 @@ impl FirefoxAccount {
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
     pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<Url> {
-        let mut url = self.state.config.content_url_path("settings/clients")?;
+        let mut url = self.state.config.settings_clients_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         self.add_account_identifiers_to_url(url)
     }
@@ -263,8 +280,8 @@ mod tests {
 
     #[test]
     fn test_serialize_deserialize() {
-        let fxa1 =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let fxa1 = FirefoxAccount::with_config(config);
         let fxa1_json = fxa1.to_json().unwrap();
         drop(fxa1);
         let fxa2 = FirefoxAccount::from_json(&fxa1_json).unwrap();
@@ -274,7 +291,8 @@ mod tests {
 
     #[test]
     fn test_get_connection_success_url() {
-        let fxa = FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let fxa = FirefoxAccount::with_config(config);
         let url = fxa.get_connection_success_url().unwrap().to_string();
         assert_eq!(
             url,
@@ -285,8 +303,8 @@ mod tests {
 
     #[test]
     fn test_get_manage_account_url() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
         match fxa.get_manage_account_url("test").unwrap_err().kind() {
             ErrorKind::NoCachedToken(_) => {}
@@ -304,11 +322,12 @@ mod tests {
 
     #[test]
     fn test_get_manage_account_url_with_webchannel_redirect() {
-        let mut fxa = FirefoxAccount::new(
+        let config = Config::new(
             "https://stable.dev.lcip.org",
             "12345678",
             OAUTH_WEBCHANNEL_REDIRECT,
         );
+        let mut fxa = FirefoxAccount::with_config(config);
         fxa.add_cached_profile("123", "test@example.com");
         let url = fxa.get_manage_account_url("test").unwrap().to_string();
         assert_eq!(
@@ -320,8 +339,8 @@ mod tests {
 
     #[test]
     fn test_get_manage_devices_url() {
-        let mut fxa =
-            FirefoxAccount::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
         // No current user -> Error.
         match fxa.get_manage_devices_url("test").unwrap_err().kind() {
             ErrorKind::NoCachedToken(_) => {}
@@ -339,8 +358,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_no_refresh_token() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::new("https://stable.dev.lcip.org", "12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.add_cached_token(
             "profile",
@@ -362,8 +381,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_device() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),
@@ -431,8 +450,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_no_device() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),
@@ -478,8 +497,8 @@ mod tests {
 
     #[test]
     fn test_disconnect_network_errors() {
-        let mut fxa =
-            FirefoxAccount::with_config(Config::stable_dev("12345678", "https://foo.bar"));
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
 
         fxa.state.refresh_token = Some(RefreshToken {
             token: "refreshtok".to_string(),
@@ -511,5 +530,22 @@ mod tests {
         assert!(fxa.state.refresh_token.is_some());
         fxa.disconnect();
         assert!(fxa.state.refresh_token.is_none());
+    }
+
+    #[test]
+    fn test_get_pairing_authority_url() {
+        let config = Config::new("https://foo.bar", "12345678", "https://foo.bar");
+        let fxa = FirefoxAccount::with_config(config);
+        assert_eq!(
+            fxa.get_pairing_authority_url().unwrap().as_str(),
+            "https://foo.bar/pair"
+        );
+
+        let config = Config::release("12345678", "https://foo.bar");
+        let fxa = FirefoxAccount::with_config(config);
+        assert_eq!(
+            fxa.get_pairing_authority_url().unwrap().as_str(),
+            "https://firefox.com/pair"
+        )
     }
 }

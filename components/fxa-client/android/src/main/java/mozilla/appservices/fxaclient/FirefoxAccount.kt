@@ -11,7 +11,6 @@ import mozilla.appservices.fxaclient.rust.FxaHandle
 import mozilla.appservices.fxaclient.rust.LibFxAFFI
 import mozilla.appservices.fxaclient.rust.RustError
 import mozilla.appservices.support.native.toNioDirectBuffer
-import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 import org.json.JSONObject
 
@@ -29,7 +28,13 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     constructor(config: Config, persistCallback: PersistCallback? = null) :
     this(rustCall { e ->
-        LibFxAFFI.INSTANCE.fxa_new(config.contentUrl, config.clientId, config.redirectUri, e)
+        LibFxAFFI.INSTANCE.fxa_new(
+            config.contentUrl,
+            config.clientId,
+            config.redirectUri,
+            config.tokenServerUrlOverride,
+            e
+        )
     }, persistCallback) {
         // Persist the newly created instance state.
         this.tryPersistState()
@@ -169,13 +174,24 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     }
 
     /**
-     * Fetches the token server endpoint, for authentication using the SAML bearer flow.
+     * Fetches the token server endpoint, for authenticating to Firefox Sync via OAuth.
      *
-     * This does not make network requests, and can be used on the main thread.
+     * This performs network requests, and should not be used on the main thread.
      */
     fun getTokenServerEndpointURL(): String {
         return rustCallWithLock { e ->
             LibFxAFFI.INSTANCE.fxa_get_token_server_endpoint_url(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
+    /**
+     * Get the pairing URL to navigate to on the Auth side (typically a computer).
+     *
+     * This does not make network requests, and can be used on the main thread.
+     */
+    fun getPairingAuthorityURL(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_get_pairing_authority_url(this.handle.get(), e)
         }.getAndConsumeRustString()
     }
 
@@ -524,7 +540,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun initializeDevice(name: String, deviceType: Device.Type, supportedCapabilities: Set<Device.Capability>) {
-        val (nioBuf, len) = capabilitiesToBuffer(supportedCapabilities)
+        val (nioBuf, len) = supportedCapabilities.toCollectionMessage().toNioDirectBuffer()
         rustCall { e ->
             val ptr = Native.getDirectBufferPointer(nioBuf)
             LibFxAFFI.INSTANCE.fxa_initialize_device(this.handle.get(), name, deviceType.toNumber(), ptr, len, e)
@@ -543,23 +559,12 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      */
     fun ensureCapabilities(supportedCapabilities: Set<Device.Capability>) {
-        val (nioBuf, len) = capabilitiesToBuffer(supportedCapabilities)
+        val (nioBuf, len) = supportedCapabilities.toCollectionMessage().toNioDirectBuffer()
         rustCall { e ->
             val ptr = Native.getDirectBufferPointer(nioBuf)
             LibFxAFFI.INSTANCE.fxa_ensure_capabilities(this.handle.get(), ptr, len, e)
         }
         this.tryPersistState()
-    }
-
-    private fun capabilitiesToBuffer(capabilities: Set<Device.Capability>): Pair<ByteBuffer, Int> {
-        val capabilitiesBuilder = MsgTypes.Capabilities.newBuilder()
-        capabilities.forEach {
-            when (it) {
-                Device.Capability.SEND_TAB -> capabilitiesBuilder.addCapability(MsgTypes.Device.Capability.SEND_TAB)
-            }.exhaustive
-        }
-        val buf = capabilitiesBuilder.build()
-        return buf.toNioDirectBuffer()
     }
 
     /**

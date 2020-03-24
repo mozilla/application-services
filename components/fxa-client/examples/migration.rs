@@ -1,5 +1,5 @@
 use cli_support::prompt::prompt_string;
-use fxa_client::FirefoxAccount;
+use fxa_client::{Config, FirefoxAccount};
 use std::{thread, time};
 
 static CLIENT_ID: &str = "3c49430b43dfba77";
@@ -7,7 +7,8 @@ static CONTENT_SERVER: &str = "https://accounts.firefox.com";
 static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/3c49430b43dfba77";
 
 fn main() {
-    let mut fxa = FirefoxAccount::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
+    let config = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
+    let mut fxa = FirefoxAccount::with_config(config);
     println!("Enter Session token (hex-string):");
     let session_token: String = prompt_string("session token").unwrap();
     println!("Enter kSync (hex-string):");

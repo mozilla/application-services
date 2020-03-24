@@ -67,6 +67,10 @@ char *_Nullable fxa_get_session_token(FirefoxAccountHandle handle,
 void fxa_clear_access_token_cache(FirefoxAccountHandle handle,
                                   FxAError *_Nonnull out);
 
+void fxa_handle_session_token_change(FirefoxAccountHandle handle,
+                                     const char *_Nonnull new_session_token,
+                                     FxAError *_Nonnull out);
+
 void fxa_disconnect(FirefoxAccountHandle handle,
                     FxAError *_Nonnull out);
 
@@ -82,6 +86,7 @@ char *_Nullable fxa_to_json(FirefoxAccountHandle handle,
 FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              const char *_Nonnull client_id,
                              const char *_Nonnull redirect_uri,
+                             const char *_Nullable token_server_url_override,
                              FxAError *_Nonnull out);
 
 FxARustBuffer fxa_profile(FirefoxAccountHandle handle,
@@ -141,6 +146,9 @@ uint8_t fxa_is_in_migration_state(FirefoxAccountHandle handle,
 
 char *_Nullable fxa_get_token_server_endpoint_url(FirefoxAccountHandle handle,
                                                   FxAError *_Nonnull out);
+
+char *_Nullable fxa_get_pairing_authority_url(FirefoxAccountHandle handle,
+                                              FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_connection_success_url(FirefoxAccountHandle handle,
                                                FxAError *_Nonnull out);

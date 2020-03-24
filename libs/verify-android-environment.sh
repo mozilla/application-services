@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
-# shellcheck disable=SC2148,SC2164
+# shellcheck disable=SC2148
 # Ensure the build toolchains are set up correctly for android builds.
 #
 # This file should be used via `./libs/verify-android-environment.sh`.
+
+set -e
 
 NDK_VERSION=20
 RUST_TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android" "x86_64-linux-android")
@@ -13,7 +15,9 @@ if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   exit 1
 fi
 
-"$(pwd)/libs/bootstrap-common.sh"
+"$(pwd)/libs/verify-common.sh"
+
+# If you add a dependency below, mention it in building.md in the Android section!
 
 if [[ -z "${ANDROID_HOME}" ]]; then
   echo "Could not find Android SDK:"
@@ -78,9 +82,9 @@ fi
 # CI just downloads these libs anyway.
 if [[ -z "${CI}" ]]; then
   if [[ ! -d "${PWD}/libs/android/arm64-v8a/nss" ]] || [[ ! -d "${PWD}/libs/android/arm64-v8a/sqlcipher" ]]; then
-    pushd libs
+    pushd libs || exit 1
     ./build-all.sh android
-    popd
+    popd || exit 1
   fi
 fi
 

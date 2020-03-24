@@ -9,7 +9,7 @@
 use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
 use crate::config::PushConfiguration;
 use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
-use crate::storage::{Storage, Store};
+use crate::storage::{PushRecord, Storage, Store};
 
 use crate::error::{self, ErrorKind, Result};
 
@@ -124,20 +124,27 @@ impl PushManager {
         Ok(result)
     }
 
-    pub fn verify_connection(&self) -> error::Result<bool> {
-        if self.conn.uaid.is_none() {
-            // Can't yet verify the channels, since no UAID has been set.
-            // so return true for now.
-            return Ok(true);
+    pub fn verify_connection(&mut self) -> Result<Vec<PushRecord>> {
+        let uaid = self
+            .conn
+            .uaid
+            .clone()
+            .ok_or_else(|| ErrorKind::GeneralError("No subscriptions created yet.".into()))?;
+
+        let channels = self.store.get_channel_list(&uaid)?;
+        let channels_match = self.conn.verify_connection(&channels)?;
+        if channels_match {
+            // Everything is fine, our subscriptions in the db match the remote server.
+            return Ok(Vec::new());
         }
-        let channels = self
-            .store
-            .get_channel_list(self.conn.uaid.as_ref().unwrap())?;
-        let result = self.conn.verify_connection(&channels)?;
-        if !result {
-            self.unsubscribe(None)?;
+
+        let mut subscriptions: Vec<PushRecord> = Vec::new();
+        for channel in channels {
+            if let Some(record) = self.store.get_record_by_chid(&channel)? {
+                subscriptions.push(record);
+            }
         }
-        Ok(result)
+        Ok(subscriptions)
     }
 
     pub fn decrypt(

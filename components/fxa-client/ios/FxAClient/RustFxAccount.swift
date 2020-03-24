@@ -17,7 +17,7 @@ open class RustFxAccount {
     /// OAuth Flow.
     public required convenience init(config: FxAConfig) throws {
         let pointer = try rustCall { err in
-            fxa_new(config.contentUrl, config.clientId, config.redirectUri, err)
+            fxa_new(config.contentUrl, config.clientId, config.redirectUri, config.tokenServerUrlOverride, err)
         }
         self.init(raw: pointer)
     }
@@ -64,6 +64,13 @@ open class RustFxAccount {
     open func getTokenServerEndpointURL() throws -> URL {
         let ptr = try rustCall { err in
             fxa_get_token_server_endpoint_url(self.raw, err)
+        }
+        return URL(string: String(freeingFxaString: ptr))!
+    }
+
+    open func getPairingAuthorityURL() throws -> URL {
+        let ptr = try rustCall { err in
+            fxa_get_pairing_authority_url(self.raw, err)
         }
         return URL(string: String(freeingFxaString: ptr))!
     }
@@ -275,6 +282,12 @@ open class RustFxAccount {
         // We never initiate a "copy-session-token" migration,
         // so we can just return a boolean.
         return state == .reuseSessionToken
+    }
+
+    open func handleSessionTokenChange(sessionToken: String) throws {
+        try rustCall { err in
+            fxa_handle_session_token_change(self.raw, sessionToken, err)
+        }
     }
 
     private func msgToBuffer(msg: SwiftProtobuf.Message) -> (Data, Int32) {

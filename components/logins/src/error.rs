@@ -53,6 +53,9 @@ pub enum ErrorKind {
 
     #[fail(display = "{}", _0)]
     Interrupted(#[fail(cause)] interrupt::Interrupted),
+
+    #[fail(display = "Protobuf decode error: {}", _0)]
+    ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
 }
 
 error_support::define_error! {
@@ -63,6 +66,7 @@ error_support::define_error! {
         (SqlError, rusqlite::Error),
         (InvalidLogin, InvalidLogin),
         (Interrupted, interrupt::Interrupted),
+        (ProtobufDecodeError, prost::DecodeError),
     }
 }
 
@@ -106,6 +110,7 @@ impl Error {
                 InvalidLogin::NoTarget => "InvalidLogin::NoTarget",
                 InvalidLogin::IllegalFieldValue { .. } => "InvalidLogin::IllegalFieldValue",
             },
+            ErrorKind::ProtobufDecodeError(_) => "BufDecodeError",
         }
     }
 }

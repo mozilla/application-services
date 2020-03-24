@@ -5,41 +5,39 @@
 import Foundation
 
 open class FxAConfig {
-    // FIXME: these should be lower case.
-    // swiftlint:disable identifier_name
     public enum Server: String {
-        case Release = "https://accounts.firefox.com"
-        case Stable = "https://stable.dev.lcip.org"
-        case Dev = "https://accounts.stage.mozaws.net"
+        case release = "https://accounts.firefox.com"
+        case stable = "https://stable.dev.lcip.org"
+        case stage = "https://accounts.stage.mozaws.net"
+        case china = "https://accounts.firefox.com.cn"
     }
-
-    // swiftlint:enable identifier_name
 
     let contentUrl: String
     let clientId: String
     let redirectUri: String
+    let tokenServerUrlOverride: String?
 
-    public init(contentUrl: String, clientId: String, redirectUri: String) {
+    public init(
+        contentUrl: String,
+        clientId: String,
+        redirectUri: String,
+        tokenServerUrlOverride: String? = nil
+    ) {
         self.contentUrl = contentUrl
         self.clientId = clientId
         self.redirectUri = redirectUri
+        self.tokenServerUrlOverride = tokenServerUrlOverride
     }
 
-    public init(withServer server: Server, clientId: String, redirectUri: String) {
+    public init(
+        server: Server,
+        clientId: String,
+        redirectUri: String,
+        tokenServerUrlOverride: String? = nil
+    ) {
         contentUrl = server.rawValue
         self.clientId = clientId
         self.redirectUri = redirectUri
-    }
-
-    public static func release(clientId: String, redirectUri: String) -> FxAConfig {
-        return FxAConfig(withServer: FxAConfig.Server.Release, clientId: clientId, redirectUri: redirectUri)
-    }
-
-    public static func stable(clientId: String, redirectUri: String) -> FxAConfig {
-        return FxAConfig(withServer: FxAConfig.Server.Stable, clientId: clientId, redirectUri: redirectUri)
-    }
-
-    public static func dev(clientId: String, redirectUri: String) -> FxAConfig {
-        return FxAConfig(withServer: FxAConfig.Server.Dev, clientId: clientId, redirectUri: redirectUri)
+        self.tokenServerUrlOverride = tokenServerUrlOverride
     }
 }

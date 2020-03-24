@@ -98,11 +98,18 @@ class PushManager(
         }.toInt() == 1
     }
 
-    override fun verifyConnection(): Boolean {
-        return rustCall { error ->
+    override fun verifyConnection(): List<PushSubscriptionChanged> {
+        val respBuffer = rustCall { error ->
             LibPushFFI.INSTANCE.push_verify_connection(
                 this.handle.get(), error)
-        }.toInt() == 1
+        }
+
+        try {
+            val response = MsgTypes.PushSubscriptionsChanged.parseFrom(respBuffer.asCodedInputStream()!!)
+            return PushSubscriptionChanged.fromCollectionMessage(response)
+        } finally {
+            LibPushFFI.INSTANCE.push_destroy_buffer(respBuffer)
+        }
     }
 
     override fun decrypt(
@@ -242,8 +249,28 @@ class DispatchInfo constructor (
                 uaid = msg.uaid,
                 scope = msg.scope,
                 endpoint = msg.endpoint,
-                appServerKey = msg.appServerKey
+                appServerKey = if (msg.hasAppServerKey()) msg.appServerKey else null
             )
+        }
+    }
+}
+
+class PushSubscriptionChanged constructor (
+    val channelID: String,
+    val scope: String
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.PushSubscriptionChanged): PushSubscriptionChanged {
+            return PushSubscriptionChanged(
+                channelID = msg.channelID,
+                scope = msg.scope
+            )
+        }
+
+        internal fun fromCollectionMessage(msg: MsgTypes.PushSubscriptionsChanged): List<PushSubscriptionChanged> {
+            return msg.subsList.map {
+                fromMessage(it)
+            }
         }
     }
 }
@@ -353,7 +380,7 @@ interface PushAPI : AutoCloseable {
      * @return bool indicating if connection state is valid (true) or if channels should get a
      * `pushsubscriptionchange` event (false).
      */
-    fun verifyConnection(): Boolean
+    fun verifyConnection(): List<PushSubscriptionChanged>
 
     /**
      * Decrypts a raw push message.

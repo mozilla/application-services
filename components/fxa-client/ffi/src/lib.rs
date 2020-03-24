@@ -34,6 +34,7 @@ pub extern "C" fn fxa_new(
     content_url: FfiStr<'_>,
     client_id: FfiStr<'_>,
     redirect_uri: FfiStr<'_>,
+    token_server_url_override: FfiStr<'_>,
     err: &mut ExternError,
 ) -> u64 {
     log::debug!("fxa_new");
@@ -41,7 +42,13 @@ pub extern "C" fn fxa_new(
         let content_url = content_url.as_str();
         let client_id = client_id.as_str();
         let redirect_uri = redirect_uri.as_str();
-        FirefoxAccount::new(content_url, client_id, redirect_uri)
+        let token_server_url_override = token_server_url_override.as_opt_str();
+        FirefoxAccount::new(
+            content_url,
+            client_id,
+            redirect_uri,
+            token_server_url_override,
+        )
     })
 }
 
@@ -89,6 +96,23 @@ pub extern "C" fn fxa_profile(
 ) -> ByteBuffer {
     log::debug!("fxa_profile");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache))
+}
+
+/// Get the pairing URL to navigate to on the Auth side (typically a computer).
+///
+/// # Safety
+///
+/// A destructor [fxa_str_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_get_pairing_authority_url(
+    handle: u64,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("fxa_get_pairing_authority_url");
+    ACCOUNTS.call_with_result(error, handle, |fxa| {
+        fxa.get_pairing_authority_url().map(Url::into_string)
+    })
 }
 
 /// Get the Sync token server endpoint URL.
@@ -427,6 +451,21 @@ pub extern "C" fn fxa_authorize_auth_code(
         let state = state.as_str();
         let access_type = access_type.as_str();
         fxa.authorize_code_using_session_token(client_id, scope, state, access_type)
+    })
+}
+
+/// Typically called during a password change flow.
+/// Invalidate all tokens and get a new refresh token.
+#[no_mangle]
+pub extern "C" fn fxa_handle_session_token_change(
+    handle: u64,
+    new_session_token: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("fxa_handle_session_token_change");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
+        let new_session_token = new_session_token.as_str();
+        fxa.handle_session_token_change(new_session_token)
     })
 }
 

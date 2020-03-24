@@ -116,15 +116,18 @@ uint8_t sync15_passwords_delete(Sync15PasswordEngineHandle handle,
                                 Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_check_valid(Sync15PasswordEngineHandle handle,
-                                char const *_Nonnull record_json,
-                                Sync15PasswordsError *_Nonnull error);
+                                  uint8_t const *_Nonnull data,
+                                  int32_t len,
+                                  Sync15PasswordsError *_Nonnull error);
 
 char *_Nullable sync15_passwords_add(Sync15PasswordEngineHandle handle,
-                                     char const *_Nonnull json,
+                                     uint8_t const *_Nonnull data,
+                                     int32_t len,
                                      Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_update(Sync15PasswordEngineHandle handle,
-                             char const *_Nonnull json,
+                             uint8_t const *_Nonnull data,
+                             int32_t len,
                              Sync15PasswordsError *_Nonnull error);
 
 void sync15_passwords_destroy_buffer(Sync15PasswordsRustBuffer bb);

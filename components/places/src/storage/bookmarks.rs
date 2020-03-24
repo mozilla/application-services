@@ -306,7 +306,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
     let bookmark_type = bm.bookmark_type();
     match bm {
         InsertableItem::Bookmark(ref b) => {
-            let title = maybe_truncate_title(&b.title.as_ref().map(String::as_str));
+            let title = maybe_truncate_title(&b.title.as_deref());
             db.execute_named_cached(
                 sql,
                 &[
@@ -339,7 +339,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
             )?;
         }
         InsertableItem::Folder(ref f) => {
-            let title = maybe_truncate_title(&f.title.as_ref().map(String::as_str));
+            let title = maybe_truncate_title(&f.title.as_deref());
             db.execute_named_cached(
                 sql,
                 &[
@@ -629,10 +629,7 @@ fn update_bookmark_in_tx(
             (":fk", &place_id),
             (":parent", &parent_id),
             (":position", &position),
-            (
-                ":title",
-                &maybe_truncate_title(&title.as_ref().map(String::as_str)),
-            ),
+            (":title", &maybe_truncate_title(&title.as_deref())),
             (":now", &now),
             (":change_incr", &(change_incr as u32)),
             (":id", &raw.row_id),
@@ -912,9 +909,9 @@ impl<'de> Deserialize<'de> for BookmarkTreeNode {
 /// Get the URL of the bookmark matching a keyword
 pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Option<Url>> {
     let bookmark_url = db.try_query_row(
-        "SELECT url FROM moz_places p
-        JOIN moz_bookmarks_synced b ON b.placeId = p.id
-        WHERE b.keyword = :keyword",
+        "SELECT h.url FROM moz_keywords k
+         JOIN moz_places h ON h.id = k.place_id
+         WHERE k.keyword = :keyword",
         &[(":keyword", &keyword)],
         |row| row.get::<_, String>("url"),
         true,
@@ -1565,10 +1562,10 @@ mod tests {
 
         // create a bookmark with keyword 'donut' pointing at it.
         conn.execute_named_cached(
-            "INSERT INTO moz_bookmarks_synced
-                (keyword, placeId, guid)
+            "INSERT INTO moz_keywords
+                (keyword, place_id)
             VALUES
-                ('donut', :place_id, 'fake_guid___')",
+                ('donut', :place_id)",
             &[(":place_id", &place_id)],
         )
         .expect("should work");
@@ -1581,10 +1578,10 @@ mod tests {
 
         // now change the keyword to 'ice cream'
         conn.execute_named_cached(
-            "REPLACE INTO moz_bookmarks_synced
-                (keyword, placeId, guid)
+            "REPLACE INTO moz_keywords
+                (keyword, place_id)
             VALUES
-                ('ice cream', :place_id, 'fake_guid___')",
+                ('ice cream', :place_id)",
             &[(":place_id", &place_id)],
         )
         .expect("should work");

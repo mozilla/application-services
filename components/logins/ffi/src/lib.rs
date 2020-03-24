@@ -97,7 +97,7 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
         let path = db_path.as_str();
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
-        let opt_key_ref = key.as_ref().map(String::as_str);
+        let opt_key_ref = key.as_deref();
         Ok(Arc::new(Mutex::new(PasswordEngine::new(
             path,
             opt_key_ref,
@@ -225,16 +225,35 @@ pub extern "C" fn sync15_passwords_touch(handle: u64, id: FfiStr<'_>, error: &mu
     })
 }
 
+// Should we put this function in ffi_support as a `unsafe pub fn`?
+unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
+    assert!(len >= 0, "Bad buffer len: {}", len);
+    if len == 0 {
+        // This will still fail, but as a bad protobuf format.
+        &[]
+    } else {
+        assert!(!data.is_null(), "Unexpected null data pointer");
+        std::slice::from_raw_parts(data, len as usize)
+    }
+}
+
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
-pub extern "C" fn sync15_passwords_check_valid(
+pub unsafe extern "C" fn sync15_passwords_check_valid(
     handle: u64,
-    record_json: FfiStr<'_>,
+    data: *const u8,
+    len: i32,
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_check_valid");
     ENGINES.call_with_result(error, handle, |state| {
-        let parsed: Login = serde_json::from_str(record_json.as_str())?;
-        state.lock().unwrap().check_valid_with_no_dupes(&parsed)
+        let buffer = get_buffer(data, len);
+        let login: PasswordInfo = prost::Message::decode(buffer)?;
+        state
+            .lock()
+            .unwrap()
+            .check_valid_with_no_dupes(&login.into())
     })
 }
 
@@ -334,49 +353,57 @@ pub extern "C" fn sync15_passwords_get_by_id(
     })
 }
 
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
-pub extern "C" fn sync15_passwords_add(
+pub unsafe extern "C" fn sync15_passwords_add(
     handle: u64,
-    record_json: FfiStr<'_>,
+    data: *const u8,
+    len: i32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_add");
     ENGINES.call_with_result(error, handle, |state| {
-        let mut parsed: serde_json::Value = serde_json::from_str(record_json.as_str())?;
-        if parsed.get("id").is_none() {
-            // Note: we replace this with a real guid in `db.rs`.
-            parsed["id"] = serde_json::Value::String(String::default());
-        }
-        let login: Login = serde_json::from_value(parsed)?;
-        state.lock().unwrap().add(login)
+        let buffer = get_buffer(data, len);
+        let login: PasswordInfo = prost::Message::decode(buffer)?;
+        state.lock().unwrap().add(login.into())
     })
 }
 
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
-pub extern "C" fn sync15_passwords_import(
+pub unsafe extern "C" fn sync15_passwords_import(
     handle: u64,
-    records_json: FfiStr<'_>,
+    data: *const u8,
+    len: i32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_import");
     ENGINES.call_with_result(error, handle, |state| -> Result<String> {
-        let logins: Vec<Login> = serde_json::from_str(records_json.as_str())?;
+        let buffer = get_buffer(data, len);
+        let messages: PasswordInfos = prost::Message::decode(buffer)?;
+        let logins: Vec<Login> = messages.infos.into_iter().map(PasswordInfo::into).collect();
         let import_metrics = state.lock().unwrap().import_multiple(&logins)?;
         let result = serde_json::to_string(&import_metrics)?;
         Ok(result)
     })
 }
 
+/// # Safety
+/// Deref pointer, thus unsafe
 #[no_mangle]
-pub extern "C" fn sync15_passwords_update(
+pub unsafe extern "C" fn sync15_passwords_update(
     handle: u64,
-    record_json: FfiStr<'_>,
+    data: *const u8,
+    len: i32,
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_update");
     ENGINES.call_with_result(error, handle, |state| {
-        let parsed: Login = serde_json::from_str(record_json.as_str())?;
-        state.lock().unwrap().update(parsed)
+        let buffer = get_buffer(data, len);
+        let login: PasswordInfo = prost::Message::decode(buffer)?;
+        state.lock().unwrap().update(login.into())
     });
 }
 

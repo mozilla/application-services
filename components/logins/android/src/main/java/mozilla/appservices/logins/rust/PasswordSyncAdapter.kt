@@ -63,17 +63,17 @@ internal interface PasswordSyncAdapter : Library {
 
     fun sync15_passwords_touch(handle: LoginsDbHandle, id: String, error: RustError.ByReference)
 
-    fun sync15_passwords_check_valid(handle: LoginsDbHandle, json: String, error: RustError.ByReference)
+    fun sync15_passwords_check_valid(handle: LoginsDbHandle, data: Pointer, len: Int, error: RustError.ByReference)
 
     // This is 1 for true and 0 for false, it would be a boolean but we need to return a value with
     // a known size.
     fun sync15_passwords_delete(handle: LoginsDbHandle, id: String, error: RustError.ByReference): Byte
     // Note: returns guid of new login entry (unless one was specifically requested)
-    fun sync15_passwords_add(handle: LoginsDbHandle, new_login_json: String, error: RustError.ByReference): Pointer?
-    fun sync15_passwords_update(handle: LoginsDbHandle, existing_login_json: String, error: RustError.ByReference)
+    fun sync15_passwords_add(handle: LoginsDbHandle, data: Pointer, len: Int, error: RustError.ByReference): Pointer?
+    fun sync15_passwords_update(handle: LoginsDbHandle, data: Pointer, len: Int, error: RustError.ByReference)
 
     // Returns a JSON string containing import metrics
-    fun sync15_passwords_import(handle: LoginsDbHandle, logins_json: String, error: RustError.ByReference): Pointer?
+    fun sync15_passwords_import(handle: LoginsDbHandle, data: Pointer, len: Int, error: RustError.ByReference): Pointer?
 
     fun sync15_passwords_destroy_string(p: Pointer)
     fun sync15_passwords_destroy_buffer(b: RustBuffer.ByValue)

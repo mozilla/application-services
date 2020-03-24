@@ -11,7 +11,7 @@ use std::io::Read;
 
 lazy_static::lazy_static! {
     static ref CLIENT: reqwest::blocking::Client = {
-        reqwest::blocking::ClientBuilder::new()
+        let mut builder = reqwest::blocking::ClientBuilder::new()
             .timeout(GLOBAL_SETTINGS.read_timeout)
             .connect_timeout(GLOBAL_SETTINGS.connect_timeout)
             .redirect(
@@ -20,9 +20,17 @@ lazy_static::lazy_static! {
                 } else {
                     reqwest::redirect::Policy::none()
                 }
-            )
+            );
+            if cfg!(target_os = "ios") {
+                // The FxA servers rely on the UA agent to filter
+                // some push messages directed to iOS devices.
+                // This is obviously a terrible hack and we should
+                // probably do https://github.com/mozilla/application-services/issues/1326
+                // instead, but this will unblock us for now.
+                builder = builder.user_agent("Firefox-iOS-FxA/24");
+            }
             // Note: no cookie or cache support.
-            .build()
+            builder.build()
             .expect("Failed to initialize global reqwest::Client")
     };
 }

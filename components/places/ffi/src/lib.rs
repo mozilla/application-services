@@ -280,19 +280,19 @@ pub extern "C" fn places_get_visited_urls_in_range(
 }
 
 #[no_mangle]
-pub extern "C" fn places_delete_place(handle: u64, url: FfiStr<'_>, error: &mut ExternError) {
-    log::debug!("places_delete_place");
+pub extern "C" fn places_delete_visits_for(handle: u64, url: FfiStr<'_>, error: &mut ExternError) {
+    log::debug!("places_delete_visits_for");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let url = parse_url(url.as_str())?;
         let guid = match parse_url(url.as_str()) {
             Ok(url) => storage::history::url_to_guid(conn, &url)?,
             Err(e) => {
-                log::warn!("Invalid URL passed to places_delete_place, {}", e);
+                log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
                 storage::history::href_to_guid(conn, url.clone().as_str())?
             }
         };
         if let Some(guid) = guid {
-            storage::history::delete_place_by_guid(conn, &guid)?;
+            storage::history::delete_visits_for(conn, &guid)?;
         }
         Ok(())
     })

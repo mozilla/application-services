@@ -210,7 +210,7 @@ class FxAccountManagerTests: XCTestCase {
 
             override func checkAuthorizationStatus() throws -> IntrospectInfo {
                 _ = try super.checkAuthorizationStatus()
-                return IntrospectInfo(active: false, tokenType: "refresh_token")
+                return IntrospectInfo(active: false)
             }
         }
         let mgr = mockFxAManager()
@@ -345,10 +345,14 @@ class FxAccountManagerTests: XCTestCase {
         }
         wait(for: [initDone], timeout: 10)
 
-        let url = try! mgr.getTokenServerEndpointURL().get()
-        XCTAssertEqual(
-            url.absoluteString,
-            "https://token.services.mozilla.com/1.0/sync/1.5"
-        )
+        let tokenServerURLCorrect = XCTestExpectation(description: "Server URL is correct")
+        mgr.getTokenServerEndpointURL { url in
+            XCTAssertEqual(
+                try! url.get().absoluteString,
+                "https://token.services.mozilla.com/1.0/sync/1.5"
+            )
+            tokenServerURLCorrect.fulfill()
+        }
+        wait(for: [tokenServerURLCorrect], timeout: 10)
     }
 }

@@ -16,7 +16,7 @@ public extension Notification.Name {
 open class FxAccountManager {
     let accountStorage: KeyChainAccountStorage
     let config: FxAConfig
-    let deviceConfig: DeviceConfig
+    var deviceConfig: DeviceConfig
     let applicationScopes: [String]
 
     var acct: FxAccount?
@@ -49,7 +49,7 @@ open class FxAccountManager {
         self.deviceConfig = deviceConfig
         self.applicationScopes = applicationScopes
         accountStorage = KeyChainAccountStorage(keychainAccessGroup: keychainAccessGroup)
-        setupAuthExceptionsListener()
+        setupInternalListeners()
     }
 
     private lazy var statePersistenceCallback: FxAStatePersistenceCallback = {
@@ -191,11 +191,13 @@ open class FxAccountManager {
 
     /// Try to get an OAuth access token.
     public func getAccessToken(scope: String, completionHandler: @escaping (Result<AccessTokenInfo, Error>) -> Void) {
-        do {
-            let tokenInfo = try requireAccount().getAccessToken(scope: scope)
-            DispatchQueue.main.async { completionHandler(.success(tokenInfo)) }
-        } catch {
-            DispatchQueue.main.async { completionHandler(.failure(error)) }
+        DispatchQueue.global().async {
+            do {
+                let tokenInfo = try self.requireAccount().getAccessToken(scope: scope)
+                DispatchQueue.main.async { completionHandler(.success(tokenInfo)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
         }
     }
 
@@ -209,25 +211,55 @@ open class FxAccountManager {
         }
     }
 
+    /// The account password has been changed locally and a new session token has been sent to us through WebChannel.
+    public func handlePasswordChanged(newSessionToken: String, completionHandler: @escaping () -> Void) {
+        processEvent(event: .changedPassword(newSessionToken: newSessionToken)) {
+            DispatchQueue.main.async { completionHandler() }
+        }
+    }
+
     /// Get the account management URL.
-    public func getManageAccountURL(entrypoint: String) -> Result<URL, Error> {
-        do {
-            return .success(try requireAccount().getManageAccountURL(entrypoint: entrypoint))
-        } catch {
-            return .failure(error)
+    public func getManageAccountURL(
+        entrypoint: String,
+        completionHandler: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global().async {
+            do {
+                let url = try self.requireAccount().getManageAccountURL(entrypoint: entrypoint)
+                DispatchQueue.main.async { completionHandler(.success(url)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
+        }
+    }
+
+    /// Get the pairing URL to navigate to on the Auth side (typically a computer).
+    public func getPairingAuthorityURL(
+        completionHandler: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global().async {
+            do {
+                let url = try self.requireAccount().getPairingAuthorityURL()
+                DispatchQueue.main.async { completionHandler(.success(url)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
         }
     }
 
     /// Get the token server URL with `1.0/sync/1.5` appended at the end.
-    public func getTokenServerEndpointURL() -> Result<URL, Error> {
-        do {
-            return .success(
-                try requireAccount()
+    public func getTokenServerEndpointURL(
+        completionHandler: @escaping (Result<URL, Error>) -> Void
+    ) {
+        DispatchQueue.global().async {
+            do {
+                let url = try self.requireAccount()
                     .getTokenServerEndpointURL()
                     .appendingPathComponent("1.0/sync/1.5")
-            )
-        } catch {
-            return .failure(error)
+                DispatchQueue.main.async { completionHandler(.success(url)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
         }
     }
 
@@ -440,6 +472,24 @@ open class FxAccountManager {
 
                 return Event.fetchProfile
             }
+            case let .changedPassword(newSessionToken): do {
+                do {
+                    try requireAccount().handleSessionTokenChange(sessionToken: newSessionToken)
+
+                    FxALog.info("Initializing device")
+                    requireConstellation().initDevice(
+                        name: deviceConfig.name,
+                        type: deviceConfig.type,
+                        capabilities: deviceConfig.capabilities
+                    )
+
+                    postAuthenticated(authType: .existingAccount)
+
+                    return Event.fetchProfile
+                } catch {
+                    FxALog.error("Error handling the session token change: \(error)")
+                }
+            }
             case .fetchProfile: do {
                 // Profile fetching and account authentication issues:
                 // https://github.com/mozilla/application-services/issues/483
@@ -542,10 +592,25 @@ open class FxAccountManager {
         requireConstellation().refreshState()
     }
 
-    // Handle auth exceptions caught in classes that don't hold a reference to the manager.
-    internal func setupAuthExceptionsListener() {
+    internal func setupInternalListeners() {
+        // Handle auth exceptions caught in classes that don't hold a reference to the manager.
         _ = NotificationCenter.default.addObserver(forName: .accountAuthException, object: nil, queue: nil) { _ in
             self.processEvent(event: .authenticationError) {}
+        }
+        // Reflect updates to the local device to our own in-memory model.
+        _ = NotificationCenter.default.addObserver(
+            forName: .constellationStateUpdate, object: nil, queue: nil
+        ) { notification in
+            if let userInfo = notification.userInfo, let newState = userInfo["newState"] as? ConstellationState {
+                if let localDevice = newState.localDevice {
+                    self.deviceConfig = DeviceConfig(
+                        name: localDevice.displayName,
+                        // The other properties are likely to not get modified.
+                        type: self.deviceConfig.type,
+                        capabilities: self.deviceConfig.capabilities
+                    )
+                }
+            }
         }
     }
 
