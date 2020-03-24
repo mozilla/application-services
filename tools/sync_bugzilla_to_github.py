@@ -146,7 +146,7 @@ class BugSet(object):
                     self.bugs[bugid]['comment0'] = bug['comments'][0]['text']
 
     def _make_query_string(self, product=None, component=None, id=None, resolved=None,
-                           creation_time=None, last_change_time=None):
+                           whiteboard=None, creation_time=None, last_change_time=None):
         def listify(x): return x if isinstance(x, (list, tuple, set)) else (x,)
 
         def encode(x): return urllib.parse.quote(x, safe='')
@@ -157,6 +157,8 @@ class BugSet(object):
             qs.extend('component=' + encode(c) for c in listify(component))
         if id is not None:
             qs.extend('id=' + encode(i) for i in listify(id))
+        if whiteboard is not None:
+            qs.append('whiteboard=' + whiteboard)
         if creation_time is not None:
             qs.append('creation_time=' + creation_time)
         if last_change_time is not None:
@@ -326,6 +328,8 @@ def sync_bugzilla_to_github():
     bugs.update_from_bugzilla(product='Firefox', component='Firefox Accounts',
                               resolved=False, creation_time=MIN_CREATION_TIME)
     bugs.update_from_bugzilla(product='Firefox', component='Sync',
+                              resolved=False, creation_time=MIN_CREATION_TIME)
+    bugs.update_from_bugzilla(whiteboard='SACI',
                               resolved=False, creation_time=MIN_CREATION_TIME)
     log('Found {} bugzilla bugs', len(bugs))
 
