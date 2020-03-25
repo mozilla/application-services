@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...master)
 
+## General
+
+### What's changed
+
+- iOS: Xcode version changed to 11.4.0 from 11.3.1.
+
 ## Logins
 
 ### ⚠️ Breaking changes ⚠️
