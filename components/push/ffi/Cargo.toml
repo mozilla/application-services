@@ -24,8 +24,5 @@ prost = "0.6.1"
 version = "0.21.0"
 features = ["limits", "functions"]
 
-[dependencies.sync15]
-path = "../../sync15"
-
 [features]
 reqwest = ["viaduct/reqwest", "push/reqwest"]

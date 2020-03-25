@@ -21,7 +21,6 @@ sync-guid = {path = "../support/guid", features = ["random", "rusqlite_support"]
 # uncommon or anything, but we could avoid them at the cost of slightly more
 # code).
 matches = "0.1.8"
-num-traits = "0.2.8"
 
 # A *direct* dep on the -sys crate is required for our build.rs
 # to see the DEP_SQLITE3_LINK_TARGET env var that cargo sets
