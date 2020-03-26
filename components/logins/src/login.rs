@@ -1171,7 +1171,7 @@ mod tests {
             password: "test".into(),
             ..Login::default()
         };
-        let login_with_bad_password = Login{
+        let login_with_unicode_password = Login{
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
