@@ -42,9 +42,11 @@
 		CE1B09A5231865BC006226E1 /* FxAccountStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE1B09A4231865BC006226E1 /* FxAccountStorage.swift */; };
 		CE2D04C5231822AC00AF5722 /* FxAccountManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE2D04C4231822AC00AF5722 /* FxAccountManager.swift */; };
 		CE3A2F38225BDE5300EA569C /* PlacesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE3A2F37225BDE5300EA569C /* PlacesTests.swift */; };
+		CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CE58B2F7242D54340089F091 /* RustViaductFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CE90D1BB23D7570A00FD9A5F /* FxAccountManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */; };
 		CE96459923D7A77500B662F8 /* SwiftKeychainWrapper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */; };
 		CE96459C23D7A7D500B662F8 /* SwiftKeychainWrapper.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9FFA12242D4E7B0011029E /* Viaduct.swift */; };
 		CEB1A06823D8A42D005BD4DD /* FxAccountMocks.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB1A06723D8A42D005BD4DD /* FxAccountMocks.swift */; };
 		CED443CB23CCF385007E5FA6 /* FxAccountDevice.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED443CA23CCF385007E5FA6 /* FxAccountDevice.swift */; };
 		CED443CD23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED443CC23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift */; };
@@ -140,8 +142,10 @@
 		CE2D04C4231822AC00AF5722 /* FxAccountManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountManager.swift; sourceTree = "<group>"; };
 		CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountManagerTests.swift; sourceTree = "<group>"; };
 		CE3A2F37225BDE5300EA569C /* PlacesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlacesTests.swift; sourceTree = "<group>"; };
+		CE58B2F7242D54340089F091 /* RustViaductFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustViaductFFI.h; sourceTree = "<group>"; };
 		CE96459823D7A77500B662F8 /* SwiftKeychainWrapper.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftKeychainWrapper.framework; path = ../../Carthage/Build/iOS/SwiftKeychainWrapper.framework; sourceTree = "<group>"; };
 		CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MozillaAppServices.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE9FFA12242D4E7B0011029E /* Viaduct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Viaduct.swift; sourceTree = "<group>"; };
 		CEB1A06723D8A42D005BD4DD /* FxAccountMocks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountMocks.swift; sourceTree = "<group>"; };
 		CED443CA23CCF385007E5FA6 /* FxAccountDevice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountDevice.swift; sourceTree = "<group>"; };
 		CED443CC23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountDeviceConstellation.swift; sourceTree = "<group>"; };
@@ -325,6 +329,7 @@
 				CEFB1EB122EF70960001E20F /* Errors */,
 				CD85A44822361E880099BFA9 /* Places */,
 				CDC21B11221DCE3700AA71E5 /* RustLog */,
+				CE9FFA11242D4E5A0011029E /* Viaduct */,
 				C852EEB2220A285B00A6E79A /* config */,
 				C852EEDA220A2A2B00A6E79A /* FxAClient */,
 				C852EEC7220A29FE00A6E79A /* Logins */,
@@ -352,6 +357,15 @@
 				C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CE9FFA11242D4E5A0011029E /* Viaduct */ = {
+			isa = PBXGroup;
+			children = (
+				CE58B2F7242D54340089F091 /* RustViaductFFI.h */,
+				CE9FFA12242D4E7B0011029E /* Viaduct.swift */,
+			);
+			path = Viaduct;
 			sourceTree = "<group>";
 		};
 		CEFB1EB122EF70960001E20F /* Errors */ = {
@@ -386,6 +400,7 @@
 				D05434A2225680F400FDE4EF /* RustFxAFFI.h in Headers */,
 				D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */,
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
+				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
 				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -534,6 +549,7 @@
 				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
 				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
 				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
+				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
 				C852EEE7220A2A2B00A6E79A /* FirefoxAccount.swift in Sources */,
 				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
 				CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */,

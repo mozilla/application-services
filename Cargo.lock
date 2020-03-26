@@ -677,13 +677,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 
 [[package]]
-name = "force-viaduct-reqwest"
-version = "0.1.0"
-dependencies = [
- "viaduct",
-]
-
-[[package]]
 name = "foreign-types"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -778,7 +771,6 @@ dependencies = [
  "error-support",
  "failure",
  "ffi-support",
- "force-viaduct-reqwest",
  "hex",
  "lazy_static",
  "log",
@@ -793,6 +785,7 @@ dependencies = [
  "sync15",
  "url",
  "viaduct",
+ "viaduct-reqwest",
  "webbrowser",
 ]
 
@@ -829,9 +822,9 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "h2"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d5c295d1c0c68e4e42003d75f908f5e16a1edd1cbe0b0d02e4dc2006a384f47"
+checksum = "7938e6aa2a31df4e21f224dc84704bd31c089a6d1355c535b03667371cccc843"
 dependencies = [
  "bytes",
  "fnv",
@@ -886,9 +879,9 @@ checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "http"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b708cc7f06493459026f53b9a61a7a121a5d1ec6238dee58ea4941132b30156b"
+checksum = "28d569972648b2c512421b5f2a405ad6ac9666547189d0c5477a3f200f3e02f9"
 dependencies = [
  "bytes",
  "fnv",
@@ -1108,7 +1101,6 @@ dependencies = [
  "error-support",
  "failure",
  "ffi-support",
- "force-viaduct-reqwest",
  "fxa-client",
  "interrupt",
  "lazy_static",
@@ -1200,6 +1192,7 @@ dependencies = [
  "places-ffi",
  "rc_log_ffi",
  "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -1615,7 +1608,6 @@ dependencies = [
  "failure",
  "ffi-support",
  "find-places-db",
- "force-viaduct-reqwest",
  "fxa-client",
  "idna",
  "interrupt",
@@ -1802,7 +1794,6 @@ dependencies = [
  "failure",
  "failure_derive",
  "ffi-support",
- "force-viaduct-reqwest",
  "hex",
  "lazy_static",
  "log",
@@ -1818,6 +1809,7 @@ dependencies = [
  "sql-support",
  "url",
  "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -2380,6 +2372,7 @@ dependencies = [
  "sync15",
  "tabs",
  "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -2478,7 +2471,6 @@ dependencies = [
  "error-support",
  "failure",
  "ffi-support",
- "force-viaduct-reqwest",
  "interrupt",
  "log",
  "prost",
@@ -2490,6 +2482,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -2756,15 +2749,25 @@ dependencies = [
  "failure",
  "failure_derive",
  "ffi-support",
- "lazy_static",
  "log",
+ "once_cell",
  "prost",
  "prost-build",
  "prost-derive",
- "reqwest",
  "serde",
  "serde_json",
  "url",
+]
+
+[[package]]
+name = "viaduct-reqwest"
+version = "0.1.0"
+dependencies = [
+ "ffi-support",
+ "lazy_static",
+ "log",
+ "reqwest",
+ "viaduct",
 ]
 
 [[package]]

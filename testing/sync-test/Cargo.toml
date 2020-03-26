@@ -6,10 +6,11 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-logins = { path = "../../components/logins", features = ["reqwest"] }
-sync15 = { path = "../../components/sync15", features = ["reqwest"] }
-tabs = { path = "../../components/tabs", features = ["reqwest"] }
-fxa-client = { path = "../../components/fxa-client", features = ["reqwest"] }
+viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+logins = { path = "../../components/logins" }
+sync15 = { path = "../../components/sync15" }
+tabs = { path = "../../components/tabs" }
+fxa-client = { path = "../../components/fxa-client" }
 url = "2.1.1"
 env_logger = "0.7.0"
 log = "0.4.8"

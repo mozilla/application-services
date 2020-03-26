@@ -2,26 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::sync::atomic::{AtomicBool, Ordering};
-
-#[cfg(feature = "reqwest")]
-mod reqwest;
+use ffi::FfiBackend;
+use once_cell::sync::OnceCell;
 
 mod ffi;
 
-// We allow globally forcing us to use the FFI backend for better
-// testing, for example.
-static FFI_FORCED: AtomicBool = AtomicBool::new(false);
-
-fn ffi_is_forced() -> bool {
-    FFI_FORCED.load(Ordering::SeqCst)
-}
-
-pub fn force_enable_ffi_backend(v: bool) {
-    FFI_FORCED.store(v, Ordering::SeqCst)
-}
-
-pub(crate) fn note_backend(which: &str) {
+pub fn note_backend(which: &str) {
     // If trace logs are enabled: log on every request. Otherwise, just log on
     // the first request at `info` level. We remember if the Once was triggered
     // to avoid logging twice in the first case.
@@ -36,19 +22,25 @@ pub(crate) fn note_backend(which: &str) {
     }
 }
 
+pub trait Backend: Send + Sync + 'static {
+    fn send(&self, request: crate::Request) -> Result<crate::Response, crate::Error>;
+}
+
+static BACKEND: OnceCell<&'static dyn Backend> = OnceCell::new();
+
+pub fn set_backend(b: &'static dyn Backend) -> Result<(), crate::Error> {
+    BACKEND
+        .set(b)
+        .map_err(|_| crate::error::Error::SetBackendError)
+}
+
+pub(crate) fn get_backend() -> &'static dyn Backend {
+    *BACKEND.get_or_init(|| Box::leak(Box::new(FfiBackend)))
+}
+
 pub fn send(request: crate::Request) -> Result<crate::Response, crate::Error> {
     validate_request(&request)?;
-    if ffi_is_forced() {
-        return self::ffi::send(request);
-    }
-    #[cfg(feature = "reqwest")]
-    {
-        self::reqwest::send(request)
-    }
-    #[cfg(not(feature = "reqwest"))]
-    {
-        self::ffi::send(request)
-    }
+    get_backend().send(request)
 }
 
 pub fn validate_request(request: &crate::Request) -> Result<(), crate::Error> {

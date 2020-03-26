@@ -13,6 +13,7 @@ use tabs::{RemoteTab, TabsEngine};
 type Result<T> = std::result::Result<T, failure::Error>;
 
 fn main() -> Result<()> {
+    viaduct_reqwest::use_reqwest_backend();
     let matches = clap::App::new("tabs_sync")
         .about("CLI for Sync tabs engine")
         .arg(

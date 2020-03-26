@@ -25,4 +25,3 @@ version = "0.21.0"
 features = ["limits", "functions"]
 
 [features]
-reqwest = ["viaduct/reqwest", "push/reqwest"]

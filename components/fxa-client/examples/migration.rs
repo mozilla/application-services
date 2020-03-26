@@ -7,6 +7,7 @@ static CONTENT_SERVER: &str = "https://accounts.firefox.com";
 static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/3c49430b43dfba77";
 
 fn main() {
+    viaduct_reqwest::use_reqwest_backend();
     let config = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
     let mut fxa = FirefoxAccount::with_config(config);
     println!("Enter Session token (hex-string):");

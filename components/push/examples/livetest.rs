@@ -33,6 +33,7 @@ fn dummy_uuid() -> Result<String> {
 }
 
 fn test_live_server() -> Result<()> {
+    viaduct_reqwest::use_reqwest_backend();
     let config = PushConfiguration {
         http_protocol: Some("http".to_owned()),
         server_host: "localhost:8082".to_owned(),

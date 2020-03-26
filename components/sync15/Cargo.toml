@@ -6,7 +6,6 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
 
 [features]
-reqwest = ["viaduct/reqwest"]
 default = []
 
 [dependencies]

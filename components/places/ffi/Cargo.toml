@@ -10,7 +10,6 @@ name = "places_ffi"
 crate-type = ["lib"]
 
 [features]
-reqwest = ["viaduct/reqwest", "places/reqwest"]
 default = []
 
 [dependencies]

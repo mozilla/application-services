@@ -20,6 +20,3 @@ viaduct = { path = "../../viaduct" }
 
 [dependencies.fxa-client]
 path = "../"
-
-[features]
-reqwest = ["viaduct/reqwest", "fxa-client/reqwest"]
