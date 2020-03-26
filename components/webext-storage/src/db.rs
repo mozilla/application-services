@@ -264,7 +264,7 @@ mod tests {
         assert_eq!(get_meta(&reader, "foo")?, Some("bar".to_string()));
         delete_meta(&writer, "foo")?;
         // use the writer for this get_meta, because why not?
-        assert_eq!(get_meta::<String>(&reader, "foo")?, None);
+        assert_eq!(get_meta::<String>(&writer, "foo")?, None);
         Ok(())
     }
 }

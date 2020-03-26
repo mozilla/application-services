@@ -12,8 +12,6 @@ pub enum QuotaReason {
     MaxItems,
 }
 
-// Note: If you add new error types that should be returned to consumers on the other side of the
-// FFI, update `get_code` in `ffi.rs`
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
     #[fail(display = "Quota exceeded: {:?}", _0)]

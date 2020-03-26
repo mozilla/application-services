@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS moz_extension_data_mirror (
     */
     ext_id TEXT NOT NULL UNIQUE,
 
-    /* The JSON payload. We *so* allow NULL here - it means "deleted" */
+    /* The JSON payload. We *do* allow NULL here - it means "deleted" */
     data TEXT
 ) WITHOUT ROWID;
 
