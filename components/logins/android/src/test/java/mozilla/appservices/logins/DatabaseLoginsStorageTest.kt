@@ -451,6 +451,40 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
+    fun testPotentialDupesIgnoringUsername() {
+        val test = getTestStore()
+        test.unlock(encryptionKey)
+
+        val savedLogin1 = ServerPassword(
+                id = "bbbbb",
+                hostname = "https://www.foo.org",
+                httpRealm = "Some Realm",
+                password = "MyPassword",
+                username = "MyUsername",
+                usernameField = "",
+                passwordField = ""
+        )
+
+        test.add(savedLogin1)
+
+        val dupeLogin = ServerPassword(
+                id = "",
+                hostname = "https://www.foo.org",
+                httpRealm = "Some Realm",
+                password = "MyPassword",
+                username = "MySecondUsername",
+                usernameField = "",
+                passwordField = ""
+        )
+
+        val potentialDupes = test.potentialDupesIgnoringUsername(dupeLogin)
+        assert(potentialDupes.size == 1)
+        assertEquals(potentialDupes[0].id, savedLogin1.id)
+
+        test.delete("bbbbb")
+    }
+
+    @Test
     fun testUpdate() {
         val test = getTestStore()
         test.unlock(encryptionKey)
