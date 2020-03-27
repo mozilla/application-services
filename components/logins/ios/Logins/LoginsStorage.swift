@@ -5,6 +5,7 @@
 import Foundation
 import UIKit
 
+// swiftlint:disable type_body_length
 open class LoginsStorage {
     private var raw: UInt64 = 0
     let dbPath: String
@@ -380,7 +381,9 @@ open class LoginsStorage {
             let engine = try self.getUnlocked()
             let buffer = try data.withUnsafeBytes { bytes in
                 try LoginsStoreError.unwrap { err in
-                    sync15_passwords_potential_dupes_ignoring_username(engine, bytes.bindMemory(to: UInt8.self).baseAddress!, size, err)
+                    sync15_passwords_potential_dupes_ignoring_username(
+                        engine, bytes.bindMemory(to: UInt8.self).baseAddress!, size, err
+                    )
                 }
             }
             defer { sync15_passwords_destroy_buffer(buffer) }
