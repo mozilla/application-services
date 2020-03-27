@@ -2898,6 +2898,7 @@ dependencies = [
  "interrupt",
  "lazy_static",
  "log",
+ "rc_crypto",
  "rusqlite",
  "serde",
  "serde_derive",
