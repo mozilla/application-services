@@ -856,6 +856,44 @@ impl LoginDb {
         )?)
     }
 
+    pub fn potential_dupes_ignoring_username(&self, login: &Login) -> Result<Vec<Login>> {
+        // Could be lazy_static-ed...
+        lazy_static::lazy_static! {
+            static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
+                "SELECT {common_cols} FROM loginsL
+                WHERE is_deleted = 0
+                    AND hostname = :hostname
+                    AND (
+                        formSubmitURL = :form_submit
+                        OR
+                        httpRealm = :http_realm
+                    )
+
+                UNION ALL
+
+                SELECT {common_cols} FROM loginsM
+                WHERE is_overridden = 0
+                    AND hostname = :hostname
+                    AND (
+                        formSubmitURL = :form_submit
+                        OR
+                        httpRealm = :http_realm
+                    )
+                ",
+                common_cols = schema::COMMON_COLS
+            );
+        }
+        let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
+        let params = named_params! {
+            ":hostname": &login.hostname,
+            ":http_realm": login.http_realm.as_ref(),
+            ":form_submit": login.form_submit_url.as_ref(),
+        };
+        // Needs to be two lines for borrow checker
+        let rows = stmt.query_and_then_named(params, Login::from_row)?;
+        rows.collect()
+    }
+
     pub fn exists(&self, id: &str) -> Result<bool> {
         Ok(self.db.query_row_named(
             "SELECT EXISTS(
