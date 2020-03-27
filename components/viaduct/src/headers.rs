@@ -61,6 +61,16 @@ impl Header {
         Ok(Self { name, value })
     }
 
+    pub fn new_unchecked<Value>(name: HeaderName, value: Value) -> Self
+    where
+        Value: AsRef<str> + Into<String>,
+    {
+        Self {
+            name,
+            value: value.into(),
+        }
+    }
+
     #[inline]
     pub fn name(&self) -> &HeaderName {
         &self.name
