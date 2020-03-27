@@ -230,6 +230,7 @@ jobs:
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest
+    resource_class: small
     steps:
       - checkout
       - setup-rust-toolchain
@@ -247,6 +248,7 @@ jobs:
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable
+    resource_class: small
     steps:
       - checkout
       - run:
@@ -263,6 +265,7 @@ jobs:
   Mirror Bugzilla issues into GitHub:
     docker:
       - image: circleci/python:latest
+    resource_class: small
     steps:
       - sync-bugzilla-to-github
   Rust tests:
@@ -386,6 +389,7 @@ jobs:
   Deploy website:
     docker:
       - image: circleci/node:latest
+    resource_class: small
     steps:
       - add_ssh_keys:
           fingerprints:
