@@ -6,6 +6,8 @@ set -euvx
 # updated rust recently.
 rustup update stable
 
+carthage bootstrap --platform iOS --cache-builds
+
 set -o pipefail && \
 xcodebuild \
   -workspace ./megazords/ios/MozillaAppServices.xcodeproj/project.xcworkspace \
