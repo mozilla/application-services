@@ -456,7 +456,7 @@ class LoginsStoreCounterMetrics(
         } catch (e: Exception) {
             when (e) {
                 is NoSuchRecordException -> {
-                    errCount["no_such_recod"].add()
+                    errCount["no_such_record"].add()
                 }
                 is IdCollisionException -> {
                     errCount["id_collision"].add()
