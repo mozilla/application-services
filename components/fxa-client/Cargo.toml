@@ -33,3 +33,4 @@ mockiato = "0.9.5"
 
 [features]
 default = []
+gecko = [ "rc_crypto/gecko" ]

@@ -19,3 +19,8 @@ through bindings in the [nss](./nss/) crate. This has a number of advantages for
 * Uses Mozilla-owned-and-audited crypto primitives.
 * Decouples us from ring's fast-moving [versioning and stability
   policy](https://github.com/briansmith/ring#versioning--stability).
+
+
+## Rust features
+
+- `gecko` will avoid linking against libsqlite3_sys's libsqlite. See [#2882](https://github.com/mozilla/application-services/issues/2882) for context.

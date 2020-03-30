@@ -9,6 +9,7 @@ use toml;
 
 use nss_build_common::*;
 
+const BINDINGS_DIR: &str = "bindings";
 const BINDINGS_CONFIG: &str = "bindings.toml";
 
 // This is the format of a single section of the configuration file.
@@ -67,28 +68,116 @@ fn maybe_setup_ndk_clang_path() {
 }
 
 fn main() {
+    let is_gecko = env::var_os("MOZ_TOPOBJDIR").is_some();
+    if is_gecko {
+        main_gecko();
+    } else {
+        main_regular();
+    }
+}
+
+fn main_regular() {
     // Note: this has to be first!
     maybe_setup_ndk_clang_path();
     // 1. NSS linking.
     let (_, include_dir) = link_nss().expect("To build nss_sys, NSS_DIR must be set!");
     // 2. Bindings.
-    let config_file = PathBuf::from(BINDINGS_CONFIG);
+    let config_file = PathBuf::from(BINDINGS_DIR).join(BINDINGS_CONFIG);
     println!("cargo:rerun-if-changed={}", config_file.to_str().unwrap());
     let config = fs::read_to_string(config_file).expect("unable to read binding configuration");
     let bindings: Bindings = toml::from_str(&config).unwrap();
-    build_bindings(&bindings, &include_dir.join("nss"));
+    println!(
+        "cargo:include={}",
+        include_dir.join("nss").to_str().unwrap()
+    );
+    let mut flags: Vec<String> = Vec::new();
+    flags.push(String::from("-I") + include_dir.join("nss").to_str().unwrap());
+    build_bindings(&bindings, &flags[..], false);
 }
 
-fn build_bindings(bindings: &Bindings, include_dir: &PathBuf) {
+pub fn main_gecko() {
+    // 1. NSS linking.
+    let libs = match env::var("CARGO_CFG_TARGET_OS")
+        .as_ref()
+        .map(std::string::String::as_str)
+    {
+        Ok("android") | Ok("macos") => vec!["nss3"],
+        _ => vec!["nssutil3", "nss3", "plds4", "plc4", "nspr4"],
+    };
+
+    for lib in &libs {
+        println!("cargo:rustc-link-lib=dylib={}", lib);
+    }
+
+    let mut flags: Vec<String> = Vec::new();
+
+    if let Some(path) = env::var_os("MOZ_TOPOBJDIR").map(PathBuf::from) {
+        println!(
+            "cargo:rustc-link-search=native={}",
+            path.join("dist").join("bin").to_str().unwrap()
+        );
+        let nsslib_path = path.clone().join("security").join("nss").join("lib");
+        println!(
+            "cargo:rustc-link-search=native={}",
+            nsslib_path.join("nss").join("nss_nss3").to_str().unwrap()
+        );
+        println!(
+            "cargo:rustc-link-search=native={}",
+            path.join("config")
+                .join("external")
+                .join("nspr")
+                .join("pr")
+                .to_str()
+                .unwrap()
+        );
+
+        let flags_path = path.join("netwerk/socket/neqo/extra-bindgen-flags");
+
+        println!("cargo:rerun-if-changed={}", flags_path.to_str().unwrap());
+        flags = fs::read_to_string(flags_path)
+            .expect("Failed to read extra-bindgen-flags file")
+            .split_whitespace()
+            .map(std::borrow::ToOwned::to_owned)
+            .collect();
+
+        flags.push(String::from("-include"));
+        flags.push(
+            path.join("dist")
+                .join("include")
+                .join("mozilla-config.h")
+                .to_str()
+                .unwrap()
+                .to_string(),
+        );
+    } else {
+        println!("cargo:warning=MOZ_TOPOBJDIR should be set by default, otherwise the build is not guaranteed to finish.");
+    }
+
+    // 2. Bindings.
+    let config_file = PathBuf::from(BINDINGS_DIR).join(BINDINGS_CONFIG);
+    println!("cargo:rerun-if-changed={}", config_file.to_str().unwrap());
+    let config = fs::read_to_string(config_file).expect("unable to read binding configuration");
+    let bindings: Bindings = toml::from_str(&config).unwrap();
+    build_bindings(&bindings, &flags[..], true);
+}
+
+fn build_bindings(bindings: &Bindings, flags: &[String], is_gecko: bool) {
     let out = PathBuf::from(env::var("OUT_DIR").unwrap()).join("nss_bindings.rs");
     let mut builder = Builder::default().generate_comments(false);
 
     for h in bindings.headers.iter().cloned() {
-        builder = builder.header(include_dir.join(h).to_str().unwrap());
+        let header = PathBuf::from(BINDINGS_DIR).join(h);
+        let header = header.to_str().unwrap();
+        println!("cargo:rerun-if-changed={}", header);
+        builder = builder.header(header);
     }
 
     // Fix our cross-compilation include directories.
-    builder = fix_include_dirs(builder);
+    if !is_gecko {
+        builder = fix_include_dirs(builder);
+    }
+
+    builder = builder.clang_args(flags);
 
     // Apply the configuration.
     let empty: Vec<String> = vec![];

@@ -1,18 +1,21 @@
 # In this file, every section corresponds to a header file.
 # A corresponding binding file will be created in $OUT_DIR.
 
+# We use an indirection for the headers because it's easier
+# than figuring out where they are on the gecko worktree
+# when generating bindings.
 headers = [
-    "blapit.h",
-    "keyhi.h",
-    "keythi.h",
-    "nss.h",
-    "pk11pub.h",
-    "pkcs11t.h",
-    "prerror.h",
-    "prtypes.h",
-    "secasn1t.h",
-    "seccomon.h",
-    "secoidt.h",
+    "nss_blapit.h",
+    "nss_keyhi.h",
+    "nss_keythi.h",
+    "nss_nss.h",
+    "nss_pk11pub.h",
+    "nss_pkcs11t.h",
+    "nss_prerror.h",
+    "nss_prtypes.h",
+    "nss_secasn1t.h",
+    "nss_seccomon.h",
+    "nss_secoidt.h",
 ]
 enums = [
     "KeyType",
