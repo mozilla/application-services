@@ -1,3 +1,21 @@
+# v0.57.0 (_2020-03-31_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.56.0...v0.57.0)
+
+## General
+
+### ⚠️ Breaking changes ⚠️
+
+- iOS: The `reqwest` network stack will not be initialized automatically anymore.
+Please call `Viaduct.shared.useReqwestBackend()` as soon as possible before using the framework. ([#2880](https://github.com/mozilla/application-services/pull/2880))
+
+## Logins
+
+### What's New
+
+- A new function was added to return a list of duplicate logins, ignoring
+  username. ([#2542](https://github.com/mozilla/application-services/pull/2542))
+
 # v0.56.0 (_2020-03-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...v0.56.0)
