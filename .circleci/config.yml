@@ -337,6 +337,13 @@ jobs:
           path: raw_xcodetest.log
           destination: logs/raw_xcodetest.log
       - run:
+          name: (Optional) Run firefox-ios tests
+          command: |
+            # Only run these on PRs.
+            if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
+              ./automation/maybe_run_fxios_tests.py << pipeline.git.base_revision >>
+            fi
+      - run:
           name: Build Carthage archive
           no_output_timeout: 20m
           command: |
