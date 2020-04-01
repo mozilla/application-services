@@ -247,4 +247,14 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageException::class)
     fun rekeyDatabase(newEncryptionKey: ByteArray)
+
+    /**
+     * Get the list of potential duplciates of `login`, with the exception of the
+     * username field, which is entirely ignored.
+     *
+     * For clarity, only the record's `hostname`, `httpRealm`, and `formSubmitURL`
+     * are inspected.
+     */
+    @Throws(LoginsStorageException::class)
+    fun potentialDupesIgnoringUsername(login: ServerPassword): List<ServerPassword>
 }

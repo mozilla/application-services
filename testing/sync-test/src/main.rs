@@ -22,6 +22,7 @@ macro_rules! cleanup_clients {
 }
 
 pub fn init_testing() {
+    viaduct_reqwest::use_reqwest_backend();
     // Enable backtraces.
     std::env::set_var("RUST_BACKTRACE", "1");
     // Turn on trace logging for everything except for a few crates (mostly from
