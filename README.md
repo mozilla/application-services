@@ -2,6 +2,10 @@
 
 _A platform for building cloud-powered applications that target Firefox users_
 
+### TL;DR
+
+Run `./dev` to see the available workflow commands.
+
 ### What's this all about?
 
 This repository hosts the code and docs needed to integrate with the products offered by the Firefox
