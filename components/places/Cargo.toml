@@ -21,7 +21,7 @@ percent-encoding = "2.1.0"
 failure = "0.1.6"
 caseless = "0.2.1"
 sql-support = { path = "../support/sql" }
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 bitflags = "1.2.1"
 idna = "0.2.0"
 memchr = "2.2.1"

@@ -459,6 +459,12 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://github.com/cryptocorrosion/cryptocorrosion/blob/master/stream-ciphers/chacha/LICENSE-APACHE"
         },
     },
+    "ffi-support": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/application-services/master/components/support/ffi/LICENSE-APACHE"
+        },
+    },
     "humantime": {
         "repository": {
             "check": None,

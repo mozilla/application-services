@@ -13,7 +13,7 @@ log_query_plans = []
 log = "0.4"
 lazy_static = "1.4.0"
 interrupt = { path = "../interrupt" }
-ffi-support = { path = "../ffi" }
+ffi-support = "0.4"
 
 [dependencies.rusqlite]
 version = "0.21.0"
