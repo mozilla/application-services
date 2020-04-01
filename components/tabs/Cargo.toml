@@ -18,7 +18,7 @@ log = "0.4.8"
 url = "2.1.1"
 prost = "0.6.1"
 prost-derive = "0.6.1"
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 error-support = { path = "../support/error" }
 interrupt = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }

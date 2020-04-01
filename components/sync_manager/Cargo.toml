@@ -10,7 +10,7 @@ sync15 = { path = "../sync15" }
 places = { path = "../places" }
 logins = { path = "../logins" }
 tabs = { path = "../tabs" }
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 failure = "0.1.6"
 error-support = { path = "../support/error" }
 prost = "0.6.1"
