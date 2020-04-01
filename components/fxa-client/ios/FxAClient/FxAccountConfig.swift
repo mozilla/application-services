@@ -10,6 +10,7 @@ open class FxAConfig {
         case stable = "https://stable.dev.lcip.org"
         case stage = "https://accounts.stage.mozaws.net"
         case china = "https://accounts.firefox.com.cn"
+        case localdev = "http://127.0.0.1:3030"
     }
 
     let contentUrl: String
