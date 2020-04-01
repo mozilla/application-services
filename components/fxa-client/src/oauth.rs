@@ -31,9 +31,10 @@ impl FirefoxAccount {
     /// using `begin_oauth_flow`.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
+    /// * `ttl` - the ttl in seconds of the token requested from the server.
     ///
     /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
+    pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(ErrorKind::MultipleScopesRequested.into());
         }
@@ -48,6 +49,7 @@ impl FirefoxAccount {
                     self.client.access_token_with_refresh_token(
                         &self.state.config,
                         &refresh_token.token,
+                        ttl,
                         &[scope],
                     )?
                 } else {

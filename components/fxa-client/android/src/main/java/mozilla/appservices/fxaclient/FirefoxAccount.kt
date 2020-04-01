@@ -241,14 +241,15 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * It may modify the persisted account state.
      *
      * @param scope Single OAuth scope (no spaces) for which the client wants access
+     * @param ttl time in seconds for which the token will be valid
      * @return [AccessTokenInfo] that stores the token, along with its scopes and keys when complete
      * @throws FxaException.Unauthorized We couldn't provide an access token
      * for this scope. The caller should then start the OAuth Flow again with
      * the desired scope.
      */
-    fun getAccessToken(scope: String): AccessTokenInfo {
+    fun getAccessToken(scope: String, ttl: Long? = null): AccessTokenInfo {
         val buffer = rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, e)
+            LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, ttl ?: 0L, e)
         }
         this.tryPersistState()
         try {

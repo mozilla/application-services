@@ -3,3 +3,7 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.57.0...master)
+
+## FxA Client
+
+- Added an optional `ttl` parameter to `getAccessToken`, to limit the cache length of the token.
