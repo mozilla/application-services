@@ -814,14 +814,12 @@ class WorkspaceMetadata(object):
                     else:
                         # No potential URLs were actually live.
                         licenseUrl = None
-            if licenseUrl is None:
-                err = "Could not infer license URL for '{}'.\n".format(pkgInfo["name"])
-                err += "Please locate the correct license URL and add it to `PACKAGE_METADATA_FIXUPS`.\n"
-                err += "You may need to poke around in the source repository at {}".format(repo)
-                err += " for a {} license file named {}.".format(chosenLicense, licenseFile)
-                #raise RuntimeError(err)
-                print(err)
-                return None
+        if licenseUrl is None:
+            err = "Could not infer license URL for '{}'.\n".format(pkgInfo["name"])
+            err += "Please locate the correct license URL and add it to `PACKAGE_METADATA_FIXUPS`.\n"
+            err += "You may need to poke around in the source repository at {}".format(repo)
+            err += " for a {} license file named {}.".format(chosenLicense, licenseFile)
+            raise RuntimeError(err)
         # As a special case, convert raw github URLs back into human-friendly page URLs.
         if licenseUrl.startswith("https://raw.githubusercontent.com/"):
             licenseUrl = re.sub(r"raw.githubusercontent.com/([^/]+)/([^/]+)/",
@@ -905,7 +903,7 @@ def group_dependencies_for_printing(deps):
             "license": license,
             "license_text_hash": licenseTextHash,
             "license_text": licenseText,
-            "license_url": deps[0].get("license_url", "No license URL for {}".format(title)),
+            "license_url": deps[0].get("license_url"),
         })
 
     # List groups in the order in which we prefer their license, then in alphabetical order
