@@ -79,8 +79,11 @@ if ac_repo_path is not None:
 if action == "do-nothing":
     exit(0)
 elif action == "run-tests" or action is None:
+    # Fenix has unittest targets for a wide variety of different configurations.
+    # It's not useful to us to run them all, so just pick the one that sounds like it's
+    # least likely to be broken for unrelated reasons.
     step_msg("Running fenix tests")
-    run_cmd_checked(["./gradlew", "app:test"], cwd=repo_path)
+    run_cmd_checked(["./gradlew", "app:testGeckoBetaDebugUnitTest"], cwd=repo_path)
     # XXX TODO: I would also like to run the sync integration tests described here:
     #   https://docs.google.com/document/d/1dhxlbGQBA6aJi2Xz-CsJZuGJPRReoL7nfm9cYu4HcZI/
     # However they do not currently pass reliably on my machine.

@@ -61,4 +61,4 @@ def set_gradle_substitution_path(project_dir, name, value):
     for nm in abs_value.parts[len(ancestor.parts):]:
         relpath /= nm
     with properties_file.open("a") as f:
-        f.write(f"{name}={abs_value}\n")
+        f.write(f"{name}={relpath}\n")
