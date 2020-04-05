@@ -263,6 +263,12 @@ open class RustFxAccount {
         let json = try nullableRustCall { err in
             fxa_migrate_from_session_token(self.raw, sessionToken, kSync, kXCS, 0 /* reuse session token */, err)
         }
+
+        defer {
+            if let json = json {
+                fxa_str_free(json)
+            }
+        }
         // We don't parse the JSON coz nobody uses it...
         return json != nil
     }
@@ -270,6 +276,12 @@ open class RustFxAccount {
     open func retryMigrateFromSessionToken() throws -> Bool {
         let json = try nullableRustCall { err in
             fxa_retry_migrate_from_session_token(self.raw, err)
+        }
+
+        defer {
+            if let json = json {
+                fxa_str_free(json)
+            }
         }
         return json != nil
     }

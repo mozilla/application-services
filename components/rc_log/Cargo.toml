@@ -16,6 +16,6 @@ force_android = []
 
 [dependencies]
 log = "0.4.8"
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 lazy_static = "1.4.0"
 cfg-if = "0.1.9"

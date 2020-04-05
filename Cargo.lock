@@ -66,9 +66,9 @@ checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
 name = "backtrace"
-version = "0.3.45"
+version = "0.3.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad235dabf00f36301792cfe82499880ba54c6486be094d1047b02bacb67c14e8"
+checksum = "b1e692897359247cc6bb902933361652380af0f1b7651ae5c5013407f30e109e"
 dependencies = [
  "backtrace-sys",
  "cfg-if",
@@ -78,9 +78,9 @@ dependencies = [
 
 [[package]]
 name = "backtrace-sys"
-version = "0.1.34"
+version = "0.1.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca797db0057bae1a7aa2eef3283a874695455cecf08a43bfb8507ee0ebc1ed69"
+checksum = "7de8aba10a69c8e8d7622c5710229485ec32e9d55fdad160ea559c086fdcd118"
 dependencies = [
  "cc",
  "libc",
@@ -184,9 +184,9 @@ dependencies = [
 
 [[package]]
 name = "bumpalo"
-version = "3.2.0"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f359dc14ff8911330a51ef78022d376f25ed00248912803b58f00cb1c27f742"
+checksum = "12ae9db68ad7fac5fe51304d20f016c911539251075a214f8e663babefa35187"
 
 [[package]]
 name = "byteorder"
@@ -654,6 +654,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ffi-support"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "087be066eb6e85d7150f0c5400018a32802f99d688b2d3868c526f7bbfe17960"
+dependencies = [
+ "lazy_static",
+ "log",
+]
+
+[[package]]
 name = "find-places-db"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -675,13 +685,6 @@ name = "fnv"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
-
-[[package]]
-name = "force-viaduct-reqwest"
-version = "0.1.0"
-dependencies = [
- "viaduct",
-]
 
 [[package]]
 name = "foreign-types"
@@ -777,8 +780,7 @@ dependencies = [
  "dialoguer",
  "error-support",
  "failure",
- "ffi-support",
- "force-viaduct-reqwest",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
  "lazy_static",
  "log",
@@ -787,13 +789,13 @@ dependencies = [
  "prost-build",
  "prost-derive",
  "rc_crypto",
- "ring",
  "serde",
  "serde_derive",
  "serde_json",
  "sync15",
  "url",
  "viaduct",
+ "viaduct-reqwest",
  "webbrowser",
 ]
 
@@ -801,7 +803,7 @@ dependencies = [
 name = "fxaclient_ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxa-client",
  "lazy_static",
  "log",
@@ -830,9 +832,9 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "h2"
-version = "0.2.2"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d5c295d1c0c68e4e42003d75f908f5e16a1edd1cbe0b0d02e4dc2006a384f47"
+checksum = "7938e6aa2a31df4e21f224dc84704bd31c089a6d1355c535b03667371cccc843"
 dependencies = [
  "bytes",
  "fnv",
@@ -887,9 +889,9 @@ checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "http"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b708cc7f06493459026f53b9a61a7a121a5d1ec6238dee58ea4941132b30156b"
+checksum = "28d569972648b2c512421b5f2a405ad6ac9666547189d0c5477a3f200f3e02f9"
 dependencies = [
  "bytes",
  "fnv",
@@ -923,9 +925,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "0.13.3"
+version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7b15203263d1faa615f9337d79c1d37959439dc46c2b4faab33286fadc2a1c5"
+checksum = "ed6081100e960d9d74734659ffc9cc91daf1c0fc7aceb8eaa94ee1a3f5046f2e"
 dependencies = [
  "bytes",
  "futures-channel",
@@ -1108,8 +1110,7 @@ dependencies = [
  "env_logger",
  "error-support",
  "failure",
- "ffi-support",
- "force-viaduct-reqwest",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxa-client",
  "interrupt",
  "lazy_static",
@@ -1135,7 +1136,7 @@ name = "logins_ffi"
 version = "0.1.0"
 dependencies = [
  "base16",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log",
  "logins",
@@ -1201,6 +1202,7 @@ dependencies = [
  "places-ffi",
  "rc_log_ffi",
  "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -1614,9 +1616,8 @@ dependencies = [
  "env_logger",
  "error-support",
  "failure",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "find-places-db",
- "force-viaduct-reqwest",
  "fxa-client",
  "idna",
  "interrupt",
@@ -1648,7 +1649,7 @@ dependencies = [
 name = "places-ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt",
  "lazy_static",
  "log",
@@ -1708,9 +1709,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-error"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7959c6467d962050d639361f7703b2051c43036d03493c36f01d440fdd3138a"
+checksum = "18f33027081eba0a6d8aba6d1b1c3a3be58cbb12106341c2d5759fcd9b5277e7"
 dependencies = [
  "proc-macro-error-attr",
  "proc-macro2",
@@ -1721,9 +1722,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro-error-attr"
-version = "0.4.11"
+version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4002d9f55991d5e019fb940a90e1a95eb80c24e77cb2462dd4dc869604d543a"
+checksum = "8a5b4b77fdb63c1eca72173d68d24501c54ab1269409f6b672c85deb18af69de"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1802,8 +1803,7 @@ dependencies = [
  "error-support",
  "failure",
  "failure_derive",
- "ffi-support",
- "force-viaduct-reqwest",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
  "lazy_static",
  "log",
@@ -1819,6 +1819,7 @@ dependencies = [
  "sql-support",
  "url",
  "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -1826,14 +1827,13 @@ name = "push-ffi"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.0",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log",
  "prost",
  "push",
  "rusqlite",
  "serde_json",
- "sync15",
  "url",
  "viaduct",
 ]
@@ -1966,7 +1966,7 @@ name = "rc_log_ffi"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log",
 ]
@@ -2008,9 +2008,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.3.5"
+version = "1.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8900ebc1363efa7ea1c399ccc32daed870b4002651e0bed86e72d501ebbe0048"
+checksum = "7f6946991529684867e47d86474e3a6d0c0ab9b82d5821e314b1ede31fa3a4b3"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -2045,7 +2045,6 @@ dependencies = [
  "log",
  "matches",
  "nss_build_common",
- "num-traits",
  "rusqlite",
  "semver",
  "serde",
@@ -2097,21 +2096,6 @@ dependencies = [
  "wasm-bindgen-futures",
  "web-sys",
  "winreg",
-]
-
-[[package]]
-name = "ring"
-version = "0.16.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "741ba1704ae21999c00942f9f5944f801e977f54302af346b596287599ad1862"
-dependencies = [
- "cc",
- "lazy_static",
- "libc",
- "spin",
- "untrusted",
- "web-sys",
- "winapi 0.3.8",
 ]
 
 [[package]]
@@ -2254,9 +2238,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.48"
+version = "1.0.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9371ade75d4c2d6cb154141b9752cf3781ec9c05e0e5cf35060e1e70ee7b9c25"
+checksum = "78a7a12c167809363ec3bd7329fc0a3369056996de43c4b37ef3cd54a6ce4867"
 dependencies = [
  "indexmap",
  "itoa",
@@ -2310,16 +2294,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
 
 [[package]]
-name = "spin"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
 name = "sql-support"
 version = "0.1.0"
 dependencies = [
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt",
  "lazy_static",
  "log",
@@ -2358,9 +2336,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.16"
+version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "123bd9499cfb380418d509322d7a6d52e5315f064fe4b3ad18a53d6b92c07859"
+checksum = "0df0eb663f387145cab623dea85b09c2c5b4b0aef44e945d928e682fce71bb03"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2404,6 +2382,7 @@ dependencies = [
  "sync15",
  "tabs",
  "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -2415,7 +2394,7 @@ dependencies = [
  "env_logger",
  "error-support",
  "failure",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt",
  "lazy_static",
  "log",
@@ -2434,7 +2413,7 @@ name = "sync15-traits"
 version = "0.1.0"
 dependencies = [
  "failure",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "serde",
  "serde_json",
@@ -2448,7 +2427,7 @@ version = "0.1.0"
 dependencies = [
  "error-support",
  "failure",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt",
  "lazy_static",
  "log",
@@ -2470,7 +2449,7 @@ dependencies = [
 name = "sync_manager_ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "logins_ffi",
  "places-ffi",
@@ -2501,8 +2480,7 @@ dependencies = [
  "clipboard",
  "error-support",
  "failure",
- "ffi-support",
- "force-viaduct-reqwest",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt",
  "log",
  "prost",
@@ -2514,6 +2492,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -2521,7 +2500,7 @@ name = "tabs_ffi"
 version = "0.1.0"
 dependencies = [
  "base16",
- "ffi-support",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log",
  "prost",
@@ -2744,12 +2723,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
-name = "untrusted"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60369ef7a31de49bcb3f6ca728d4ba7300d9a1658f94c727d4cab8c8d9f4aece"
-
-[[package]]
 name = "url"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2785,16 +2758,26 @@ version = "0.1.0"
 dependencies = [
  "failure",
  "failure_derive",
- "ffi-support",
- "lazy_static",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
+ "once_cell",
  "prost",
  "prost-build",
  "prost-derive",
- "reqwest",
  "serde",
  "serde_json",
  "url",
+]
+
+[[package]]
+name = "viaduct-reqwest"
+version = "0.1.0"
+dependencies = [
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static",
+ "log",
+ "reqwest",
+ "viaduct",
 ]
 
 [[package]]

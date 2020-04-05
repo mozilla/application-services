@@ -412,6 +412,8 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
@@ -492,6 +494,8 @@ mod tests {
 
     #[test]
     fn test_webchannel_context_url() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         let config = Config::new(
             "https://accounts.firefox.com",

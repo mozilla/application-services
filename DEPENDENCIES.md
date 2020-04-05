@@ -455,6 +455,7 @@ The following text applies to code linked from these dependencies:
 [failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
+[ffi-support](https://github.com/mozilla/application-services),
 [fixedbitset](https://github.com/bluss/fixedbitset),
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),

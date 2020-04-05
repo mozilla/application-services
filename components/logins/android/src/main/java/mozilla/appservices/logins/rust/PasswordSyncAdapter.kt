@@ -78,6 +78,8 @@ internal interface PasswordSyncAdapter : Library {
     fun sync15_passwords_destroy_string(p: Pointer)
     fun sync15_passwords_destroy_buffer(b: RustBuffer.ByValue)
 
+    fun sync15_passwords_potential_dupes_ignoring_username(handle: LoginsDbHandle, data: Pointer, len: Int, error: RustError.ByReference): RustBuffer.ByValue
+
     fun sync15_passwords_new_interrupt_handle(handle: LoginsDbHandle, error: RustError.ByReference): RawLoginsInterruptHandle?
     fun sync15_passwords_interrupt(handle: RawLoginsInterruptHandle, error: RustError.ByReference)
     fun sync15_passwords_interrupt_handle_destroy(handle: RawLoginsInterruptHandle)

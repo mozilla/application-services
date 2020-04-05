@@ -56,6 +56,10 @@ impl PasswordEngine {
         self.db.get_by_base_domain(base_domain)
     }
 
+    pub fn potential_dupes_ignoring_username(&self, login: Login) -> Result<Vec<Login>> {
+        self.db.potential_dupes_ignoring_username(&login)
+    }
+
     pub fn touch(&self, id: &str) -> Result<()> {
         self.db.touch(id)
     }
