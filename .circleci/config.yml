@@ -285,6 +285,16 @@ jobs:
       - restore-sccache-cache
       - rust-tests
       - save-sccache-cache
+  # These run periodically (driven by cron).
+  Rust tests - beta:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: xlarge
+    steps:
+      - restore-sccache-cache
+      - rust-tests:
+          rust-version: "beta"
+      - save-sccache-cache
   Sync integration tests:
     docker:
       - image: circleci/rust:latest-browsers
@@ -454,6 +464,16 @@ workflows:
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
+    triggers:
+      - schedule:
+          cron: "0 7 * * *"
+          filters:
+            branches:
+              only:
+                - master
+  run-beta-tests-periodically:
+    jobs:
+      - Rust tests - beta
     triggers:
       - schedule:
           cron: "0 7 * * *"
