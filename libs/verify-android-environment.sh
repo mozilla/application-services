@@ -88,4 +88,4 @@ if [[ -z "${CI}" ]]; then
   fi
 fi
 
-echo "Looks good! Try building with ./gradlew :assembleDebug"
+echo "Looks good! Try building with ./gradlew assembleDebug"
