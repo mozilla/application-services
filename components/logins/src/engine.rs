@@ -174,12 +174,13 @@ mod test {
         assert_eq!(b.password_field, a.password_field);
     }
 
+    // Adds two logins to the database and validates that they can be retrieved, then
+    // updates one of the logins and validates the retrieved value
     #[test]
     fn test_logins_and_updates()
     {
         let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
-        let start_us = util::system_time_ms_i64(SystemTime::now()); // initialize time
-        // initialize test items
+        let start_us = util::system_time_ms_i64(SystemTime::now());
         let a = Login {
             guid: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
@@ -199,30 +200,28 @@ mod test {
             ..Login::default()
         };
 
-        // Test to make sure that we can add items a and b to the engine
+        // Add two logins
         let a_id = engine.add(a.clone()).expect("added a");
         let b_id = engine.add(b.clone()).expect("added b");
 
-         // Get item a's ID, make sure no errors getting a and for a's ID to exist
         let a_from_db = engine
             .get(&a_id)
             .expect("Not to error getting a")
             .expect("a to exist");
 
-        // Test to make sure our logins are equivalent
+        // Validate retrieved logins
         assert_logins_equiv(&a, &a_from_db);
-        // Test to make sure our times created/password changed/last used are correct
         assert_ge!(a_from_db.time_created, start_us);
         assert_ge!(a_from_db.time_password_changed, start_us);
         assert_ge!(a_from_db.time_last_used, start_us);
         assert_eq!(a_from_db.times_used, 1);
 
-        // Get item b's ID, make sure no errors getting b and for b's ID to exist
         let b_from_db = engine
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
-        // Test that our values are equivalent for all of b's fields
+
+        // Validate retrieved logins
         assert_logins_equiv(
             &b_from_db,
             &Login {
@@ -230,47 +229,48 @@ mod test {
                 ..b.clone()
             },
         );
-        // Test to make sure our times created/password changed/last used are correct
         assert_ge!(b_from_db.time_created, start_us);
         assert_ge!(b_from_db.time_password_changed, start_us);
         assert_ge!(b_from_db.time_last_used, start_us);
         assert_eq!(b_from_db.times_used, 1);
 
-        //We will declare a new instance here to update item b
+        // Update b
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = Login {
             password: "newpass".into(),
             guid: Guid::from(b_id.as_str()),
             ..b
         };
-        // Test to make sure update function works
         engine.update(b2.clone()).expect("update b should work");
-        // After update make sure we can get item b's id and for b to exist
+
+        // Validate logins after update
         let b_after_update = engine
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        // Test to check logins/times created/password changed/last used are still good after updating
+
         assert_logins_equiv(&b_after_update, &b2);
         assert_ge!(b_after_update.time_created, start_us);
         assert_le!(b_after_update.time_created, now_us);
         assert_ge!(b_after_update.time_password_changed, now_us);
         assert_ge!(b_after_update.time_last_used, now_us);
-        // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
     }
 
     #[test]
+    // Adds two logins to the database, then validates that the list function returns the
+    // correct number of logins. Next, delete one of the logins and validate that the list function
+    // updates. Lastly, confirm that the .get_by_base_domain function returns a valid list for
+    // a login that exists and an empty list for one that does not exist.
     fn test_deletions_and_lists()
     {
-        // Initialize a new Password Engine
+
         let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
         let list = engine.list().expect("Grabbing Empty list to work");
-        // Test to make sure we have an empty list of items since none have been added
+
         assert_eq!(list.len(), 0);
-        let start_us = util::system_time_ms_i64(SystemTime::now()); // Initialize time
-        // Initialize test items
+        let start_us = util::system_time_ms_i64(SystemTime::now());
         let a = Login {
             guid: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
@@ -293,11 +293,9 @@ mod test {
 
         let a_id = engine.add(a.clone()).expect("added a");
         let b_id = engine.add(b.clone()).expect("added b");
-        // Make sure our ID's are what we initialized them to, and also test
-        // case where we dont initialize an ID for item b, it should generate an id when none given
+
         assert_eq!(a_id, a.guid);
         assert_ne!(b_id, b.guid, "Should generate guid when none provided");
-         // Get items' IDs and test to make sure no errors getting their IDs and IDs must exist
         let a_from_db = engine
             .get(&a_id)
             .expect("Not to error getting a")
@@ -307,30 +305,28 @@ mod test {
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
-        // Test to make sure we can get the list of our items once added to the Engine, and now
-        // after adding two items our list should be two.
+
+        // Validate list length
         let mut list = engine.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
         let mut expect = vec![a_from_db, b_from_db.clone()];
-        // We will sort these two lists and make sure that they are equivalent to reinforce
-        // that our fields are equivalent
         list.sort_by(|a, b| b.guid.cmp(&a.guid));
         expect.sort_by(|a, b| b.guid.cmp(&a.guid));
         assert_eq!(list, expect);
-        // Test if we can successfully delete an item, but we should be able to still
-        // get the item after the delete
+
+        // Delete item a
         engine.delete(&a_id).expect("Successful delete");
         assert!(engine
             .get(&a_id)
             .expect("get after delete should still work")
             .is_none());
-        // Test to check that our list of items is correct from here on
+
         let list = engine.list().expect("Grabbing list to work");
-        // Test to make sure our list size is now 1 since we deleted item a
+        // Validate new list length
         assert_eq!(list.len(), 1);
-        // Test to make sure our first item in our list is item b since it is the only one
         assert_eq!(list[0], b_from_db);
-        // Test that we can get item b by using its hostname
+
+        // Test that we can get item b by its hostname
         let list = engine
             .get_by_base_domain("example2.com")
             .expect("Expect a list for this hostname");
