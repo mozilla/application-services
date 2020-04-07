@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package msg_types;
+package mozilla.appservices.logins.protobuf;
 
 option java_package = "mozilla.appservices.logins";
 option java_outer_classname = "MsgTypes";

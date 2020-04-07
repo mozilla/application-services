@@ -12,7 +12,10 @@ mod storage;
 mod sync;
 
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!(concat!(
+        env!("OUT_DIR"),
+        "/mozilla.appservices.remotetabs.protobuf.rs"
+    ));
 }
 
 pub use crate::storage::{ClientRemoteTabs, RemoteTab};

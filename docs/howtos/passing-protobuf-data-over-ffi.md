@@ -30,7 +30,7 @@ follow the examples of the other steps it takes.
     1. This file should start with
     ```
     syntax = "proto2";
-    package msg_types;
+    package mozilla.appservices.mylib.protobuf;
     ```
 
     The package name is going to determine where the .rs file is output, which
@@ -55,7 +55,7 @@ follow the examples of the other steps it takes.
 6. Into your main crate's lib.rs file, add something equivalent to the following:
     ```rust
     pub mod msg_types {
-        include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+        include!(concat!(env!("OUT_DIR"), "/mozilla.appservices.mylib.protobuf.rs"));
     }
     ```
 

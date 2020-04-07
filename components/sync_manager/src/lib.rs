@@ -12,7 +12,10 @@ mod manager;
 pub use error::{Error, ErrorKind, Result};
 
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!(concat!(
+        env!("OUT_DIR"),
+        "/mozilla.appservices.syncmanager.protobuf.rs"
+    ));
 }
 
 use logins::PasswordEngine;
