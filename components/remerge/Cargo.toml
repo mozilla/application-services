@@ -6,7 +6,7 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-serde = { version = "1.0.104", features = ["derive", "rc"] }
+serde = { version = "1.0.106", features = ["derive", "rc"] }
 failure = { version = "0.1.6" }
 url = "2.1.1"
 serde_json = { version = "1.0.50", features = ["preserve_order"] }
