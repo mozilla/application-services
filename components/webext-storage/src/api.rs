@@ -7,7 +7,6 @@ use rusqlite::Connection;
 use serde_derive::Serialize;
 use serde_json::{Map, Value as JsonValue};
 use sql_support::{self, ConnExt};
-use std::collections::HashMap;
 
 const QUOTA_BYTES: usize = 102_400;
 const QUOTA_BYTES_PER_ITEM: usize = 8_192;
@@ -65,16 +64,21 @@ fn remove_from_db(conn: &Connection, ext_id: &str) -> Result<()> {
     Ok(())
 }
 
+// This is a "helper struct" for the callback part of the chrome.storage spec,
+// but shaped in a way to make it more convenient from the rust side of the
+// world. The strings are all json, we keeping them as strings here makes
+// various things easier and avoid a round-trip to/from json/string.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageValueChange {
+    key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    old_value: Option<JsonValue>,
+    old_value: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    new_value: Option<JsonValue>,
+    new_value: Option<String>,
 }
 
-pub type StorageChanges = HashMap<String, StorageValueChange>;
+pub type StorageChanges = Vec<StorageValueChange>;
 
 /// The implementation of `storage[.sync].set()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
@@ -96,18 +100,21 @@ pub fn set(conn: &Connection, ext_id: &str, val: JsonValue) -> Result<StorageCha
         if current.len() >= MAX_ITEMS {
             return Err(ErrorKind::QuotaError(QuotaReason::MaxItems).into());
         }
-        // Sadly we need to stringify the value here just to check the quota.
-        // Reading the chrome docs literally, the length of the key is just
-        // the string len, but the value is the json val.
-        if k.as_bytes().len() + v.to_string().as_bytes().len() >= QUOTA_BYTES_PER_ITEM {
+        // Setup the change entry for this key, and we can leverage it to check
+        // for the quota.
+        let new_value_s = v.to_string();
+        // Reading the chrome docs literally re the quota, the length of the key
+        // is just the string len, but the value is the json val, as bytes
+        if k.as_bytes().len() + new_value_s.as_bytes().len() >= QUOTA_BYTES_PER_ITEM {
             return Err(ErrorKind::QuotaError(QuotaReason::ItemBytes).into());
         }
-        current.insert(k.clone(), v.clone());
         let change = StorageValueChange {
-            old_value,
-            new_value: Some(v),
+            key: k.clone(),
+            old_value: old_value.map(|ov| ov.to_string()),
+            new_value: Some(new_value_s),
         };
-        changes.insert(k, change);
+        changes.push(change);
+        current.insert(k, v);
     }
 
     save_to_db(conn, ext_id, &JsonValue::Object(current))?;
@@ -117,9 +124,9 @@ pub fn set(conn: &Connection, ext_id: &str, val: JsonValue) -> Result<StorageCha
 // A helper which takes a param indicating what keys should be returned and
 // converts that to a vec of real strings. Also returns "default" values to
 // be used if no item exists for that key.
-fn get_keys(keys: &JsonValue) -> Vec<(String, Option<JsonValue>)> {
+fn get_keys(keys: JsonValue) -> Vec<(String, Option<JsonValue>)> {
     match keys {
-        JsonValue::String(s) => vec![(s.to_string(), None)],
+        JsonValue::String(s) => vec![(s, None)],
         JsonValue::Array(keys) => {
             // because nothing with json is ever simple, each key may not be
             // a string. We ignore any which aren't.
@@ -131,17 +138,14 @@ fn get_keys(keys: &JsonValue) -> Vec<(String, Option<JsonValue>)> {
         // we should take a param to indicate if the defaults are actually needed?
         // (Or maybe lifetimes magic could make the clone unnecessary? It should have
         // the same lifetime as `keys`)
-        JsonValue::Object(m) => m
-            .iter()
-            .map(|(k, d)| (k.to_string(), Some(d.clone())))
-            .collect(),
+        JsonValue::Object(m) => m.into_iter().map(|(k, d)| (k, Some(d))).collect(),
         _ => vec![],
     }
 }
 
 /// The implementation of `storage[.sync].get()` - on success this always
 /// returns a Json object.
-pub fn get(conn: &Connection, ext_id: &str, keys: &JsonValue) -> Result<JsonValue> {
+pub fn get(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<JsonValue> {
     // key is optional, or string or array of string or object keys
     let maybe_existing = get_from_db(conn, ext_id)?;
     let mut existing = match maybe_existing {
@@ -158,9 +162,9 @@ pub fn get(conn: &Connection, ext_id: &str, keys: &JsonValue) -> Result<JsonValu
     for (key, maybe_default) in keys_and_defaults {
         // XXX - assume that if key doesn't exist, it doesn't exist in the result.
         if let Some(v) = existing.remove(&key) {
-            result.insert(key.to_string(), v);
+            result.insert(key, v);
         } else if let Some(def) = maybe_default {
-            result.insert(key.to_string(), def);
+            result.insert(key, def);
         }
     }
     Ok(JsonValue::Object(result))
@@ -169,7 +173,7 @@ pub fn get(conn: &Connection, ext_id: &str, keys: &JsonValue) -> Result<JsonValu
 /// The implementation of `storage[.sync].remove()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
 /// arrange to deliver this to observers as defined in that API.
-pub fn remove(conn: &Connection, ext_id: &str, keys: &JsonValue) -> Result<StorageChanges> {
+pub fn remove(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<StorageChanges> {
     let mut existing = match get_from_db(conn, ext_id)? {
         None => return Ok(StorageChanges::new()),
         Some(v) => v,
@@ -180,13 +184,11 @@ pub fn remove(conn: &Connection, ext_id: &str, keys: &JsonValue) -> Result<Stora
     let mut result = StorageChanges::with_capacity(keys_and_defs.len());
     for (key, _) in keys_and_defs {
         if let Some(v) = existing.remove(&key) {
-            result.insert(
-                key.to_string(),
-                StorageValueChange {
-                    old_value: Some(v),
-                    new_value: None,
-                },
-            );
+            result.push(StorageValueChange {
+                key,
+                old_value: Some(v.to_string()),
+                new_value: None,
+            });
         }
     }
     if !result.is_empty() {
@@ -206,13 +208,11 @@ pub fn clear(conn: &Connection, ext_id: &str) -> Result<StorageChanges> {
     };
     let mut result = StorageChanges::with_capacity(existing.len());
     for (key, val) in existing.into_iter() {
-        result.insert(
-            key.to_string(),
-            StorageValueChange {
-                new_value: None,
-                old_value: Some(val),
-            },
-        );
+        result.push(StorageValueChange {
+            key: key.to_string(),
+            new_value: None,
+            old_value: Some(val.to_string()),
+        });
     }
     remove_from_db(conn, ext_id)?;
     Ok(result)
@@ -229,13 +229,11 @@ mod tests {
     fn make_changes(changes: &[(&str, Option<JsonValue>, Option<JsonValue>)]) -> StorageChanges {
         let mut r = StorageChanges::with_capacity(changes.len());
         for (name, old_value, new_value) in changes {
-            r.insert(
-                (*name).to_string(),
-                StorageValueChange {
-                    old_value: old_value.clone(),
-                    new_value: new_value.clone(),
-                },
-            );
+            r.push(StorageValueChange {
+                key: (*name).to_string(),
+                old_value: old_value.as_ref().map(|v| v.to_string()),
+                new_value: new_value.as_ref().map(|v| v.to_string()),
+            });
         }
         r
     }
@@ -247,25 +245,29 @@ mod tests {
         let conn = db.writer.lock().unwrap();
 
         // an empty store.
-        for q in &[
-            &JsonValue::Null,
-            &json!("foo"),
-            &json!(["foo"]),
-            &json!({ "foo": null }),
-            &json!({"foo": "default"}),
-        ] {
+        for q in vec![
+            JsonValue::Null,
+            json!("foo"),
+            json!(["foo"]),
+            json!({ "foo": null }),
+            json!({"foo": "default"}),
+        ]
+        .into_iter()
+        {
             assert_eq!(get(&conn, &ext_id, q)?, json!({}));
         }
 
         // Single item in the store.
         set(&conn, &ext_id, json!({"foo": "bar" }))?;
-        for q in &[
-            &JsonValue::Null,
-            &json!("foo"),
-            &json!(["foo"]),
-            &json!({ "foo": null }),
-            &json!({"foo": "default"}),
-        ] {
+        for q in vec![
+            JsonValue::Null,
+            json!("foo"),
+            json!(["foo"]),
+            json!({ "foo": null }),
+            json!({"foo": "default"}),
+        ]
+        .into_iter()
+        {
             assert_eq!(get(&conn, &ext_id, q)?, json!({"foo": "bar" }));
         }
 
@@ -278,21 +280,21 @@ mod tests {
             ])
         );
         assert_eq!(
-            get(&conn, &ext_id, &JsonValue::Null)?,
+            get(&conn, &ext_id, JsonValue::Null)?,
             json!({"foo": "new", "other": "also new"})
         );
-        assert_eq!(get(&conn, &ext_id, &json!("foo"))?, json!({"foo": "new"}));
+        assert_eq!(get(&conn, &ext_id, json!("foo"))?, json!({"foo": "new"}));
         assert_eq!(
-            get(&conn, &ext_id, &json!(["foo", "other"]))?,
+            get(&conn, &ext_id, json!(["foo", "other"]))?,
             json!({"foo": "new", "other": "also new"})
         );
         assert_eq!(
-            get(&conn, &ext_id, &json!({"foo": null, "default": "yo"}))?,
+            get(&conn, &ext_id, json!({"foo": null, "default": "yo"}))?,
             json!({"foo": "new", "default": "yo"})
         );
 
         assert_eq!(
-            remove(&conn, &ext_id, &json!("foo"))?,
+            remove(&conn, &ext_id, json!("foo"))?,
             make_changes(&[("foo", Some(json!("new")), None)]),
         );
         // XXX - other variants.
@@ -301,7 +303,7 @@ mod tests {
             clear(&conn, &ext_id)?,
             make_changes(&[("other", Some(json!("also new")), None)]),
         );
-        assert_eq!(get(&conn, &ext_id, &JsonValue::Null)?, json!({}));
+        assert_eq!(get(&conn, &ext_id, JsonValue::Null)?, json!({}));
 
         Ok(())
     }
@@ -319,10 +321,10 @@ mod tests {
         set(&conn, ext_id, json!({ prop: value }))?;
 
         // this is the checkGetImpl part!
-        let mut data = get(&conn, &ext_id, &json!(null))?;
+        let mut data = get(&conn, &ext_id, json!(null))?;
         assert_eq!(value, json!(data[prop]), "null getter worked for {}", prop);
 
-        data = get(&conn, &ext_id, &json!(prop))?;
+        data = get(&conn, &ext_id, json!(prop))?;
         assert_eq!(
             value,
             json!(data[prop]),
@@ -335,7 +337,7 @@ mod tests {
             "string getter should return an object with a single property"
         );
 
-        data = get(&conn, &ext_id, &json!([prop]))?;
+        data = get(&conn, &ext_id, json!([prop]))?;
         assert_eq!(value, json!(data[prop]), "array getter worked for {}", prop);
         assert_eq!(
             data.as_object().unwrap().len(),
@@ -345,7 +347,7 @@ mod tests {
 
         // checkGetImpl() uses `{ [prop]: undefined }` - but json!() can't do that :(
         // Hopefully it's just testing a simple object, so we use `{ prop: null }`
-        data = get(&conn, &ext_id, &json!({ prop: null }))?;
+        data = get(&conn, &ext_id, json!({ prop: null }))?;
         assert_eq!(
             value,
             json!(data[prop]),
