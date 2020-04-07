@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 //! Work around the fact that `sqlcipher` might get enabled by a cargo feature
-//! another crate in teh workspace needs, without setting up nss. (This is a
+//! another crate in the workspace needs, without setting up nss. (This is a
 //! gross hack).
 
 fn main() {

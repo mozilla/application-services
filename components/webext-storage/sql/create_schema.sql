@@ -5,17 +5,11 @@
 -- This is a very simple schema.
 CREATE TABLE IF NOT EXISTS moz_extension_data (
     ext_id TEXT PRIMARY KEY,
-    /* The JSON payload. not null because we prefer to delete the row (possibly
-       creating a tombstone) than null it */
-    data TEXT NOT NULL,
+    /* The JSON payload. NULL means it's a tombstone */
+    data TEXT,
 
-    /* Same "sync status" strategy used by other components. */
-    syncStatus INTEGER NOT NULL DEFAULT 0,
+    /* Same "sync change counter" strategy used by other components. */
     syncChangeCounter INTEGER NOT NULL DEFAULT 1
-) WITHOUT ROWID;
-
-CREATE TABLE IF NOT EXISTS moz_extension_data_tombstones (
-    guid TEXT PRIMARY KEY
 ) WITHOUT ROWID;
 
 CREATE TABLE IF NOT EXISTS moz_extension_data_mirror (

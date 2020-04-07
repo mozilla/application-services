@@ -2,7 +2,7 @@
 name = "webext-storage"
 edition = "2018"
 version = "0.1.0"
-authors = ["application-services@mozilla.com"]
+authors = ["sync-team@mozilla.com"]
 license = "MPL-2.0"
 
 [features]
@@ -19,7 +19,6 @@ serde = "1"
 serde_json = "1"
 serde_derive = "1"
 sql-support = { path = "../support/sql" }
-sync15 = { path = "../sync15" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 url = { version = "2.1.1", features = ["serde"] }
 

@@ -86,31 +86,12 @@ impl StorageDb {
 
 fn init_sql_connection(conn: &Connection, is_writable: bool) -> Result<()> {
     let initial_pragmas = "
-        -- Cargo-culted from places.
-        PRAGMA page_size = 32768;
-
-        -- Disable calling mlock/munlock for every malloc/free.
-        -- In practice this results in a massive speedup, especially
-        -- for insert-heavy workloads.
-        -- XXX - is this relevant?
-        PRAGMA cipher_memory_security = false;
-
-        -- `temp_store = 2` - also cargo-culted - See both places and
-        -- https://github.com/mozilla/mentat/issues/505.
+        -- We don't care about temp tables being persisted to disk.
         PRAGMA temp_store = 2;
-
-        -- Moar cargo-cult.
-        PRAGMA cache_size = -6144;
-
-        -- We probably will end up needing foreign-key support
-        -- PRAGMA foreign_keys = ON;
-
         -- we unconditionally want write-ahead-logging mode
         PRAGMA journal_mode=WAL;
-
-        -- How often to autocheckpoint (in units of pages).
-        -- 2048000 (our max desired WAL size) / 32760 (page size).
-        PRAGMA wal_autocheckpoint=62
+        -- foreign keys seem worth enforcing!
+        PRAGMA foreign_keys = ON;
     ";
 
     conn.execute_batch(initial_pragmas)?;

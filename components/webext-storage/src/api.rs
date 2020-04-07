@@ -39,14 +39,14 @@ fn get_from_db(conn: &Connection, ext_id: &str) -> Result<Option<JsonMap>> {
 fn save_to_db(conn: &Connection, ext_id: &str, val: &JsonValue) -> Result<()> {
     // Convert to bytes so we can enforce the quota.
     let sval = val.to_string();
-    let bytes: Vec<u8> = sval.bytes().collect();
-    if bytes.len() > QUOTA_BYTES {
+    if sval.as_bytes().len() > QUOTA_BYTES {
         return Err(ErrorKind::QuotaError(QuotaReason::TotalBytes).into());
     }
-    // XXX - work out how to get use these bytes directly instead of sval, so
-    // we don't utf-8 encode twice!
+    // XXX - as_bytes() above and using sval below means 2 utf-8 encodes.
+    // Ideally we could work out how to convert to bytes once and use it in both
+    // places.
 
-    // XXX - sync support will need to do the syncStatus thing here.
+    // XXX - sync support will need to do the change_counter thing here.
     conn.execute_named(
         "INSERT OR REPLACE INTO moz_extension_data(ext_id, data)
             VALUES (:ext_id, :data)",
@@ -80,17 +80,13 @@ pub type StorageChanges = HashMap<String, StorageValueChange>;
 /// StorageChanges defined by the chrome API - it's assumed the caller will
 /// arrange to deliver this to observers as defined in that API.
 pub fn set(conn: &Connection, ext_id: &str, val: JsonValue) -> Result<StorageChanges> {
-    // XXX - Should we consider making this function  take a &str, and parse
-    // it ourselves? That way we could avoid parsing entirely if no existing
-    // value (but presumably that's going to be the uncommon case, so it probably
-    // doesn't matter)
     let val_map = match val {
         JsonValue::Object(m) => m,
         // Not clear what the error semantics should be yet. For now, pretend an empty map.
         _ => Map::new(),
     };
 
-    let mut current = get_from_db(conn, ext_id)?.unwrap_or_else(Map::new);
+    let mut current = get_from_db(conn, ext_id)?.unwrap_or_default();
 
     let mut changes = StorageChanges::with_capacity(val_map.len());
 
@@ -103,7 +99,7 @@ pub fn set(conn: &Connection, ext_id: &str, val: JsonValue) -> Result<StorageCha
         // Sadly we need to stringify the value here just to check the quota.
         // Reading the chrome docs literally, the length of the key is just
         // the string len, but the value is the json val.
-        if k.bytes().count() + v.to_string().bytes().count() >= QUOTA_BYTES_PER_ITEM {
+        if k.as_bytes().len() + v.to_string().as_bytes().len() >= QUOTA_BYTES_PER_ITEM {
             return Err(ErrorKind::QuotaError(QuotaReason::ItemBytes).into());
         }
         current.insert(k.clone(), v.clone());
@@ -153,7 +149,7 @@ pub fn get(conn: &Connection, ext_id: &str, keys: &JsonValue) -> Result<JsonValu
         Some(v) => v,
     };
     // take the quick path for null, where we just return the entire object.
-    if keys == &JsonValue::Null {
+    if keys.is_null() {
         return Ok(JsonValue::Object(existing));
     }
     // OK, so we need to build a list of keys to get.
