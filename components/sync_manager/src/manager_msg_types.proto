@@ -6,6 +6,7 @@ package msg_types;
 
 option java_package = "mozilla.appservices.syncmanager";
 option java_outer_classname = "MsgTypes";
+option optimize_for = LITE_RUNTIME;
 
 enum SyncReason {
     SCHEDULED = 1;

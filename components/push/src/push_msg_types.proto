@@ -4,6 +4,7 @@ package msg_types;
 
 option java_package = "mozilla.appservices.push";
 option java_outer_classname = "MsgTypes";
+option optimize_for = LITE_RUNTIME;
 
 message DispatchInfo {
     required string uaid = 1;

@@ -6,6 +6,7 @@ package msg_types;
 
 option java_package = "mozilla.appservices.remotetabs";
 option java_outer_classname = "MsgTypes";
+option optimize_for = LITE_RUNTIME;
 
 message ClientTabs {
     required string client_id = 1;
