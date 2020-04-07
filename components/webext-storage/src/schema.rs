@@ -12,18 +12,18 @@
 // And we really should :) But not now.
 
 use crate::error::Result;
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::{Transaction, NO_PARAMS};
 use sql_support::ConnExt;
 
 const VERSION: i64 = 1; // let's avoid bumping this and migrating for now!
 
 const CREATE_SCHEMA_SQL: &str = include_str!("../sql/create_schema.sql");
 
-fn get_current_schema_version(db: &Connection) -> Result<i64> {
-    Ok(db.query_one::<i64>("PRAGMA user_version")?)
+fn get_current_schema_version(tx: &Transaction<'_>) -> Result<i64> {
+    Ok(tx.query_one::<i64>("PRAGMA user_version")?)
 }
 
-pub fn init(db: &Connection) -> Result<()> {
+pub fn init(db: &mut Transaction<'_>) -> Result<()> {
     let user_version = get_current_schema_version(db)?;
     if user_version == 0 {
         create(db)?;
@@ -46,10 +46,10 @@ pub fn init(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn create(db: &Connection) -> Result<()> {
+pub fn create(tx: &mut Transaction<'_>) -> Result<()> {
     log::debug!("Creating schema");
-    db.execute_batch(CREATE_SCHEMA_SQL)?;
-    db.execute(
+    tx.execute_batch(CREATE_SCHEMA_SQL)?;
+    tx.execute(
         &format!("PRAGMA user_version = {version}", version = VERSION),
         NO_PARAMS,
     )?;

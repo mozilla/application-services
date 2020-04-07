@@ -5,8 +5,8 @@
 use crate::error::*;
 use crate::schema;
 use rusqlite::types::{FromSql, ToSql};
-use rusqlite::Connection;
 use rusqlite::OpenFlags;
+use rusqlite::{Connection, Transaction, TransactionBehavior};
 use sql_support::ConnExt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -51,8 +51,8 @@ impl StorageDb {
     fn new_or_existing(db_path: PathBuf) -> Result<Arc<Self>> {
         // We always create the read-write connection for an initial open so
         // we can create the schema and/or do version upgrades.
-        let conn = Connection::open_with_flags(db_path.clone(), get_write_flags())?;
-        match init_sql_connection(&conn, true) {
+        let mut conn = Connection::open_with_flags(db_path.clone(), get_write_flags())?;
+        match init_sql_connection(&mut conn, true) {
             Ok(()) => Ok(Arc::new(Self {
                 db_path,
                 writer: Arc::new(Mutex::new(conn)),
@@ -71,8 +71,8 @@ impl StorageDb {
 
     /// Open a read-only connection to the database.
     pub fn open_read_connection(&self) -> Result<Connection> {
-        let conn = Connection::open_with_flags(self.db_path.clone(), get_read_flags())?;
-        init_sql_connection(&conn, false)?;
+        let mut conn = Connection::open_with_flags(self.db_path.clone(), get_read_flags())?;
+        init_sql_connection(&mut conn, false)?;
         Ok(conn)
     }
 
@@ -84,7 +84,7 @@ impl StorageDb {
     }
 }
 
-fn init_sql_connection(conn: &Connection, is_writable: bool) -> Result<()> {
+fn init_sql_connection(conn: &mut Connection, is_writable: bool) -> Result<()> {
     let initial_pragmas = "
         -- We don't care about temp tables being persisted to disk.
         PRAGMA temp_store = 2;
@@ -98,8 +98,8 @@ fn init_sql_connection(conn: &Connection, is_writable: bool) -> Result<()> {
     define_functions(&conn)?;
     conn.set_prepared_statement_cache_capacity(128);
     if is_writable {
-        let tx = conn.unchecked_transaction()?;
-        schema::init(&conn)?;
+        let mut tx = Transaction::new(conn, TransactionBehavior::Deferred)?;
+        schema::init(&mut tx)?;
         tx.commit()?;
     };
     Ok(())
