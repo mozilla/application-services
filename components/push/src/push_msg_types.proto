@@ -4,6 +4,7 @@ package msg_types;
 
 option java_package = "mozilla.appservices.push";
 option java_outer_classname = "MsgTypes";
+option swift_prefix = "MsgTypes_";
 option optimize_for = LITE_RUNTIME;
 
 message DispatchInfo {
