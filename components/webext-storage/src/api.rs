@@ -4,7 +4,8 @@
 
 use crate::error::*;
 use rusqlite::Connection;
-use serde_derive::Serialize;
+use serde::{ser::SerializeMap, Serialize, Serializer};
+
 use serde_json::{Map, Value as JsonValue};
 use sql_support::{self, ConnExt};
 
@@ -71,6 +72,7 @@ fn remove_from_db(conn: &Connection, ext_id: &str) -> Result<()> {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StorageValueChange {
+    #[serde(skip_serializing)]
     key: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     old_value: Option<String>,
@@ -78,7 +80,49 @@ pub struct StorageValueChange {
     new_value: Option<String>,
 }
 
-pub type StorageChanges = Vec<StorageValueChange>;
+// This is, largely, a helper so that this serializes correctly as per the
+// chrome.storage.sync spec. If not for custom serialization it should just
+// be a plain vec
+#[derive(Debug, Clone, PartialEq)]
+pub struct StorageChanges {
+    changes: Vec<StorageValueChange>,
+}
+
+impl StorageChanges {
+    fn new() -> Self {
+        Self {
+            changes: Vec::new(),
+        }
+    }
+
+    fn with_capacity(n: usize) -> Self {
+        Self {
+            changes: Vec::with_capacity(n),
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.changes.is_empty()
+    }
+
+    fn push(&mut self, change: StorageValueChange) {
+        self.changes.push(change)
+    }
+}
+
+// and it serializes as a map.
+impl Serialize for StorageChanges {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut map = serializer.serialize_map(Some(self.changes.len()))?;
+        for change in &self.changes {
+            map.serialize_entry(&change.key, change)?;
+        }
+        map.end()
+    }
+}
 
 /// The implementation of `storage[.sync].set()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
@@ -225,6 +269,19 @@ mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
     use serde_json::json;
+
+    #[test]
+    fn test_serialize_storage_changes() -> Result<()> {
+        let c = StorageChanges {
+            changes: vec![StorageValueChange {
+                key: "key".to_string(),
+                old_value: Some("old".to_string()),
+                new_value: None,
+            }],
+        };
+        assert_eq!(serde_json::to_string(&c)?, r#"{"key":{"oldValue":"old"}}"#);
+        Ok(())
+    }
 
     fn make_changes(changes: &[(&str, Option<JsonValue>, Option<JsonValue>)]) -> StorageChanges {
         let mut r = StorageChanges::with_capacity(changes.len());
