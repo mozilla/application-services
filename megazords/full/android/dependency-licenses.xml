@@ -97,6 +97,10 @@ the details of which are reproduced below.
     <url>https://github.com/sfackler/fallible-streaming-iterator/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: ffi-support</name>
+    <url>https://raw.githubusercontent.com/mozilla/application-services/master/components/support/ffi/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: fixedbitset</name>
     <url>https://github.com/bluss/fixedbitset/blob/master/LICENSE-APACHE</url>
   </license>

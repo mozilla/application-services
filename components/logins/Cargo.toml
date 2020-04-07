@@ -19,7 +19,7 @@ lazy_static = "1.4.0"
 url = "2.1.1"
 failure = "0.1.6"
 sql-support = { path = "../support/sql" }
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }

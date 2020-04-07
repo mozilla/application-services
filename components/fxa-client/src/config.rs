@@ -72,6 +72,10 @@ impl Config {
         Self::new("https://accounts.firefox.com.cn", client_id, redirect_uri)
     }
 
+    pub fn localdev(client_id: &str, redirect_uri: &str) -> Self {
+        Self::new("http://127.0.0.1:3030", client_id, redirect_uri)
+    }
+
     pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
         Self {
             content_url: content_url.to_string(),

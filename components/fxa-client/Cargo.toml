@@ -19,7 +19,7 @@ serde_derive = "1.0.104"
 serde_json = "1.0.50"
 sync15 = { path = "../sync15" }
 url = "2.1.1"
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 viaduct = { path = "../viaduct" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }

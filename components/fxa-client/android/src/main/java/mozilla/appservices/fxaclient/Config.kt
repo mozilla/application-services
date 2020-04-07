@@ -18,7 +18,8 @@ class Config constructor(
         RELEASE("https://accounts.firefox.com"),
         STABLE("https://stable.dev.lcip.org"),
         STAGE("https://accounts.stage.mozaws.net"),
-        CHINA("https://accounts.firefox.com.cn")
+        CHINA("https://accounts.firefox.com.cn"),
+        LOCALDEV("http://127.0.0.1:3030")
     }
 
     constructor(

@@ -20,6 +20,8 @@ viaduct = { path = "../../viaduct" }
 # For SqlInterruptHandle
 sql-support = { path = "../../support/sql" }
 
+ffi-support = "0.4"
+
 [dependencies.rusqlite]
 version = "0.21.0"
 features = ["sqlcipher"]
@@ -29,6 +31,3 @@ path = ".."
 
 [dependencies.sync15]
 path = "../../sync15"
-
-[dependencies.ffi-support]
-path = "../../support/ffi"
