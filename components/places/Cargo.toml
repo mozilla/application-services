@@ -52,9 +52,6 @@ cli-support = { path = "../support/cli" }
 pretty_assertions = "0.6.1"
 ctrlc = "3.1.4"
 
-[build-dependencies]
-prost-build = "0.6.1"
-
 # While we don't have a replacement for termion on Windows yet (and thus
 # our example doesn't work on Windows), it does get further in the compilation
 # such that "cargo test" etc shows errors in our code rather than in termion.

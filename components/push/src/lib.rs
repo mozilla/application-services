@@ -14,8 +14,5 @@ pub mod storage;
 pub mod subscriber;
 
 pub mod msg_types {
-    include!(concat!(
-        env!("OUT_DIR"),
-        "/mozilla.appservices.push.protobuf.rs"
-    ));
+    include!("mozilla.appservices.push.protobuf.rs");
 }

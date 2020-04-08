@@ -31,8 +31,5 @@ dialoguer = "0.5.0"
 webbrowser = "0.5.1"
 mockiato = "0.9.5"
 
-[build-dependencies]
-prost-build = "0.6.1"
-
 [features]
 default = []
