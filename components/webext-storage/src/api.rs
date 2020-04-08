@@ -9,10 +9,11 @@ use serde::{ser::SerializeMap, Serialize, Serializer};
 use serde_json::{Map, Value as JsonValue};
 use sql_support::{self, ConnExt};
 
+// These constants are defined by the chrome.storage.sync spec.
 const QUOTA_BYTES: usize = 102_400;
 const QUOTA_BYTES_PER_ITEM: usize = 8_192;
 const MAX_ITEMS: usize = 512;
-// Note there are constants for "operations per minute" etc, which aren't
+// Note there are also constants for "operations per minute" etc, which aren't
 // enforced here.
 
 type JsonMap = Map<String, JsonValue>;

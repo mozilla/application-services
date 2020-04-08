@@ -34,8 +34,8 @@ impl Repo {
     // The "public API".
     pub fn set(&self, ext_id: &str, val: JsonValue) -> Result<StorageChanges> {
         let mut conn = self.db.writer.lock().unwrap();
-        let mut tx = conn.transaction()?;
-        let result = api::set(&mut tx, ext_id, val)?;
+        let tx = conn.transaction()?;
+        let result = api::set(&tx, ext_id, val)?;
         tx.commit()?;
         Ok(result)
     }
@@ -48,16 +48,16 @@ impl Repo {
 
     pub fn remove(&self, ext_id: &str, keys: JsonValue) -> Result<StorageChanges> {
         let mut conn = self.db.writer.lock().unwrap();
-        let mut tx = conn.transaction()?;
-        let result = api::remove(&mut tx, ext_id, keys)?;
+        let tx = conn.transaction()?;
+        let result = api::remove(&tx, ext_id, keys)?;
         tx.commit()?;
         Ok(result)
     }
 
     pub fn clear(&self, ext_id: &str) -> Result<StorageChanges> {
         let mut conn = self.db.writer.lock().unwrap();
-        let mut tx = conn.transaction()?;
-        let result = api::clear(&mut tx, ext_id)?;
+        let tx = conn.transaction()?;
+        let result = api::clear(&tx, ext_id)?;
         tx.commit()?;
         Ok(result)
     }
