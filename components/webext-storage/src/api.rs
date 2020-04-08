@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use rusqlite::{Connection, Transaction, TransactionBehavior};
+use rusqlite::Connection;
 use serde::{ser::SerializeMap, Serialize, Serializer};
 
 use serde_json::{Map, Value as JsonValue};
@@ -17,11 +17,9 @@ const MAX_ITEMS: usize = 512;
 
 type JsonMap = Map<String, JsonValue>;
 
-// Seems odd that this getter *needs* to use a transaction (well, the hoops
-// necessary to avoid it when setter functions also need to call it seem huge)
-fn get_from_db(tx: &mut Transaction<'_>, ext_id: &str) -> Result<Option<JsonMap>> {
+fn get_from_db(conn: &Connection, ext_id: &str) -> Result<Option<JsonMap>> {
     Ok(
-        match tx.try_query_one::<String>(
+        match conn.try_query_one::<String>(
             "SELECT data FROM moz_extension_data
              WHERE ext_id = :ext_id",
             &[(":ext_id", &ext_id)],
@@ -38,7 +36,7 @@ fn get_from_db(tx: &mut Transaction<'_>, ext_id: &str) -> Result<Option<JsonMap>
     )
 }
 
-fn save_to_db(tx: &mut Transaction<'_>, ext_id: &str, val: &JsonValue) -> Result<()> {
+fn save_to_db(conn: &Connection, ext_id: &str, val: &JsonValue) -> Result<()> {
     // Convert to bytes so we can enforce the quota.
     let sval = val.to_string();
     if sval.as_bytes().len() > QUOTA_BYTES {
@@ -49,7 +47,7 @@ fn save_to_db(tx: &mut Transaction<'_>, ext_id: &str, val: &JsonValue) -> Result
     // places.
 
     // XXX - sync support will need to do the change_counter thing here.
-    tx.execute_named(
+    conn.execute_named(
         "INSERT OR REPLACE INTO moz_extension_data(ext_id, data)
             VALUES (:ext_id, :data)",
         &[(":ext_id", &ext_id), (":data", &sval)],
@@ -57,9 +55,9 @@ fn save_to_db(tx: &mut Transaction<'_>, ext_id: &str, val: &JsonValue) -> Result
     Ok(())
 }
 
-fn remove_from_db(tx: &mut Transaction<'_>, ext_id: &str) -> Result<()> {
+fn remove_from_db(conn: &Connection, ext_id: &str) -> Result<()> {
     // XXX - sync support will need to do the tombstone thing here.
-    tx.execute_named(
+    conn.execute_named(
         "DELETE FROM moz_extension_data
         WHERE ext_id = :ext_id",
         &[(":ext_id", &ext_id)],
@@ -129,21 +127,14 @@ impl Serialize for StorageChanges {
 /// The implementation of `storage[.sync].set()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
 /// arrange to deliver this to observers as defined in that API.
-pub fn set(conn: &mut Connection, ext_id: &str, val: JsonValue) -> Result<StorageChanges> {
-    let mut tx = Transaction::new(conn, TransactionBehavior::Deferred)?;
-    let result = set_in_tx(&mut tx, ext_id, val)?;
-    tx.commit()?;
-    Ok(result)
-}
-
-fn set_in_tx(tx: &mut Transaction<'_>, ext_id: &str, val: JsonValue) -> Result<StorageChanges> {
+pub fn set(conn: &Connection, ext_id: &str, val: JsonValue) -> Result<StorageChanges> {
     let val_map = match val {
         JsonValue::Object(m) => m,
         // Not clear what the error semantics should be yet. For now, pretend an empty map.
         _ => Map::new(),
     };
 
-    let mut current = get_from_db(tx, ext_id)?.unwrap_or_default();
+    let mut current = get_from_db(conn, ext_id)?.unwrap_or_default();
 
     let mut changes = StorageChanges::with_capacity(val_map.len());
 
@@ -170,7 +161,7 @@ fn set_in_tx(tx: &mut Transaction<'_>, ext_id: &str, val: JsonValue) -> Result<S
         current.insert(k, v);
     }
 
-    save_to_db(tx, ext_id, &JsonValue::Object(current))?;
+    save_to_db(conn, ext_id, &JsonValue::Object(current))?;
     Ok(changes)
 }
 
@@ -198,16 +189,9 @@ fn get_keys(keys: JsonValue) -> Vec<(String, Option<JsonValue>)> {
 
 /// The implementation of `storage[.sync].get()` - on success this always
 /// returns a Json object.
-pub fn get(conn: &mut Connection, ext_id: &str, keys: JsonValue) -> Result<JsonValue> {
-    let mut tx = Transaction::new(conn, TransactionBehavior::Deferred)?;
-    let result = get_in_tx(&mut tx, ext_id, keys)?;
-    tx.commit()?;
-    Ok(result)
-}
-
-fn get_in_tx(tx: &mut Transaction<'_>, ext_id: &str, keys: JsonValue) -> Result<JsonValue> {
+pub fn get(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<JsonValue> {
     // key is optional, or string or array of string or object keys
-    let maybe_existing = get_from_db(tx, ext_id)?;
+    let maybe_existing = get_from_db(conn, ext_id)?;
     let mut existing = match maybe_existing {
         None => return Ok(JsonValue::Object(Map::new())),
         Some(v) => v,
@@ -233,15 +217,8 @@ fn get_in_tx(tx: &mut Transaction<'_>, ext_id: &str, keys: JsonValue) -> Result<
 /// The implementation of `storage[.sync].remove()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
 /// arrange to deliver this to observers as defined in that API.
-pub fn remove(conn: &mut Connection, ext_id: &str, keys: JsonValue) -> Result<StorageChanges> {
-    let mut tx = Transaction::new(conn, TransactionBehavior::Deferred)?;
-    let result = remove_in_tx(&mut tx, ext_id, keys)?;
-    tx.commit()?;
-    Ok(result)
-}
-
-fn remove_in_tx(tx: &mut Transaction<'_>, ext_id: &str, keys: JsonValue) -> Result<StorageChanges> {
-    let mut existing = match get_from_db(tx, ext_id)? {
+pub fn remove(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<StorageChanges> {
+    let mut existing = match get_from_db(conn, ext_id)? {
         None => return Ok(StorageChanges::new()),
         Some(v) => v,
     };
@@ -259,7 +236,7 @@ fn remove_in_tx(tx: &mut Transaction<'_>, ext_id: &str, keys: JsonValue) -> Resu
         }
     }
     if !result.is_empty() {
-        save_to_db(tx, ext_id, &JsonValue::Object(existing))?;
+        save_to_db(conn, ext_id, &JsonValue::Object(existing))?;
     }
     Ok(result)
 }
@@ -267,16 +244,9 @@ fn remove_in_tx(tx: &mut Transaction<'_>, ext_id: &str, keys: JsonValue) -> Resu
 /// The implementation of `storage[.sync].clear()`. On success this returns the
 /// StorageChanges defined by the chrome API - it's assumed the caller will
 /// arrange to deliver this to observers as defined in that API.
-pub fn clear(conn: &mut Connection, ext_id: &str) -> Result<StorageChanges> {
-    let mut tx = Transaction::new(conn, TransactionBehavior::Deferred)?;
-    let result = clear_in_tx(&mut tx, ext_id)?;
-    tx.commit()?;
-    Ok(result)
-}
-
-fn clear_in_tx(tx: &mut Transaction<'_>, ext_id: &str) -> Result<StorageChanges> {
+pub fn clear(conn: &Connection, ext_id: &str) -> Result<StorageChanges> {
     // XXX - transaction?
-    let existing = match get_from_db(tx, ext_id)? {
+    let existing = match get_from_db(conn, ext_id)? {
         None => return Ok(StorageChanges::new()),
         Some(v) => v,
     };
@@ -288,7 +258,7 @@ fn clear_in_tx(tx: &mut Transaction<'_>, ext_id: &str) -> Result<StorageChanges>
             old_value: Some(val.to_string()),
         });
     }
-    remove_from_db(tx, ext_id)?;
+    remove_from_db(conn, ext_id)?;
     Ok(result)
 }
 
@@ -329,7 +299,7 @@ mod tests {
     fn test_simple() -> Result<()> {
         let ext_id = "x";
         let db = new_mem_db();
-        let mut conn = db.writer.lock().unwrap();
+        let conn = db.writer.lock().unwrap();
 
         // an empty store.
         for q in vec![
@@ -341,11 +311,11 @@ mod tests {
         ]
         .into_iter()
         {
-            assert_eq!(get(&mut conn, &ext_id, q)?, json!({}));
+            assert_eq!(get(&conn, &ext_id, q)?, json!({}));
         }
 
         // Single item in the store.
-        set(&mut conn, &ext_id, json!({"foo": "bar" }))?;
+        set(&conn, &ext_id, json!({"foo": "bar" }))?;
         for q in vec![
             JsonValue::Null,
             json!("foo"),
@@ -355,49 +325,42 @@ mod tests {
         ]
         .into_iter()
         {
-            assert_eq!(get(&mut conn, &ext_id, q)?, json!({"foo": "bar" }));
+            assert_eq!(get(&conn, &ext_id, q)?, json!({"foo": "bar" }));
         }
 
         // more complex stuff, including changes checking.
         assert_eq!(
-            set(
-                &mut conn,
-                &ext_id,
-                json!({"foo": "new", "other": "also new" })
-            )?,
+            set(&conn, &ext_id, json!({"foo": "new", "other": "also new" }))?,
             make_changes(&[
                 ("foo", Some(json!("bar")), Some(json!("new"))),
                 ("other", None, Some(json!("also new")))
             ])
         );
         assert_eq!(
-            get(&mut conn, &ext_id, JsonValue::Null)?,
+            get(&conn, &ext_id, JsonValue::Null)?,
+            json!({"foo": "new", "other": "also new"})
+        );
+        assert_eq!(get(&conn, &ext_id, json!("foo"))?, json!({"foo": "new"}));
+        assert_eq!(
+            get(&conn, &ext_id, json!(["foo", "other"]))?,
             json!({"foo": "new", "other": "also new"})
         );
         assert_eq!(
-            get(&mut conn, &ext_id, json!("foo"))?,
-            json!({"foo": "new"})
-        );
-        assert_eq!(
-            get(&mut conn, &ext_id, json!(["foo", "other"]))?,
-            json!({"foo": "new", "other": "also new"})
-        );
-        assert_eq!(
-            get(&mut conn, &ext_id, json!({"foo": null, "default": "yo"}))?,
+            get(&conn, &ext_id, json!({"foo": null, "default": "yo"}))?,
             json!({"foo": "new", "default": "yo"})
         );
 
         assert_eq!(
-            remove(&mut conn, &ext_id, json!("foo"))?,
+            remove(&conn, &ext_id, json!("foo"))?,
             make_changes(&[("foo", Some(json!("new")), None)]),
         );
         // XXX - other variants.
 
         assert_eq!(
-            clear(&mut conn, &ext_id)?,
+            clear(&conn, &ext_id)?,
             make_changes(&[("other", Some(json!("also new")), None)]),
         );
-        assert_eq!(get(&mut conn, &ext_id, JsonValue::Null)?, json!({}));
+        assert_eq!(get(&conn, &ext_id, JsonValue::Null)?, json!({}));
 
         Ok(())
     }
@@ -407,18 +370,18 @@ mod tests {
         // This is a port of checkGetImpl in test_ext_storage.js in Desktop.
         let ext_id = "x";
         let db = new_mem_db();
-        let mut conn = db.writer.lock().unwrap();
+        let conn = db.writer.lock().unwrap();
 
         let prop = "test-prop";
         let value = "test-value";
 
-        set(&mut conn, ext_id, json!({ prop: value }))?;
+        set(&conn, ext_id, json!({ prop: value }))?;
 
         // this is the checkGetImpl part!
-        let mut data = get(&mut conn, &ext_id, json!(null))?;
+        let mut data = get(&conn, &ext_id, json!(null))?;
         assert_eq!(value, json!(data[prop]), "null getter worked for {}", prop);
 
-        data = get(&mut conn, &ext_id, json!(prop))?;
+        data = get(&conn, &ext_id, json!(prop))?;
         assert_eq!(
             value,
             json!(data[prop]),
@@ -431,7 +394,7 @@ mod tests {
             "string getter should return an object with a single property"
         );
 
-        data = get(&mut conn, &ext_id, json!([prop]))?;
+        data = get(&conn, &ext_id, json!([prop]))?;
         assert_eq!(value, json!(data[prop]), "array getter worked for {}", prop);
         assert_eq!(
             data.as_object().unwrap().len(),
@@ -441,7 +404,7 @@ mod tests {
 
         // checkGetImpl() uses `{ [prop]: undefined }` - but json!() can't do that :(
         // Hopefully it's just testing a simple object, so we use `{ prop: null }`
-        data = get(&mut conn, &ext_id, json!({ prop: null }))?;
+        data = get(&conn, &ext_id, json!({ prop: null }))?;
         assert_eq!(
             value,
             json!(data[prop]),
@@ -462,13 +425,13 @@ mod tests {
         // apparently Firefox, unlike Chrome, will not optimize the changes.
         // See bug 1621162 for more!
         let db = new_mem_db();
-        let mut conn = db.writer.lock().unwrap();
+        let conn = db.writer.lock().unwrap();
         let ext_id = "xyz";
 
-        set(&mut conn, &ext_id, json!({"foo": "bar" }))?;
+        set(&conn, &ext_id, json!({"foo": "bar" }))?;
 
         assert_eq!(
-            set(&mut conn, &ext_id, json!({"foo": "bar" }))?,
+            set(&conn, &ext_id, json!({"foo": "bar" }))?,
             make_changes(&[("foo", Some(json!("bar")), Some(json!("bar")))]),
         );
         Ok(())
@@ -477,16 +440,16 @@ mod tests {
     #[test]
     fn test_quota_maxitems() -> Result<()> {
         let db = new_mem_db();
-        let mut conn = db.writer.lock().unwrap();
+        let conn = db.writer.lock().unwrap();
         let ext_id = "xyz";
         for i in 1..MAX_ITEMS + 1 {
             set(
-                &mut conn,
+                &conn,
                 &ext_id,
                 json!({ format!("key-{}", i): format!("value-{}", i) }),
             )?;
         }
-        let e = set(&mut conn, &ext_id, json!({"another": "another"})).unwrap_err();
+        let e = set(&conn, &ext_id, json!({"another": "another"})).unwrap_err();
         match e.kind() {
             ErrorKind::QuotaError(QuotaReason::MaxItems) => {}
             _ => panic!("unexpected error type"),
@@ -497,17 +460,17 @@ mod tests {
     #[test]
     fn test_quota_bytesperitem() -> Result<()> {
         let db = new_mem_db();
-        let mut conn = db.writer.lock().unwrap();
+        let conn = db.writer.lock().unwrap();
         let ext_id = "xyz";
         // A string 5 bytes less than the max. This should be counted as being
         // 3 bytes less than the max as the quotes are counted.
         let val = "x".repeat(QUOTA_BYTES_PER_ITEM - 5);
 
         // Key length doesn't push it over.
-        set(&mut conn, &ext_id, json!({ "x": val }))?;
+        set(&conn, &ext_id, json!({ "x": val }))?;
 
         // Key length does push it over.
-        let e = set(&mut conn, &ext_id, json!({ "xxxx": val })).unwrap_err();
+        let e = set(&conn, &ext_id, json!({ "xxxx": val })).unwrap_err();
         match e.kind() {
             ErrorKind::QuotaError(QuotaReason::ItemBytes) => {}
             _ => panic!("unexpected error type"),
