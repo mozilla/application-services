@@ -39,6 +39,3 @@ chrono = "0.4.8"
 clap = "2.32.0"
 cli-support = { path = "../support/cli" }
 tempdir = "0.3.7"
-
-[build-dependencies]
-prost-build = "0.6.1"

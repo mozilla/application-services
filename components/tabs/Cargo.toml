@@ -23,9 +23,6 @@ error-support = { path = "../support/error" }
 interrupt = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 
-[build-dependencies]
-prost-build = "0.6.1"
-
 [dev-dependencies]
 clipboard = "0.5.0"
 clap = "2.32.0"
