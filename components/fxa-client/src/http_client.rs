@@ -38,6 +38,7 @@ pub trait FxAClient {
         &self,
         config: &Config,
         refresh_token: &str,
+        ttl: Option<u64>,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse>;
     fn access_token_with_session_token(
@@ -169,15 +170,17 @@ impl FxAClient for Client {
         &self,
         config: &Config,
         refresh_token: &str,
+        ttl: Option<u64>,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
-        let body = json!({
-            "grant_type": "refresh_token",
-            "client_id": config.client_id,
-            "refresh_token": refresh_token,
-            "scope": scopes.join(" ")
-        });
-        self.make_oauth_token_request(config, body)
+        let req = OAuthTokenRequest {
+            client_id: config.client_id.clone(),
+            grant_type: String::from("refresh_token"),
+            refresh_token: refresh_token.to_string(),
+            scope: scopes.join(" "),
+            ttl,
+        };
+        self.make_oauth_token_request(config, serde_json::to_value(req).unwrap())
     }
 
     fn access_token_with_session_token(
@@ -656,6 +659,16 @@ pub struct DeviceResponseCommon {
     pub available_commands: HashMap<String, String>,
     #[serde(rename = "pushEndpointExpired")]
     pub push_endpoint_expired: bool,
+}
+
+#[derive(Serialize)]
+pub struct OAuthTokenRequest {
+    pub client_id: String,
+    pub grant_type: String,
+    pub refresh_token: String,
+    pub scope: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ttl: Option<u64>,
 }
 
 #[derive(Deserialize)]

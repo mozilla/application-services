@@ -59,6 +59,7 @@ void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
 
 FxARustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
                                    const char *_Nonnull scope,
+                                   uint64_t ttl,
                                    FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_session_token(FirefoxAccountHandle handle,
