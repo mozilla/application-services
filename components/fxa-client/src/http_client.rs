@@ -129,19 +129,19 @@ impl FxAClient for Client {
     }
 
     // For the one-off generation of a `refresh_token` and associated meta from transient credentials.
-
     fn refresh_token_with_code(
         &self,
         config: &Config,
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse> {
-        let body = json!({
-            "code": code,
-            "client_id": config.client_id,
-            "code_verifier": code_verifier
-        });
-        self.make_oauth_token_request(config, body)
+        let req_body = OAauthTokenRequest::UsingCode {
+            code: code.to_string(),
+            client_id: config.client_id.to_string(),
+            code_verifier: code_verifier.to_string(),
+            ttl: None,
+        };
+        self.make_oauth_token_request(config, serde_json::to_value(req_body).unwrap())
     }
 
     fn refresh_token_with_session_token(
@@ -173,11 +173,10 @@ impl FxAClient for Client {
         ttl: Option<u64>,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
-        let req = OAuthTokenRequest {
+        let req = OAauthTokenRequest::UsingRefreshToken {
             client_id: config.client_id.clone(),
-            grant_type: String::from("refresh_token"),
             refresh_token: refresh_token.to_string(),
-            scope: scopes.join(" "),
+            scope: Some(scopes.join(" ")),
             ttl,
         };
         self.make_oauth_token_request(config, serde_json::to_value(req).unwrap())
@@ -661,14 +660,30 @@ pub struct DeviceResponseCommon {
     pub push_endpoint_expired: bool,
 }
 
+// We model the OAuthTokenRequest according to the up to date
+// definition on
+// https://github.com/mozilla/fxa/blob/8ae0e6876a50c7f386a9ec5b6df9ebb54ccdf1b5/packages/fxa-auth-server/lib/oauth/routes/token.js#L70-L152
+
 #[derive(Serialize)]
-pub struct OAuthTokenRequest {
-    pub client_id: String,
-    pub grant_type: String,
-    pub refresh_token: String,
-    pub scope: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ttl: Option<u64>,
+#[serde(tag = "grant_type")]
+enum OAauthTokenRequest {
+    #[serde(rename = "refresh_token")]
+    UsingRefreshToken {
+        client_id: String,
+        refresh_token: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ttl: Option<u64>,
+    },
+    #[serde(rename = "authorization_code")]
+    UsingCode {
+        client_id: String,
+        code: String,
+        code_verifier: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ttl: Option<u64>,
+    },
 }
 
 #[derive(Deserialize)]
@@ -728,4 +743,29 @@ pub struct DuplicateTokenResponse {
     pub verified: bool,
     #[serde(rename = "authAt")]
     pub auth_at: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    #[allow(non_snake_case)]
+    fn check_OAauthTokenRequest_serialization() {
+        // Ensure OAauthTokenRequest serializes to what the server expects.
+        let using_code = OAauthTokenRequest::UsingCode {
+            code: "foo".to_owned(),
+            client_id: "bar".to_owned(),
+            code_verifier: "bobo".to_owned(),
+            ttl: None,
+        };
+        assert_eq!("{\"grant_type\":\"authorization_code\",\"client_id\":\"bar\",\"code\":\"foo\",\"code_verifier\":\"bobo\"}", serde_json::to_string(&using_code).unwrap());
+        let using_code = OAauthTokenRequest::UsingRefreshToken {
+            client_id: "bar".to_owned(),
+            refresh_token: "foo".to_owned(),
+            scope: Some("bobo".to_owned()),
+            ttl: Some(123),
+        };
+        assert_eq!("{\"grant_type\":\"refresh_token\",\"client_id\":\"bar\",\"refresh_token\":\"foo\",\"scope\":\"bobo\",\"ttl\":123}", serde_json::to_string(&using_code).unwrap());
+    }
 }
