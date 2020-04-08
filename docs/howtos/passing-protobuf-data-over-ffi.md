@@ -10,19 +10,9 @@ follow the examples of the other steps it takes.
 
 ## Rust Changes
 
-1. To your main rust crate, add dependencies on the `prost`, `prost-derive`, and
-   `bytes` crates.
-2. Add `features = ["prost_support"]` to the `ffi_support` dependency.
-3. Add `prost-build` to your build dependencies (e.g. you probably have to add
-   both of these):
-    ```toml
-    [build-dependencies]
-    prost-build = "check what version our other crates are using"
-    ```
-4. Create a new file named `mylib_msg_types.proto` (well, prefix it with the
-   actual name of your lib) in your main crate's src folder. This is what is
-   referenced in that bit you pasted above, so if you want or need to change its
-   name, you must do so consistently.
+1. To your main rust crate, add dependencies on the `prost` and `prost-derive` crates.
+2. Create a new file named `mylib_msg_types.proto` (well, prefix it with the
+   actual name of your lib) in your main crate's `src` folder.
 
    Due to annoying details of how the iOS megazord works, the name of the .proto
    file must be unique.
@@ -31,35 +21,31 @@ follow the examples of the other steps it takes.
     ```
     syntax = "proto2";
     package mozilla.appservices.mylib.protobuf;
+    option java_package = "mozilla.appservices.mylib";
+    option java_outer_classname = "MsgTypes";
+    option swift_prefix = "MsgTypes_";
+    option optimize_for = LITE_RUNTIME;
     ```
 
-    The package name is going to determine where the .rs file is output, which
-    will be relevant shortly.
+    The package name is going to determine where the .rs file is output.
 
     2. Fill in your definitions in the rest of the file. See
        https://developers.google.com/protocol-buffers/docs/proto for examples.
 
-5. In the same directory as your main crate's Cargo.toml, add a `build.rs` file.
-   Paste the following into it:
-    ```rust
-    /* This Source Code Form is subject to the terms of the Mozilla Public
-     * License, v. 2.0. If a copy of the MPL was not distributed with this
-     * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-    fn main() {
-        println!("cargo:rerun-if-changed=src/mylib_msg_types.proto");
-        prost_build::compile_protos(&["src/mylib_msg_types.proto"], &["src/"]).unwrap();
-    }
+3. In `tools/protobuf_files.toml`, add your protobuf file definition:
+    ```toml
+    ["mylib_msg_types.proto"]
+    dir = "../components/mylib/src/"
     ```
 
 6. Into your main crate's lib.rs file, add something equivalent to the following:
     ```rust
     pub mod msg_types {
-        include!(concat!(env!("OUT_DIR"), "/mozilla.appservices.mylib.protobuf.rs"));
+        include!("mozilla.appservices.mylib.protobuf.rs");
     }
     ```
 
-    This exposes the file your `build.rs` generates (from the .proto file) as a
+    This exposes the generated rust file (from the .proto file) as a
     rust module.
 
 7. Open your main crates's src/ffi.rs (note: *not* ffi/src/lib.rs! We'll get

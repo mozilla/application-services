@@ -1,4 +1,4 @@
-# protobuf-gen
+# Protobuf Rust generator
 
 You may ask yourself: why not use `prost-build` directly in `build.rs` scripts like everybody else does?
 Well, Reasons, as usual.
