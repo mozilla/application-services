@@ -25,5 +25,8 @@ pub use crate::error::*;
 pub use crate::login::*;
 
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!(concat!(
+        env!("OUT_DIR"),
+        "/mozilla.appservices.logins.protobuf.rs"
+    ));
 }

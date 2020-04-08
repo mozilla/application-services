@@ -2,10 +2,12 @@ syntax = "proto2";
 
 // Note: this file name must be unique due to how the iOS megazord works :(
 
-package msg_types;
+package mozilla.appservices.fxaclient.protobuf;
 
 option java_package = "mozilla.appservices.fxaclient";
 option java_outer_classname = "MsgTypes";
+option swift_prefix = "MsgTypes_";
+option optimize_for = LITE_RUNTIME;
 
 message Profile {
     optional string uid = 1;
