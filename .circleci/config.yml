@@ -253,6 +253,13 @@ jobs:
       - run: cargo clippy --version
       - run: bash automation/all_clippy_checks.sh
       - save-sccache-cache
+  Check Protobuf files are up-to-date:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: small
+    steps:
+      - checkout
+      - run: ./automation/check_protobuf_files_current.py
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable
@@ -449,6 +456,9 @@ workflows:
   clippy:
     jobs:
       - Lint Rust with clippy
+  check-protobuf-uptodate:
+    jobs:
+      - Check Protobuf files are up-to-date
   check-dependencies:
     jobs:
       - Check Rust dependencies
