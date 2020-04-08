@@ -136,13 +136,18 @@ impl FxAClient for Client {
         code: &str,
         code_verifier: &str,
     ) -> Result<OAuthTokenResponse> {
-        let body = json!({
-            "code": code,
-            "client_id": config.client_id,
-            "code_verifier": code_verifier
-        });
-        self.make_oauth_token_request(config, body)
+        
+        let req_body = OAauthTokenRequest::WithCode{
+            code: code.to_string(),
+            client_id: config.client_id.to_string(),
+            code_verifier: code_verifier.to_string(),
+            grant_type: Some(authorization_code_grant_type()),
+            ttl: None
+        };
+        
+        self.make_oauth_token_request(config, serde_json::to_value(req_body).unwrap())
     }
+
 
     fn refresh_token_with_session_token(
         &self,
@@ -173,11 +178,11 @@ impl FxAClient for Client {
         ttl: Option<u64>,
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
-        let req = OAuthTokenRequest {
+        let req = OAauthTokenRequest::WithRefreshToken {
             client_id: config.client_id.clone(),
-            grant_type: String::from("refresh_token"),
+            grant_type: refresh_token_grant_type(),
             refresh_token: refresh_token.to_string(),
-            scope: scopes.join(" "),
+            scope: Some(scopes.join(" ")),
             ttl,
         };
         self.make_oauth_token_request(config, serde_json::to_value(req).unwrap())
@@ -661,14 +666,69 @@ pub struct DeviceResponseCommon {
     pub push_endpoint_expired: bool,
 }
 
+// We modele the OAuthTokenRequest according to the up to date
+// definition on
+// https://github.com/mozilla/fxa/blob/8ae0e6876a50c7f386a9ec5b6df9ebb54ccdf1b5/packages/fxa-auth-server/lib/oauth/routes/token.js#L70-L152
+
+
+// this functions are used to give a default value to the grant type
+// field if we want to deserialize and also avoid constants values
+// hardtyped in the code
+fn refresh_token_grant_type()->String{
+    "refresh_token".to_string()
+}
+
+fn fxa_credentials_grant_type()->String{
+    "fxa-credentials".to_string()
+}
+
+fn authorization_code_grant_type()->String{
+    "authorization_code".to_string()
+}
+
+fn online_access_type()->String{
+    "online".to_string()
+}
+
+fn offline_access_type()->String{
+    "offline".to_string()
+}
+
 #[derive(Serialize)]
-pub struct OAuthTokenRequest {
-    pub client_id: String,
-    pub grant_type: String,
-    pub refresh_token: String,
-    pub scope: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ttl: Option<u64>,
+enum OAauthTokenRequest{
+    WithRefreshToken {
+        client_id: String,
+        #[serde(default = "refresh_token_grant_type")]
+        grant_type: String,        
+        refresh_token: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ttl: Option<u64>,
+        
+    },
+    WithSessionToken{
+        client_id: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        client_secret: Option<String>,
+        #[serde(default = "fxa_credentials_grant_type")]
+        grant_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        scope: Option<String>,
+        #[serde(default = "online_access_type")]
+        access_type: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ttl: Option<u64>,
+            
+    },
+    WithCode{
+        client_id: String,
+        code: String,
+        code_verifier: String,
+        #[serde(default = "authorization_code_grant_type")]
+        grant_type: Option<String>,
+        ttl: Option<u64>
+    }
 }
 
 #[derive(Deserialize)]
