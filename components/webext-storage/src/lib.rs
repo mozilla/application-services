@@ -8,8 +8,8 @@
 mod api;
 pub mod db;
 pub mod error;
-pub mod repo;
 mod schema;
+pub mod store;
 
 // This is what we roughly expect the "bridge" used by desktop to do.
 // It's primarily here to avoid dead-code warnings (but I don't want to disable
@@ -17,10 +17,10 @@ mod schema;
 pub fn delme_demo_usage() -> error::Result<()> {
     use serde_json::json;
 
-    let repo = repo::Repo::new("webext-storage.db")?;
-    repo.set("ext-id", json!({}))?;
-    repo.get("ext-id", json!({}))?;
-    repo.remove("ext-id", json!({}))?;
-    repo.clear("ext-id")?;
+    let store = store::Store::new("webext-storage.db")?;
+    store.set("ext-id", json!({}))?;
+    store.get("ext-id", json!({}))?;
+    store.remove("ext-id", json!({}))?;
+    store.clear("ext-id")?;
     Ok(())
 }

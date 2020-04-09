@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// TODO: Rename this to "store" - that's the name we want to move forward with!
 use crate::api::{self, StorageChanges};
 use crate::db::StorageDb;
 use crate::error::*;
@@ -12,11 +11,11 @@ use std::sync::Arc;
 
 use serde_json::Value as JsonValue;
 
-pub struct Repo {
+pub struct Store {
     db: Arc<StorageDb>,
 }
 
-impl Repo {
+impl Store {
     // functions to create instances.
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
@@ -70,6 +69,6 @@ mod test {
     fn test_send() {
         fn ensure_send<T: Send>() {}
         // Compile will fail if not send.
-        ensure_send::<Repo>();
+        ensure_send::<Store>();
     }
 }
