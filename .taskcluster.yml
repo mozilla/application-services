@@ -37,8 +37,6 @@ tasks:
       else: false
 
     user:
-      # dependabot-preview[bot]@users.noreply.github.com doesn't validate as email.
-      # It would be easier if TC simply didn't enforce an email format for "owner".
       $if: 'event.sender.login == "dependabot-preview[bot]"'
       then: dependabot
       else: ${event.sender.login}
