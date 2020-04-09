@@ -147,7 +147,7 @@ tasks:
           scopes:
             - queue:scheduler-id:taskcluster-github
           routes:
-            - statuses
+            - checks
           metadata:
             owner: &task_owner ${user}@users.noreply.github.com
             source: &task_source ${repository}/raw/${head_rev}/.taskcluster.yml

@@ -151,7 +151,7 @@ class Task:
         self.index_and_artifacts_expire_in = self.expires_in
         self.dependencies = []
         self.scopes = []
-        self.routes = []
+        self.routes = ['checks']
         self.extra = {}
 
     # All `with_*` methods return `self`, so multiple method calls can be chained.
