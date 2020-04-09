@@ -20,3 +20,7 @@ ece = { version = "1.1.0", default-features = false, features = ["serializable-k
 
 [dev-dependencies]
 hex = "0.4.0"
+
+[features]
+default = []
+gecko = []
