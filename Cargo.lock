@@ -2378,9 +2378,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.17"
+version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0df0eb663f387145cab623dea85b09c2c5b4b0aef44e945d928e682fce71bb03"
+checksum = "410a7488c0a728c7ceb4ad59b9567eb4053d02e8cc7f5c0e0eeeb39518369213"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2456,6 +2456,7 @@ version = "0.1.0"
 dependencies = [
  "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "interrupt",
  "log 0.4.8",
  "serde",
  "serde_json",
