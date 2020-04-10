@@ -429,13 +429,36 @@ fn public_node_from_fennec_pinned(
 
 mod sql_fns {
     use crate::import::common::sql_fns::{sanitize_timestamp, sanitize_utf8, validate_url};
-    use rusqlite::{functions::Context, Connection, Result};
+    use rusqlite::{
+        functions::{Context, FunctionFlags},
+        Connection, Result,
+    };
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
-        c.create_scalar_function("normalize_root_guid", 1, true, normalize_root_guid)?;
-        c.create_scalar_function("validate_url", 1, true, validate_url)?;
-        c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
-        c.create_scalar_function("sanitize_utf8", 1, true, sanitize_utf8)?;
+        c.create_scalar_function(
+            "normalize_root_guid",
+            1,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            normalize_root_guid,
+        )?;
+        c.create_scalar_function(
+            "validate_url",
+            1,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            validate_url,
+        )?;
+        c.create_scalar_function(
+            "sanitize_timestamp",
+            1,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            sanitize_timestamp,
+        )?;
+        c.create_scalar_function(
+            "sanitize_utf8",
+            1,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            sanitize_utf8,
+        )?;
         Ok(())
     }
 
