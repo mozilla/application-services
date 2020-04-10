@@ -172,29 +172,35 @@ lazy_static::lazy_static! {
 }
 
 pub(super) fn define_sql_functions(c: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
     c.create_scalar_function(
         "validate_url",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::validate_url,
     )?;
     c.create_scalar_function(
         "sanitize_timestamp",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::sanitize_timestamp,
     )?;
-    c.create_scalar_function("hash", -1, true, crate::db::db::sql_fns::hash)?;
+    c.create_scalar_function(
+        "hash",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::db::db::sql_fns::hash,
+    )?;
     c.create_scalar_function(
         "generate_guid",
         0,
-        false,
+        FunctionFlags::SQLITE_UTF8,
         crate::db::db::sql_fns::generate_guid,
     )?;
     c.create_scalar_function(
         "sanitize_utf8",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::sanitize_utf8,
     )?;
     Ok(())

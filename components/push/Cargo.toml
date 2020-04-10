@@ -18,7 +18,7 @@ base64 = "0.12.0"
 failure = "0.1.6"
 failure_derive = "0.1.5"
 log = "0.4.8"
-rusqlite = { version = "0.21.0", features = ["bundled"] }
+rusqlite = { version = "0.22.0", features = ["bundled"] }
 url = "2.1.1"
 viaduct = { path = "../viaduct" }
 ffi-support = "0.4"

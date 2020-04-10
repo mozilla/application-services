@@ -21,7 +21,7 @@ viaduct = { path = "../../viaduct" }
 prost = "0.6.1"
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0"
 features = ["limits", "functions"]
 
 [features]
