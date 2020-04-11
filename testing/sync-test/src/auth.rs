@@ -1,14 +1,17 @@
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
-use crate::Opts;
+use crate::{restmail_helper, Opts};
 use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
+use rc_crypto::{digest, hkdf, hmac};
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::{Arc, Once};
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsEngine;
 use url::Url;
+use viaduct::Request;
 
 pub const CLIENT_ID: &str = "3c49430b43dfba77"; // Hrm...
 pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
@@ -111,9 +114,36 @@ impl TestAccount {
         no_delete: bool,
     ) -> Result<Arc<TestAccount>, failure::Error> {
         log::info!("Creating temporary fx account");
-        // `create` doesn't return anything we care about.
-        let auth_url = cfg.auth_url()?;
-        run_helper_command("create", &[&email, &pass, auth_url.as_str()])?;
+
+        restmail_helper::clear_mailbox(&email);
+
+        let create_endpoint = cfg.auth_url_path("v1/account/create").unwrap();
+        let body = json!({
+            "email": &email,
+            "authPW": auth_pwd(&email, &pass)
+        });
+        let req = Request::post(create_endpoint).json(&body).send().unwrap();
+        let resp: serde_json::Value = req.json().unwrap();
+        let uid = resp["uid"].as_str().unwrap();
+
+        log::info!("POST /v1/account/create succeeded");
+        log::info!("Autoverifying account on restmail... uid = {}", uid);
+
+        let verification_email = restmail_helper::find_email(&email, |email| {
+            email["headers"]["x-uid"] == uid && email["headers"]["x-template-name"] == "verify"
+        });
+
+        let verify_endpoint = cfg.auth_url_path("v1/recovery_email/verify_code").unwrap();
+        let body = json!({
+            "uid": &uid,
+            "code": verification_email["headers"]["x-verify-code"].as_str().unwrap(),
+        });
+        let resp = Request::post(verify_endpoint).json(&body).send().unwrap();
+        if !resp.is_success() {
+            panic!("Failed to verify the account: {}", resp.text());
+        }
+
+        log::info!("Account created and verified!");
         Ok(Arc::new(TestAccount {
             email,
             pass,
@@ -151,6 +181,40 @@ impl TestAccount {
     }
 }
 
+fn kwe(name: &str, email: &str) -> Vec<u8> {
+    format!("identity.mozilla.com/picl/v1/{}:{}", name, email)
+        .as_bytes()
+        .to_vec()
+}
+
+fn kw(name: &str) -> Vec<u8> {
+    format!("identity.mozilla.com/picl/v1/{}", name)
+        .as_bytes()
+        .to_vec()
+}
+
+fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
+    let salt = hmac::SigningKey::new(&digest::SHA256, salt);
+    let mut out = vec![0u8; len];
+    hkdf::extract_and_expand(&salt, ikm, info, &mut out).unwrap();
+    out
+}
+
+fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
+    let salt = kwe("quickStretch", email);
+    let mut out = [0u8; 32];
+    pbkdf2::pbkdf2::<::hmac::Hmac<sha2::Sha256>>(pwd.as_bytes(), &salt, 1000, &mut out);
+    out.to_vec()
+}
+
+fn auth_pwd(email: &str, pwd: &str) -> String {
+    let streched = quick_strech_pwd(email, pwd);
+    let salt = [0u8; 0];
+    let context = kw("authPW");
+    let derived = derive_hkdf_sha256_key(&streched, &salt, &context, 32);
+    hex::encode(derived)
+}
+
 impl Drop for TestAccount {
     fn drop(&mut self) {
         if self.no_delete {
@@ -158,16 +222,28 @@ impl Drop for TestAccount {
             return;
         }
         log::info!("Cleaning up temporary firefox account");
-        let auth_url = self.cfg.auth_url().unwrap(); // We already parsed this once.
-        if let Err(e) = run_helper_command("destroy", &[&self.email, &self.pass, auth_url.as_str()])
-        {
-            log::warn!(
-                "Failed to destroy fxacct {} with pass {}!",
-                self.email,
-                self.pass
-            );
-            log::warn!("   Error: {}", e);
+        let destroy_endpoint = self.cfg.auth_url_path("v1/account/destroy").unwrap();
+        let body = json!({
+            "email": self.email,
+            "authPW": auth_pwd(&self.email, &self.pass)
+        });
+        let req = Request::post(destroy_endpoint).json(&body).send();
+        match req {
+            Ok(resp) => {
+                if resp.is_success() {
+                    log::info!("Account destroyed successfully!");
+                    return;
+                } else {
+                    log::warn!("   Error: {}", resp.text());
+                }
+            }
+            Err(e) => log::warn!("   Error: {}", e),
         }
+        log::warn!(
+            "Failed to destroy fxacct {} with pass {}!",
+            self.email,
+            self.pass
+        );
     }
 }
 
@@ -183,9 +259,48 @@ impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self, failure::Error> {
         log::info!("Doing oauth flow!");
 
-        let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
-        let auth_url = acct.cfg.auth_url()?;
+        // let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
+        // let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
+        // let auth_url = acct.cfg.auth_url()?;
+
+        // let login_endpoint = acct.cfg.auth_url_path("v1/account/login").unwrap();
+        // let body = json!({
+        //     "email": &acct.email,
+        //     "authPW": auth_pwd(&acct.email, &email.pass),
+        //     "service": &acct.cfg.client_id,
+        //     "verificationMethod": "email-otp",
+        // });
+        // let req = Request::post(login_endpoint).json(&body).send().unwrap();
+        // let resp: serde_json::Value = req.json().unwrap();
+
+        // let session_token: String = resp["sessionToken"];
+        // let verified: bool = resp["verified"];
+        // if !verified {
+        //     let code = "123456"; // TODO
+        //     let verify_endpoint = acct.cfg.auth_url_path("v1/session/verify_code").unwrap();
+        //     let body = json!({
+        //         "code": &code,
+        //     });
+        //     // TODO: hawk auth
+        //     let req = Request::post(verify_endpoint).json(&body).send().unwrap();
+        // }
+
+        // let auth_endpoint = acct.cfg.auth_url_path("v1/oauth/authorization").unwrap();
+        // let body = json!({
+        //     "access_type": "offline",
+        //     "client_id": &acct.cfg.client_id,
+        //     "code_challenge": // TODO,
+        //     "code_challenge_method": // TODO,
+        //     "keys_jwe": // TODO,
+        //     "scope": // TODO,
+        //     "state": // TODO,
+        // });
+        // // TODO: hawk auth
+        // let req = Request::post(auth_endpoint).json(&body).send().unwrap();
+        // let resp: serde_json::Value = req.json().unwrap();
+        // let code: String = resp["code"];
+        // let state: String = resp["state"];
+
         let redirected_to = run_helper_command(
             "oauth",
             &[&acct.email, &acct.pass, auth_url.as_str(), &oauth_uri],
@@ -199,7 +314,6 @@ impl TestClient {
             .into_owned()
             .collect::<HashMap<String, String>>();
 
-        // should we be using the OAuthInfo this returns?
         fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
         log::info!("OAuth flow finished");
 

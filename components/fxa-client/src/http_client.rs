@@ -383,7 +383,7 @@ impl Client {
         Ok(Self::make_request(Request::post(url).json(&body))?.json()?)
     }
 
-    fn make_request(request: Request) -> Result<Response> {
+    pub(crate) fn make_request(request: Request) -> Result<Response> {
         let resp = request.send()?;
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)

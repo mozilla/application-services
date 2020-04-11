@@ -26,6 +26,7 @@ use std::{
 };
 use url::Url;
 
+pub mod auth;
 mod commands;
 mod config;
 pub mod device;
