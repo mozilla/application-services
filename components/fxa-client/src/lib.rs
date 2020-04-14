@@ -34,7 +34,7 @@ pub mod ffi;
 pub mod migrator;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!("mozilla.appservices.fxaclient.protobuf.rs");
 }
 mod http_client;
 mod oauth;
@@ -151,7 +151,7 @@ impl FirefoxAccount {
         if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
             return Ok(Url::parse("https://firefox.com/pair")?);
         }
-        Ok(self.state.config.content_url_path("pair")?)
+        Ok(self.state.config.pair_url()?)
     }
 
     /// Get the "connection succeeded" page URL.
@@ -159,10 +159,7 @@ impl FirefoxAccount {
     /// having intercepted the OAuth login-flow state/code
     /// redirection.
     pub fn get_connection_success_url(&self) -> Result<Url> {
-        let mut url = self
-            .state
-            .config
-            .content_url_path("connect_another_device")?;
+        let mut url = self.state.config.connect_another_device_url()?;
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
         Ok(url)
@@ -176,7 +173,7 @@ impl FirefoxAccount {
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
     pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
-        let mut url = self.state.config.content_url_path("settings")?;
+        let mut url = self.state.config.settings_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
             url.query_pairs_mut()
@@ -193,7 +190,7 @@ impl FirefoxAccount {
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
     pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<Url> {
-        let mut url = self.state.config.content_url_path("settings/clients")?;
+        let mut url = self.state.config.settings_clients_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         self.add_account_identifiers_to_url(url)
     }

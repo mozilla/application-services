@@ -53,6 +53,7 @@ class LogTest {
         assert(RustLogAdapter.isEnabled)
 
         // Check that trying to enable again throws
+        @Suppress("EmptyCatchBlock")
         try {
             RustLogAdapter.enable { _, _, _ -> true }
         } catch (e: LogAdapterCannotEnable) {
@@ -73,6 +74,7 @@ class LogTest {
 
         for (i in 0..15) {
             Thread.sleep(10)
+            @Suppress("ExplicitGarbageCollectionCall")
             System.gc()
         }
         // Make sure GC can't collect our background thread (we're still using it)
@@ -145,6 +147,7 @@ class LogTest {
         RustLogAdapter.enable { level, tagStr, msgStr ->
             handler(level, tagStr, msgStr)
             if (logs.size >= 10) {
+                @Suppress("TooGenericExceptionThrown")
                 throw RuntimeException("Throw an exception to stop logging")
             }
             true
@@ -166,6 +169,7 @@ class LogTest {
         // Make sure the GC can now collect the background threads.
         for (i in 0..15) {
             Thread.sleep(10)
+            @Suppress("ExplicitGarbageCollectionCall")
             System.gc()
         }
         // assertEquals(threads.size, 0) // INDIRECT

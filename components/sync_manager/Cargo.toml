@@ -10,7 +10,7 @@ sync15 = { path = "../sync15" }
 places = { path = "../places" }
 logins = { path = "../logins" }
 tabs = { path = "../tabs" }
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 failure = "0.1.6"
 error-support = { path = "../support/error" }
 prost = "0.6.1"
@@ -21,8 +21,5 @@ sql-support = { path = "../support/sql" }
 url = "2.1.1"
 serde = "1.0.104"
 serde_derive = "1.0.104"
-serde_json = "1.0.44"
+serde_json = "1.0.50"
 interrupt = { path = "../support/interrupt" }
-
-[build-dependencies]
-prost-build = "0.6.1"

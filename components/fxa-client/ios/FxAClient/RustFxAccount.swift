@@ -131,12 +131,13 @@ open class RustFxAccount {
 
     /// Try to get an OAuth access token.
     ///
+    /// `ttl` corresponds to the time in seconds for which the token will be used.
     /// Throws `FirefoxAccountError.Unauthorized` if we couldn't provide an access token
     /// for this scope. The caller should then start the OAuth Flow again with
     /// the desired scope.
-    open func getAccessToken(scope: String) throws -> AccessTokenInfo {
+    open func getAccessToken(scope: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
         let ptr = try rustCall { err in
-            fxa_get_access_token(self.raw, scope, err)
+            fxa_get_access_token(self.raw, scope, ttl ?? .zero, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
         let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: ptr))
@@ -263,6 +264,12 @@ open class RustFxAccount {
         let json = try nullableRustCall { err in
             fxa_migrate_from_session_token(self.raw, sessionToken, kSync, kXCS, 0 /* reuse session token */, err)
         }
+
+        defer {
+            if let json = json {
+                fxa_str_free(json)
+            }
+        }
         // We don't parse the JSON coz nobody uses it...
         return json != nil
     }
@@ -270,6 +277,12 @@ open class RustFxAccount {
     open func retryMigrateFromSessionToken() throws -> Bool {
         let json = try nullableRustCall { err in
             fxa_retry_migrate_from_session_token(self.raw, err)
+        }
+
+        defer {
+            if let json = json {
+                fxa_str_free(json)
+            }
         }
         return json != nil
     }

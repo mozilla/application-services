@@ -292,6 +292,7 @@ impl<'conn> UncheckedTransaction<'conn> {
             TransactionBehavior::Deferred => "BEGIN DEFERRED",
             TransactionBehavior::Immediate => "BEGIN IMMEDIATE",
             TransactionBehavior::Exclusive => "BEGIN EXCLUSIVE",
+            _ => unreachable!(),
         };
         conn.execute_batch(query)
             .map(move |_| UncheckedTransaction {

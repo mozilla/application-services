@@ -341,6 +341,30 @@ pub extern "C" fn sync15_passwords_get_by_base_domain(
     })
 }
 
+/// # Safety
+/// Deref pointer, thus unsafe
+#[no_mangle]
+pub unsafe extern "C" fn sync15_passwords_potential_dupes_ignoring_username(
+    handle: u64,
+    data: *const u8,
+    len: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("sync15_passwords_potential_dupes_ignoring_username");
+    ENGINES.call_with_result(error, handle, |state| -> Result<PasswordInfos> {
+        let buffer = get_buffer(data, len);
+        let login: PasswordInfo = prost::Message::decode(buffer)?;
+        let infos = state
+            .lock()
+            .unwrap()
+            .potential_dupes_ignoring_username(login.into())?
+            .into_iter()
+            .map(Login::into)
+            .collect();
+        Ok(PasswordInfos { infos })
+    })
+}
+
 #[no_mangle]
 pub extern "C" fn sync15_passwords_get_by_id(
     handle: u64,

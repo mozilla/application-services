@@ -1,0 +1,19 @@
+[package]
+name = "viaduct-reqwest"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
+
+[features]
+default = []
+
+[dependencies]
+viaduct = { path = "../../viaduct" }
+reqwest = { version = "0.10.1", features = ["blocking", "native-tls-vendored"] }
+ffi-support = "0.4.0"
+lazy_static = "1.4.0"
+log = "0.4"

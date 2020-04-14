@@ -11,14 +11,15 @@ mod headers;
 
 mod backend;
 pub mod error;
-mod settings;
+pub mod settings;
 pub use error::*;
 
-pub use backend::force_enable_ffi_backend;
+pub use backend::{note_backend, set_backend, Backend};
 pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHeaderName};
+pub use settings::GLOBAL_SETTINGS;
 
 pub(crate) mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!("mozilla.appservices.httpconfig.protobuf.rs");
 }
 
 /// HTTP Methods.

@@ -56,7 +56,7 @@ class MockFxAccount: FxAccount {
         invocations.append(.clearAccessTokenCache)
     }
 
-    override func getAccessToken(scope _: String) throws -> AccessTokenInfo {
+    override func getAccessToken(scope _: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
         invocations.append(.getAccessToken)
         return AccessTokenInfo(scope: "profile", token: "toktok")
     }

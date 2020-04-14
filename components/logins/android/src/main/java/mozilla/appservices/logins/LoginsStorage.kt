@@ -165,8 +165,7 @@ interface LoginsStorage : AutoCloseable {
      * generated automatically. The format of generated guids
      * are left up to the implementation of LoginsStorage (in
      * practice the [DatabaseLoginsStorage] generates 12-character
-     * base64url (RFC 4648) encoded strings, and [MemoryLoginsStorage]
-     * generates strings using [java.util.UUID.toString])
+     * base64url (RFC 4648) encoded strings
      *
      * This will return an error result if a GUID is provided but
      * collides with an existing record, or if the provided record
@@ -248,4 +247,14 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageException::class)
     fun rekeyDatabase(newEncryptionKey: ByteArray)
+
+    /**
+     * Get the list of potential duplciates of `login`, with the exception of the
+     * username field, which is entirely ignored.
+     *
+     * For clarity, only the record's `hostname`, `httpRealm`, and `formSubmitURL`
+     * are inspected.
+     */
+    @Throws(LoginsStorageException::class)
+    fun potentialDupesIgnoringUsername(login: ServerPassword): List<ServerPassword>
 }

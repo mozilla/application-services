@@ -471,11 +471,21 @@ lazy_static::lazy_static! {
 
 mod sql_fns {
     use crate::import::common::sql_fns::{sanitize_timestamp, validate_url};
-    use rusqlite::{Connection, Result};
+    use rusqlite::{functions::FunctionFlags, Connection, Result};
 
     pub(super) fn define_functions(c: &Connection) -> Result<()> {
-        c.create_scalar_function("validate_url", 1, true, validate_url)?;
-        c.create_scalar_function("sanitize_timestamp", 1, true, sanitize_timestamp)?;
+        c.create_scalar_function(
+            "validate_url",
+            1,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            validate_url,
+        )?;
+        c.create_scalar_function(
+            "sanitize_timestamp",
+            1,
+            FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+            sanitize_timestamp,
+        )?;
         Ok(())
     }
 }

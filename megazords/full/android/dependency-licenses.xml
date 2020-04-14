@@ -25,10 +25,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: autocfg</name>
-    <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: backtrace</name>
     <url>https://github.com/rust-lang/backtrace-rs/blob/master/LICENSE-APACHE</url>
   </license>
@@ -97,8 +93,8 @@ the details of which are reproduced below.
     <url>https://github.com/sfackler/fallible-streaming-iterator/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: fixedbitset</name>
-    <url>https://github.com/bluss/fixedbitset/blob/master/LICENSE-APACHE</url>
+    <name>Apache License 2.0: ffi-support</name>
+    <url>https://raw.githubusercontent.com/mozilla/application-services/master/components/support/ffi/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: getrandom</name>
@@ -107,10 +103,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: glob</name>
     <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: heck</name>
-    <url>https://github.com/withoutboats/heck/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: hex</name>
@@ -123,10 +115,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: idna</name>
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: indexmap</name>
-    <url>https://github.com/bluss/indexmap/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: itertools</name>
@@ -165,10 +153,6 @@ the details of which are reproduced below.
     <url>https://github.com/contain-rs/lru-cache/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: multimap</name>
-    <url>https://github.com/havarnov/multimap/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
   </license>
@@ -179,10 +163,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: percent-encoding</name>
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: petgraph</name>
-    <url>https://github.com/petgraph/petgraph/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: pkg-config</name>
@@ -201,15 +181,7 @@ the details of which are reproduced below.
     <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>Apache License 2.0: prost-build</name>
-    <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: prost-derive</name>
-    <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: prost-types</name>
     <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
   </license>
   <license>
@@ -239,10 +211,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: regex-syntax</name>
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: remove_dir_all</name>
-    <url>https://github.com/XAMPPRocky/remove_dir_all/blob/master/LICENCE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rustc-demangle</name>
@@ -285,10 +253,6 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: tempfile</name>
-    <url>https://github.com/Stebalien/tempfile/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: thread_local</name>
     <url>https://github.com/Amanieu/thread_local-rs/blob/master/LICENSE-APACHE</url>
   </license>
@@ -307,10 +271,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: unicode-normalization</name>
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: unicode-segmentation</name>
-    <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-width</name>
