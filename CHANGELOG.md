@@ -1,3 +1,11 @@
+# v0.55.1 (_2020-04-14_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...v0.55.1)
+
+## Places
+
+- Android: Fennec migrations for history and bookmarks now support Fennec database versions 34 and 23, respectively. ([#2949](https://github.com/mozilla/application-services/pull/2949))
+
 # v0.55.0 (_2020-03-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.54.1...v0.55.0)
