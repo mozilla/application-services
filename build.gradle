@@ -283,12 +283,13 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
 
 // Extremely unsophisticated way to publish a local development version while hiding implementation details.
 //
-// For now we just run `publishToMavenLocal` while setting the special property `local`, and have some logic
-// in our gradle scripts to construct an auto-incrementing version number when this property is set.
+// This shells out to a python script that tries to detect whether the working directory has changed since the last
+// time it was run, and it so then it shells out to `./gradlew publishToMavenLocal -Plocal=<timestamp>` to publish
+// a new version of of the code with an auto-incrementing version number.
 //
-// I hope to grow this into something more sophisticated over time (e.g. to avoid re-publishing when nothing
-// has changed, perhaps cleanup old versions, etc) while keeping a stable `./gradlew autoPublishForLocalDevelopment`
+// It would be nice to implement this natively in gradle using gradle's own change-detection facilities, but I don't know
+// enough about gradle to take that on. At least this approach gives a nice stable  `./gradlew autoPublishForLocalDevelopment`
 // interface  for consumers.
 task autoPublishForLocalDevelopment(type: Exec) {
-  commandLine "./gradlew", "publishToMavenLocal", "-Plocal=true"
+  commandLine "./automation/publish_to_maven_local_if_modified.py"
 }
