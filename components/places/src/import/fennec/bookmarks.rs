@@ -18,8 +18,11 @@ use sql_support::ConnExt;
 use std::time::Instant;
 use url::Url;
 
-// From https://searchfox.org/mozilla-central/rev/597a69c70a5cce6f42f159eb54ad1ef6745f5432/mobile/android/base/java/org/mozilla/gecko/db/BrowserDatabaseHelper.java#73.
-const FENNEC_DB_VERSION: i64 = 39;
+// Fennec's bookmarks schema didn't meaningfully change since 17, so this could go as low as that version.
+// However, 23 was quite easy to obtain test databases for, and it shipped with quite an old ESR version (38).
+// The only difference between the latest (39) and this DB version is addition of LOCAL_VERSION and SYNC_VERSION
+// fields, which aren't used as part of the migration.
+const FENNEC_DB_VERSION: i64 = 23;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct BookmarksMigrationResult {
@@ -68,7 +71,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     let auto_detach = attached_database(&conn, &fennec_db_file_url, "fennec")?;
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
-    if db_version != FENNEC_DB_VERSION {
+    if db_version < FENNEC_DB_VERSION {
         return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
     }
 
@@ -167,7 +170,7 @@ fn do_pinned_sites_import(
     let auto_detach = attached_database(&conn, &fennec_db_file_url, "fennec")?;
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
-    if db_version != FENNEC_DB_VERSION {
+    if db_version < FENNEC_DB_VERSION {
         return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
     }
 
