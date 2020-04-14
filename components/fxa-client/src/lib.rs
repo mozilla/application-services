@@ -37,7 +37,7 @@ pub mod migrator;
 pub mod msg_types {
     include!("mozilla.appservices.fxaclient.protobuf.rs");
 }
-mod http_client;
+pub mod http_client;
 mod oauth;
 mod profile;
 mod push;

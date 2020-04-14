@@ -114,7 +114,7 @@ impl FxAClient for Client {
         if let Some(etag) = etag {
             request = request.header(header_names::IF_NONE_MATCH, format!("\"{}\"", etag))?;
         }
-        let resp = Self::make_request(request)?;
+        let resp = make_request(request)?;
         if resp.status == status_codes::NOT_MODIFIED {
             return Ok(None);
         }
@@ -161,7 +161,7 @@ impl FxAClient for Client {
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
-        Ok(Self::make_request(request)?.json()?)
+        Ok(make_request(request)?.json()?)
     }
 
     // For the regular generation of an `access_token` from long-lived credentials.
@@ -198,7 +198,7 @@ impl FxAClient for Client {
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(parameters)
             .build()?;
-        Self::make_request(request)?.json().map_err(Into::into)
+        make_request(request)?.json().map_err(Into::into)
     }
 
     fn authorization_code_using_session_token(
@@ -223,7 +223,7 @@ impl FxAClient for Client {
             .body(parameters)
             .build()?;
 
-        Ok(Self::make_request(request)?.json()?)
+        Ok(make_request(request)?.json()?)
     }
 
     fn oauth_introspect_refresh_token(
@@ -236,7 +236,7 @@ impl FxAClient for Client {
             "token": refresh_token,
         });
         let url = config.introspection_endpoint()?;
-        Ok(Self::make_request(Request::post(url).json(&body))?.json()?)
+        Ok(make_request(Request::post(url).json(&body))?.json()?)
     }
 
     fn duplicate_session(
@@ -253,7 +253,7 @@ impl FxAClient for Client {
             .body(duplicate_body)
             .build()?;
 
-        Ok(Self::make_request(request)?.json()?)
+        Ok(make_request(request)?.json()?)
     }
 
     fn destroy_access_token(&self, config: &Config, access_token: &str) -> Result<()> {
@@ -284,7 +284,7 @@ impl FxAClient for Client {
         if let Some(limit) = limit {
             request = request.query(&[("limit", &limit.to_string())])
         }
-        Ok(Self::make_request(request)?.json()?)
+        Ok(make_request(request)?.json()?)
     }
 
     fn invoke_command(
@@ -305,7 +305,7 @@ impl FxAClient for Client {
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(body.to_string());
-        Self::make_request(request)?;
+        make_request(request)?;
         Ok(())
     }
 
@@ -313,7 +313,7 @@ impl FxAClient for Client {
         let url = config.auth_url_path("v1/account/devices")?;
         let request =
             Request::get(url).header(header_names::AUTHORIZATION, bearer_token(refresh_token))?;
-        Ok(Self::make_request(request)?.json()?)
+        Ok(make_request(request)?.json()?)
     }
 
     fn update_device(
@@ -327,7 +327,7 @@ impl FxAClient for Client {
             .header(header_names::AUTHORIZATION, bearer_token(refresh_token))?
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(serde_json::to_string(&update)?);
-        Ok(Self::make_request(request)?.json()?)
+        Ok(make_request(request)?.json()?)
     }
 
     fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()> {
@@ -340,7 +340,7 @@ impl FxAClient for Client {
             .header(header_names::CONTENT_TYPE, "application/json")?
             .body(body.to_string());
 
-        Self::make_request(request)?;
+        make_request(request)?;
         Ok(())
     }
 
@@ -359,7 +359,7 @@ impl FxAClient for Client {
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
             .body(body)
             .build()?;
-        Self::make_request(request)?.json().map_err(|e| e.into())
+        make_request(request)?.json().map_err(|e| e.into())
     }
 }
 
@@ -370,7 +370,7 @@ impl Client {
 
     fn destroy_token_helper(&self, config: &Config, body: &serde_json::Value) -> Result<()> {
         let url = config.oauth_url_path("v1/destroy")?;
-        Self::make_request(Request::post(url).json(body))?;
+        make_request(Request::post(url).json(body))?;
         Ok(())
     }
 
@@ -380,32 +380,32 @@ impl Client {
         body: serde_json::Value,
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
-        Ok(Self::make_request(Request::post(url).json(&body))?.json()?)
-    }
-
-    pub(crate) fn make_request(request: Request) -> Result<Response> {
-        let resp = request.send()?;
-        if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
-            Ok(resp)
-        } else {
-            let json: std::result::Result<serde_json::Value, _> = resp.json();
-            match json {
-                Ok(json) => Err(ErrorKind::RemoteError {
-                    code: json["code"].as_u64().unwrap_or(0),
-                    errno: json["errno"].as_u64().unwrap_or(0),
-                    error: json["error"].as_str().unwrap_or("").to_string(),
-                    message: json["message"].as_str().unwrap_or("").to_string(),
-                    info: json["info"].as_str().unwrap_or("").to_string(),
-                }
-                .into()),
-                Err(_) => Err(resp.require_success().unwrap_err().into()),
-            }
-        }
+        Ok(make_request(Request::post(url).json(&body))?.json()?)
     }
 }
 
 fn bearer_token(token: &str) -> String {
     format!("Bearer {}", token)
+}
+
+pub fn make_request(request: Request) -> Result<Response> {
+    let resp = request.send()?;
+    if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
+        Ok(resp)
+    } else {
+        let json: std::result::Result<serde_json::Value, _> = resp.json();
+        match json {
+            Ok(json) => Err(ErrorKind::RemoteError {
+                code: json["code"].as_u64().unwrap_or(0),
+                errno: json["errno"].as_u64().unwrap_or(0),
+                error: json["error"].as_str().unwrap_or("").to_string(),
+                message: json["message"].as_str().unwrap_or("").to_string(),
+                info: json["info"].as_str().unwrap_or("").to_string(),
+            }
+            .into()),
+            Err(_) => Err(resp.require_success().unwrap_err().into()),
+        }
+    }
 }
 
 fn kw(name: &str) -> Vec<u8> {
@@ -423,7 +423,7 @@ pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>
     Ok(out)
 }
 
-struct HawkRequestBuilder<'a> {
+pub struct HawkRequestBuilder<'a> {
     url: Url,
     method: Method,
     body: Option<String>,

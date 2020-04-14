@@ -2,16 +2,14 @@
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::{restmail_helper, Opts};
-use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
+use fxa_client::{self, Config as FxaConfig, FirefoxAccount, http_client, auth};
 use logins::PasswordEngine;
-use rc_crypto::{digest, hkdf, hmac};
 use serde_json::json;
-use std::collections::HashMap;
 use std::sync::{Arc, Once};
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsEngine;
 use url::Url;
-use viaduct::Request;
+use viaduct::{Request, Method};
 
 pub const CLIENT_ID: &str = "3c49430b43dfba77"; // Hrm...
 pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
@@ -120,7 +118,7 @@ impl TestAccount {
         let create_endpoint = cfg.auth_url_path("v1/account/create").unwrap();
         let body = json!({
             "email": &email,
-            "authPW": auth_pwd(&email, &pass)
+            "authPW": auth::auth_pwd(&email, &pass)
         });
         let req = Request::post(create_endpoint).json(&body).send().unwrap();
         let resp: serde_json::Value = req.json().unwrap();
@@ -179,40 +177,19 @@ impl TestAccount {
             opts.no_delete_account,
         )
     }
-}
 
-fn kwe(name: &str, email: &str) -> Vec<u8> {
-    format!("identity.mozilla.com/picl/v1/{}:{}", name, email)
-        .as_bytes()
-        .to_vec()
-}
-
-fn kw(name: &str) -> Vec<u8> {
-    format!("identity.mozilla.com/picl/v1/{}", name)
-        .as_bytes()
-        .to_vec()
-}
-
-fn derive_hkdf_sha256_key(ikm: &[u8], salt: &[u8], info: &[u8], len: usize) -> Vec<u8> {
-    let salt = hmac::SigningKey::new(&digest::SHA256, salt);
-    let mut out = vec![0u8; len];
-    hkdf::extract_and_expand(&salt, ikm, info, &mut out).unwrap();
-    out
-}
-
-fn quick_strech_pwd(email: &str, pwd: &str) -> Vec<u8> {
-    let salt = kwe("quickStretch", email);
-    let mut out = [0u8; 32];
-    pbkdf2::pbkdf2::<::hmac::Hmac<sha2::Sha256>>(pwd.as_bytes(), &salt, 1000, &mut out);
-    out.to_vec()
-}
-
-fn auth_pwd(email: &str, pwd: &str) -> String {
-    let streched = quick_strech_pwd(email, pwd);
-    let salt = [0u8; 0];
-    let context = kw("authPW");
-    let derived = derive_hkdf_sha256_key(&streched, &salt, &context, 32);
-    hex::encode(derived)
+    pub fn get_account_keys(&self, key_fetch_token: &str) -> Result<Vec<u8>, fxa_client::error::Error> {
+        let creds = auth::derive_hawk_credentials(key_fetch_token, "keyFetchToken", 96)?;
+        let key_request_key = &creds["extra"].as_str().unwrap().as_bytes()[0..32];
+        let more_creds = auth::derive_hkdf_sha256_key(key_request_key, &[0u8; 0], &auth::kw("account/keys"), 96);
+        let resp_hmac_key = &more_creds[0..32];
+        let resp_xor_key = &more_creds[32..96];
+        let keys_url = self.cfg.auth_url_path("v1/account/keys").unwrap();
+        let req = Request::get(keys_url).json(&creds);
+        let resp: serde_json::Value = http_client::make_request(req)?.json()?;
+        let bundle = hex::decode(&resp["bundle"].as_str().unwrap())?;
+        auth::xored(resp_xor_key, &bundle[0..64])
+    }
 }
 
 impl Drop for TestAccount {
@@ -225,7 +202,7 @@ impl Drop for TestAccount {
         let destroy_endpoint = self.cfg.auth_url_path("v1/account/destroy").unwrap();
         let body = json!({
             "email": self.email,
-            "authPW": auth_pwd(&self.email, &self.pass)
+            "authPW": auth::auth_pwd(&self.email, &self.pass)
         });
         let req = Request::post(destroy_endpoint).json(&body).send();
         match req {
@@ -259,62 +236,65 @@ impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self, failure::Error> {
         log::info!("Doing oauth flow!");
 
-        // let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        // let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
-        // let auth_url = acct.cfg.auth_url()?;
+        let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
+        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
+        let auth_url = acct.cfg.auth_url()?;
 
-        // let login_endpoint = acct.cfg.auth_url_path("v1/account/login").unwrap();
-        // let body = json!({
-        //     "email": &acct.email,
-        //     "authPW": auth_pwd(&acct.email, &email.pass),
-        //     "service": &acct.cfg.client_id,
-        //     "verificationMethod": "email-otp",
-        // });
-        // let req = Request::post(login_endpoint).json(&body).send().unwrap();
-        // let resp: serde_json::Value = req.json().unwrap();
+        let login_endpoint = acct.cfg.auth_url_path("v1/account/login?keys=true").unwrap();
+        let body = json!({
+            "email": &acct.email,
+            "authPW": auth::auth_pwd(&acct.email, &acct.pass),
+            "service": &acct.cfg.client_id,
+            "verificationMethod": "email-otp",
+        });
+        let req = Request::post(login_endpoint).json(&body);
+        let resp: serde_json::Value = http_client::make_request(req)?.json()?;
 
-        // let session_token: String = resp["sessionToken"];
-        // let verified: bool = resp["verified"];
-        // if !verified {
-        //     let code = "123456"; // TODO
-        //     let verify_endpoint = acct.cfg.auth_url_path("v1/session/verify_code").unwrap();
-        //     let body = json!({
-        //         "code": &code,
-        //     });
-        //     // TODO: hawk auth
-        //     let req = Request::post(verify_endpoint).json(&body).send().unwrap();
-        // }
+        log::info!("POST /v1/account/login succeeded");
+        let session_token = resp["sessionToken"].as_str().unwrap();
+        let key_fetch_token = resp["keyFetchToken"].as_str().unwrap();
 
-        // let auth_endpoint = acct.cfg.auth_url_path("v1/oauth/authorization").unwrap();
-        // let body = json!({
-        //     "access_type": "offline",
-        //     "client_id": &acct.cfg.client_id,
-        //     "code_challenge": // TODO,
-        //     "code_challenge_method": // TODO,
-        //     "keys_jwe": // TODO,
-        //     "scope": // TODO,
-        //     "state": // TODO,
-        // });
-        // // TODO: hawk auth
-        // let req = Request::post(auth_endpoint).json(&body).send().unwrap();
-        // let resp: serde_json::Value = req.json().unwrap();
-        // let code: String = resp["code"];
-        // let state: String = resp["state"];
+        let verified: bool = resp["verified"].as_bool().unwrap();
+        let uid = resp["uid"].as_str().unwrap();
+        let auth_key = http_client::derive_auth_key_from_session_token(&session_token)?;
 
-        let redirected_to = run_helper_command(
-            "oauth",
-            &[&acct.email, &acct.pass, auth_url.as_str(), &oauth_uri],
-        )?;
+        if !verified {
+            log::info!("Need to do sign-in confirmation, attempting to do so through restmail...");
+            let verification_email = restmail_helper::find_email(&acct.email, |email| {
+                email["headers"]["x-template-name"] == "verifyLoginCode"
+            });
+            let verify_endpoint = acct.cfg.auth_url_path("v1/session/verify_code").unwrap();
+            let body = json!({
+                "code": verification_email["headers"]["x-signin-verify-code"].as_str().unwrap(),
+            });
 
-        log::info!("Helper command gave '{}'", redirected_to);
+            let req = http_client::HawkRequestBuilder::new(Method::Post, verify_endpoint, &auth_key).body(body).build()?;
+            let _resp = http_client::make_request(req)?;
+        }
+        let code_challenge = auth::random_code_challenge()?;
+        let state = auth::random_state()?;
+        // kA: 0..32, wrapKB: 32..64
+        let acct_keys = acct.get_account_keys(key_fetch_token)?;
+        let wrap_kb = &acct_keys[32..64];
+        let sync_key = auth::derive_sync_key(&acct.email, &acct.pass, wrap_kb)?;
 
-        let final_url = Url::parse(&redirected_to)?;
-        let query_params = final_url
-            .query_pairs()
-            .into_owned()
-            .collect::<HashMap<String, String>>();
+        let auth_endpoint = acct.cfg.auth_url_path("v1/oauth/authorization").unwrap();
 
-        fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
+        let body = json!({
+            "access_type": "offline",
+            "client_id": &acct.cfg.client_id,
+            "code_challenge": &code_challenge,
+            "code_challenge_method": "S256",
+            "keys_jwe": std::str::from_utf8(&sync_key)?,
+            "state": &state,
+        });
+        // TODO: hawk auth
+        let req = http_client::HawkRequestBuilder::new(Method::Post, auth_endpoint, &auth_key).body(body).build()?;
+        let resp: serde_json::Value = http_client::make_request(req)?.json().unwrap();
+        let code = resp["code"].as_str().unwrap();
+        let state = resp["state"].as_str().unwrap();
+
+        fxa.complete_oauth_flow(code, state)?;
         log::info!("OAuth flow finished");
 
         fxa.initialize_device("Testing Device", fxa_client::device::Type::Desktop, &[])?;

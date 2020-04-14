@@ -23,6 +23,9 @@ ffi-support = "0.4"
 viaduct = { path = "../viaduct" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }
+pbkdf2 = "0.3.0"
+sha2 = "0.8.1" # pbkdf2 dep
+hmac = "0.7.1" # pbkdf2 dep
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
