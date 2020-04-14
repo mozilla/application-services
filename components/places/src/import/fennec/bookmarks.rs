@@ -19,10 +19,9 @@ use std::time::Instant;
 use url::Url;
 
 // Fennec's bookmarks schema didn't meaningfully change since 17, so this could go as low as that version.
-// However, 23 was quite easy to obtain test databases for, and it shipped with quite an old ESR version (38).
-// The only difference between the latest (39) and this DB version is addition of LOCAL_VERSION and SYNC_VERSION
-// fields, which aren't used as part of the migration.
-const FENNEC_DB_VERSION: i64 = 23;
+// However, history and bookmarks migrations are intertwined currently, so we clamp both migrations
+// to the same version.
+const FENNEC_DB_VERSION: i64 = 34;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct BookmarksMigrationResult {

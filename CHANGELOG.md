@@ -46,6 +46,14 @@ Please call `Viaduct.shared.useReqwestBackend()` as soon as possible before usin
 
 - `Server.dev` is now `Server.stage` to reflect better the FxA server instance it points to. ([#2830](https://github.com/mozilla/application-services/pull/2830)).
 
+# v0.55.2 (_2020-04-14_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.1...v0.55.2)
+
+## Places
+
+- Android: Fennec's bookmarks db version supported by the migrations is now the same as that of history
+
 # v0.55.1 (_2020-04-14_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.55.0...v0.55.1)
