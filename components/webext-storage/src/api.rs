@@ -21,7 +21,7 @@ type JsonMap = Map<String, JsonValue>;
 fn get_from_db(conn: &Connection, ext_id: &str) -> Result<Option<JsonMap>> {
     Ok(
         match conn.try_query_one::<String>(
-            "SELECT data FROM moz_extension_data
+            "SELECT data FROM storage_sync_data
              WHERE ext_id = :ext_id",
             &[(":ext_id", &ext_id)],
             true,
@@ -38,18 +38,14 @@ fn get_from_db(conn: &Connection, ext_id: &str) -> Result<Option<JsonMap>> {
 }
 
 fn save_to_db(tx: &Transaction<'_>, ext_id: &str, val: &JsonValue) -> Result<()> {
-    // Convert to bytes so we can enforce the quota.
+    // The quota is enforced on the byte count, which is what .len() returns.
     let sval = val.to_string();
-    if sval.as_bytes().len() > QUOTA_BYTES {
+    if sval.len() > QUOTA_BYTES {
         return Err(ErrorKind::QuotaError(QuotaReason::TotalBytes).into());
     }
-    // XXX - as_bytes() above and using sval below means 2 utf-8 encodes.
-    // Ideally we could work out how to convert to bytes once and use it in both
-    // places.
-
     // XXX - sync support will need to do the change_counter thing here.
     tx.execute_named(
-        "INSERT OR REPLACE INTO moz_extension_data(ext_id, data)
+        "INSERT OR REPLACE INTO storage_sync_data(ext_id, data)
             VALUES (:ext_id, :data)",
         &[(":ext_id", &ext_id), (":data", &sval)],
     )?;
@@ -59,7 +55,7 @@ fn save_to_db(tx: &Transaction<'_>, ext_id: &str, val: &JsonValue) -> Result<()>
 fn remove_from_db(tx: &Transaction<'_>, ext_id: &str) -> Result<()> {
     // XXX - sync support will need to do the tombstone thing here.
     tx.execute_named(
-        "DELETE FROM moz_extension_data
+        "DELETE FROM storage_sync_data
         WHERE ext_id = :ext_id",
         &[(":ext_id", &ext_id)],
     )?;
@@ -150,7 +146,7 @@ pub fn set(tx: &Transaction<'_>, ext_id: &str, val: JsonValue) -> Result<Storage
         let new_value_s = v.to_string();
         // Reading the chrome docs literally re the quota, the length of the key
         // is just the string len, but the value is the json val, as bytes
-        if k.as_bytes().len() + new_value_s.as_bytes().len() >= QUOTA_BYTES_PER_ITEM {
+        if k.len() + new_value_s.len() >= QUOTA_BYTES_PER_ITEM {
             return Err(ErrorKind::QuotaError(QuotaReason::ItemBytes).into());
         }
         let change = StorageValueChange {
@@ -179,10 +175,6 @@ fn get_keys(keys: JsonValue) -> Vec<(String, Option<JsonValue>)> {
                 .filter_map(|v| v.as_str().map(|s| (s.to_string(), None)))
                 .collect()
         }
-        // XXX - we clone the map value here, but `remove()` doesn't need it - maybe
-        // we should take a param to indicate if the defaults are actually needed?
-        // (Or maybe lifetimes magic could make the clone unnecessary? It should have
-        // the same lifetime as `keys`)
         JsonValue::Object(m) => m.into_iter().map(|(k, d)| (k, Some(d))).collect(),
         _ => vec![],
     }
@@ -205,7 +197,10 @@ pub fn get(conn: &Connection, ext_id: &str, keys: JsonValue) -> Result<JsonValue
     let keys_and_defaults = get_keys(keys);
     let mut result = Map::with_capacity(keys_and_defaults.len());
     for (key, maybe_default) in keys_and_defaults {
-        // XXX - assume that if key doesn't exist, it doesn't exist in the result.
+        // XXX - If a key is requested that doesn't exist, we have 2 options:
+        // (1) have the key in the result with the value null, or (2) the key
+        // simply doesn't exist in the result. We assume (2), but should verify
+        // that's what chrome does.
         if let Some(v) = existing.remove(&key) {
             result.insert(key, v);
         } else if let Some(def) = maybe_default {

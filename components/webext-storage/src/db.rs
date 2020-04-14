@@ -24,7 +24,7 @@ pub struct StorageDb {
 }
 impl StorageDb {
     /// Create a new, or fetch an already open, StorageDb backed by a file on disk.
-    pub fn new(db_path: impl AsRef<Path>) -> Result<Arc<Self>> {
+    pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         let db_path = normalize_path(db_path)?;
         Self::new_named(db_path)
     }
@@ -33,12 +33,12 @@ impl StorageDb {
     /// provide a name, but you are still able to have a single writer and many
     ///  reader connections to the same memory DB open.
     #[cfg(test)]
-    pub fn new_memory(db_path: &str) -> Result<Arc<Self>> {
+    pub fn new_memory(db_path: &str) -> Result<Self> {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
         Self::new_named(name)
     }
 
-    fn new_named(db_path: PathBuf) -> Result<Arc<Self>> {
+    fn new_named(db_path: PathBuf) -> Result<Self> {
         // We always create the read-write connection for an initial open so
         // we can create the schema and/or do version upgrades.
         let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX
@@ -48,9 +48,9 @@ impl StorageDb {
 
         let conn = Connection::open_with_flags(db_path.clone(), flags)?;
         match init_sql_connection(&conn, true) {
-            Ok(()) => Ok(Arc::new(Self {
+            Ok(()) => Ok(Self {
                 writer: Arc::new(Mutex::new(conn)),
-            })),
+            }),
             Err(e) => {
                 // like with places, failure to upgrade means "you lose your data"
                 if let ErrorKind::DatabaseUpgradeError = e.kind() {
@@ -92,7 +92,7 @@ fn define_functions(_c: &Connection) -> Result<()> {
 // These should be somewhere else...
 pub fn put_meta(db: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
     db.conn().execute_named_cached(
-        "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
+        "REPLACE INTO meta (key, value) VALUES (:key, :value)",
         &[(":key", &key), (":value", value)],
     )?;
     Ok(())
@@ -100,7 +100,7 @@ pub fn put_meta(db: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
 
 pub fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<T>> {
     let res = db.conn().try_query_one(
-        "SELECT value FROM moz_meta WHERE key = :key",
+        "SELECT value FROM meta WHERE key = :key",
         &[(":key", &key)],
         true,
     )?;
@@ -109,7 +109,7 @@ pub fn get_meta<T: FromSql>(db: &Connection, key: &str) -> Result<Option<T>> {
 
 pub fn delete_meta(db: &Connection, key: &str) -> Result<()> {
     db.conn()
-        .execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+        .execute_named_cached("DELETE FROM meta WHERE key = :key", &[(":key", &key)])?;
     Ok(())
 }
 
@@ -195,7 +195,7 @@ pub mod test {
     // A helper for our tests to get their own memory Api.
     static ATOMIC_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    pub fn new_mem_db() -> Arc<StorageDb> {
+    pub fn new_mem_db() -> StorageDb {
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
         StorageDb::new_memory(&format!("test-api-{}", counter)).expect("should get an API")
     }

@@ -7,12 +7,11 @@ use crate::db::StorageDb;
 use crate::error::*;
 use serde_json;
 use std::path::Path;
-use std::sync::Arc;
 
 use serde_json::Value as JsonValue;
 
 pub struct Store {
-    db: Arc<StorageDb>,
+    db: StorageDb,
 }
 
 impl Store {
