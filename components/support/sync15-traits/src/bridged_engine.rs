@@ -63,7 +63,7 @@ pub trait BridgedEngine {
 
     /// Applies all staged records, reconciling changes on both sides and
     /// resolving conflicts. Returns a list of records to upload.
-    fn apply(&self, signal: &dyn Interruptee) -> Result<Vec<String>, Self::Error>;
+    fn apply(&self, signal: &dyn Interruptee) -> Result<BridgedSyncResults, Self::Error>;
 
     /// Indicates that the given record IDs were uploaded successfully to the
     /// server. This is called multiple times per sync, once for each batch
@@ -98,6 +98,33 @@ pub trait BridgedEngine {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct BridgedSyncResults {
+    /// List of records
+    pub records: Vec<String>,
+    /// None indicates we aren't reporting this information
+    pub num_reconciled: Option<usize>,
+}
+
+impl BridgedSyncResults {
+    pub fn new(records: Vec<String>, num_reconciled: impl Into<Option<usize>>) -> Self {
+        Self {
+            records,
+            num_reconciled: num_reconciled.into(),
+        }
+    }
+}
+
+// Shorthand for engines that don't care.
+impl From<Vec<String>> for BridgedSyncResults {
+    fn from(records: Vec<String>) -> Self {
+        Self {
+            records,
+            num_reconciled: None,
+        }
+    }
+}
+
 /// A blanket implementation of `BridgedEngine` for any `Mutex<BridgedEngine>`.
 /// This is provided for convenience, since we expect most bridges to hold
 /// their engines in an `Arc<Mutex<impl BridgedEngine>>`.
@@ -128,7 +155,7 @@ where
         self.lock()?.store_incoming(incoming_cleartexts, signal)
     }
 
-    fn apply(&self, signal: &dyn Interruptee) -> Result<Vec<String>, Self::Error> {
+    fn apply(&self, signal: &dyn Interruptee) -> Result<BridgedSyncResults, Self::Error> {
         self.lock()?.apply(signal)
     }
 
