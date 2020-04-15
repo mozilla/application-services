@@ -107,20 +107,25 @@ impl FirefoxAccount {
     /// * `pairing_url` - A pairing URL obtained by scanning a QR code produced by
     /// the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
-    pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
+    pub fn begin_pairing_flow<S: AsRef<str>>(
+        &mut self,
+        pairing_url: &str,
+        scopes: &[S],
+    ) -> Result<String> {
         let mut url = self.state.config.pair_supp_url()?;
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
         }
         url.set_fragment(pairing_url.fragment());
-        self.oauth_flow(url, scopes)
+        let scopes: Vec<&str> = scopes.iter().map(AsRef::as_ref).collect();
+        self.oauth_flow(url, &scopes)
     }
 
     /// Initiate an OAuth login flow and return a URL that should be navigated to.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
-    pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
+    pub fn begin_oauth_flow<S: AsRef<str>>(&mut self, scopes: &[S]) -> Result<String> {
         let mut url = if self.state.last_seen_profile.is_some() {
             self.state.config.oauth_force_auth_url()?
         } else {
@@ -136,20 +141,20 @@ impl FirefoxAccount {
                 .append_pair("email", &cached_profile.response.email);
         }
 
-        let scopes: Vec<String> = match self.state.refresh_token {
+        let refresh_token = self.state.refresh_token.clone();
+        let scopes: Vec<&str> = match refresh_token {
             Some(ref refresh_token) => {
                 // Union of the already held scopes and the one requested.
-                let mut all_scopes: Vec<String> = vec![];
-                all_scopes.extend(scopes.iter().map(ToString::to_string));
-                let existing_scopes = refresh_token.scopes.clone();
-                all_scopes.extend(existing_scopes);
-                HashSet::<String>::from_iter(all_scopes)
+                let all_scopes_iter = scopes
+                    .iter()
+                    .map(AsRef::as_ref)
+                    .chain(refresh_token.scopes.iter().map(AsRef::as_ref));
+                HashSet::<&str>::from_iter(all_scopes_iter)
                     .into_iter()
                     .collect()
             }
-            None => scopes.iter().map(ToString::to_string).collect(),
+            None => scopes.iter().map(AsRef::as_ref).collect(),
         };
-        let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
         self.oauth_flow(url, &scopes)
     }
 
