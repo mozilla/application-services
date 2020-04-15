@@ -19,7 +19,7 @@
 --   data, so having the local store in this shape makes syncing easier.
 
 CREATE TABLE IF NOT EXISTS storage_sync_data (
-    ext_id TEXT PRIMARY KEY,
+    ext_id TEXT NOT NULL PRIMARY KEY,
 
     /* The JSON payload. NULL means it's a tombstone */
     data TEXT,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS storage_sync_data (
 );
 
 CREATE TABLE IF NOT EXISTS storage_sync_mirror (
-    guid TEXT PRIMARY KEY,
+    guid TEXT NOT NULL PRIMARY KEY,
     /* The extension_id is explicitly not the GUID used on the server.
        We may end up making this a regular foreign-key relationship back to
        storage_sync_data, although maybe not - the ext_id may not exist in
