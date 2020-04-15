@@ -20,6 +20,7 @@
 
 CREATE TABLE IF NOT EXISTS storage_sync_data (
     ext_id TEXT PRIMARY KEY,
+
     /* The JSON payload. NULL means it's a tombstone */
     data TEXT,
 

@@ -46,7 +46,7 @@ pub fn init(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-pub fn create(db: &Connection) -> Result<()> {
+fn create(db: &Connection) -> Result<()> {
     log::debug!("Creating schema");
     db.execute_batch(CREATE_SCHEMA_SQL)?;
     db.execute(
