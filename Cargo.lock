@@ -966,13 +966,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "interrupt"
-version = "0.1.0"
-dependencies = [
- "failure",
-]
-
-[[package]]
 name = "iovec"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1084,7 +1077,6 @@ dependencies = [
  "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxa-client",
- "interrupt",
  "lazy_static",
  "log 0.4.8",
  "more-asserts",
@@ -1092,6 +1084,7 @@ dependencies = [
  "prost",
  "prost-derive",
  "rusqlite",
+ "saci-interrupt",
  "serde",
  "serde_derive",
  "serde_json",
@@ -1571,7 +1564,6 @@ dependencies = [
  "find-places-db",
  "fxa-client",
  "idna",
- "interrupt",
  "lazy_static",
  "log 0.4.8",
  "memchr",
@@ -1582,6 +1574,7 @@ dependencies = [
  "prost-derive",
  "rand 0.7.3",
  "rusqlite",
+ "saci-interrupt",
  "serde",
  "serde_derive",
  "serde_json",
@@ -1600,11 +1593,11 @@ name = "places-ffi"
 version = "0.1.0"
 dependencies = [
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt",
  "lazy_static",
  "log 0.4.8",
  "places",
  "prost",
+ "saci-interrupt",
  "serde_json",
  "sql-support",
  "sync-guid",
@@ -2203,6 +2196,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
 
 [[package]]
+name = "saci-interrupt"
+version = "0.1.0"
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2340,10 +2337,10 @@ name = "sql-support"
 version = "0.1.0"
 dependencies = [
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt",
  "lazy_static",
  "log 0.4.8",
  "rusqlite",
+ "saci-interrupt",
 ]
 
 [[package]]
@@ -2437,10 +2434,10 @@ dependencies = [
  "error-support",
  "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt",
  "lazy_static",
  "log 0.4.8",
  "rc_crypto",
+ "saci-interrupt",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2456,8 +2453,8 @@ version = "0.1.0"
 dependencies = [
  "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt",
  "log 0.4.8",
+ "saci-interrupt",
  "serde",
  "serde_json",
  "sync-guid",
@@ -2471,13 +2468,13 @@ dependencies = [
  "error-support",
  "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt",
  "lazy_static",
  "log 0.4.8",
  "logins",
  "places",
  "prost",
  "prost-derive",
+ "saci-interrupt",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2573,10 +2570,10 @@ dependencies = [
  "error-support",
  "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt",
  "log 0.4.8",
  "prost",
  "prost-derive",
+ "saci-interrupt",
  "serde",
  "serde_derive",
  "serde_json",
@@ -3014,12 +3011,12 @@ dependencies = [
  "env_logger",
  "error-support",
  "failure",
- "interrupt",
  "lazy_static",
  "libsqlite3-sys",
  "log 0.4.8",
  "nss_build_common",
  "rusqlite",
+ "saci-interrupt",
  "serde",
  "serde_derive",
  "serde_json",

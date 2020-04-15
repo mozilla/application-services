@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::Fail;
-use interrupt::Interrupted;
+use saci_interrupt::Interrupted;
 
 #[derive(Debug)]
 pub enum QuotaReason {

@@ -3,8 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::Fail;
-use interrupt::Interrupted;
 use rc_crypto::hawk;
+use saci_interrupt::Interrupted;
 use std::string;
 use std::time::SystemTime;
 use sync15_traits::request::UnacceptableBaseUrl;

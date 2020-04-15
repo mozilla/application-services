@@ -15,7 +15,8 @@ use crate::storage::{
     },
 };
 use crate::types::{Timestamp, VisitTransition};
-use interrupt::Interruptee;
+use saci_interrupt::Interruptee;
+use serde_json;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::telemetry;
@@ -302,7 +303,7 @@ mod tests {
     use crate::storage::history::history_sync::fetch_visits;
     use crate::storage::history::{apply_observation, delete_visits_for, url_to_guid};
     use crate::types::{SyncStatus, Timestamp};
-    use interrupt::NeverInterrupts;
+    use saci_interrupt::NeverInterrupts;
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;

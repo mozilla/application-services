@@ -15,7 +15,7 @@ use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, Store};
 use crate::telemetry;
 use failure::Fail;
-use interrupt::Interruptee;
+use saci_interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;

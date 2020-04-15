@@ -5,7 +5,7 @@
 use crate::error::*;
 use crate::storage::{ClientRemoteTabs, RemoteTab, TabsStorage};
 use crate::sync::store::TabsStore;
-use interrupt::NeverInterrupts;
+use saci_interrupt::NeverInterrupts;
 use std::cell::{Cell, RefCell};
 use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit};
 

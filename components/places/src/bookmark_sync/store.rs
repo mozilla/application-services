@@ -53,7 +53,7 @@ struct MergeInterruptee<'a, I>(&'a I);
 
 impl<'a, I> AbortSignal for MergeInterruptee<'a, I>
 where
-    I: interrupt::Interruptee,
+    I: saci_interrupt::Interruptee,
 {
     #[inline]
     fn aborted(&self) -> bool {

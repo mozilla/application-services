@@ -8,7 +8,7 @@
 
 use std::{sync::Mutex, sync::MutexGuard, sync::PoisonError};
 
-use interrupt::Interruptee;
+use saci_interrupt::Interruptee;
 
 /// A bridged Sync engine implements all the methods needed to support
 /// Desktop Sync.

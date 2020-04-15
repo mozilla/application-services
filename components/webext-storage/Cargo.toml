@@ -12,7 +12,7 @@ default = []
 [dependencies]
 error-support = { path = "../support/error" }
 failure = "0.1.6"
-interrupt = { path = "../support/interrupt" }
+saci-interrupt = { path = "../support/interrupt" }
 lazy_static = "1.4.0"
 log = "0.4"
 serde = "1"
