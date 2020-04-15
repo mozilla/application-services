@@ -27,7 +27,7 @@ prost = "0.6.1"
 prost-derive = "0.6.1"
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0"
 features = ["sqlcipher", "limits"]
 
 [dev-dependencies]
@@ -39,6 +39,3 @@ chrono = "0.4.8"
 clap = "2.32.0"
 cli-support = { path = "../support/cli" }
 tempdir = "0.3.7"
-
-[build-dependencies]
-prost-build = "0.6.1"

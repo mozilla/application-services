@@ -34,7 +34,7 @@ sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"
 
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0"
 features = ["functions", "bundled"]
 
 [dev-dependencies]
@@ -51,9 +51,6 @@ tempdir = "0.3.7"
 cli-support = { path = "../support/cli" }
 pretty_assertions = "0.6.1"
 ctrlc = "3.1.4"
-
-[build-dependencies]
-prost-build = "0.6.1"
 
 # While we don't have a replacement for termion on Windows yet (and thus
 # our example doesn't work on Windows), it does get further in the compilation

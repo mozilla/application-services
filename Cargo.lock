@@ -786,7 +786,6 @@ dependencies = [
  "log",
  "mockiato",
  "prost",
- "prost-build",
  "prost-derive",
  "rc_crypto",
  "serde",
@@ -1066,9 +1065,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.17.1"
+version = "0.17.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "266eb8c361198e8d1f682bc974e5d9e2ae90049fb1943890904d11dad7d4a77d"
+checksum = "56d90181c2904c287e5390186be820e5ef311a3c62edebb7d6ca3d6a48ce041d"
 dependencies = [
  "cc",
  "pkg-config",
@@ -1118,7 +1117,6 @@ dependencies = [
  "more-asserts",
  "prettytable-rs",
  "prost",
- "prost-build",
  "prost-derive",
  "rusqlite",
  "serde",
@@ -1294,9 +1292,9 @@ dependencies = [
 
 [[package]]
 name = "mockito"
-version = "0.23.3"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae82e6bad452dd42b0f4437414eae3c8c27b958a55dc6c198e351042c4e3024e"
+checksum = "03dbb09048f444da040f95049763815e4352c9dcb49e4250f7ff2c6853e595dc"
 dependencies = [
  "assert-json-diff",
  "colored",
@@ -1628,7 +1626,6 @@ dependencies = [
  "percent-encoding",
  "pretty_assertions",
  "prost",
- "prost-build",
  "prost-derive",
  "rand 0.7.3",
  "rusqlite",
@@ -1794,6 +1791,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "protobuf-gen"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "prost-build",
+ "serde",
+ "serde_derive",
+ "toml",
+]
+
+[[package]]
 name = "push"
 version = "0.1.0"
 dependencies = [
@@ -1809,7 +1817,6 @@ dependencies = [
  "log",
  "mockito",
  "prost",
- "prost-build",
  "prost-derive",
  "rc_crypto",
  "rusqlite",
@@ -2100,9 +2107,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.21.0"
+version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64a656821bb6317a84b257737b7934f79c0dbb7eb694710475908280ebad3e64"
+checksum = "57edf4c4cea4d7e0fab069acb5da9e8e8e5403c78abc81b1f37d83af02148ea5"
 dependencies = [
  "bitflags",
  "fallible-iterator",
@@ -2218,18 +2225,18 @@ checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
 name = "serde"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e707fbbf255b8fc8c3b99abb91e7257a622caeb20a9818cbadbeeede4e0932ff"
+checksum = "36df6ac6412072f67cf767ebbde4133a5b2e88e76dc6187fa7104cd16f783399"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.105"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac5d00fc561ba2724df6758a17de23df5914f20e41cb00f94d5b7ae42fffaff8"
+checksum = "9e549e3abf4fb8621bd1609f11dfc9f5e50320802273b12f3811a67e6716ea6c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2434,7 +2441,6 @@ dependencies = [
  "logins",
  "places",
  "prost",
- "prost-build",
  "prost-derive",
  "serde",
  "serde_derive",
@@ -2484,7 +2490,6 @@ dependencies = [
  "interrupt",
  "log",
  "prost",
- "prost-build",
  "prost-derive",
  "serde",
  "serde_derive",
@@ -2762,7 +2767,6 @@ dependencies = [
  "log",
  "once_cell",
  "prost",
- "prost-build",
  "prost-derive",
  "serde",
  "serde_json",

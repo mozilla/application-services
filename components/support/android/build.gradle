@@ -30,7 +30,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation "net.java.dev.jna:jna:$jna_version@aar"
-    api 'com.google.protobuf:protobuf-lite:3.0.0'
+    api 'com.google.protobuf:protobuf-javalite:3.11.4'
 }
 
 apply from: "$rootDir/publish.gradle"

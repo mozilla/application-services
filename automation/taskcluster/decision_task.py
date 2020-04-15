@@ -6,6 +6,7 @@
 import enum
 from enum import Enum
 import os.path
+import re
 from build_config import module_definitions, appservices_version
 from decisionlib import *
 from decisionlib import SignTask
@@ -13,6 +14,27 @@ from decisionlib import SignTask
 # Tags that when matched in pull-requests titles will alter the CI tasks we run.
 FULL_CI_TAG = '[ci full]'
 SKIP_CI_TAG = '[ci skip]'
+
+# Abuse of a regex to parse fields out of [ci smoketest foo=bar] syntax,
+# to optionally run smoketests in CI. This only works because we can give
+# each known option a named group for the regex to capture into.
+SMOKETEST_CI_TAG_RE =  re.compile(r"""
+    \[ci\s+smoketest       # Starts with the expected prefix
+    (?:                    # followed by optional fields
+      \s+(?:               # which are space-separated and match either:
+        (?P<fenix>fenix    #  * fenix, with optional branch
+          (?:=(?P<fenix_branch>[^\s]+))?
+        )|                
+        (?P<a_c>a-c        #  * a-c, with optional branch
+          (?:=(?P<a_c_branch>[^\s]+))?
+        )|
+        (?:[^\s]+)         #  * some other string, which we ignore
+      )
+    )*                     # There may be any number of fields
+    \s*\]                  # with optional whitespace before the closing bracket.
+    """, re.VERBOSE
+)
+
 # Task owners for which we always run full CI. Typically bots.
 FULL_CI_GH_USERS = ['dependabot@users.noreply.github.com']
 
@@ -27,6 +49,13 @@ def main(task_for):
             android_multiarch()
         else:
             android_linux_x86_64()
+        smoketests = SMOKETEST_CI_TAG_RE.search(pr_title)
+        if smoketests is not None:
+            if smoketests.group("fenix") is not None:
+                fenix_smoketest(smoketests.group("fenix_branch"),
+                                smoketests.group("a_c_branch"))
+            if smoketests.group("a_c") is not None:
+                android_components_smoketest(smoketests.group("a_c_branch"))
     elif task_for == "github-push":
         android_multiarch()
     elif task_for == "github-release":
@@ -340,6 +369,40 @@ def linux_build_task(name):
     if os.environ["TASK_FOR"] == "github-push":
         task.with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
     return task
+
+def smoketest_task(name):
+    libs_tasks = libs_for(DeployEnvironment.NONE, "android", "desktop_linux", "desktop_macos", "desktop_win32_x86_64")
+    return (
+        android_task(name, libs_tasks)
+        .with_script("""
+            echo "rust.targets=linux-x86-64,x86_64\n" > local.properties
+        """)
+        .with_script("""
+            yes | sdkmanager --update
+            yes | sdkmanager --licenses
+        """)
+    )
+
+def fenix_smoketest(branch=None, ac_branch=None):
+    (
+        smoketest_task("fenix smoketest")
+        .with_script("""
+            ./automation/smoke-test-fenix.py {} {}
+        """.format(
+            "" if branch is None else "--branch=" + branch,
+            "" if ac_branch is None else "--ac-branch=" + ac_branch,
+        ))
+        .create()
+    )
+
+def android_components_smoketest(branch=None):
+    (
+        smoketest_task("a-c smoketest")
+        .with_script("""
+          ./automation/smoke-test-android-components.py {}
+        """.format("" if branch is None else "--branch=" + branch))
+        .create()
+    )
 
 def linux_cross_compile_build_task(name):
     return (

@@ -34,7 +34,7 @@ pub mod ffi;
 pub mod migrator;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!("mozilla.appservices.fxaclient.protobuf.rs");
 }
 mod http_client;
 mod oauth;

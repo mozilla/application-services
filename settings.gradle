@@ -13,9 +13,6 @@ buildscript {
 }
 rootProject.name = "appservices"
 
-// See https://docs.gradle.org/current/userguide/publishing_maven.html#publishing_maven:deferred_configuration.
-enableFeaturePreview('STABLE_PUBLISHING')
-
 def setupProject(name, projectProps) {
     def path = projectProps.path
     def description = projectProps.description

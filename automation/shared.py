@@ -40,6 +40,7 @@ def set_gradle_substitution_path(project_dir, name, value):
     """
     project_dir = Path(project_dir).resolve()
     properties_file = project_dir / "local.properties"
+    step_msg(f"Configuring local publication in project at {properties_file}")
     name_eq = name + "="
     abs_value = Path(value).resolve()
     # Check if the named property already exists.
@@ -50,7 +51,7 @@ def set_gradle_substitution_path(project_dir, name, value):
                 if ln.startswith(name_eq):
                     cur_value = ln[len(name_eq):].strip()
                     if Path(project_dir, cur_value).resolve() != abs_value:
-                        raise ValueError(f"Conflicting property {name}={cur_value} (not {abs_value})")
+                        fatal_error(f"Conflicting property {name}={cur_value} (not {abs_value})")
                     return
     # The file does not contain the required property, append it.
     # Note that the project probably expects a path relative to the project root.
@@ -60,5 +61,6 @@ def set_gradle_substitution_path(project_dir, name, value):
         relpath /= ".."
     for nm in abs_value.parts[len(ancestor.parts):]:
         relpath /= nm
+    step_msg(f"Setting relative path from {project_dir} to {abs_value} as {relpath}")
     with properties_file.open("a") as f:
-        f.write(f"{name}={abs_value}\n")
+        f.write(f"{name}={relpath}\n")

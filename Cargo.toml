@@ -33,6 +33,7 @@ members = [
     "megazords/ios/rust",
     "megazords/lockbox",
     "testing/sync-test",
+    "tools/protobuf-gen",
 ]
 
 [profile.release]
