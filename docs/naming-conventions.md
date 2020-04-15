@@ -6,13 +6,13 @@ All names in this project should adhere to the guidelines outlined in this docum
 
 All variable names, function names, module names, and macros in Rust code should follow typical `snake_case` conventions. All Rust types, traits, structs, and enum variants must follow `UpperCamelCase`. Additionally, static and constant variables should be written in `SCREAMING_SNAKE_CASE`. For the complete list of Rust naming conventions, see the [Rust Style Guide](https://doc.rust-lang.org/1.0.0/style/style/naming/README.html).
 
-As a final rule, the functions of all component `ffi/src/lib.rs` files should also follow *snake_case*, but with an additional prefix based on the library of that function. 
+As a final rule, the functions of all component `ffi/src/lib.rs` files should also follow `snake_case`, but with an additional prefix based on the library of that function. 
 
 Examples:
 ```
-	sync15_passwords_get_all()
-	places_query_autocomplete()
-	fxa_handle_push_message()
+fn sync15_passwords_get_all()
+struct PushConfiguration
+const COMMON_SQL
 ```
 
 ## Swift Code
@@ -21,16 +21,13 @@ All code written in Swift should follow [Swift API Design Guidelines](https://sw
 
 The only exception to this rule for this project is to use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`).
 
+Examples:
+```
+```
+
 ## Kotlin Code
 
 If a source file contains only a top-level class, the source file should reflect the case-sensitive name of the class plus the *.kt* extension. Otherwise, if the source contains multiple top-level declarations, choose a name that describes the contents of the file, apply `UpperCamelCase` and append `.kt` extension.
-
-Examples:
-
-```
-	//FooBar.kt
-	class FooBar{}
-```
 
 ### Naming Rules
 
@@ -41,4 +38,13 @@ Examples:
 - Names of functions, properties, and local variables use `lowerCamelCase`.
 
 For more in-depth Kotlin Conventions, see the [Kotlin Style Guide](https://kotlinlang.org/docs/reference/coding-conventions.html#naming-rules).
+
+Examples:
+
+```
+//FooBar.kt
+class FooBar{}
+fun fromJSONString()
+package mozilla.appservices.places
+```
 
