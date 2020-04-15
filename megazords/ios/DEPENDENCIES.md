@@ -429,7 +429,6 @@ The following text applies to code linked from these dependencies:
 [autocfg](https://github.com/cuviper/autocfg),
 [backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
 [backtrace](https://github.com/rust-lang/backtrace-rs),
-[base64](https://github.com/alicemaz/rust-base64),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [cc](https://github.com/alexcrichton/cc-rs),
