@@ -385,16 +385,16 @@ the details of which are reproduced below.
     <url>https://github.com/jgallagher/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>MIT License: rusqlite</name>
-    <url>https://github.com/jgallagher/rusqlite/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>MIT License: matches</name>
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: nom</name>
     <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: rusqlite</name>
+    <url>https://github.com/jgallagher/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: strsim</name>
