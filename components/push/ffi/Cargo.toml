@@ -10,7 +10,7 @@ name = "push_ffi"
 crate-type = ["lib"]
 
 [dependencies]
-serde_json = "1.0.50"
+serde_json = "1.0.51"
 log = "0.4"
 url = "2.1.1"
 ffi-support = "0.4"

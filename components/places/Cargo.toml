@@ -13,7 +13,7 @@ default = []
 sync15 = { path = "../sync15" }
 serde = "1.0.104"
 serde_derive = "1.0.104"
-serde_json = "1.0.50"
+serde_json = "1.0.51"
 log = "0.4"
 lazy_static = "1.4.0"
 url = { version = "2.1.1", features = ["serde"] }
