@@ -1,5 +1,7 @@
 version: 2.1
 
+# ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
+
 commands:
   setup-sccache:
     steps:
@@ -509,7 +511,7 @@ workflows:
   carthage-framework:
     jobs:
       - iOS build and test:
-          filters:  # required since `Release` has tag filters AND requires `Build`
+          filters: # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
       - Carthage release:
