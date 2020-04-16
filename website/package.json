@@ -10,6 +10,7 @@
     "relock": "rm package-lock.json && npm install && ./scripts/tls-lock.sh"
   },
   "devDependencies": {
-    "docusaurus": "^1.14.4"
+    "docusaurus": "^1.14.4",
+    "@babel/compat-data": "7.9.0"
   }
 }
