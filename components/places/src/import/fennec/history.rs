@@ -162,7 +162,7 @@ lazy_static::lazy_static! {
 
     // Count Fennec history visits
     static ref COUNT_FENNEC_HISTORY_VISITS: &'static str =
-        "SELECT COUNT(*) FROM fennec.history"
+        "SELECT COUNT(*) FROM fennec.visits"
     ;
 
     // Count Fenix history visits
