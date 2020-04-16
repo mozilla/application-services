@@ -2,4 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "keythi.h"
+#![allow(bad_style)]
+#![cfg_attr(feature = "cargo-clippy", allow(clippy::all))]
+use nss_sys::*;
+
+include!(concat!(env!("OUT_DIR"), "/all.rs"));
