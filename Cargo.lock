@@ -2897,6 +2897,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "webext-storage"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "error-support",
+ "failure",
+ "interrupt",
+ "lazy_static",
+ "libsqlite3-sys",
+ "log",
+ "nss_build_common",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "url",
+]
+
+[[package]]
 name = "which"
 version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
