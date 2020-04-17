@@ -4,14 +4,22 @@ All names in this project should adhere to the guidelines outlined in this docum
 
 ## Rust Code
 
-All variable names, function names, module names, and macros in Rust code should follow typical `snake_case` conventions. All Rust types, traits, structs, and enum variants must follow `UpperCamelCase`. Additionally, static and constant variables should be written in `SCREAMING_SNAKE_CASE`. For the complete list of Rust naming conventions, see the [Rust Style Guide](https://doc.rust-lang.org/1.0.0/style/style/naming/README.html).
+### Overview
 
-As a final rule, the functions of all component `ffi/src/lib.rs` files should also follow `snake_case`, but with an additional prefix based on the library of that function. 
+- All variable names, function names, module names, and macros in Rust code should follow typical `snake_case` conventions. 
+
+- All Rust types, traits, structs, and enum variants must follow `UpperCamelCase`. 
+
+- Static and constant variables should be written in `SCREAMING_SNAKE_CASE`. 
+
+- The functions of all component `ffi/src/lib.rs` files should also follow `snake_case`, but with an additional prefix based on the library of that function. 
+
+For more in-depth Rust conventions, see the [Rust Style Guide](https://doc.rust-lang.org/1.0.0/style/style/naming/README.html).
 
 ### Examples:
 ```rust
 fn sync15_passwords_get_all()
-struct PushConfiguration
+struct PushConfiguration{...}
 const COMMON_SQL
 ```
 
@@ -19,11 +27,11 @@ const COMMON_SQL
 
 ### Overview
 
-- Names of types and protocols are `UpperCamelCase`
+- Names of types and protocols are `UpperCamelCase`.
 
-- All other uses are `lowerCamelCase`
+- All other uses are `lowerCamelCase`.
 
-- Concerning this project, when dealing with Swift code, use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`)
+- Concerning this project, when dealing with Swift code, use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`).
 
 For more in-depth Swift conventions, check out the [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/).
 
@@ -52,7 +60,7 @@ For more in-depth Kotlin Conventions, see the [Kotlin Style Guide](https://kotli
 
 ```kotlin
 //FooBar.kt
-class FooBar{}
+class FooBar{...}
 fun fromJSONString()
 package mozilla.appservices.places
 ```
