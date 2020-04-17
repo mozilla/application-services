@@ -9,7 +9,7 @@ All variable names, function names, module names, and macros in Rust code should
 As a final rule, the functions of all component `ffi/src/lib.rs` files should also follow `snake_case`, but with an additional prefix based on the library of that function. 
 
 Examples:
-```
+```rust
 fn sync15_passwords_get_all()
 struct PushConfiguration
 const COMMON_SQL
@@ -47,7 +47,7 @@ For more in-depth Kotlin Conventions, see the [Kotlin Style Guide](https://kotli
 
 Examples:
 
-```
+```kotlin
 //FooBar.kt
 class FooBar{}
 fun fromJSONString()
