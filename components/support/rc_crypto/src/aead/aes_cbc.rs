@@ -51,16 +51,19 @@ pub(crate) fn open(
     let (aes_key, hmac_key_bytes) = extract_keys(&key);
     // 1. Tag (HMAC signature) check.
     let hmac_key = hmac::VerificationKey::new(&digest::SHA256, &hmac_key_bytes);
-    let hmac_res = hmac::verify(
+    hmac::verify(
         &hmac_key,
         base64::encode(ciphertext).as_bytes(),
         hmac_signature,
-    );
+    )?;
     // 2. Decryption.
-    let cbc_res = aes_cbc(aes_key, nonce, aad, ciphertext, aead::Direction::Opening);
-    // To make this function as constant-time as possible, we always try to run both
-    // the hmac and the decryption operation.
-    hmac_res.and(cbc_res)
+    Ok(aes_cbc(
+        aes_key,
+        nonce,
+        aad,
+        ciphertext,
+        aead::Direction::Opening,
+    )?)
 }
 
 pub(crate) fn seal(
