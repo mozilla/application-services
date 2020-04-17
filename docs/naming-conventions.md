@@ -8,7 +8,7 @@ All variable names, function names, module names, and macros in Rust code should
 
 As a final rule, the functions of all component `ffi/src/lib.rs` files should also follow `snake_case`, but with an additional prefix based on the library of that function. 
 
-Examples:
+### Examples:
 ```rust
 fn sync15_passwords_get_all()
 struct PushConfiguration
@@ -16,15 +16,20 @@ const COMMON_SQL
 ```
 
 ## Swift Code
+
+### Overview
+
 - Names of types and protocols are `UpperCamelCase`
 
 - All other uses are `lowerCamelCase`
 
+- Concerning this project, when dealing with Swift code, use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`)
+
 For more in-depth Swift conventions, check out the [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/).
 
-Concerning this project when dealing with Swift code, the only exception is to use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`).
 
-Examples:
+
+### Examples:
 ```swift
 enum CheckChildren{...}
 func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChildren = .full)
@@ -35,7 +40,7 @@ public var syncKey: String
 
 If a source file contains only a top-level class, the source file should reflect the case-sensitive name of the class plus the *.kt* extension. Otherwise, if the source contains multiple top-level declarations, choose a name that describes the contents of the file, apply `UpperCamelCase` and append `.kt` extension.
 
-### Naming Rules
+### Overview
 
 - Names of packages are always lower case and do not include underscores. Using multi-word names should be avoided. However, if used, they should be concatenated or use `lowerCamelCase`.
 
@@ -45,7 +50,7 @@ If a source file contains only a top-level class, the source file should reflect
 
 For more in-depth Kotlin Conventions, see the [Kotlin Style Guide](https://kotlinlang.org/docs/reference/coding-conventions.html#naming-rules).
 
-Examples:
+### Examples:
 
 ```kotlin
 //FooBar.kt
