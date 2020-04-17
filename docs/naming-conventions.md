@@ -16,13 +16,19 @@ const COMMON_SQL
 ```
 
 ## Swift Code
+- Names of types and protocols are `UpperCamelCase`
 
-All code written in Swift should follow [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/). Names of types and protocols are `UpperCamelCase`, while all other uses are `lowerCamelCase`.  
+- All other uses are `lowerCamelCase`
 
-The only exception to this rule for this project is to use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`).
+For more in-depth Swift conventions, check out the [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/).
+
+Concerning this project when dealing with Swift code, the only exception is to use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`).
 
 Examples:
-```
+```swift
+enum CheckChildren{...}
+func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChildren = .full)
+public var syncKey: String
 ```
 
 ## Kotlin Code
