@@ -27,12 +27,10 @@ const COMMON_SQL
 
 For more in-depth Swift conventions, check out the [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/).
 
-
-
 ### Examples:
 ```swift
 enum CheckChildren{...}
-func checkTree(_ n: BookmarkNode, _ want: [String: Any], checkChildren: CheckChildren = .full)
+func checkTree()
 public var syncKey: String
 ```
 
