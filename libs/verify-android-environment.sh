@@ -7,7 +7,7 @@
 
 set -e
 
-NDK_VERSION=20
+NDK_VERSION=21
 RUST_TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android" "x86_64-linux-android")
 
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
@@ -27,7 +27,7 @@ fi
 
 if [[ -z "${ANDROID_NDK_ROOT}" ]]; then
   echo "Could not find Android NDK:"
-  echo 'Please install Android NDK r20 and then set ANDROID_NDK_ROOT.'
+  echo 'Please install Android NDK r21 and then set ANDROID_NDK_ROOT.'
   exit 1
 fi
 
