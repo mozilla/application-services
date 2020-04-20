@@ -53,7 +53,7 @@ When submitting a PR:
 - Base your branch off the current `master` (see below for an example workflow).
 - Add both your code and new tests if relevant.
 - Please do not include merge commits in pull requests; include only commits with the new relevant code.
-- Your patch must be [GPG signed](https://help.github.com/articles/managing-commit-signature-verification) to ensure the commits come from a trusted source.
+- We encourage you to [GPG sign your commits](https://help.github.com/articles/managing-commit-signature-verification).
 
 ## Code Review ##
 
