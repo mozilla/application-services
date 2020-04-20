@@ -130,8 +130,6 @@ commands:
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
-      # nss_sys's bindgen needs clang.
-      - run: sudo apt-get install clang
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |

@@ -49,8 +49,6 @@ RUN apt-get update -qq \
         # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
         # <TODO: Is this still true?>.
         g++ \
-        # <TODO: Explain why we have this dependency>.
-        clang \
         python3 \
         python3-pip \
         # taskcluster > mohawk > setuptools.

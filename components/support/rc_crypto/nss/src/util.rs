@@ -6,11 +6,15 @@ use crate::error::*;
 use nss_sys::*;
 use std::{convert::TryFrom, ffi::CString, os::raw::c_char, sync::Once};
 
+// This is the NSS version that this crate is claiming to be compatible with.
+// We check it at runtime using `NSS_VersionCheck`.
+pub const COMPATIBLE_NSS_VERSION: &str = "3.26";
+
 static NSS_INIT: Once = Once::new();
 
 pub fn ensure_nss_initialized() {
     NSS_INIT.call_once(|| {
-        let version_ptr = CString::new(nss_sys::COMPATIBLE_NSS_VERSION).unwrap();
+        let version_ptr = CString::new(COMPATIBLE_NSS_VERSION).unwrap();
         if unsafe { NSS_VersionCheck(version_ptr.as_ptr()) == PR_FALSE } {
             panic!("Incompatible NSS version!")
         }
@@ -41,7 +45,7 @@ pub fn map_nss_secstatus<F>(callback: F) -> Result<()>
 where
     F: FnOnce() -> SECStatus,
 {
-    if callback() == SECSuccess {
+    if callback() == SECStatus::SECSuccess {
         return Ok(());
     }
     Err(get_last_error())
