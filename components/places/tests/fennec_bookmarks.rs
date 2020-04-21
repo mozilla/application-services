@@ -127,7 +127,7 @@ fn test_import_unsupported_db_version() -> Result<()> {
     let tmpdir = tempdir().unwrap();
     let fennec_path = tmpdir.path().join("browser.db");
     let fennec_db = empty_fennec_db(&fennec_path)?;
-    fennec_db.execute("PRAGMA user_version=99", NO_PARAMS)?;
+    fennec_db.execute("PRAGMA user_version=22", NO_PARAMS)?;
     let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
     match places::import::import_fennec_bookmarks(&places_api, fennec_path)
         .unwrap_err()
