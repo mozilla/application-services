@@ -161,6 +161,7 @@ impl From<StateV1> for Result<StateV2> {
                 ),
                 scopes: HashSet::from_iter(token.scopes.iter().map(ToString::to_string)),
             });
+        let introspection_endpoint = format!("{}/v1/introspect", &state.config.oauth_url);
         Ok(StateV2 {
             config: Config::init(
                 state.config.content_url,
@@ -173,7 +174,7 @@ impl From<StateV1> for Result<StateV2> {
                 state.config.jwks_uri,
                 state.config.token_endpoint,
                 state.config.userinfo_endpoint,
-                None,
+                introspection_endpoint,
                 state.client_id,
                 state.redirect_uri,
                 None,
