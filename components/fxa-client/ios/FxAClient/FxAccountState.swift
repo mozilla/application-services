@@ -86,6 +86,8 @@ extension FxAccountManager {
             }
         case .authenticatedWithProfile:
             switch event {
+            case .fetchProfile: return .authenticatedWithProfile
+            case .fetchedProfile: return .authenticatedWithProfile
             case .authenticationError: return .authenticationProblem
             case .changedPassword: return .authenticatedNoProfile
             case .logout: return .notAuthenticated
