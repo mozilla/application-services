@@ -9,11 +9,8 @@ license = "MPL-2.0"
 name = "logins_ffi"
 crate-type = ["lib"]
 
-[features]
-reqwest = ["viaduct/reqwest", "logins/reqwest"]
-
 [dependencies]
-serde_json = "1.0.44"
+serde_json = "1.0.50"
 log = "0.4"
 url = "2.1.1"
 base16 = "0.2.1"
@@ -23,8 +20,10 @@ viaduct = { path = "../../viaduct" }
 # For SqlInterruptHandle
 sql-support = { path = "../../support/sql" }
 
+ffi-support = "0.4"
+
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0"
 features = ["sqlcipher"]
 
 [dependencies.logins]
@@ -32,6 +31,3 @@ path = ".."
 
 [dependencies.sync15]
 path = "../../sync15"
-
-[dependencies.ffi-support]
-path = "../../support/ffi"

@@ -14,12 +14,10 @@ import org.mozilla.appservices.httpconfig.BuildConfig
 internal interface LibViaduct : Library {
     companion object {
         internal var INSTANCE: LibViaduct = {
-            val inst = loadIndirect<LibViaduct>(
+            loadIndirect<LibViaduct>(
                 componentName = "viaduct",
                 componentVersion = BuildConfig.LIBRARY_VERSION
             )
-            inst.viaduct_force_enable_ffi_backend(1)
-            inst
         }()
     }
 
@@ -28,8 +26,6 @@ internal interface LibViaduct : Library {
     fun viaduct_alloc_bytebuffer(sz: Int): RustBuffer.ByValue
     // Returns 0 to indicate redundant init.
     fun viaduct_initialize(cb: RawFetchCallback): Byte
-
-    fun viaduct_force_enable_ffi_backend(b: Byte)
 
     fun viaduct_log_error(s: String)
 }

@@ -14,9 +14,13 @@ failure = "0.1.6"
 failure_derive = "0.1.5"
 error-support = { path = "../error" }
 nss = { path = "nss" }
-libsqlite3-sys = { version = "0.17.0", features = ["bundled"] }
+libsqlite3-sys = { version = "0.17.2", features = ["bundled"] }
 hawk = { version = "3.1.0", default-features = false, optional = true }
-ece = { version = "1.1.0", default-features = false, features = ["serializable-keys"], optional = true }
+ece = { version = "1.1.2", default-features = false, features = ["serializable-keys"], optional = true }
 
 [dev-dependencies]
 hex = "0.4.0"
+
+[features]
+default = []
+gecko = []

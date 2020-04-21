@@ -442,6 +442,8 @@ mod test {
 
     #[test]
     fn test_communications() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         // mockito forces task serialization, so for now, we test everything in one go.
         let config = PushConfiguration {
             http_protocol: Some("http".to_owned()),

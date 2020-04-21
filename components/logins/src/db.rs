@@ -856,6 +856,44 @@ impl LoginDb {
         )?)
     }
 
+    pub fn potential_dupes_ignoring_username(&self, login: &Login) -> Result<Vec<Login>> {
+        // Could be lazy_static-ed...
+        lazy_static::lazy_static! {
+            static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
+                "SELECT {common_cols} FROM loginsL
+                WHERE is_deleted = 0
+                    AND hostname = :hostname
+                    AND (
+                        formSubmitURL = :form_submit
+                        OR
+                        httpRealm = :http_realm
+                    )
+
+                UNION ALL
+
+                SELECT {common_cols} FROM loginsM
+                WHERE is_overridden = 0
+                    AND hostname = :hostname
+                    AND (
+                        formSubmitURL = :form_submit
+                        OR
+                        httpRealm = :http_realm
+                    )
+                ",
+                common_cols = schema::COMMON_COLS
+            );
+        }
+        let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
+        let params = named_params! {
+            ":hostname": &login.hostname,
+            ":http_realm": login.http_realm.as_ref(),
+            ":form_submit": login.form_submit_url.as_ref(),
+        };
+        // Needs to be two lines for borrow checker
+        let rows = stmt.query_and_then_named(params, Login::from_row)?;
+        rows.collect()
+    }
+
     pub fn exists(&self, id: &str) -> Result<bool> {
         Ok(self.db.query_row_named(
             "SELECT EXISTS(
@@ -1373,8 +1411,9 @@ mod tests {
         })
         .unwrap();
 
+        let unique_login_guid = Guid::empty();
         let unique_login = Login {
-            guid: Guid::empty(),
+            guid: unique_login_guid.clone(),
             form_submit_url: None,
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
@@ -1393,6 +1432,16 @@ mod tests {
             ..Login::default()
         };
 
+        let updated_login = Login {
+            guid: unique_login_guid,
+            form_submit_url: None,
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "test4".into(),
+            ..Login::default()
+        };
+
         struct TestCase {
             login: Login,
             should_err: bool,
@@ -1401,14 +1450,28 @@ mod tests {
 
         let test_cases = [
             TestCase {
+                // unique_login should not error because it does not share the same hostname,
+                // username, and formSubmitURL or httpRealm with the pre-existing login
+                // (login with guid "dummy_000001").
                 login: unique_login,
                 should_err: false,
                 expected_err: "",
             },
             TestCase {
+                // duplicate_login has the same hostname, username, and formSubmitURL as a pre-existing
+                // login (guid "dummy_000001") and duplicate_login has no guid value, i.e. its guid
+                // doesn't match with that of a pre-existing record so it can't be considered update,
+                // so it should error.
                 login: duplicate_login,
                 should_err: true,
                 expected_err: "Invalid login: Login already exists",
+            },
+            TestCase {
+                // updated_login is an update to unique_login (has the same guid) so it is not a dupe
+                // and should not error.
+                login: updated_login,
+                should_err: false,
+                expected_err: "",
             },
         ];
 

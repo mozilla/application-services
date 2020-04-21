@@ -49,8 +49,6 @@ RUN apt-get update -qq \
         # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
         # <TODO: Is this still true?>.
         g++ \
-        # <TODO: Explain why we have this dependency>.
-        clang \
         python3 \
         python3-pip \
         # taskcluster > mohawk > setuptools.
@@ -107,7 +105,7 @@ RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/reposito
 
 # Android NDK
 
-ENV ANDROID_NDK_VERSION "r20"
+ENV ANDROID_NDK_VERSION "r21"
 
 # $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
 ENV ANDROID_NDK_ROOT /build/android-ndk

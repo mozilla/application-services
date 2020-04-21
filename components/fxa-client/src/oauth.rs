@@ -31,9 +31,10 @@ impl FirefoxAccount {
     /// using `begin_oauth_flow`.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
+    /// * `ttl` - the ttl in seconds of the token requested from the server.
     ///
     /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
+    pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(ErrorKind::MultipleScopesRequested.into());
         }
@@ -48,6 +49,7 @@ impl FirefoxAccount {
                     self.client.access_token_with_refresh_token(
                         &self.state.config,
                         &refresh_token.token,
+                        ttl,
                         &[scope],
                     )?
                 } else {
@@ -106,7 +108,7 @@ impl FirefoxAccount {
     /// the pairing authority.
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     pub fn begin_pairing_flow(&mut self, pairing_url: &str, scopes: &[&str]) -> Result<String> {
-        let mut url = self.state.config.content_url_path("/pair/supp")?;
+        let mut url = self.state.config.pair_supp_url()?;
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
@@ -120,7 +122,7 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     pub fn begin_oauth_flow(&mut self, scopes: &[&str]) -> Result<String> {
         let mut url = if self.state.last_seen_profile.is_some() {
-            self.state.config.content_url_path("/oauth/force_auth")?
+            self.state.config.oauth_force_auth_url()?
         } else {
             self.state.config.authorization_endpoint()?
         };
@@ -412,6 +414,8 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
@@ -492,6 +496,8 @@ mod tests {
 
     #[test]
     fn test_webchannel_context_url() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         let config = Config::new(
             "https://accounts.firefox.com",

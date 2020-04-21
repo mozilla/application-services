@@ -1,0 +1,45 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
+---
+loader: app_services_taskgraph.loader.build_config:loader
+
+transforms:
+  - app_services_taskgraph.transforms.module_build:transforms
+  - app_services_taskgraph.transforms.out_of_docker_setup:transforms
+  - app_services_taskgraph.transforms.script_to_run_task:transforms
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+kind-dependencies:
+  - toolchain
+
+job-defaults:
+  attributes:
+    run-on-pr-type: full-ci
+  run-on-tasks-for: [github-pull-request]
+  description: "{module_name} - Build and test"
+  scopes:
+    - project:releng:services/tooltool/api/download/internal
+  worker-type: b-linux
+  worker:
+    docker-image: { in-tree: linux }
+    max-run-time: 1800
+    script: |
+      rsync -a /builds/worker/fetches/libs/ /builds/worker/checkouts/src/libs/
+      echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties
+      ./gradlew --no-daemon ":{module_name}:testDebug"
+      ./gradlew --no-daemon ":{module_name}:assembleRelease"
+      ./gradlew --no-daemon ":{module_name}:publish"
+      ./gradlew --no-daemon ":{module_name}:checkMavenArtifacts"
+  run:
+    using: run-task
+    cwd: "{checkout}"
+  fetches:
+    toolchain:
+      - android-libs
+      - desktop-linux-libs
+      - desktop-macos-libs
+      - desktop-win32-x86-64-libs

@@ -86,7 +86,7 @@ pub fn generate_keypair(curve: Curve) -> Result<(PrivateKey, PublicKey)> {
     // 1. Create EC params
     let params_buf = create_ec_params_for_curve(curve)?;
     let mut params = nss_sys::SECItem {
-        type_: nss_sys::SECItemType::siBuffer,
+        type_: nss_sys::SECItemType::siBuffer as u32,
         data: params_buf.as_ptr() as *mut c_uchar,
         len: c_uint::try_from(params_buf.len())?,
     };
@@ -308,27 +308,27 @@ impl PublicKey {
         // https://searchfox.org/mozilla-central/rev/ec489aa170b6486891cf3625717d6fa12bcd11c1/dom/crypto/CryptoKey.cpp#1078
         check_pub_key_bytes(bytes, curve)?;
         let key_data = nss_sys::SECItem {
-            type_: nss_sys::SECItemType::siBuffer,
+            type_: nss_sys::SECItemType::siBuffer as u32,
             data: bytes.as_ptr() as *mut c_uchar,
             len: c_uint::try_from(bytes.len())?,
         };
         let params_buf = create_ec_params_for_curve(curve)?;
         let params = nss_sys::SECItem {
-            type_: nss_sys::SECItemType::siBuffer,
+            type_: nss_sys::SECItemType::siBuffer as u32,
             data: params_buf.as_ptr() as *mut c_uchar,
             len: c_uint::try_from(params_buf.len())?,
         };
 
         let pub_key = nss_sys::SECKEYPublicKey {
             arena: ptr::null_mut(),
-            keyType: nss_sys::KeyType::ecKey,
+            keyType: nss_sys::KeyType::ecKey as u32,
             pkcs11Slot: ptr::null_mut(),
             pkcs11ID: nss_sys::CK_INVALID_HANDLE.into(),
-            u: nss_sys::SECKEYPublicKeyStr__bindgen_ty_1 {
+            u: nss_sys::SECKEYPublicKeyStr_u {
                 ec: nss_sys::SECKEYECPublicKey {
                     DEREncodedParams: params,
                     publicValue: key_data,
-                    encoding: nss_sys::ECPointEncoding_ECPoint_Uncompressed,
+                    encoding: nss_sys::ECPointEncoding::ECPoint_Uncompressed as u32,
                     size: 0,
                 },
             },
@@ -362,7 +362,7 @@ fn create_ec_params_for_curve(curve: Curve) -> Result<Vec<u8>> {
         Curve::P256 => nss_sys::SECOidTag::SEC_OID_ANSIX962_EC_PRIME256V1,
     };
     // Retrieve curve data by OID tag.
-    let oid_data = unsafe { nss_sys::SECOID_FindOIDByTag(curve_oid_tag) };
+    let oid_data = unsafe { nss_sys::SECOID_FindOIDByTag(curve_oid_tag as u32) };
     if oid_data.is_null() {
         return Err(ErrorKind::InternalError.into());
     }

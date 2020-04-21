@@ -9,7 +9,7 @@ license = "MPL-2.0"
 [dependencies]
 sync_manager = { path = ".." }
 sync15 = { path = "../../sync15" }
-ffi-support = { path = "../../support/ffi" }
+ffi-support = "0.4"
 places-ffi = { path = "../../places/ffi" }
 logins_ffi = { path = "../../logins/ffi" }
 tabs_ffi = { path = "../../tabs/ffi" }

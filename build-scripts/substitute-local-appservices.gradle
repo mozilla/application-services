@@ -28,7 +28,7 @@ configurations.all { config ->
                     def group = dependency.requested.group
                     if (group == 'org.mozilla.appservices') {
                         def name = dependency.requested.module
-                        dependency.useTarget([group: group, name: name, version: '[0.0.1-SNAPSHOT,0.0.1['])
+                        dependency.useTarget([group: group, name: name, version: '0.0.1-SNAPSHOT-+'])
                     }
                 }
             }

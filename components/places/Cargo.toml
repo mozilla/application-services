@@ -4,17 +4,17 @@ edition = "2018"
 version = "0.1.0"
 authors = ["application-services@mozilla.com"]
 license = "MPL-2.0"
+exclude = ["/android", "/ios"]
 
 [features]
 log_query_plans = ["sql-support/log_query_plans"]
-reqwest = ["sync15/reqwest"]
 default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
 serde = "1.0.104"
 serde_derive = "1.0.104"
-serde_json = "1.0.44"
+serde_json = "1.0.50"
 log = "0.4"
 lazy_static = "1.4.0"
 url = { version = "2.1.1", features = ["serde"] }
@@ -22,7 +22,7 @@ percent-encoding = "2.1.0"
 failure = "0.1.6"
 caseless = "0.2.1"
 sql-support = { path = "../support/sql" }
-ffi-support = { path = "../support/ffi" }
+ffi-support = "0.4"
 bitflags = "1.2.1"
 idna = "0.2.0"
 memchr = "2.2.1"
@@ -33,9 +33,8 @@ interrupt = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 
-
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.22.0"
 features = ["functions", "bundled"]
 
 [dev-dependencies]
@@ -51,11 +50,7 @@ criterion = "0.3.0"
 tempdir = "0.3.7"
 cli-support = { path = "../support/cli" }
 pretty_assertions = "0.6.1"
-force-viaduct-reqwest = { path = "../support/force-viaduct-reqwest" }
 ctrlc = "3.1.4"
-
-[build-dependencies]
-prost-build = "0.6.1"
 
 # While we don't have a replacement for termion on Windows yet (and thus
 # our example doesn't work on Windows), it does get further in the compilation

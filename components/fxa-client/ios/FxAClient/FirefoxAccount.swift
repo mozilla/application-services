@@ -58,13 +58,18 @@ open class FirefoxAccount: RustFxAccount {
 
     /// Try to get an OAuth access token.
     ///
+    /// `ttl` corresponds to the time in seconds for which the token will be used.
     /// Throws `FirefoxAccountError.Unauthorized` if we couldn't provide an access token
     /// for this scope. The caller should then start the OAuth Flow again with
     /// the desired scope.
-    open func getAccessToken(scope: String, completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void) {
+    open func getAccessToken(
+        scope: String,
+        ttl: UInt64? = nil,
+        completionHandler: @escaping (AccessTokenInfo?, Error?) -> Void
+    ) {
         DispatchQueue.global().async {
             do {
-                let tokenInfo = try super.getAccessToken(scope: scope)
+                let tokenInfo = try super.getAccessToken(scope: scope, ttl: ttl)
                 DispatchQueue.main.async { completionHandler(tokenInfo, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }

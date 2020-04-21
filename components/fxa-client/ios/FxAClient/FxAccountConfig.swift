@@ -8,8 +8,9 @@ open class FxAConfig {
     public enum Server: String {
         case release = "https://accounts.firefox.com"
         case stable = "https://stable.dev.lcip.org"
-        case dev = "https://accounts.stage.mozaws.net"
+        case stage = "https://accounts.stage.mozaws.net"
         case china = "https://accounts.firefox.com.cn"
+        case localdev = "http://127.0.0.1:3030"
     }
 
     let contentUrl: String

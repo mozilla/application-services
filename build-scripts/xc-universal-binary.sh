@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
-set -euvx
+set -eEuvx
+
+function error_help()
+{
+    ERROR_MSG="It looks like something went wrong building the Application Services framework."
+    ERROR_MSG="${ERROR_MSG} This is most likely related to some missing system dependencies."
+    ERROR_MSG="${ERROR_MSG} See https://github.com/mozilla/application-services/blob/master/docs/building.md#ios-development for instructions."
+    echo "error: ${ERROR_MSG}"
+}
+trap error_help ERR
 
 # XCode tries to be helpful and overwrites the PATH. Reset that.
 PATH="$(bash -l -c 'echo $PATH')"

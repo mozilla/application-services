@@ -315,12 +315,14 @@ pub extern "C" fn fxa_retry_migrate_from_session_token(
 pub extern "C" fn fxa_get_access_token(
     handle: u64,
     scope: FfiStr<'_>,
+    ttl: u64,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("fxa_get_access_token");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
-        fxa.get_access_token(scope)
+        let time_left = if ttl > 0 { Some(ttl) } else { None };
+        fxa.get_access_token(scope, time_left)
     })
 }
 

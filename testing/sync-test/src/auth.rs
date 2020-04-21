@@ -225,7 +225,7 @@ impl TestClient {
                     .expect("Failed to parse TOKENSERVER_URL environment variable!"))
             })
             .unwrap_or_else(|| self.test_acct.cfg.token_server_endpoint_url())?;
-        let token = self.fxa.get_access_token(SYNC_SCOPE)?;
+        let token = self.fxa.get_access_token(SYNC_SCOPE, None)?;
 
         let key = token.key.as_ref().unwrap();
 

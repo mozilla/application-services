@@ -190,10 +190,14 @@ open class FxAccountManager {
     }
 
     /// Try to get an OAuth access token.
-    public func getAccessToken(scope: String, completionHandler: @escaping (Result<AccessTokenInfo, Error>) -> Void) {
+    public func getAccessToken(
+        scope: String,
+        ttl: UInt64? = nil,
+        completionHandler: @escaping (Result<AccessTokenInfo, Error>) -> Void
+    ) {
         DispatchQueue.global().async {
             do {
-                let tokenInfo = try self.requireAccount().getAccessToken(scope: scope)
+                let tokenInfo = try self.requireAccount().getAccessToken(scope: scope, ttl: ttl)
                 DispatchQueue.main.async { completionHandler(.success(tokenInfo)) }
             } catch {
                 DispatchQueue.main.async { completionHandler(.failure(error)) }
