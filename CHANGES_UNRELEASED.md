@@ -7,6 +7,7 @@
 ## General
 
 - Android: Gradle wrapper version upgraded to `6.3`, Android Gradle Plugin version upgraded to `3.6.0`. ([#2917](https://github.com/mozilla/application-services/pull/2917))
+- Upgraded Android NDK from r20 to r21. ([#2985](https://github.com/mozilla/application-services/pull/2985))
 
 ## FxA Client
 

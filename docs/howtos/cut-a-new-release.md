@@ -51,6 +51,10 @@
     git push -u origin fixes-for-v0.31.3
     ```
 3. Follow the above steps for cuting a new release from master, except that:
+    * When running the `./automation/prepare-release.py` script, use the `--base-branch` argument to point it at your release branch, and specify `patch` as the release type. Example:
+       ```
+       ./automation/prepare-release.py --base-branch=release-v0.31 patch
+       ```
     * When opening a PR to land the commits, target the `release-v0.XX` branch rather than master.
     * When cutting the new release via github's UI, target the `release-v0.XX` branch rather than master.
 4. Merge the new release back to master.

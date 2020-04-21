@@ -30,6 +30,10 @@ class MockFxAccount: FxAccount {
         fatalError("init(config:) has not been implemented")
     }
 
+    override func isInMigrationState() -> Bool {
+        return false
+    }
+
     override func initializeDevice(name _: String, deviceType _: DeviceType, supportedCapabilities _: [DeviceCapability]) throws {
         invocations.append(.initializeDevice)
     }

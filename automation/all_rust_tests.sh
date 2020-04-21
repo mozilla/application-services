@@ -33,3 +33,6 @@ for manifest in $(cargo metadata --format-version 1 --no-deps | tr -s '"' '\n' |
     echo "## no-default-features test for package $package (manifest @ $manifest)"
     cargo test --manifest-path "$manifest" --no-default-features ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 done
+
+# Test NSS bindings
+cargo run -p systest

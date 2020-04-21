@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Purpose: Run android-components tests against this application-services working tree.
-# Dependencies: yaml
+# Dependencies: PyYAML
 # Usage: ./automation/smoke-test-android-components.py
 
 import argparse

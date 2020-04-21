@@ -1,5 +1,7 @@
 version: 2.1
 
+# ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
+
 commands:
   setup-sccache:
     steps:
@@ -130,8 +132,6 @@ commands:
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
-      # nss_sys's bindgen needs clang.
-      - run: sudo apt-get install clang
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |
@@ -509,7 +509,7 @@ workflows:
   carthage-framework:
     jobs:
       - iOS build and test:
-          filters:  # required since `Release` has tag filters AND requires `Build`
+          filters: # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
       - Carthage release:

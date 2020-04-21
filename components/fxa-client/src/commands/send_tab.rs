@@ -38,7 +38,7 @@ impl EncryptedSendTabPayload {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SendTabPayload {
     pub entries: Vec<TabHistoryEntry>,
 }
@@ -69,7 +69,7 @@ impl SendTabPayload {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,

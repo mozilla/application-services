@@ -8,8 +8,6 @@ FROM ubuntu:bionic-20180821
 
 MAINTAINER Edouard Oger "eoger@mozilla.com"
 
-RUN echo "trigger rebuild"
-
 # Add worker user
 
 RUN mkdir /builds && \
@@ -61,8 +59,6 @@ RUN apt-get update -qq \
         # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
         # <TODO: Is this still true?>.
         g++ \
-        # <TODO: Explain why we have this dependency>.
-        clang \
         python3 \
         python3-pip \
         # taskcluster > mohawk > setuptools.
@@ -86,6 +82,7 @@ RUN apt-get update -qq \
         # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
         p7zip-full \
         ## End of NSS build dependencies
+        # Required to rsync the `libs` folder after fetch (see taskcluster/ci/android-build/kind.yml)
         rsync \
     && apt-get clean
 
@@ -122,21 +119,17 @@ RUN chown -R worker:worker /builds/worker/android-sdk
 
 # Android NDK
 
-# r15c agrees with mozilla-central and, critically, supports the --deprecated-headers flag needed to
-# build OpenSSL
-ENV ANDROID_NDK_VERSION "r20"
+ENV ANDROID_NDK_VERSION "r21"
 
 # $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
 ENV ANDROID_NDK_ROOT /builds/worker/android-ndk
 ENV ANDROID_NDK_HOME /builds/worker/android-ndk
+ENV ANDROID_NDK_API_VERSION 21
 
 RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
     && unzip -q ndk.zip -d /builds/worker \
     && rm ndk.zip \
     && mv /builds/worker/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
-
-ENV ANDROID_NDK_TOOLCHAIN_DIR /builds/worker/.android-ndk-r15c-toolchain
-ENV ANDROID_NDK_API_VERSION 21
 
 # sccache
 RUN \
@@ -147,11 +140,10 @@ RUN \
 
 # tooltool
 RUN \
-    curl -sfSL --retry 10 --retry-delay 10 \
+    curl -sfSL --retry 5 --retry-delay 10 \
          -o /usr/local/bin/tooltool.py \
          https://raw.githubusercontent.com/mozilla/build-tooltool/36511dae0ead6848017e2d569b1f6f1b36984d40/tooltool.py && \
          chmod +x /usr/local/bin/tooltool.py
-
 
 # %include-run-task
 
@@ -159,10 +151,8 @@ ENV SHELL=/bin/bash \
     HOME=/builds/worker \
     PATH=/builds/worker/.local/bin:$PATH
 
-
 VOLUME /builds/worker/checkouts
 VOLUME /builds/worker/.cache
-
 
 # run-task expects to run as root
 USER root
