@@ -14,7 +14,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertEqual(.authenticatedNoProfile, FxAccountManager.nextState(state: state, event: .accountRestored))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticationError))
-        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile(forceRefresh: false)))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchedProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .logout))
@@ -34,7 +34,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .accountRestored))
         XCTAssertEqual(.authenticatedNoProfile, FxAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticationError))
-        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile(forceRefresh: false)))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchedProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .logout))
@@ -54,7 +54,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .accountRestored))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
         XCTAssertEqual(.authenticationProblem, FxAccountManager.nextState(state: state, event: .authenticationError))
-        XCTAssertEqual(.authenticatedNoProfile, FxAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertEqual(.authenticatedNoProfile, FxAccountManager.nextState(state: state, event: .fetchProfile(forceRefresh: false)))
         XCTAssertEqual(.authenticatedWithProfile, FxAccountManager.nextState(state: state, event: .fetchedProfile))
         XCTAssertEqual(.authenticatedNoProfile, FxAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxAccountManager.nextState(state: state, event: .logout))
@@ -74,7 +74,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .accountRestored))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
         XCTAssertEqual(.authenticationProblem, FxAccountManager.nextState(state: state, event: .authenticationError))
-        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile(forceRefresh: false)))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchedProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxAccountManager.nextState(state: state, event: .logout))
@@ -94,7 +94,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .accountRestored))
         XCTAssertEqual(.authenticatedNoProfile, FxAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticationError))
-        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile(forceRefresh: false)))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchedProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxAccountManager.nextState(state: state, event: .logout))
@@ -114,7 +114,7 @@ class FxAccountManagerTests: XCTestCase {
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .accountRestored))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticated(authData: FxaAuthData(code: "foo", state: "bar", actionQueryParam: "bobo"))))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .authenticationError))
-        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile))
+        XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchProfile(forceRefresh: false)))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .fetchedProfile))
         XCTAssertNil(FxAccountManager.nextState(state: state, event: .failedToFetchProfile))
         XCTAssertEqual(.notAuthenticated, FxAccountManager.nextState(state: state, event: .logout))
@@ -296,8 +296,8 @@ class FxAccountManagerTests: XCTestCase {
     func testProfileRecoverableAuthError() {
         class MockAccount: MockFxAccount {
             var profileCallCount = 0
-            override func getProfile() throws -> Profile {
-                let profile = try super.getProfile()
+            override func getProfile(forceRefresh: Bool) throws -> Profile {
+                let profile = try super.getProfile(forceRefresh: forceRefresh)
                 profileCallCount += 1
                 if profileCallCount == 1 {
                     notifyAuthError()
