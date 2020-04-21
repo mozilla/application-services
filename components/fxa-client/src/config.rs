@@ -28,14 +28,15 @@ struct OpenIdConfigurationResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     content_url: String,
-    // RemoteConfig is lazily fetched from the server.
-    remote_config: RefCell<Option<Arc<RemoteConfig>>>,
     token_server_url_override: Option<String>,
     pub client_id: String,
     pub redirect_uri: String,
+    // RemoteConfig is lazily fetched from the server.
+    #[serde(skip)]
+    remote_config: RefCell<Option<Arc<RemoteConfig>>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 /// `RemoteConfig` struct stores configuration values from the FxA
 /// `/.well-known/fxa-client-configuration` and the
 /// `/.well-known/openid-configuration` endpoints.
