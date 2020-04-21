@@ -13,6 +13,8 @@ import re
 
 LAST_CONTENTS_HASH_FILE = ".lastAutoPublishContentsHash"
 
+GITIGNORED_FILES_THAT_AFFECT_THE_BUILD = ["local.properties"]
+
 parser = argparse.ArgumentParser(description="Publish android packages to local maven repo, but only if changed since last publish")
 parser.parse_args()
 
@@ -37,22 +39,35 @@ contents_hash.update(changes)
 contents_hash.update(b"\x00")
 
 # But unfortunately it can only tell us the names of untracked
-# files, so we need to slurp their contents in for ourselves.
+# files, and it won't tell us anything about files that are in
+# .gitignore but can still affect the build.
+
+untracked_files = []
 
 changes_lines = iter(ln.strip() for ln in changes.split(b"\n"))
 try:
     ln = next(changes_lines)
+    # Skip the tracked files.
     while not ln.startswith(b"Untracked files:"):
         ln = next(changes_lines)
-    ln = next(changes_lines) # skip instruction about using `git add`
+    # Skip instructional line about using `git add`.
+    ln = next(changes_lines)
+    # Now we're at the list of untracked files.
     ln = next(changes_lines)
     while ln:
-        with open(ln, "rb") as f:
-            contents_hash.update(f.read())
-        contents_hash.update(b"\x00")
+        untracked_files.append(ln)
         ln = next(changes_lines)
 except StopIteration:
     pass
+
+untracked_files.extend(GITIGNORED_FILES_THAT_AFFECT_THE_BUILD)
+
+# So, we'll need to slurp the contents of such files for ourselves.
+
+for nm in untracked_files:
+    with open(nm, "rb") as f:
+        contents_hash.update(f.read())
+    contents_hash.update(b"\x00")
 contents_hash.update(b"\x00")
 
 contents_hash = contents_hash.hexdigest()
