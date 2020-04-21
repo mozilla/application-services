@@ -7,7 +7,8 @@
 ## General
 
 - Android: Gradle wrapper version upgraded to `6.3`, Android Gradle Plugin version upgraded to `3.6.0`. ([#2917](https://github.com/mozilla/application-services/pull/2917))
-- Upgraded Android NDK from r20 to r21. ([#2985](https://github.com/mozilla/application-services/pull/2985))
+- Android: Upgraded NDK from r20 to r21. ([#2985](https://github.com/mozilla/application-services/pull/2985))
+- iOS: Xcode version changed to 11.4.1 from 11.4.0. ([#2996](https://github.com/mozilla/application-services/pull/2996))
 
 ## FxA Client
 

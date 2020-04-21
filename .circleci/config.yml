@@ -227,7 +227,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "11.4.0"
+      xcode: "11.4.1"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -319,7 +319,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "11.4.0"
+      xcode: "11.4.1"
     steps:
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
@@ -404,7 +404,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "11.4.0"
+      xcode: "11.4.1"
     steps:
       - checkout
       - attach_workspace:
