@@ -524,6 +524,15 @@ open class FxAccountManager {
                     )
                 }
             }
+            case let .fetchProfile(refresh): do {
+                FxALog.info("Refresh profile...")
+                do {
+                    profile = try requireAccount().getProfile(forceRefresh: refresh)
+                } catch {
+                    return Event.failedToFetchProfile
+                }
+                return Event.fetchedProfile
+            }
             default: break // Do nothing
             }
         }
