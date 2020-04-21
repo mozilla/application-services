@@ -65,7 +65,7 @@ class MockFxAccount: FxAccount {
         return AccessTokenInfo(scope: "profile", token: "toktok")
     }
 
-    override func getProfile() throws -> Profile {
+    override func getProfile(forceRefresh _: Bool) throws -> Profile {
         invocations.append(.getProfile)
         return Profile(uid: "uid", email: "foo@bar.bobo")
     }

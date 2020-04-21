@@ -22,10 +22,10 @@ class FxAccount: RustFxAccount {
         persistCallback = nil
     }
 
-    override func getProfile() throws -> Profile {
+    override func getProfile(forceRefresh: Bool) throws -> Profile {
         defer { tryPersistState() }
         return try notifyAuthErrors {
-            try super.getProfile()
+            try super.getProfile(forceRefresh: forceRefresh)
         }
     }
 

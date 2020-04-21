@@ -52,9 +52,9 @@ open class RustFxAccount {
     /// Throws `FirefoxAccountError.Unauthorized` if we couldn't find any suitable access token
     /// to make that call. The caller should then start the OAuth Flow again with
     /// the "profile" scope.
-    open func getProfile() throws -> Profile {
+    open func getProfile(forceRefresh: Bool) throws -> Profile {
         let ptr = try rustCall { err in
-            fxa_profile(self.raw, false, err)
+            fxa_profile(self.raw, forceRefresh, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
         let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: ptr))

@@ -12,4 +12,5 @@
 
 ## FxA Client
 
+- iOS: `refreshProfile` now takes an optional boolean argument `forceRefresh` to force a network request to be made in every case ([#3000](https://github.com/mozilla/application-services/pull/3000))
 - Added an optional `ttl` parameter to `getAccessToken` to limit the lifetime of the token. ([#2896](https://github.com/mozilla/application-services/pull/2896))
