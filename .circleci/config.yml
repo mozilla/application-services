@@ -110,15 +110,18 @@ commands:
           platform: ios
   carthage-bootstrap:
     steps:
+      - run:
+          name: Determine XCode version
+          command: echo "$(xcodebuild -version)" >| xcode_version
       - restore_cache:
           name: Restore Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "Cartfile.resolved" }}
+          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
       - run:
           name: Bootstrap Carthage dependencies
           command: carthage bootstrap --platform iOS --cache-builds
       - save_cache:
           name: Save Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "Cartfile.resolved" }}
+          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
           paths:
             - Carthage
   test-setup:
