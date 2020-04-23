@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use ffi_support::implement_into_ffi_by_pointer;
-use interrupt::Interruptee;
+use interrupt_support::Interruptee;
 use rusqlite::InterruptHandle;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -62,7 +62,7 @@ impl SqlInterruptScope {
     }
     /// Add this as an inherent method to reduce the amount of things users have to bring in.
     #[inline]
-    pub fn err_if_interrupted(&self) -> Result<(), interrupt::Interrupted> {
+    pub fn err_if_interrupted(&self) -> Result<(), interrupt_support::Interrupted> {
         <Self as Interruptee>::err_if_interrupted(self)
     }
 }

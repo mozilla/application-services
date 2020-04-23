@@ -10,7 +10,7 @@ use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::GlobalState;
 use crate::telemetry;
-use interrupt::Interruptee;
+use interrupt_support::Interruptee;
 
 pub use sync15_traits::{IncomingChangeset, Store};
 

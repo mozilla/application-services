@@ -21,7 +21,7 @@ url = "2.1.1"
 failure = "0.1.6"
 sql-support = { path = "../support/sql" }
 ffi-support = "0.4"
-interrupt = { path = "../support/interrupt" }
+interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
 prost = "0.6.1"

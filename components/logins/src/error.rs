@@ -52,7 +52,7 @@ pub enum ErrorKind {
     UrlParseError(#[fail(cause)] url::ParseError),
 
     #[fail(display = "{}", _0)]
-    Interrupted(#[fail(cause)] interrupt::Interrupted),
+    Interrupted(#[fail(cause)] interrupt_support::Interrupted),
 
     #[fail(display = "Protobuf decode error: {}", _0)]
     ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
@@ -65,7 +65,7 @@ error_support::define_error! {
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),
         (InvalidLogin, InvalidLogin),
-        (Interrupted, interrupt::Interrupted),
+        (Interrupted, interrupt_support::Interrupted),
         (ProtobufDecodeError, prost::DecodeError),
     }
 }
