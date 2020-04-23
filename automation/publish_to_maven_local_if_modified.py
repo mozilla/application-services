@@ -65,8 +65,11 @@ untracked_files.extend(GITIGNORED_FILES_THAT_AFFECT_THE_BUILD)
 # So, we'll need to slurp the contents of such files for ourselves.
 
 for nm in untracked_files:
-    with open(nm, "rb") as f:
-        contents_hash.update(f.read())
+    try:
+        with open(nm, "rb") as f:
+            contents_hash.update(f.read())
+    except FileNotFoundError:
+        pass
     contents_hash.update(b"\x00")
 contents_hash.update(b"\x00")
 
