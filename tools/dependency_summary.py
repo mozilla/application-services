@@ -305,11 +305,11 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "libsqlite3-sys": {
         "repository": {
-            "check": "https://github.com/jgallagher/rusqlite",
+            "check": "https://github.com/rusqlite/rusqlite",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/jgallagher/rusqlite/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/rusqlite/rusqlite/master/LICENSE",
         }
     },
     "phf": {
