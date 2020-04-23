@@ -2,12 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::io::{self, Write};
-
-use serde::Serialize;
-use serde_json;
-
 use crate::error::Result;
+use serde::Serialize;
+use std::io::{self, Write};
 
 /// A writer that counts the number of bytes it's asked to write, and discards
 /// the data. Used to calculate the serialized size of the commands list.

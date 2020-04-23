@@ -13,7 +13,6 @@ use std::{
 };
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use url::Url;
-use webbrowser;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 

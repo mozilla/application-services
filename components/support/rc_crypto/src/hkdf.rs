@@ -48,7 +48,6 @@ pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()>
 mod tests {
     use super::*;
     use crate::digest;
-    use hex;
 
     // NSS limits the size of derived key material to 576 bytes due to fixed-size `key_block` buffer here:
     // https://dxr.mozilla.org/mozilla-central/rev/3c0f78074b727fbae112b6eda111d4c4d30cc3ec/security/nss/lib/softoken/pkcs11c.c#7758

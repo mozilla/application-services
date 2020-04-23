@@ -13,7 +13,6 @@ use failure::Fail;
 use logins::{Login, PasswordEngine};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
-use serde_json;
 use sync15::StoreSyncAssociation;
 use sync_guid::Guid;
 

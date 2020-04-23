@@ -5,7 +5,6 @@
 use crate::api::{self, StorageChanges};
 use crate::db::StorageDb;
 use crate::error::*;
-use serde_json;
 use std::path::Path;
 
 use serde_json::Value as JsonValue;

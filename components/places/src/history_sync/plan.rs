@@ -16,7 +16,6 @@ use crate::storage::{
 };
 use crate::types::{Timestamp, VisitTransition};
 use interrupt::Interruptee;
-use serde_json;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::telemetry;

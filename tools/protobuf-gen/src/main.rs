@@ -5,7 +5,6 @@
 use clap::{App, Arg};
 use serde_derive::Deserialize;
 use std::{collections::HashMap, fs, path::PathBuf};
-use toml;
 
 #[derive(Deserialize, Debug)]
 struct ProtobufOpts {
