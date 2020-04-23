@@ -14,7 +14,7 @@ use crate::{
     request::{CollectionRequest, InfoConfiguration},
     state::GlobalState,
 };
-use saci_interrupt::Interruptee;
+use interrupt_support::Interruptee;
 use sync15_traits::client::ClientData;
 
 use super::{
@@ -347,8 +347,7 @@ impl<'a> Engine<'a> {
 mod tests {
     use crate::clients::{CommandStatus, DeviceType, Settings};
     use crate::util::ServerTimestamp;
-    use failure;
-    use saci_interrupt::NeverInterrupts;
+    use interrupt_support::NeverInterrupts;
     use serde_json::{json, Value};
     use std::result;
 

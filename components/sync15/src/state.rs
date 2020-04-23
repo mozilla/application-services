@@ -12,7 +12,7 @@ use crate::key_bundle::KeyBundle;
 use crate::record_types::{MetaGlobalEngine, MetaGlobalRecord};
 use crate::request::{InfoCollections, InfoConfiguration};
 use crate::util::ServerTimestamp;
-use saci_interrupt::Interruptee;
+use interrupt_support::Interruptee;
 use serde_derive::*;
 use sync_guid::Guid;
 
@@ -666,7 +666,7 @@ mod tests {
 
     use crate::bso_record::{BsoRecord, EncryptedBso, EncryptedPayload, Payload};
     use crate::record_types::CryptoKeysRecord;
-    use saci_interrupt::NeverInterrupts;
+    use interrupt_support::NeverInterrupts;
 
     struct InMemoryClient {
         info_configuration: error::Result<Sync15ClientResponse<InfoConfiguration>>,

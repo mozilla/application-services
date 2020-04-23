@@ -29,7 +29,7 @@ memchr = "2.2.1"
 prost = "0.6.1"
 prost-derive = "0.6.1"
 dogear = "0.4.0"
-saci-interrupt = { path = "../support/interrupt" }
+interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 

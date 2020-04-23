@@ -2,13 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! These types should eventually move to the `sync15-traits` crate in
-//! Application Services. They're defined in a separate crate in m-c now so
-//! that Golden Gate doesn't rely on their internals.
-
 use std::{sync::Mutex, sync::MutexGuard, sync::PoisonError};
 
-use saci_interrupt::Interruptee;
+use interrupt_support::Interruptee;
 
 /// A bridged Sync engine implements all the methods needed to support
 /// Desktop Sync.
@@ -63,7 +59,7 @@ pub trait BridgedEngine {
 
     /// Applies all staged records, reconciling changes on both sides and
     /// resolving conflicts. Returns a list of records to upload.
-    fn apply(&self, signal: &dyn Interruptee) -> Result<BridgedSyncResults, Self::Error>;
+    fn apply(&self, signal: &dyn Interruptee) -> Result<ApplyResults, Self::Error>;
 
     /// Indicates that the given record IDs were uploaded successfully to the
     /// server. This is called multiple times per sync, once for each batch
@@ -99,14 +95,16 @@ pub trait BridgedEngine {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct BridgedSyncResults {
+pub struct ApplyResults {
     /// List of records
     pub records: Vec<String>,
-    /// None indicates we aren't reporting this information
+    /// The number of incoming records whose contents were merged because they
+    /// changed on both sides. None indicates we aren't reporting this
+    /// information.
     pub num_reconciled: Option<usize>,
 }
 
-impl BridgedSyncResults {
+impl ApplyResults {
     pub fn new(records: Vec<String>, num_reconciled: impl Into<Option<usize>>) -> Self {
         Self {
             records,
@@ -116,7 +114,7 @@ impl BridgedSyncResults {
 }
 
 // Shorthand for engines that don't care.
-impl From<Vec<String>> for BridgedSyncResults {
+impl From<Vec<String>> for ApplyResults {
     fn from(records: Vec<String>) -> Self {
         Self {
             records,
@@ -155,7 +153,7 @@ where
         self.lock()?.store_incoming(incoming_cleartexts, signal)
     }
 
-    fn apply(&self, signal: &dyn Interruptee) -> Result<BridgedSyncResults, Self::Error> {
+    fn apply(&self, signal: &dyn Interruptee) -> Result<ApplyResults, Self::Error> {
         self.lock()?.apply(signal)
     }
 

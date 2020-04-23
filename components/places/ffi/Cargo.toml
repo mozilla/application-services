@@ -20,7 +20,7 @@ ffi-support = "0.4"
 lazy_static = "1.4.0"
 prost = "0.6.1"
 viaduct = { path = "../../viaduct" }
-saci-interrupt = { path = "../../support/interrupt" }
+interrupt-support = { path = "../../support/interrupt" }
 sql-support = { path = "../../support/sql" }
 sync-guid = { path = "../../support/guid" }
 

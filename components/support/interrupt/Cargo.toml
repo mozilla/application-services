@@ -1,5 +1,5 @@
 [package]
-name = "saci-interrupt"
+name = "interrupt-support"
 version = "0.1.0"
 authors = ["application-services@mozilla.com"]
 license = "MPL-2.0"

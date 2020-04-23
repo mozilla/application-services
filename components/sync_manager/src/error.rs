@@ -2,10 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use failure::Fail;
-use logins;
-use places;
-use saci_interrupt::Interrupted;
-use sync15;
+use interrupt_support::Interrupted;
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {
