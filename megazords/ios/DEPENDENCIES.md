@@ -495,7 +495,7 @@ The following text applies to code linked from these dependencies:
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
 [thread_local](https://github.com/Amanieu/thread_local-rs),
-[time](https://github.com/rust-lang/time),
+[time](https://github.com/time-rs/time),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
