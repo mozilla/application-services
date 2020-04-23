@@ -3,9 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use failure::Fail;
 use interrupt::Interrupted;
-use logins;
-use places;
-use sync15;
 
 #[derive(Debug, Fail)]
 pub enum ErrorKind {

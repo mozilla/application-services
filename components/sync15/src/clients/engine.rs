@@ -347,7 +347,6 @@ impl<'a> Engine<'a> {
 mod tests {
     use std::result;
 
-    use failure;
     use interrupt::NeverInterrupts;
     use serde_json::{json, Value};
 

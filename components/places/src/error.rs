@@ -4,7 +4,6 @@
 
 use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
-use dogear;
 use failure::Fail;
 use interrupt::Interrupted;
 use serde_json::Value as JsonValue;

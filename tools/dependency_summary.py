@@ -493,11 +493,10 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "time": {
         "repository": {
-            "check": "https://github.com/rust-lang/time",
+            "check": "https://github.com/time-rs/time",
         },
         "license_url": {
             "check": None,
-            # The repo has been moved to a difference org.
             "fixup": "https://github.com/time-rs/time/blob/master/LICENSE-Apache"
         },
     },

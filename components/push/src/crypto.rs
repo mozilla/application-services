@@ -231,8 +231,6 @@ impl Cryptography for Crypto {
 mod crypto_tests {
     use super::*;
 
-    use error;
-
     const PLAINTEXT:&str = "Amidst the mists and coldest frosts I thrust my fists against the\nposts and still demand to see the ghosts.\n\n";
 
     fn decrypter(

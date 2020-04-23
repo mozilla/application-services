@@ -54,7 +54,6 @@ pub fn digest(algorithm: &Algorithm, data: &[u8]) -> Result<Digest> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hex;
 
     const MESSAGE: &[u8] = b"bobo";
     const DIGEST_HEX: &str = "bf0c97708b849de696e7373508b13c5ea92bafa972fc941d694443e494a4b84d";
