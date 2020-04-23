@@ -28,7 +28,7 @@ prost = "0.6.1"
 prost-derive = "0.6.1"
 
 [dependencies.rusqlite]
-version = "0.23.0"
+version = "0.23.1"
 features = ["sqlcipher", "limits"]
 
 [dev-dependencies]
