@@ -1,3 +1,11 @@
+# v0.58.1 (_2020-04-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.0...v0.58.1)
+
+## General
+
+- Android: A bug in the protobuf library that made the previous version unusable has been fixed. ([#3033](https://github.com/mozilla/application-services/pull/3033))
+
 # v0.58.0 (_2020-04-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.57.0...v0.58.0)
