@@ -19,7 +19,7 @@ kind-dependencies:
 job-defaults:
   attributes:
     run-on-pr-type: full-ci
-  run-on-tasks-for: [github-pull-request]
+  run-on-tasks-for: [github-pull-request, github-push]
   description: "{module_name} - Build and test"
   scopes:
     - project:releng:services/tooltool/api/download/internal
