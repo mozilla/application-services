@@ -239,7 +239,6 @@ tasks:
                       - checks
                       - $if: 'level == "3"'
                         then:
-                          - tc-treeherder.v2.${project}.${head_sha}
                           # TODO Bug 1601928: Make this scope fork-friendly once ${project} is better defined. This will enable
                           # staging release promotion on forks.
                           - $if: 'tasks_for == "github-push"'
