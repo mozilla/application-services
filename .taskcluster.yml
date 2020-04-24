@@ -198,7 +198,7 @@ tasks:
               taskclusterProxy: true
       in:
         $match:
-          "(tasks_for == 'github-pull-request' && event['action'] in ['opened', 'reopened', 'synchronize']) || (tasks_for == 'github-push' && head_branch[:10] != 'refs/tags/')":
+          "(tasks_for == 'github-pull-request' && event['action'] in ['opened', 'reopened', 'synchronize']) || (tasks_for == 'github-push' && head_branch == 'refs/heads/master')":
             $let:
               level:
                 $if: 'tasks_for in ["github-push", "github-release"] && repoUrl == "https://github.com/mozilla/application-services"'
