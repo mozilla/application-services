@@ -90,7 +90,9 @@ dependencies {
 
     implementation "org.mozilla.components:service-glean:$android_components_version"
 
-    implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
+    // There's a bug in versions > 3.9.2 that prevents us from upgrading:
+    // https://github.com/protocolbuffers/protobuf/issues/7422
+    implementation 'com.google.protobuf:protobuf-javalite:3.9.2'
     api project(":full-megazord")
     implementation project(":native-support")
 
