@@ -158,6 +158,39 @@ mod tests {
                 data: map!({"other_only": "other", "ours_only": "ours", "common": "new_value"})
             }
         );
+        // Field was removed remotely.
+        assert_eq!(
+            merge(
+                map!({"other_only": "other"}),
+                map!({"common": "old_value"}),
+                Some(map!({"common": "old_value"})),
+            ),
+            IncomingAction::TakeRemote {
+                data: map!({"other_only": "other"}),
+            }
+        );
+        // Field was removed remotely but we added another one.
+        assert_eq!(
+            merge(
+                map!({"other_only": "other"}),
+                map!({"common": "old_value", "new_key": "new_value"}),
+                Some(map!({"common": "old_value"})),
+            ),
+            IncomingAction::Merge {
+                data: map!({"other_only": "other", "new_key": "new_value"}),
+            }
+        );
+        // Field was removed both remotely and locally.
+        assert_eq!(
+            merge(
+                map!({}),
+                map!({"new_key": "new_value"}),
+                Some(map!({"common": "old_value"})),
+            ),
+            IncomingAction::Merge {
+                data: map!({"new_key": "new_value"}),
+            }
+        );
         Ok(())
     }
 
