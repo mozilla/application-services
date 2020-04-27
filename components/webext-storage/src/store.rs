@@ -6,6 +6,7 @@ use crate::api::{self, StorageChanges};
 use crate::db::StorageDb;
 use crate::error::*;
 use std::path::Path;
+use std::result;
 
 use serde_json::Value as JsonValue;
 
@@ -90,6 +91,12 @@ impl Store {
         let result = api::clear(&tx, ext_id)?;
         tx.commit()?;
         Ok(result)
+    }
+
+    /// Closes the store and its database connection. See the docs for
+    /// `StorageDb::close` for more details on when this can fail.
+    pub fn close(self) -> result::Result<(), (Store, Error)> {
+        self.db.close().map_err(|(db, err)| (Store { db }, err))
     }
 }
 

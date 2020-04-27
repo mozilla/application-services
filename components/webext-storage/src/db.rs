@@ -11,6 +11,7 @@ use sql_support::ConnExt;
 use std::fs;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
+use std::result;
 use url::Url;
 
 /// A `StorageDb` wraps a read-write SQLite connection, and handles schema
@@ -60,6 +61,19 @@ impl StorageDb {
                 }
             }
         }
+    }
+
+    /// Closes the database connection. If there are any unfinalized prepared
+    /// statements on the connection, `close` will fail and the `StorageDb` will
+    /// be returned to the caller so that it can retry, drop (via `mem::drop`)
+    // or leak (`mem::forget`) the connection.
+    ///
+    /// Keep in mind that dropping the connection tries to close it again, and
+    /// panics on error.
+    pub fn close(self) -> result::Result<(), (StorageDb, Error)> {
+        self.writer
+            .close()
+            .map_err(|(writer, err)| (StorageDb { writer }, err.into()))
     }
 }
 
