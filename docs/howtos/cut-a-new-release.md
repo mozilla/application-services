@@ -50,7 +50,7 @@
     git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
     git push -u origin fixes-for-v0.31.3
     ```
-3. Follow the above steps for cuting a new release from master, except that:
+3. Follow the above steps for cutting a new release from master, except that:
     * When running the `./automation/prepare-release.py` script, use the `--base-branch` argument to point it at your release branch, and specify `patch` as the release type. Example:
        ```
        ./automation/prepare-release.py --base-branch=release-v0.31 patch
