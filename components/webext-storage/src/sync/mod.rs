@@ -39,53 +39,61 @@ pub struct Record {
 // something other than a simple Option<JsonMap> - we need to differentiate
 // "doesn't exist" from "removed".
 // TODO!
-fn merge(other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> IncomingAction {
+fn merge(mut other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> IncomingAction {
     if other == ours {
         return IncomingAction::Same;
     }
-    // Server wins. Iterate over incoming - if incoming and the parent are
-    // identical, then we will take our local value.
-    for (key, incoming_value) in other.into_iter() {
-        let our_value = ours.get(&key);
-        match our_value {
-            Some(our_value) => {
-                if *our_value != incoming_value {
-                    // So we have a discrepency between 'ours' and 'other' - use parent
-                    // to resolve.
-                    let can_take_local = match parent {
-                        Some(ref pm) => {
-                            if let Some(pv) = pm.get(&key) {
-                                // parent has a value - we can only take our local
-                                // value if the parent and incoming have the same.
-                                *pv == incoming_value
-                            } else {
-                                // Value doesn't exist in the parent - can't take local
-                                false
-                            }
-                        }
-                        None => {
-                            // 2 way merge because there's no parent. We always
-                            // prefer incoming here.
-                            false
-                        }
-                    };
-                    if can_take_local {
-                        log::trace!("merge: no remote change in key {} - taking local", key);
-                    } else {
-                        log::trace!("merge: conflict in existing key {} - taking remote", key);
-                        ours.insert(key, incoming_value);
+    let old_incoming = other.clone();
+    match parent {
+        None => {
+            // Server wins. Overwrite every key in ours with the
+            // corresponding value in other.
+            log::trace!("merge: no parent - copying all keys from incoming");
+            for (key, incoming_value) in other.into_iter() {
+                ours.insert(key, incoming_value);
+            }
+        }
+        Some(parent) => {
+            // Perform 3-way merge. First, for every key in parent,
+            // compare the parent value with the incoming value to
+            // compute an implicit "diff".
+            for (key, parent_value) in parent.into_iter() {
+                match other.remove(&key) {
+                    None => {
+                        // Key was not present in incoming value.
+                        // Another client must have deleted it.
+                        log::trace!(
+                            "merge: key {} no longer present in incoming - removing it locally",
+                            key
+                        );
+                        ours.remove(&key);
                     }
-                } else {
-                    log::trace!("merge: local and incoming same for key {}", key);
+                    Some(incoming_value) => {
+                        if incoming_value != parent_value {
+                            log::trace!(
+                                "merge: key {} was updated in incoming - copying value locally",
+                                key
+                            );
+                            ours.insert(key, incoming_value);
+                        }
+                    }
                 }
             }
-            None => {
-                log::trace!("merge: incoming new value for key {}", key);
+
+            // Then, go through every remaining key in incoming. These
+            // are the ones where a corresponding key does not exist
+            // in parent, so it is a new key, and we need to add it.
+            for (key, incoming_value) in other.into_iter() {
                 ours.insert(key, incoming_value);
             }
         }
     }
-    IncomingAction::Merge { data: ours }
+
+    if ours == old_incoming {
+        IncomingAction::TakeRemote { data: old_incoming }
+    } else {
+        IncomingAction::Merge { data: ours }
+    }
 }
 
 // Helpers for tests
