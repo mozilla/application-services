@@ -236,14 +236,16 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
                     // just a 2-way merge...
                     merge(incoming_data, local_data, None)
                 }
-                (DataState::Exists(_), DataState::Deleted) => {
+                (DataState::Deleted, DataState::Exists(_)) => {
                     // We've data locally, but there's an incoming deletion.
                     // Remote wins.
                     IncomingAction::DeleteLocally
                 }
-                (DataState::Deleted, DataState::Exists(local_data)) => {
+                (DataState::Exists(incoming_data), DataState::Deleted) => {
                     // No data locally, but some is incoming - take it.
-                    IncomingAction::TakeRemote { data: local_data }
+                    IncomingAction::TakeRemote {
+                        data: incoming_data,
+                    }
                 }
                 (DataState::Deleted, DataState::Deleted) => {
                     // Nothing anywhere - odd, but OK.
