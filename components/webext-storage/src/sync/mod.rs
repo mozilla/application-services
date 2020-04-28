@@ -34,11 +34,6 @@ pub struct Record {
 }
 
 // Perform a 2-way or 3-way merge, where the incoming value wins on confict.
-// XXX - this needs more thought, and probably needs significant changes.
-// Main problem is that it doesn't handle deletions - but to do that, we need
-// something other than a simple Option<JsonMap> - we need to differentiate
-// "doesn't exist" from "removed".
-// TODO!
 fn merge(mut other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> IncomingAction {
     if other == ours {
         return IncomingAction::Same;
@@ -94,6 +89,13 @@ fn merge(mut other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> Inco
     } else {
         IncomingAction::Merge { data: ours }
     }
+}
+
+fn remove_matching_keys(mut ours: JsonMap, blacklist: &JsonMap) -> JsonMap {
+    for key in blacklist.keys() {
+        ours.remove(key);
+    }
+    ours
 }
 
 // Helpers for tests
@@ -202,5 +204,15 @@ mod tests {
         Ok(())
     }
 
-    // XXX - add `fn test_2way_merging() -> Result<()> {`!!
+    #[test]
+    fn test_remove_matching_keys() -> Result<()> {
+        assert_eq!(
+            remove_matching_keys(
+                map!({"key1": "value1", "key2": "value2"}),
+                &map!({"key1": "ignored", "key3": "ignored"})
+            ),
+            map!({"key2": "value2"})
+        );
+        Ok(())
+    }
 }

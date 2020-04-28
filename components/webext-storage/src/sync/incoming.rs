@@ -13,7 +13,7 @@ use sync_guid::Guid as SyncGuid;
 
 use crate::error::*;
 
-use super::{merge, JsonMap, Record};
+use super::{merge, remove_matching_keys, JsonMap, Record};
 
 /// The state data can be in. Could be represented as Option<JsonMap>, but this
 /// is clearer and independent of how the data is stored.
@@ -216,11 +216,28 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
                         data: incoming_data,
                     }
                 }
-                (DataState::Deleted, _, _) => {
-                    // Deleted remotely. Server wins.
-                    // XXX - WRONG - we want to 3 way merge here still!
-                    // Eg, final key removed remotely, different key added
-                    // locally, the new key should still be added.
+                (DataState::Deleted, DataState::Exists(local_data), DataState::Exists(mirror)) => {
+                    // Deleted remotely.
+                    // Treat this as a delete of every key that we
+                    // know was present at the time.
+                    let result = remove_matching_keys(local_data, &mirror);
+                    if result.is_empty() {
+                        // If there were no more keys left, we can
+                        // delete our version too.
+                        IncomingAction::DeleteLocally
+                    } else {
+                        IncomingAction::Merge { data: result }
+                    }
+                }
+                (DataState::Deleted, DataState::Exists(local_data), DataState::Deleted) => {
+                    // Treat this as a delete of every key that we
+                    // knew was present. Unfortunately, we have no
+                    // information about what keys were present.
+                    IncomingAction::Merge { data: local_data }
+                }
+                (DataState::Deleted, DataState::Deleted, _) => {
+                    // We agree with the remote (regardless of what we
+                    // have mirrored).
                     IncomingAction::DeleteLocally
                 }
             }
@@ -236,10 +253,12 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
                     // just a 2-way merge...
                     merge(incoming_data, local_data, None)
                 }
-                (DataState::Deleted, DataState::Exists(_)) => {
+                (DataState::Deleted, DataState::Exists(local_data)) => {
                     // We've data locally, but there's an incoming deletion.
-                    // Remote wins.
-                    IncomingAction::DeleteLocally
+                    // We would normally remove keys that we knew were
+                    // present on the server, but we don't know what
+                    // was on the server, so we don't remove anything.
+                    IncomingAction::Merge { data: local_data }
                 }
                 (DataState::Exists(incoming_data), DataState::Deleted) => {
                     // No data locally, but some is incoming - take it.
