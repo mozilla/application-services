@@ -31,9 +31,10 @@ impl FirefoxAccount {
     /// using `begin_oauth_flow`.
     ///
     /// * `scopes` - Space-separated list of requested scopes.
+    /// * `ttl` - the ttl in seconds of the token requested from the server.
     ///
     /// **💾 This method may alter the persisted account state.**
-    pub fn get_access_token(&mut self, scope: &str) -> Result<AccessTokenInfo> {
+    pub fn get_access_token(&mut self, scope: &str, ttl: Option<u64>) -> Result<AccessTokenInfo> {
         if scope.contains(' ') {
             return Err(ErrorKind::MultipleScopesRequested.into());
         }
@@ -48,6 +49,7 @@ impl FirefoxAccount {
                     self.client.access_token_with_refresh_token(
                         &self.state.config,
                         &refresh_token.token,
+                        ttl,
                         &[scope],
                     )?
                 } else {
@@ -412,6 +414,8 @@ mod tests {
 
     #[test]
     fn test_oauth_flow_url() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         let config = Config::new(
             "https://accounts.firefox.com",
             "12345678",
@@ -492,6 +496,8 @@ mod tests {
 
     #[test]
     fn test_webchannel_context_url() {
+        // FIXME: this test shouldn't make network requests.
+        viaduct_reqwest::use_reqwest_backend();
         const SCOPES: &[&str] = &["https://identity.mozilla.com/apps/oldsync"];
         let config = Config::new(
             "https://accounts.firefox.com",

@@ -30,8 +30,8 @@ At the end of this process you should have the following environment variables s
 These variables are required every time you build, so you should add them to
 a rc file or similar so they persist between reboots etc.
 
-1. Install NDK r20 from https://developer.android.com/ndk/downloads
-    - Extract it, put it somewhere (`$HOME/.android-ndk-r20` is a reasonable
+1. Install NDK r21 from https://developer.android.com/ndk/downloads
+    - Extract it, put it somewhere (`$HOME/.android-ndk-r21` is a reasonable
       choice, but it doesn't matter), and set `ANDROID_NDK_ROOT` to this location.
     - Set `ANDROID_NDK_HOME` to match `ANDROID_NDK_ROOT`, for compatibility with
       some android grandle plugins.

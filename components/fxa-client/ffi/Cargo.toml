@@ -10,9 +10,9 @@ name = "fxaclient_ffi"
 crate-type = ["lib"]
 
 [dependencies]
-ffi-support = { path = "../../support/ffi" }
+ffi-support = "0.4"
 log = "0.4.8"
-serde_json = "1.0.44"
+serde_json = "1.0.50"
 lazy_static = "1.4.0"
 url = "2.1.1"
 prost = "0.6.1"
@@ -20,6 +20,3 @@ viaduct = { path = "../../viaduct" }
 
 [dependencies.fxa-client]
 path = "../"
-
-[features]
-reqwest = ["viaduct/reqwest", "fxa-client/reqwest"]

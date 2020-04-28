@@ -14,7 +14,6 @@
 /// contains the tab to send and finally forms the `EncryptedSendTabPayload` that is
 /// then sent to the target device.
 use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
-use hex;
 use rc_crypto::ece::{self, Aes128GcmEceWebPush, EcKeyComponents, WebPushParams};
 use rc_crypto::ece_crypto::{RcCryptoLocalKeyPair, RcCryptoRemotePublicKey};
 use serde_derive::*;
@@ -38,7 +37,7 @@ impl EncryptedSendTabPayload {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SendTabPayload {
     pub entries: Vec<TabHistoryEntry>,
 }
@@ -69,7 +68,7 @@ impl SendTabPayload {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,

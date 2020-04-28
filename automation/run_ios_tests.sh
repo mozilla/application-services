@@ -2,9 +2,7 @@
 
 set -euvx
 
-# Help out iOS folks who might want to run this but haven't
-# updated rust recently.
-rustup update stable
+carthage bootstrap --platform iOS --cache-builds
 
 set -o pipefail && \
 xcodebuild \

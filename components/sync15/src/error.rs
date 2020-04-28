@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use failure::Fail;
-use interrupt::Interrupted;
+use interrupt_support::Interrupted;
 use rc_crypto::hawk;
 use std::string;
 use std::time::SystemTime;

@@ -43,7 +43,7 @@ impl FirefoxAccount {
             }
             etag = Some(cached_profile.etag.clone());
         }
-        let profile_access_token = self.get_access_token(scopes::PROFILE)?.token;
+        let profile_access_token = self.get_access_token(scopes::PROFILE, None)?.token;
         match self
             .client
             .profile(&self.state.config, &profile_access_token, etag)?
@@ -192,6 +192,7 @@ mod tests {
             .expect_access_token_with_refresh_token(
                 mockiato::Argument::any,
                 |token| token.partial_eq("refreshtok"),
+                mockiato::Argument::any,
                 mockiato::Argument::any,
             )
             .times(1)

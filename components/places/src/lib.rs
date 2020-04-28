@@ -25,7 +25,7 @@ mod tests;
 mod util;
 
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!("mozilla.appservices.places.protobuf.rs");
 }
 
 pub use crate::api::apply_observation;

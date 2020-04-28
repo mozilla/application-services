@@ -41,7 +41,7 @@ unsafe fn pk11_destroy_context_true(context: *mut nss_sys::PK11Context) {
 // Trait for types that have PCKS#11 attributes that are readable. See
 // https://searchfox.org/mozilla-central/rev/8ed8474757695cdae047150a0eaf94a5f1c96dbe/security/nss/lib/pk11wrap/pk11pub.h#842-864
 pub(crate) unsafe trait Pkcs11Object: ScopedPtr {
-    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType::Type;
+    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType;
     fn read_raw_attribute(
         &self,
         attribute_type: nss_sys::CK_ATTRIBUTE_TYPE,
@@ -49,7 +49,7 @@ pub(crate) unsafe trait Pkcs11Object: ScopedPtr {
         let mut out_sec = ScopedSECItem::empty(nss_sys::SECItemType::siBuffer);
         map_nss_secstatus(|| unsafe {
             nss_sys::PK11_ReadRawAttribute(
-                Self::PK11_OBJECT_TYPE,
+                Self::PK11_OBJECT_TYPE as u32,
                 self.as_mut_ptr() as *mut c_void,
                 attribute_type,
                 out_sec.as_mut_ref(),
@@ -60,20 +60,16 @@ pub(crate) unsafe trait Pkcs11Object: ScopedPtr {
 }
 
 unsafe impl Pkcs11Object for GenericObject {
-    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType::Type =
-        nss_sys::PK11ObjectType::PK11_TypeGeneric;
+    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType = nss_sys::PK11ObjectType::PK11_TypeGeneric;
 }
 unsafe impl Pkcs11Object for PrivateKey {
-    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType::Type =
-        nss_sys::PK11ObjectType::PK11_TypePrivKey;
+    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType = nss_sys::PK11ObjectType::PK11_TypePrivKey;
 }
 unsafe impl Pkcs11Object for PublicKey {
-    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType::Type =
-        nss_sys::PK11ObjectType::PK11_TypePubKey;
+    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType = nss_sys::PK11ObjectType::PK11_TypePubKey;
 }
 unsafe impl Pkcs11Object for SymKey {
-    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType::Type =
-        nss_sys::PK11ObjectType::PK11_TypeSymKey;
+    const PK11_OBJECT_TYPE: nss_sys::PK11ObjectType = nss_sys::PK11ObjectType::PK11_TypeSymKey;
 }
 
 // From https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_API_Guidelines#Thread_Safety:
@@ -97,7 +93,7 @@ impl PrivateKey {
         let mut obj_id_buf = vec![0u8; 160 / 8];
         generate_random(&mut obj_id_buf)?;
         let mut obj_id = nss_sys::SECItem {
-            type_: nss_sys::SECItemType::siBuffer,
+            type_: nss_sys::SECItemType::siBuffer as u32,
             data: obj_id_buf.as_ptr() as *mut c_uchar,
             len: c_uint::try_from(obj_id_buf.len())?,
         };
@@ -166,10 +162,10 @@ pub(crate) struct ScopedSECItem {
 }
 
 impl ScopedSECItem {
-    pub(crate) fn empty(r#type: nss_sys::SECItemType::Type) -> Self {
+    pub(crate) fn empty(r#type: nss_sys::SECItemType) -> Self {
         ScopedSECItem {
             wrapped: nss_sys::SECItem {
-                type_: r#type,
+                type_: r#type as u32,
                 data: ptr::null_mut(),
                 len: 0,
             },

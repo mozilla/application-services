@@ -1,12 +1,14 @@
 version: 2.1
 
+# ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
+
 commands:
   setup-sccache:
     steps:
       - run:
           name: Install sccache
           command: |
-            SCCACHE_VERSION=0.2.11
+            SCCACHE_VERSION=0.2.13
             if [ "$(uname)" == "Darwin" ]; then
               SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-apple-darwin"
             else
@@ -24,14 +26,10 @@ commands:
             echo 'export "RUST_LOG"="sccache=info"' >> $BASH_ENV
             # Incremental compilation isn't supported by sccache.
             echo 'export "CARGO_INCREMENTAL"="0"' >> $BASH_ENV
-            sccache --version
-  install-xcpretty:
-    steps:
-      - run:
-          name: Install xcpretty
-          command: |
-            gem install --user-install xcpretty
-            echo 'export PATH="$HOME/.gem/ruby/2.3.0/bin:$PATH"' >> $BASH_ENV
+      # Run in a different shell to source $BASH_ENV modified above.
+      - run: |
+          sccache --version
+          sccache --zero-stats
   install-mdbook:
     steps:
       - run:
@@ -63,15 +61,12 @@ commands:
         default: "stable"
     steps:
       - run:
-          name: Setup Rust toolchain
+          name: Set up Rust toolchain
           command: |
+            rustup update
             rustup install <<parameters.rust-version>>
             rustup default <<parameters.rust-version>>
-            rustup update
             rustc --version
-  install-clang: # Used by bindgen for nss_sys.
-    steps:
-      - run: sudo apt-get install clang
   build-libs:
     parameters:
       platform:
@@ -113,6 +108,22 @@ commands:
             popd
       - build-libs:
           platform: ios
+  carthage-bootstrap:
+    steps:
+      - run:
+          name: Determine XCode version
+          command: echo "$(xcodebuild -version)" >| xcode_version
+      - restore_cache:
+          name: Restore Carthage/ cache
+          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
+      - run:
+          name: Bootstrap Carthage dependencies
+          command: carthage bootstrap --platform iOS --cache-builds
+      - save_cache:
+          name: Save Carthage/ cache
+          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
+          paths:
+            - Carthage
   test-setup:
     parameters:
       rust-version:
@@ -124,7 +135,6 @@ commands:
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
-      - install-clang
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |
@@ -145,11 +155,9 @@ commands:
           rust-version: <<parameters.rust-version>>
       # Test with 1. only default features on, 2. all features on, 3. no features on.
       # This is not perfect (really we want the cartesian product), but is good enough in practice.
-      - run: sccache --zero-stats
       - run:
           name: Test (default features, no features, and all features)
           command: bash automation/all_rust_tests.sh --verbose
-      - run: sccache --show-stats
   dependency-checks:
     steps:
       - run:
@@ -211,9 +219,10 @@ commands:
           key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ epoch }}
           paths:
             - "~/.cache/sccache"
-      - store-sccache-logs
-  store-sccache-logs:
+      - sccache-stats-and-logs
+  sccache-stats-and-logs:
     steps:
+      - run: sccache --show-stats
       - store_artifacts:
           path: /tmp/sccache.log
           destination: logs/sccache.log
@@ -221,7 +230,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "11.3.1"
+      xcode: "11.4.1"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -230,6 +239,7 @@ jobs:
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest
+    resource_class: small
     steps:
       - checkout
       - setup-rust-toolchain
@@ -241,12 +251,22 @@ jobs:
       - image: circleci/rust:latest
     steps:
       - test-setup
+      - restore-sccache-cache
       - run: rustup component add clippy
       - run: cargo clippy --version
       - run: bash automation/all_clippy_checks.sh
+      - save-sccache-cache
+  Check Protobuf files are up-to-date:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: small
+    steps:
+      - checkout
+      - run: ./automation/check_protobuf_files_current.py
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable
+    resource_class: small
     steps:
       - checkout
       - run:
@@ -263,6 +283,7 @@ jobs:
   Mirror Bugzilla issues into GitHub:
     docker:
       - image: circleci/python:latest
+    resource_class: small
     steps:
       - sync-bugzilla-to-github
   Rust tests:
@@ -273,6 +294,16 @@ jobs:
     steps:
       - restore-sccache-cache
       - rust-tests
+      - save-sccache-cache
+  # These run periodically (driven by cron).
+  Rust tests - beta:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: xlarge
+    steps:
+      - restore-sccache-cache
+      - rust-tests:
+          rust-version: "beta"
       - save-sccache-cache
   Sync integration tests:
     docker:
@@ -291,31 +322,31 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "11.3.1"
+      xcode: "11.4.1"
     steps:
-      - install-rust
-      - setup-rust-toolchain
-      - checkout
-      - setup-sccache
-      - build-ios-libs
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
       - restore_cache:
           name: Restore sccache cache
           key: sccache-cache-macos-{{ arch }}
+      - checkout
+      - install-rust
+      - setup-rust-toolchain
       - run:
-          name: Setup build environment
+          name: Toggle brew auto-updates
           command: |
-            rustup target add aarch64-apple-ios x86_64-apple-ios
             if [ -z "${CIRCLE_TAG}" ]; then
               # On non-release builds do not update brew (takes ages).
               echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
             fi
-            brew outdated carthage || brew upgrade carthage
-            carthage bootstrap --platform iOS
+      - setup-sccache
+      - build-ios-libs
+      - run:
+          name: Set up the build environment
+          command: |
+            rustup target add aarch64-apple-ios x86_64-apple-ios
             brew install swift-protobuf
-            # See https://circleci.com/docs/2.0/testing-ios/#pre-starting-the-simulator
-            xcrun instruments -w "iPhone 8 (13.0) [" || true
+      - carthage-bootstrap
       - run:
           name: Verify the build environment
           command: ./libs/verify-ios-environment.sh
@@ -325,6 +356,13 @@ jobs:
       - store_artifacts:
           path: raw_xcodetest.log
           destination: logs/raw_xcodetest.log
+      - run:
+          name: (Optional) Run firefox-ios tests
+          command: |
+            # Only run these on PRs.
+            if [ -n "${CIRCLE_PULL_REQUEST}" ]; then
+              ./automation/maybe_run_fxios_tests.py << pipeline.git.base_revision >>
+            fi
       - run:
           name: Build Carthage archive
           no_output_timeout: 20m
@@ -345,7 +383,7 @@ jobs:
           key: sccache-cache-macos-{{ arch }}-{{ epoch }}
           paths:
             - "~/Library/Caches/Mozilla.sccache"
-      - store-sccache-logs
+      - sccache-stats-and-logs
       - run:
           name: "Create Carthage bin-only project specification"
           command: |
@@ -369,7 +407,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "11.3.1"
+      xcode: "11.4.1"
     steps:
       - checkout
       - attach_workspace:
@@ -386,6 +424,7 @@ jobs:
   Deploy website:
     docker:
       - image: circleci/node:latest
+    resource_class: small
     steps:
       - add_ssh_keys:
           fingerprints:
@@ -420,6 +459,9 @@ workflows:
   clippy:
     jobs:
       - Lint Rust with clippy
+  check-protobuf-uptodate:
+    jobs:
+      - Check Protobuf files are up-to-date
   check-dependencies:
     jobs:
       - Check Rust dependencies
@@ -435,6 +477,16 @@ workflows:
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
+    triggers:
+      - schedule:
+          cron: "0 7 * * *"
+          filters:
+            branches:
+              only:
+                - master
+  run-beta-tests-periodically:
+    jobs:
+      - Rust tests - beta
     triggers:
       - schedule:
           cron: "0 7 * * *"
@@ -460,7 +512,7 @@ workflows:
   carthage-framework:
     jobs:
       - iOS build and test:
-          filters:  # required since `Release` has tag filters AND requires `Build`
+          filters: # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
       - Carthage release:

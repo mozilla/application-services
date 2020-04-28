@@ -9,3 +9,4 @@ pub use fxaclient_ffi;
 pub use logins_ffi;
 pub use places_ffi;
 pub use rc_log_ffi;
+pub use viaduct_reqwest;

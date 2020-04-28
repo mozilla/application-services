@@ -190,10 +190,14 @@ open class FxAccountManager {
     }
 
     /// Try to get an OAuth access token.
-    public func getAccessToken(scope: String, completionHandler: @escaping (Result<AccessTokenInfo, Error>) -> Void) {
+    public func getAccessToken(
+        scope: String,
+        ttl: UInt64? = nil,
+        completionHandler: @escaping (Result<AccessTokenInfo, Error>) -> Void
+    ) {
         DispatchQueue.global().async {
             do {
-                let tokenInfo = try self.requireAccount().getAccessToken(scope: scope)
+                let tokenInfo = try self.requireAccount().getAccessToken(scope: scope, ttl: ttl)
                 DispatchQueue.main.async { completionHandler(.success(tokenInfo)) }
             } catch {
                 DispatchQueue.main.async { completionHandler(.failure(error)) }
@@ -263,11 +267,15 @@ open class FxAccountManager {
         }
     }
 
-    /// Refresh the user profile in the background.
+    /// Refresh the user profile in the background. A threshold is applied
+    /// to profile fetch calls on the Rust side to avoid hammering the servers
+    /// with requests. If you absolutely know your profile is out-of-date and
+    /// need a fresh one, use the `forceRefresh` param to bypass the
+    /// threshold.
     ///
     /// If it succeeds, a `.accountProfileUpdate` notification will get fired.
-    public func refreshProfile() {
-        processEvent(event: .fetchProfile) {
+    public func refreshProfile(forceRefresh: Bool = false) {
+        processEvent(event: .fetchProfile(forceRefresh: forceRefresh)) {
             // Do nothing
         }
     }
@@ -431,7 +439,7 @@ open class FxAccountManager {
 
                 postAuthenticated(authType: authData.authType)
 
-                return Event.fetchProfile
+                return Event.fetchProfile(forceRefresh: false)
             }
             case .accountRestored: do {
                 FxALog.info("Registering persistence callback")
@@ -442,7 +450,7 @@ open class FxAccountManager {
 
                 postAuthenticated(authType: .existingAccount)
 
-                return Event.fetchProfile
+                return Event.fetchProfile(forceRefresh: false)
             }
             case .authenticatedViaMigration: do {
                 // Note that we are not registering an account persistence callback here like
@@ -455,7 +463,7 @@ open class FxAccountManager {
 
                 postAuthenticated(authType: .migrated)
 
-                return Event.fetchProfile
+                return Event.fetchProfile(forceRefresh: false)
             }
             case .recoveredFromAuthenticationProblem: do {
                 FxALog.info("Registering persistence callback")
@@ -470,7 +478,7 @@ open class FxAccountManager {
 
                 postAuthenticated(authType: .recovered)
 
-                return Event.fetchProfile
+                return Event.fetchProfile(forceRefresh: false)
             }
             case let .changedPassword(newSessionToken): do {
                 do {
@@ -485,18 +493,18 @@ open class FxAccountManager {
 
                     postAuthenticated(authType: .existingAccount)
 
-                    return Event.fetchProfile
+                    return Event.fetchProfile(forceRefresh: false)
                 } catch {
                     FxALog.error("Error handling the session token change: \(error)")
                 }
             }
-            case .fetchProfile: do {
+            case let .fetchProfile(forceRefresh): do {
                 // Profile fetching and account authentication issues:
                 // https://github.com/mozilla/application-services/issues/483
                 FxALog.info("Fetching profile...")
 
                 do {
-                    profile = try requireAccount().getProfile()
+                    profile = try requireAccount().getProfile(forceRefresh: forceRefresh)
                 } catch {
                     return Event.failedToFetchProfile
                 }
@@ -515,6 +523,15 @@ open class FxAccountManager {
                         userInfo: ["profile": self.profile!]
                     )
                 }
+            }
+            case let .fetchProfile(refresh): do {
+                FxALog.info("Refreshing profile...")
+                do {
+                    profile = try requireAccount().getProfile(forceRefresh: refresh)
+                } catch {
+                    return Event.failedToFetchProfile
+                }
+                return Event.fetchedProfile
             }
             default: break // Do nothing
             }

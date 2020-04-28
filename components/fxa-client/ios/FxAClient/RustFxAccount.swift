@@ -52,9 +52,9 @@ open class RustFxAccount {
     /// Throws `FirefoxAccountError.Unauthorized` if we couldn't find any suitable access token
     /// to make that call. The caller should then start the OAuth Flow again with
     /// the "profile" scope.
-    open func getProfile() throws -> Profile {
+    open func getProfile(forceRefresh: Bool) throws -> Profile {
         let ptr = try rustCall { err in
-            fxa_profile(self.raw, false, err)
+            fxa_profile(self.raw, forceRefresh, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
         let msg = try! MsgTypes_Profile(serializedData: Data(rustBuffer: ptr))
@@ -131,12 +131,13 @@ open class RustFxAccount {
 
     /// Try to get an OAuth access token.
     ///
+    /// `ttl` corresponds to the time in seconds for which the token will be used.
     /// Throws `FirefoxAccountError.Unauthorized` if we couldn't provide an access token
     /// for this scope. The caller should then start the OAuth Flow again with
     /// the desired scope.
-    open func getAccessToken(scope: String) throws -> AccessTokenInfo {
+    open func getAccessToken(scope: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
         let ptr = try rustCall { err in
-            fxa_get_access_token(self.raw, scope, err)
+            fxa_get_access_token(self.raw, scope, ttl ?? .zero, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
         let msg = try! MsgTypes_AccessTokenInfo(serializedData: Data(rustBuffer: ptr))

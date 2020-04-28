@@ -19,6 +19,7 @@ struct ClientConfigurationResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct OpenIdConfigurationResponse {
     authorization_endpoint: String,
+    introspection_endpoint: String,
     issuer: String,
     jwks_uri: String,
     token_endpoint: String,
@@ -28,14 +29,15 @@ struct OpenIdConfigurationResponse {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Config {
     content_url: String,
-    // RemoteConfig is lazily fetched from the server.
-    remote_config: RefCell<Option<Arc<RemoteConfig>>>,
     token_server_url_override: Option<String>,
     pub client_id: String,
     pub redirect_uri: String,
+    // RemoteConfig is lazily fetched from the server.
+    #[serde(skip)]
+    remote_config: RefCell<Option<Arc<RemoteConfig>>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 /// `RemoteConfig` struct stores configuration values from the FxA
 /// `/.well-known/fxa-client-configuration` and the
 /// `/.well-known/openid-configuration` endpoints.
@@ -49,8 +51,7 @@ pub struct RemoteConfig {
     jwks_uri: String,
     token_endpoint: String,
     userinfo_endpoint: String,
-    // This was added later, and may be mising in serialized configs.
-    introspection_endpoint: Option<String>,
+    introspection_endpoint: String,
 }
 
 pub(crate) const CONTENT_URL_RELEASE: &str = "https://accounts.firefox.com";
@@ -70,6 +71,10 @@ impl Config {
 
     pub fn china(client_id: &str, redirect_uri: &str) -> Self {
         Self::new("https://accounts.firefox.com.cn", client_id, redirect_uri)
+    }
+
+    pub fn localdev(client_id: &str, redirect_uri: &str) -> Self {
+        Self::new("http://127.0.0.1:3030", client_id, redirect_uri)
     }
 
     pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
@@ -107,7 +112,7 @@ impl Config {
         jwks_uri: String,
         token_endpoint: String,
         userinfo_endpoint: String,
-        introspection_endpoint: Option<String>,
+        introspection_endpoint: String,
         client_id: String,
         redirect_uri: String,
         token_server_url_override: Option<String>,
@@ -164,7 +169,7 @@ impl Config {
             // token_endpoint: openid_resp.token_endpoint,
             token_endpoint: format!("{}/v1/oauth/token", resp.auth_server_base_url),
             userinfo_endpoint: openid_resp.userinfo_endpoint,
-            introspection_endpoint: Some(format!("{}/v1/introspect", resp.oauth_server_base_url)),
+            introspection_endpoint: openid_resp.introspection_endpoint,
         });
         Ok(remote_config)
     }
@@ -261,22 +266,7 @@ impl Config {
     }
 
     pub fn introspection_endpoint(&self) -> Result<Url> {
-        let remote_config = &self.remote_config()?;
-        // Fill a default on demand if we don't have this in config.
-        if remote_config.introspection_endpoint.is_none() {
-            self.set_remote_config(RemoteConfig {
-                introspection_endpoint: Some(format!("{}/v1/introspect", remote_config.oauth_url)),
-                ..(**remote_config).clone()
-            });
-        }
-        Url::parse(
-            &self
-                .remote_config()?
-                .introspection_endpoint
-                .as_ref()
-                .unwrap(),
-        )
-        .map_err(Into::into)
+        Url::parse(&self.remote_config()?.introspection_endpoint).map_err(Into::into)
     }
 
     pub fn userinfo_endpoint(&self) -> Result<Url> {
@@ -301,9 +291,7 @@ mod tests {
             issuer: "https://dev.lcip.org/".to_string(),
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
             token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
-            introspection_endpoint: Some(
-                "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
-            ),
+            introspection_endpoint: "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
             userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
         };
 
@@ -359,9 +347,7 @@ mod tests {
             issuer: "https://dev.lcip.org/".to_string(),
             jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
             token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
-            introspection_endpoint: Some(
-                "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
-            ),
+            introspection_endpoint: "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
             userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
         };
 

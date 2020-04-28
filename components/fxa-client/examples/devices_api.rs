@@ -69,6 +69,7 @@ fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
 }
 
 fn main() -> Result<(), failure::Error> {
+    viaduct_reqwest::use_reqwest_backend();
     let cfg = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
     let mut acct = load_or_create_fxa_creds(cfg)?;
 

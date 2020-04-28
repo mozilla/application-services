@@ -10,18 +10,17 @@ name = "places_ffi"
 crate-type = ["lib"]
 
 [features]
-reqwest = ["viaduct/reqwest", "places/reqwest"]
 default = []
 
 [dependencies]
-serde_json = "1.0.44"
+serde_json = "1.0.50"
 log = "0.4"
 url = "2.1.1"
-ffi-support = { path = "../../support/ffi" }
+ffi-support = "0.4"
 lazy_static = "1.4.0"
 prost = "0.6.1"
 viaduct = { path = "../../viaduct" }
-interrupt = { path = "../../support/interrupt" }
+interrupt-support = { path = "../../support/interrupt" }
 sql-support = { path = "../../support/sql" }
 sync-guid = { path = "../../support/guid" }
 

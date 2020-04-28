@@ -20,17 +20,15 @@ pub struct PlacesDb {
     conn_type: ConnectionType,
     interrupt_counter: Arc<AtomicUsize>,
     api_id: usize,
-    in_memory: bool,
     pub(super) coop_tx_lock: Arc<Mutex<()>>,
 }
 
 impl PlacesDb {
-    pub fn with_connection(
+    fn with_connection(
         db: Connection,
         conn_type: ConnectionType,
         api_id: usize,
         coop_tx_lock: Arc<Mutex<()>>,
-        in_memory: bool,
     ) -> Result<Self> {
         let initial_pragmas = "
             -- The value we use was taken from Desktop Firefox, and seems necessary to
@@ -78,7 +76,6 @@ impl PlacesDb {
             api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
             coop_tx_lock,
-            in_memory,
         };
         match res.conn_type() {
             // For read-only connections, we can avoid opening a transaction,
@@ -107,7 +104,6 @@ impl PlacesDb {
             conn_type,
             api_id,
             coop_tx_lock,
-            false,
         )?)
     }
 
@@ -120,7 +116,6 @@ impl PlacesDb {
             conn_ty,
             0,
             Arc::new(Mutex::new(())),
-            true,
         )?)
     }
 
@@ -144,11 +139,6 @@ impl PlacesDb {
     #[inline]
     pub fn api_id(&self) -> usize {
         self.api_id
-    }
-
-    #[inline]
-    pub fn is_in_memory(&self) -> bool {
-        self.in_memory
     }
 }
 
@@ -179,19 +169,50 @@ impl Deref for PlacesDb {
 }
 
 fn define_functions(c: &Connection) -> Result<()> {
-    c.create_scalar_function("get_prefix", 1, true, sql_fns::get_prefix)?;
-    c.create_scalar_function("get_host_and_port", 1, true, sql_fns::get_host_and_port)?;
+    use rusqlite::functions::FunctionFlags;
+    c.create_scalar_function(
+        "get_prefix",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::get_prefix,
+    )?;
+    c.create_scalar_function(
+        "get_host_and_port",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::get_host_and_port,
+    )?;
     c.create_scalar_function(
         "strip_prefix_and_userinfo",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         sql_fns::strip_prefix_and_userinfo,
     )?;
-    c.create_scalar_function("reverse_host", 1, true, sql_fns::reverse_host)?;
-    c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
-    c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
-    c.create_scalar_function("now", 0, false, sql_fns::now)?;
-    c.create_scalar_function("generate_guid", 0, false, sql_fns::generate_guid)?;
+    c.create_scalar_function(
+        "reverse_host",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::reverse_host,
+    )?;
+    c.create_scalar_function(
+        "autocomplete_match",
+        10,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::autocomplete_match,
+    )?;
+    c.create_scalar_function(
+        "hash",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::hash,
+    )?;
+    c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
+    c.create_scalar_function(
+        "generate_guid",
+        0,
+        FunctionFlags::SQLITE_UTF8,
+        sql_fns::generate_guid,
+    )?;
     Ok(())
 }
 

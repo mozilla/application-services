@@ -14,7 +14,7 @@ use std::time::Duration;
 /// in the concept-fetch backend it would only store the settings, and populate
 /// things on the fly.
 #[derive(Debug, PartialEq)]
-pub(crate) struct Settings {
+pub struct Settings {
     pub read_timeout: Option<Duration>,
     pub connect_timeout: Option<Duration>,
     pub follow_redirects: bool,
@@ -30,7 +30,7 @@ const TIMEOUT_DURATION: Duration = Duration::from_secs(7);
 const TIMEOUT_DURATION: Duration = Duration::from_secs(10);
 
 // The singleton instance of our settings.
-pub(crate) static GLOBAL_SETTINGS: &Settings = &Settings {
+pub static GLOBAL_SETTINGS: &Settings = &Settings {
     read_timeout: Some(TIMEOUT_DURATION),
     connect_timeout: Some(TIMEOUT_DURATION),
     follow_redirects: true,
