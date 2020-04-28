@@ -294,11 +294,14 @@ pub fn apply_actions(
             // We want to update the local record with 'data' and after this update the item no longer is considered dirty.
             IncomingAction::TakeRemote { data } => {
                 tx.execute_named_cached(
-                    "UPDATE storage_sync_data SET data = :data, sync_change_counter = 0 WHERE ext_id = :ext_id",
+                    "INSERT INTO storage_sync_data(ext_id, data, sync_change_counter)
+                        VALUES (:ext_id, :data, 0)
+                        ON CONFLICT (ext_id) DO UPDATE
+                        SET data = :data, sync_change_counter = 0",
                     &[
                         (":ext_id", &item.ext_id),
                         (":data", &serde_json::Value::Object(data)),
-                    ]
+                    ],
                 )?;
             }
 
