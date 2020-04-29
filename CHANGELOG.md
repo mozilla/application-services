@@ -1,3 +1,11 @@
+# v0.58.2 (_2020-04-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.1...v0.58.2)
+
+## General
+
+- Android: An Android 5 and 6 bug related to protobufs is now fixed. ([#3054](https://github.com/mozilla/application-services/pull/3054))
+
 # v0.58.1 (_2020-04-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.0...v0.58.1)
