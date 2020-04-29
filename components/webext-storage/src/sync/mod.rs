@@ -79,6 +79,10 @@ fn merge(mut other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> Inco
             // are the ones where a corresponding key does not exist
             // in parent, so it is a new key, and we need to add it.
             for (key, incoming_value) in other.into_iter() {
+                log::trace!(
+                    "merge: key {} doesn't occur in parent - copying from incoming",
+                    key
+                );
                 ours.insert(key, incoming_value);
             }
         }
