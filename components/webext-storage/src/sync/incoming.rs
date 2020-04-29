@@ -230,9 +230,12 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
                     }
                 }
                 (DataState::Deleted, DataState::Exists(local_data), DataState::Deleted) => {
+                    // Perhaps another client created and then deleted
+                    // the whole object for this extension since the
+                    // last time we synced.
                     // Treat this as a delete of every key that we
-                    // knew was present. Unfortunately, we have no
-                    // information about what keys were present.
+                    // knew was present. Unfortunately, we don't know
+                    // any keys that were present, so we delete no keys.
                     IncomingAction::Merge { data: local_data }
                 }
                 (DataState::Deleted, DataState::Deleted, _) => {

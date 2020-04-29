@@ -422,6 +422,38 @@ fn test_deleted_mirrored_object_merged() -> Result<()> {
     Ok(())
 }
 
+/// Like the above test, but with a mirrored tombstone.
+#[test]
+fn test_deleted_mirrored_tombstone_merged() -> Result<()> {
+    let mut db = new_syncable_mem_db();
+    let tx = db.transaction()?;
+    // Sync some data so we can get the guid for this extension.
+    set(&tx, "ext-id", json!({"key1": "key1-value"}))?;
+    assert_eq!(do_sync(&tx, vec![])?.len(), 1);
+    let guid = get_mirror_guid(&tx, "ext-id")?;
+    // Sync a delete for this data so we have a tombstone in the mirror.
+    let payload = Payload::from_record(Record {
+        guid: Guid::from(guid.clone()),
+        ext_id: "ext-id".to_string(),
+        data: None,
+    })?;
+    assert_eq!(do_sync(&tx, vec![payload])?.len(), 0);
+    assert_eq!(get_mirror_data(&tx, "ext-id"), DbData::NullRow);
+
+    // Set some data and sync it simultaneously with another incoming delete.
+    set(&tx, "ext-id", json!({"key2": "key2-value"}))?;
+    let payload = Payload::from_record(Record {
+        guid: Guid::from(guid),
+        ext_id: "ext-id".to_string(),
+        data: None,
+    })?;
+    // We cannot delete any matching keys because there are no
+    // matching keys. Instead we push our data.
+    assert_eq!(do_sync(&tx, vec![payload])?.len(), 1);
+    check_finished_with(&tx, "ext-id", json!({"key2": "key2-value"}))?;
+    Ok(())
+}
+
 #[test]
 fn test_deleted_not_mirrored_object_merged() -> Result<()> {
     let mut db = new_syncable_mem_db();
