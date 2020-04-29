@@ -32,7 +32,7 @@ dependencies {
     implementation "net.java.dev.jna:jna:$jna_version@aar"
     // There's a bug in versions > 3.9.2 that prevents us from upgrading:
     // https://github.com/protocolbuffers/protobuf/issues/7422
-    api 'com.google.protobuf:protobuf-javalite:3.9.2'
+    api 'com.google.protobuf:protobuf-javalite:3.11.4'
 }
 
 apply from: "$rootDir/publish.gradle"
