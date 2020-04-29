@@ -262,7 +262,9 @@ pub fn clear(tx: &Transaction<'_>, ext_id: &str) -> Result<StorageChanges> {
 /// so we name it similarly.
 pub fn wipe_all(tx: &Transaction<'_>) -> Result<()> {
     // We assume the meta table is only used by sync.
-    tx.execute_batch("DELETE FROM storage_sync_data; DELETE FROM meta;")?;
+    tx.execute_batch(
+        "DELETE FROM storage_sync_data; DELETE FROM storage_sync_mirror; DELETE FROM meta;",
+    )?;
     Ok(())
 }
 
@@ -520,10 +522,17 @@ mod tests {
         set(&tx, "ext-a", json!({ "x": "y" }))?;
         set(&tx, "ext-b", json!({ "y": "x" }))?;
         put_meta(&tx, "meta", &"meta-meta".to_string())?;
+        tx.execute(
+            "INSERT INTO storage_sync_mirror (guid, ext_id, data)
+                    VALUES ('guid', 'ext-a', null)",
+            rusqlite::NO_PARAMS,
+        )?;
         assert_eq!(query_count(&tx, "storage_sync_data"), 2);
+        assert_eq!(query_count(&tx, "storage_sync_mirror"), 1);
         assert_eq!(query_count(&tx, "meta"), 1);
         wipe_all(&tx)?;
         assert_eq!(query_count(&tx, "storage_sync_data"), 0);
+        assert_eq!(query_count(&tx, "storage_sync_mirror"), 0);
         assert_eq!(query_count(&tx, "meta"), 0);
         Ok(())
     }
