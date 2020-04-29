@@ -39,52 +39,46 @@ fn merge(mut other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> Inco
         return IncomingAction::Same;
     }
     let old_incoming = other.clone();
-    match parent {
-        None => {
-            // Server wins. Overwrite every key in ours with the
-            // corresponding value in other.
-            log::trace!("merge: no parent - copying all keys from incoming");
-            for (key, incoming_value) in other.into_iter() {
-                ours.insert(key, incoming_value);
-            }
-        }
-        Some(parent) => {
-            // Perform 3-way merge. First, for every key in parent,
-            // compare the parent value with the incoming value to
-            // compute an implicit "diff".
-            for (key, parent_value) in parent.into_iter() {
-                match other.remove(&key) {
-                    None => {
-                        // Key was not present in incoming value.
-                        // Another client must have deleted it.
-                        log::trace!(
-                            "merge: key {} no longer present in incoming - removing it locally",
-                            key
-                        );
-                        ours.remove(&key);
-                    }
-                    Some(incoming_value) => {
-                        if incoming_value != parent_value {
-                            log::trace!(
-                                "merge: key {} was updated in incoming - copying value locally",
-                                key
-                            );
-                            ours.insert(key, incoming_value);
-                        }
-                    }
+    if let Some(parent) = parent {
+        // Perform 3-way merge. First, for every key in parent,
+        // compare the parent value with the incoming value to compute
+        // an implicit "diff".
+        for (key, parent_value) in parent.into_iter() {
+            if let Some(incoming_value) = other.remove(&key) {
+                if incoming_value != parent_value {
+                    log::trace!(
+                        "merge: key {} was updated in incoming - copying value locally",
+                        key
+                    );
+                    ours.insert(key, incoming_value);
                 }
-            }
-
-            // Then, go through every remaining key in incoming. These
-            // are the ones where a corresponding key does not exist
-            // in parent, so it is a new key, and we need to add it.
-            for (key, incoming_value) in other.into_iter() {
+            } else {
+                // Key was not present in incoming value.
+                // Another client must have deleted it.
                 log::trace!(
-                    "merge: key {} doesn't occur in parent - copying from incoming",
+                    "merge: key {} no longer present in incoming - removing it locally",
                     key
                 );
-                ours.insert(key, incoming_value);
+                ours.remove(&key);
             }
+        }
+
+        // Then, go through every remaining key in incoming. These are
+        // the ones where a corresponding key does not exist in
+        // parent, so it is a new key, and we need to add it.
+        for (key, incoming_value) in other.into_iter() {
+            log::trace!(
+                "merge: key {} doesn't occur in parent - copying from incoming",
+                key
+            );
+            ours.insert(key, incoming_value);
+        }
+    } else {
+        // No parent. Server wins. Overwrite every key in ours with
+        // the corresponding value in other.
+        log::trace!("merge: no parent - copying all keys from incoming");
+        for (key, incoming_value) in other.into_iter() {
+            ours.insert(key, incoming_value);
         }
     }
 
