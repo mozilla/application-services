@@ -30,8 +30,6 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation "net.java.dev.jna:jna:$jna_version@aar"
-    // There's a bug in versions > 3.9.2 that prevents us from upgrading:
-    // https://github.com/protocolbuffers/protobuf/issues/7422
     api 'com.google.protobuf:protobuf-javalite:3.11.4'
 }
 
