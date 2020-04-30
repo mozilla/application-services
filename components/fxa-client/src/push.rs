@@ -35,6 +35,7 @@ impl FirefoxAccount {
                 Ok(vec![AccountEvent::ProfileUpdated])
             }
             PushPayload::DeviceConnected(DeviceConnectedPushPayload { device_name }) => {
+                self.attached_clients_cache = None;
                 Ok(vec![AccountEvent::DeviceConnected { device_name }])
             }
             PushPayload::DeviceDisconnected(DeviceDisconnectedPushPayload { device_id }) => {
@@ -44,6 +45,7 @@ impl FirefoxAccount {
                     Ok(id) => id == device_id,
                 };
                 if is_local_device {
+                    // Note: self.disconnect calls self.start_over which clears the state for the FirefoxAccount instance
                     self.disconnect();
                 }
                 Ok(vec![AccountEvent::DeviceDisconnected {

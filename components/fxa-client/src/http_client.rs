@@ -91,6 +91,11 @@ pub trait FxAClient {
         update: DeviceUpdateRequest<'_>,
     ) -> Result<UpdateDeviceResponse>;
     fn destroy_device(&self, config: &Config, refresh_token: &str, id: &str) -> Result<()>;
+    fn attached_clients(
+        &self,
+        config: &Config,
+        session_token: &str,
+    ) -> Result<Vec<GetAttachedClientResponse>>;
     fn scoped_key_data(
         &self,
         config: &Config,
@@ -341,6 +346,17 @@ impl FxAClient for Client {
 
         Self::make_request(request)?;
         Ok(())
+    }
+
+    fn attached_clients(
+        &self,
+        config: &Config,
+        session_token: &str,
+    ) -> Result<Vec<GetAttachedClientResponse>> {
+        let url = config.auth_url_path("v1/account/attached_clients")?;
+        let key = derive_auth_key_from_session_token(session_token)?;
+        let request = HawkRequestBuilder::new(Method::Get, url, &key).build()?;
+        Ok(Self::make_request(request)?.json()?)
     }
 
     fn scoped_key_data(
@@ -657,6 +673,23 @@ pub struct DeviceResponseCommon {
     pub available_commands: HashMap<String, String>,
     #[serde(rename = "pushEndpointExpired")]
     pub push_endpoint_expired: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetAttachedClientResponse {
+    pub client_id: Option<String>,
+    pub session_token_id: Option<String>,
+    pub refresh_token_id: Option<String>,
+    pub device_id: Option<String>,
+    pub device_type: Option<DeviceType>,
+    pub is_current_session: bool,
+    pub name: Option<String>,
+    pub created_time: Option<u64>,
+    pub last_access_time: Option<u64>,
+    pub scope: Option<Vec<String>>,
+    pub user_agent: String,
+    pub os: Option<String>,
 }
 
 // We model the OAuthTokenRequest according to the up to date
