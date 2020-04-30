@@ -11,7 +11,7 @@ logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
 tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client" }
-url = "2.1.1"
+url = "2.1"
 env_logger = "0.7.0"
 log = "0.4.8"
 failure = "0.1.6"
