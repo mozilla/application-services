@@ -61,6 +61,7 @@ pub struct FirefoxAccount {
     client: Arc<FxAClient>,
     state: State,
     flow_store: HashMap<String, OAuthFlow>,
+    attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
 }
 
 impl FirefoxAccount {
@@ -69,6 +70,7 @@ impl FirefoxAccount {
             client: Arc::new(http_client::Client::new()),
             state,
             flow_store: HashMap::new(),
+            attached_clients_cache: None,
         }
     }
 
@@ -137,6 +139,7 @@ impl FirefoxAccount {
     pub fn start_over(&mut self) {
         self.state = self.state.start_over();
         self.flow_store.clear();
+        self.attached_clients_cache = None;
     }
 
     /// Get the Sync Token Server endpoint URL.
