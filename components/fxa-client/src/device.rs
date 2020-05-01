@@ -111,6 +111,18 @@ impl FirefoxAccount {
         Ok(())
     }
 
+    /// Re-register the device capabilities, this should only be used internally.
+    pub(crate) fn reregister_current_capabilities(&mut self) -> Result<()> {
+        let current_capabilities: Vec<Capability> =
+            self.state.device_capabilities.clone().into_iter().collect();
+        let commands = self.register_capabilities(&current_capabilities)?;
+        let update = DeviceUpdateRequestBuilder::new()
+            .available_commands(&commands)
+            .build();
+        self.update_device(update)?;
+        Ok(())
+    }
+
     pub(crate) fn invoke_command(
         &self,
         command: &str,
@@ -171,7 +183,7 @@ impl FirefoxAccount {
     }
 
     fn parse_commands_messages(
-        &self,
+        &mut self,
         messages: Vec<PendingCommand>,
     ) -> Result<Vec<IncomingDeviceCommand>> {
         let devices = self.get_devices()?;
@@ -189,7 +201,7 @@ impl FirefoxAccount {
     }
 
     fn parse_command(
-        &self,
+        &mut self,
         command_data: CommandData,
         devices: &[Device],
     ) -> Result<IncomingDeviceCommand> {
