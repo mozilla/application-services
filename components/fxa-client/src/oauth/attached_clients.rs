@@ -9,6 +9,7 @@ use crate::{error::*, util, CachedResponse, FirefoxAccount};
 const ATTACHED_CLIENTS_FRESHNESS_THRESHOLD: u64 = 60_000; // 1 minute
 
 impl FirefoxAccount {
+    /// Fetches the list of attached clients connected to the current account.
     pub fn get_attached_clients(&mut self, session_token: &str) -> Result<Vec<AttachedClient>> {
         if let Some(a) = &self.attached_clients_cache {
             if util::now() < a.cached_at + ATTACHED_CLIENTS_FRESHNESS_THRESHOLD {

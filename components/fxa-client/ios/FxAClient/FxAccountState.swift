@@ -34,7 +34,7 @@ internal enum Event {
     case authenticatedViaMigration
     case authenticationError /* (error: AuthException) */
     case recoveredFromAuthenticationProblem
-    case fetchProfile(forceRefresh: Bool)
+    case fetchProfile(ignoreCache: Bool)
     case fetchedProfile
     case failedToFetchProfile
     case logout
