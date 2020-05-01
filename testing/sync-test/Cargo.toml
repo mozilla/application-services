@@ -11,6 +11,8 @@ logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
 tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client" }
+sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"]}
+interrupt = { path = "../../components/support/interrupt" }
 url = "2.1.1"
 env_logger = "0.7.0"
 log = "0.4.8"
@@ -18,3 +20,5 @@ failure = "0.1.6"
 rand = "0.7.2"
 lazy_static = "1.4.0"
 structopt = "0.3.11"
+serde = "1.0.104"
+serde_derive = "1.0.104"

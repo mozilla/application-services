@@ -9,7 +9,7 @@ mod tests {
 
     #[test]
     fn basic_test() {
-        let mut mem_cached_state = MemoryCachedState{
+        let mut mem_cached_state = MemoryCachedState {
 
         }
     }

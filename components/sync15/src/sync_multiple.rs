@@ -13,13 +13,17 @@ use crate::key_bundle::KeyBundle;
 use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, Store};
-use crate::telemetry;
+use crate::{telemetry, RecordChangeset, Payload, ServerTimestamp};
 use failure::Fail;
 use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
 use std::time::{Duration, SystemTime};
+use sync15_traits::CollectionRequest;
+use std::borrow::Cow;
+use sync_guid::Guid;
+use sync15_traits::telemetry::Engine;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
@@ -113,6 +117,85 @@ pub fn sync_multiple(
         req_info,
     )
 }
+
+
+/*
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_test() {
+        let mut store1 = MockStore{};
+        let mut store2 = MockStore{};
+        let mut fake_client = MockClient{};
+        let mut client
+
+        let mut fake_stores = [store1, store2];
+        let mut fake_persisted_global_state = Some("test".to_string());
+        let mut fake_mem_cached_state = MemoryCachedState {
+            last_client_info: None,
+            last_global_state: None,
+            next_sync_after: None,
+            next_client_refresh_after: None
+        };
+        // Either...
+        let (fake_storage_init, fake_root_sync_key, _device_id) = fake_client.data_for_sync()?;
+        // ...or
+        let mut fake_storage_init = Sync15StorageClientInit{
+            key_id: "111".to_string(),
+            access_token: "111".to_string(),
+            tokenserver_url: url::parse("https://www.mozilla.org")?
+        };
+        fake_root_sync_key = KeyBundle{
+            enc_key: vec![],
+            mac_key: vec![]
+        };
+    }
+}
+
+// Dummy; empty.
+pub struct MockStore {
+}
+impl Store for MockStore {
+    fn collection_name(&self) -> Cow<'static, str> {
+        unimplemented!()
+    }
+
+    fn apply_incoming(&self, inbound: Vec<RecordChangeset<(Payload, ServerTimestamp)>>, telem: &mut Engine) -> Result<RecordChangeset<Payload>, Error> {
+        unimplemented!()
+    }
+
+    fn sync_finished(&self, new_timestamp: ServerTimestamp, records_synced: Vec<Guid>) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    fn get_collection_requests(&self, server_timestamp: ServerTimestamp) -> Result<Vec<CollectionRequest>, Error> {
+        unimplemented!()
+    }
+
+    fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, Error> {
+        unimplemented!()
+    }
+
+    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    fn wipe(&self) -> Result<(), Error> {
+        unimplemented!()
+    }
+}
+
+// Dummy; empty.
+pub struct MockClient {
+}
+impl TestClient for MockClient {
+//CLION NEEDS TO IMPORT AUTH'S TESTCLIENT
+}
+*/
+
+
 
 /// Like `sync_multiple`, but specifies an optional command processor to handle
 /// commands from the clients collection. This function is called by the sync
