@@ -23,6 +23,7 @@ mod sync_multiple;
 pub mod telemetry;
 mod token;
 mod util;
+mod engine;
 
 // Re-export some of the types callers are likely to want for convenience.
 pub use crate::bso_record::{BsoRecord, CleartextBso, EncryptedBso, EncryptedPayload, Payload};
@@ -43,3 +44,4 @@ pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };
 pub use crate::util::ServerTimestamp;
+pub use crate::engine::{SyncMultipleStorage, SyncMultipleEngine};

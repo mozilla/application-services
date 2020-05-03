@@ -6,7 +6,7 @@ use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use std::collections::HashMap;
 use std::sync::{Arc, Once};
-use sync15::{KeyBundle, Sync15StorageClientInit};
+use sync15::{KeyBundle, Sync15StorageClientInit, SyncMultipleEngine};
 use tabs::TabsEngine;
 use url::Url;
 
