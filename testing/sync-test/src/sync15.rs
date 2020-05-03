@@ -14,6 +14,8 @@ use sync15::{
     ServerTimestamp, Store, StoreSyncAssociation,
 };
 use sync_guid::Guid;
+use std::cell::RefCell;
+use std::borrow::BorrowMut;
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
@@ -33,7 +35,7 @@ struct TestRecord {
 
 // A test store, that doesn't hold on to any state (yet!)
 struct TestStore {
-    // ...
+    test_record: String,
 }
 
 // Lotsa boilerplate to implement `Store`... 😅
@@ -82,6 +84,9 @@ impl Store for TestStore {
             // except it'll give us a green "INFO" line, and also let us filter
             // them out with the `RUST_LOG` environment variable.
             info!("Got incoming record {:?}", incoming_record);
+
+            // Shadow
+            //let incoming_record: RefCell<TestRecord> = RefCell::new(incoming_record);
         }
 
         // Let's make an outgoing record to upload...
@@ -147,12 +152,12 @@ impl Store for TestStore {
 
 // Actual tests.
 
-fn sync_first_client(c0: &mut TestClient) {
+fn sync_first_client(c0: &mut TestClient) -> TestStore {
     let (init, key, _device_id) = c0
         .data_for_sync()
         .expect("Should have data for syncing first client");
 
-    let store = TestStore {};
+    let store = TestStore { test_record: "".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
     let result = sync15::sync_multiple(
@@ -165,14 +170,16 @@ fn sync_first_client(c0: &mut TestClient) {
         None,
     );
     println!("Finished syncing first client: {:?}", result);
+
+    return store;
 }
 
-fn sync_second_client(c1: &mut TestClient) {
+fn sync_second_client(c1: &mut TestClient) -> TestStore {
     let (init, key, _device_id) = c1
         .data_for_sync()
         .expect("Should have data for syncing second client");
 
-    let store = TestStore {};
+    let store = TestStore { test_record: "".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
     let result = sync15::sync_multiple(
@@ -185,13 +192,27 @@ fn sync_second_client(c1: &mut TestClient) {
         None,
     );
     println!("Finished syncing second client: {:?}", result);
+
+    return store;
 }
 
 // Call tests.
 
+// (It works when the email account is successfully created)
 fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
-    sync_first_client(c0);
-    sync_second_client(c1);
+    let store1 = sync_first_client(c0);
+    let store2 = sync_second_client(c1);
+
+    /*
+    let s0 = TestStore {
+        test_record: "<333".to_string()
+    };
+    c0.sync_multiple_engine.
+    */
+
+    info!("\n\n\n ASSERT:");
+    assert_eq!(store1.message, store2.message);
+    info!("\n\n\n")
 }
 
 // Boilerplate...
