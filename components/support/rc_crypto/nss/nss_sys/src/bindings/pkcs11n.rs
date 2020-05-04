@@ -6,10 +6,12 @@ pub use crate::*;
 
 pub const CKM_NSS_HKDF_SHA256: u32 = 3_461_563_220; // (CKM_NSS + 4)
 
+pub type CK_GCM_PARAMS = CK_GCM_PARAMS_V3;
 #[repr(C)]
-pub struct CK_GCM_PARAMS {
+pub struct CK_GCM_PARAMS_V3 {
     pub pIv: CK_BYTE_PTR,
     pub ulIvLen: CK_ULONG,
+    pub ulIvBits: CK_ULONG,
     pub pAAD: CK_BYTE_PTR,
     pub ulAADLen: CK_ULONG,
     pub ulTagBits: CK_ULONG,
