@@ -100,12 +100,14 @@ cp -p -L "${BUILD_DIR}/lib/libpkcs7.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${BUILD_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
-cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto.a" "${DIST_DIR}/lib"
 # HW specific.
 if [[ "${ARCH}" == "x86_64" ]]; then
   cp -p -L "${BUILD_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
 elif [[ "${ARCH}" == "arm64" ]]; then
   cp -p -L "${BUILD_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${BUILD_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
 fi
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplc4.a" "${DIST_DIR}/lib"
 cp -p -L "${NSPR_BUILD_DIR}/dist/lib/libplds4.a" "${DIST_DIR}/lib"

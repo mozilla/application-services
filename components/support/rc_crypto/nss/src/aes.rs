@@ -31,6 +31,12 @@ pub fn aes_gcm_crypt(
     let mut gcm_params = nss_sys::CK_GCM_PARAMS {
         pIv: nonce.as_ptr() as nss_sys::CK_BYTE_PTR,
         ulIvLen: nss_sys::CK_ULONG::try_from(nonce.len())?,
+        ulIvBits: nss_sys::CK_ULONG::try_from(
+            nonce
+                .len()
+                .checked_mul(8)
+                .ok_or_else(|| ErrorKind::InternalError)?,
+        )?,
         pAAD: aad.as_ptr() as nss_sys::CK_BYTE_PTR,
         ulAADLen: nss_sys::CK_ULONG::try_from(aad.len())?,
         ulTagBits: nss_sys::CK_ULONG::try_from(AES_GCM_TAG_LENGTH * 8)?,

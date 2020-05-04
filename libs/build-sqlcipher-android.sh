@@ -89,7 +89,6 @@ LIBS="\
   -lcerthi \
   -lcryptohi \
   -lfreebl_static \
-  -lhw-acc-crypto \
   -lnspr4 \
   -lnss_static \
   -lnssb \
@@ -104,11 +103,18 @@ LIBS="\
 
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]] || [[ "${TOOLCHAIN}" == "i686-linux-android" ]]; then
   LIBS="${LIBS} -lgcm-aes-x86_c_lib"
-elif [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
+fi
+if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]] || [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
+  LIBS="${LIBS} -larmv8_c_lib"
+fi
+if [[ "${TOOLCHAIN}" == "aarch64-linux-android" ]]; then
   LIBS="${LIBS} -lgcm-aes-aarch64_c_lib"
 fi
+if [[ "${TOOLCHAIN}" == "arm-linux-androideabi" ]]; then
+  LIBS="${LIBS} -lgcm-aes-arm32-neon_c_lib"
+fi
 if [[ "${TOOLCHAIN}" == "x86_64-linux-android" ]]; then
-  LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
+  LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib -lhw-acc-crypto-avx -lhw-acc-crypto-avx2"
 fi
 
 BUILD_DIR=$(mktemp -d)
