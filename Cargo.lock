@@ -2172,6 +2172,7 @@ dependencies = [
  "libsqlite3-sys",
  "lru-cache",
  "memchr",
+ "serde_json",
  "smallvec",
  "time",
 ]
@@ -3026,12 +3027,14 @@ dependencies = [
  "libsqlite3-sys",
  "log 0.4.8",
  "nss_build_common",
+ "prettytable-rs",
  "rusqlite",
  "serde",
  "serde_derive",
  "serde_json",
  "sql-support",
  "sync-guid",
+ "sync15-traits",
  "url",
 ]
 
