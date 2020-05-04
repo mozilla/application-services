@@ -144,14 +144,13 @@ impl IncomingEnvelope {
     /// Parses and returns the record payload from this envelope. Returns an
     /// error if the envelope's cleartext isn't valid JSON, or the payload is
     /// invalid.
-    pub fn payload(&self) -> Result<Payload, Box<dyn Error>> {
+    pub fn payload(&self) -> Result<Payload, PayloadError> {
         let payload: Payload = serde_json::from_str(&self.cleartext)?;
         if payload.id != self.id {
-            return Err(MismatchedIdError {
+            return Err(PayloadError::MismatchedId {
                 envelope: self.id.clone(),
                 payload: payload.id,
-            }
-            .into());
+            });
         }
         Ok(payload)
     }
@@ -166,34 +165,42 @@ pub struct OutgoingEnvelope {
     cleartext: String,
 }
 
-impl OutgoingEnvelope {
-    /// Creates an envelope for an outgoing item. Returns an error if the
-    /// payload can't be serialized to JSON.
-    pub fn new(payload: Payload) -> Result<OutgoingEnvelope, Box<dyn Error>> {
-        let cleartext = serde_json::to_string(&payload)?;
-        Ok(OutgoingEnvelope {
-            id: payload.id,
-            cleartext,
-        })
+impl From<Payload> for OutgoingEnvelope {
+    fn from(payload: Payload) -> Self {
+        let id = payload.id.clone();
+        OutgoingEnvelope {
+            id,
+            cleartext: payload.into_json_string(),
+        }
     }
 }
 
-/// An error returned when the ID of an incoming BSO doesn't match the ID in
-/// its payload.
+/// An error that indicates a payload is invalid.
 #[derive(Debug)]
-pub struct MismatchedIdError {
-    pub envelope: Guid,
-    pub payload: Guid,
+pub enum PayloadError {
+    /// The payload contains invalid JSON.
+    Invalid(serde_json::Error),
+    /// The ID of the BSO in the envelope doesn't match the ID in the payload.
+    MismatchedId { envelope: Guid, payload: Guid },
 }
 
-impl Error for MismatchedIdError {}
+impl Error for PayloadError {}
 
-impl fmt::Display for MismatchedIdError {
+impl From<serde_json::Error> for PayloadError {
+    fn from(err: serde_json::Error) -> PayloadError {
+        PayloadError::Invalid(err)
+    }
+}
+
+impl fmt::Display for PayloadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "ID `{}` in envelope doesn't match `{}` in payload",
-            self.envelope, self.payload
-        )
+        match self {
+            PayloadError::Invalid(err) => err.fmt(f),
+            PayloadError::MismatchedId { envelope, payload } => write!(
+                f,
+                "ID `{}` in envelope doesn't match `{}` in payload",
+                envelope, payload
+            ),
+        }
     }
 }
