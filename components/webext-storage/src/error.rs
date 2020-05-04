@@ -52,6 +52,9 @@ pub enum ErrorKind {
 
     #[fail(display = "Database version {} is not supported", _0)]
     UnsupportedDatabaseVersion(i64),
+
+    #[fail(display = "This operation isn't implemented yet")]
+    NotImplemented,
 }
 
 error_support::define_error! {
