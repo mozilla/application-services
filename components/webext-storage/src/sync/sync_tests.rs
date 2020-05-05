@@ -10,21 +10,21 @@ use crate::api::{clear, get, set};
 use crate::error::*;
 use crate::schema::create_empty_sync_temp_tables;
 use crate::sync::incoming::{apply_actions, get_incoming, plan_incoming, stage_incoming};
-use crate::sync::outgoing::{get_and_record_outgoing, record_uploaded};
+use crate::sync::outgoing::{get_outgoing, record_uploaded, stage_outgoing};
 use crate::sync::test::new_syncable_mem_db;
-use crate::sync::ServerPayload;
+use crate::sync::Record;
 use interrupt_support::NeverInterrupts;
 use rusqlite::{Connection, Row, Transaction};
 use serde_json::json;
 use sql_support::ConnExt;
-use sync15_traits::ServerTimestamp;
+use sync15_traits::Payload;
 use sync_guid::Guid;
 
 // Here we try and simulate everything done by a "full sync", just minus the
 // engine. Returns the records we uploaded.
-fn do_sync(tx: &Transaction<'_>, incoming_bsos: Vec<ServerPayload>) -> Result<Vec<ServerPayload>> {
+fn do_sync(tx: &Transaction<'_>, incoming_payloads: Vec<Payload>) -> Result<Vec<Payload>> {
     // First we stage the incoming in the temp tables.
-    stage_incoming(tx, incoming_bsos, &NeverInterrupts)?;
+    stage_incoming(tx, incoming_payloads, &NeverInterrupts)?;
     // Then we process them getting a Vec of (item, state), which we turn into
     // a Vec of (item, action)
     let actions = get_incoming(tx)?
@@ -33,12 +33,13 @@ fn do_sync(tx: &Transaction<'_>, incoming_bsos: Vec<ServerPayload>) -> Result<Ve
         .collect();
     apply_actions(&tx, actions, &NeverInterrupts)?;
     // So we've done incoming - do outgoing.
-    let outgoing = get_and_record_outgoing(tx, &NeverInterrupts)?;
+    stage_outgoing(tx)?;
+    let outgoing = get_outgoing(tx, &NeverInterrupts)?;
     record_uploaded(
         tx,
         outgoing
             .iter()
-            .map(|p| p.guid.clone())
+            .map(|p| p.id.clone())
             .collect::<Vec<Guid>>()
             .as_slice(),
         &NeverInterrupts,
@@ -159,13 +160,11 @@ fn test_merged() -> Result<()> {
     let data = json!({"key1": "key1-value"});
     set(&tx, "ext-id", data)?;
     // Incoming payload without 'key1' and conflicting for 'key2'
-    let payload = ServerPayload {
+    let payload = Payload::from_record(Record {
         guid: Guid::from("guid"),
         ext_id: "ext-id".to_string(),
         data: Some(json!({"key2": "key2-value"}).to_string()),
-        deleted: false,
-        last_modified: ServerTimestamp(0),
-    };
+    })?;
     assert_eq!(do_sync(&tx, vec![payload])?.len(), 1);
     check_finished_with(
         &tx,
@@ -182,13 +181,11 @@ fn test_reconciled() -> Result<()> {
     let data = json!({"key1": "key1-value"});
     set(&tx, "ext-id", data)?;
     // Incoming payload without 'key1' and conflicting for 'key2'
-    let payload = ServerPayload {
+    let payload = Payload::from_record(Record {
         guid: Guid::from("guid"),
         ext_id: "ext-id".to_string(),
         data: Some(json!({"key1": "key1-value"}).to_string()),
-        deleted: false,
-        last_modified: ServerTimestamp(0),
-    };
+    })?;
     // Should be no outgoing records as we reconciled.
     assert_eq!(do_sync(&tx, vec![payload])?.len(), 0);
     check_finished_with(&tx, "ext-id", json!({"key1": "key1-value"}))?;
@@ -202,13 +199,11 @@ fn test_conflicting_incoming() -> Result<()> {
     let data = json!({"key1": "key1-value", "key2": "key2-value"});
     set(&tx, "ext-id", data)?;
     // Incoming payload without 'key1' and conflicting for 'key2'
-    let payload = ServerPayload {
+    let payload = Payload::from_record(Record {
         guid: Guid::from("guid"),
         ext_id: "ext-id".to_string(),
         data: Some(json!({"key2": "key2-incoming"}).to_string()),
-        deleted: false,
-        last_modified: ServerTimestamp(0),
-    };
+    })?;
     assert_eq!(do_sync(&tx, vec![payload])?.len(), 1);
     check_finished_with(
         &tx,

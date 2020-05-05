@@ -10,7 +10,6 @@ mod outgoing;
 mod sync_tests;
 
 use serde_derive::*;
-use sync15_traits::ServerTimestamp;
 use sync_guid::Guid as SyncGuid;
 
 pub use bridge::BridgedEngine;
@@ -24,19 +23,14 @@ pub fn is_default<T: PartialEq + Default>(v: &T) -> bool {
     *v == T::default()
 }
 
-// XXX - need to work out how to consolidate "payload" vs "bso", particularly
-// the timestamp, etc. For now, we represent this in ServerPayload, even though
-// that's never actually stored in this way.
-// XXX - this is going to be replaced with envelopes!
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ServerPayload {
+#[serde(rename_all = "camelCase")]
+pub struct Record {
+    #[serde(rename = "id")]
     guid: SyncGuid,
     ext_id: String,
     #[serde(default, skip_serializing_if = "is_default")]
     data: Option<String>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    deleted: bool,
-    last_modified: ServerTimestamp,
 }
 
 // Perform a 2-way or 3-way merge, where the incoming value wins on confict.

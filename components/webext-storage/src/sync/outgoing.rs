@@ -6,94 +6,85 @@
 // managing the sync state of the local DB.
 
 use interrupt_support::Interruptee;
-use rusqlite::{Row, Transaction};
+use rusqlite::{Connection, Row, Transaction};
 use sql_support::ConnExt;
-use sync15_traits::ServerTimestamp;
+use sync15_traits::Payload;
 use sync_guid::Guid as SyncGuid;
 
 use crate::error::*;
 
-use super::ServerPayload;
+use super::Record;
 
-fn outgoing_from_row(row: &Row<'_>) -> Result<(ServerPayload, i32)> {
-    let mirror_guid = row.get::<_, Option<SyncGuid>>("mirror_guid")?;
-    let staging_guid = row.get::<_, Option<SyncGuid>>("staging_guid")?;
-    // We could assert they are identical if non-none?
-    let guid = mirror_guid
-        .or(staging_guid)
-        .unwrap_or_else(SyncGuid::random);
+fn outgoing_from_row(row: &Row<'_>) -> Result<Payload> {
+    let guid: SyncGuid = row.get("guid")?;
     let ext_id: String = row.get("ext_id")?;
     let raw_data: Option<String> = row.get("data")?;
-    let (data, deleted) = if raw_data.is_some() {
-        (raw_data, false)
-    } else {
-        (None, true)
-    };
-    let change_counter = row.get::<_, i32>("sync_change_counter")?;
-    Ok((
-        ServerPayload {
+    let payload = match raw_data {
+        Some(raw_data) => Payload::from_record(Record {
             ext_id,
             guid,
-            data,
-            deleted,
-            last_modified: ServerTimestamp(0),
-        },
-        change_counter,
-    ))
+            data: Some(raw_data),
+        })?,
+        None => Payload::new_tombstone(guid),
+    };
+    Ok(payload)
 }
 
-/// Gets info about what should be uploaded and also records metadata about these
-/// items in a temp table. Returns a vec of the payloads which
-/// should be uploaded. record_uploaded() can be called after the upload is
-/// complete and the data in the temp table will be used to update the local
-/// store.
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
-pub fn get_and_record_outgoing(
-    tx: &Transaction<'_>,
-    _signal: &dyn Interruptee,
-) -> Result<Vec<ServerPayload>> {
-    // The item may not yet have a GUID (ie, it might not already be in either
-    // the mirror nor the incoming staging table.) We could probably perform
-    // some impressive sql gymnastics to handle this and arrange for the
-    // populating of the outgoing staging table to be done via a single
-    // `INSERT INTO ... SELECT` statement - but the fact we need to extract each
-    // record from this query anyway means we just loop in rust.
-    let sql = "SELECT l.ext_id, l.data, l.sync_change_counter,
-               m.guid as mirror_guid, s.guid as staging_guid
-               FROM storage_sync_data l
-               -- left joins as one or both may not exist.
-               LEFT JOIN storage_sync_mirror m ON m.ext_id = l.ext_id
-               LEFT JOIN storage_sync_staging s ON s.ext_id = l.ext_id
-               WHERE sync_change_counter > 0";
-    let elts = tx
+/// Stages info about what should be uploaded in a temp table. This should be
+/// called in the same transaction as `apply_actions`. record_uploaded() can be
+/// called after the upload is complete and the data in the temp table will be
+/// used to update the local store.
+pub fn stage_outgoing(tx: &Transaction<'_>) -> Result<()> {
+    let sql = "
+        -- Stage outgoing items. The item may not yet have a GUID (ie, it might
+        -- not already be in either the mirror nor the incoming staging table),
+        -- so we generate one if it doesn't exist.
+        INSERT INTO storage_sync_outgoing_staging
+        (guid, ext_id, data, sync_change_counter)
+        SELECT coalesce(m.guid, s.guid, generate_guid()),
+        l.ext_id, l.data, l.sync_change_counter
+        FROM storage_sync_data l
+        -- left joins as one or both may not exist.
+        LEFT JOIN storage_sync_mirror m ON m.ext_id = l.ext_id
+        LEFT JOIN storage_sync_staging s ON s.ext_id = l.ext_id
+        WHERE sync_change_counter > 0;
+
+        -- At this point, we've merged in all new records, so copy incoming
+        -- staging into the mirror so that it matches what's on the server.
+        INSERT OR REPLACE INTO storage_sync_mirror (guid, ext_id, data)
+        SELECT guid, ext_id, data FROM temp.storage_sync_staging;
+
+        -- And copy any incoming records that we aren't reuploading into the
+        -- local table. We'll copy the outgoing ones into the mirror and local
+        -- after we upload them.
+        INSERT OR REPLACE INTO storage_sync_data (ext_id, data, sync_change_counter)
+        SELECT ext_id, data, 0
+        FROM storage_sync_staging s
+        WHERE NOT EXISTS(SELECT 1 FROM storage_sync_outgoing_staging o
+                         WHERE o.guid = s.guid);";
+    tx.execute_batch(sql)?;
+    Ok(())
+}
+
+/// Returns a vec of the payloads which should be uploaded.
+pub fn get_outgoing(conn: &Connection, signal: &dyn Interruptee) -> Result<Vec<Payload>> {
+    let sql = "SELECT guid, ext_id, data FROM storage_sync_outgoing_staging";
+    let elts = conn
         .conn()
-        .query_rows_and_then_named(sql, &[], outgoing_from_row)?;
+        .query_rows_and_then_named(sql, &[], |row| -> Result<_> {
+            signal.err_if_interrupted()?;
+            Ok(outgoing_from_row(row)?)
+        })?;
 
     log::debug!("get_outgoing found {} items", elts.len());
-    // Now the temp table thang...
-    let tt_sql = "INSERT INTO storage_sync_outgoing_staging
-                  (guid, ext_id, data, sync_change_counter)
-                  VALUES (:guid, :ext_id, :data, :sync_change_counter)";
-    for (payload, change_counter) in &elts {
-        log::trace!("outgoing '{:?}' with counter={}", payload, change_counter);
-        tx.execute_named_cached(
-            tt_sql,
-            rusqlite::named_params! {
-                ":guid": payload.guid,
-                ":ext_id": payload.ext_id,
-                ":data": payload.data,
-                ":sync_change_counter": change_counter
-            },
-        )?;
-    }
-    Ok(elts.into_iter().map(|e| e.0).collect())
+    Ok(elts.into_iter().collect())
 }
 
 /// Record the fact that items were uploaded. This updates the state of the
 /// local DB to reflect the state of the server we just updated.
 /// Note that this call is almost certainly going to be made in a *different*
-/// transaction than the transaction used in `get_and_record_outgoing()`
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
+/// transaction than the transaction used in `stage_outgoing()`, and it will
+/// be called once per batch upload.
 pub fn record_uploaded(
     tx: &Transaction<'_>,
     items: &[SyncGuid],
@@ -104,40 +95,21 @@ pub fn record_uploaded(
         items.len()
     );
 
-    let sql = "
-        UPDATE storage_sync_data SET
-            sync_change_counter =
-                (sync_change_counter - (
-                    SELECT sync_change_counter
-                    FROM storage_sync_outgoing_staging
-                    WHERE storage_sync_outgoing_staging.guid = :guid)
-                )
-        WHERE ext_id = (SELECT ext_id
-                        FROM storage_sync_outgoing_staging
-                        WHERE storage_sync_outgoing_staging.guid = :guid)";
-    for guid in items.iter() {
+    // Updating the `was_uploaded` column fires the `record_uploaded` trigger,
+    // which updates the local change counter and writes the uploaded record
+    // data back to the mirror.
+    sql_support::each_chunk(&items, |chunk, _| -> Result<()> {
         signal.err_if_interrupted()?;
-        log::trace!("recording guid='{}' was uploaded", guid);
-        tx.execute_named(
-            sql,
-            rusqlite::named_params! {
-                ":guid": guid,
-            },
-        )?;
-    }
+        let sql = format!(
+            "UPDATE storage_sync_outgoing_staging SET
+                 was_uploaded = 1
+             WHERE guid IN ({})",
+            sql_support::repeat_sql_vars(chunk.len()),
+        );
+        tx.execute(&sql, chunk)?;
+        Ok(())
+    })?;
 
-    // Copy incoming staging into the mirror, then outgoing staging to the
-    // mirror and local tombstones.
-    tx.execute_batch(
-        "
-        INSERT OR REPLACE INTO storage_sync_mirror (guid, ext_id, data)
-        SELECT guid, ext_id, data FROM temp.storage_sync_staging;
-
-        INSERT OR REPLACE INTO storage_sync_mirror (guid, ext_id, data)
-        SELECT guid, ext_id, data FROM temp.storage_sync_outgoing_staging;
-
-        DELETE FROM storage_sync_data WHERE data IS NULL AND sync_change_counter = 0;",
-    )?;
     Ok(())
 }
 
@@ -161,15 +133,16 @@ mod tests {
         "#,
         )?;
 
-        let changes = get_and_record_outgoing(&tx, &NeverInterrupts)?;
+        stage_outgoing(&tx)?;
+        let changes = get_outgoing(&tx, &NeverInterrupts)?;
         assert_eq!(changes.len(), 1);
-        assert_eq!(changes[0].ext_id, "ext_with_changes".to_string());
+        assert_eq!(changes[0].data["extId"], "ext_with_changes".to_string());
 
         record_uploaded(
             &tx,
             changes
                 .into_iter()
-                .map(|p| p.guid)
+                .map(|p| p.id)
                 .collect::<Vec<SyncGuid>>()
                 .as_slice(),
             &NeverInterrupts,

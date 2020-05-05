@@ -8,11 +8,12 @@
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row, Transaction};
 use sql_support::ConnExt;
+use sync15_traits::Payload;
 use sync_guid::Guid as SyncGuid;
 
 use crate::error::*;
 
-use super::{merge, JsonMap, ServerPayload};
+use super::{merge, JsonMap, Record};
 
 /// The state data can be in. Could be represented as Option<JsonMap>, but this
 /// is clearer and independent of how the data is stored.
@@ -48,14 +49,17 @@ fn json_map_from_row(row: &Row<'_>, col: &str) -> Result<DataState> {
 
 /// The first thing we do with incoming items is to "stage" them in a temp table.
 /// The actual processing is done via this table.
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
 pub fn stage_incoming(
     tx: &Transaction<'_>,
-    incoming_bsos: Vec<ServerPayload>,
+    incoming_payloads: Vec<Payload>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
+    let mut incoming_records = Vec::with_capacity(incoming_payloads.len());
+    for payload in incoming_payloads {
+        incoming_records.push(payload.into_record::<Record>()?);
+    }
     sql_support::each_sized_chunk(
-        &incoming_bsos,
+        &incoming_records,
         // We bind 3 params per chunk.
         sql_support::default_max_variable_number() / 3,
         |chunk, _| -> Result<()> {
@@ -66,11 +70,11 @@ pub fn stage_incoming(
                 sql_support::repeat_multi_values(chunk.len(), 3)
             );
             let mut params = Vec::with_capacity(chunk.len() * 3);
-            for bso in chunk {
+            for record in chunk {
                 signal.err_if_interrupted()?;
-                params.push(&bso.guid as &dyn ToSql);
-                params.push(&bso.ext_id);
-                params.push(&bso.data);
+                params.push(&record.guid as &dyn ToSql);
+                params.push(&record.ext_id);
+                params.push(&record.data);
             }
             tx.execute(&sql, &params)?;
             Ok(())
@@ -123,7 +127,6 @@ pub enum IncomingState {
 
 /// Get the items we need to process from the staging table. Return details about
 /// the item and the state of that item, ready for processing.
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
 pub fn get_incoming(conn: &Connection) -> Result<Vec<(IncomingItem, IncomingState)>> {
     let sql = "
         SELECT
@@ -182,7 +185,6 @@ pub enum IncomingAction {
 }
 
 /// Takes the state of an item and returns the action we should take for it.
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
 pub fn plan_incoming(s: IncomingState) -> IncomingAction {
     match s {
         IncomingState::Everywhere {
@@ -270,7 +272,6 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
 }
 
 // Apply the actions necessary to fully process the incoming items.
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
 pub fn apply_actions(
     tx: &Transaction<'_>,
     actions: Vec<(IncomingItem, IncomingAction)>,
@@ -332,6 +333,7 @@ mod tests {
     use interrupt_support::NeverInterrupts;
     use rusqlite::NO_PARAMS;
     use serde_json::{json, Value};
+    use sync15_traits::Payload;
 
     // select simple int
     fn ssi(conn: &Connection, stmt: &str) -> u32 {
@@ -340,11 +342,11 @@ mod tests {
             .unwrap_or_default()
     }
 
-    fn array_to_incoming(mut array: Value) -> Vec<ServerPayload> {
+    fn array_to_incoming(mut array: Value) -> Vec<Payload> {
         let jv = array.as_array_mut().expect("you must pass a json array");
         let mut result = Vec::with_capacity(jv.len());
         for elt in jv {
-            result.push(serde_json::from_value(elt.take()).expect("must be valid"));
+            result.push(Payload::from_json(elt.take()).expect("must be valid"));
         }
         result
     }
@@ -363,9 +365,8 @@ mod tests {
 
         let incoming = json! {[
             {
-                "guid": "guidAAAAAAAA",
-                "last_modified": 0.0,
-                "ext_id": "ext1@example.com",
+                "id": "guidAAAAAAAA",
+                "extId": "ext1@example.com",
                 "data": json!({"foo": "bar"}).to_string(),
             }
         ]};
