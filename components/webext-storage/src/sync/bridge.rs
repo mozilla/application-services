@@ -2,11 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use sync15_traits::{self, ApplyResults, IncomingEnvelope};
+use sync15_traits::{self, ApplyResults, IncomingEnvelope, OutgoingEnvelope};
+use sync_guid::Guid as SyncGuid;
 
 use crate::api;
 use crate::db::StorageDb;
 use crate::error::{Error, ErrorKind, Result};
+use crate::schema;
+use crate::sync::incoming::{apply_actions, get_incoming, plan_incoming, stage_incoming};
+use crate::sync::outgoing::{get_outgoing, record_uploaded, stage_outgoing};
 
 /// A bridged engine implements all the methods needed to make the
 /// `storage.sync` store work with Desktop's Sync implementation.
@@ -46,20 +50,61 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
         Err(ErrorKind::NotImplemented.into())
     }
 
-    fn store_incoming(&self, _incoming_envelopes: &[IncomingEnvelope]) -> Result<()> {
-        Err(ErrorKind::NotImplemented.into())
+    fn store_incoming(&self, incoming_envelopes: &[IncomingEnvelope]) -> Result<()> {
+        let signal = self.db.begin_interrupt_scope();
+
+        let mut incoming_payloads = Vec::with_capacity(incoming_envelopes.len());
+        for envelope in incoming_envelopes {
+            signal.err_if_interrupted()?;
+            incoming_payloads.push(envelope.payload()?);
+        }
+
+        let tx = self.db.unchecked_transaction()?;
+        stage_incoming(&tx, incoming_payloads, &signal)?;
+        tx.commit()?;
+        Ok(())
     }
 
     fn apply(&self) -> Result<ApplyResults> {
-        Err(ErrorKind::NotImplemented.into())
+        let signal = self.db.begin_interrupt_scope();
+
+        let tx = self.db.unchecked_transaction()?;
+        let incoming = get_incoming(&tx)?;
+        let actions = incoming
+            .into_iter()
+            .map(|(item, state)| (item, plan_incoming(state)))
+            .collect();
+        apply_actions(&tx, actions, &signal)?;
+        stage_outgoing(&tx)?;
+        tx.commit()?;
+
+        let outgoing = get_outgoing(&self.db, &signal)?
+            .into_iter()
+            .map(OutgoingEnvelope::from)
+            .collect::<Vec<_>>();
+        Ok(outgoing.into())
     }
 
-    fn set_uploaded(&self, _server_modified_millis: i64, _ids: &[String]) -> Result<()> {
-        Err(ErrorKind::NotImplemented.into())
+    /// TODO: This should be `SyncGuid`, not `String`.
+    fn set_uploaded(&self, _server_modified_millis: i64, ids: &[String]) -> Result<()> {
+        let signal = self.db.begin_interrupt_scope();
+        let guids = ids
+            .iter()
+            .map(|id| SyncGuid::from(id.as_str()))
+            .collect::<Vec<_>>();
+
+        let tx = self.db.unchecked_transaction()?;
+        record_uploaded(&tx, &guids, &signal)?;
+        tx.commit()?;
+
+        Ok(())
     }
 
+    /// TODO: Need a `sync_started`, so that we can create temp tables before we
+    /// sync, too.
     fn sync_finished(&self) -> Result<()> {
-        Err(ErrorKind::NotImplemented.into())
+        schema::create_empty_sync_temp_tables(&self.db)?;
+        Ok(())
     }
 
     fn reset(&self) -> Result<()> {
