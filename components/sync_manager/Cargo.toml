@@ -22,5 +22,5 @@ sql-support = { path = "../support/sql" }
 url = "2.1"
 serde = "1.0.104"
 serde_derive = "1.0.104"
-serde_json = "1.0.50"
+serde_json = "1.0.52"
 interrupt-support = { path = "../support/interrupt" }

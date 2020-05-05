@@ -17,7 +17,7 @@ prost = "0.6.1"
 prost-derive = "0.6.1"
 serde = { version = "1.0.104", features = ["rc"] }
 serde_derive = "1.0.104"
-serde_json = "1.0.50"
+serde_json = "1.0.52"
 sync15 = { path = "../sync15" }
 url = "2.1"
 ffi-support = "0.4"
