@@ -62,7 +62,6 @@ fn create(db: &Connection) -> Result<()> {
 // Note that we expect this to be called before and after a sync - before to
 // ensure we are syncing with a clean state, after to be good memory citizens
 // given the temp tables are in memory.
-#[allow(dead_code)] // Kill this annotation once the bridged engine is hooked up
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     log::debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
