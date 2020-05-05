@@ -391,7 +391,7 @@ fn test_deleted_mirrored_object_accept() -> Result<()> {
         data: None,
     })?;
     assert_eq!(do_sync(&tx, vec![payload])?.len(), 0);
-    assert_eq!(get_local_data(&tx, "ext-id"), DbData::NoRow);
+    assert_eq!(get_local_data(&tx, "ext-id"), DbData::NullRow);
     assert_eq!(get_mirror_data(&tx, "ext-id"), DbData::NullRow);
     Ok(())
 }
