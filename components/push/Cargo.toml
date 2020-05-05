@@ -17,7 +17,7 @@ bincode = "1.1.4"
 lazy_static = "1.4.0"
 base64 = "0.12.0"
 failure = "0.1.6"
-failure_derive = "0.1.5"
+failure_derive = "0.1.8"
 log = "0.4.8"
 rusqlite = { version = "0.23.1", features = ["bundled"] }
 url = "2.1"
