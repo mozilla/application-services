@@ -14,13 +14,6 @@ pub trait BridgedEngine {
     /// The type returned for errors.
     type Error;
 
-    /// Initializes the engine. This is called once, when the engine is first
-    /// created, and guaranteed to be called before any of the other methods.
-    /// The default implementation does nothing.
-    fn initialize(&self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-
     /// Returns the last sync time, in milliseconds, for this engine's
     /// collection. This is called before each sync, to determine the lower
     /// bound for new records to fetch from the server.
@@ -49,6 +42,10 @@ pub trait BridgedEngine {
     /// sync.
     fn ensure_current_sync_id(&self, new_sync_id: &str) -> Result<String, Self::Error>;
 
+    /// Indicates that the engine is about to start syncing. This is called
+    /// once per sync, and always before `store_incoming`.
+    fn sync_started(&self) -> Result<(), Self::Error>;
+
     /// Stages a batch of incoming Sync records. This is called multiple
     /// times per sync, once for each batch. Implementations can use the
     /// signal to check if the operation was aborted, and cancel any
@@ -62,7 +59,7 @@ pub trait BridgedEngine {
     /// Indicates that the given record IDs were uploaded successfully to the
     /// server. This is called multiple times per sync, once for each batch
     /// upload.
-    fn set_uploaded(&self, server_modified_millis: i64, ids: &[String]) -> Result<(), Self::Error>;
+    fn set_uploaded(&self, server_modified_millis: i64, ids: &[Guid]) -> Result<(), Self::Error>;
 
     /// Indicates that all records have been uploaded. At this point, any record
     /// IDs marked for upload that haven't been passed to `set_uploaded`, can be
@@ -78,13 +75,6 @@ pub trait BridgedEngine {
     /// Erases all local user data for this collection, and any Sync metadata.
     /// This method is destructive, and unused for most collections.
     fn wipe(&self) -> Result<(), Self::Error>;
-
-    /// Tears down the engine. The opposite of `initialize`, `finalize` is
-    /// called when an engine is disabled, or otherwise no longer needed. The
-    /// default implementation does nothing.
-    fn finalize(&self) -> Result<(), Self::Error> {
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug, Default)]

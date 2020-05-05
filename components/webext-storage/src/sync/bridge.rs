@@ -50,6 +50,11 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
         Err(ErrorKind::NotImplemented.into())
     }
 
+    fn sync_started(&self) -> Result<()> {
+        schema::create_empty_sync_temp_tables(&self.db)?;
+        Ok(())
+    }
+
     fn store_incoming(&self, incoming_envelopes: &[IncomingEnvelope]) -> Result<()> {
         let signal = self.db.begin_interrupt_scope();
 
@@ -85,23 +90,15 @@ impl<'a> sync15_traits::BridgedEngine for BridgedEngine<'a> {
         Ok(outgoing.into())
     }
 
-    /// TODO: This should be `SyncGuid`, not `String`.
-    fn set_uploaded(&self, _server_modified_millis: i64, ids: &[String]) -> Result<()> {
+    fn set_uploaded(&self, _server_modified_millis: i64, ids: &[SyncGuid]) -> Result<()> {
         let signal = self.db.begin_interrupt_scope();
-        let guids = ids
-            .iter()
-            .map(|id| SyncGuid::from(id.as_str()))
-            .collect::<Vec<_>>();
-
         let tx = self.db.unchecked_transaction()?;
-        record_uploaded(&tx, &guids, &signal)?;
+        record_uploaded(&tx, ids, &signal)?;
         tx.commit()?;
 
         Ok(())
     }
 
-    /// TODO: Need a `sync_started`, so that we can create temp tables before we
-    /// sync, too.
     fn sync_finished(&self) -> Result<()> {
         schema::create_empty_sync_temp_tables(&self.db)?;
         Ok(())
