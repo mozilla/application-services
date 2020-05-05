@@ -28,7 +28,7 @@ error-support = { path = "../support/error" }
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
 cli-support = { path = "../support/cli" }
-dialoguer = "0.5.1"
+dialoguer = "0.6.2"
 webbrowser = "0.5.1"
 mockiato = "0.9.5"
 
