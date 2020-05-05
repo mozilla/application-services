@@ -50,9 +50,18 @@ pub fn stage_outgoing(tx: &Transaction<'_>) -> Result<()> {
         WHERE sync_change_counter > 0;
 
         -- At this point, we've merged in all new records, so copy incoming
-        --- staging into the mirror so that it matches what's on the server.
+        -- staging into the mirror so that it matches what's on the server.
         INSERT OR REPLACE INTO storage_sync_mirror (guid, ext_id, data)
-        SELECT guid, ext_id, data FROM temp.storage_sync_staging;";
+        SELECT guid, ext_id, data FROM temp.storage_sync_staging;
+
+        -- And copy any incoming records that we aren't reuploading into the
+        -- local table. We'll copy the outgoing ones into the mirror and local
+        -- after we upload them.
+        INSERT OR REPLACE INTO storage_sync_data (ext_id, data, sync_change_counter)
+        SELECT ext_id, data, 0
+        FROM storage_sync_staging s
+        WHERE NOT EXISTS(SELECT 1 FROM storage_sync_outgoing_staging o
+                         WHERE o.guid = s.guid);";
     tx.execute_batch(sql)?;
     Ok(())
 }
