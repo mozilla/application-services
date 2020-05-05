@@ -1,14 +1,31 @@
-use sync15::{MemoryCachedState};
+use crate::MemoryCachedState;
+
+use log::*;
+use serde_derive::*;
 use sync15_traits::{Store, IncomingChangeset, OutgoingChangeset, telemetry, Payload, ServerTimestamp, CollectionRequest, StoreSyncAssociation};
 use failure::Error;
 use sync_guid::Guid;
 use std::cell::{RefCell, Cell};
-use crate::MemoryCachedState;
+
+
+// A test record. It has to derive `Serialize` and `Deserialize` (which we import
+// in scope when we do `use serde_derive::*`), so that the `sync15` crate can
+// serialize them to JSON, and parse them from JSON. Deriving `Debug` lets us
+// print it with `{:?}` below.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TestRecord {
+    // This field is required for all Sync records, but can be set to whatever
+    // value we want. In the test, we just generate a random GUID.
+    id: Guid,
+    // And a test field for our record.
+    test1: String,
+}
+
 
 ///   To be used in the sync15 integration test   ///
 // A test store, that doesn't hold on to any state (yet!)
-struct TestStore {
-    test_record: String,
+pub struct TestStore {
+    pub test_record: String,
 }
 
 // Lotsa boilerplate to implement `Store`... 😅
@@ -72,7 +89,7 @@ impl Store for TestStore {
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
         outgoing
             .changes
-            .push(Payload::from_record(outgoing_record)?);
+            .push(Payload::from_record(outgoing_record)?); // !
         Ok(outgoing)
     }
 
@@ -129,11 +146,25 @@ pub struct SyncMultipleStorage {
     //remote_stores: RefCell<Option<Vec<TestStore>>>,
 }
 
+impl SyncMultipleStorage {
+    pub fn new() -> Self {
+        Self {
+            local_stores: RefCell::default(),
+        }
+    }
+}
+
+
 pub struct SyncMultipleEngine {
     pub storage: SyncMultipleStorage,
     pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
 impl SyncMultipleEngine {
-
+    pub fn new() -> Self {
+        Self {
+            storage: SyncMultipleStorage::new(),
+            mem_cached_state: Cell::default(),
+        }
+    }
 }

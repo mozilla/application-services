@@ -211,6 +211,7 @@ impl TestClient {
             test_acct: acct,
             logins_engine: PasswordEngine::new_in_memory(None)?,
             tabs_engine: TabsEngine::new(),
+            sync_multiple_engine: SyncMultipleEngine::new(),
         })
     }
 

@@ -44,4 +44,5 @@ pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };
 pub use crate::util::ServerTimestamp;
-pub use crate::engine::{SyncMultipleStorage, SyncMultipleEngine};
+// REMEMBER: this exposes the objects to be imported/used by files in other components.
+pub use crate::engine::{TestRecord, TestStore, SyncMultipleStorage, SyncMultipleEngine};
