@@ -9,14 +9,11 @@ use failure::Error;
 use interrupt::NeverInterrupts;
 use log::*;
 use serde_derive::*;
-use sync15::{
-    telemetry, CollectionRequest, IncomingChangeset, MemoryCachedState, OutgoingChangeset, Payload,
-    ServerTimestamp, Store, StoreSyncAssociation,
-    TestRecord, TestStore,
-};
-use sync_guid::Guid;
+use sync15::{telemetry, CollectionRequest, IncomingChangeset, MemoryCachedState, OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation, TestRecord, TestStore};
+use sync_guid::{Guid};
 use std::cell::RefCell;
 use std::borrow::BorrowMut;
+use sync15_traits::{CollSyncIds};
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
@@ -28,7 +25,12 @@ fn sync_first_client(c0: &mut TestClient) -> TestStore {
         .data_for_sync()
         .expect("Should have data for syncing first client");
 
-    let store = TestStore { test_record: "".to_string() };
+    let store = TestStore {
+        collection_id: CollSyncIds {
+            global: Guid::random(),
+            coll: Guid::random()
+        },
+        test_record: "hi! <33333".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
     let result = sync15::sync_multiple(
@@ -50,7 +52,12 @@ fn sync_second_client(c1: &mut TestClient) -> TestStore {
         .data_for_sync()
         .expect("Should have data for syncing second client");
 
-    let store = TestStore { test_record: "".to_string() };
+    let store = TestStore {
+        collection_id: CollSyncIds {
+            global: Guid::random(),
+            coll: Guid::random()
+        },
+        test_record: "".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
     let result = sync15::sync_multiple(
@@ -75,6 +82,10 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
     sync_second_client(c1);
 
     let s0 = TestStore {
+        collection_id: CollSyncIds{
+            global: Guid::random(),
+            coll: Guid::random()
+        },
         test_record: "<333".to_string()
     };
     // HERE

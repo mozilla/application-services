@@ -1,8 +1,8 @@
-use crate::MemoryCachedState;
+use crate::{MemoryCachedState};
 
 use log::*;
 use serde_derive::*;
-use sync15_traits::{Store, IncomingChangeset, OutgoingChangeset, telemetry, Payload, ServerTimestamp, CollectionRequest, StoreSyncAssociation};
+use sync15_traits::{Store, IncomingChangeset, OutgoingChangeset, telemetry, Payload, ServerTimestamp, CollectionRequest, StoreSyncAssociation, CollSyncIds};
 use failure::Error;
 use sync_guid::Guid;
 use std::cell::{RefCell, Cell};
@@ -17,14 +17,15 @@ pub struct TestRecord {
     // This field is required for all Sync records, but can be set to whatever
     // value we want. In the test, we just generate a random GUID.
     id: Guid,
-    // And a test field for our record.
-    test1: String,
+    // And a field to our record.
+    message: String,
 }
 
 
 ///   To be used in the sync15 integration test   ///
 // A test store, that doesn't hold on to any state (yet!)
 pub struct TestStore {
+    pub collection_id: CollSyncIds,
     pub test_record: String,
 }
 
@@ -84,7 +85,7 @@ impl Store for TestStore {
             // Random for now, but we can use any GUID we want...
             // `"recordAAAAAA".into()` also works!
             id: Guid::random(),
-            test1: "hi! <33333333333".into(),
+            message: (self.test_record).clone()
         };
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
         outgoing
@@ -120,7 +121,7 @@ impl Store for TestStore {
         // If we held on to the collection's sync ID (and global sync ID),
         // this is where we'd return them...but, for now, we just pretend
         // like it's a first sync.
-        Ok(StoreSyncAssociation::Disconnected)
+        Ok(StoreSyncAssociation::Connected((self.collection_id).clone()))
     }
 
     /// Reset the store without wiping local data, ready for a "first sync".

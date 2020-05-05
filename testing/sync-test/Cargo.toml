@@ -9,6 +9,7 @@ license = "MPL-2.0"
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
+sync15-traits = { path = "../../components/support/sync15-traits" }
 tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client" }
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"]}
