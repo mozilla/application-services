@@ -471,7 +471,7 @@ The following text applies to code linked from these dependencies:
 [mime](https://github.com/hyperium/mime),
 [miow](https://github.com/alexcrichton/miow),
 [native-tls](https://github.com/sfackler/rust-native-tls),
-[net2](https://github.com/rust-lang-nursery/net2-rs),
+[net2](https://github.com/deprecrated/net2-rs),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
@@ -1106,7 +1106,7 @@ SOFTWARE.
 ## MIT License: mio
 
 The following text applies to code linked from these dependencies:
-[mio](https://github.com/carllerche/mio)
+[mio](https://github.com/tokio-rs/mio)
 
 ```
 Copyright (c) 2014 Carl Lerche and other MIO contributors

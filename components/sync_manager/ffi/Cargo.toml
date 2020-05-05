@@ -14,4 +14,4 @@ places-ffi = { path = "../../places/ffi" }
 logins_ffi = { path = "../../logins/ffi" }
 tabs_ffi = { path = "../../tabs/ffi" }
 prost = "0.6.1"
-log = "0.4.7"
+log = "0.4"

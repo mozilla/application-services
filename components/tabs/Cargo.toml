@@ -11,10 +11,10 @@ default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
-serde = "1.0.104"
-serde_derive = "1.0.104"
-serde_json = "1.0.50"
-failure = "0.1.6"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+failure = "0.1"
 log = "0.4.8"
 url = "2.1"
 prost = "0.6.1"
@@ -26,6 +26,6 @@ sync-guid = { path = "../support/guid", features = ["random"] }
 
 [dev-dependencies]
 clipboard = "0.5.0"
-clap = "2.32.0"
+clap = "2.33"
 cli-support = { path = "../support/cli" }
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
