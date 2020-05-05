@@ -8,13 +8,23 @@ import SwiftKeychainWrapper
 class KeyChainAccountStorage {
     internal var keychainWrapper: KeychainWrapper
     internal static var keychainKey: String = "accountJSON"
+    internal static var accessibility: KeychainItemAccessibility = .afterFirstUnlock
 
     init(keychainAccessGroup: String?) {
         keychainWrapper = KeychainWrapper.sharedAppContainerKeychain(keychainAccessGroup: keychainAccessGroup)
     }
 
     func read() -> FxAccount? {
-        if let json = keychainWrapper.string(forKey: KeyChainAccountStorage.keychainKey) {
+        // Firefox iOS v25.0 shipped with the default accessibility, which breaks Send Tab when the screen is locked.
+        // This method migrates the existing keychains to the correct accessibility.
+        keychainWrapper.ensureStringItemAccessibility(
+            KeyChainAccountStorage.accessibility,
+            forKey: KeyChainAccountStorage.keychainKey
+        )
+        if let json = keychainWrapper.string(
+            forKey: KeyChainAccountStorage.keychainKey,
+            withAccessibility: KeyChainAccountStorage.accessibility
+        ) {
             do {
                 return try FxAccount(fromJsonState: json)
             } catch {
@@ -26,14 +36,47 @@ class KeyChainAccountStorage {
     }
 
     func write(_ json: String) {
-        if !keychainWrapper.set(json, forKey: KeyChainAccountStorage.keychainKey) {
+        if !keychainWrapper.set(
+            json,
+            forKey: KeyChainAccountStorage.keychainKey,
+            withAccessibility: KeyChainAccountStorage.accessibility
+        ) {
             FxALog.error("Could not write account state.")
         }
     }
 
     func clear() {
-        if !keychainWrapper.removeObject(forKey: KeyChainAccountStorage.keychainKey) {
+        if !keychainWrapper.removeObject(
+            forKey: KeyChainAccountStorage.keychainKey,
+            withAccessibility: KeyChainAccountStorage.accessibility
+        ) {
             FxALog.error("Could not clear account state.")
+        }
+    }
+}
+
+public extension KeychainWrapper {
+    func ensureStringItemAccessibility(
+        _ accessibility: SwiftKeychainWrapper.KeychainItemAccessibility,
+        forKey key: String
+    ) {
+        if hasValue(forKey: key) {
+            if accessibilityOfKey(key) != accessibility {
+                FxALog.info("ensureStringItemAccessibility: updating item \(key) with \(accessibility)")
+
+                guard let value = string(forKey: key) else {
+                    FxALog.error("ensureStringItemAccessibility: failed to get item \(key)")
+                    return
+                }
+
+                if !removeObject(forKey: key) {
+                    FxALog.error("ensureStringItemAccessibility: failed to remove item \(key)")
+                }
+
+                if !set(value, forKey: key, withAccessibility: accessibility) {
+                    FxALog.error("ensureStringItemAccessibility: failed to update item \(key)")
+                }
+            }
         }
     }
 }
