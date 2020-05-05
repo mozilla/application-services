@@ -136,7 +136,7 @@ mod tests {
         stage_outgoing(&tx)?;
         let changes = get_outgoing(&tx, &NeverInterrupts)?;
         assert_eq!(changes.len(), 1);
-        assert_eq!(changes[0].data["ext_id"], "ext_with_changes".to_string());
+        assert_eq!(changes[0].data["extId"], "ext_with_changes".to_string());
 
         record_uploaded(
             &tx,

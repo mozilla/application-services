@@ -366,7 +366,7 @@ mod tests {
         let incoming = json! {[
             {
                 "id": "guidAAAAAAAA",
-                "ext_id": "ext1@example.com",
+                "extId": "ext1@example.com",
                 "data": json!({"foo": "bar"}).to_string(),
             }
         ]};

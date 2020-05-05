@@ -24,10 +24,7 @@ pub fn is_default<T: PartialEq + Default>(v: &T) -> bool {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-// TODO: Should we camelize record properties? It's what we do for other
-// records, but, since this is the first engine where we'll use Rust
-// everywhere, it doesn't really matter.
-// #[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct Record {
     #[serde(rename = "id")]
     guid: SyncGuid,
