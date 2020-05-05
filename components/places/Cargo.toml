@@ -19,7 +19,7 @@ log = "0.4"
 lazy_static = "1.4.0"
 url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1.0"
-failure = "0.1.6"
+failure = "0.1.8"
 caseless = "0.2.1"
 sql-support = { path = "../support/sql" }
 ffi-support = "0.4"
