@@ -459,7 +459,7 @@ The following text applies to code linked from these dependencies:
 [lru-cache](https://github.com/contain-rs/lru-cache),
 [mime](https://github.com/hyperium/mime),
 [native-tls](https://github.com/sfackler/rust-native-tls),
-[net2](https://github.com/rust-lang-nursery/net2-rs),
+[net2](https://github.com/deprecrated/net2-rs),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
 [percent-encoding](https://github.com/servo/rust-url/),
@@ -1029,7 +1029,7 @@ SOFTWARE.
 ## MIT License: mio
 
 The following text applies to code linked from these dependencies:
-[mio](https://github.com/carllerche/mio)
+[mio](https://github.com/tokio-rs/mio)
 
 ```
 Copyright (c) 2014 Carl Lerche and other MIO contributors

@@ -12,7 +12,7 @@ places = { path = "../places" }
 logins = { path = "../logins" }
 tabs = { path = "../tabs" }
 ffi-support = "0.4"
-failure = "0.1.6"
+failure = "0.1"
 error-support = { path = "../support/error" }
 prost = "0.6.1"
 prost-derive = "0.6.1"
@@ -20,7 +20,7 @@ lazy_static = "1.4.0"
 log = "0.4.8"
 sql-support = { path = "../support/sql" }
 url = "2.1"
-serde = "1.0.104"
-serde_derive = "1.0.104"
-serde_json = "1.0.50"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
 interrupt-support = { path = "../support/interrupt" }

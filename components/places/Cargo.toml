@@ -12,20 +12,20 @@ default = []
 
 [dependencies]
 sync15 = { path = "../sync15" }
-serde = "1.0.104"
-serde_derive = "1.0.104"
-serde_json = "1.0.50"
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
 log = "0.4"
 lazy_static = "1.4.0"
 url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1.0"
-failure = "0.1.6"
+failure = "0.1"
 caseless = "0.2.1"
 sql-support = { path = "../support/sql" }
 ffi-support = "0.4"
 bitflags = "1.2.1"
 idna = "0.2.0"
-memchr = "2.2.1"
+memchr = "2.3"
 prost = "0.6.1"
 prost-derive = "0.6.1"
 dogear = "0.4.0"
@@ -39,12 +39,12 @@ features = ["functions", "bundled"]
 
 [dev-dependencies]
 more-asserts = "0.2.1"
-env_logger = "0.7.0"
+env_logger = "0.7"
 find-places-db = "0.1.0"
-clap = "2.32.0"
-structopt = "0.3.11"
-tempfile = "3.0.8"
-rand = "0.7.2"
+clap = "2.33"
+structopt = "0.3"
+tempfile = "3.1"
+rand = "0.7"
 fxa-client = { path = "../fxa-client" }
 criterion = "0.3.2"
 tempdir = "0.3.7"
@@ -56,7 +56,7 @@ ctrlc = "3.1.4"
 # our example doesn't work on Windows), it does get further in the compilation
 # such that "cargo test" etc shows errors in our code rather than in termion.
 [target.'cfg(not(windows))'.dev-dependencies]
-termion = "1.5.4"
+termion = "1.5"
 
 [[bench]]
 name = "match_impl"
