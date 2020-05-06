@@ -1,3 +1,9 @@
+# v0.58.3 (_2020-05-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.2...v0.58.3)
+
+- Backported the following Send Tab fixes: [#3065](https://github.com/mozilla/application-services/pull/3065) [#3084](https://github.com/mozilla/application-services/pull/3084) to `v0.58.2`. ([#3101](https://github.com/mozilla/application-services/pull/3101))
+
 # v0.58.2 (_2020-04-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.1...v0.58.2)
