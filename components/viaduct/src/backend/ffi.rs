@@ -18,7 +18,6 @@ impl From<crate::Request> for msg_types::Request {
             method: request.method as i32,
             headers: request.headers.into(),
             follow_redirects: GLOBAL_SETTINGS.follow_redirects,
-            include_cookies: GLOBAL_SETTINGS.include_cookies,
             use_caches: GLOBAL_SETTINGS.use_caches,
             connect_timeout_secs: GLOBAL_SETTINGS
                 .connect_timeout

@@ -47,6 +47,9 @@ Some notes:
 - This "request flow" is entirely synchronous, simplifying the implementation
   considerably.
 
+- Cookies are explicitely not supported at the moment, adding them would
+  require a separate security review.
+
 - Generally, this is the way the FFI backend is expected to work on any
   platform, but for concreteness (and because it's the only one currently using
   the FFI backend), we explained it for Android.
