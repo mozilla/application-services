@@ -4,7 +4,9 @@
 
 pub use crate::commands::send_tab::{SendTabPayload, TabHistoryEntry};
 use crate::{
-    commands::send_tab::{self, EncryptedSendTabPayload, PrivateSendTabKeys, PublicSendTabKeys},
+    commands::send_tab::{
+        self, EncryptedSendTabPayload, PrivateSendTabKeys, PublicSendTabKeys, SendTabKeysPayload,
+    },
     error::*,
     http_client::GetDeviceResponse,
     scopes, FirefoxAccount, IncomingDeviceCommand,
@@ -49,7 +51,7 @@ impl FirefoxAccount {
     }
 
     pub(crate) fn handle_send_tab_command(
-        &self,
+        &mut self,
         sender: Option<GetDeviceResponse>,
         payload: serde_json::Value,
     ) -> Result<IncomingDeviceCommand> {
@@ -64,7 +66,46 @@ impl FirefoxAccount {
                 }
             };
         let encrypted_payload: EncryptedSendTabPayload = serde_json::from_value(payload)?;
-        let payload = encrypted_payload.decrypt(&send_tab_key)?;
-        Ok(IncomingDeviceCommand::TabReceived { sender, payload })
+        match encrypted_payload.decrypt(&send_tab_key) {
+            Ok(payload) => Ok(IncomingDeviceCommand::TabReceived { sender, payload }),
+            Err(e) => {
+                log::error!("Could not decrypt Send Tab payload. Diagnosing then resetting the Send Tab keys.");
+                match self.diagnose_remote_keys(send_tab_key) {
+                    Ok(_) => log::error!("Could not find the cause of the Send Tab keys issue."),
+                    Err(e) => log::error!("{}", e),
+                };
+                // Reset the Send Tab keys.
+                self.state.commands_data.remove(send_tab::COMMAND_NAME);
+                self.reregister_current_capabilities()?;
+                Err(e)
+            }
+        }
+    }
+
+    fn diagnose_remote_keys(&self, local_send_tab_key: PrivateSendTabKeys) -> Result<()> {
+        let own_device = self
+            .get_current_device()?
+            .ok_or_else(|| ErrorKind::SendTabDiagnosisError("No remote device."))?;
+
+        let command = own_device
+            .available_commands
+            .get(send_tab::COMMAND_NAME)
+            .ok_or_else(|| ErrorKind::SendTabDiagnosisError("No remote command."))?;
+        let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
+        let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
+        let public_keys_remote = bundle.decrypt(oldsync_key).map_err(|_| {
+            ErrorKind::SendTabDiagnosisError("Unable to decrypt public key bundle.")
+        })?;
+
+        let public_keys_local: PublicSendTabKeys = local_send_tab_key.into();
+
+        if public_keys_local.public_key() != public_keys_remote.public_key() {
+            return Err(ErrorKind::SendTabDiagnosisError("Mismatch in public key.").into());
+        }
+
+        if public_keys_local.auth_secret() != public_keys_remote.auth_secret() {
+            return Err(ErrorKind::SendTabDiagnosisError("Mismatch in auth secret.").into());
+        }
+        Ok(())
     }
 }
