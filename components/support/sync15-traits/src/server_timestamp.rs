@@ -89,7 +89,15 @@ impl<'de> serde::de::Visitor<'de> for TimestampVisitor {
     }
 
     fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Self::Value, E> {
-        Ok(ServerTimestamp(value * 1000))
+        Ok(if value < 0 {
+            ServerTimestamp(0)
+        } else {
+            ServerTimestamp(value * 1000)
+        })
+    }
+
+    fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<Self::Value, E> {
+        Ok(ServerTimestamp(value as i64 * 1000))
     }
 }
 
@@ -122,8 +130,16 @@ mod test {
         let ser = serde_json::to_string(&ts).unwrap();
         assert_eq!("123.456".to_string(), ser);
 
-        // test deserialize
+        // test deserialize of float
         let ts: ServerTimestamp = serde_json::from_str(&ser).unwrap();
         assert_eq!(ServerTimestamp(123_456), ts);
+
+        // test deserialize of whole number
+        let ts: ServerTimestamp = serde_json::from_str("123").unwrap();
+        assert_eq!(ServerTimestamp(123000), ts);
+
+        // test deserialize of negative number
+        let ts: ServerTimestamp = serde_json::from_str("-123").unwrap();
+        assert_eq!(ServerTimestamp(0), ts);
     }
 }
