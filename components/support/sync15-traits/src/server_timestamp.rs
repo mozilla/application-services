@@ -87,11 +87,15 @@ impl<'de> serde::de::Visitor<'de> for TimestampVisitor {
     fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Self::Value, E> {
         Ok(ServerTimestamp::from_float_seconds(value))
     }
+
+    fn visit_i64<E: serde::de::Error>(self, value: i64) -> Result<Self::Value, E> {
+        Ok(ServerTimestamp(value * 1000))
+    }
 }
 
 impl<'de> serde::de::Deserialize<'de> for ServerTimestamp {
     fn deserialize<D: serde::de::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_f64(TimestampVisitor(PhantomData))
+        deserializer.deserialize_any(TimestampVisitor(PhantomData))
     }
 }
 
