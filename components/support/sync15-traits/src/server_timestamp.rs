@@ -136,7 +136,7 @@ mod test {
 
         // test deserialize of whole number
         let ts: ServerTimestamp = serde_json::from_str("123").unwrap();
-        assert_eq!(ServerTimestamp(123000), ts);
+        assert_eq!(ServerTimestamp(123_000), ts);
 
         // test deserialize of negative number
         let ts: ServerTimestamp = serde_json::from_str("-123").unwrap();
