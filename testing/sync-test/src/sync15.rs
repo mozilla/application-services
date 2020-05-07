@@ -11,30 +11,23 @@ use log::*;
 use serde_derive::*;
 use sync15::{telemetry, CollectionRequest, IncomingChangeset, MemoryCachedState, OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation, TestRecord, TestStore};
 use sync_guid::{Guid};
-use std::cell::RefCell;
+use std::cell::{RefCell, Cell};
 use std::borrow::BorrowMut;
 use sync15_traits::{CollSyncIds}; // had to declare this dependency in component's Cargo.toml
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 
-// Actual tests.
-
-fn sync_first_client(c0: &mut TestClient) -> TestStore {
+fn sync_first_client(c0: &mut TestClient, store: &Store) {
     let (init, key, _device_id) = c0
         .data_for_sync()
         .expect("Should have data for syncing first client");
 
-    let store = TestStore {
-        global_id: Option::from(Guid::random()),
-        coll_id: Option::from(Guid::random()),
-
-        test_record: "hi! <33333".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
 
     let result = sync15::sync_multiple(
-        &[&store],
+        &[store],
         &mut persisted_global_state,
         &mut mem_cached_state,
         &init,
@@ -44,25 +37,18 @@ fn sync_first_client(c0: &mut TestClient) -> TestStore {
     );
 
     println!("Finished syncing first client: {:?}", result);
-
-    return store;
 }
 
-fn sync_second_client(c1: &mut TestClient) -> TestStore {
+fn sync_second_client(c1: &mut TestClient, store: &Store) {
     let (init, key, _device_id) = c1
         .data_for_sync()
         .expect("Should have data for syncing second client");
 
-    let store = TestStore {
-        global_id: Option::from(Guid::random()),
-        coll_id: Option::from(Guid::random()),
-
-        test_record: "".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
 
     let result = sync15::sync_multiple(
-        &[&store],
+        &[store],
         &mut persisted_global_state,
         &mut mem_cached_state,
         &init,
@@ -72,32 +58,49 @@ fn sync_second_client(c1: &mut TestClient) -> TestStore {
     );
 
     println!("Finished syncing second client: {:?}", result);
-
-    return store;
 }
 
-// Call tests.
-
-// (It works when the email account is successfully created)
+// Integration test.
+// Note that it will fail if a mock email account cannot be successfully created.
 fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
-    sync_first_client(c0);
-    sync_second_client(c1);
+    let first_client_store = TestStore {
+        name: "c0",
+        test_records: RefCell::new(vec![
+            TestRecord {
+                id: Guid::random(),
+                message: "<3".to_string()
+            }
+        ]),
+        store_sync_assoc: RefCell::new(StoreSyncAssociation::Disconnected), // also test Connected !
+        was_reset_called: Cell::new(false),
 
-    let s0 = TestStore {
         global_id: Option::from(Guid::random()),
-        coll_id: Option::from(Guid::random()),
-
-        test_record: "<333".to_string()
+        coll_id: Option::from(Guid::random())
     };
+    sync_first_client(c0, &first_client_store);
+    assert_eq!(
+        first_client_store.was_reset_called.get(),
+        true,
+        "Should have called first reset"
+    );
 
+    let second_client_store = TestStore {
+        name: "c1",
+        test_records: RefCell::default(),
+        store_sync_assoc: first_client_store.store_sync_assoc, // unlike c0, will not call reset()
+        was_reset_called: Cell::new(false),
 
+        global_id: Option::from(Guid::random()),
+        coll_id: Option::from(Guid::random())
+    };
+    sync_second_client(c1, &second_client_store);
+    assert_eq!(
+        second_client_store.was_reset_called.get(),
+        false,
+        "Second client shouldn't have called reset"
+    );
+    // TODO: Assert that we uploaded our test record.
 
-    // HERE
-    //c0.sync_multiple_engine.
-
-    //info!("\n\n\n ASSERT:");
-    //assert_eq!(store1.message, store2.message);
-    //info!("\n\n\n")
 }
 
 // Boilerplate...

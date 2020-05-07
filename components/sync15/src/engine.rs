@@ -25,9 +25,13 @@ pub struct TestRecord {
 ///   To be used in the sync15 integration test   ///
 // A test store, that doesn't hold on to any state (yet!)
 pub struct TestStore {
+    pub name: &'static str,
+    pub test_records: RefCell<Vec<TestRecord>>,
+    pub store_sync_assoc: RefCell<StoreSyncAssociation>,
+    pub was_reset_called: Cell<bool>,
+
     pub global_id: Option<Guid>,
     pub coll_id: Option<Guid>,
-    pub test_record: String,
 }
 
 // Lotsa boilerplate to implement `Store`... 😅
@@ -72,6 +76,7 @@ impl Store for TestStore {
             // That's why `into_record` returns a `Result<T, Error>` instead of just
             // `T`.
             let incoming_record: TestRecord = payload.into_record()?;
+            // TODO: Push `incoming_record` into `self.test_record`.
             // `info!` is a macro from the `log` crate. It's like `println!`,
             // except it'll give us a green "INFO" line, and also let us filter
             // them out with the `RUST_LOG` environment variable.
@@ -81,6 +86,7 @@ impl Store for TestStore {
             //let incoming_record: RefCell<TestRecord> = RefCell::new(incoming_record);
         }
 
+        /* Doing it from the integration test file (sync15.rs) now.
         // Let's make an outgoing record to upload...
         let outgoing_record = TestRecord {
             // Random for now, but we can use any GUID we want...
@@ -88,10 +94,18 @@ impl Store for TestStore {
             id: Guid::random(),
             message: (self.test_record).clone()
         };
+        */
+        let outgoing_record = self.test_records.borrow();
+
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
+
+        // TODO: Turn `outgoing_record` (which is a `&Vec<TestRecord>`)
+        // into a `Vec<Payload>`, so that we can assign it to
+        // `outgoing.changes`.
         outgoing
             .changes
             .push(Payload::from_record(outgoing_record)?); // !
+
         Ok(outgoing)
     }
 
@@ -123,6 +137,14 @@ impl Store for TestStore {
     // like it's a first sync.
     // [DONE]
     fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, Error> {
+        let our_assoc = self.store_sync_assoc.borrow();
+        println!(
+            "TEST {}: get_sync_assoc called with {:?}",
+            self.name, *our_assoc
+        );
+        Ok(our_assoc.clone())
+
+        /* KEEP?
         let global = (self.global_id).clone();
         let coll = (self.coll_id).clone();
 
@@ -131,6 +153,7 @@ impl Store for TestStore {
         } else {
             Ok(StoreSyncAssociation::Disconnected)
         }
+        */
     }
 
     /// Reset the store without wiping local data, ready for a "first sync".
@@ -139,12 +162,16 @@ impl Store for TestStore {
         // If we held on to any state, this is where we'd drop it, and replace
         // it with what we were given in `assoc`. But we don't, so we do
         // nothing.
+        println!("TEST {}: Reset called", self.name);
+        self.was_reset_called.set(true);
+        *self.store_sync_assoc.borrow_mut() = assoc.clone();
 
-        // reset id's or test_message?
+        // Are we resetting the `id` or the `message` of the TestRecord?
+        /* COPIED from components/places/src/bookmark_sync/store.rs
         match assoc {
             //local data
             StoreSyncAssociation::Disconnected => {
-                reset(self.db)?;
+                reset(self.db)?;  // defined in components/places/src/storage/bookmarks.rs
             }
             //sync data
             StoreSyncAssociation::Connected(ids) => {
@@ -155,9 +182,11 @@ impl Store for TestStore {
                 tx.commit()?;
             }
         }
+        */
         Ok(())
     }
 
+    // WON'T really be used anywhere.
     fn wipe(&self) -> Result<(), Error> {
         // This is where we'd erase all data and Sync state. Since we're
         // just an in-memory store, and `sync_multiple` doesn't exercise
@@ -166,6 +195,8 @@ impl Store for TestStore {
     }
 }
 
+
+//// They really want to move away from testing like this (using engines!) ////
 
 pub struct SyncMultipleStorage {
     local_stores: RefCell<Option<Vec<TestStore>>>,
@@ -179,7 +210,6 @@ impl SyncMultipleStorage {
         }
     }
 }
-
 
 pub struct SyncMultipleEngine {
     pub storage: SyncMultipleStorage,

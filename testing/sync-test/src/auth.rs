@@ -177,7 +177,7 @@ pub struct TestClient {
     // XXX do this more generically...
     pub logins_engine: PasswordEngine,
     pub tabs_engine: TabsEngine,
-    pub sync_multiple_engine: SyncMultipleEngine,
+    pub sync_multiple_engine: SyncMultipleEngine, // REMOVE
 }
 
 impl TestClient {
