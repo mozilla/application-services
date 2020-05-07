@@ -17,6 +17,8 @@ use incoming::IncomingAction;
 
 type JsonMap = serde_json::Map<String, serde_json::Value>;
 
+pub const STORAGE_VERSION: usize = 1;
+
 /// For use with `#[serde(skip_serializing_if = )]`
 #[inline]
 pub fn is_default<T: PartialEq + Default>(v: &T) -> bool {
