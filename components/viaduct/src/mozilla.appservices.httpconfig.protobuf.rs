@@ -11,12 +11,10 @@ pub struct Request {
     #[prost(bool, required, tag="5")]
     pub follow_redirects: bool,
     #[prost(bool, required, tag="6")]
-    pub include_cookies: bool,
-    #[prost(bool, required, tag="7")]
     pub use_caches: bool,
-    #[prost(int32, required, tag="8")]
+    #[prost(int32, required, tag="7")]
     pub connect_timeout_secs: i32,
-    #[prost(int32, required, tag="9")]
+    #[prost(int32, required, tag="8")]
     pub read_timeout_secs: i32,
 }
 pub mod request {

@@ -2,4 +2,10 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.3...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.2...master)
+
+## Viaduct
+
+### Breaking changes
+
+- The `include_cookies` setting is not supported anymore (was `false` by default). ([#3096](https://github.com/mozilla/application-services/pull/3096))

@@ -25,10 +25,9 @@ message Request {
     optional bytes body = 3;
     map<string, string> headers = 4;
     required bool follow_redirects = 5;
-    required bool include_cookies = 6;
-    required bool use_caches = 7;
-    required int32 connect_timeout_secs = 8;
-    required int32 read_timeout_secs = 9;
+    required bool use_caches = 6;
+    required int32 connect_timeout_secs = 7;
+    required int32 read_timeout_secs = 8;
 }
 
 message Response {
