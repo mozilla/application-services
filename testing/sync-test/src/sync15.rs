@@ -13,7 +13,7 @@ use sync15::{telemetry, CollectionRequest, IncomingChangeset, MemoryCachedState,
 use sync_guid::{Guid};
 use std::cell::RefCell;
 use std::borrow::BorrowMut;
-use sync15_traits::{CollSyncIds};
+use sync15_traits::{CollSyncIds}; // had to declare this dependency in component's Cargo.toml
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
@@ -32,6 +32,7 @@ fn sync_first_client(c0: &mut TestClient) -> TestStore {
         test_record: "hi! <33333".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
+
     let result = sync15::sync_multiple(
         &[&store],
         &mut persisted_global_state,
@@ -41,6 +42,7 @@ fn sync_first_client(c0: &mut TestClient) -> TestStore {
         &NeverInterrupts,
         None,
     );
+
     println!("Finished syncing first client: {:?}", result);
 
     return store;
@@ -58,6 +60,7 @@ fn sync_second_client(c1: &mut TestClient) -> TestStore {
         test_record: "".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
+
     let result = sync15::sync_multiple(
         &[&store],
         &mut persisted_global_state,
@@ -67,6 +70,7 @@ fn sync_second_client(c1: &mut TestClient) -> TestStore {
         &NeverInterrupts,
         None,
     );
+
     println!("Finished syncing second client: {:?}", result);
 
     return store;
@@ -85,6 +89,9 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
 
         test_record: "<333".to_string()
     };
+
+
+
     // HERE
     //c0.sync_multiple_engine.
 

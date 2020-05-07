@@ -120,7 +120,8 @@ impl Store for TestStore {
 
     // If we held on to the collection's sync ID (and global sync ID),
     // this is where we'd return them...but, for now, we just pretend
-    // like it's a first sync. [DONE]
+    // like it's a first sync.
+    // [DONE]
     fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, Error> {
         let global = (self.global_id).clone();
         let coll = (self.coll_id).clone();
@@ -134,10 +135,26 @@ impl Store for TestStore {
 
     /// Reset the store without wiping local data, ready for a "first sync".
     /// `assoc` defines how this store is to be associated with sync.
-    fn reset(&self, _assoc: &StoreSyncAssociation) -> Result<(), Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<(), Error> {
         // If we held on to any state, this is where we'd drop it, and replace
         // it with what we were given in `assoc`. But we don't, so we do
         // nothing.
+
+        // reset id's or test_message?
+        match assoc {
+            //local data
+            StoreSyncAssociation::Disconnected => {
+                reset(self.db)?;
+            }
+            //sync data
+            StoreSyncAssociation::Connected(ids) => {
+                let tx = self.db.begin_transaction()?;
+                reset_meta(self.db)?;
+                put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+                tx.commit()?;
+            }
+        }
         Ok(())
     }
 
