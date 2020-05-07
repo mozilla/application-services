@@ -26,10 +26,9 @@ fn sync_first_client(c0: &mut TestClient) -> TestStore {
         .expect("Should have data for syncing first client");
 
     let store = TestStore {
-        collection_id: CollSyncIds {
-            global: Guid::random(),
-            coll: Guid::random()
-        },
+        global_id: Option::from(Guid::random()),
+        coll_id: Option::from(Guid::random()),
+
         test_record: "hi! <33333".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
@@ -53,10 +52,9 @@ fn sync_second_client(c1: &mut TestClient) -> TestStore {
         .expect("Should have data for syncing second client");
 
     let store = TestStore {
-        collection_id: CollSyncIds {
-            global: Guid::random(),
-            coll: Guid::random()
-        },
+        global_id: Option::from(Guid::random()),
+        coll_id: Option::from(Guid::random()),
+
         test_record: "".to_string() };
     let mut persisted_global_state = None;
     let mut mem_cached_state = MemoryCachedState::default();
@@ -82,10 +80,9 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
     sync_second_client(c1);
 
     let s0 = TestStore {
-        collection_id: CollSyncIds{
-            global: Guid::random(),
-            coll: Guid::random()
-        },
+        global_id: Option::from(Guid::random()),
+        coll_id: Option::from(Guid::random()),
+
         test_record: "<333".to_string()
     };
     // HERE

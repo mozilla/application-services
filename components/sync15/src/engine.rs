@@ -25,7 +25,8 @@ pub struct TestRecord {
 ///   To be used in the sync15 integration test   ///
 // A test store, that doesn't hold on to any state (yet!)
 pub struct TestStore {
-    pub collection_id: CollSyncIds,
+    pub global_id: Option<Guid>,
+    pub coll_id: Option<Guid>,
     pub test_record: String,
 }
 
@@ -117,11 +118,18 @@ impl Store for TestStore {
         Ok(vec![CollectionRequest::new(self.collection_name()).full()])
     }
 
+    // If we held on to the collection's sync ID (and global sync ID),
+    // this is where we'd return them...but, for now, we just pretend
+    // like it's a first sync. [DONE]
     fn get_sync_assoc(&self) -> Result<StoreSyncAssociation, Error> {
-        // If we held on to the collection's sync ID (and global sync ID),
-        // this is where we'd return them...but, for now, we just pretend
-        // like it's a first sync.
-        Ok(StoreSyncAssociation::Connected((self.collection_id).clone()))
+        let global = (self.global_id).clone();
+        let coll = (self.coll_id).clone();
+
+        if let (Some(global), Some(coll)) = (global, coll) {
+            Ok(StoreSyncAssociation::Connected(CollSyncIds {global, coll }))
+        } else {
+            Ok(StoreSyncAssociation::Disconnected)
+        }
     }
 
     /// Reset the store without wiping local data, ready for a "first sync".
