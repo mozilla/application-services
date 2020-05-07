@@ -100,6 +100,12 @@ impl Store {
         Ok(result)
     }
 
+    /// Returns the bytes in use for the specified items (which can be null,
+    /// a string, or an array)
+    pub fn get_bytes_in_use(&self, ext_id: &str, keys: JsonValue) -> Result<usize> {
+        api::get_bytes_in_use(&self.db, ext_id, keys)
+    }
+
     /// Returns a bridged sync engine for Desktop for this store.
     pub fn bridged_engine(&self) -> sync::BridgedEngine<'_> {
         sync::BridgedEngine::new(&self.db)
