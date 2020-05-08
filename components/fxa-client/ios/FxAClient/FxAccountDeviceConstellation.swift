@@ -34,7 +34,7 @@ public class DeviceConstellation {
         DispatchQueue.global().async {
             FxALog.info("Refreshing device list...")
             do {
-                let devices = try self.account.fetchDevices()
+                let devices = try self.account.getDevices(ignoreCache: true)
                 let localDevice = devices.first { $0.isCurrentDevice }
                 if localDevice?.subscriptionExpired ?? false {
                     FxALog.debug("Current device needs push endpoint registration.")

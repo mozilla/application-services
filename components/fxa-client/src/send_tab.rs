@@ -38,8 +38,8 @@ impl FirefoxAccount {
     }
 
     /// Send a single tab to another device designated by its device ID.
-    pub fn send_tab(&self, target_device_id: &str, title: &str, url: &str) -> Result<()> {
-        let devices = self.get_devices()?;
+    pub fn send_tab(&mut self, target_device_id: &str, title: &str, url: &str) -> Result<()> {
+        let devices = self.get_devices(false)?;
         let target = devices
             .iter()
             .find(|d| d.id == target_device_id)
@@ -82,8 +82,8 @@ impl FirefoxAccount {
         }
     }
 
-    fn diagnose_remote_keys(&self, local_send_tab_key: PrivateSendTabKeys) -> Result<()> {
-        let own_device = self
+    fn diagnose_remote_keys(&mut self, local_send_tab_key: PrivateSendTabKeys) -> Result<()> {
+        let own_device = &mut self
             .get_current_device()?
             .ok_or_else(|| ErrorKind::SendTabDiagnosisError("No remote device."))?;
 

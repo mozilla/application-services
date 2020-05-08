@@ -128,7 +128,7 @@ fn main() -> Result<(), failure::Error> {
                 println!("Display name set to: {}", new_name);
             }
             1 => {
-                let devices = acct.lock().unwrap().get_devices().unwrap();
+                let devices = acct.lock().unwrap().get_devices(false).unwrap();
                 let devices_names: Vec<String> =
                     devices.iter().map(|i| i.display_name.clone()).collect();
                 let mut targets_menu = Select::new();

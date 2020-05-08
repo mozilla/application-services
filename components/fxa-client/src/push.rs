@@ -35,7 +35,7 @@ impl FirefoxAccount {
                 Ok(vec![AccountEvent::ProfileUpdated])
             }
             PushPayload::DeviceConnected(DeviceConnectedPushPayload { device_name }) => {
-                self.attached_clients_cache = None;
+                self.clear_devices_and_attached_clients_cache();
                 Ok(vec![AccountEvent::DeviceConnected { device_name }])
             }
             PushPayload::DeviceDisconnected(DeviceDisconnectedPushPayload { device_id }) => {

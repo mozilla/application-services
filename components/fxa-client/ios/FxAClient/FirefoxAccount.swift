@@ -15,7 +15,7 @@ open class FirefoxAccount: RustFxAccount {
     open func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
         DispatchQueue.global().async {
             do {
-                let profile = try super.getProfile(forceRefresh: false)
+                let profile = try super.getProfile(ignoreCache: false)
                 DispatchQueue.main.async { completionHandler(profile, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }
