@@ -1,7 +1,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use std::marker::PhantomData;
 use std::time::Duration;
 
 /// Typesafe way to manage server timestamps without accidentally mixing them up with
@@ -72,20 +71,6 @@ impl ServerTimestamp {
 impl serde::ser::Serialize for ServerTimestamp {
     fn serialize<S: serde::ser::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_f64(self.0 as f64 / 1000.0)
-    }
-}
-
-struct TimestampVisitor(PhantomData<ServerTimestamp>);
-
-impl<'de> serde::de::Visitor<'de> for TimestampVisitor {
-    type Value = ServerTimestamp;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.write_str("a floating point number")
-    }
-
-    fn visit_f64<E: serde::de::Error>(self, value: f64) -> Result<Self::Value, E> {
-        Ok(ServerTimestamp::from_float_seconds(value))
     }
 }
 
