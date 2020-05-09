@@ -106,6 +106,8 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
         let first_record = vector1[i].clone();
         let second_record = vector2[i].clone();
 
+        info!("Client {:?}'s test_records[{:?}]: {:?}", first_client_store.name, i, first_record.message);
+        info!("Client {:?}'s test_records[{:?}]: {:?}", second_client_store.name, i, second_record.message);
         assert_eq!(first_record.message, second_record.message, "Messages are not synced after two calls to sync_multiple()");
         //drop(first_record);
         //drop(second_record);
