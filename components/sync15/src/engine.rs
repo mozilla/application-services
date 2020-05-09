@@ -5,20 +5,20 @@ use serde_derive::*;
 use sync15_traits::{Store, IncomingChangeset, OutgoingChangeset, telemetry, Payload, ServerTimestamp, CollectionRequest, StoreSyncAssociation, CollSyncIds};
 use failure::Error;
 use sync_guid::Guid;
-use std::cell::{RefCell, Cell};
-
+use std::cell::{RefCell, Cell, Ref};
+use std::borrow::Borrow;
 
 // A test record. It has to derive `Serialize` and `Deserialize` (which we import
 // in scope when we do `use serde_derive::*`), so that the `sync15` crate can
 // serialize them to JSON, and parse them from JSON. Deriving `Debug` lets us
 // print it with `{:?}` below.
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TestRecord {
     // This field is required for all Sync records, but can be set to whatever
     // value we want. In the test, we just generate a random GUID.
-    id: Guid,
+    pub id: Guid,
     // And a field to our record.
-    message: String,
+    pub message: String,
 }
 
 
@@ -76,14 +76,16 @@ impl Store for TestStore {
             // That's why `into_record` returns a `Result<T, Error>` instead of just
             // `T`.
             let incoming_record: TestRecord = payload.into_record()?;
-            // TODO: Push `incoming_record` into `self.test_record`.
+
+            // DONE: Push `incoming_record` into `self.test_record`.
+            // TODO: BIG QUESTION
+            //self.test_records.into_inner().push(incoming_record);
+            self.test_records.replace(vec![incoming_record.clone()]);
+
             // `info!` is a macro from the `log` crate. It's like `println!`,
             // except it'll give us a green "INFO" line, and also let us filter
             // them out with the `RUST_LOG` environment variable.
             info!("Got incoming record {:?}", incoming_record);
-
-            // Shadow
-            //let incoming_record: RefCell<TestRecord> = RefCell::new(incoming_record);
         }
 
         /* Doing it from the integration test file (sync15.rs) now.
@@ -95,16 +97,28 @@ impl Store for TestStore {
             message: (self.test_record).clone()
         };
         */
-        let outgoing_record = self.test_records.borrow();
+        // Could use `*` to extract the TestRecord from the Ref.
+        let temp_outgoing_record = self.test_records.borrow();
+
+        let outgoing_record: Result<Vec<Payload>, serde_json::error::Error> =
+            temp_outgoing_record
+                .iter()
+                .map(|t| Payload::from_record(t.clone())) // CHECK: clone() correct here? No `&` in |t| correct?
+                .collect();
+
+        // CHECK: Should we use .is_ok() ?
+        let outgoing_record = outgoing_record.unwrap();
 
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
 
-        // TODO: Turn `outgoing_record` (which is a `&Vec<TestRecord>`)
-        // into a `Vec<Payload>`, so that we can assign it to
-        // `outgoing.changes`.
-        outgoing
-            .changes
-            .push(Payload::from_record(outgoing_record)?); // !
+        // DONE: Turn `outgoing_record` (which is a `&Vec<TestRecord>`)
+        //       into a `Vec<Payload>`, so that we can assign it to
+        //       `outgoing.changes`.
+        for record in outgoing_record {
+            outgoing
+                .changes
+                .push(record); // CHECK: not using `?`
+        }
 
         Ok(outgoing)
     }

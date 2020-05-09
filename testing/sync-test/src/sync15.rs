@@ -12,7 +12,7 @@ use serde_derive::*;
 use sync15::{telemetry, CollectionRequest, IncomingChangeset, MemoryCachedState, OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation, TestRecord, TestStore};
 use sync_guid::{Guid};
 use std::cell::{RefCell, Cell};
-use std::borrow::BorrowMut;
+use std::borrow::{BorrowMut, Borrow};
 use sync15_traits::{CollSyncIds}; // had to declare this dependency in component's Cargo.toml
 
 use crate::auth::TestClient;
@@ -99,8 +99,17 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
         false,
         "Second client shouldn't have called reset"
     );
-    // TODO: Assert that we uploaded our test record.
+    // DONE: Assert that we uploaded our test record.
+    let vector1 = first_client_store.test_records.into_inner();
+    let vector2 = second_client_store.test_records.into_inner();
+    for i in 0..vector1.len() {
+        let first_record = vector1[i].clone();
+        let second_record = vector2[i].clone();
 
+        assert_eq!(first_record.message, second_record.message, "Messages are not synced after two calls to sync_multiple()");
+        //drop(first_record);
+        //drop(second_record);
+    }
 }
 
 // Boilerplate...
