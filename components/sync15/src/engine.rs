@@ -7,15 +7,18 @@ use failure::Error;
 use sync_guid::Guid;
 use std::cell::{RefCell, Cell, Ref};
 use std::borrow::Borrow;
+use std::mem;
 
 // A test record. It has to derive `Serialize` and `Deserialize` (which we import
 // in scope when we do `use serde_derive::*`), so that the `sync15` crate can
 // serialize them to JSON, and parse them from JSON. Deriving `Debug` lets us
 // print it with `{:?}` below.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Eq, PartialEq)]
 pub struct TestRecord {
     // This field is required for all Sync records, but can be set to whatever
     // value we want. In the test, we just generate a random GUID.
+    // Random for now, but we can use any GUID we want...
+    // `"recordAAAAAA".into()` also works!
     pub id: Guid,
     // And a field to our record.
     pub message: String,
@@ -51,6 +54,9 @@ impl Store for TestStore {
         inbound: Vec<IncomingChangeset>,
         _telem: &mut telemetry::Engine,
     ) -> Result<OutgoingChangeset, Error> {
+        // `*` extracts the Vec<TestRecord> from the Ref.
+        let temp: Vec<TestRecord> = mem::take(&mut *self.test_records.borrow_mut());
+
         let inbound = inbound.into_iter().next().unwrap();
         for (payload, _timestamp) in inbound.changes {
             // Here's an example of a magic "into" conversion that we define
@@ -77,37 +83,23 @@ impl Store for TestStore {
             // `T`.
             let incoming_record: TestRecord = payload.into_record()?;
 
-            // DONE: Push `incoming_record` into `self.test_record`.
-            // TODO: BIG QUESTION
-            //self.test_records.into_inner().push(incoming_record);
-            self.test_records.replace(vec![incoming_record.clone()]);
-
             // `info!` is a macro from the `log` crate. It's like `println!`,
             // except it'll give us a green "INFO" line, and also let us filter
             // them out with the `RUST_LOG` environment variable.
             info!("Got incoming record {:?}", incoming_record);
+
+            // DONE: Push `incoming_record` into `self.test_record`.
+            // DONE: BIG QUESTION
+            self.test_records.borrow_mut().push(incoming_record);
         }
 
-        /* Doing it from the integration test file (sync15.rs) now.
-        // Let's make an outgoing record to upload...
-        let outgoing_record = TestRecord {
-            // Random for now, but we can use any GUID we want...
-            // `"recordAAAAAA".into()` also works!
-            id: Guid::random(),
-            message: (self.test_record).clone()
-        };
-        */
-        // Could use `*` to extract the TestRecord from the Ref.
-        let temp_outgoing_record = self.test_records.borrow();
-
         let outgoing_record: Result<Vec<Payload>, serde_json::error::Error> =
-            temp_outgoing_record
-                .iter()
-                .map(|t| Payload::from_record(t.clone())) // CHECK: clone() correct here? No `&` in |t| correct?
+            temp
+                .into_iter() // gets rid of the TestRecord reference (`t` below)
+                .map(|t| Payload::from_record(t))
                 .collect();
 
-        // CHECK: Should we use .is_ok() ?
-        let outgoing_record = outgoing_record.unwrap();
+        let outgoing_record = outgoing_record?;
 
         let mut outgoing = OutgoingChangeset::new(self.collection_name(), inbound.timestamp);
 
@@ -117,7 +109,7 @@ impl Store for TestStore {
         for record in outgoing_record {
             outgoing
                 .changes
-                .push(record); // CHECK: not using `?`
+                .push(record);
         }
 
         Ok(outgoing)
@@ -206,35 +198,5 @@ impl Store for TestStore {
         // just an in-memory store, and `sync_multiple` doesn't exercise
         // this, we do nothing.
         Ok(())
-    }
-}
-
-
-//// They really want to move away from testing like this (using engines!) ////
-
-pub struct SyncMultipleStorage {
-    local_stores: RefCell<Option<Vec<TestStore>>>,
-    //remote_stores: RefCell<Option<Vec<TestStore>>>,
-}
-
-impl SyncMultipleStorage {
-    pub fn new() -> Self {
-        Self {
-            local_stores: RefCell::default(),
-        }
-    }
-}
-
-pub struct SyncMultipleEngine {
-    pub storage: SyncMultipleStorage,
-    pub mem_cached_state: Cell<MemoryCachedState>,
-}
-
-impl SyncMultipleEngine {
-    pub fn new() -> Self {
-        Self {
-            storage: SyncMultipleStorage::new(),
-            mem_cached_state: Cell::default(),
-        }
     }
 }

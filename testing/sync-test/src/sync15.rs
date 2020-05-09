@@ -63,14 +63,16 @@ fn sync_second_client(c1: &mut TestClient, store: &Store) {
 // Integration test.
 // Note that it will fail if a mock email account cannot be successfully created.
 fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
+    let test_vec = vec![
+        TestRecord {
+            id: Guid::random(),
+            message: "<3".to_string()
+        }
+    ];
+
     let first_client_store = TestStore {
         name: "c0",
-        test_records: RefCell::new(vec![
-            TestRecord {
-                id: Guid::random(),
-                message: "<3".to_string()
-            }
-        ]),
+        test_records: RefCell::new(test_vec.clone()),
         store_sync_assoc: RefCell::new(StoreSyncAssociation::Disconnected), // also test Connected !
         was_reset_called: Cell::new(false),
 
@@ -102,16 +104,12 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
     // DONE: Assert that we uploaded our test record.
     let vector1 = first_client_store.test_records.into_inner();
     let vector2 = second_client_store.test_records.into_inner();
-    for i in 0..vector1.len() {
-        let first_record = vector1[i].clone();
-        let second_record = vector2[i].clone();
 
-        info!("Client {:?}'s test_records[{:?}]: {:?}", first_client_store.name, i, first_record.message);
-        info!("Client {:?}'s test_records[{:?}]: {:?}", second_client_store.name, i, second_record.message);
-        assert_eq!(first_record.message, second_record.message, "Messages are not synced after two calls to sync_multiple()");
-        //drop(first_record);
-        //drop(second_record);
-    }
+    assert!(vector1.is_empty(), "The vector should be empty");
+
+    assert_eq!(test_vec, vector2, "Both clients' messages should match after two calls to sync_multiple().");
+    info!("Client {:?}'s test_records: {:?}", first_client_store.name, vector1);
+    info!("Client {:?}'s test_records: {:?}", second_client_store.name, vector2);
 }
 
 // Boilerplate...
