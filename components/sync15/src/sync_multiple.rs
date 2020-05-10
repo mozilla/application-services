@@ -13,17 +13,13 @@ use crate::key_bundle::KeyBundle;
 use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, Store};
-use crate::{telemetry, RecordChangeset, Payload, ServerTimestamp};
+use crate::telemetry;
 use failure::Fail;
 use interrupt::Interruptee;
 use std::collections::HashMap;
 use std::mem;
 use std::result;
 use std::time::{Duration, SystemTime};
-use sync15_traits::CollectionRequest;
-use std::borrow::Cow;
-use sync_guid::Guid;
-use sync15_traits::telemetry::Engine;
 
 /// Info about the client to use. We reuse the client unless
 /// we discover the client_init has changed, in which case we re-create one.
