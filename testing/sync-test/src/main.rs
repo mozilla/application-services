@@ -107,5 +107,5 @@ pub fn main() {
     // run_test_groups(&opts, vec![crate::tabs::get_test_group()]);
     run_test_groups(&opts, vec![crate::sync15::get_test_group()]);
 
-    println!("### Sync integration tests passed!");
+    println!("\n### Sync integration tests passed!");
 }

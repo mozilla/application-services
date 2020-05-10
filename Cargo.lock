@@ -2381,6 +2381,7 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde_derive",
+ "serde_json",
  "structopt",
  "sync-guid",
  "sync15",

@@ -6,7 +6,7 @@ use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use std::collections::HashMap;
 use std::sync::{Arc, Once};
-use sync15::{KeyBundle, Sync15StorageClientInit, SyncMultipleEngine};
+use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsEngine;
 use url::Url;
 
@@ -176,8 +176,7 @@ pub struct TestClient {
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
     pub logins_engine: PasswordEngine,
-    pub tabs_engine: TabsEngine,
-    pub sync_multiple_engine: SyncMultipleEngine, // REMOVE
+    pub tabs_engine: TabsEngine
 }
 
 impl TestClient {
@@ -210,8 +209,7 @@ impl TestClient {
             fxa,
             test_acct: acct,
             logins_engine: PasswordEngine::new_in_memory(None)?,
-            tabs_engine: TabsEngine::new(),
-            sync_multiple_engine: SyncMultipleEngine::new(),
+            tabs_engine: TabsEngine::new()
         })
     }
 
