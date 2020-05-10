@@ -91,11 +91,11 @@ pub extern "C" fn fxa_to_json(handle: u64, error: &mut ExternError) -> *mut c_ch
 #[no_mangle]
 pub extern "C" fn fxa_profile(
     handle: u64,
-    ignore_cache: bool,
+    ignore_cache: u8,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("fxa_profile");
-    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache))
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_profile(ignore_cache != 0))
 }
 
 /// Get the pairing URL to navigate to on the Auth side (typically a computer).
@@ -315,12 +315,14 @@ pub extern "C" fn fxa_retry_migrate_from_session_token(
 pub extern "C" fn fxa_get_access_token(
     handle: u64,
     scope: FfiStr<'_>,
+    ttl: u64,
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("fxa_get_access_token");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
-        fxa.get_access_token(scope)
+        let time_left = if ttl > 0 { Some(ttl) } else { None };
+        fxa.get_access_token(scope, time_left)
     })
 }
 
@@ -412,15 +414,22 @@ pub extern "C" fn fxa_set_device_name(
 
 /// Fetch the devices (including the current one) in the current account.
 ///
+/// Devices might get cached in-memory and the caller might get served a cached version.
+/// To bypass this, the `ignore_cache` parameter can be set to `true`.
+///
 /// # Safety
 ///
 /// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_get_devices(handle: u64, error: &mut ExternError) -> ByteBuffer {
+pub extern "C" fn fxa_get_devices(
+    handle: u64,
+    ignore_cache: u8,
+    error: &mut ExternError,
+) -> ByteBuffer {
     log::debug!("fxa_get_devices");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.get_devices().map(|d| {
+        fxa.get_devices(ignore_cache != 0).map(|d| {
             let devices = d.into_iter().map(|device| device.into()).collect();
             fxa_client::msg_types::Devices { devices }
         })

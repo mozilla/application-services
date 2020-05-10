@@ -22,10 +22,10 @@ class FxAccount: RustFxAccount {
         persistCallback = nil
     }
 
-    override func getProfile() throws -> Profile {
+    override func getProfile(ignoreCache: Bool) throws -> Profile {
         defer { tryPersistState() }
         return try notifyAuthErrors {
-            try super.getProfile()
+            try super.getProfile(ignoreCache: ignoreCache)
         }
     }
 
@@ -48,10 +48,10 @@ class FxAccount: RustFxAccount {
         }
     }
 
-    override func getAccessToken(scope: String) throws -> AccessTokenInfo {
+    override func getAccessToken(scope: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
         defer { tryPersistState() }
         return try notifyAuthErrors {
-            try super.getAccessToken(scope: scope)
+            try super.getAccessToken(scope: scope, ttl: ttl)
         }
     }
 
@@ -67,9 +67,9 @@ class FxAccount: RustFxAccount {
         }
     }
 
-    override func fetchDevices() throws -> [Device] {
+    override func getDevices(ignoreCache: Bool = false) throws -> [Device] {
         return try notifyAuthErrors {
-            try super.fetchDevices()
+            try super.getDevices(ignoreCache: ignoreCache)
         }
     }
 

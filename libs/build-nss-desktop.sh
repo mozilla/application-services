@@ -47,21 +47,26 @@ if [[ -d "${DIST_DIR}" ]]; then
   exit 0
 fi
 
-# TODO compile on macOS/windows machines once `chainOfTrust` is supported on macOS (1499051).
+# TODO We do not know how to cross compile these, so we cheat by downloading them and the how is pretty disgusting.
+# https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  # Generated from nss-try@0c5d37301637ed024de8c2cbdbecf144aae12163.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_libs_darwin.tar.bz2"
-  SHA256="b25d6d057d39213aeb5426dfbb0223a1d33f1706a1fcde1b3547fd7895c922f7"
-  echo "${SHA256}  nss_nspr_static_libs_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf nss_nspr_static_libs_darwin.tar.bz2 && rm -rf nss_nspr_static_libs_darwin.tar.bz2
+  # Generated from nss-try@11e799981c28df3b4c36be1b5aabcca6f91ce798.
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/nss/nss_nspr_static_3.52_darwin.bz2"
+  SHA256="c6ae59b3cd0dd8bd1e28c3dd7b26f720d220599e2ce7802cba81b884989e9a89"
+  echo "${SHA256}  nss_nspr_static_3.52_darwin.bz2" | shasum -a 256 -c - || exit 2
+  tar xvjf nss_nspr_static_3.52_darwin.bz2 && rm -rf nss_nspr_static_3.52_darwin.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  # Generated from nss-try@0c5d37301637ed024de8c2cbdbecf144aae12163.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_libs_win32.7z"
-  SHA256="cdafb89f727f7a5d6cf1c6c01b58af150f780a4438863d3a1f98b6aa50809ded"
-  echo "${SHA256}  nss_nspr_static_libs_win32.7z" | shasum -a 256 -c - || exit 2
-  7z x nss_nspr_static_libs_win32.7z -aoa && rm -rf nss_nspr_static_libs_win32.7z
+  # Generated from nss-try@11e799981c28df3b4c36be1b5aabcca6f91ce798.
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/nss/nss_nspr_static_3.52_mingw.7z"
+  SHA256="07fe3d0b0bc1b2cf51552fe0a7c8e6103b0a6b1baef5d4412dbfdcd0e1b834de"
+  echo "${SHA256}  nss_nspr_static_3.52_mingw.7z" | shasum -a 256 -c - || exit 2
+  7z x nss_nspr_static_3.52_mingw.7z -aoa && rm -rf nss_nspr_static_3.52_mingw.7z
   NSS_DIST_DIR=$(abspath "dist")
+  # NSPR outputs .a files when cross-compiling.
+  mv "${NSS_DIST_DIR}/Release/lib/libplc4.a" "${NSS_DIST_DIR}/Release/lib/libplc4.lib"
+  mv "${NSS_DIST_DIR}/Release/lib/libplds4.a" "${NSS_DIST_DIR}/Release/lib/libplds4.lib"
+  mv "${NSS_DIST_DIR}/Release/lib/libnspr4.a" "${NSS_DIST_DIR}/Release/lib/libnspr4.lib"
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
     -v \
@@ -100,7 +105,8 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}pkcs7.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}smime.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}softokn_static.${EXT}" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}ssl.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto-avx.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto-avx2.${EXT}" "${DIST_DIR}/lib"
 
 # HW specific.
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163

@@ -4,8 +4,6 @@
 
 use std::collections::HashSet;
 
-use failure;
-
 mod engine;
 mod record;
 mod ser;

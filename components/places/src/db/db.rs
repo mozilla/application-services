@@ -169,19 +169,50 @@ impl Deref for PlacesDb {
 }
 
 fn define_functions(c: &Connection) -> Result<()> {
-    c.create_scalar_function("get_prefix", 1, true, sql_fns::get_prefix)?;
-    c.create_scalar_function("get_host_and_port", 1, true, sql_fns::get_host_and_port)?;
+    use rusqlite::functions::FunctionFlags;
+    c.create_scalar_function(
+        "get_prefix",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::get_prefix,
+    )?;
+    c.create_scalar_function(
+        "get_host_and_port",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::get_host_and_port,
+    )?;
     c.create_scalar_function(
         "strip_prefix_and_userinfo",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         sql_fns::strip_prefix_and_userinfo,
     )?;
-    c.create_scalar_function("reverse_host", 1, true, sql_fns::reverse_host)?;
-    c.create_scalar_function("autocomplete_match", 10, true, sql_fns::autocomplete_match)?;
-    c.create_scalar_function("hash", -1, true, sql_fns::hash)?;
-    c.create_scalar_function("now", 0, false, sql_fns::now)?;
-    c.create_scalar_function("generate_guid", 0, false, sql_fns::generate_guid)?;
+    c.create_scalar_function(
+        "reverse_host",
+        1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::reverse_host,
+    )?;
+    c.create_scalar_function(
+        "autocomplete_match",
+        10,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::autocomplete_match,
+    )?;
+    c.create_scalar_function(
+        "hash",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        sql_fns::hash,
+    )?;
+    c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
+    c.create_scalar_function(
+        "generate_guid",
+        0,
+        FunctionFlags::SQLITE_UTF8,
+        sql_fns::generate_guid,
+    )?;
     Ok(())
 }
 

@@ -12,9 +12,9 @@ log_query_plans = []
 [dependencies]
 log = "0.4"
 lazy_static = "1.4.0"
-interrupt = { path = "../interrupt" }
+interrupt-support = { path = "../interrupt" }
 ffi-support = "0.4"
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.23.1"
 features = ["functions", "limits", "bundled"]

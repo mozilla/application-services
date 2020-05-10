@@ -13,8 +13,9 @@ use sql_support::ConnExt;
 use std::time::Instant;
 use url::Url;
 
-// From https://searchfox.org/mozilla-central/rev/597a69c70a5cce6f42f159eb54ad1ef6745f5432/mobile/android/base/java/org/mozilla/gecko/db/BrowserDatabaseHelper.java#73.
-const FENNEC_DB_VERSION: i64 = 39;
+// Fennec's history schema didn't meaningfully change since 34, so this could go as low as that version.
+// However, 36 was quite easy to obtain test databases for, and it shipped with quite an old ESR version (52).
+const FENNEC_DB_VERSION: i64 = 34;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct HistoryMigrationResult {
@@ -55,7 +56,7 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     let auto_detach = attached_database(&conn, &android_db_file_url, "fennec")?;
 
     let db_version = conn.db.query_one::<i64>("PRAGMA fennec.user_version")?;
-    if db_version != FENNEC_DB_VERSION {
+    if db_version < FENNEC_DB_VERSION {
         return Err(ErrorKind::UnsupportedDatabaseVersion(db_version).into());
     }
 
@@ -162,7 +163,7 @@ lazy_static::lazy_static! {
 
     // Count Fennec history visits
     static ref COUNT_FENNEC_HISTORY_VISITS: &'static str =
-        "SELECT COUNT(*) FROM fennec.history"
+        "SELECT COUNT(*) FROM fennec.visits"
     ;
 
     // Count Fenix history visits
@@ -172,29 +173,35 @@ lazy_static::lazy_static! {
 }
 
 pub(super) fn define_sql_functions(c: &Connection) -> Result<()> {
+    use rusqlite::functions::FunctionFlags;
     c.create_scalar_function(
         "validate_url",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::validate_url,
     )?;
     c.create_scalar_function(
         "sanitize_timestamp",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::sanitize_timestamp,
     )?;
-    c.create_scalar_function("hash", -1, true, crate::db::db::sql_fns::hash)?;
+    c.create_scalar_function(
+        "hash",
+        -1,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
+        crate::db::db::sql_fns::hash,
+    )?;
     c.create_scalar_function(
         "generate_guid",
         0,
-        false,
+        FunctionFlags::SQLITE_UTF8,
         crate::db::db::sql_fns::generate_guid,
     )?;
     c.create_scalar_function(
         "sanitize_utf8",
         1,
-        true,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DETERMINISTIC,
         crate::import::common::sql_fns::sanitize_utf8,
     )?;
     Ok(())

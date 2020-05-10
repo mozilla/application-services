@@ -12,22 +12,42 @@ use crate::{
         CommandData, DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand,
         UpdateDeviceResponse,
     },
-    FirefoxAccount, IncomingDeviceCommand,
+    util, CachedResponse, FirefoxAccount, IncomingDeviceCommand,
 };
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
+// An devices response is considered fresh for `DEVICES_FRESHNESS_THRESHOLD` ms.
+const DEVICES_FRESHNESS_THRESHOLD: u64 = 60_000; // 1 minute
+
 impl FirefoxAccount {
     /// Fetches the list of devices from the current account including
     /// the current one.
-    pub fn get_devices(&self) -> Result<Vec<Device>> {
+    ///
+    /// * `ignore_cache` - If set to true, bypass the in-memory cache
+    /// and fetch devices from the server.
+    pub fn get_devices(&mut self, ignore_cache: bool) -> Result<Vec<Device>> {
+        if let Some(d) = &self.devices_cache {
+            if !ignore_cache && util::now() < d.cached_at + DEVICES_FRESHNESS_THRESHOLD {
+                return Ok(d.response.clone());
+            }
+        }
+
         let refresh_token = self.get_refresh_token()?;
-        self.client.devices(&self.state.config, &refresh_token)
+        let response = self.client.devices(&self.state.config, &refresh_token)?;
+
+        self.devices_cache = Some(CachedResponse {
+            response: response.clone(),
+            cached_at: util::now(),
+            etag: "".into(),
+        });
+
+        Ok(response)
     }
 
-    pub fn get_current_device(&self) -> Result<Option<Device>> {
+    pub fn get_current_device(&mut self) -> Result<Option<Device>> {
         Ok(self
-            .get_devices()?
+            .get_devices(false)?
             .into_iter()
             .find(|d| d.is_current_device))
     }
@@ -111,6 +131,18 @@ impl FirefoxAccount {
         Ok(())
     }
 
+    /// Re-register the device capabilities, this should only be used internally.
+    pub(crate) fn reregister_current_capabilities(&mut self) -> Result<()> {
+        let current_capabilities: Vec<Capability> =
+            self.state.device_capabilities.clone().into_iter().collect();
+        let commands = self.register_capabilities(&current_capabilities)?;
+        let update = DeviceUpdateRequestBuilder::new()
+            .available_commands(&commands)
+            .build();
+        self.update_device(update)?;
+        Ok(())
+    }
+
     pub(crate) fn invoke_command(
         &self,
         command: &str,
@@ -171,10 +203,10 @@ impl FirefoxAccount {
     }
 
     fn parse_commands_messages(
-        &self,
+        &mut self,
         messages: Vec<PendingCommand>,
     ) -> Result<Vec<IncomingDeviceCommand>> {
-        let devices = self.get_devices()?;
+        let devices = self.get_devices(false)?;
         let parsed_commands = messages
             .into_iter()
             .filter_map(|msg| match self.parse_command(msg.data, &devices) {
@@ -189,7 +221,7 @@ impl FirefoxAccount {
     }
 
     fn parse_command(
-        &self,
+        &mut self,
         command_data: CommandData,
         devices: &[Device],
     ) -> Result<IncomingDeviceCommand> {
@@ -653,5 +685,81 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         fxa.ensure_capabilities(&[Capability::SendTab]).unwrap();
+    }
+
+    #[test]
+    fn test_get_devices() {
+        let mut fxa = setup();
+        let mut client = FxAClientMock::new();
+        client
+            .expect_devices(mockiato::Argument::any, mockiato::Argument::any)
+            .times(1)
+            .returns_once(Ok(vec![Device {
+                common: DeviceResponseCommon {
+                    id: "device1".into(),
+                    display_name: "".to_string(),
+                    device_type: DeviceType::Desktop,
+                    push_subscription: None,
+                    available_commands: HashMap::new(),
+                    push_endpoint_expired: true,
+                },
+                is_current_device: true,
+                location: DeviceLocation {
+                    city: None,
+                    country: None,
+                    state: None,
+                    state_code: None,
+                },
+                last_access_time: None,
+            }]));
+
+        fxa.set_client(Arc::new(client));
+        assert!(fxa.devices_cache.is_none());
+
+        assert!(fxa.get_devices(false).is_ok());
+        assert!(fxa.devices_cache.is_some());
+
+        let cache = fxa.devices_cache.clone().unwrap();
+        assert!(!cache.response.is_empty());
+        assert!(cache.cached_at > 0);
+
+        let cached_devices = cache.response;
+        assert_eq!(cached_devices[0].id, "device1".to_string());
+
+        // Check that a second call to get_devices doesn't hit the server
+        assert!(fxa.get_devices(false).is_ok());
+        assert!(fxa.devices_cache.clone().is_some());
+
+        let cache2 = fxa.devices_cache.unwrap();
+        let cached_devices2 = cache2.response;
+
+        assert_eq!(cache.cached_at, cache2.cached_at);
+        assert_eq!(cached_devices.len(), cached_devices2.len());
+        assert_eq!(cached_devices[0].id, cached_devices2[0].id);
+    }
+
+    #[test]
+    fn test_get_devices_network_errors() {
+        let mut fxa = setup();
+        let mut client = FxAClientMock::new();
+        client
+            .expect_devices(mockiato::Argument::any, mockiato::Argument::any)
+            .times(1)
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 500,
+                errno: 101,
+                error: "Did not work!".to_owned(),
+                message: "Did not work!".to_owned(),
+                info: "Did not work!".to_owned(),
+            }
+            .into()));
+
+        fxa.set_client(Arc::new(client));
+        assert!(fxa.devices_cache.is_none());
+
+        let res = fxa.get_devices(false);
+
+        assert!(res.is_err());
+        assert!(fxa.devices_cache.is_none());
     }
 }

@@ -31,12 +31,18 @@ pub fn aes_gcm_crypt(
     let mut gcm_params = nss_sys::CK_GCM_PARAMS {
         pIv: nonce.as_ptr() as nss_sys::CK_BYTE_PTR,
         ulIvLen: nss_sys::CK_ULONG::try_from(nonce.len())?,
+        ulIvBits: nss_sys::CK_ULONG::try_from(
+            nonce
+                .len()
+                .checked_mul(8)
+                .ok_or_else(|| ErrorKind::InternalError)?,
+        )?,
         pAAD: aad.as_ptr() as nss_sys::CK_BYTE_PTR,
         ulAADLen: nss_sys::CK_ULONG::try_from(aad.len())?,
         ulTagBits: nss_sys::CK_ULONG::try_from(AES_GCM_TAG_LENGTH * 8)?,
     };
     let mut params = nss_sys::SECItem {
-        type_: nss_sys::SECItemType::siBuffer,
+        type_: nss_sys::SECItemType::siBuffer as u32,
         data: &mut gcm_params as *mut _ as *mut c_uchar,
         len: c_uint::try_from(mem::size_of::<nss_sys::CK_GCM_PARAMS>())?,
     };
@@ -57,7 +63,7 @@ pub fn aes_cbc_crypt(
     operation: Operation,
 ) -> Result<Vec<u8>> {
     let mut params = nss_sys::SECItem {
-        type_: nss_sys::SECItemType::siBuffer,
+        type_: nss_sys::SECItemType::siBuffer as u32,
         data: nonce.as_ptr() as *mut c_uchar,
         len: c_uint::try_from(nonce.len())?,
     };

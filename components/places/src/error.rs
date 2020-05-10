@@ -4,9 +4,8 @@
 
 use crate::storage::bookmarks::BookmarkRootGuid;
 use crate::types::BookmarkType;
-use dogear;
 use failure::Fail;
-use interrupt::Interrupted;
+use interrupt_support::Interrupted;
 use serde_json::Value as JsonValue;
 
 // Note: If you add new error types that should be returned to consumers on the other side of the

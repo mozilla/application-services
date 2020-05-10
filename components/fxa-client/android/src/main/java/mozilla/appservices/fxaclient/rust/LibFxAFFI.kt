@@ -42,7 +42,7 @@ internal interface LibFxAFFI : Library {
         e: RustError.ByReference
     ): Pointer?
 
-    fun fxa_profile(fxa: FxaHandle, ignoreCache: Boolean, e: RustError.ByReference): RustBuffer.ByValue
+    fun fxa_profile(fxa: FxaHandle, ignoreCache: Byte, e: RustError.ByReference): RustBuffer.ByValue
 
     fun fxa_get_token_server_endpoint_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_pairing_authority_url(fxa: FxaHandle, e: RustError.ByReference): Pointer?
@@ -51,7 +51,7 @@ internal interface LibFxAFFI : Library {
     fun fxa_get_manage_devices_url(fxa: FxaHandle, entrypoint: String, e: RustError.ByReference): Pointer?
 
     fun fxa_complete_oauth_flow(fxa: FxaHandle, code: String, state: String, e: RustError.ByReference)
-    fun fxa_get_access_token(fxa: FxaHandle, scope: String, e: RustError.ByReference): RustBuffer.ByValue
+    fun fxa_get_access_token(fxa: FxaHandle, scope: String, ttl: Long, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_get_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_current_device_id(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_authorize_auth_code(fxa: FxaHandle, clientId: String, scope: String, state: String, accessType: String, e: RustError.ByReference): Pointer?
@@ -66,7 +66,7 @@ internal interface LibFxAFFI : Library {
         e: RustError.ByReference
     )
     fun fxa_set_device_name(fxa: FxaHandle, displayName: String, e: RustError.ByReference)
-    fun fxa_get_devices(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
+    fun fxa_get_devices(fxa: FxaHandle, ignoreCache: Byte, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_disconnect(fxa: FxaHandle, e: RustError.ByReference)
     fun fxa_poll_device_commands(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_handle_push_message(fxa: FxaHandle, jsonPayload: String, e: RustError.ByReference): RustBuffer.ByValue

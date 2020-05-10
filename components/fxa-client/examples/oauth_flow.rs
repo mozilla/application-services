@@ -21,6 +21,6 @@ fn main() {
     let code = &query_params["code"];
     let state = &query_params["state"];
     fxa.complete_oauth_flow(&code, &state).unwrap();
-    let oauth_info = fxa.get_access_token(SCOPES[0]);
+    let oauth_info = fxa.get_access_token(SCOPES[0], None);
     println!("access_token: {:?}", oauth_info);
 }

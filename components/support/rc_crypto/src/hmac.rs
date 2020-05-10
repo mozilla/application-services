@@ -94,7 +94,6 @@ pub fn sign(key: &SigningKey, data: &[u8]) -> Result<Signature> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hex;
 
     const KEY: &[u8] = b"key";
     const MESSAGE: &[u8] = b"The quick brown fox jumps over the lazy dog";

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2018"
 authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>"]
 license = "MPL-2.0"
+exclude = ["/android", "/ios"]
 
 [lib]
 name = "rc_log_ffi"
@@ -18,4 +19,4 @@ force_android = []
 log = "0.4.8"
 ffi-support = "0.4"
 lazy_static = "1.4.0"
-cfg-if = "0.1.9"
+cfg-if = "0.1"

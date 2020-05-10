@@ -63,20 +63,14 @@ configurations {
 }
 protobuf {
     protoc {
-        artifact = 'com.google.protobuf:protoc:3.0.0'
-    }
-    plugins {
-        javalite {
-            artifact = 'com.google.protobuf:protoc-gen-javalite:3.0.0'
-        }
+        artifact = 'com.google.protobuf:protoc:3.11.4'
     }
     generateProtoTasks {
         all().each { task ->
             task.builtins {
-                remove java
-            }
-            task.plugins {
-                javalite { }
+                java {
+                    option "lite"
+                }
             }
         }
     }
@@ -93,7 +87,7 @@ dependencies {
 
     implementation "org.mozilla.components:service-glean:$android_components_version"
 
-    implementation 'com.google.protobuf:protobuf-lite:3.0.0'
+    implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
     api project(":full-megazord")
     implementation project(":native-support")
 

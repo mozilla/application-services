@@ -13,7 +13,6 @@ use std::{
 };
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use url::Url;
-use webbrowser;
 
 type Result<T> = std::result::Result<T, failure::Error>;
 
@@ -82,7 +81,7 @@ fn get_account_and_token(
     // TODO: we should probably set a persist callback on acct?
     let mut acct = load_or_create_fxa_creds(cred_file, config.clone())?;
     // `scope` could be a param, but I can't see it changing.
-    match acct.get_access_token(SYNC_SCOPE) {
+    match acct.get_access_token(SYNC_SCOPE, None) {
         Ok(t) => Ok((acct, t)),
         Err(e) => {
             match e.kind() {
@@ -90,7 +89,7 @@ fn get_account_and_token(
                 error::ErrorKind::RemoteError { code: 401, .. } => {
                     println!("Saw an auth error using stored credentials - recreating them...");
                     acct = create_fxa_creds(cred_file, config)?;
-                    let token = acct.get_access_token(SYNC_SCOPE)?;
+                    let token = acct.get_access_token(SYNC_SCOPE, None)?;
                     Ok((acct, token))
                 }
                 _ => Err(e.into()),

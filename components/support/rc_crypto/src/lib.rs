@@ -52,6 +52,7 @@ pub use crate::error::{Error, ErrorKind, Result};
 // So we link against the SQLite lib imported by parent crates
 // such as places and logins.
 #[allow(unused_extern_crates)]
+#[cfg(not(feature = "gecko"))]
 extern crate libsqlite3_sys;
 
 /// Only required to be called if you intend to use this library in conjunction

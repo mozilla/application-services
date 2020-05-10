@@ -36,7 +36,18 @@ BUILDCONFIG_VERSION_FIELD = "libraryVersion"
 UNRELEASED_CHANGES_FILE = "CHANGES_UNRELEASED.md"
 CHANGELOG_FILE = "CHANGELOG.md"
 
-# 1. Calculate new version number.
+# 1. Create a new branch based on the branch we want to release from.
+
+ensure_working_tree_clean()
+
+step_msg(f"Updating remote {remote}")
+run_cmd_checked(["git", "remote", "update", remote])
+
+temp_branch = f"prepare-release-from-{base_branch}"
+step_msg(f"Checking out candidate release branch from {base_branch}")
+run_cmd_checked(["git", "checkout", "-b", temp_branch, "--no-track", f"{remote}/{base_branch}"])
+
+# 2. Calculate new version number based on what's in the base branch.
 
 with open(BUILDCONFIG_FILE, "r") as stream:
     buildConfig = yaml.safe_load(stream)
@@ -58,18 +69,9 @@ elif release_type == "patch":
 next_version = f"{major}.{minor}.{patch}"
 next_version_full = f"v{next_version}"
 
-step_msg(f"Preparing release {next_version_full}")
-
-# 2. Create a new branch based on the branch we want to release from.
-
-ensure_working_tree_clean()
-
-step_msg(f"Updating remote {remote}")
-run_cmd_checked(["git", "remote", "update", remote])
-
 release_branch = f"cut-{next_version_full}"
-step_msg(f"Creating release branch {release_branch} from {base_branch}")
-run_cmd_checked(["git", "checkout", "-b", release_branch, "--no-track", f"{remote}/{base_branch}"])
+step_msg(f"Preparing release branch {release_branch} for {next_version_full}")
+run_cmd_checked(["git", "branch", "-M", temp_branch, release_branch])
 
 # 3. Bump YML version
 

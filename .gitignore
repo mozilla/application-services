@@ -4,6 +4,7 @@ credentials.json
 *-engine.json
 .cargo
 *.db
+.*.swp
 
 # Android stuff.
 *.iml
@@ -14,6 +15,7 @@ build
 .DS_Store
 captures
 .externalNativeBuild
+.lastAutoPublishContentsHash
 
 # iOS stuff.
 xcuserdata

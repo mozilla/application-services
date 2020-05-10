@@ -209,7 +209,6 @@ mod test {
     #[test]
     fn full() -> Result<()> {
         use rc_crypto::ece;
-        use serde_json;
 
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let test_channel_id = "deadbeef00000000decafbad00000000";

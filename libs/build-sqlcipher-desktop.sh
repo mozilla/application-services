@@ -87,7 +87,8 @@ LIBS="\
   -lcerthi \
   -lcryptohi \
   -lfreebl_static \
-  -lhw-acc-crypto \
+  -lhw-acc-crypto-avx \
+  -lhw-acc-crypto-avx2 \
   -lnspr4 \
   -lnss_static \
   -lnssb \

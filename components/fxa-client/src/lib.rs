@@ -34,7 +34,7 @@ pub mod ffi;
 pub mod migrator;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!("mozilla.appservices.fxaclient.protobuf.rs");
 }
 mod http_client;
 mod oauth;
@@ -61,6 +61,8 @@ pub struct FirefoxAccount {
     client: Arc<FxAClient>,
     state: State,
     flow_store: HashMap<String, OAuthFlow>,
+    attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
+    devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
 }
 
 impl FirefoxAccount {
@@ -69,6 +71,8 @@ impl FirefoxAccount {
             client: Arc::new(http_client::Client::new()),
             state,
             flow_store: HashMap::new(),
+            attached_clients_cache: None,
+            devices_cache: None,
         }
     }
 
@@ -132,11 +136,18 @@ impl FirefoxAccount {
         state_persistence::state_to_json(&self.state)
     }
 
+    /// Clear the attached clients and devices cache
+    pub fn clear_devices_and_attached_clients_cache(&mut self) {
+        self.attached_clients_cache = None;
+        self.devices_cache = None;
+    }
+
     /// Clear the whole persisted/cached state of the account, but keep just
     /// enough information to eventually reconnect to the same user account later.
     pub fn start_over(&mut self) {
         self.state = self.state.start_over();
         self.flow_store.clear();
+        self.clear_devices_and_attached_clients_cache();
     }
 
     /// Get the Sync Token Server endpoint URL.
@@ -217,10 +228,15 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn disconnect(&mut self) {
+        let current_device_result;
+        {
+            current_device_result = self.get_current_device();
+        }
+
         if let Some(ref refresh_token) = self.state.refresh_token {
             // Delete the current device (which deletes the refresh token), or
             // the refresh token directly if we don't have a device.
-            let destroy_result = match self.get_current_device() {
+            let destroy_result = match current_device_result {
                 // If we get an error trying to fetch our device record we'll at least
                 // still try to delete the refresh token itself.
                 Ok(Some(device)) => {
@@ -239,20 +255,29 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "eventType", content = "data")]
+#[serde(rename_all = "camelCase")]
 pub enum AccountEvent {
     IncomingDeviceCommand(Box<IncomingDeviceCommand>),
     ProfileUpdated,
     AccountAuthStateChanged,
     AccountDestroyed,
+    // Can be removed when https://github.com/serde-rs/serde/pull/1695 lands.
+    #[serde(rename_all = "camelCase")]
     DeviceConnected {
         device_name: String,
     },
+    #[serde(rename_all = "camelCase")]
     DeviceDisconnected {
         device_id: String,
         is_local_device: bool,
     },
 }
 
+#[derive(Debug, Serialize)]
+#[serde(tag = "commandType", content = "data")]
+#[serde(rename_all = "camelCase")]
 pub enum IncomingDeviceCommand {
     TabReceived {
         sender: Option<Device>,

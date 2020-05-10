@@ -14,7 +14,6 @@
 /// contains the tab to send and finally forms the `EncryptedSendTabPayload` that is
 /// then sent to the target device.
 use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
-use hex;
 use rc_crypto::ece::{self, Aes128GcmEceWebPush, EcKeyComponents, WebPushParams};
 use rc_crypto::ece_crypto::{RcCryptoLocalKeyPair, RcCryptoRemotePublicKey};
 use serde_derive::*;
@@ -38,7 +37,7 @@ impl EncryptedSendTabPayload {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct SendTabPayload {
     pub entries: Vec<TabHistoryEntry>,
 }
@@ -69,7 +68,7 @@ impl SendTabPayload {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TabHistoryEntry {
     pub title: String,
     pub url: String,
@@ -118,7 +117,7 @@ impl PrivateSendTabKeys {
 }
 
 #[derive(Serialize, Deserialize)]
-struct SendTabKeysPayload {
+pub(crate) struct SendTabKeysPayload {
     /// Hex encoded kid.
     kid: String,
     /// Base 64 encoded IV.
@@ -131,7 +130,7 @@ struct SendTabKeysPayload {
 }
 
 impl SendTabKeysPayload {
-    fn decrypt(self, scoped_key: &ScopedKey) -> Result<PublicSendTabKeys> {
+    pub(crate) fn decrypt(self, scoped_key: &ScopedKey) -> Result<PublicSendTabKeys> {
         let (ksync, kxcs) = extract_oldsync_key_components(scoped_key)?;
         if hex::decode(self.kid)? != kxcs {
             return Err(ErrorKind::MismatchedKeys.into());
@@ -171,6 +170,12 @@ impl PublicSendTabKeys {
     pub fn as_command_data(&self, scoped_key: &ScopedKey) -> Result<String> {
         let encrypted_public_keys = self.encrypt(scoped_key)?;
         Ok(serde_json::to_string(&encrypted_public_keys)?)
+    }
+    pub(crate) fn public_key(&self) -> &str {
+        &self.public_key
+    }
+    pub(crate) fn auth_secret(&self) -> &str {
+        &self.auth_secret
     }
 }
 

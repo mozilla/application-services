@@ -1,0 +1,13 @@
+[package]
+name = "protobuf-gen"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[dependencies]
+clap = "2.33.0"
+prost-build = "0.6.1"
+serde = "1"
+serde_derive = "1"
+toml = "0.5.6"

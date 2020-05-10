@@ -1,5 +1,7 @@
 version: 2.1
 
+# ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
+
 commands:
   setup-sccache:
     steps:
@@ -108,15 +110,18 @@ commands:
           platform: ios
   carthage-bootstrap:
     steps:
+      - run:
+          name: Determine XCode version
+          command: echo "$(xcodebuild -version)" >| xcode_version
       - restore_cache:
           name: Restore Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "Cartfile.resolved" }}
+          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
       - run:
           name: Bootstrap Carthage dependencies
           command: carthage bootstrap --platform iOS --cache-builds
       - save_cache:
           name: Save Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "Cartfile.resolved" }}
+          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
           paths:
             - Carthage
   test-setup:
@@ -130,8 +135,6 @@ commands:
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
       - setup-sccache
-      # nss_sys's bindgen needs clang.
-      - run: sudo apt-get install clang
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
       - run: |
@@ -227,7 +230,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "11.4.0"
+      xcode: "11.4.1"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -253,6 +256,13 @@ jobs:
       - run: cargo clippy --version
       - run: bash automation/all_clippy_checks.sh
       - save-sccache-cache
+  Check Protobuf files are up-to-date:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: small
+    steps:
+      - checkout
+      - run: ./automation/check_protobuf_files_current.py
   Lint Bash scripts:
     docker:
       - image: koalaman/shellcheck-alpine:stable
@@ -285,6 +295,16 @@ jobs:
       - restore-sccache-cache
       - rust-tests
       - save-sccache-cache
+  # These run periodically (driven by cron).
+  Rust tests - beta:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: xlarge
+    steps:
+      - restore-sccache-cache
+      - rust-tests:
+          rust-version: "beta"
+      - save-sccache-cache
   Sync integration tests:
     docker:
       - image: circleci/rust:latest-browsers
@@ -302,7 +322,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "11.4.0"
+      xcode: "11.4.1"
     steps:
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
@@ -387,7 +407,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "11.4.0"
+      xcode: "11.4.1"
     steps:
       - checkout
       - attach_workspace:
@@ -439,6 +459,9 @@ workflows:
   clippy:
     jobs:
       - Lint Rust with clippy
+  check-protobuf-uptodate:
+    jobs:
+      - Check Protobuf files are up-to-date
   check-dependencies:
     jobs:
       - Check Rust dependencies
@@ -454,6 +477,16 @@ workflows:
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
+    triggers:
+      - schedule:
+          cron: "0 7 * * *"
+          filters:
+            branches:
+              only:
+                - master
+  run-beta-tests-periodically:
+    jobs:
+      - Rust tests - beta
     triggers:
       - schedule:
           cron: "0 7 * * *"
@@ -479,7 +512,7 @@ workflows:
   carthage-framework:
     jobs:
       - iOS build and test:
-          filters:  # required since `Release` has tag filters AND requires `Build`
+          filters: # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
       - Carthage release:

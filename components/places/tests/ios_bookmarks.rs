@@ -10,7 +10,6 @@ use places::{
     Result, Timestamp,
 };
 use rusqlite::Connection;
-use sql_support::ConnExt;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};

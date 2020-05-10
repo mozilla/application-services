@@ -305,11 +305,11 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "libsqlite3-sys": {
         "repository": {
-            "check": "https://github.com/jgallagher/rusqlite",
+            "check": "https://github.com/rusqlite/rusqlite",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/jgallagher/rusqlite/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/rusqlite/rusqlite/master/LICENSE",
         }
     },
     "phf": {
@@ -493,11 +493,10 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "time": {
         "repository": {
-            "check": "https://github.com/rust-lang/time",
+            "check": "https://github.com/time-rs/time",
         },
         "license_url": {
             "check": None,
-            # The repo has been moved to a difference org.
             "fixup": "https://github.com/time-rs/time/blob/master/LICENSE-Apache"
         },
     },

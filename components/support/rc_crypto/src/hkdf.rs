@@ -48,11 +48,6 @@ pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()>
 mod tests {
     use super::*;
     use crate::digest;
-    use hex;
-
-    // NSS limits the size of derived key material to 576 bytes due to fixed-size `key_block` buffer here:
-    // https://dxr.mozilla.org/mozilla-central/rev/3c0f78074b727fbae112b6eda111d4c4d30cc3ec/security/nss/lib/softoken/pkcs11c.c#7758
-    const NSS_MAX_DERIVED_KEY_MATERIAL: usize = 576;
 
     #[test]
     fn hkdf_produces_correct_result() {
@@ -98,7 +93,7 @@ mod tests {
     #[test]
     fn hkdf_rejects_gigantic_output_buffers() {
         let salt = hmac::SigningKey::new(&digest::SHA256, b"salt");
-        let mut out = vec![0u8; NSS_MAX_DERIVED_KEY_MATERIAL + 1];
+        let mut out = vec![0u8; 8160 + 1]; // RFC maximum (hashlen * 255) + 1
         assert!(extract_and_expand(&salt, b"secret", b"info", &mut out).is_err());
     }
 

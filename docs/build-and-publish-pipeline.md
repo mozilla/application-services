@@ -37,14 +37,20 @@ For Android consumers these are the steps by which Application Services code bec
 and the integrity-protection mechanisms that apply at each step:
 
 1. Code is developed in branches and lands on `master` via pull request.
-    * GitHub branch protection prevents code being pushed to `master` without review,
-      and requires signed tags (but doesn't check *who* they're signed by).
+    * GitHub branch protection prevents code being pushed to `master` without review.
     * CircleCI and TaskCluster run automated tests against the code, but do not have
       the ability to push modified code back to GitHub thanks to the above branch protection.
       * TaskCluster jobs do not run against PRs opened by the general public,
         only for PRs from repo collaborators.
+    * Contra the [github org security guidelines](https://wiki.mozilla.org/GitHub/Repository_Security),
+      signing of individual commits is encouraged but is **not required**. Our experience in practice
+      has been that this adds friction for contributors without sufficient tangible benefit.
 2. Developers manually create a release from latest `master`.
     * The ability to create new releases is managed entirely via github's permission model.
+    * TODO: the [github org security guidelines](https://wiki.mozilla.org/GitHub/Repository_Security)
+      recommend signing tags, and auditing all included commits as part of the release process.
+      We should conider some tooling to support this. I don't think there's any way to force 
+      githib to only accept signed releases in the same way it can enforce signed commits.
 3. TaskCluster checks out the release tag, builds it for all target platforms, and runs automated tests.
     * These tasks run in a pre-built docker image, helping assure integrity of the build environment.
     * TODO: could this step check for signed tags as an additional integrity measure?

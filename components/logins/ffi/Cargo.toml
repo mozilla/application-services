@@ -10,9 +10,9 @@ name = "logins_ffi"
 crate-type = ["lib"]
 
 [dependencies]
-serde_json = "1.0.50"
+serde_json = "1"
 log = "0.4"
-url = "2.1.1"
+url = "2.1"
 base16 = "0.2.1"
 lazy_static = "1.4.0"
 prost = "0.6.1"
@@ -23,7 +23,7 @@ sql-support = { path = "../../support/sql" }
 ffi-support = "0.4"
 
 [dependencies.rusqlite]
-version = "0.21.0"
+version = "0.23.1"
 features = ["sqlcipher"]
 
 [dependencies.logins]

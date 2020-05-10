@@ -38,7 +38,7 @@ impl HashAlgorithm {
     }
 }
 
-impl From<&HashAlgorithm> for nss_sys::SECOidTag::Type {
+impl From<&HashAlgorithm> for nss_sys::SECOidTag {
     fn from(alg: &HashAlgorithm) -> Self {
         match alg {
             HashAlgorithm::SHA256 => nss_sys::SECOidTag::SEC_OID_SHA256,
@@ -52,7 +52,12 @@ pub fn hash_buf(algorithm: &HashAlgorithm, data: &[u8]) -> Result<Vec<u8>> {
     let mut out = vec![0u8; result_len];
     let data_len = i32::try_from(data.len())?;
     map_nss_secstatus(|| unsafe {
-        nss_sys::PK11_HashBuf(algorithm.into(), out.as_mut_ptr(), data.as_ptr(), data_len)
+        nss_sys::PK11_HashBuf(
+            Into::<nss_sys::SECOidTag>::into(algorithm) as u32,
+            out.as_mut_ptr(),
+            data.as_ptr(),
+            data_len,
+        )
     })?;
     Ok(out)
 }
@@ -98,7 +103,7 @@ pub fn create_context_by_sym_key(
 ) -> Result<Context> {
     ensure_nss_initialized();
     let mut param = nss_sys::SECItem {
-        type_: nss_sys::SECItemType::siBuffer,
+        type_: nss_sys::SECItemType::siBuffer as u32,
         data: ptr::null_mut(),
         len: 0,
     };

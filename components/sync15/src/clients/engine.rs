@@ -14,7 +14,7 @@ use crate::{
     request::{CollectionRequest, InfoConfiguration},
     state::GlobalState,
 };
-use interrupt::Interruptee;
+use interrupt_support::Interruptee;
 use sync15_traits::client::ClientData;
 
 use super::{
@@ -345,14 +345,11 @@ impl<'a> Engine<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::result;
-
-    use failure;
-    use interrupt::NeverInterrupts;
-    use serde_json::{json, Value};
-
     use crate::clients::{CommandStatus, DeviceType, Settings};
     use crate::util::ServerTimestamp;
+    use interrupt_support::NeverInterrupts;
+    use serde_json::{json, Value};
+    use std::result;
 
     use super::*;
 

@@ -15,7 +15,7 @@ class MockFxAccount: FxAccount {
         case clearAccessTokenCache
         case getAccessToken
         case initializeDevice
-        case fetchDevices
+        case getDevices
     }
 
     init() {
@@ -30,12 +30,16 @@ class MockFxAccount: FxAccount {
         fatalError("init(config:) has not been implemented")
     }
 
+    override func isInMigrationState() -> Bool {
+        return false
+    }
+
     override func initializeDevice(name _: String, deviceType _: DeviceType, supportedCapabilities _: [DeviceCapability]) throws {
         invocations.append(.initializeDevice)
     }
 
-    override func fetchDevices() throws -> [Device] {
-        invocations.append(.fetchDevices)
+    override func getDevices(ignoreCache _: Bool) throws -> [Device] {
+        invocations.append(.getDevices)
         return []
     }
 
@@ -56,12 +60,12 @@ class MockFxAccount: FxAccount {
         invocations.append(.clearAccessTokenCache)
     }
 
-    override func getAccessToken(scope _: String) throws -> AccessTokenInfo {
+    override func getAccessToken(scope _: String, ttl _: UInt64? = nil) throws -> AccessTokenInfo {
         invocations.append(.getAccessToken)
         return AccessTokenInfo(scope: "profile", token: "toktok")
     }
 
-    override func getProfile() throws -> Profile {
+    override func getProfile(ignoreCache _: Bool) throws -> Profile {
         invocations.append(.getProfile)
         return Profile(uid: "uid", email: "foo@bar.bobo")
     }

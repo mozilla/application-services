@@ -19,7 +19,7 @@ pub use headers::{consts as header_names, Header, HeaderName, Headers, InvalidHe
 pub use settings::GLOBAL_SETTINGS;
 
 pub(crate) mod msg_types {
-    include!(concat!(env!("OUT_DIR"), "/msg_types.rs"));
+    include!("mozilla.appservices.httpconfig.protobuf.rs");
 }
 
 /// HTTP Methods.

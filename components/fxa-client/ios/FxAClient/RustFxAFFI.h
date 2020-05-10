@@ -59,6 +59,7 @@ void fxa_complete_oauth_flow(FirefoxAccountHandle handle,
 
 FxARustBuffer fxa_get_access_token(FirefoxAccountHandle handle,
                                    const char *_Nonnull scope,
+                                   uint64_t ttl,
                                    FxAError *_Nonnull out);
 
 char *_Nullable fxa_get_session_token(FirefoxAccountHandle handle,
@@ -90,10 +91,11 @@ FirefoxAccountHandle fxa_new(const char *_Nonnull content_base,
                              FxAError *_Nonnull out);
 
 FxARustBuffer fxa_profile(FirefoxAccountHandle handle,
-                          bool ignore_cache,
+                          uint8_t ignore_cache,
                           FxAError *_Nonnull out);
 
 FxARustBuffer fxa_get_devices(FirefoxAccountHandle handle,
+                              uint8_t ignore_cache,
                               FxAError *_Nonnull out);
 
 FxARustBuffer fxa_poll_device_commands(FirefoxAccountHandle handle,
