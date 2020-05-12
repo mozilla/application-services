@@ -6,7 +6,7 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-clap = "2.33.0"
+clap = "2.33.1"
 prost-build = "0.6.1"
 serde = "1"
 serde_derive = "1"
