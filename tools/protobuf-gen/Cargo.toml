@@ -6,8 +6,8 @@ edition = "2018"
 license = "MPL-2.0"
 
 [dependencies]
-clap = "2.33.1"
-prost-build = "0.6.1"
+clap = "2.33"
+prost-build = "0.6"
 serde = "1"
 serde_derive = "1"
-toml = "0.5.6"
+toml = "0.5"
