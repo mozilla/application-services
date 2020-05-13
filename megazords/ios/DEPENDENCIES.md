@@ -416,9 +416,9 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
+[addr2line](https://github.com/gimli-rs/addr2line),
 [anyhow](https://github.com/dtolnay/anyhow),
 [autocfg](https://github.com/cuviper/autocfg),
-[backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
 [backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
@@ -443,6 +443,7 @@ The following text applies to code linked from these dependencies:
 [futures-task](https://github.com/rust-lang/futures-rs),
 [futures-util](https://github.com/rust-lang/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
+[gimli](https://github.com/gimli-rs/gimli),
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
@@ -461,6 +462,7 @@ The following text applies to code linked from these dependencies:
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [net2](https://github.com/deprecrated/net2-rs),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
+[object](https://github.com/gimli-rs/object),
 [once_cell](https://github.com/matklad/once_cell),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-internal](https://github.com/taiki-e/pin-project),
