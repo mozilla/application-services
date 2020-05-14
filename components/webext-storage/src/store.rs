@@ -5,8 +5,9 @@
 use crate::api::{self, StorageChanges};
 use crate::db::StorageDb;
 use crate::error::*;
+use crate::migration::migrate;
 use crate::sync;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::result;
 
 use serde_json::Value as JsonValue;
@@ -115,6 +116,16 @@ impl Store {
     /// `StorageDb::close` for more details on when this can fail.
     pub fn close(self) -> result::Result<(), (Store, Error)> {
         self.db.close().map_err(|(db, err)| (Store { db }, err))
+    }
+
+    /// Migrates data from a database in the format of the "old" kinto
+    /// implementation. Returns the count of webextensions for whom data was
+    /// migrated.
+    pub fn migrate(self, filename: &str) -> Result<usize> {
+        let tx = self.db.unchecked_transaction()?;
+        let result = migrate(&tx, &PathBuf::from(filename))?;
+        tx.commit()?;
+        Ok(result)
     }
 }
 

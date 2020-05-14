@@ -3050,6 +3050,7 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15-traits",
+ "tempfile",
  "url",
 ]
 
