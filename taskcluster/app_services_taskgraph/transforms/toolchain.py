@@ -8,8 +8,10 @@ import subprocess
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
+from taskgraph.util.memoize import memoize
 
 transforms = TransformSequence()
+
 
 # TODO: Bug 1637695 to be removed once we retire these old indexes
 TOOLCHAIN_OLD_INDEX = {
@@ -20,6 +22,7 @@ TOOLCHAIN_OLD_INDEX = {
 }
 
 
+@memoize
 def git_sha_for_directory(directory):
     output = subprocess.check_output(["git", "rev-parse", "HEAD:{}".format(directory)])
     sha = output.decode("utf8").strip()
