@@ -2,7 +2,7 @@
 
 if [[ -z "${ANDROID_NDK_API_VERSION:-}" ]]; then
     export ANDROID_NDK_API_VERSION=21
-    echo "The ANDROID_NDK_API_VERSION env variable is not set. Defaulting to ${ANDROID_NDK_API_VERSION}"
+    echo "The ANDROID_NDK_API_VERSION environment variable is not set. Defaulting to ${ANDROID_NDK_API_VERSION}"
 fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
