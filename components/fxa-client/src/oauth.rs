@@ -412,6 +412,10 @@ mod tests {
                 .access_token_cache
                 .insert(scope.to_string(), token_info);
         }
+
+        pub fn set_session_token(&mut self, session_token: &str) {
+            self.state.session_token = Some(session_token.to_owned());
+        }
     }
 
     #[test]
