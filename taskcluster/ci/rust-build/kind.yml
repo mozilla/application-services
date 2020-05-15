@@ -1,0 +1,46 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+  - app_services_taskgraph.transforms.out_of_docker_setup:transforms
+  - app_services_taskgraph.transforms.script_to_run_task:transforms
+  - taskgraph.transforms.job:transforms
+  - taskgraph.transforms.task:transforms
+
+kind-dependencies:
+  - toolchain
+
+jobs:
+  full-megazord-rust-build:
+    label: full-megazord-rust-build
+    attributes:
+      run-on-pr-type: full-ci
+    run-on-tasks-for: [github-pull-request, github-push]
+    scopes:
+      - project:releng:services/tooltool/api/download/internal
+    description: "Build Rust code"
+    worker-type: b-linux
+    worker:
+      docker-image: { in-tree: linux }
+      max-run-time: 1800
+      script: |
+        rsync -a /builds/worker/fetches/libs/ /builds/worker/checkouts/src/libs/
+        echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties
+        ./gradlew :full-megazord:cargoBuild
+        tar -acf target.tar.gz target
+      artifacts:
+        - name: public/build/target.tar.gz
+          path: /builds/worker/checkouts/src/target.tar.gz
+          type: file
+    run:
+      using: run-task
+      cwd: "{checkout}"
+    fetches:
+      toolchain:
+        - android-libs
+        - desktop-linux-libs
+        - desktop-macos-libs
+        - desktop-win32-x86-64-libs

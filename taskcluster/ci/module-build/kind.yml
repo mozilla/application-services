@@ -15,6 +15,7 @@ transforms:
 
 kind-dependencies:
   - toolchain
+  - rust-build
 
 job-defaults:
   attributes:
@@ -29,7 +30,9 @@ job-defaults:
     max-run-time: 1800
     script: |
       rsync -a /builds/worker/fetches/libs/ /builds/worker/checkouts/src/libs/
+      rsync -a /builds/worker/fetches/target/ /builds/worker/checkouts/src/target/
       echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties
+      ls -lR target
       ./gradlew --no-daemon ":{module_name}:testDebug"
       ./gradlew --no-daemon ":{module_name}:assembleRelease"
       ./gradlew --no-daemon ":{module_name}:publish"
@@ -37,9 +40,13 @@ job-defaults:
   run:
     using: run-task
     cwd: "{checkout}"
+  dependencies:
+    rust-build: full-megazord-rust-build
   fetches:
     toolchain:
       - android-libs
       - desktop-linux-libs
       - desktop-macos-libs
       - desktop-win32-x86-64-libs
+    rust-build:
+      - artifact: target.tar.gz
