@@ -29,6 +29,7 @@ jobs:
       script: |
         rsync -a /builds/worker/fetches/libs/ /builds/worker/checkouts/src/libs/
         echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties
+        find . -print0 | xargs -0 touch -t 8001031305 --
         ./gradlew :full-megazord:cargoBuild
         tar -acf target.tar.gz target
       artifacts:
