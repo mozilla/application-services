@@ -61,10 +61,12 @@ impl LegacyRow {
         let mut record_map = match serde_json::from_str(&self.record) {
             Ok(Value::Object(m)) => m,
             Ok(o) => {
+                log::info!("skipping non-json-object 'record' column");
                 log::trace!("record value is json, but not an object: {}", o);
                 return None;
             }
             Err(e) => {
+                log::info!("skipping non-json 'record' column");
                 log::trace!("record value isn't json: {}", e);
                 return None;
             }
@@ -146,6 +148,7 @@ pub fn migrate(tx: &Transaction<'_>, filename: &PathBuf) -> Result<usize> {
             num_extensions += 1;
         }
     }
+    log::info!("migrated {} extensions", num_extensions);
     Ok(num_extensions)
 }
 
