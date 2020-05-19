@@ -16,4 +16,4 @@ push-ffi = { path = "../../components/push/ffi" }
 rc_log_ffi = { path = "../../components/rc_log" }
 viaduct = { path = "../../components/viaduct", default_features = false }
 sync_manager_ffi = { path = "../../components/sync_manager/ffi" }
-lazy_static = "1.4.0"
+lazy_static = "1.4"
