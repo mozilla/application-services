@@ -19,7 +19,6 @@ log = "0.4"
 lazy_static = "1.4"
 url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1"
-failure = "0.1"
 caseless = "0.2"
 sql-support = { path = "../support/sql" }
 ffi-support = "0.4"
@@ -32,6 +31,8 @@ dogear = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
+thiserror = "1.0"
+anyhow = "1.0"
 
 [dependencies.rusqlite]
 version = "0.23.1"
@@ -40,7 +41,7 @@ features = ["functions", "bundled"]
 [dev-dependencies]
 more-asserts = "0.2"
 env_logger = "0.7"
-find-places-db = "0.1"
+find-places-db = "0.2"
 clap = "2.33"
 structopt = "0.3"
 tempfile = "3.1"

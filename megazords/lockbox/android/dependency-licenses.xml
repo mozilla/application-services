@@ -53,14 +53,6 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: failure</name>
-    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: failure_derive</name>
-    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: fallible-iterator</name>
     <url>https://github.com/sfackler/rust-fallible-iterator/blob/master/LICENSE-APACHE</url>
   </license>
@@ -197,6 +189,14 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: thiserror</name>
+    <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: thiserror-impl</name>
+    <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: time</name>
     <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
   </license>
@@ -247,10 +247,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: matches</name>
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>MIT License: synstructure</name>
-    <url>https://github.com/mystor/synstructure/blob/master/LICENSE</url>
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>

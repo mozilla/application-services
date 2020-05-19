@@ -5,8 +5,9 @@
 use crate::storage::TabsStorage;
 use crate::storage::{ClientRemoteTabs, RemoteTab};
 use crate::sync::record::{TabsRecord, TabsRecordTab};
+use anyhow::Result;
 use std::cell::{Cell, RefCell};
-use std::{collections::HashMap, result};
+use std::collections::HashMap;
 use sync15::{
     clients::{self, DeviceType, RemoteClient},
     telemetry, CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp,
@@ -86,7 +87,7 @@ impl<'a> TabsStore<'a> {
             local_id: RefCell::default(), // Will get replaced in `prepare_for_sync`.
         }
     }
-    fn wipe_reset_helper(&self, is_wipe: bool) -> result::Result<(), failure::Error> {
+    fn wipe_reset_helper(&self, is_wipe: bool) -> Result<()> {
         self.remote_clients.borrow_mut().clear();
         self.storage.wipe(is_wipe);
         Ok(())
@@ -98,10 +99,7 @@ impl<'a> Store for TabsStore<'a> {
         "tabs".into()
     }
 
-    fn prepare_for_sync(
-        &self,
-        get_client_data: &dyn Fn() -> clients::ClientData,
-    ) -> Result<(), failure::Error> {
+    fn prepare_for_sync(&self, get_client_data: &dyn Fn() -> clients::ClientData) -> Result<()> {
         let data = get_client_data();
         self.remote_clients.replace(data.recent_clients);
         self.local_id.replace(data.local_client_id);
@@ -112,7 +110,7 @@ impl<'a> Store for TabsStore<'a> {
         &self,
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
-    ) -> result::Result<OutgoingChangeset, failure::Error> {
+    ) -> Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "only requested one item");
         let inbound = inbound.into_iter().next().unwrap();
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
@@ -180,7 +178,7 @@ impl<'a> Store for TabsStore<'a> {
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
-    ) -> result::Result<(), failure::Error> {
+    ) -> Result<()> {
         log::info!(
             "sync completed after uploading {} records",
             records_synced.len()
@@ -192,7 +190,7 @@ impl<'a> Store for TabsStore<'a> {
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+    ) -> Result<Vec<CollectionRequest>> {
         let since = self.last_sync.get().unwrap_or_default();
         Ok(if since == server_timestamp {
             vec![]
@@ -201,16 +199,16 @@ impl<'a> Store for TabsStore<'a> {
         })
     }
 
-    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+    fn get_sync_assoc(&self) -> Result<StoreSyncAssociation> {
         Ok(self.sync_store_assoc.borrow().clone())
     }
 
-    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
         self.sync_store_assoc.replace(assoc.clone());
         self.wipe_reset_helper(false)
     }
 
-    fn wipe(&self) -> result::Result<(), failure::Error> {
+    fn wipe(&self) -> Result<()> {
         self.wipe_reset_helper(true)
     }
 }

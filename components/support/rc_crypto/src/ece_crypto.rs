@@ -11,7 +11,7 @@ use ece::crypto::{Cryptographer, EcKeyComponents, LocalKeyPair, RemotePublicKey}
 
 impl From<crate::Error> for ece::Error {
     fn from(_: crate::Error) -> Self {
-        ece::ErrorKind::CryptoError.into()
+        ece::Error::CryptoError
     }
 }
 
@@ -380,8 +380,8 @@ mod tests {
             "45b74d2b69be9b074de3b35aa87e7c15611d",
         )
         .unwrap_err();
-        match err.kind() {
-            ErrorKind::HeaderTooShort => {}
+        match err {
+            Error::HeaderTooShort => {}
             _ => panic!("Unexpected error type!"),
         };
     }
@@ -396,8 +396,8 @@ mod tests {
             "de5b696b87f1a15cb6adebdd79d6f99e000000120100b6bc1826c37c9f73dd6b4859c2b505181952",
         )
         .unwrap_err();
-        match err.kind() {
-            ErrorKind::InvalidKeyLength => {}
+        match err {
+            Error::InvalidKeyLength => {}
             _ => panic!("Unexpected error type!"),
         };
     }
@@ -411,8 +411,8 @@ mod tests {
             "355a38cd6d9bef15990e2d3308dbd600",
             "8115f4988b8c392a7bacb43c8f1ac5650000001241041994483c541e9bc39a6af03ff713aa7745c284e138a42a2435b797b20c4b698cf5118b4f8555317c190eabebfab749c164d3f6bdebe0d441719131a357d8890a13c4dbd4b16ff3dd5a83f7c91ad6e040ac42730a7f0b3cd3245e9f8d6ff31c751d410cfd"
         ).unwrap_err();
-        match err.kind() {
-            ece::ErrorKind::CryptoError => {}
+        match err {
+            Error::CryptoError => {}
             _ => panic!("Unexpected error type!"),
         };
     }
@@ -426,8 +426,8 @@ mod tests {
             "40c241fde4269ee1e6d725592d982718",
             "dbe215507d1ad3d2eaeabeae6e874d8f0000001241047bc4343f34a8348cdc4e462ffc7c40aa6a8c61a739c4c41d45125505f70e9fc5f9efa86852dd488dcf8e8ea2cafb75e07abd5ee7c9d5c038bafef079571b0bda294411ce98c76dd031c0e580577a4980a375e45ed30429be0e2ee9da7e6df8696d01b8ec"
         ).unwrap_err();
-        match err.kind() {
-            ErrorKind::DecryptPadding => {}
+        match err {
+            Error::DecryptPadding => {}
             _ => panic!("Unexpected error type!"),
         };
     }

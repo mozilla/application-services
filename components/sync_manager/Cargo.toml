@@ -12,7 +12,8 @@ places = { path = "../places" }
 logins = { path = "../logins" }
 tabs = { path = "../tabs" }
 ffi-support = "0.4"
-failure = "0.1"
+thiserror = "1.0"
+anyhow = "1.0"
 error-support = { path = "../support/error" }
 prost = "0.6"
 prost-derive = "0.6"

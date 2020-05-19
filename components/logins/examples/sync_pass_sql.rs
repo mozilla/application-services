@@ -8,7 +8,6 @@
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
-use failure::Fail;
 
 use logins::{Login, PasswordEngine};
 use prettytable::{cell, row, Cell, Row, Table};
@@ -17,7 +16,7 @@ use sync15::StoreSyncAssociation;
 use sync_guid::Guid;
 
 // I'm completely punting on good error handling here.
-type Result<T> = std::result::Result<T, failure::Error>;
+use anyhow::Result;
 
 fn read_login() -> Login {
     let username = prompt_string("username").unwrap_or_default();

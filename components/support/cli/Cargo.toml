@@ -6,7 +6,7 @@ authors = ["Thom Chiovoloni <tchiovoloni@mozilla.com>", "Mark Hammond <mhammond@
 license = "MPL-2.0"
 
 [dependencies]
-failure = "0.1"
+anyhow = "1.0"
 fxa-client = { path = "../../fxa-client" }
 log = "0.4"
 sync15 = { path = "../../sync15" }

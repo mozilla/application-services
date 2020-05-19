@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.59.0...master)
 
+## General
+
+- Replaced `failure` with `anyhow` and `thiserror`. ([#3132](https://github.com/mozilla/application-services/pull/3132))
+
 ## FxA Client
 
 ### What's new

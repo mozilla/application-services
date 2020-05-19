@@ -14,7 +14,6 @@ use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, Setup
 use crate::status::{ServiceStatus, SyncResult};
 use crate::sync::{self, Store};
 use crate::telemetry;
-use failure::Fail;
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
 use std::mem;

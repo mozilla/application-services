@@ -16,7 +16,6 @@ use places::types::{BookmarkType, Timestamp};
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use sync_guid::Guid as SyncGuid;
 
-use failure::Fail;
 use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -27,7 +26,7 @@ use sync15::{
 };
 use url::Url;
 
-type Result<T> = std::result::Result<T, failure::Error>;
+use anyhow::Result;
 
 fn init_logging() {
     // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.

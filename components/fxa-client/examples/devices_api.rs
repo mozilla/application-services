@@ -21,14 +21,16 @@ static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f72
 static SCOPES: &[&str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
 static DEFAULT_DEVICE_NAME: &str = "Bobo device";
 
-fn load_fxa_creds() -> Result<FirefoxAccount, failure::Error> {
+use anyhow::Result;
+
+fn load_fxa_creds() -> Result<FirefoxAccount> {
     let mut file = fs::File::open(CREDENTIALS_PATH)?;
     let mut s = String::new();
     file.read_to_string(&mut s)?;
     Ok(FirefoxAccount::from_json(&s)?)
 }
 
-fn load_or_create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
+fn load_or_create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
     let acct = load_fxa_creds().or_else(|_e| create_fxa_creds(cfg))?;
     persist_fxa_state(&acct);
     Ok(acct)
@@ -47,7 +49,7 @@ fn persist_fxa_state(acct: &FirefoxAccount) {
     file.flush().unwrap();
 }
 
-fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
+fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
     let mut acct = FirefoxAccount::with_config(cfg);
     let oauth_uri = acct.begin_oauth_flow(&SCOPES)?;
 
@@ -68,7 +70,7 @@ fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount, failure::Error> {
     Ok(acct)
 }
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
     let cfg = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
     let mut acct = load_or_create_fxa_creds(cfg)?;

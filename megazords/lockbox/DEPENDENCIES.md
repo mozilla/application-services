@@ -10,7 +10,6 @@ the details of which are reproduced below.
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: matches](#mit-license-matches)
-* [MIT License: synstructure](#mit-license-synstructure)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
 * [ISC License: ring](#isc-license-ring)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
@@ -413,8 +412,6 @@ The following text applies to code linked from these dependencies:
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [either](https://github.com/bluss/either),
-[failure](https://github.com/rust-lang-nursery/failure),
-[failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
@@ -449,6 +446,8 @@ The following text applies to code linked from these dependencies:
 [serde_json](https://github.com/serde-rs/json),
 [smallvec](https://github.com/servo/rust-smallvec),
 [syn](https://github.com/dtolnay/syn),
+[thiserror-impl](https://github.com/dtolnay/thiserror),
+[thiserror](https://github.com/dtolnay/thiserror),
 [time](https://github.com/time-rs/time),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
@@ -787,22 +786,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: synstructure
-
-The following text applies to code linked from these dependencies:
-[synstructure](https://github.com/mystor/synstructure)
-
-```
-Copyright 2016 Nika Layzell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------

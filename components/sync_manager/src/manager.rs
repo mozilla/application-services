@@ -8,7 +8,6 @@ use crate::{reset, reset_all, wipe, wipe_all};
 use logins::PasswordEngine;
 use places::{bookmark_sync::store::BookmarksStore, history_sync::store::HistoryStore, PlacesApi};
 use std::collections::{HashMap, HashSet};
-use std::result;
 use std::sync::{atomic::AtomicUsize, Arc, Mutex, Weak};
 use std::time::SystemTime;
 use sync15::{
@@ -476,10 +475,7 @@ impl CommandProcessor for SyncClient {
         &self.0
     }
 
-    fn apply_incoming_command(
-        &self,
-        command: Command,
-    ) -> result::Result<CommandStatus, failure::Error> {
+    fn apply_incoming_command(&self, command: Command) -> anyhow::Result<CommandStatus> {
         let result = match command {
             Command::Wipe(engine) => wipe(&engine),
             Command::WipeAll => wipe_all(),
@@ -495,7 +491,7 @@ impl CommandProcessor for SyncClient {
         }
     }
 
-    fn fetch_outgoing_commands(&self) -> result::Result<HashSet<Command>, failure::Error> {
+    fn fetch_outgoing_commands(&self) -> anyhow::Result<HashSet<Command>> {
         Ok(HashSet::new())
     }
 }
