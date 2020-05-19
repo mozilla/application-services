@@ -7,7 +7,7 @@ use crate::db::StorageDb;
 use crate::error::*;
 use crate::migration::migrate;
 use crate::sync;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::result;
 
 use serde_json::Value as JsonValue;
@@ -121,9 +121,10 @@ impl Store {
     /// Migrates data from a database in the format of the "old" kinto
     /// implementation. Returns the count of webextensions for whom data was
     /// migrated.
-    pub fn migrate(self, filename: &str) -> Result<usize> {
+    /// Note that `filename` isn't normalized or canonicalized.
+    pub fn migrate(&self, filename: impl AsRef<Path>) -> Result<usize> {
         let tx = self.db.unchecked_transaction()?;
-        let result = migrate(&tx, &PathBuf::from(filename))?;
+        let result = migrate(&tx, filename)?;
         tx.commit()?;
         Ok(result)
     }
