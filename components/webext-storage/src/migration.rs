@@ -6,7 +6,7 @@ use crate::error::*;
 use rusqlite::{Connection, OpenFlags, Transaction, NO_PARAMS};
 use serde_json::{Map, Value};
 use sql_support::ConnExt;
-use std::path::PathBuf;
+use std::path::Path;
 
 // Simple migration from the "old" kinto-with-sqlite-backing implementation
 // to ours.
@@ -101,7 +101,7 @@ struct Parsed<'a> {
     data: serde_json::Value,
 }
 
-pub fn migrate(tx: &Transaction<'_>, filename: &PathBuf) -> Result<usize> {
+pub fn migrate(tx: &Transaction<'_>, filename: &Path) -> Result<usize> {
     // We do the grouping manually, collecting string values as we go.
     let mut last_ext_id = "".to_string();
     let mut curr_values: Vec<(String, serde_json::Value)> = Vec::new();
@@ -152,7 +152,7 @@ pub fn migrate(tx: &Transaction<'_>, filename: &PathBuf) -> Result<usize> {
     Ok(num_extensions)
 }
 
-fn read_rows(filename: &PathBuf) -> Result<Vec<LegacyRow>> {
+fn read_rows(filename: &Path) -> Result<Vec<LegacyRow>> {
     let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_READ_ONLY;
     let src_conn = Connection::open_with_flags(&filename, flags)?;
     let mut stmt = src_conn.prepare(
