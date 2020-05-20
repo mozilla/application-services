@@ -124,7 +124,7 @@ impl Store {
     /// Note that `filename` isn't normalized or canonicalized.
     pub fn migrate(&self, filename: impl AsRef<Path>) -> Result<usize> {
         let tx = self.db.unchecked_transaction()?;
-        let result = migrate(&tx, filename)?;
+        let result = migrate(&tx, filename.as_ref())?;
         tx.commit()?;
         Ok(result)
     }
