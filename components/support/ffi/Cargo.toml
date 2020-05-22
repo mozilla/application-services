@@ -28,5 +28,5 @@ version = "0.3.48"
 
 [dev-dependencies]
 rand = "0.7"
-rayon = "1.3.0"
+rayon = "1.3"
 env_logger = "0.7"

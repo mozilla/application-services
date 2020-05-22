@@ -15,7 +15,7 @@ sync15 = { path = "../sync15" }
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
-log = "0.4.8"
+log = "0.4"
 lazy_static = "1.4"
 url = "2.1"
 failure = "0.1"
@@ -24,19 +24,19 @@ ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-prost = "0.6.1"
-prost-derive = "0.6.1"
+prost = "0.6"
+prost-derive = "0.6"
 
 [dependencies.rusqlite]
 version = "0.23.1"
 features = ["sqlcipher", "limits"]
 
 [dev-dependencies]
-more-asserts = "0.2.1"
+more-asserts = "0.2"
 env_logger = "0.7"
-prettytable-rs = "0.8.0"
+prettytable-rs = "0.8"
 fxa-client = { path = "../fxa-client" }
 chrono = "0.4"
 clap = "2.33"
 cli-support = { path = "../support/cli" }
-tempdir = "0.3.7"
+tempdir = "0.3"

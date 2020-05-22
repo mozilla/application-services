@@ -13,7 +13,7 @@ tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client" }
 url = "2.1"
 env_logger = "0.7"
-log = "0.4.8"
+log = "0.4"
 failure = "0.1"
 rand = "0.7"
 lazy_static = "1.4"
