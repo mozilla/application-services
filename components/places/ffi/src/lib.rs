@@ -375,6 +375,20 @@ pub extern "C" fn places_delete_everything(handle: u64, error: &mut ExternError)
 }
 
 #[no_mangle]
+pub extern "C" fn places_get_top_frecent_site_infos(
+    handle: u64,
+    num_items: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_top_frecent_site_infos");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(storage::history::get_top_frecent_site_infos(
+            conn, num_items,
+        )?)
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn places_get_visit_infos(
     handle: u64,
     start_date: i64,

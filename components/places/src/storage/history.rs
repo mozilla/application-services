@@ -10,7 +10,10 @@ use crate::hash;
 use crate::history_sync::store::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
-use crate::msg_types::{HistoryVisitInfo, HistoryVisitInfos, HistoryVisitInfosWithBound};
+use crate::msg_types::{
+    HistoryVisitInfo, HistoryVisitInfos, HistoryVisitInfosWithBound, TopFrecentSiteInfo,
+    TopFrecentSiteInfos,
+};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
 use crate::types::{SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
@@ -1175,6 +1178,23 @@ pub fn get_visited_urls(
         &[(":start", &start), (":end", &end)],
         |row| -> RusqliteResult<_> { Ok(row.get::<_, String>(0)?) },
     )?)
+}
+
+pub fn get_top_frecent_site_infos(db: &PlacesDb, num_items: i32) -> Result<TopFrecentSiteInfos> {
+    let infos = db.query_rows_and_then_named_cached(
+        "SELECT frecency, title, url
+         FROM moz_places
+         WHERE (SUBSTR(url, 1, 6) == 'https:' OR SUBSTR(url, 1, 5) == 'http:')
+           AND (last_visit_date_local + last_visit_date_remote) != 0 AND
+           NOT hidden
+         ORDER BY frecency DESC
+         LIMIT :limit",
+        rusqlite::named_params! {
+            ":limit": num_items,
+        },
+        TopFrecentSiteInfo::from_row,
+    )?;
+    Ok(TopFrecentSiteInfos { infos })
 }
 
 pub fn get_visit_infos(

@@ -174,6 +174,42 @@ class PlacesConnectionTest {
         assertEquals("https://news.ycombinator.com/", db.matchUrl("news"))
     }
 
+    @Test
+    fun testGetTopFrecentSiteInfos() {
+        val toAdd = listOf(
+                "https://www.example.com/123",
+                "https://www.example.com/123",
+                "https://www.example.com/12345",
+                "https://www.mozilla.com/foo/bar/baz",
+                "https://www.mozilla.com/foo/bar/baz",
+                "https://mozilla.com/a1/b2/c3",
+                "https://news.ycombinator.com/",
+                "https://www.mozilla.com/foo/bar/baz"
+        )
+
+        for (url in toAdd) {
+            db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
+        }
+
+        var infos = db.getTopFrecentSiteInfos(0)
+        assertEquals(0, infos.size)
+
+        infos = db.getTopFrecentSiteInfos(3)
+
+        assertEquals(3, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+        assertEquals("https://news.ycombinator.com/", infos[2].url)
+
+        infos = db.getTopFrecentSiteInfos(5)
+        assertEquals(5, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+        assertEquals("https://news.ycombinator.com/", infos[2].url)
+        assertEquals("https://mozilla.com/a1/b2/c3", infos[3].url)
+        assertEquals("https://www.example.com/12345", infos[4].url)
+    }
+
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
     // as well as the handling of invalid urls.
     @Test
