@@ -14,10 +14,10 @@ tabs = { path = "../tabs" }
 ffi-support = "0.4"
 failure = "0.1"
 error-support = { path = "../support/error" }
-prost = "0.6.1"
-prost-derive = "0.6.1"
+prost = "0.6"
+prost-derive = "0.6"
 lazy_static = "1.4"
-log = "0.4.8"
+log = "0.4"
 sql-support = { path = "../support/sql" }
 url = "2.1"
 serde = "1"

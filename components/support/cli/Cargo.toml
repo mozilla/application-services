@@ -8,7 +8,7 @@ license = "MPL-2.0"
 [dependencies]
 failure = "0.1"
 fxa-client = { path = "../../fxa-client" }
-log = "0.4.8"
+log = "0.4"
 sync15 = { path = "../../sync15" }
 url = "2.1"
 webbrowser = "0.5"

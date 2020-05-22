@@ -15,17 +15,17 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 failure = "0.1"
-log = "0.4.8"
+log = "0.4"
 url = "2.1"
-prost = "0.6.1"
-prost-derive = "0.6.1"
+prost = "0.6"
+prost-derive = "0.6"
 ffi-support = "0.4"
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 
 [dev-dependencies]
-clipboard = "0.5.0"
+clipboard = "0.5"
 clap = "2.33"
 cli-support = { path = "../support/cli" }
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }

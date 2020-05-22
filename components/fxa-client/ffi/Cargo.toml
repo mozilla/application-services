@@ -11,11 +11,11 @@ crate-type = ["lib"]
 
 [dependencies]
 ffi-support = "0.4"
-log = "0.4.8"
+log = "0.4"
 serde_json = "1"
 lazy_static = "1.4"
 url = "2.1"
-prost = "0.6.1"
+prost = "0.6"
 viaduct = { path = "../../viaduct" }
 
 [dependencies.fxa-client]
