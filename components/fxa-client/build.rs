@@ -3,5 +3,5 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 fn main() {
-    uniffi::generate_component_stubs("fxa-client.idl");
+    uniffi::generate_component_scaffolding("fxa-client.idl");
 }
