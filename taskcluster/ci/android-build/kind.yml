@@ -31,7 +31,6 @@ jobs:
       env: {}
     run:
       pre-gradlew:
-        - [taskcluster/scripts/toolchain/rustup-setup.sh]
         # XXX: scripts subshell at runtime so we need to source this here
         # to be able to access `rustup` and `rustc` from within the cc script
         # and the gradle command. Another options could be to set those env vars
