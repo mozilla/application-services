@@ -777,6 +777,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sync15",
+ "uniffi",
  "url",
  "viaduct",
  "viaduct-reqwest",
@@ -1350,6 +1351,16 @@ dependencies = [
  "cfg-if",
  "libc",
  "void",
+]
+
+[[package]]
+name = "nom"
+version = "5.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b471253da97532da4b61552249c521e01e736071f71c1a4f7ebbfbf0a06aad6"
+dependencies = [
+ "memchr",
+ "version_check",
 ]
 
 [[package]]
@@ -2827,6 +2838,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
+name = "uniffi"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "weedle",
+]
+
+[[package]]
 name = "url"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3026,6 +3046,15 @@ dependencies = [
  "sync15-traits",
  "tempfile",
  "url",
+]
+
+[[package]]
+name = "weedle"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a7d4f9feb723a800d8f7b74edc9fa44ff35cb0b2ec64886714362f423427f37"
+dependencies = [
+ "nom",
 ]
 
 [[package]]

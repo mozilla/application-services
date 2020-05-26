@@ -54,6 +54,9 @@ unsafe impl<'a> Send for http_client::FxAClientMock<'a> {}
 #[cfg(test)]
 unsafe impl<'a> Sync for http_client::FxAClientMock<'a> {}
 
+
+include!(concat!(env!("OUT_DIR"), "/fxa-client.uniffi.rs"));
+
 // It this struct is modified, please check if the
 // `FirefoxAccount.start_over` function also needs
 // to be modified.

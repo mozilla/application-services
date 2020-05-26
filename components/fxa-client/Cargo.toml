@@ -32,6 +32,9 @@ dialoguer = "0.6"
 webbrowser = "0.5"
 mockiato = "0.9"
 
+[build-dependencies]
+uniffi = {path = "../support/uniffi"}
+
 [features]
 default = []
 gecko = [ "rc_crypto/gecko" ]

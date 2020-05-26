@@ -21,6 +21,7 @@ members = [
     "components/support/rc_crypto/nss/systest",
     "components/support/sql",
     "components/support/sync15-traits",
+    "components/support/uniffi",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
     "components/sync_manager/ffi",
