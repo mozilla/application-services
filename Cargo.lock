@@ -493,6 +493,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
+dependencies = [
+ "cfg-if",
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afa0b23de8fd801745c471deffa6e12d248f962c9fd4b4c33787b055599bde7b"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "redox_users",
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "dogear"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -646,12 +668,12 @@ dependencies = [
 
 [[package]]
 name = "find-places-db"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "156072cf5b7e3974da51941bf050f5b8ab5a8df56ad5c1adbd8c07e9d9455b95"
+checksum = "1594bf39a5c2a21fb4ea7fd6f6cfeeeba9ece09012d9c6081349c5de1c441076"
 dependencies = [
- "dirs",
- "failure",
+ "anyhow",
+ "dirs 2.0.2",
  "log 0.4.8",
 ]
 
@@ -2630,7 +2652,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd106a334b7657c10b7c540a0106114feadeb4dc314513e97df481d5d966f42"
 dependencies = [
  "byteorder",
- "dirs",
+ "dirs 1.0.5",
  "winapi 0.3.8",
 ]
 
