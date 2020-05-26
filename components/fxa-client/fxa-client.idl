@@ -105,7 +105,7 @@ interface FirefoxAccount {
   string beginOAuthFlow(sequence<string> scopes);
   string beginPairingFlow(string pairingUrl, sequence<string> scopes);
   void completeOAuthFlow(string code, string state);
-  void disconenct();
+  void disconnect();
 
   IntrospectInfo checkAuthorizationStatus();
   AccessTokenInfo getAccessToken(string scope, optional u32 ttl);

@@ -14,414 +14,173 @@ use std::{
 use anyhow::bail;
 use anyhow::Result;
 
-#[derive(Debug, Default)]
-struct ComponentInterface {
-    //raw: String,
-    types: HashMap<String, InterfaceType>,
-}
+pub mod types;
 
-#[derive(Debug)]
-enum Literal {
-    Boolean(bool),
-    String(String),
-    // TODO: more types of literal
-}
-
-#[derive(Debug)]
-enum TypeReference {
-    Boolean,
-    String,
-    U8,
-    S8,
-    U16,
-    S16,
-    U32,
-    S32,
-    U64,
-    S64,
-    Identifier(String),
-    Sequence(Box<TypeReference>),
-    Union(Vec<Box<TypeReference>>),
-}
-
-#[derive(Debug)]
-enum InterfaceType {
-    Object(ObjectType),
-    Record(RecordType),
-    Enum(EnumType),
-}
-
-#[derive(Debug, Default)]
-struct ObjectType {
-    name: String, // could probably borrow this from the container in some clever fashion, but whatevz...
-    members: Vec<ObjectTypeMember>,
-}
-
-#[derive(Debug)]
-enum ObjectTypeMember {
-    Constructor(ObjectTypeConstructor),
-    Method(ObjectTypeMethod)
-}
-
-#[derive(Debug)]
-struct ObjectTypeConstructor {
-    argument_types: Vec<ObjectTypeArgument>,
-}
-
-#[derive(Debug)]
-struct ObjectTypeMethod {
-    name: String,
-    return_type: Option<TypeReference>,
-    argument_types: Vec<ObjectTypeArgument>,
-}
-
-#[derive(Debug)]
-struct ObjectTypeArgument {
-    name: String,
-    typ: TypeReference,
-    optional: bool,
-    default: Option<Literal>,
-}
-
-#[derive(Debug, Default)]
-struct RecordType {
-    name: String,
-    fields: Vec<RecordTypeField>,
-}
-
-#[derive(Debug)]
-struct RecordTypeField {
-    name: String,
-    typ: TypeReference,
-    required: bool,
-    default: Option<Literal>,
-}
-
-#[derive(Debug, Default)]
-struct EnumType {
-    name: String,
-    values: Vec<String>,
-}
-
-impl ComponentInterface {
-    pub fn from_weedle(defns: weedle::Definitions) -> Result<Self> {
-        let mut interface = Self::default();
-        for defn in defns {
-            interface.add_type_definition(defn.try_into()?)?;
-        }
-        Ok(interface)
-    }
-
-    fn add_type_definition(&mut self, typ: InterfaceType) -> Result<()> {
-        match self.types.insert(typ.name().to_string(), typ) {
-            Some(typ) => bail!("duplicate definition for name \"{}\"", typ.name()),
-            None => {},
-        }
-        Ok(())
-    }
-}
-
-impl InterfaceType {
-    fn name(&self) -> &str{
-        match self {
-            InterfaceType::Object(t) => &t.name,
-            InterfaceType::Record(t) => &t.name,
-            InterfaceType::Enum(t) => &t.name,
-        }
-    }
-}
-
-impl TryFrom<weedle::Definition<'_>> for InterfaceType {
-    type Error = anyhow::Error;
-    fn try_from(d: weedle::Definition) -> Result<Self> {
-        Ok(match d {
-            weedle::Definition::Interface(d) => InterfaceType::Object(d.try_into()?),
-            weedle::Definition::Dictionary(d) => InterfaceType::Record(d.try_into()?),
-            weedle::Definition::Enum(d) => InterfaceType::Enum(d.try_into()?),
-            _ => bail!("don't know how to deal with {:?}", d),
-        })
-    }
-}
-
-impl TryFrom<weedle::InterfaceDefinition<'_>> for ObjectType {
-    type Error = anyhow::Error;
-    fn try_from(d: weedle::InterfaceDefinition) -> Result<Self> {
-        if d.attributes.is_some() {
-            bail!("no interface attributes are supported yet");
-        }
-        if d.inheritance.is_some() {
-            bail!("interface inheritence is not support");
-        }
-        Ok(ObjectType {
-            name: d.identifier.0.to_string(),
-            // XXX TODO: here and elsewhere, we need some sort of `try_map` method that
-            // does the same thing as `map` but bubbles up any errors to the outer function.
-            // Maybe this already exists and I just don't know about it..?
-            // Anyway, we panic instead for now; YOLO.
-            members: d.members.body.iter().map(|v| match v {
-                weedle::interface::InterfaceMember::Constructor(t) => ObjectTypeMember::Constructor(t.try_into().unwrap()),
-                weedle::interface::InterfaceMember::Operation(t) => ObjectTypeMember::Method(t.try_into().unwrap()),
-                _ => panic!("no support for interface member type {:?} yet", d),
-            }).collect()
-        })
-    }
-}
-
-impl TryFrom<&weedle::interface::ConstructorInterfaceMember<'_>> for ObjectTypeConstructor {
-    type Error = anyhow::Error;
-    fn try_from(m: &weedle::interface::ConstructorInterfaceMember) -> Result<Self> {
-        if m.attributes.is_some() {
-            bail!("no interface member attributes supported yet");
-        }
-        Ok(ObjectTypeConstructor {
-            argument_types: m.args.body.list.iter().map(|v| v.try_into().unwrap()).collect()
-        })
-    }
-}
-
-impl TryFrom<&weedle::interface::OperationInterfaceMember<'_>> for ObjectTypeMethod {
-    type Error = anyhow::Error;
-    fn try_from(m: &weedle::interface::OperationInterfaceMember) -> Result<Self> {
-        if m.attributes.is_some() {
-            bail!("no interface member attributes supported yet");
-        }
-        if m.special.is_some() {
-            bail!("special operations not supported");
-        }
-        if let Some(weedle::interface::StringifierOrStatic::Stringifier(_)) = m.modifier {
-            bail!("stringifiers are not supported");
-        }
-        if let None = m.identifier {
-            bail!("anonymous methods are not supported {:?}", m);
-        }
-        Ok(ObjectTypeMethod {
-            name: m.identifier.unwrap().0.to_string(),
-            return_type: match &m.return_type {
-                weedle::types::ReturnType::Void(_) => None,
-                weedle::types::ReturnType::Type(t) => Some(t.try_into()?)
-            },
-            argument_types: m.args.body.list.iter().map(|v| v.try_into().unwrap()).collect()
-        })
-    }
-}
-
-impl TryFrom<&weedle::argument::Argument<'_>> for ObjectTypeArgument {
-    type Error = anyhow::Error;
-    fn try_from(t: &weedle::argument::Argument) -> Result<Self> {
-        Ok(match t {
-            weedle::argument::Argument::Single(t) => t.try_into()?,
-            weedle::argument::Argument::Variadic(_) => bail!("variadic arguments not supported"),
-        })
-    }
-}
-
-impl TryFrom<&weedle::argument::SingleArgument<'_>> for ObjectTypeArgument {
-    type Error = anyhow::Error;
-    fn try_from(a: &weedle::argument::SingleArgument) -> Result<Self> {
-        if a.attributes.is_some() {
-            bail!("no argument attributes supported yet");
-        }
-        Ok(ObjectTypeArgument {
-            name: a.identifier.0.to_string(),
-            typ: (&a.type_).try_into()?,
-            optional: a.optional.is_some(),
-            default: a.default.map(|v| v.value.try_into().unwrap())
-        })
-    }
-}
-
-impl TryFrom<weedle::DictionaryDefinition<'_>> for RecordType {
-    type Error = anyhow::Error;
-    fn try_from(d: weedle::DictionaryDefinition) -> Result<Self> {
-        if d.attributes.is_some() {
-            bail!("no dictionary attributes are supported yet");
-        }
-        if d.inheritance.is_some() {
-            bail!("dictionary inheritence is not support");
-        }
-        Ok(RecordType {
-            name: d.identifier.0.to_string(),
-            fields: d.members.body.iter().map(|f| {
-                f.try_into().unwrap()
-            }).collect()
-
-        })
-    }
-}
-
-impl TryFrom<weedle::EnumDefinition<'_>> for EnumType {
-    type Error = anyhow::Error;
-    fn try_from(d: weedle::EnumDefinition) -> Result<Self> {
-        if d.attributes.is_some() {
-            bail!("no enum attributes are supported yet");
-        }
-        Ok(EnumType {
-            name: d.identifier.0.to_string(),
-            values: d.values.body.list.iter().map(|v| v.0.to_string()).collect(),
-        })
-    }
-}
-
-impl TryFrom<&weedle::dictionary::DictionaryMember<'_>> for RecordTypeField {
-    type Error = anyhow::Error;
-    fn try_from(d: &weedle::dictionary::DictionaryMember) -> Result<Self> {
-        if d.attributes.is_some() {
-            bail!("no dictionary member attributes are supported yet");
-        }
-        Ok(Self {
-            name: d.identifier.0.to_string(),
-            typ: (&d.type_).try_into()?,
-            required: d.required.is_some(),
-            default: d.default.map(|v| v.value.try_into().unwrap())
-        })
-    }
-}
-
-impl TryFrom<&weedle::types::Type<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: &weedle::types::Type) -> Result<Self> {
-        Ok(match t {
-            weedle::types::Type::Single(t) => {
-                match t {
-                    weedle::types::SingleType::Any(_) => bail!("no support for `any` types"),
-                    weedle::types::SingleType::NonAny(t) => t.try_into()?,
-                }
-            },
-            weedle::types::Type::Union(t) => {
-                if t.q_mark.is_some() {
-                    bail!("no support for nullable types in unions yet");
-                }
-                TypeReference::Union(t.type_.body.list.iter().map(|v| Box::new(match v {
-                    weedle::types::UnionMemberType::Single(t) => {
-                        t.try_into().unwrap()
-                    },
-                    weedle::types::UnionMemberType::Union(t) => panic!("no support for union union member types yet"),
-                })).collect())
-            },
-        })
-    }
-}
-
-impl TryFrom<weedle::types::NonAnyType<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: weedle::types::NonAnyType) -> Result<Self> {
-        (&t).try_into()
-    }
-}
-
-impl TryFrom<&weedle::types::NonAnyType<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: &weedle::types::NonAnyType) -> Result<Self> {
-        Ok(match t {
-            weedle::types::NonAnyType::Boolean(t) => t.try_into()?,
-            weedle::types::NonAnyType::Identifier(t) => t.try_into()?,
-            weedle::types::NonAnyType::Integer(t) => t.try_into()?,
-            weedle::types::NonAnyType::Sequence(t) => t.try_into()?,
-            _ => bail!("no support for type reference {:?}", t),
-        })
-    }
-}
-
-impl TryFrom<&weedle::types::AttributedNonAnyType<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: &weedle::types::AttributedNonAnyType) -> Result<Self> {
-        if t.attributes.is_some() {
-            bail!("type attributes no support yet");
-        }
-        (&t.type_).try_into()
-    }
-}
-
-impl TryFrom<&weedle::types::AttributedType<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: &weedle::types::AttributedType) -> Result<Self> {
-        if t.attributes.is_some() {
-            bail!("type attributes no support yet");
-        }
-        (&t.type_).try_into()
-    }
-}
-
-// The `Clone` bound here is because I don't know enough about the typesystem
-// to know of to make this generic over T when T has lifetimes involved.
-impl <T: TryInto<TypeReference, Error=anyhow::Error> + Clone> TryFrom<&weedle::types::MayBeNull<T>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: &weedle::types::MayBeNull<T>) -> Result<Self> {
-        if t.q_mark.is_some() {
-            bail!("no support for nullable types yet");
-        }
-        TryInto::try_into(t.type_.clone())
-    }
-}
-
-impl TryFrom<weedle::types::IntegerType> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: weedle::types::IntegerType) -> Result<Self> {
-        bail!("integer types not implemented ({:?}); consider using u8, u16, u32 or u64", t)
-    }
-}
-
-impl TryFrom<weedle::term::Boolean> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: weedle::term::Boolean) -> Result<Self> {
-        Ok(TypeReference::Boolean)
-    }
-}
-
-impl TryFrom<weedle::types::SequenceType<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: weedle::types::SequenceType) -> Result<Self> {
-        Ok(TypeReference::Sequence(Box::new(t.generics.body.as_ref().try_into()?)))
-    }
-}
-
-impl TryFrom<weedle::common::Identifier<'_>> for TypeReference {
-    type Error = anyhow::Error;
-    fn try_from(t: weedle::common::Identifier) -> Result<Self> {
-        // Hard-code a couple of our own non-WebIDL-standard type names.
-        Ok(match t.0.as_ref() {
-            "string" => TypeReference::String,
-            "u8" => TypeReference::U8,
-            "s8" => TypeReference::S8,
-            "u16" => TypeReference::U16,
-            "s16" => TypeReference::S16,
-            "u32" => TypeReference::U32,
-            "s32" => TypeReference::S32,
-            "u64" => TypeReference::U64,
-            "s64" => TypeReference::S64,
-            _ => TypeReference::Identifier(t.0.to_string())
-        })
-    }
-}
-
-impl TryFrom<weedle::literal::DefaultValue<'_>> for Literal {
-    type Error = anyhow::Error;
-    fn try_from(v: weedle::literal::DefaultValue) -> Result<Self> {
-        Ok(match v {
-            weedle::literal::DefaultValue::Boolean(b) => Literal::Boolean(b.0),
-            weedle::literal::DefaultValue::String(s) => Literal::String(s.0.to_string()),
-            _ => bail!("no support for {:?} literal yet", v),
-        })
-    }
-}
 
 pub fn generate_component_scaffolding(idl_file: &str) {
     println!("cargo:rerun-if-changed={}", idl_file);
-    let parsed = parse(idl_file);
+    let idl = slurp_file(idl_file).unwrap();
+    let component = types::ComponentInterface::new_from_str(&idl).unwrap();
     // XXX TODO: give the output file a unique name related to the input file.
     let mut filename = Path::new(idl_file).file_stem().unwrap().to_os_string();
     filename.push(".uniffi.rs");
     let mut out_file = PathBuf::from(env::var("OUT_DIR").unwrap());
     out_file.push(filename);
     let mut f = File::create(out_file).unwrap();
-    write!(f, "{:?}", parsed).unwrap();
+    GenerateScaffolding::generate(&component, &mut f);
 }
 
-fn parse(idl_file: &str) -> Result<ComponentInterface> {
-    let mut idl = String::new();
-    let mut f = File::open(idl_file)?;
-    f.read_to_string(&mut idl)?;
-    // XXX TODO: I think the error here needs a lifetime greater than `idl`; unwrap() it for now.
-    let parsed = weedle::parse(&idl.trim()).unwrap();
-    ComponentInterface::from_weedle(parsed)
+fn slurp_file(file_name: &str) -> Result<String> {
+    let mut contents = String::new();
+    let mut f = File::open(file_name)?;
+    f.read_to_string(&mut contents)?;
+    Ok(contents)
+}
+
+trait GenerateScaffolding: std::fmt::Debug {
+    fn generate(&self, f: &mut File) -> Result<()> {
+        bail!("can't generate from {:?}", self);
+    }
+    fn generate_toplevel(&self, f: &mut File) -> Result<()> {
+        bail!("can't generate toplevel item from {:?}", self);
+    }
+    fn generate_extern_function_declaration(&self, f: &mut File) -> Result<()> {
+        bail!("can't generate extern function declaration from {:?}", self);
+    }
+    fn generate_argument_declaration(&self, f: &mut File) -> Result<()> {
+        bail!("can't generate argument declaration from {:?}", self);
+    }
+    fn ffi_type(&self) -> Result<String> {
+        bail!("can't get ffi_type for {:?}", self);
+    }
+}
+
+impl GenerateScaffolding for types::ComponentInterface {
+    fn generate(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "// This file was autogenerated by some hot garbage in the `uniffi` crate.")?;
+        writeln!(f, "// Trust me, you don't want to mess with it!")?;
+        for m in &self.members {
+            match m {
+                types::InterfaceMember::Object(obj) => obj.generate_toplevel(f)?,
+                types::InterfaceMember::Record(rec) => rec.generate_toplevel(f)?,
+                types::InterfaceMember::Enum(e) => e.generate_toplevel(f)?,
+            }
+        }
+        writeln!(f, "")?;
+        writeln!(f, "deliberate syntax error")?;
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::ObjectType {
+    fn generate_toplevel(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "")?;
+        writeln!(f, "lazy_static::lazy_static! {{")?;
+        writeln!(f, "  static ref UNIFFI_HANDLE_MAP_{name}: ConcurrentHandleMap<{name}> = ConcurrentHandleMap::new();", name=self.name)?;
+        writeln!(f, "}}")?;
+        writeln!(f, "")?;
+        self.members.iter().try_for_each(|m| {
+            m.generate_extern_function_declaration(f)
+        })?;
+        writeln!(f, "}}");
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::ObjectTypeMember {
+    fn generate_extern_function_declaration(&self, f: &mut File) -> Result<()> {
+        match self {
+            types::ObjectTypeMember::Constructor(c) => c.generate_extern_function_declaration(f)?,
+            types::ObjectTypeMember::Method(m) => m.generate_extern_function_declaration(f)?,
+        };
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::ObjectTypeConstructor {
+    fn generate_extern_function_declaration(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "#[no_mangle]")?;
+        writeln!(f, "pub extern \"C\" fn {}(", &self.ffi_name())?;
+        self.argument_types.iter().try_for_each(|arg| {
+            arg.generate_argument_declaration(f)
+        })?;
+        writeln!(f, "  err: &mut ExternError,")?;
+        writeln!(f, ") -> u64 {{")?;
+        writeln!(f, "  log::debug!(\"{}\");", self.ffi_name())?;
+        writeln!(f, "  UNIFFI_HANDLE_MAP_{}.insert_with_output(err, || {{", self.ffi_name())?;
+        self.argument_types.iter().try_for_each(|arg| {
+            writeln!(f, "    // TODO: prepare arg {}", &arg.name)
+        })?;
+        writeln!(f, "    FirefoxAccount::new(")?; // XXX TODO: get rust name from object, not hardcode
+        self.argument_types.iter().try_for_each(|arg| {
+            writeln!(f, "      // TODO: pass arg {}", &arg.name)
+        })?;
+        writeln!(f, "    )")?;
+        writeln!(f, "  }})")?;
+        writeln!(f, "}}")?;
+        writeln!(f, "")?;
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::ObjectTypeMethod {
+    fn generate_extern_function_declaration(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "#[no_mangle]")?;
+        writeln!(f, "pub extern \"C\" fn {}(", &self.ffi_name())?;
+        writeln!(f, "  handle: u64,")?;
+        self.argument_types.iter().try_for_each(|arg| {
+            arg.generate_argument_declaration(f)
+        })?;
+        writeln!(f, "  err: &mut ExternError,")?;
+        match &self.return_type {
+            Some(t) => {
+                writeln!(f, ") -> {} {{", t.ffi_type()?)?;
+            },
+            None => {
+                writeln!(f, ") {{")?;
+            }
+        }
+        writeln!(f, "  log::debug!(\"{}\");", self.ffi_name())?;
+        // XXX TODO: allow annotations to decide between call_mut, call, etc.
+        // XXX TODO: no really, get the class name from the object by appropriate lookup magic.
+        writeln!(f, "  UNIFFI_HANDLE_MAP_FirefoxAccount.call_with_result_mut(err, handle, |obj: &mut FirefoxAccount| {{")?;
+        self.argument_types.iter().try_for_each(|arg| {
+            writeln!(f, "    // TODO: prepare arg {}", &arg.name)
+        })?;
+        writeln!(f, "    obj.{}(", self.name)?;
+        self.argument_types.iter().try_for_each(|arg| {
+            writeln!(f, "      // TODO: pass arg {}", &arg.name)
+        })?;
+        writeln!(f, "    )")?;
+        writeln!(f, "  }})")?;
+        writeln!(f, "}}")?;
+        writeln!(f, "")?;
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::ObjectTypeArgument {
+    fn generate_argument_declaration(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "  arg: &str, ");
+        Ok(())
+    }
+}
+impl GenerateScaffolding for types::RecordType {
+    fn generate_toplevel(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "// Record {}", self.name);
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::EnumType {
+    fn generate_toplevel(&self, f: &mut File) -> Result<()> {
+        writeln!(f, "// Enum {}", self.name);
+        Ok(())
+    }
+}
+
+impl GenerateScaffolding for types::TypeReference {
+    fn ffi_type(&self) -> Result<String> {
+        Ok("hello".to_string())
+    }
 }
