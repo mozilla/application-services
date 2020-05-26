@@ -98,6 +98,12 @@ pub struct ObjectTypeArgument {
     pub default: Option<Literal>,
 }
 
+impl ObjectTypeArgument {
+    pub fn ffi_name(&self) -> String {
+        self.name.to_string()
+    }
+}
+
 #[derive(Debug, Default)]
 pub struct RecordType {
     pub name: String,

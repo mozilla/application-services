@@ -21,7 +21,7 @@ enum AccountEventType {
 };
 
 dictionary ProfileInfo {
-  // XXX TODO: probably some of these should be `required`.
+  // XXX TODO: probably some of these should be `required`?
   string uid;
   string email;
   string display_name;
@@ -109,7 +109,7 @@ interface FirefoxAccount {
 
   IntrospectInfo checkAuthorizationStatus();
   AccessTokenInfo getAccessToken(string scope, optional u32 ttl);
-  string getSessionToken(); // really which we weren't exposing this... :-(
+  string getSessionToken(); // really whish we weren't exposing this... :-(
   string getCurrentDeviceId();
   string authorizeOAuthCode(string client_id, sequence<string> scopes, string state, optional string access_type = "online");
   void clearAccessTokenCache();
