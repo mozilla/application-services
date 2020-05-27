@@ -9,7 +9,7 @@ import com.sun.jna.Library
 import com.sun.jna.Pointer
 import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
-import org.mozilla.appservices.experimental.remotetabs.BuildConfig
+import org.mozilla.appservices.remotetabs.BuildConfig
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibRemoteTabsFFI : Library {
