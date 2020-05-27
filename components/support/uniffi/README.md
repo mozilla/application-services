@@ -12,7 +12,7 @@ and XPCOM+JS. The process is time-consuming, error-prone, and boring.
 
 What if we didn't have to write all of that by hand?
 
-In an aspirational world, we could this kind of easy cross-language interop for
+In an aspirational world, we could get this kind of easy cross-language interop for
 free using [wasm_bindgen](https://rustwasm.github.io/docs/wasm-bindgen/) and
 [webassembly interface types](https://hacks.mozilla.org/2019/08/webassembly-interface-types/) -
 imagine writing an API in Rust, annotating it with some `#[wasm_bindgen]` macros,
@@ -43,7 +43,7 @@ general familiarity around Mozilla, and the desire to avoid bikeshedding any new
 We'll model the *semantics* of the component API loosely on the primitives defined by the
 [Wasm Interface Types](https://github.com/WebAssembly/interface-types/blob/master/proposals/interface-types/Explainer.md)
 proposal (henceforth "WIT"). WIT aims to solve a very similarly-shaped problem to the one we're faced
-with here, and by organizing this work around similar concepts, we migth make it easier to one day
+with here, and by organizing this work around similar concepts, we might make it easier to one day
 replace all of this with direct use of WIT tooling.
 
 In the future, we may be able to generate the Interface Definition from annotations on the rust code (in the style of `#[wasm_bindgen]`) rather than from a separate IDL file. But it's much easier to get
@@ -134,7 +134,7 @@ We currently use ad-hoc Protobuf messages for this, e.g. the `AccountEvent` and
 implementation on both sides of the FFI boundary.
 
 When traversing the FFI, these would be serialized into a byte buffer and parsed
-backout into a Vec or Array or whatever on the other side. Just like Record types.
+back out into a Vec or Array or whatever on the other side. Just like Record types.
 
 ### Enums
 
@@ -193,7 +193,7 @@ see how to get started.
 Lots!
 
 The complexity of maintaining all this tooling could be a greater burden then maintaining
-the manual bindings. We migth isolate expertise in a small number of team members. We might
+the manual bindings. We might isolate expertise in a small number of team members. We might
 spend more time working on this tooling than we'll ever hope to get back in time savings
 from the generated code.
 
