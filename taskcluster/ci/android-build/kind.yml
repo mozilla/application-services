@@ -38,7 +38,7 @@ jobs:
         - [source, taskcluster/scripts/toolchain/rustup-setup.sh]
         - [taskcluster/scripts/toolchain/cross-compile-setup.sh]
         - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
-        - [echo, 'rust.targets=linux-x86-64,x86_64\n', '>', local.properties]
+        - [bash, '-c', 'echo "rust.targets=linux-x86-64,x86_64\n" > local.properties']
       gradlew:
         - 'clean'
         - 'assembleDebug'
