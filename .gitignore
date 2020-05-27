@@ -35,5 +35,3 @@ automation/symbols-generation/bin/
 
 # Python
 __pycache__
-*.py[cod]
-.Python

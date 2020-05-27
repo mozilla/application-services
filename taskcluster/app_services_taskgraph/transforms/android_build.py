@@ -15,9 +15,9 @@ transforms = TransformSequence()
 def add_megazord_checks(config, tasks):
     components = get_components()
     megazord_names = [component["name"] for component in components if component["name"].endswith("-megazord")]
-    megazord_commands = [["automation/check_megazord.sh", "{}".format(name[0:-9].replace('-', '_'))] for name in megazord_names]
+    megazord_commands = ["./automation/check_megazord.sh {}".format(name[0:-9].replace("-", "_")) for name in megazord_names]
     for task in tasks:
         if task.pop("add-megazord-checks", False):
-            task["run"]["post-gradlew"] = megazord_commands
+            task["worker"]["script"] += "\n" + "\n".join(megazord_commands)
         yield task
 

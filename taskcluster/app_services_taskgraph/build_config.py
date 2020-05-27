@@ -10,43 +10,18 @@ import yaml
 from taskgraph.util.memoize import memoize
 
 
-EXTENSIONS = {
-    'aar': ('.aar', '.pom', '-sources.jar'),
-    'jar': ('.jar', '.pom')
-
-}
-CHECKSUMS_EXTENSIONS = ('.sha1', '.md5')
-
-
 def get_components():
     build_config = _read_build_config()
     return [{
+        'version': build_config['libraryVersion'],
         'name': name,
         'path': project['path'],
+        'artifactId': project['artifactId'],
+        'publications': [{
+            'name': publication['name'],
+            'type': publication['type'],
+        } for publication in project['publications']]
     } for (name, project) in build_config['projects'].items()]
-
-
-def get_version():
-    return _read_build_config()["libraryVersion"]
-
-
-def get_extensions(module_name):
-    publications = _read_build_config()["projects"][module_name]['publications']
-    extensions = {}
-    for publication in publications:
-        artifact_type = publication['type']
-        if artifact_type not in EXTENSIONS:
-            raise ValueError(
-                "For '{}', 'publication->type' must be one of {}".format(
-                    module_name, repr(EXTENSIONS.keys())
-                )
-            )
-        extensions[publication['name']] = [
-                extension + checksum_extension
-                for extension in EXTENSIONS[artifact_type]
-                for checksum_extension in ('',) + CHECKSUMS_EXTENSIONS
-        ]
-    return extensions
 
 
 @memoize

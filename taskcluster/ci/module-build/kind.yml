@@ -8,6 +8,8 @@ loader: app_services_taskgraph.loader.build_config:loader
 
 transforms:
   - app_services_taskgraph.transforms.module_build:transforms
+  - app_services_taskgraph.transforms.out_of_docker_setup:transforms
+  - app_services_taskgraph.transforms.script_to_run_task:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
@@ -25,24 +27,16 @@ job-defaults:
   worker:
     docker-image: { in-tree: linux }
     max-run-time: 1800
+    script: |
+      rsync -a /builds/worker/fetches/libs/ /builds/worker/checkouts/src/libs/
+      echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties
+      ./gradlew --no-daemon ":{module_name}:testDebug"
+      ./gradlew --no-daemon ":{module_name}:assembleRelease"
+      ./gradlew --no-daemon ":{module_name}:publish"
+      ./gradlew --no-daemon ":{module_name}:checkMavenArtifacts"
   run:
-    pre-gradlew:
-      # XXX: scripts subshell at runtime so we need to source this here
-      # to be able to access `rustup` and `rustc` from within the cc script
-      # and the gradle command. Another options could be to set those env vars
-      # here like: [export, 'PATH=$HOME/.cargo/bin:$PATH'
-      - [source, taskcluster/scripts/toolchain/rustup-setup.sh]
-      - [taskcluster/scripts/toolchain/cross-compile-setup.sh]
-      - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
-      - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties']
-    gradlew:
-      - ':{module_name}:testDebug'
-      - ':{module_name}:assembleRelease'
-      - ':{module_name}:publish'
-      - ':{module_name}:checkMavenArtifacts'
-    using: gradlew
-    use-caches: true
-
+    using: run-task
+    cwd: "{checkout}"
   fetches:
     toolchain:
       - android-libs
