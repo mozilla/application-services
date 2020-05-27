@@ -6,6 +6,8 @@
 
 ## General
 
+- Adds an alias for generating protobuf files, you can now use `cargo regen-protobufs` to generate them. ([#3178](https://github.com/mozilla/application-services/pull/3178))
+
 - Replaced `failure` with `anyhow` and `thiserror`. ([#3132](https://github.com/mozilla/application-services/pull/3132))
 
 ## FxA Client

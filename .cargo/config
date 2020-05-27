@@ -1,0 +1,2 @@
+[alias]
+regen-protobufs = ["run", "--bin", "protobuf-gen", "tools/protobuf_files.toml"]
