@@ -32,7 +32,7 @@ job-defaults:
       # and the gradle command. Another options could be to set those env vars
       # here like: [export, 'PATH=$HOME/.cargo/bin:$PATH'
       - [source, taskcluster/scripts/toolchain/rustup-setup.sh]
-      - [taskcluster/scripts/toolchain/cross-compile-setup.sh]
+      - [source, taskcluster/scripts/toolchain/cross-compile-setup.sh]
       - [rsync, '-a', /builds/worker/fetches/libs/, /builds/worker/checkouts/src/libs/]
       - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64,win32-x86-64-gnu\n" > local.properties']
     gradlew:
