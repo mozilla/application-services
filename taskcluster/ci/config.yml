@@ -25,6 +25,19 @@ workers:
       implementation: docker-worker
       os: linux
       worker-type: 'images'
+    signing:
+      provisioner: scriptworker-k8s
+      implementation: scriptworker-signing
+      os: scriptworker
+      worker-type:
+        by-level:
+          "3": app-services-3-signing
+          default: app-services-t-signing
+    beetmover:
+      provisioner: scriptworker-k8s
+      implementation: scriptworker-beetmover
+      os: scriptworker
+      worker-type: 'app-services-{level}-beetmover'
 
 scriptworker:
-  scope-prefix: project:mozilla:application-services:releng
+  scope-prefix: project:mozilla:app-services:releng

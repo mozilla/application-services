@@ -16,7 +16,11 @@ def register(graph_config):
     Import all modules that are siblings of this one, triggering decorators in
     the process.
     """
-    _import_modules(["job", "target_tasks", "worker_types"])
+    _import_modules([
+        "job",
+        "target_tasks",
+        "worker_types"
+    ])
 
 
 def _import_modules(modules):
@@ -25,7 +29,15 @@ def _import_modules(modules):
 
 
 def get_decision_parameters(graph_config, parameters):
-    if parameters["tasks_for"] == "github-pull-request":
+    if parameters["tasks_for"] == "github-release":
+        head_tag = parameters["head_tag"].decode("utf-8")
+        if not head_tag:
+            raise ValueError(
+                "Cannot run github-release if `head_tag` is not defined.Got {}".format(
+                    head_tag
+                )
+            )
+    elif parameters["tasks_for"] == "github-pull-request":
         pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "").decode("UTF-8")
         if "[ci full]" in pr_title:
             parameters["target_tasks_method"] = "pr-full"

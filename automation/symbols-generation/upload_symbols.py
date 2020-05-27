@@ -5,29 +5,32 @@
 
 from __future__ import print_function
 
+import json
+import os
 import redo
 import requests
 import shutil
 import sys
-import os
 from optparse import OptionParser
 
 DEFAULT_SYMBOL_URL = "https://symbols.mozilla.org/upload/"
 MAX_RETRIES = 5
 
-def Upload_Symbols(zip_file):
+def upload_symbols(zip_file, token_file):
     print("Uploading symbols file '{0}' to '{1}'".format(zip_file, DEFAULT_SYMBOL_URL), file=sys.stdout)
     zip_name = os.path.basename(zip_file)
 
-    # Fetch the symbol server token from Taskcluster secrets.
-    secrets_url = "http://taskcluster/secrets/v1/secret/{}".format("project/application-services/symbols-token")
-    res = requests.get(secrets_url)
-    res.raise_for_status()
-    secret = res.json()
-    auth_token = secret["secret"]["token"]
-
+    # XXX: fetch the symbol upload token from local file, taskgraph handles
+    # already that communication with Taskcluster to get the credentials for
+    # communicating with the server
+    auth_token = ''
+    with open(token_file, 'r') as f:
+        auth_token = f.read().strip()
     if len(auth_token) == 0:
         print("Failed to get the symbol token.", file=sys.stderr)
+    if auth_token == 'faketoken':
+        print("'faketoken` detected, not pushing anything", file=sys.stdout)
+        sys.exit(0)
 
     for i, _ in enumerate(redo.retrier(attempts=MAX_RETRIES), start=1):
         print("Attempt %d of %d..." % (i, MAX_RETRIES))
@@ -66,15 +69,18 @@ def Upload_Symbols(zip_file):
 
 def main():
     parser = OptionParser(usage="usage: <symbol store path>")
+    parser.add_option('-t', '--tokenfile', dest='token_file',
+                      help='upload symbols token file', default='.symbols_upload_token')
     (options, args) = parser.parse_args()
 
     if len(args) < 1:
         parser.error("not enough arguments")
         exit(1)
 
-    symbol_path=args[0]
+    symbol_path = args[0]
+    token_file = options.token_file
     shutil.make_archive(symbol_path , "zip", symbol_path)
-    Upload_Symbols(symbol_path + ".zip")
+    upload_symbols(symbol_path + ".zip", token_file)
 
 # run main if run directly
 if __name__ == "__main__":
