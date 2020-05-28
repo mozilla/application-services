@@ -33,11 +33,10 @@ use std::path::Path;
 //   we don't want to migrate. Its record_id is 'keys' and its json has no
 //   `data`
 
-// We don't enforce a real quota, but don't want to exceed the
-// sync server's BSO size and also just be generally sane - so stop at 1.5MB
-// and also 2k of keys
-const MAX_LEN: usize = 1_512_000;
-const MAX_KEYS: usize = 2048;
+// Note we don't enforce a quota - we migrate everything - even if this means
+// it's too big for the server to store. This is a policy decision - it's better
+// to not lose data than to try and work out what data can be disposed of, as
+// the addon has the ability to determine this.
 
 // The struct we read from the DB.
 struct LegacyRow {
@@ -105,7 +104,6 @@ pub fn migrate(tx: &Transaction<'_>, filename: &Path) -> Result<usize> {
     // We do the grouping manually, collecting string values as we go.
     let mut last_ext_id = "".to_string();
     let mut curr_values: Vec<(String, serde_json::Value)> = Vec::new();
-    let mut curr_value_len = 0;
     let mut num_extensions = 0;
     for row in read_rows(filename)? {
         log::trace!("processing '{}' - '{}'", row.col_name, row.record);
@@ -123,20 +121,13 @@ pub fn migrate(tx: &Transaction<'_>, filename: &Path) -> Result<usize> {
             }
             last_ext_id = parsed.ext_id.to_string();
             curr_values = Vec::new();
-            curr_value_len = 0;
         }
         // no 'else' here - must also enter this block on ext_id change.
         if parsed.ext_id == last_ext_id {
-            // Do our "quota but not a quota" thing.
-            let new_len = curr_value_len + parsed.data.to_string().len() + parsed.key.len();
-            if new_len < MAX_LEN && curr_values.len() < MAX_KEYS {
-                curr_values.push((parsed.key.to_string(), parsed.data));
-                curr_value_len = new_len;
-            }
+            curr_values.push((parsed.key.to_string(), parsed.data));
             log::trace!(
-                "extension {} now has {} bytes, {} keys",
+                "extension {} now has {} keys",
                 parsed.ext_id,
-                curr_value_len,
                 curr_values.len()
             );
         }
@@ -295,44 +286,5 @@ mod tests {
             )
             .expect("should populate");
         });
-    }
-
-    #[test]
-    fn test_too_long() {
-        let conn = do_migrate(1, |c| {
-            for i in 0..1000 {
-                c.execute_batch(&format!(
-                    r#"INSERT INTO collection_data(collection_name, record)
-                           VALUES ('default/too_long', '{{"key":"{}","data":"{}"}}')"#,
-                    i,
-                    "x".repeat(2000)
-                ))
-                .expect("should populate");
-            }
-        });
-        let data = api::get(&conn, "too_long", json!(null)).expect("get should work");
-        // The way we calculate bytes is designed to be "fast and close enough"
-        // rather than the exact number of bytes in the final json repr - so we
-        // might end up with a few bytes over our limit.
-        // So just check our keys are far less then we expect.
-        let nkeys = data.as_object().unwrap().len();
-        assert!(nkeys > 0);
-        assert!(nkeys < MAX_KEYS);
-    }
-
-    #[test]
-    fn test_too_many_keys() {
-        let conn = do_migrate(1, |c| {
-            for i in 0..2050 {
-                c.execute_batch(&format!(
-                    r#"INSERT INTO collection_data(collection_name, record)
-                           VALUES ('default/too_many', '{{"key":"{}","data":"yo"}}')"#,
-                    i
-                ))
-                .expect("should populate");
-            }
-        });
-        let data = api::get(&conn, "too_many", json!(null)).expect("get should work");
-        assert_eq!(data.as_object().unwrap().len(), MAX_KEYS);
     }
 }
