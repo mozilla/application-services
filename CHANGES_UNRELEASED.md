@@ -9,3 +9,4 @@
 ### What's new
 
 - Additional special case for China FxA in `getPairingAuthorityURL`. ([#3160](https://github.com/mozilla/application-services/pull/3160))
+- Silently ignore push messages for unrecognized commands, rather than reporting an error. ([#3177](https://github.com/mozilla/application-services/pull/3177))
