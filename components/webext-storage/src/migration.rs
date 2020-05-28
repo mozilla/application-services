@@ -38,6 +38,13 @@ use std::path::Path;
 // to not lose data than to try and work out what data can be disposed of, as
 // the addon has the ability to determine this.
 
+// Our error strategy is "ignore read errors, propagate write errors" under the
+// assumption that the former tends to mean a damaged DB or file-system and is
+// unlikely to work if we try later (eg, replacing the disk isn't likely to
+// uncorrupt the DB), where the latter is likely to be disk-space or file-system
+// error, but retry might work (eg, replacing the disk then trying again might
+// make the writes work)
+
 // The struct we read from the DB.
 struct LegacyRow {
     col_name: String, // collection_name column
@@ -105,7 +112,7 @@ pub fn migrate(tx: &Transaction<'_>, filename: &Path) -> Result<usize> {
     let mut last_ext_id = "".to_string();
     let mut curr_values: Vec<(String, serde_json::Value)> = Vec::new();
     let mut num_extensions = 0;
-    for row in read_rows(filename)? {
+    for row in read_rows(filename) {
         log::trace!("processing '{}' - '{}'", row.col_name, row.record);
         let parsed = match row.parse() {
             Some(p) => p,
@@ -115,9 +122,8 @@ pub fn migrate(tx: &Transaction<'_>, filename: &Path) -> Result<usize> {
         if parsed.ext_id != last_ext_id {
             if last_ext_id != "" && !curr_values.is_empty() {
                 // a different extension id - write what we have to the DB.
-                if do_insert(tx, &last_ext_id, curr_values) {
-                    num_extensions += 1;
-                }
+                do_insert(tx, &last_ext_id, curr_values)?;
+                num_extensions += 1;
             }
             last_ext_id = parsed.ext_id.to_string();
             curr_values = Vec::new();
@@ -135,55 +141,64 @@ pub fn migrate(tx: &Transaction<'_>, filename: &Path) -> Result<usize> {
     // and the last one
     if last_ext_id != "" && !curr_values.is_empty() {
         // a different extension id - write what we have to the DB.
-        if do_insert(tx, &last_ext_id, curr_values) {
-            num_extensions += 1;
-        }
+        do_insert(tx, &last_ext_id, curr_values)?;
+        num_extensions += 1;
     }
     log::info!("migrated {} extensions", num_extensions);
     Ok(num_extensions)
 }
 
-fn read_rows(filename: &Path) -> Result<Vec<LegacyRow>> {
+fn read_rows(filename: &Path) -> Vec<LegacyRow> {
     let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX | OpenFlags::SQLITE_OPEN_READ_ONLY;
-    let src_conn = Connection::open_with_flags(&filename, flags)?;
-    let mut stmt = src_conn.prepare(
+    let src_conn = match Connection::open_with_flags(&filename, flags) {
+        Ok(conn) => conn,
+        Err(e) => {
+            log::warn!("Failed to open the source DB: {}", e);
+            return Vec::new();
+        }
+    };
+    // Failure to prepare the statement probably just means the source DB is
+    // damaged.
+    let mut stmt = match src_conn.prepare(
         "SELECT collection_name, record FROM collection_data
          ORDER BY collection_name",
-    )?;
-    let rows = stmt
-        .query_and_then(NO_PARAMS, |row| -> Result<LegacyRow> {
-            Ok(LegacyRow {
-                col_name: row.get(0)?,
-                record: row.get(1)?,
-            })
-        })?
-        .filter_map(Result::ok)
-        .collect();
-    Ok(rows)
+    ) {
+        Ok(stmt) => stmt,
+        Err(e) => {
+            log::warn!("Failed to prepare the statement: {}", e);
+            return Vec::new();
+        }
+    };
+    let rows = match stmt.query_and_then(NO_PARAMS, |row| -> Result<LegacyRow> {
+        Ok(LegacyRow {
+            col_name: row.get(0)?,
+            record: row.get(1)?,
+        })
+    }) {
+        Ok(r) => r,
+        Err(e) => {
+            log::warn!("Failed to read any rows from the source DB: {}", e);
+            return Vec::new();
+        }
+    };
+
+    rows.filter_map(Result::ok).collect()
 }
 
-fn do_insert(tx: &Transaction<'_>, ext_id: &str, vals: Vec<(String, Value)>) -> bool {
+fn do_insert(tx: &Transaction<'_>, ext_id: &str, vals: Vec<(String, Value)>) -> Result<()> {
     let mut map = Map::with_capacity(vals.len());
     for (key, val) in vals {
         map.insert(key, val);
     }
-    match tx.execute_named_cached(
+    tx.execute_named_cached(
         "INSERT OR REPLACE INTO storage_sync_data(ext_id, data, sync_change_counter)
          VALUES (:ext_id, :data, 1)",
         rusqlite::named_params! {
             ":ext_id": &ext_id,
             ":data": &Value::Object(map),
         },
-    ) {
-        Ok(_) => {
-            log::trace!("successfully wrote data for {}", ext_id);
-            true
-        }
-        Err(e) => {
-            log::error!("failed to write data: {}", e);
-            false
-        }
-    }
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]
