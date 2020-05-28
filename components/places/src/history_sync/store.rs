@@ -13,7 +13,6 @@ use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::SqlInterruptScope;
 use std::ops::Deref;
-use std::result;
 use sync15::telemetry;
 use sync15::{
     extract_v1_state, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset,
@@ -151,7 +150,7 @@ impl<'a> Store for HistoryStore<'a> {
         &self,
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
-    ) -> result::Result<OutgoingChangeset, failure::Error> {
+    ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "history only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         Ok(self.do_apply_incoming(inbound, telem)?)
@@ -161,7 +160,7 @@ impl<'a> Store for HistoryStore<'a> {
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
-    ) -> result::Result<(), failure::Error> {
+    ) -> anyhow::Result<()> {
         self.do_sync_finished(new_timestamp, records_synced)?;
         Ok(())
     }
@@ -169,7 +168,7 @@ impl<'a> Store for HistoryStore<'a> {
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
         let since = ServerTimestamp(
             self.get_meta::<i64>(LAST_SYNC_META_KEY)?
                 .unwrap_or_default(),
@@ -184,7 +183,7 @@ impl<'a> Store for HistoryStore<'a> {
         })
     }
 
-    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+    fn get_sync_assoc(&self) -> anyhow::Result<StoreSyncAssociation> {
         let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
@@ -194,12 +193,12 @@ impl<'a> Store for HistoryStore<'a> {
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
         self.do_reset(assoc)?;
         Ok(())
     }
 
-    fn wipe(&self) -> result::Result<(), failure::Error> {
+    fn wipe(&self) -> anyhow::Result<()> {
         delete_everything(&self.db)?;
         Ok(())
     }

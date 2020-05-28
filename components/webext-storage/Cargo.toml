@@ -11,7 +11,7 @@ default = []
 
 [dependencies]
 error-support = { path = "../support/error" }
-failure = "0.1"
+thiserror = "1.0"
 interrupt-support = { path = "../support/interrupt" }
 lazy_static = "1.4"
 log = "0.4"

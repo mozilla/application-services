@@ -14,7 +14,7 @@ use std::{
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use url::Url;
 
-type Result<T> = std::result::Result<T, failure::Error>;
+use anyhow::Result;
 
 // Defaults - not clear they are the best option, but they are a currently
 // working option.
@@ -102,7 +102,7 @@ pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
     let tokenserver_url = config.token_server_endpoint_url()?;
     let (acct, token_info) = match get_account_and_token(config, cred_file) {
         Ok(v) => v,
-        Err(e) => failure::bail!("Failed to use saved credentials. {}", e),
+        Err(e) => anyhow::bail!("Failed to use saved credentials. {}", e),
     };
     let key = token_info.key.unwrap();
 

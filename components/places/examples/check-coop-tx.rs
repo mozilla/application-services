@@ -14,7 +14,7 @@ use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-type Result<T> = std::result::Result<T, failure::Error>;
+use anyhow::Result;
 
 fn update(t: &PlacesDb, n: u32) -> Result<()> {
     t.execute(

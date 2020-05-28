@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::Fail;
-
 impl From<Error> for ffi_support::ExternError {
     fn from(e: Error) -> ffi_support::ExternError {
         ffi_support::ExternError::new_error(e.kind().error_code(), format!("{:?}", e))
@@ -17,47 +15,47 @@ error_support::define_error! {
     }
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
     /// An unspecified general error has occured
-    #[fail(display = "General Error: {:?}", _0)]
+    #[error("General Error: {0:?}")]
     GeneralError(String),
 
-    #[fail(display = "Crypto error: {}", _0)]
+    #[error("Crypto error: {0}")]
     CryptoError(String),
 
     /// A Client communication error
-    #[fail(display = "Communication Error: {:?}", _0)]
+    #[error("Communication Error: {0:?}")]
     CommunicationError(String),
 
     /// An error returned from the registration Server
-    #[fail(display = "Communication Server Error: {:?}", _0)]
+    #[error("Communication Server Error: {0:?}")]
     CommunicationServerError(String),
 
     /// Channel is already registered, generate new channelID
-    #[fail(display = "Channel already registered.")]
+    #[error("Channel already registered.")]
     AlreadyRegisteredError,
 
     /// An error with Storage
-    #[fail(display = "Storage Error: {:?}", _0)]
+    #[error("Storage Error: {0:?}")]
     StorageError(String),
 
-    #[fail(display = "No record for uaid:chid {:?}:{:?}", _0, _1)]
+    #[error("No record for uaid:chid {0:?}:{1:?}")]
     RecordNotFoundError(String, String),
 
     /// A failure to encode data to/from storage.
-    #[fail(display = "Error executing SQL: {}", _0)]
-    StorageSqlError(#[fail(cause)] rusqlite::Error),
+    #[error("Error executing SQL: {0}")]
+    StorageSqlError(#[from] rusqlite::Error),
 
-    #[fail(display = "Missing Registration Token")]
+    #[error("Missing Registration Token")]
     MissingRegistrationTokenError,
 
-    #[fail(display = "Transcoding Error: {}", _0)]
+    #[error("Transcoding Error: {0}")]
     TranscodingError(String),
 
     /// A failure to parse a URL.
-    #[fail(display = "URL parse error: {:?}", _0)]
-    UrlParseError(#[fail(cause)] url::ParseError),
+    #[error("URL parse error: {0:?}")]
+    UrlParseError(#[from] url::ParseError),
 }
 
 // Note, be sure to duplicate errors in the Kotlin side

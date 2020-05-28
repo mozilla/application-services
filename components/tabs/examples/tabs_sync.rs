@@ -10,7 +10,7 @@ use cli_support::prompt::prompt_char;
 use clipboard::{ClipboardContext, ClipboardProvider};
 use tabs::{RemoteTab, TabsEngine};
 
-type Result<T> = std::result::Result<T, failure::Error>;
+use anyhow::Result;
 
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();

@@ -19,7 +19,6 @@ use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
-use std::result;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::{Duration, Instant, SystemTime};
 use sync15::{
@@ -1262,7 +1261,7 @@ impl<'a> Store for LoginStore<'a> {
         &self,
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
-    ) -> result::Result<OutgoingChangeset, failure::Error> {
+    ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "logins only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
@@ -1272,7 +1271,7 @@ impl<'a> Store for LoginStore<'a> {
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
-    ) -> result::Result<(), failure::Error> {
+    ) -> anyhow::Result<()> {
         self.db.mark_as_synchronized(
             &records_synced.iter().map(Guid::as_str).collect::<Vec<_>>(),
             new_timestamp,
@@ -1284,7 +1283,7 @@ impl<'a> Store for LoginStore<'a> {
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
         let since = self.db.get_last_sync()?.unwrap_or_default();
         Ok(if since == server_timestamp {
             vec![]
@@ -1293,7 +1292,7 @@ impl<'a> Store for LoginStore<'a> {
         })
     }
 
-    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+    fn get_sync_assoc(&self) -> anyhow::Result<StoreSyncAssociation> {
         let global = self.db.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
         let coll = self.db.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
@@ -1303,12 +1302,12 @@ impl<'a> Store for LoginStore<'a> {
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
         self.db.reset(assoc)?;
         Ok(())
     }
 
-    fn wipe(&self) -> result::Result<(), failure::Error> {
+    fn wipe(&self) -> anyhow::Result<()> {
         self.db.wipe(&self.scope)?;
         Ok(())
     }

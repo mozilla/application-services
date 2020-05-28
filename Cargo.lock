@@ -240,7 +240,7 @@ dependencies = [
 name = "cli-support"
 version = "0.1.0"
 dependencies = [
- "failure",
+ "anyhow",
  "fxa-client",
  "log 0.4.8",
  "sync15",
@@ -493,6 +493,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13aea89a5c93364a98e9b37b2fa237effbb694d5cfe01c5b70941f7eb087d5e3"
+dependencies = [
+ "cfg-if",
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afa0b23de8fd801745c471deffa6e12d248f962c9fd4b4c33787b055599bde7b"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "redox_users",
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "dogear"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -510,16 +532,15 @@ checksum = "4358a9e11b9a09cf52383b451b49a169e8d797b68aa02301ff586d70d9661ea3"
 
 [[package]]
 name = "ece"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e831571186ec514efc697af518eee5e4aaecc13edeb4a918227f7bcba2c20b1"
+checksum = "bc1b4aa60de558deb8a5c2f803ac354ba733189a5dddeb19323144a540410497"
 dependencies = [
  "base64 0.12.1",
  "byteorder",
- "failure",
- "failure_derive",
  "once_cell",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
@@ -560,7 +581,8 @@ dependencies = [
 name = "error-support"
 version = "0.1.0"
 dependencies = [
- "failure",
+ "backtrace",
+ "thiserror",
 ]
 
 [[package]]
@@ -646,12 +668,12 @@ dependencies = [
 
 [[package]]
 name = "find-places-db"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "156072cf5b7e3974da51941bf050f5b8ab5a8df56ad5c1adbd8c07e9d9455b95"
+checksum = "1594bf39a5c2a21fb4ea7fd6f6cfeeeba9ece09012d9c6081349c5de1c441076"
 dependencies = [
- "dirs",
- "failure",
+ "anyhow",
+ "dirs 2.0.2",
  "log 0.4.8",
 ]
 
@@ -759,12 +781,12 @@ dependencies = [
 name = "fxa-client"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.12.1",
  "byteorder",
  "cli-support",
  "dialoguer",
  "error-support",
- "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
  "lazy_static",
@@ -777,6 +799,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sync15",
+ "thiserror",
  "url",
  "viaduct",
  "viaduct-reqwest",
@@ -835,15 +858,16 @@ dependencies = [
 
 [[package]]
 name = "hawk"
-version = "3.1.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57528ce5133f688e1bc4daadc3e50bf9093d40e8a1f64c6e506ccbae005e57e6"
+checksum = "c6daf498213ee89a0f94bcd0d90b4a36fa422fbbc751599cb73fa67d921014c8"
 dependencies = [
+ "anyhow",
  "base64 0.12.1",
- "failure",
  "log 0.4.8",
  "once_cell",
  "rand 0.7.3",
+ "thiserror",
  "url",
 ]
 
@@ -1081,12 +1105,12 @@ dependencies = [
 name = "logins"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "chrono",
  "clap",
  "cli-support",
  "env_logger",
  "error-support",
- "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "fxa-client",
  "interrupt-support",
@@ -1104,6 +1128,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempdir",
+ "thiserror",
  "url",
 ]
 
@@ -1358,11 +1383,10 @@ version = "0.1.0"
 dependencies = [
  "base64 0.12.1",
  "error-support",
- "failure",
- "failure_derive",
  "nss_sys",
  "serde",
  "serde_derive",
+ "thiserror",
 ]
 
 [[package]]
@@ -1568,6 +1592,7 @@ checksum = "05da548ad6865900e60eaba7f589cc0783590a92e940c26953ff81ddbab2d677"
 name = "places"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitflags 1.2.1",
  "caseless",
  "clap",
@@ -1577,7 +1602,6 @@ dependencies = [
  "dogear",
  "env_logger",
  "error-support",
- "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "find-places-db",
  "fxa-client",
@@ -1603,6 +1627,7 @@ dependencies = [
  "tempdir",
  "tempfile",
  "termion",
+ "thiserror",
  "url",
 ]
 
@@ -1773,8 +1798,6 @@ dependencies = [
  "bincode",
  "env_logger",
  "error-support",
- "failure",
- "failure_derive",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
  "lazy_static",
@@ -1788,6 +1811,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sql-support",
+ "thiserror",
  "url",
  "viaduct",
  "viaduct-reqwest",
@@ -2015,12 +2039,11 @@ dependencies = [
  "base64 0.12.1",
  "ece",
  "error-support",
- "failure",
- "failure_derive",
  "hawk",
  "hex",
  "libsqlite3-sys",
  "nss",
+ "thiserror",
 ]
 
 [[package]]
@@ -2418,11 +2441,11 @@ dependencies = [
 name = "sync15"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base16",
  "base64 0.12.1",
  "env_logger",
  "error-support",
- "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
  "lazy_static",
@@ -2433,6 +2456,7 @@ dependencies = [
  "serde_json",
  "sync-guid",
  "sync15-traits",
+ "thiserror",
  "url",
  "viaduct",
 ]
@@ -2441,13 +2465,14 @@ dependencies = [
 name = "sync15-traits"
 version = "0.1.0"
 dependencies = [
- "failure",
+ "anyhow",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
  "log 0.4.8",
  "serde",
  "serde_json",
  "sync-guid",
+ "thiserror",
  "url",
 ]
 
@@ -2455,8 +2480,8 @@ dependencies = [
 name = "sync_manager"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "error-support",
- "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
  "lazy_static",
@@ -2471,6 +2496,7 @@ dependencies = [
  "sql-support",
  "sync15",
  "tabs",
+ "thiserror",
  "url",
 ]
 
@@ -2554,11 +2580,11 @@ dependencies = [
 name = "tabs"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "clap",
  "cli-support",
  "clipboard",
  "error-support",
- "failure",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
  "log 0.4.8",
@@ -2569,6 +2595,7 @@ dependencies = [
  "serde_json",
  "sync-guid",
  "sync15",
+ "thiserror",
  "url",
  "viaduct-reqwest",
 ]
@@ -2630,7 +2657,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd106a334b7657c10b7c540a0106114feadeb4dc314513e97df481d5d966f42"
 dependencies = [
  "byteorder",
- "dirs",
+ "dirs 1.0.5",
  "winapi 0.3.8",
 ]
 
@@ -2681,6 +2708,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
+]
+
+[[package]]
+name = "thiserror"
+version = "1.0.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d12a1dae4add0f0d568eebc7bf142f145ba1aa2544cafb195c76f0f409091b60"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "1.0.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f34e0c1caaa462fd840ec6b768946ea1e7842620d94fe29d5b847138f521269"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2860,8 +2907,6 @@ checksum = "078775d0255232fb988e6fccf26ddc9d1ac274299aaedcedce21c6f72cc533ce"
 name = "viaduct"
 version = "0.1.0"
 dependencies = [
- "failure",
- "failure_derive",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8",
  "once_cell",
@@ -2869,6 +2914,7 @@ dependencies = [
  "prost-derive",
  "serde",
  "serde_json",
+ "thiserror",
  "url",
 ]
 
@@ -3010,7 +3056,6 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "error-support",
- "failure",
  "interrupt-support",
  "lazy_static",
  "libsqlite3-sys",
@@ -3025,6 +3070,7 @@ dependencies = [
  "sync-guid",
  "sync15-traits",
  "tempfile",
+ "thiserror",
  "url",
 ]
 
