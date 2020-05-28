@@ -2,7 +2,6 @@ website/build
 target
 credentials.json
 *-engine.json
-.cargo
 *.db
 .*.swp
 

@@ -37,8 +37,13 @@ follow the examples of the other steps it takes.
     ["mylib_msg_types.proto"]
     dir = "../components/mylib/src/"
     ```
+4. Generate your Rust files from the .proto files using:
 
-6. Into your main crate's lib.rs file, add something equivalent to the following:
+    ```console
+    $ cargo regen-protobufs
+    ```
+
+5. Into your main crate's lib.rs file, add something equivalent to the following:
     ```rust
     pub mod msg_types {
         include!("mozilla.appservices.mylib.protobuf.rs");
@@ -48,7 +53,7 @@ follow the examples of the other steps it takes.
     This exposes the generated rust file (from the .proto file) as a
     rust module.
 
-7. Open your main crates's src/ffi.rs (note: *not* ffi/src/lib.rs! We'll get
+6. Open your main crates's src/ffi.rs (note: *not* ffi/src/lib.rs! We'll get
    there shortly!)
 
    For each type you declare in your .proto file, first decide if you want to
@@ -100,7 +105,7 @@ follow the examples of the other steps it takes.
       delete `Serialize` from it's `#[derive(...)]` while you're at it, unless you
       still need it.
 
-8. In your ffi crate's lib.rs, make the following changes:
+7. In your ffi crate's lib.rs, make the following changes:
 
     1. Any function that conceptually returns a protobuf type must now return
       `ffi_support::ByteBuffer` (if it returned via JSON before, this should be
