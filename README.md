@@ -1,6 +1,6 @@
 ## Firefox Application Services
 
-_A platform for building cloud-powered applications that target Firefox users_
+_A platform for building cloud-powered applications that target Firefox users._
 
 ### What's this all about?
 
