@@ -16,7 +16,17 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
-        let payload = serde_json::from_str(payload)?;
+        let payload = serde_json::from_str(payload).or_else(|err| {
+            // Due to a limitation of serde (https://github.com/serde-rs/serde/issues/1714)
+            // we can't parse some payloads with an unknown "command" value. Try doing a
+            // less-strongly-validating parse so we can silently ignore such messages, while
+            // while reporting errors if the payload is completely unintelligible.
+            let v: serde_json::Value = serde_json::from_str(payload)?;
+            match v.get("command") {
+                Some(_) => Ok(PushPayload::Unknown),
+                None => Err(err),
+            }
+        })?;
         match payload {
             PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
                 if cfg!(target_os = "ios") {
@@ -198,11 +208,28 @@ mod tests {
     }
 
     #[test]
-    fn test_handle_push_message_unknown_command() {
+    fn test_handle_push_message_ignores_unknown_command() {
         let mut fxa =
             FirefoxAccount::with_config(crate::Config::stable_dev("12345678", "https://foo.bar"));
         let json = "{\"version\":1,\"command\":\"huh\"}";
         let events = fxa.handle_push_message(json).unwrap();
         assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_handle_push_message_ignores_unknown_command_with_data() {
+        let mut fxa =
+            FirefoxAccount::with_config(crate::Config::stable_dev("12345678", "https://foo.bar"));
+        let json = "{\"version\":1,\"command\":\"huh\",\"data\":{\"value\":42}}";
+        let events = fxa.handle_push_message(json).unwrap();
+        assert!(events.is_empty());
+    }
+
+    #[test]
+    fn test_handle_push_message_errors_on_garbage_data() {
+        let mut fxa =
+            FirefoxAccount::with_config(crate::Config::stable_dev("12345678", "https://foo.bar"));
+        let json = "{\"wtf\":\"bbq\"}";
+        fxa.handle_push_message(json).unwrap_err();
     }
 }
