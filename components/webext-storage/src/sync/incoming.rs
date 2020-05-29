@@ -270,9 +270,7 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
                 (DataState::Deleted, DataState::Deleted, _) => {
                     // We agree with the remote (regardless of what we
                     // have mirrored).
-                    IncomingAction::DeleteLocally {
-                        changes: StorageChanges::new(),
-                    }
+                    IncomingAction::Same
                 }
             }
         }
