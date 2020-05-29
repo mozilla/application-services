@@ -123,7 +123,7 @@ impl Store {
     /// and can be used to notify observers of the StorageArea of the changes
     /// that were applied.
     /// The result is a Vec of already JSON stringified changes.
-    pub fn get_synced_changes(&self) -> Result<Vec<String>> {
+    pub fn get_synced_changes(&self) -> Result<Vec<sync::SyncedExtensionChange>> {
         sync::get_synced_changes(&self.db)
     }
 

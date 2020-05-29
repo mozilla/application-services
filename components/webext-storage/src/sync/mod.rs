@@ -146,29 +146,29 @@ fn remove_matching_keys(mut ours: JsonMap, blacklist: &JsonMap) -> (JsonMap, Sto
     (ours, changes)
 }
 
+/// Holds a JSON-serialized map of all synced changes for an extension.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SyncedExtensionChange {
+    /// The extension ID.
+    pub ext_id: String,
+    /// The contents of a `StorageChanges` struct, in JSON format. We don't
+    /// deserialize these because they need to be passed back to the browser
+    /// as strings anyway.
+    pub changes: String,
+}
+
 // Fetches the applied changes we stashed in the storage_sync_applied table.
-// We don't convert to JSON because they need to be passed back to the browser
-// as strings anyway. However, we do return one string per extension rather than
-// a massive array.
-pub fn get_synced_changes(db: &StorageDb) -> Result<Vec<String>> {
+pub fn get_synced_changes(db: &StorageDb) -> Result<Vec<SyncedExtensionChange>> {
     let signal = db.begin_interrupt_scope();
     let sql = "SELECT ext_id, changes FROM temp.storage_sync_applied";
-    let changes: Vec<String> =
-        db.conn()
-            .query_rows_and_then_named(sql, &[], |row| -> Result<_> {
-                signal.err_if_interrupted()?;
-                let ext_id: String = row.get("ext_id")?;
-                let changes: String = row.get("changes")?;
-                // this is a bit cheeky, but it's better than the alternatives?
-                // ext_id is just a string so we still format it.
-                // changes is already valid json
-                Ok(format!(
-                    r#"{{"ext_id":{}, "changes":{}}}"#,
-                    serde_json::to_string(&ext_id)?,
-                    changes
-                ))
-            })?;
-    Ok(changes)
+    db.conn()
+        .query_rows_and_then_named(sql, &[], |row| -> Result<_> {
+            signal.err_if_interrupted()?;
+            Ok(SyncedExtensionChange {
+                ext_id: row.get("ext_id")?,
+                changes: row.get("changes")?,
+            })
+        })
 }
 
 // Helpers for tests
@@ -364,16 +364,11 @@ mod tests {
             change1 = serde_json::to_string(&changes![change!("key1", "old-val", None)])?,
             change2 = serde_json::to_string(&changes![change!("key-for-second", None, "new-val")])?
         ))?;
-        let strings = get_synced_changes(&db)?;
-        assert_eq!(
-            strings[0],
-            r#"{"ext_id":"an-extension", "changes":{"key1":{"oldValue":"old-val"}}}"#
-        );
+        let changes = get_synced_changes(&db)?;
+        assert_eq!(changes[0].ext_id, "an-extension");
         // sanity check it's valid!
-        let v1: serde_json::Value = serde_json::from_str(&strings[0]).expect("valid json");
-        let o1 = v1.as_object().expect("must be an object");
-        assert_eq!(o1.get("ext_id"), Some(&json!("an-extension")));
-        let c1 = o1.get("changes").expect("changes must be an object");
+        let c1: JsonMap =
+            serde_json::from_str(&changes[0].changes).expect("changes must be an object");
         assert_eq!(
             c1.get("key1")
                 .expect("must exist")
@@ -385,12 +380,23 @@ mod tests {
 
         // phew - do it again to check the string got escaped.
         assert_eq!(
-            strings[1],
-            r#"{"ext_id":"ext\"id", "changes":{"key-for-second":{"newValue":"new-val"}}}"#
+            changes[1],
+            SyncedExtensionChange {
+                ext_id: "ext\"id".into(),
+                changes: r#"{"key-for-second":{"newValue":"new-val"}}"#.into(),
+            }
         );
-        let v2: serde_json::Value = serde_json::from_str(&strings[1]).expect("valid json");
-        let o2 = v2.as_object().expect("v2 must be an object");
-        assert_eq!(o2.get("ext_id"), Some(&json!(r#"ext"id"#)));
+        assert_eq!(changes[1].ext_id, "ext\"id");
+        let c2: JsonMap =
+            serde_json::from_str(&changes[1].changes).expect("changes must be an object");
+        assert_eq!(
+            c2.get("key-for-second")
+                .expect("must exist")
+                .as_object()
+                .expect("must be an object")
+                .get("newValue"),
+            Some(&json!("new-val"))
+        );
         Ok(())
     }
 }

@@ -132,9 +132,7 @@ pub struct StorageChanges {
 
 impl StorageChanges {
     pub fn new() -> Self {
-        Self {
-            changes: Vec::new(),
-        }
+        Self::default()
     }
 
     pub fn with_capacity(n: usize) -> Self {
