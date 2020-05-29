@@ -11,7 +11,7 @@ pub mod tags;
 
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
-use crate::msg_types::HistoryVisitInfo;
+use crate::msg_types::{HistoryVisitInfo, TopFrecentSiteInfo};
 use crate::types::{SyncStatus, Timestamp, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
@@ -188,6 +188,15 @@ impl HistoryVisitInfo {
             timestamp: visit_date.0 as i64,
             visit_type: visit_type as i32,
             is_hidden: row.get("hidden")?,
+        })
+    }
+}
+
+impl TopFrecentSiteInfo {
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        Ok(Self {
+            url: row.get("url")?,
+            title: row.get("title")?,
         })
     }
 }

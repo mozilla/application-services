@@ -10,6 +10,8 @@
 
 - Replaced `failure` with `anyhow` and `thiserror`. ([#3132](https://github.com/mozilla/application-services/pull/3132))
 
+- Android: Added `getTopFrecentSiteInfos` API to retrieve a list of the top frecent sites in `PlacesReaderConnection`. ([#2163](https://github.com/mozilla/application-services/issues/2163))
+
 ## FxA Client
 
 ### What's new

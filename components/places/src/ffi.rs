@@ -138,6 +138,7 @@ impl From<Error> for ExternError {
 }
 
 implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
+implement_into_ffi_by_protobuf!(msg_types::TopFrecentSiteInfos);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfosWithBound);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);

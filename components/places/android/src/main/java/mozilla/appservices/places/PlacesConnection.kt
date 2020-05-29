@@ -281,6 +281,18 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override fun getTopFrecentSiteInfos(numItems: Int): List<TopFrecentSiteInfo> {
+        val infoBuffer = rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_get_top_frecent_site_infos(this.handle.get(), numItems, error)
+        }
+        try {
+            val infos = MsgTypes.TopFrecentSiteInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
+            return TopFrecentSiteInfo.fromMessage(infos)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+        }
+    }
+
     override fun getVisited(urls: List<String>): List<Boolean> {
         // Note urlStrings has a potential footgun in that StringArray has a `size()` method
         // which returns the size *in bytes*. Hence us using urls.size (which is an element count)
@@ -824,7 +836,17 @@ interface ReadableHistoryConnection : InterruptibleConnection {
     fun matchUrl(query: String): String?
 
     /**
+     * Returns a list of the top frecent site infos limited by the given number of items
+     * sorted by most to least frecent.
+     *
+     * @param numItems the number of top frecent sites to return in the list.
+     * @return a list of the top frecent site infos sorted by most to least frecent.
+     */
+    fun getTopFrecentSiteInfos(numItems: Int): List<TopFrecentSiteInfo>
+
+    /**
      * Maps a list of page URLs to a list of booleans indicating if each URL was visited.
+     *
      * @param urls a list of page URLs about which "visited" information is being requested.
      * @return a list of booleans indicating visited status of each
      * corresponding page URI from [urls].
@@ -1155,6 +1177,29 @@ data class SearchResult(
         internal fun fromCollectionMessage(msg: MsgTypes.SearchResultList): List<SearchResult> {
             return msg.resultsList.map {
                 fromMessage(it)
+            }
+        }
+    }
+}
+
+/**
+ * Information about a top frecent site. Returned by `PlacesAPI.getTopFrecentSiteInfos`.
+ */
+data class TopFrecentSiteInfo(
+    /**
+     * The URL of the page that was visited.
+     */
+    val url: String,
+
+    /**
+     * The title of the page that was visited, if known.
+     */
+    val title: String?
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.TopFrecentSiteInfos): List<TopFrecentSiteInfo> {
+            return msg.infosList.map {
+                TopFrecentSiteInfo(url = it.url, title = it.title)
             }
         }
     }
