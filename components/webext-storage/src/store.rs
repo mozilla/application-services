@@ -118,6 +118,15 @@ impl Store {
         self.db.close().map_err(|(db, err)| (Store { db }, err))
     }
 
+    /// Gets the changes which the current sync applied. Should be used
+    /// immediately after the bridged engine is told to apply incoming changes,
+    /// and can be used to notify observers of the StorageArea of the changes
+    /// that were applied.
+    /// The result is a Vec of already JSON stringified changes.
+    pub fn get_synced_changes(&self) -> Result<Vec<sync::SyncedExtensionChange>> {
+        sync::get_synced_changes(&self.db)
+    }
+
     /// Migrates data from a database in the format of the "old" kinto
     /// implementation. Returns the count of webextensions for whom data was
     /// migrated.
