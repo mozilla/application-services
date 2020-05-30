@@ -2,9 +2,25 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#[cfg(feature = "backtrace")]
 /// Re-export of the `backtrace` crate for use in macros and
 /// to ensure the needed version is kept in sync in dependents.
 pub use backtrace;
+
+#[cfg(not(feature = "backtrace"))]
+/// A compatibility shim for `backtrace`.
+pub mod backtrace {
+    use std::fmt;
+
+    pub struct Backtrace;
+
+    impl fmt::Debug for Backtrace {
+        #[cold]
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "Not available")
+        }
+    }
+}
 
 /// Define a wrapper around the the provided ErrorKind type.
 /// See also `define_error` which is more likely to be what you want.
@@ -14,7 +30,7 @@ macro_rules! define_error_wrapper {
         pub type Result<T, E = Error> = std::result::Result<T, E>;
         struct ErrorData {
             kind: $Kind,
-            backtrace: std::sync::Mutex<$crate::backtrace::Backtrace>,
+            backtrace: Option<std::sync::Mutex<$crate::backtrace::Backtrace>>,
         }
 
         impl ErrorData {
@@ -22,23 +38,44 @@ macro_rules! define_error_wrapper {
             fn new(kind: $Kind) -> Self {
                 ErrorData {
                     kind,
-                    backtrace: std::sync::Mutex::new($crate::backtrace::Backtrace::new_unresolved()),
+                    #[cfg(feature = "backtrace")]
+                    backtrace: Some(std::sync::Mutex::new(
+                        $crate::backtrace::Backtrace::new_unresolved(),
+                    )),
+                    #[cfg(not(feature = "backtrace"))]
+                    backtrace: None,
                 }
             }
 
+            #[cfg(feature = "backtrace")]
             #[cold]
-            fn get_backtrace(&self) -> &std::sync::Mutex<$crate::backtrace::Backtrace> {
-                self.backtrace.lock().unwrap().resolve();
-                &self.backtrace
+            fn get_backtrace(&self) -> Option<&std::sync::Mutex<$crate::backtrace::Backtrace>> {
+                self.backtrace.as_ref().map(|mutex| {
+                    mutex.lock().unwrap().resolve();
+                    mutex
+                })
+            }
+
+            #[cfg(not(feature = "backtrace"))]
+            #[cold]
+            fn get_backtrace(&self) -> Option<&std::sync::Mutex<$crate::backtrace::Backtrace>> {
+                None
             }
         }
 
         impl std::fmt::Debug for ErrorData {
+            #[cfg(feature = "backtrace")]
             #[cold]
             fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-                let mut bt = self.backtrace.lock().unwrap();
+                let mut bt = self.backtrace.unwrap().lock().unwrap();
                 bt.resolve();
                 write!(f, "{:?}\n\n{}", bt, self.kind)
+            }
+
+            #[cfg(not(feature = "backtrace"))]
+            #[cold]
+            fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "{}", self.kind)
             }
         }
 
@@ -51,7 +88,7 @@ macro_rules! define_error_wrapper {
             }
 
             #[cold]
-            pub fn backtrace(&self) -> &std::sync::Mutex<$crate::backtrace::Backtrace> {
+            pub fn backtrace(&self) -> Option<&std::sync::Mutex<$crate::backtrace::Backtrace>> {
                 self.0.get_backtrace()
             }
         }
