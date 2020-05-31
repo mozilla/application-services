@@ -17,7 +17,7 @@ use anyhow::Result;
 pub mod types;
 pub mod scaffolding;
 
-use scaffolding::GenerateScaffolding;
+use scaffolding::ComponentInterfaceScaffolding;
 
 fn slurp_file(file_name: &str) -> Result<String> {
     let mut contents = String::new();
@@ -33,14 +33,13 @@ fn slurp_file(file_name: &str) -> Result<String> {
 pub fn generate_component_scaffolding(idl_file: &str) {
     println!("cargo:rerun-if-changed={}", idl_file);
     let idl = slurp_file(idl_file).unwrap();
-    let component = types::ComponentInterface::new_from_str(&idl).unwrap();
-    // XXX TODO: give the output file a unique name related to the input file.
+    let component= idl.parse::<types::ComponentInterface>().unwrap();
     let mut filename = Path::new(idl_file).file_stem().unwrap().to_os_string();
     filename.push(".uniffi.rs");
     let mut out_file = PathBuf::from(env::var("OUT_DIR").unwrap());
     out_file.push(filename);
     let mut f = File::create(out_file).unwrap();
-    GenerateScaffolding::generate(&component, &mut f).unwrap();
+    write!(f, "{}", ComponentInterfaceScaffolding::new(&component)).unwrap();
 }
 
 

@@ -70,7 +70,7 @@ dictionary SendTabData {
 
 dictionary IncomingDeviceCommand {
   IncomingDeviceCommandType type;
-  (SendTabData /* eventually a union type..? */) data;
+  SendTabData data; /* eventually a union type..? */
 };
 
 dictionary DeviceConnectedData {
@@ -84,7 +84,8 @@ dictionary DeviceDisconnecedData {
 
 dictionary AccountEvent {
   AccountEventType type;
-  (IncomingDeviceCommand or DeviceConnectedData or DeviceDisconnectesData) data;
+  // No support for union types yet...
+  // (IncomingDeviceCommand or DeviceConnectedData or DeviceDisconnectesData) data;
 };
 
 dictionary MigrationState {
@@ -93,7 +94,7 @@ dictionary MigrationState {
 
 interface FirefoxAccount {
   constructor(string content_url, string client_id, string redirect_uri, optional string token_server_url_override);
-  static FirefoxAccont fromJSON(string json);
+  /*static FirefoxAccont fromJSON(string json); TODO: alternative constructors */
   string toJSON();
 
   string getPairingAuthorityURL();
@@ -128,6 +129,6 @@ interface FirefoxAccount {
   sequence<DeviceInfo> getDevices(optional boolean ignoreCache = false);
   sequence<AccountEvent> handlePushMessage(string payload);
 
-  sequence<IncomingDeviceCommands> pollDeviceCommands();
+  sequence<IncomingDeviceCommand> pollDeviceCommands();
   void sendSingleTab(string target_device_id, string title, string url);
 };

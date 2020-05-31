@@ -22,6 +22,7 @@ members = [
     "components/support/sql",
     "components/support/sync15-traits",
     "components/support/uniffi",
+    "components/support/uniffi/examples/arithmetic",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
     "components/sync_manager/ffi",
