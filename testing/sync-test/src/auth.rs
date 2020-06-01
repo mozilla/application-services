@@ -2,6 +2,7 @@
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::Opts;
+use anyhow::Result;
 use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use std::collections::HashMap;
@@ -37,7 +38,7 @@ lazy_static::lazy_static! {
     };
 }
 
-fn run_helper_command(cmd: &str, cmd_args: &[&str]) -> Result<String, failure::Error> {
+fn run_helper_command(cmd: &str, cmd_args: &[&str]) -> Result<String> {
     use std::process::{self, Command};
     // This `Once` is used to run `npm install` first time through.
     static HELPER_SETUP: Once = Once::new();
@@ -87,7 +88,7 @@ fn run_helper_command(cmd: &str, cmd_args: &[&str]) -> Result<String, failure::E
             exit_reason,
             String::from_utf8_lossy(&output.stdout)
         );
-        failure::bail!("Failed to run helper script");
+        anyhow::bail!("Failed to run helper script");
     }
     // Note: from_utf8_lossy returns a Cow
     let result = String::from_utf8_lossy(&output.stdout).to_string();
@@ -109,7 +110,7 @@ impl TestAccount {
         pass: String,
         cfg: FxaConfig,
         no_delete: bool,
-    ) -> Result<Arc<TestAccount>, failure::Error> {
+    ) -> Result<Arc<TestAccount>> {
         log::info!("Creating temporary fx account");
         // `create` doesn't return anything we care about.
         let auth_url = cfg.auth_url()?;
@@ -122,7 +123,7 @@ impl TestAccount {
         }))
     }
 
-    pub fn new_random(opts: &Opts) -> Result<Arc<TestAccount>, failure::Error> {
+    pub fn new_random(opts: &Opts) -> Result<Arc<TestAccount>> {
         use rand::prelude::*;
         let rng = thread_rng();
         let name = opts.force_username.clone().unwrap_or_else(|| {
@@ -180,7 +181,7 @@ pub struct TestClient {
 }
 
 impl TestClient {
-    pub fn new(acct: Arc<TestAccount>) -> Result<Self, failure::Error> {
+    pub fn new(acct: Arc<TestAccount>) -> Result<Self> {
         log::info!("Doing oauth flow!");
 
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
@@ -213,9 +214,7 @@ impl TestClient {
         })
     }
 
-    pub fn data_for_sync(
-        &mut self,
-    ) -> Result<(Sync15StorageClientInit, KeyBundle, String), failure::Error> {
+    pub fn data_for_sync(&mut self) -> Result<(Sync15StorageClientInit, KeyBundle, String)> {
         // Allow overriding it via environment
         let tokenserver_url = option_env!("TOKENSERVER_URL")
             .map(|env_var| {
@@ -242,14 +241,14 @@ impl TestClient {
         Ok((client_init, root_sync_key, device_id))
     }
 
-    pub fn fully_wipe_server(&mut self) -> Result<(), failure::Error> {
+    pub fn fully_wipe_server(&mut self) -> Result<()> {
         use sync15::{SetupStorageClient, Sync15StorageClient};
         let client_init = self.data_for_sync()?.0;
         Sync15StorageClient::new(client_init)?.wipe_all_remote()?;
         Ok(())
     }
 
-    pub fn fully_reset_local_db(&mut self) -> Result<(), failure::Error> {
+    pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
         self.logins_engine = PasswordEngine::new_in_memory(None)?;
         self.tabs_engine = TabsEngine::new();
@@ -261,7 +260,7 @@ impl TestClient {
 // We do this at the end of each test to avoid creating N accounts for N tests,
 // and just creating 1 account per file containing tests.
 // TODO: this probably shouldn't take a vec but whatever.
-pub fn cleanup_server(clients: Vec<&mut TestClient>) -> Result<(), failure::Error> {
+pub fn cleanup_server(clients: Vec<&mut TestClient>) -> Result<()> {
     log::info!("Cleaning up server after tests...");
     for c in clients {
         match c.fully_wipe_server() {
@@ -273,7 +272,7 @@ pub fn cleanup_server(clients: Vec<&mut TestClient>) -> Result<(), failure::Erro
             }
         }
     }
-    failure::bail!("None of the clients managed to wipe the server!");
+    anyhow::bail!("None of the clients managed to wipe the server!");
 }
 
 pub struct TestUser {
@@ -282,7 +281,7 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    fn new_random(opts: &Opts, client_count: usize) -> Result<Self, failure::Error> {
+    fn new_random(opts: &Opts, client_count: usize) -> Result<Self> {
         log::info!("Creating test account with {} clients", client_count);
 
         let account = TestAccount::new_random(&opts)?;
@@ -295,9 +294,9 @@ impl TestUser {
         Ok(Self { account, clients })
     }
 
-    pub fn new(opts: &Opts, client_count: usize) -> Result<TestUser, failure::Error> {
+    pub fn new(opts: &Opts, client_count: usize) -> Result<TestUser> {
         if opts.oauth_retries > 0 && opts.no_delete_account {
-            failure::bail!(
+            anyhow::bail!(
                 "Illegal option combination: oauth-retries is nonzero \
                  and no-delete-account is specified."
             );
@@ -358,7 +357,7 @@ impl FxaConfigUrl {
 
 // Required for arg parsing
 impl std::str::FromStr for FxaConfigUrl {
-    type Err = failure::Error;
+    type Err = anyhow::Error;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(match s {
             "release" => FxaConfigUrl::Release,
@@ -366,7 +365,7 @@ impl std::str::FromStr for FxaConfigUrl {
             "stable-dev" => FxaConfigUrl::StableDev,
             s if s.contains(':') => FxaConfigUrl::Custom(url::Url::parse(s)?),
             _ => {
-                failure::bail!(
+                anyhow::bail!(
                     "Illegal fxa-stack option '{}', not a url nor a known alias",
                     s
                 );
