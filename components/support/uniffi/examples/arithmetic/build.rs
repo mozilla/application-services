@@ -4,4 +4,5 @@
 
 fn main() {
     uniffi::generate_component_scaffolding("arithmetic.idl");
+    uniffi::generate_kotlin_bindings("arithmetic.idl");
 }

@@ -16,8 +16,10 @@ use anyhow::Result;
 
 pub mod types;
 pub mod scaffolding;
+pub mod kotlin;
 
 use scaffolding::ComponentInterfaceScaffolding;
+use kotlin::ComponentInterfaceKotlinWrapper;
 
 fn slurp_file(file_name: &str) -> Result<String> {
     let mut contents = String::new();
@@ -44,9 +46,17 @@ pub fn generate_component_scaffolding(idl_file: &str) {
 
 
 // Call this to generate Kotlin bindings to load and call into the specified interface.
-// XXX TODO: actually, you know, implement it...
+// XXX TODO: need to have more params here to control how and where it's generated.
+// Writing into the OUT_DIR is probably not the write thing for foreign language bindings.
 pub fn generate_kotlin_bindings(idl_file: &str) {
-    panic!("haven't implemented generation of kotlin bindings yet");
+    let idl = slurp_file(idl_file).unwrap();
+    let component= idl.parse::<types::ComponentInterface>().unwrap();
+    let mut filename = Path::new(idl_file).file_stem().unwrap().to_os_string();
+    filename.push(".kt");
+    let mut out_file = PathBuf::from(env::var("OUT_DIR").unwrap());
+    out_file.push(filename);
+    let mut f = File::create(out_file).unwrap();
+    write!(f, "{}", ComponentInterfaceKotlinWrapper::new(&component)).unwrap();
 }
 
 
