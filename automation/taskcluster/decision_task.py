@@ -195,10 +195,6 @@ def android_linux_x86_64():
             ./gradlew --no-daemon testDebug
         """)
     )
-    for module_info in module_definitions():
-        module = module_info['name']
-        if module.endswith("-megazord"):
-            task.with_script("./automation/check_megazord.sh {}".format(module[0:-9].replace("-", "_")))
     return task.create()
 
 def gradle_module_task_name(module, gradle_task_name):
