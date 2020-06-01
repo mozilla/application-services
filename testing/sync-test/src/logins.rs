@@ -3,8 +3,8 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
+use anyhow::Result;
 use logins::{Login, PasswordEngine, Result as LoginResult};
-
 // helpers...
 
 // Doesn't check metadata fields
@@ -74,7 +74,7 @@ pub fn touch_login(e: &PasswordEngine, id: &str, times: usize) -> LoginResult<Lo
     Ok(e.get(&id)?.unwrap())
 }
 
-pub fn sync_logins(client: &mut TestClient) -> Result<(), failure::Error> {
+pub fn sync_logins(client: &mut TestClient) -> Result<()> {
     let (init, key, _device_id) = client.data_for_sync()?;
     client.logins_engine.sync(&init, &key)?;
     Ok(())

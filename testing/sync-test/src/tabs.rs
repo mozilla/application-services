@@ -3,8 +3,8 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
+use anyhow::Result;
 use tabs::{ClientRemoteTabs, DeviceType, RemoteTab, TabsEngine};
-
 // helpers...
 
 pub fn verify_tabs(tabs_engine: &TabsEngine, expected: &ClientRemoteTabs) {
@@ -33,7 +33,7 @@ pub fn assert_remote_tabs_equiv(l: &ClientRemoteTabs, r: &ClientRemoteTabs) {
     }
 }
 
-pub fn sync_tabs(client: &mut TestClient) -> Result<(), failure::Error> {
+pub fn sync_tabs(client: &mut TestClient) -> Result<()> {
     let (init, key, device_id) = client.data_for_sync()?;
     client.tabs_engine.sync(&init, &key, &device_id)?;
     Ok(())
