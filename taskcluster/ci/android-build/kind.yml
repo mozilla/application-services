@@ -7,7 +7,6 @@
 loader: taskgraph.loader.transform:loader
 
 transforms:
-  - app_services_taskgraph.transforms.android_build:transforms
   - taskgraph.transforms.job:transforms
   - taskgraph.transforms.task:transforms
 
@@ -18,7 +17,6 @@ jobs:
   pr:
     attributes:
       run-on-pr-type: normal-ci
-    add-megazord-checks: true
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
     run-on-tasks-for: [github-pull-request]
     description: Build and test (Android - linux-x86-64)
