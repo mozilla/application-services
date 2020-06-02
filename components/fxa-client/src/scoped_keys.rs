@@ -5,8 +5,8 @@
 use crate::{error::*, FirefoxAccount};
 use rc_crypto::{
     aead, agreement,
-    agreement::{Ephemeral, KeyPair},
-    digest,
+    agreement::{Ephemeral, InputKeyMaterial, KeyPair},
+    digest, rand,
 };
 use serde_derive::*;
 use serde_json::{self, json};
@@ -43,6 +43,23 @@ impl std::fmt::Debug for ScopedKey {
             .field("kid", &self.kid)
             .finish()
     }
+}
+
+#[derive(Serialize, Deserialize)]
+struct Jwk {
+    crv: String,
+    kty: String,
+    x: String,
+    y: String,
+}
+
+#[derive(Serialize, Deserialize)]
+struct JweHeader {
+    alg: String,
+    enc: String,
+    epk: Jwk,
+    apu: Option<String>,
+    apv: Option<String>,
 }
 
 pub struct ScopedKeysFlow {
@@ -88,37 +105,17 @@ impl ScopedKeysFlow {
         .to_string())
     }
 
-    pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
-        let segments: Vec<&str> = jwe.split('.').collect();
-        let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
-        let protected_header: serde_json::Value = serde_json::from_slice(&header)?;
-        if protected_header["epk"]["kty"] != "EC" {
+    fn get_peer_public_from_jwk(jwk: Jwk) -> Result<Vec<u8>> {
+        let x = base64::decode_config(jwk.x, base64::URL_SAFE_NO_PAD)?;
+        let y = base64::decode_config(jwk.y, base64::URL_SAFE_NO_PAD)?;
+        if jwk.kty != "EC" {
             return Err(ErrorKind::UnrecoverableServerError("Only EC keys are supported.").into());
         }
-        if protected_header["epk"]["crv"] != "P-256" {
+        if jwk.crv != "P-256" {
             return Err(
                 ErrorKind::UnrecoverableServerError("Only P-256 curves are supported.").into(),
             );
         }
-        let alg = protected_header["enc"]
-            .as_str()
-            .ok_or_else(|| ErrorKind::UnrecoverableServerError("enc is not a string."))?;
-        let apu = protected_header["apu"].as_str().unwrap_or("");
-        let apv = protected_header["apv"].as_str().unwrap_or("");
-
-        // Part 1: Grab the x/y from the other party and construct the secret.
-        let x = base64::decode_config(
-            &protected_header["epk"]["x"]
-                .as_str()
-                .ok_or_else(|| ErrorKind::UnrecoverableServerError("x is not a string."))?,
-            base64::URL_SAFE_NO_PAD,
-        )?;
-        let y = base64::decode_config(
-            &protected_header["epk"]["y"]
-                .as_str()
-                .ok_or_else(|| ErrorKind::UnrecoverableServerError("y is not a string."))?,
-            base64::URL_SAFE_NO_PAD,
-        )?;
         if x.len() != (256 / 8) {
             return Err(ErrorKind::UnrecoverableServerError("X must be 32 bytes long.").into());
         }
@@ -128,24 +125,67 @@ impl ScopedKeysFlow {
         let mut peer_pub_key: Vec<u8> = vec![0x04];
         peer_pub_key.extend_from_slice(&x);
         peer_pub_key.extend_from_slice(&y);
+        Ok(peer_pub_key)
+    }
+
+    // Not being used yet, will be consumed by: https://github.com/mozilla/application-services/pull/3187
+    // This comment and the #[allow(dead_code)] will be removed by that pull request
+    #[allow(dead_code)]
+    pub fn encrypt_keys_jwe(self, jwk: &str, data: &[u8]) -> Result<String> {
+        let jwk: Jwk = serde_json::from_str(&jwk)?;
+        let peer_public_key = Self::get_peer_public_from_jwk(jwk)?;
+        let epk_jwk: Jwk = serde_json::from_str(&self.generate_keys_jwk()?)?;
+        let (private_key, _) = self.key_pair.split();
+
+        let content_key = private_key.agree(&agreement::ECDH_P256, &peer_public_key)?;
+        let apu = "";
+        let alg = "A256GCM";
+        let apv = "";
+        let secret = Self::get_secret_from_ikm(content_key, apu, apv, alg)?;
+        let sealing_key = aead::SealingKey::new(&aead::AES_256_GCM, &secret.as_ref())?;
+        let header = JweHeader {
+            alg: "ECDH-ES".to_string(),
+            enc: "A256GCM".to_string(),
+            epk: epk_jwk,
+            apu: None,
+            apv: None,
+        };
+        let additional_data = serde_json::to_string(&header)?;
+        let additional_data =
+            base64::encode_config(additional_data.as_bytes(), base64::URL_SAFE_NO_PAD);
+        let additional_data = additional_data.as_bytes();
+        let aad = aead::Aad::from(additional_data);
+        let mut iv: Vec<u8> = vec![0; 12];
+        rand::fill(&mut iv)?;
+        let nonce = aead::Nonce::try_assume_unique_for_key(&aead::AES_256_GCM, &iv)?;
+        let encrypted = aead::seal(&sealing_key, nonce, aad, data)?;
+
+        // Assemble JWE
+        let header = serde_json::to_string(&header)?;
+        let header = base64::encode_config(header.as_bytes(), base64::URL_SAFE_NO_PAD);
+        let tag_idx = encrypted.len() - ((128 + 7) >> 3);
+        let tag = &encrypted[tag_idx..];
+        let tag = base64::encode_config(tag, base64::URL_SAFE_NO_PAD);
+        let ciphertext = &encrypted[0..tag_idx];
+        let ciphertext = base64::encode_config(ciphertext, base64::URL_SAFE_NO_PAD);
+        let iv = base64::encode_config(iv, base64::URL_SAFE_NO_PAD);
+        Ok(format!("{}..{}.{}.{}", header, iv, ciphertext, tag))
+    }
+
+    pub fn decrypt_keys_jwe(self, jwe: &str) -> Result<String> {
+        let segments: Vec<&str> = jwe.split('.').collect();
+        let header = base64::decode_config(&segments[0], base64::URL_SAFE_NO_PAD)?;
+        let protected_header: JweHeader = serde_json::from_slice(&header)?;
+        let alg = protected_header.enc;
+        let apu = protected_header.apu.unwrap_or_else(|| "".to_string());
+        let apv = protected_header.apv.unwrap_or_else(|| "".to_string());
+
+        // Part 1: Grab the x/y from the other party and construct the secret.
+        let peer_pub_key = Self::get_peer_public_from_jwk(protected_header.epk)?;
+
         let (private_key, _) = self.key_pair.split();
         let ikm = private_key.agree(&agreement::ECDH_P256, &peer_pub_key)?;
-        let secret = ikm.derive(|z| {
-            let mut buf: Vec<u8> = vec![];
-            // ConcatKDF (1 iteration since keyLen <= hashLen).
-            // See rfc7518 section 4.6 for reference.
-            buf.extend_from_slice(&1u32.to_be_bytes());
-            buf.extend_from_slice(&z);
-            // otherinfo
-            buf.extend_from_slice(&(alg.len() as u32).to_be_bytes());
-            buf.extend_from_slice(alg.as_bytes());
-            buf.extend_from_slice(&(apu.len() as u32).to_be_bytes());
-            buf.extend_from_slice(apu.as_bytes());
-            buf.extend_from_slice(&(apv.len() as u32).to_be_bytes());
-            buf.extend_from_slice(apv.as_bytes());
-            buf.extend_from_slice(&256u32.to_be_bytes());
-            digest::digest(&digest::SHA256, &buf)
-        })?;
+        let secret = Self::get_secret_from_ikm(ikm, &apu, &apv, &alg)?;
 
         // Part 2: decrypt the payload with the obtained secret
         if !segments[1].is_empty() {
@@ -170,6 +210,31 @@ impl ScopedKeysFlow {
         let plaintext = aead::open(&opening_key, nonce, aad, &ciphertext_and_tag)
             .map_err(|_| ErrorKind::AEADOpenFailure)?;
         String::from_utf8(plaintext.to_vec()).map_err(Into::into)
+    }
+
+    fn get_secret_from_ikm(
+        ikm: InputKeyMaterial,
+        apu: &str,
+        apv: &str,
+        alg: &str,
+    ) -> Result<digest::Digest> {
+        let secret = ikm.derive(|z| {
+            let mut buf: Vec<u8> = vec![];
+            // ConcatKDF (1 iteration since keyLen <= hashLen).
+            // See rfc7518 section 4.6 for reference.
+            buf.extend_from_slice(&1u32.to_be_bytes());
+            buf.extend_from_slice(&z);
+            // otherinfo
+            buf.extend_from_slice(&(alg.len() as u32).to_be_bytes());
+            buf.extend_from_slice(alg.as_bytes());
+            buf.extend_from_slice(&(apu.len() as u32).to_be_bytes());
+            buf.extend_from_slice(apu.as_bytes());
+            buf.extend_from_slice(&(apv.len() as u32).to_be_bytes());
+            buf.extend_from_slice(apv.as_bytes());
+            buf.extend_from_slice(&256u32.to_be_bytes());
+            digest::digest(&digest::SHA256, &buf)
+        })?;
+        Ok(secret)
     }
 }
 
@@ -206,5 +271,16 @@ mod tests {
         let jwe = "eyJhbGciOiJFQ0RILUVTIiwia2lkIjoiNFBKTTl5dGVGeUtsb21ILWd2UUtyWGZ0a0N3ak9HNHRfTmpYVXhLM1VqSSIsImVwayI6eyJrdHkiOiJFQyIsImNydiI6IlAtMjU2IiwieCI6IlB3eG9Na1RjSVZ2TFlKWU4wM2R0Y3o2TEJrR0FHaU1hZWlNQ3lTZXEzb2MiLCJ5IjoiLUYtTllRRDZwNUdSQ2ZoYm1hN3NvNkhxdExhVlNub012S0pFcjFBeWlaSSJ9LCJlbmMiOiJBMjU2R0NNIn0..b9FPhjjpmAmo_rP8.ur9jTry21Y2trvtcanSFmAtiRfF6s6qqyg6ruRal7PCwa7PxDzAuMN6DZW5BiK8UREOH08-FyRcIgdDOm5Zq8KwVAn56PGfcH30aNDGQNkA_mpfjx5Tj2z8kI6ryLWew4PGZb-PsL1g-_eyXhktq7dAhetjNYttKwSREWQFokv7N3nJGpukBqnwL1ost-MjDXlINZLVJKAiMHDcu-q7Epitwid2c2JVGOSCJjbZ4-zbxVmZ4o9xhFb2lbvdiaMygH6bPlrjEK99uT6XKtaIZmyDwftbD6G3x4On-CqA2TNL6ILRaJMtmyX--ctL0IrngUIHg_F0Wz94v.zBD8NACkUcZTPLH0tceGnA";
         let keys = flow.decrypt_keys_jwe(jwe).unwrap();
         assert_eq!(keys, "{\"https://identity.mozilla.com/apps/oldsync\":{\"kty\":\"oct\",\"scope\":\"https://identity.mozilla.com/apps/oldsync\",\"k\":\"8ek1VNk4sjrNP0DhGC4crzQtwmpoR64zHuFMHb4Tw-exR70Z2SSIfMSrJDTLEZid9lD05-hbA3n2Q4Esjlu1tA\",\"kid\":\"1526414944666-zgTjf5oXmPmBjxwXWFsDWg\"}}");
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_jwe() {
+        let sk = ScopedKeysFlow::with_random_key().unwrap();
+        let jwk = sk.generate_keys_jwk().unwrap();
+        let other_sk = ScopedKeysFlow::with_random_key().unwrap();
+        let data = b"The big brown fox jumped over... What?";
+        let encrypted = other_sk.encrypt_keys_jwe(&jwk, data).unwrap();
+        let decrypted = sk.decrypt_keys_jwe(&encrypted).unwrap();
+        assert_eq!(decrypted, std::str::from_utf8(data).unwrap());
     }
 }
