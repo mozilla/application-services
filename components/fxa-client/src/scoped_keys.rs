@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{error::*, FirefoxAccount};
-use byteorder::{BigEndian, ByteOrder};
 use rc_crypto::{
     aead, agreement,
     agreement::{Ephemeral, KeyPair},
@@ -132,20 +131,19 @@ impl ScopedKeysFlow {
         let (private_key, _) = self.key_pair.split();
         let ikm = private_key.agree(&agreement::ECDH_P256, &peer_pub_key)?;
         let secret = ikm.derive(|z| {
+            let mut buf: Vec<u8> = vec![];
             // ConcatKDF (1 iteration since keyLen <= hashLen).
             // See rfc7518 section 4.6 for reference.
-            let counter = 1;
-            let mut buf: Vec<u8> = vec![];
-            buf.extend_from_slice(&to_32b_buf(counter));
+            buf.extend_from_slice(&1u32.to_be_bytes());
             buf.extend_from_slice(&z);
             // otherinfo
-            buf.extend_from_slice(&to_32b_buf(alg.len() as u32));
+            buf.extend_from_slice(&(alg.len() as u32).to_be_bytes());
             buf.extend_from_slice(alg.as_bytes());
-            buf.extend_from_slice(&to_32b_buf(apu.len() as u32));
+            buf.extend_from_slice(&(apu.len() as u32).to_be_bytes());
             buf.extend_from_slice(apu.as_bytes());
-            buf.extend_from_slice(&to_32b_buf(apv.len() as u32));
+            buf.extend_from_slice(&(apv.len() as u32).to_be_bytes());
             buf.extend_from_slice(apv.as_bytes());
-            buf.extend_from_slice(&to_32b_buf(256));
+            buf.extend_from_slice(&256u32.to_be_bytes());
             digest::digest(&digest::SHA256, &buf)
         })?;
 
@@ -173,12 +171,6 @@ impl ScopedKeysFlow {
             .map_err(|_| ErrorKind::AEADOpenFailure)?;
         String::from_utf8(plaintext.to_vec()).map_err(Into::into)
     }
-}
-
-fn to_32b_buf(n: u32) -> Vec<u8> {
-    let mut buf = [0; 4];
-    BigEndian::write_u32(&mut buf, n);
-    buf.to_vec()
 }
 
 #[cfg(test)]
