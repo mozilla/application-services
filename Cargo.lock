@@ -761,7 +761,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.12.1",
- "byteorder",
  "cli-support",
  "dialoguer",
  "error-support",
