@@ -18,3 +18,4 @@ serde_derive = "1"
 
 [features]
 default = []
+gecko = ["nss_sys/gecko"]
