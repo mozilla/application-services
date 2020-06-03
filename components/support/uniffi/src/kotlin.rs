@@ -29,9 +29,8 @@ package mozilla.appservices.example;
 
 import com.sun.jna.Library
 import com.sun.jna.Pointer
-import mozilla.appservices.support.native.RustBuffer
+//import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
-import org.mozilla.appservices.fxaclient.BuildConfig
 
 internal typealias Handle = Long
 //TODO error type specific to this component.
@@ -40,12 +39,16 @@ internal typealias Handle = Long
 internal interface LibTODOName : Library {
     companion object {
         internal var INSTANCE: LibTODOName =
-            loadIndirect(componentName = "name", componentVersion = BuildConfig.LIBRARY_VERSION)
+            loadIndirect(componentName = "name", componentVersion = "TODO")
     }
-    {% for m in self.members() -%}
+    {% for m in self.ffi_function_decls() -%}
     {{ m.render().unwrap() }}
     {% endfor -%}
 }
+
+{% for m in self.members() -%}
+{{ m.render().unwrap() }}
+{% endfor -%}
 "#)]
 pub struct ComponentInterfaceKotlinWrapper<'a> {
   ci: &'a types::ComponentInterface,
@@ -64,6 +67,50 @@ impl<'a> ComponentInterfaceKotlinWrapper<'a> {
                 types::InterfaceMember::Record(rec) => RecordKotlinWrapper::boxed(self.ci, rec),
                 types::InterfaceMember::Namespace(n) => NamespaceKotlinWrapper::boxed(self.ci, n),
                 types::InterfaceMember::Enum(e) => EnumKotlinWrapper::boxed(self.ci, e),
+            }
+        }).collect()
+    }
+
+    // XXX TODO: I'd like to make this return `impl Iterator` but then askama takes a reference to it
+    // and tries to call `into_iter()` and that doesn't work becaue it tries to do a move. Bleh. More to learn...
+    fn ffi_function_decls(&self) -> Vec<Box<dyn askama::Template + 'a>> {
+        self.ci.members.iter().filter_map(|m| {
+            match m {
+                types::InterfaceMember::Object(obj) => Some(ObjectFFIKotlinWrapper::boxed(self.ci, obj)),
+                types::InterfaceMember::Namespace(n) => Some(NamespaceFFIKotlinWrapper::boxed(self.ci, n)),
+                _ => None,
+            }
+        }).collect()
+    }
+}
+
+#[derive(Template)]
+#[template(ext="kt", escape="none", source=r#"
+
+fun {{ self.struct_name() }}_free(hande: Handle, err: RustError.ByReference)
+
+{%- for m in self.members() %}
+    {{ m.render().unwrap() }}
+{% endfor -%}
+"#)]
+struct ObjectFFIKotlinWrapper<'a> {
+    ci: &'a types::ComponentInterface,
+    obj: &'a types::ObjectType,
+}
+impl<'a> ObjectFFIKotlinWrapper<'a> {
+    fn boxed(ci: &'a types::ComponentInterface, obj: &'a types::ObjectType) -> Box<dyn askama::Template + 'a> {
+        Box::new(Self { ci, obj })
+    }
+
+    fn struct_name(&self) -> &'a str {
+        &self.obj.name
+    }
+
+    fn members(&self) -> Vec<Box<dyn askama::Template + 'a>> {
+        self.obj.members.iter().map(|m|{
+            match m {
+                types::ObjectTypeMember::Constructor(cons) => ObjectConstructorKotlinWrapper::boxed(self.ci, self.obj, cons),
+                types::ObjectTypeMember::Method(meth) => ObjectMethodKotlinWrapper::boxed(self.ci, self.obj, meth),
             }
         }).collect()
     }
@@ -102,12 +149,12 @@ impl<'a> ObjectKotlinWrapper<'a> {
 }
 #[derive(Template)]
 #[template(ext="kt", escape="none", source=r#"
-fun {{ self.ffi_name() }}(
-  {%- for arg in cons.argument_types %}
-    {{ arg.ffi_name() }}: {{ arg.typ.resolve(ci)|type_decl }},
-  {%- endfor %}
-  err: RustError.ByReference,
-): Handle
+    fun {{ self.ffi_name() }}(
+    {%- for arg in cons.argument_types %}
+        {{ arg.ffi_name() }}: {{ arg.typ.resolve(ci)|type_decl }}{% if loop.last %},{% endif %}
+    {%- endfor %}
+    err: RustError.ByReference,
+    ): Handle
 "#)]
 struct ObjectConstructorKotlinWrapper<'a> {
     ci: &'a types::ComponentInterface,
@@ -127,18 +174,18 @@ impl<'a> ObjectConstructorKotlinWrapper<'a> {
 
 #[derive(Template)]
 #[template(ext="rs", escape="none", source=r#"
-fun {{ self.ffi_name() }}(
-  handle: Handle,
-  {%- for arg in meth.argument_types %}
-    {{ arg.ffi_name() }}: {{ arg.typ.resolve(ci)|type_decl }},
-  {%- endfor %}
-  err: RustError.ByReference,
-)
-  {%- match meth.return_type -%}
-  {%- when Some with (typ) %}
-    : {{ typ.resolve(ci)|type_decl }}
-  {% when None -%}
-  {%- endmatch %}
+    fun {{ self.ffi_name() }}(
+    handle: Handle,
+    {%- for arg in meth.argument_types %}
+        {{ arg.ffi_name() }}: {{ arg.typ.resolve(ci)|type_decl }}{% if loop.last %},{% endif %}
+    {%- endfor %}
+    err: RustError.ByReference,
+    )
+    {%- match meth.return_type -%}
+    {%- when Some with (typ) %}
+        : {{ typ.resolve(ci)|type_decl }}
+    {% when None -%}
+    {%- endmatch %}
 "#)]
 struct ObjectMethodKotlinWrapper<'a> {
     ci: &'a types::ComponentInterface,
@@ -158,7 +205,7 @@ impl<'a> ObjectMethodKotlinWrapper<'a> {
 
 #[derive(Template)]
 #[template(ext="rs", escape="none", source=r#"
-TODO: RECORD {{ rec.name }}
+// TODO: RECORD {{ rec.name }}
 "#)]
 struct RecordKotlinWrapper<'a> {
     ci: &'a types::ComponentInterface,
@@ -176,6 +223,63 @@ impl<'a> RecordKotlinWrapper<'a> {
 {%- for m in self.members() %}
     {{ m.render().unwrap() }}
 {% endfor -%}
+"#)]
+struct NamespaceFFIKotlinWrapper<'a> {
+    ci: &'a types::ComponentInterface,
+    ns: &'a types::NamespaceType,
+}
+impl<'a> NamespaceFFIKotlinWrapper<'a> {
+    fn boxed(ci: &'a types::ComponentInterface, ns: &'a types::NamespaceType) -> Box<dyn askama::Template + 'a> {
+        Box::new(Self { ci, ns })
+    }
+
+    fn members(&self) -> Vec<Box<dyn askama::Template + 'a>> {
+        self.ns.members.iter().map(|m|{
+            match m {
+                types::NamespaceTypeMember::Function(f) => NamespaceFunctionFFIKotlinWrapper::boxed(self.ci, self.ns, f),
+            }
+        }).collect()
+    }
+}
+
+
+#[derive(Template)]
+#[template(ext="rs", escape="none", source=r#"
+    fun {{ f.ffi_name() }}(
+    {%- for arg in f.argument_types %}
+        {{ arg.ffi_name() }}: {{ arg.typ.resolve(ci)|type_decl }}{% if loop.last %}{% else %},{% endif %}
+    {%- endfor %}
+    // TODO: error param
+    )
+    {%- match f.return_type -%}
+    {%- when Some with (typ) %}
+        : {{ typ.resolve(ci)|type_decl }}
+    {% when None -%}
+    {%- endmatch %}
+"#)]
+struct NamespaceFunctionFFIKotlinWrapper<'a> {
+    ci: &'a types::ComponentInterface,
+    ns: &'a types::NamespaceType,
+    f: &'a types::NamespaceTypeFunction,
+}
+
+impl<'a> NamespaceFunctionFFIKotlinWrapper<'a> {
+    fn boxed(ci: &'a types::ComponentInterface, ns: &'a types::NamespaceType, f: &'a types::NamespaceTypeFunction) -> Box<dyn askama::Template + 'a> {
+        Box::new(Self { ci, ns, f })
+    }
+}
+
+#[derive(Template)]
+#[template(ext="rs", escape="none", source=r#"
+// XXX TODO probably this should be like a package or something,
+// just going for most direct translation for now.
+class {{ns.name}} {
+    companion object Members {
+        {%- for m in self.members() %}
+            {{ m.render().unwrap() }}
+        {% endfor -%}
+    }
+}
 "#)]
 struct NamespaceKotlinWrapper<'a> {
     ci: &'a types::ComponentInterface,
@@ -197,17 +301,24 @@ impl<'a> NamespaceKotlinWrapper<'a> {
 
 #[derive(Template)]
 #[template(ext="rs", escape="none", source=r#"
-fun {{ f.ffi_name() }}(
+fun {{ f.name }}(
   {%- for arg in f.argument_types %}
-    {{ arg.ffi_name() }}: {{ arg.typ.resolve(ci)|type_decl }},
+    {{ arg.name }}: {{ arg.typ.resolve(ci)|type_decl_kt }}{% if loop.last %}{% else %},{% endif %}
   {%- endfor %}
-  // TODO: error param
 )
   {%- match f.return_type -%}
   {%- when Some with (typ) %}
-    : {{ typ.resolve(ci)|type_decl }}
+    : {{ typ.resolve(ci)|type_decl_kt }}
   {% when None -%}
   {%- endmatch %}
+{
+    // XXX TODO: whole bunch of error-checking wrapper call convention stuff.
+    return LibTODOName.INSTANCE.{{ f.ffi_name() }}(
+      {%- for arg in f.argument_types %}
+        {{ arg.name }}{% if loop.last %}{% else %},{% endif %}
+      {%- endfor %}
+    )
+}
 "#)]
 struct NamespaceFunctionKotlinWrapper<'a> {
     ci: &'a types::ComponentInterface,
@@ -223,7 +334,7 @@ impl<'a> NamespaceFunctionKotlinWrapper<'a> {
 
 #[derive(Template)]
 #[template(ext="rs", escape="none", source=r#"
-TODO: enum {{e.name}}
+// TODO: enum {{e.name}}
 "#)]
 struct EnumKotlinWrapper<'a> {
     ci: &'a types::ComponentInterface,
@@ -245,11 +356,24 @@ mod filters {
         // TODO: how to return a nice askama::Error here?
         let typ = typ.as_ref().unwrap();
         Ok(match typ {
-            types::TypeReference::Boolean => "u8".to_string(),
-            types::TypeReference::U64 => "u64".to_string(),
-            types::TypeReference::U32 => "u32".to_string(),
-            types::TypeReference::Enum(_) => "u32".to_string(),
-            types::TypeReference::String => "FfiStr<'_>".to_string(), // XXX TODO: not suitable for use in return position?
+            types::TypeReference::Boolean => "Byte".to_string(),
+            types::TypeReference::U64 => "Long".to_string(),
+            types::TypeReference::U32 => "Int".to_string(),
+            types::TypeReference::Enum(_) => "Int".to_string(),
+            types::TypeReference::String => "String".to_string(), // XXX TODO: not suitable for use in return position?
+            _ => format!("[TODO: DECL {:?}]", typ),
+        })
+    }
+
+    pub fn type_decl_kt(typ: &Result<types::TypeReference, Error>) -> Result<String, askama::Error> {
+        // TODO: how to return a nice askama::Error here?
+        let typ = typ.as_ref().unwrap();
+        Ok(match typ {
+            types::TypeReference::Boolean => "Byte".to_string(),
+            types::TypeReference::U64 => "Long".to_string(),
+            types::TypeReference::U32 => "Int".to_string(),
+            types::TypeReference::Enum(_) => "Int".to_string(),
+            types::TypeReference::String => "String".to_string(), // XXX TODO: not suitable for use in return position?
             _ => format!("[TODO: DECL {:?}]", typ),
         })
     }
