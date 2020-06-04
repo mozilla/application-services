@@ -110,20 +110,4 @@ extern "C" {
         attr: CK_ATTRIBUTE_TYPE,
         item: *mut SECItem,
     ) -> SECStatus;
-    pub fn PK11_CreatePBEV2AlgorithmID(
-        pbeAlgTag: u32,    /* SECOidTag */
-        cipherAlgTag: u32, /* SECOidTag */
-        prfAlgTag: u32,    /* SECOidTag */
-        keyLength: c_int,
-        iteration: c_int,
-        salt: *mut SECItem,
-    ) -> *mut SECAlgorithmID;
-
-    pub fn PK11_PBEKeyGen(
-        slot: *mut PK11SlotInfo,
-        algid: *mut SECAlgorithmID,
-        pwitem: *mut SECItem,
-        faulty3DES: PRBool,
-        wincx: *mut c_void,
-    ) -> *mut PK11SymKey;
 }

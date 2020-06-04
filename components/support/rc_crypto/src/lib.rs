@@ -35,7 +35,6 @@ mod error;
 mod hawk_crypto;
 pub mod hkdf;
 pub mod hmac;
-pub mod pbkdf2;
 pub mod rand;
 
 // Expose `hawk` if the hawk feature is on. This avoids consumers needing to

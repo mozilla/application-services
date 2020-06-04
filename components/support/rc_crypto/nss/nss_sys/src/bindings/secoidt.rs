@@ -7,15 +7,6 @@ use std::os::raw::{c_char, c_ulong};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct SECAlgorithmIDStr {
-    pub algorithm: SECItem,
-    pub parameters: SECItem,
-}
-
-pub type SECAlgorithmID = SECAlgorithmIDStr;
-
-#[repr(C)]
-#[derive(Copy, Clone)]
 pub struct SECOidDataStr {
     pub oid: SECItem,
     pub offset: u32, /* SECOidTag */
