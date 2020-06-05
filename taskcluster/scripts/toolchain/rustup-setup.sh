@@ -23,6 +23,6 @@ set -eux; \
 export PATH=$HOME/.cargo/bin:$PATH
 
 
-rustup toolchain install 1.43.1
-rustup default 1.43.1
+rustup toolchain install stable
+rustup default stable
 rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
