@@ -504,6 +504,7 @@ The following text applies to code linked from these dependencies:
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
+[socket2](https://github.com/alexcrichton/socket2-rs),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
