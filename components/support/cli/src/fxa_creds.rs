@@ -108,7 +108,7 @@ pub fn get_cli_fxa(config: Config, cred_file: &str) -> Result<CliFxa> {
 
     let client_init = Sync15StorageClientInit {
         key_id: key.kid.clone(),
-        access_token: token_info.token.clone(),
+        access_token: token_info.token,
         tokenserver_url: tokenserver_url.clone(),
     };
     let root_sync_key = KeyBundle::from_ksync_bytes(&key.key_bytes()?)?;

@@ -298,7 +298,7 @@ impl<'a> IncomingApplicator<'a> {
                         // need to add excludeItems, and I guess we should do
                         // it properly without resorting to string manipulation...
                         let tail = url::form_urlencoded::Serializer::new(String::new())
-                            .extend_pairs(parse.clone())
+                            .extend_pairs(parse)
                             .append_pair("excludeItems", "1")
                             .finish();
                         set_reupload(validity);
