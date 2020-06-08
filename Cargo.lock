@@ -1374,6 +1374,7 @@ version = "0.1.0"
 name = "nss_sys"
 version = "0.1.0"
 dependencies = [
+ "libsqlite3-sys",
  "nss_build_common",
 ]
 
@@ -2018,7 +2019,6 @@ dependencies = [
  "error-support",
  "hawk",
  "hex",
- "libsqlite3-sys",
  "nss",
  "thiserror",
 ]
