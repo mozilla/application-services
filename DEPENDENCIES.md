@@ -423,10 +423,8 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
-[addr2line](https://github.com/gimli-rs/addr2line),
 [anyhow](https://github.com/dtolnay/anyhow),
 [autocfg](https://github.com/cuviper/autocfg),
-[backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [cc](https://github.com/alexcrichton/cc-rs),
@@ -450,7 +448,6 @@ The following text applies to code linked from these dependencies:
 [futures-task](https://github.com/rust-lang/futures-rs),
 [futures-util](https://github.com/rust-lang/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
-[gimli](https://github.com/gimli-rs/gimli),
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
@@ -471,7 +468,6 @@ The following text applies to code linked from these dependencies:
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [net2](https://github.com/deprecrated/net2-rs),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
-[object](https://github.com/gimli-rs/object),
 [once_cell](https://github.com/matklad/once_cell),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
 [openssl-src](https://github.com/alexcrichton/openssl-src-rs),
@@ -494,7 +490,6 @@ The following text applies to code linked from these dependencies:
 [regex](https://github.com/rust-lang/regex),
 [remove_dir_all](https://github.com/XAMPPRocky/remove_dir_all.git),
 [reqwest](https://github.com/seanmonstar/reqwest),
-[rustc-demangle](https://github.com/alexcrichton/rustc-demangle),
 [ryu](https://github.com/dtolnay/ryu),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
 [security-framework](https://github.com/kornelski/rust-security-framework),
