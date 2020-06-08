@@ -398,7 +398,7 @@ impl Client {
         Ok(Self::make_request(Request::post(url).json(&body))?.json()?)
     }
 
-    fn make_request(request: Request) -> Result<Response> {
+    pub fn make_request(request: Request) -> Result<Response> {
         let resp = request.send()?;
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
@@ -436,6 +436,100 @@ pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>
     let mut out = vec![0u8; HAWK_KEY_LENGTH * 2];
     hkdf::extract_and_expand(&salt, &session_token_bytes, &context_info, &mut out)?;
     Ok(out)
+}
+
+#[cfg(feature = "integration_test")]
+#[derive(Serialize, Deserialize)]
+pub struct AuthorizationParameters {
+    access_type: String,
+    client_id: String,
+    code_challenge: String,
+    code_challenge_method: String,
+    scope: String,
+    keys_jwe: String,
+    state: String,
+}
+
+#[cfg(feature = "integration_test")]
+impl AuthorizationParameters {
+    pub fn new(
+        client_id: String,
+        code_challenge: String,
+        code_challenge_method: String,
+        scope: String,
+        keys_jwe: String,
+        state: String,
+    ) -> Self {
+        AuthorizationParameters {
+            access_type: "offline".to_string(),
+            client_id,
+            code_challenge,
+            code_challenge_method,
+            scope,
+            keys_jwe,
+            state,
+        }
+    }
+}
+
+#[cfg(feature = "integration_test")]
+pub fn send_authorization_request(
+    config: &Config,
+    auth_params: AuthorizationParameters,
+    auth_key: &[u8],
+) -> anyhow::Result<String> {
+    let auth_endpoint = config.auth_url_path("v1/oauth/authorization")?;
+    let req = HawkRequestBuilder::new(Method::Post, auth_endpoint, auth_key)
+        .body(serde_json::to_value(&auth_params)?)
+        .build()?;
+    let resp: serde_json::Value = Client::make_request(req)?.json()?;
+    Ok(resp
+        .get("redirect")
+        .ok_or_else(|| anyhow::Error::msg("No redirect uri"))?
+        .as_str()
+        .ok_or_else(|| anyhow::Error::msg("redirect URI is not a string"))?
+        .to_string())
+}
+
+#[cfg(feature = "integration_test")]
+pub fn get_scoped_key_data_response(
+    scope: &str,
+    client_id: &str,
+    auth_key: &[u8],
+    config: &Config,
+) -> Result<serde_json::Value> {
+    let scoped_endpoint = config.auth_url_path("v1/account/scoped-key-data")?;
+    let body = json!({
+        "client_id": client_id,
+        "scope": scope,
+    });
+    let req = HawkRequestBuilder::new(Method::Post, scoped_endpoint, auth_key)
+        .body(body)
+        .build()?;
+    let resp = Client::make_request(req)?.json()?;
+    Ok(resp)
+}
+
+#[cfg(feature = "integration_test")]
+pub fn get_keys_bundle(config: &Config, hkdf_sha256_key: &[u8]) -> Result<Vec<u8>> {
+    let keys_url = config.auth_url_path("v1/account/keys").unwrap();
+    let req = HawkRequestBuilder::new(Method::Get, keys_url, hkdf_sha256_key).build()?;
+    let resp: serde_json::Value = Client::make_request(req)?.json()?;
+    let bundle = hex::decode(
+        &resp["bundle"]
+            .as_str()
+            .ok_or_else(|| ErrorKind::KeyGenerationFailed)?,
+    )?;
+    Ok(bundle)
+}
+
+#[cfg(feature = "integration_test")]
+pub fn send_verification(config: &Config, body: serde_json::Value) -> Result<Response> {
+    let verify_endpoint = config
+        .auth_url_path("v1/recovery_email/verify_code")
+        .unwrap();
+    let resp = Request::post(verify_endpoint).json(&body).send()?;
+    Ok(resp)
 }
 
 struct HawkRequestBuilder<'a> {

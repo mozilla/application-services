@@ -32,6 +32,9 @@ pub mod device;
 pub mod error;
 pub mod ffi;
 pub mod migrator;
+
+#[cfg(feature = "integration_test")]
+pub mod auth;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
     include!("mozilla.appservices.fxaclient.protobuf.rs");

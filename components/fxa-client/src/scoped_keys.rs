@@ -128,8 +128,9 @@ impl ScopedKeysFlow {
         Ok(peer_pub_key)
     }
 
-    // Not being used yet, will be consumed by: https://github.com/mozilla/application-services/pull/3187
-    // This comment and the #[allow(dead_code)] will be removed by that pull request
+    // Currently only used in the integration tests workflow, Will be consumed
+    //   by other consumers, the #[allow(dead_code)] will be removed
+    //   once consumers that are not under a feature consume it
     #[allow(dead_code)]
     pub fn encrypt_keys_jwe(self, jwk: &str, data: &[u8]) -> Result<String> {
         let jwk: Jwk = serde_json::from_str(&jwk)?;

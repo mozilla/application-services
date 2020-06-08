@@ -7,10 +7,11 @@ license = "MPL-2.0"
 
 [dependencies]
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct = { path = "../../components/viaduct"}
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
 tabs = { path = "../../components/tabs" }
-fxa-client = { path = "../../components/fxa-client" }
+fxa-client = { path = "../../components/fxa-client", features = ["integration_test"] }
 url = "2.1"
 env_logger = "0.7"
 log = "0.4"
@@ -18,3 +19,5 @@ anyhow = "1.0"
 rand = "0.7"
 lazy_static = "1.4"
 structopt = "0.3"
+serde_json = "1.0"
+base64 = "0.12"
