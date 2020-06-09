@@ -5,19 +5,19 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+use anyhow::Result;
 use clap::value_t;
 use places::{PlacesDb, VisitObservation, VisitTransition};
 use rusqlite::NO_PARAMS;
 use serde_derive::*;
 use sql_support::ConnExt;
 use std::io::prelude::*;
+use std::time::Instant;
 use std::{
     fs,
     path::{Path, PathBuf},
 };
 use url::Url;
-
-use anyhow::Result;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -198,13 +198,16 @@ fn import_places(
     };
     let mut place_counter = 0;
 
-    let tx = new.unchecked_transaction()?;
+    let mut tx = new.unchecked_transaction()?;
 
     print!(
         "Processing {} / {} places (approx.)",
         place_counter, place_count
     );
+    let mut timer = Instant::now();
+    let mut secs = 15.0;
     let _ = std::io::stdout().flush();
+    let mut analyzed = false;
     while let Some(row) = rows.next()? {
         let id: i64 = row.get("place_id")?;
         if current_place.id == id {
@@ -223,16 +226,42 @@ fn import_places(
         );
         let _ = std::io::stdout().flush();
         if current_place.id != -1 {
-            current_place.insert(new, &options)?;
+            if let Err(e) = current_place.insert(new, &options) {
+                println!();
+                eprintln!("warning: failed to insert: {}", e);
+            }
         }
         current_place = LegacyPlace::from_row(&row);
+        let now = Instant::now();
+        if now.duration_since(timer).as_secs_f32() > secs {
+            println!();
+            println!(" -- deleting origin temps");
+            places::storage::delete_pending_temp_tables(&new)?;
+            tx.commit()?;
+
+            println!(" -- optimizing table...");
+
+            new.execute_batch(if analyzed {
+                "PRAGMA optimize;"
+            } else {
+                "ANALYZE;"
+            })?;
+            analyzed = true;
+            secs *= 2.0;
+            timer = now;
+            tx = new.unchecked_transaction()?;
+        }
     }
     if current_place.id != -1 {
         current_place.insert(new, &options)?;
     }
+
     println!("Finished processing records");
     println!("Committing....");
     tx.commit()?;
+    println!("running maintenance...");
+    places::storage::run_maintenance(&new)?;
+
     log::info!("Finished import!");
     Ok(())
 }

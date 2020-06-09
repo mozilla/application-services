@@ -36,6 +36,7 @@ static DELETION_HIGH_WATER_MARK_META_KEY: &str = "history_deleted_hwm";
 pub fn apply_observation(db: &PlacesDb, visit_ob: VisitObservation) -> Result<Option<RowId>> {
     let tx = db.begin_transaction()?;
     let result = apply_observation_direct(db, visit_ob)?;
+    delete_pending_temp_tables(db)?;
     tx.commit()?;
     Ok(result)
 }
@@ -122,7 +123,6 @@ pub fn apply_observation_direct(
             Some(visit_ob.get_redirect_frecency_boost()),
         )?;
     }
-    delete_pending_temp_tables(db)?;
     Ok(visit_row_id)
 }
 
