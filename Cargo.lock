@@ -2412,16 +2412,19 @@ name = "sync-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64 0.12.1",
  "env_logger",
  "fxa-client",
  "lazy_static",
  "log 0.4.8",
  "logins",
  "rand 0.7.3",
+ "serde_json",
  "structopt",
  "sync15",
  "tabs",
  "url",
+ "viaduct",
  "viaduct-reqwest",
 ]
 

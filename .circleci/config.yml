@@ -190,11 +190,6 @@ commands:
     steps:
       - test-setup
       - run:
-          name: Install Node.js
-          command: |
-            curl -sfSL --retry 5 --retry-delay 10 https://deb.nodesource.com/setup_10.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-      - run:
           name: Sync Integration Test Suite
           command: cargo run -p sync-test -- --oauth-retries 5
   bench-all:

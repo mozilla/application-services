@@ -1,15 +1,17 @@
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
-use crate::Opts;
+use crate::{restmail, Opts};
 use anyhow::Result;
-use fxa_client::{self, Config as FxaConfig, FirefoxAccount};
+use fxa_client::{self, auth, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
+use serde_json::json;
 use std::collections::HashMap;
-use std::sync::{Arc, Once};
+use std::sync::Arc;
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsEngine;
 use url::Url;
+use viaduct::Request;
 
 pub const CLIENT_ID: &str = "3c49430b43dfba77"; // Hrm...
 pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
@@ -38,63 +40,6 @@ lazy_static::lazy_static! {
     };
 }
 
-fn run_helper_command(cmd: &str, cmd_args: &[&str]) -> Result<String> {
-    use std::process::{self, Command};
-    // This `Once` is used to run `npm install` first time through.
-    static HELPER_SETUP: Once = Once::new();
-    HELPER_SETUP.call_once(|| {
-        let dir = &*HELPER_SCRIPT_DIR;
-        std::env::set_current_dir(dir).expect("Failed to change directory...");
-
-        // Let users know why this is happening even if `log` isn't enabled.
-        println!("Running `npm install` in `integration-test-helper` to ensure it's usable");
-
-        let mut child = Command::new("npm")
-            .args(&["install"])
-            .spawn()
-            .expect("Failed to spawn `npm install`! (This test currently requires `node`)");
-
-        child
-            .wait()
-            .expect("Failed to install helper dependencies, can't run integration test");
-    });
-    // We should still be in the script dir from HELPER_SETUP's call_once.
-    log::info!("Running helper script with command \"{}\"", cmd);
-
-    // node_args = ["index.js", cmd, ...cmd_args] in JavaScript parlance.
-    let node_args: Vec<&str> = ["index.js", cmd]
-        .iter()
-        .chain(cmd_args.iter())
-        .cloned() // &&str -> &str
-        .collect();
-
-    let child = Command::new("node")
-        .args(&node_args)
-        // Grab stdout, but inherit stderr.
-        .stdout(process::Stdio::piped())
-        .stderr(process::Stdio::inherit())
-        .spawn()?;
-
-    let output = child.wait_with_output()?;
-    if !output.status.success() {
-        let exit_reason = output
-            .status
-            .code()
-            .map(|code| code.to_string())
-            .unwrap_or_else(|| "(process terminated by signal)".to_string());
-        // Print stdout in case something helpful was logged there, as well as the exit status
-        println!(
-            "Helper script exited with {}, it's stdout was:```\n{}\n```",
-            exit_reason,
-            String::from_utf8_lossy(&output.stdout)
-        );
-        anyhow::bail!("Failed to run helper script");
-    }
-    // Note: from_utf8_lossy returns a Cow
-    let result = String::from_utf8_lossy(&output.stdout).to_string();
-    Ok(result)
-}
-
 // It's important that this doesn't implement Clone! (It destroys it's temporary fxaccount on drop)
 #[derive(Debug)]
 pub struct TestAccount {
@@ -102,6 +47,9 @@ pub struct TestAccount {
     pub pass: String,
     pub cfg: FxaConfig,
     pub no_delete: bool,
+    pub auth_key: Vec<u8>,
+    pub k_sync: Vec<u8>,
+    pub xcs: Vec<u8>,
 }
 
 impl TestAccount {
@@ -112,14 +60,42 @@ impl TestAccount {
         no_delete: bool,
     ) -> Result<Arc<TestAccount>> {
         log::info!("Creating temporary fx account");
-        // `create` doesn't return anything we care about.
-        let auth_url = cfg.auth_url()?;
-        run_helper_command("create", &[&email, &pass, auth_url.as_str()])?;
+
+        restmail::clear_mailbox(&email);
+
+        let create_endpoint = cfg.auth_url_path("v1/account/create?keys=true").unwrap();
+        let body = json!({
+            "email": &email,
+            "authPW": auth::auth_pwd(&email, &pass)?,
+            "service": &cfg.client_id,
+        });
+        let req = Request::post(create_endpoint).json(&body).send()?;
+        let resp: serde_json::Value = req.json()?;
+        let uid = resp["uid"]
+            .as_str()
+            .ok_or_else(|| anyhow::Error::msg("No Uid"))?;
+        let session_token = resp["sessionToken"]
+            .as_str()
+            .ok_or_else(|| anyhow::Error::msg("No session Token"))?;
+        let key_fetch_token = resp["keyFetchToken"]
+            .as_str()
+            .ok_or_else(|| anyhow::Error::msg("No Key fetch token"))?;
+        log::info!("POST /v1/account/create succeeded");
+
+        log::info!("Autoverifying account on restmail... uid = {}", uid);
+        let auth_key = auth::derive_auth_key_from_session_token(&session_token)?;
+        Self::verify_account(&email, &cfg, &uid)?;
+        let (sync_key, xcs_key) = auth::get_sync_keys(&cfg, &key_fetch_token, &email, &pass)?;
+        log::info!("Account created and verified!");
+
         Ok(Arc::new(TestAccount {
             email,
             pass,
             cfg,
             no_delete,
+            auth_key,
+            k_sync: sync_key,
+            xcs: xcs_key,
         }))
     }
 
@@ -150,6 +126,59 @@ impl TestAccount {
             opts.no_delete_account,
         )
     }
+
+    fn verify_account(email_in: &str, config: &FxaConfig, uid: &str) -> Result<()> {
+        let verification_email = restmail::find_email(email_in, |email| {
+            email["headers"]["x-uid"] == uid && email["headers"]["x-template-name"] == "verify"
+        });
+        let code = verification_email["headers"]["x-verify-code"]
+            .as_str()
+            .unwrap();
+        log::info!("Code is: {}", code);
+        let body = json!({
+            "uid": uid,
+            "code": verification_email["headers"]["x-verify-code"].as_str().unwrap(),
+        });
+        let resp = auth::send_verification(&config, body).unwrap();
+        if !resp.is_success() {
+            log::warn!(
+                "Error verifying account: {}",
+                resp.json::<serde_json::Value>().unwrap()
+            );
+            anyhow::bail!("Unable to verify account!");
+        }
+        Ok(())
+    }
+
+    pub fn execute_oauth_flow(&self, oauth_url: &str) -> Result<String> {
+        let url = Url::parse(oauth_url)?;
+        let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
+        let jwk_base_64 = query_map.get("keys_jwk").unwrap();
+        let decoded = base64::decode(&jwk_base_64).unwrap();
+        let jwk = std::str::from_utf8(&decoded)?;
+        let scope = query_map.get("scope").unwrap();
+        let client_id = query_map.get("client_id").unwrap();
+        let state = query_map.get("state").unwrap();
+        let code_challenge = query_map.get("code_challenge").unwrap();
+        let code_challenge_method = query_map.get("code_challenge_method").unwrap();
+        let keys_jwe = auth::create_keys_jwe(
+            &client_id,
+            &scope,
+            &jwk,
+            &self.auth_key,
+            &self.cfg,
+            (&self.k_sync, &self.xcs),
+        )?;
+        let auth_params = auth::AuthorizationParameters::new(
+            client_id.clone(),
+            code_challenge.clone(),
+            code_challenge_method.clone(),
+            scope.clone(),
+            keys_jwe,
+            state.clone(),
+        );
+        auth::send_authorization_request(&self.cfg, auth_params, &self.auth_key)
+    }
 }
 
 impl Drop for TestAccount {
@@ -159,16 +188,28 @@ impl Drop for TestAccount {
             return;
         }
         log::info!("Cleaning up temporary firefox account");
-        let auth_url = self.cfg.auth_url().unwrap(); // We already parsed this once.
-        if let Err(e) = run_helper_command("destroy", &[&self.email, &self.pass, auth_url.as_str()])
-        {
-            log::warn!(
-                "Failed to destroy fxacct {} with pass {}!",
-                self.email,
-                self.pass
-            );
-            log::warn!("   Error: {}", e);
+        let destroy_endpoint = self.cfg.auth_url_path("v1/account/destroy").unwrap();
+        let body = json!({
+            "email": self.email,
+            "authPW": auth::auth_pwd(&self.email, &self.pass).unwrap()
+        });
+        let req = Request::post(destroy_endpoint).json(&body).send();
+        match req {
+            Ok(resp) => {
+                if resp.is_success() {
+                    log::info!("Account destroyed successfully!");
+                    return;
+                } else {
+                    log::warn!("   Error: {}", resp.text());
+                }
+            }
+            Err(e) => log::warn!("   Error: {}", e),
         }
+        log::warn!(
+            "Failed to destroy fxacct {} with pass {}!",
+            self.email,
+            self.pass
+        );
     }
 }
 
@@ -183,23 +224,14 @@ pub struct TestClient {
 impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self> {
         log::info!("Doing oauth flow!");
-
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
         let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
-        let auth_url = acct.cfg.auth_url()?;
-        let redirected_to = run_helper_command(
-            "oauth",
-            &[&acct.email, &acct.pass, auth_url.as_str(), &oauth_uri],
-        )?;
-
-        log::info!("Helper command gave '{}'", redirected_to);
-
+        let redirected_to = acct.execute_oauth_flow(&oauth_uri)?;
         let final_url = Url::parse(&redirected_to)?;
         let query_params = final_url
             .query_pairs()
             .into_owned()
             .collect::<HashMap<String, String>>();
-
         // should we be using the OAuthInfo this returns?
         fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
         log::info!("OAuth flow finished");
@@ -358,7 +390,7 @@ impl FxaConfigUrl {
 // Required for arg parsing
 impl std::str::FromStr for FxaConfigUrl {
     type Err = anyhow::Error;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self> {
         Ok(match s {
             "release" => FxaConfigUrl::Release,
             "stage" => FxaConfigUrl::Stage,
