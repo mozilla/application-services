@@ -21,16 +21,8 @@ the details of which are reproduced below.
     <url>https://github.com/taskcluster/rust-hawk/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>Apache License 2.0: addr2line</name>
-    <url>https://github.com/gimli-rs/addr2line/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: anyhow</name>
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: backtrace</name>
-    <url>https://github.com/rust-lang/backtrace-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: base64</name>
@@ -73,10 +65,6 @@ the details of which are reproduced below.
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: gimli</name>
-    <url>https://github.com/gimli-rs/gimli/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: hex</name>
     <url>https://github.com/KokaKiwi/rust-hex/blob/master/LICENSE-APACHE</url>
   </license>
@@ -115,10 +103,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: lru-cache</name>
     <url>https://github.com/contain-rs/lru-cache/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: object</name>
-    <url>https://github.com/gimli-rs/object/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: once_cell</name>
@@ -171,10 +155,6 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: regex-syntax</name>
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: rustc-demangle</name>
-    <url>https://github.com/alexcrichton/rustc-demangle/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: ryu</name>

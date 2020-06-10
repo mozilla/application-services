@@ -406,9 +406,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
-[addr2line](https://github.com/gimli-rs/addr2line),
 [anyhow](https://github.com/dtolnay/anyhow),
-[backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [cc](https://github.com/alexcrichton/cc-rs),
@@ -419,7 +417,6 @@ The following text applies to code linked from these dependencies:
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
 [getrandom](https://github.com/rust-random/getrandom),
-[gimli](https://github.com/gimli-rs/gimli),
 [hex](https://github.com/KokaKiwi/rust-hex),
 [idna](https://github.com/servo/rust-url/),
 [itertools](https://github.com/bluss/rust-itertools),
@@ -430,7 +427,6 @@ The following text applies to code linked from these dependencies:
 [linked-hash-map](https://github.com/contain-rs/linked-hash-map),
 [log](https://github.com/rust-lang/log),
 [lru-cache](https://github.com/contain-rs/lru-cache),
-[object](https://github.com/gimli-rs/object),
 [once_cell](https://github.com/matklad/once_cell),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
@@ -444,7 +440,6 @@ The following text applies to code linked from these dependencies:
 [rand_core](https://github.com/rust-random/rand),
 [regex-syntax](https://github.com/rust-lang/regex),
 [regex](https://github.com/rust-lang/regex),
-[rustc-demangle](https://github.com/alexcrichton/rustc-demangle),
 [ryu](https://github.com/dtolnay/ryu),
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
