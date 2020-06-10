@@ -776,6 +776,7 @@ dependencies = [
  "lazy_static",
  "log 0.4.8",
  "mockiato",
+ "mockito",
  "prost",
  "prost-derive",
  "rc_crypto",
