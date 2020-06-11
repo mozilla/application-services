@@ -19,9 +19,11 @@ fi
 
 EXTRA_ARGS=( "$@" )
 
-#cargo test --all "${EXTRA_ARGS[@]}"
+cargo test --all ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
-#cargo test --all --all-features "${EXTRA_ARGS[@]}"
+#Linker failures because --all-features will activate the gecko feature, which lets Firefox for Desktop link its own sqlite
+#which we don't have here since we're not linking against Firefox.See PR 3151
+#cargo test --all --all-features ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
 # Instead we pull the list of individual package manifest files out of `cargo metadata` and
