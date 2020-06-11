@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::types::VisitTransition;
+use crate::types::{Timestamp, VisitTransition};
 use rusqlite::Connection;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -137,17 +137,25 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         page_id: i64,
         most_recent_redirect_bonus: RedirectBonus,
     ) -> Result<Self> {
-        let (typed, visit_count, foreign_count, is_query) = conn.query_row_named("
-            SELECT typed, (visit_count_local + visit_count_remote) as visit_count, foreign_count, (substr(url, 0, 7) = 'place:') as is_query
+        let mut stmt = conn.prepare_cached(
+            "
+            SELECT
+                typed,
+                (visit_count_local + visit_count_remote) as visit_count,
+                foreign_count,
+                (substr(url, 0, 7) = 'place:') as is_query
             FROM moz_places
             WHERE id = :page_id
-        ", &[(":page_id", &page_id)], |row| {
-            let typed: i32 = row.get("typed")?;
-            let visit_count: i32 = row.get("visit_count")?;
-            let foreign_count: i32 = row.get("foreign_count")?;
-            let is_query: bool = row.get("is_query")?;
-            Ok((typed, visit_count, foreign_count, is_query))
-        })?;
+        ",
+        )?;
+        let mut rows = stmt.query_named(&[(":page_id", &page_id)])?;
+        let row = rows
+            .next()?
+            .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)?;
+        let typed: i32 = row.get("typed")?;
+        let visit_count: i32 = row.get("visit_count")?;
+        let foreign_count: i32 = row.get("foreign_count")?;
+        let is_query: bool = row.get("is_query")?;
 
         Ok(Self {
             conn,
@@ -174,32 +182,38 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             "SELECT
                  IFNULL(origin.visit_type, v.visit_type) AS visit_type,
                  target.visit_type AS target_visit_type,
-                 ROUND((now() - v.visit_date)/86400000) AS age_in_days
+                 v.visit_date
              FROM moz_historyvisits v
              LEFT JOIN moz_historyvisits origin ON origin.id = v.from_visit
-                 AND v.visit_type BETWEEN {redirect_permanent} AND {redirect_temporary}
+                 AND v.visit_type IN ({redirect_permanent}, {redirect_temporary})
              LEFT JOIN moz_historyvisits target ON v.id = target.from_visit
-                 AND target.visit_type BETWEEN {redirect_permanent} AND {redirect_temporary}
+                 AND target.visit_type IN ({redirect_permanent}, {redirect_temporary})
              WHERE v.place_id = :page_id
              ORDER BY v.visit_date DESC
              LIMIT {max_visits}",
             redirect_permanent = VisitTransition::RedirectPermanent as u8,
             redirect_temporary = VisitTransition::RedirectTemporary as u8,
+            // in practice this is constant, so caching the query is fine.
+            // (rusqlite has a max cache size too should things change)
             max_visits = self.settings.num_visits,
         );
 
-        let mut stmt = self.conn.prepare(&get_recent_visits)?;
+        let mut stmt = self.conn.prepare_cached(&get_recent_visits)?;
+
+        let now = Timestamp::now();
 
         let row_iter = stmt.query_and_then_named(
             &[(":page_id", &self.page_id)],
             |row| -> rusqlite::Result<_> {
                 let visit_type = row.get::<_, Option<u8>>("visit_type")?.unwrap_or(0);
                 let target_visit_type = row.get::<_, Option<u8>>("target_visit_type")?.unwrap_or(0);
-                let age_in_days: f64 = row.get("age_in_days")?;
+                let visit_date: Timestamp = row.get("visit_date")?;
+                let age_in_days =
+                    (now.as_millis() as f64 - visit_date.as_millis() as f64) / 86400000.0;
                 Ok((
                     VisitTransition::from_primitive(visit_type),
                     VisitTransition::from_primitive(target_visit_type),
-                    age_in_days as i32,
+                    age_in_days.round() as i32,
                 ))
             },
         )?;

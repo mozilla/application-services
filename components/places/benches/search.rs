@@ -34,6 +34,8 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
             places::storage::history::apply_observation_direct(&db, obs)?;
         }
     }
+    places::storage::delete_pending_temp_tables(&db)?;
+    places::storage::run_maintenance(&db)?;
     tx.commit()?;
     Ok(())
 }
