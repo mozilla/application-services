@@ -3,6 +3,7 @@ apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
 android {
+    ndkVersion rootProject.ext.build.ndkVersion
     compileSdkVersion rootProject.ext.build.compileSdkVersion
 
     defaultConfig {

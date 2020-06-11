@@ -7,7 +7,6 @@
 
 set -e
 
-NDK_VERSION=21
 RUST_TARGETS=("aarch64-linux-android" "armv7-linux-androideabi" "i686-linux-android" "x86_64-linux-android")
 
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
@@ -25,28 +24,8 @@ if [[ -z "${ANDROID_HOME}" ]]; then
   exit 1
 fi
 
-if [[ -z "${ANDROID_NDK_ROOT}" ]]; then
-  echo "Could not find Android NDK:"
-  echo 'Please install Android NDK r21 and then set ANDROID_NDK_ROOT.'
-  exit 1
-fi
-
-if [[ -z "${ANDROID_NDK_HOME}" ]]; then
-  echo "Environment variable \$ANDROID_NDK_HOME is not set:"
-  echo "Please export ANDROID_NDK_HOME=\$ANDROID_NDK_ROOT for compatibility with the android gradle plugin."
-  exit 1
-elif [[ "${ANDROID_NDK_HOME}" != "${ANDROID_NDK_ROOT}" ]]; then
-  echo "Environment variable \$ANDROID_NDK_HOME is different from \$ANDROID_NDK_ROOT."
-  echo "Please adjust your environment variables to ensure they are the same."
-  exit 1
-fi
-
-INSTALLED_NDK_VERSION=$(sed -En -e 's/^Pkg.Revision[ \t]*=[ \t]*([0-9a-f]+).*/\1/p' "${ANDROID_NDK_ROOT}/source.properties")
-if [[ "${INSTALLED_NDK_VERSION}" != "${NDK_VERSION}" ]]; then
-  echo "Wrong Android NDK version:"
-  echo "Expected version ${NDK_VERSION}, got ${INSTALLED_NDK_VERSION}"
-  exit 1
-fi
+# NDK ez-install.
+"$ANDROID_HOME/tools/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
 
 rustup target add "${RUST_TARGETS[@]}"
 

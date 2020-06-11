@@ -23,7 +23,7 @@ cargo test
 
 ## Android development
 
-Roughly you need Java 8, the Android SDK, the NDK R20 and a bunch of environment variables.  
+Roughly you need Java 8, the Android SDK and a bunch of environment variables.  
 Your best friend is the following command:
 
 ```
