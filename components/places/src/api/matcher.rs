@@ -140,7 +140,9 @@ pub fn accept_result(conn: &PlacesDb, search_string: &str, url: &Url) -> Result<
 }
 
 pub fn split_after_prefix(href: &str) -> (&str, &str) {
-    match memchr::memchr(b':', href.as_bytes()) {
+    // Only search up to 64 bytes (matches desktop behavior)
+    let haystack = &href.as_bytes()[..href.len().min(64)];
+    match memchr::memchr(b':', haystack) {
         None => ("", href),
         Some(index) => {
             let hb = href.as_bytes();
@@ -148,20 +150,24 @@ pub fn split_after_prefix(href: &str) -> (&str, &str) {
             if hb.len() >= end + 2 && hb[end] == b'/' && hb[end + 1] == b'/' {
                 end += 2;
             }
-            (&href[0..end], &href[end..])
+            href.split_at(end)
         }
     }
 }
 
 pub fn split_after_host_and_port(href: &str) -> (&str, &str) {
     let (_, remainder) = split_after_prefix(href);
-    let start = memchr::memchr(b'@', remainder.as_bytes())
+
+    let hp_definite_end =
+        memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or_else(|| remainder.len());
+
+    let (before_hp, after_hp) = remainder.split_at(hp_definite_end);
+
+    let auth_end = memchr::memchr(b'@', before_hp.as_bytes())
         .map(|i| i + 1)
         .unwrap_or(0);
-    let remainder = &remainder[start..];
-    let end =
-        memchr::memchr3(b'/', b'?', b'#', remainder.as_bytes()).unwrap_or_else(|| remainder.len());
-    remainder.split_at(end)
+
+    (&before_hp[auth_end..], after_hp)
 }
 
 fn looks_like_origin(string: &str) -> bool {
@@ -636,6 +642,24 @@ mod tests {
             ("example.com", "/")
         );
         assert_eq!(split_after_host_and_port("foo:example"), ("example", ""));
+
+        assert_eq!(
+            split_after_host_and_port("http://foo.com/stuff/@21.3132115"),
+            ("foo.com", "/stuff/@21.3132115")
+        );
+        assert_eq!(
+            split_after_host_and_port("http://foo.com/go?email=foo@example.com"),
+            ("foo.com", "/go?email=foo@example.com")
+        );
+
+        assert_eq!(
+            split_after_host_and_port("http://a:b@foo.com/stuff/@21.3132115"),
+            ("foo.com", "/stuff/@21.3132115")
+        );
+        assert_eq!(
+            split_after_host_and_port("http://a:b@foo.com/123#abcdef@title"),
+            ("foo.com", "/123#abcdef@title")
+        );
     }
 
     #[test]
