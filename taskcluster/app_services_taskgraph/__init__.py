@@ -26,7 +26,7 @@ def _import_modules(modules):
 
 def get_decision_parameters(graph_config, parameters):
     if parameters["tasks_for"] == "github-pull-request":
-        pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "")
+        pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "").decode("UTF-8")
         if "[ci full]" in pr_title:
             parameters["target_tasks_method"] = "pr-full"
         elif "[ci skip]" in pr_title:
