@@ -10,6 +10,7 @@ buildscript {
     ext.glean_version = '21.3.0'
 
     ext.build = [
+        ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
         compileSdkVersion: 29,
         targetSdkVersion: 28,
         minSdkVersion: 21, // So that we can publish for aarch64.
@@ -292,4 +293,10 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
 // interface  for consumers.
 task autoPublishForLocalDevelopment(type: Exec) {
   commandLine "./automation/publish_to_maven_local_if_modified.py"
+}
+
+task printNdkVersion {
+    doLast {
+        println project.ext.build.ndkVersion
+    }
 }
