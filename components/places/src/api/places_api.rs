@@ -420,11 +420,8 @@ impl PlacesApi {
         // simpler if we can just reuse the existing path.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        // We'd rather you didn't interrupt this, but it's a required arg for
-        // HistoryStore
-        let scope = conn.begin_interrupt_scope();
-        let store = HistoryStore::new(&conn, &scope);
-        store.do_reset(&sync15::StoreSyncAssociation::Disconnected)
+        history_sync::reset(&conn, &sync15::StoreSyncAssociation::Disconnected)?;
+        Ok(())
     }
 
     /// Get a new interrupt handle for the sync connection.

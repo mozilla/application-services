@@ -5,10 +5,7 @@
 use crate::api::places_api::{ConnectionType, GLOBAL_STATE_META_KEY};
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::storage::history::{
-    delete_everything,
-    history_sync::{reset, reset_meta},
-};
+use crate::storage::history::{delete_everything, history_sync::reset};
 use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::SqlInterruptScope;
@@ -84,22 +81,6 @@ impl<'a> HistoryStore<'a> {
 
         self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
 
-        Ok(())
-    }
-
-    pub(crate) fn do_reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        match assoc {
-            StoreSyncAssociation::Disconnected => {
-                reset(self.db)?;
-            }
-            StoreSyncAssociation::Connected(ids) => {
-                let tx = self.db.begin_transaction()?;
-                reset_meta(self.db)?;
-                self.put_meta(GLOBAL_SYNCID_META_KEY, &ids.global)?;
-                self.put_meta(COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-                tx.commit()?;
-            }
-        }
         Ok(())
     }
 
@@ -194,7 +175,7 @@ impl<'a> Store for HistoryStore<'a> {
     }
 
     fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
-        self.do_reset(assoc)?;
+        reset(&self.db, assoc)?;
         Ok(())
     }
 

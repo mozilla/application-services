@@ -976,7 +976,7 @@ impl<'a> Store for BookmarksStore<'a> {
 
     /// Erases all local items. Unlike `reset`, this keeps all synced items
     /// until the next sync, when they will be replaced with tombstones. This
-    /// also preserves the last sync time.
+    /// also preserves the sync ID and last sync time.
     ///
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
