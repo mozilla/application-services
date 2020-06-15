@@ -87,11 +87,6 @@ impl<'a> TabsStore<'a> {
             local_id: RefCell::default(), // Will get replaced in `prepare_for_sync`.
         }
     }
-    fn wipe_reset_helper(&self, is_wipe: bool) -> Result<()> {
-        self.remote_clients.borrow_mut().clear();
-        self.storage.wipe(is_wipe);
-        Ok(())
-    }
 }
 
 impl<'a> Store for TabsStore<'a> {
@@ -204,11 +199,17 @@ impl<'a> Store for TabsStore<'a> {
     }
 
     fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
+        self.remote_clients.borrow_mut().clear();
         self.sync_store_assoc.replace(assoc.clone());
-        self.wipe_reset_helper(false)
+        self.last_sync.set(None);
+        self.local_id.borrow_mut().clear();
+        self.storage.wipe_remote_tabs();
+        Ok(())
     }
 
     fn wipe(&self) -> Result<()> {
-        self.wipe_reset_helper(true)
+        self.reset(&StoreSyncAssociation::Disconnected)?;
+        self.storage.wipe_local_tabs();
+        Ok(())
     }
 }
