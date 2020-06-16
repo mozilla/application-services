@@ -6,6 +6,9 @@ use rc_crypto::hawk;
 use std::string;
 #[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
+    #[error("Server asked the client to back off, please wait {0} seconds to try again")]
+    BackoffError(u64),
+
     #[error("Unknown OAuth State")]
     UnknownOAuthState,
 

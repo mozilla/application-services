@@ -31,6 +31,7 @@ cli-support = { path = "../support/cli" }
 dialoguer = "0.6"
 webbrowser = "0.5"
 mockiato = "0.9"
+mockito = "0.25"
 
 [features]
 default = []
