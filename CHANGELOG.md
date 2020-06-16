@@ -1,3 +1,12 @@
+# v61.0.1 (_2020-06-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.0...v61.0.1)
+
+## General
+
+- Attempt to fix some build tooling issues with the previous release; no user-visible changes. ([#3245](https://github.com/mozilla/application-services/pull/3245))
+
+
 # v61.0.0 (_2020-06-15_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v60.0.0...v61.0.0)
