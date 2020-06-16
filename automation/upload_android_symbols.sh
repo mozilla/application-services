@@ -17,8 +17,10 @@ fi
 
 PROJECT_PATH=${1}
 
+pushd libs
 # shellcheck disable=SC1091
-source "libs/android_defaults.sh"
+source "android_defaults.sh"
+popd
 
 OUTPUT_FOLDER="crashreporter-symbols"
 DUMP_SYMS_DIR="automation/symbols-generation/bin"
