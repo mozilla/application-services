@@ -300,7 +300,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         }
     },
     "libsqlite3-sys": {
@@ -419,7 +419,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         },
     },
     "winapi-x86_64-pc-windows-gnu": {
@@ -428,7 +428,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-APACHE",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-APACHE",
         },
     },
     "ws2_32-sys": {
@@ -439,7 +439,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         },
     },
     # These packages do not make it easy to infer a URL at which their license can be read,

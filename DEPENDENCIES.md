@@ -984,7 +984,7 @@ The following text applies to code linked from these dependencies:
 [ws2_32-sys](https://github.com/retep998/winapi-rs)
 
 ```
-Copyright (c) 2015 The winapi-rs Developers
+Copyright (c) 2015-2018 The winapi-rs Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
