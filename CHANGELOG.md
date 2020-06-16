@@ -10,6 +10,7 @@
 - Adds jwe encryption in scoped_keys. ([#3195](https://github.com/mozilla/application-services/pull/3195))
 - Adds an implementation for [pbkdf2](https://www.ietf.org/rfc/rfc2898.txt). ([#3193](https://github.com/mozilla/application-services/pull/3193))
 - Fix bug to correctly return the given defaults when the storageArea's `get()` method is used with an empty store ([bug 1645598](https://bugzilla.mozilla.org/show_bug.cgi?id=1645598)). ([#3236](https://github.com/mozilla/application-services/pull/3236))
+- Fixed a sync bug where the application not providing the "persisted state" would mean the declined list was handled incorrectly ([#3205](https://github.com/mozilla/application-services/issues/3205))
 
 ## Android
 
