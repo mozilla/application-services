@@ -1,3 +1,11 @@
+# v61.0.2 (_2020-06-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.1...v61.0.2)
+
+## FxA Client
+
+- Short circuit requests if server requested a backoff and time period has not passed. ([#3219](https://github.com/mozilla/application-services/pull/3195))
+
 # v61.0.1 (_2020-06-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.0...v61.0.1)
