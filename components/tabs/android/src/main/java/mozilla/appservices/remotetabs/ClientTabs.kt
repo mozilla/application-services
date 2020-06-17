@@ -33,9 +33,8 @@ data class RemoteTab(
         icon?.let {
             builder.setIcon(it)
         }
-        lastUsed?.let {
-            builder.setLastUsed(it)
-        }
+
+        builder.setLastUsed(lastUsed ?: 0L)
         builder.addAllUrlHistory(urlHistory)
         return builder.build()
     }
