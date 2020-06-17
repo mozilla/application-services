@@ -1,3 +1,11 @@
+# v61.0.3 (_2020-06-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.2...v61.0.3)
+
+## Tabs
+
+- Fix an issue which we believe is causing numerous failures deserializing protobufs ([#3214](https://github.com/mozilla/application-services/issues/3214))
+
 # v61.0.2 (_2020-06-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.1...v61.0.2)
