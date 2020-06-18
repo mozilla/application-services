@@ -6,7 +6,9 @@ use crate::bookmark_sync::store::BookmarksStore;
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::history_sync::store::HistoryStore;
-use crate::storage::{self, delete_meta, get_meta, put_meta};
+use crate::storage::{
+    self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
+};
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
@@ -390,12 +392,7 @@ impl PlacesApi {
         // simpler if we can just reuse the existing path.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        // We'd rather you didn't interrupt this, but it's a required arg for
-        // BookmarksStore.
-        let scope = conn.begin_interrupt_scope();
-        let store = BookmarksStore::new(&conn, &scope);
-        store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
-
+        bookmark_sync::reset(&conn, &sync15::StoreSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -423,11 +420,8 @@ impl PlacesApi {
         // simpler if we can just reuse the existing path.
         HistoryStore::migrate_v1_global_state(&conn)?;
 
-        // We'd rather you didn't interrupt this, but it's a required arg for
-        // HistoryStore
-        let scope = conn.begin_interrupt_scope();
-        let store = HistoryStore::new(&conn, &scope);
-        store.do_reset(&sync15::StoreSyncAssociation::Disconnected)
+        history_sync::reset(&conn, &sync15::StoreSyncAssociation::Disconnected)?;
+        Ok(())
     }
 
     /// Get a new interrupt handle for the sync connection.

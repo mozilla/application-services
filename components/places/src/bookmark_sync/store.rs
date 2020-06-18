@@ -14,7 +14,7 @@ use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{
     bookmarks::{
-        bookmark_sync::{create_synced_bookmark_roots, reset, reset_meta},
+        bookmark_sync::{create_synced_bookmark_roots, reset},
         BookmarkRootGuid,
     },
     delete_pending_temp_tables, get_meta, put_meta,
@@ -899,26 +899,6 @@ impl<'a> BookmarksStore<'a> {
 
         Ok(())
     }
-
-    /// Removes all sync metadata, such that the next sync is treated as a
-    /// first sync. Unlike `wipe`, this keeps all local items, but clears
-    /// all synced items and pending tombstones. This also forgets the last
-    /// sync time, and either updates or removes the sync ID.
-    pub(crate) fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        match assoc {
-            StoreSyncAssociation::Disconnected => {
-                reset(self.db)?;
-            }
-            StoreSyncAssociation::Connected(ids) => {
-                let tx = self.db.begin_transaction()?;
-                reset_meta(self.db)?;
-                put_meta(self.db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
-                put_meta(self.db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-                tx.commit()?;
-            }
-        }
-        Ok(())
-    }
 }
 
 impl<'a> Store for BookmarksStore<'a> {
@@ -990,13 +970,13 @@ impl<'a> Store for BookmarksStore<'a> {
     }
 
     fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
-        BookmarksStore::reset(self, assoc)?;
+        reset(&self.db, assoc)?;
         Ok(())
     }
 
     /// Erases all local items. Unlike `reset`, this keeps all synced items
     /// until the next sync, when they will be replaced with tombstones. This
-    /// also preserves the last sync time.
+    /// also preserves the sync ID and last sync time.
     ///
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
@@ -3553,12 +3533,22 @@ mod tests {
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+            assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
-            // now reset
-            store.reset(&StoreSyncAssociation::Connected(CollSyncIds {
+            let sync_ids = CollSyncIds {
                 global: Guid::random(),
                 coll: Guid::random(),
-            }))?;
+            };
+            store.reset(&StoreSyncAssociation::Connected(sync_ids.clone()))?;
+            assert_eq!(
+                get_meta::<Guid>(&syncer, GLOBAL_SYNCID_META_KEY)?,
+                Some(sync_ids.global)
+            );
+            assert_eq!(
+                get_meta::<Guid>(&syncer, COLLECTION_SYNCID_META_KEY)?,
+                Some(sync_ids.coll)
+            );
+            assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(0));
         }
         // do it all again - after the reset we should get the same results.
         {
@@ -3572,6 +3562,18 @@ mod tests {
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             store.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+            assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
+
+            store.reset(&StoreSyncAssociation::Disconnected)?;
+            assert_eq!(
+                get_meta::<Option<String>>(&syncer, GLOBAL_SYNCID_META_KEY)?,
+                None
+            );
+            assert_eq!(
+                get_meta::<Option<String>>(&syncer, COLLECTION_SYNCID_META_KEY)?,
+                None
+            );
+            assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(0));
         }
 
         Ok(())

@@ -21,6 +21,7 @@ use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
+use sync15::StoreSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use url::Url;
 
@@ -427,9 +428,7 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     wipe_local_in_tx(db)?;
 
     // Remove Sync metadata, too.
-    put_meta(db, LAST_SYNC_META_KEY, &0)?;
-    delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
-    delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+    reset_in_tx(&db, &StoreSyncAssociation::Disconnected)?;
 
     tx.commit()?;
 
@@ -641,6 +640,39 @@ fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
         )?;
         Ok(())
     })?;
+
+    Ok(())
+}
+
+fn reset_in_tx(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
+    // Reset change counters and sync statuses for all URLs.
+    db.execute_cached(
+        &format!(
+            "
+            UPDATE moz_places
+                SET sync_change_counter = 0,
+                sync_status = {}",
+            (SyncStatus::New as u8)
+        ),
+        NO_PARAMS,
+    )?;
+
+    // Reset the last sync time, so that the next sync fetches fresh records
+    // from the server.
+    put_meta(db, LAST_SYNC_META_KEY, &0)?;
+
+    // Clear the sync ID if we're signing out, or set it to whatever the
+    // server gave us if we're signing in.
+    match assoc {
+        StoreSyncAssociation::Disconnected => {
+            delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
+            delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        }
+        StoreSyncAssociation::Connected(ids) => {
+            put_meta(db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+            put_meta(db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        }
+    }
 
     Ok(())
 }
@@ -1072,28 +1104,10 @@ pub mod history_sync {
     /// Resets all sync metadata, including change counters, sync statuses,
     /// the last sync time, and sync ID. This should be called when the user
     /// signs out of Sync.
-    pub(crate) fn reset(db: &PlacesDb) -> Result<()> {
+    pub(crate) fn reset(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
         let tx = db.begin_transaction()?;
-        reset_meta(db)?;
-        put_meta(db, LAST_SYNC_META_KEY, &0)?;
-        delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
-        delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        reset_in_tx(db, assoc)?;
         tx.commit()?;
-        Ok(())
-    }
-
-    pub(crate) fn reset_meta(db: &PlacesDb) -> Result<()> {
-        db.conn().execute_cached(
-            &format!(
-                "
-                UPDATE moz_places
-                    SET sync_change_counter = 0,
-                    sync_status = {}",
-                (SyncStatus::New as u8)
-            ),
-            NO_PARAMS,
-        )?;
-        put_meta(db, LAST_SYNC_META_KEY, &0)?;
         Ok(())
     }
 } // end of sync module.
@@ -1338,6 +1352,7 @@ mod tests {
     use crate::types::{Timestamp, VisitTransitionSet};
     use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
+    use sync15::CollSyncIds;
 
     #[test]
     fn test_get_visited_urls() {
@@ -2093,7 +2108,18 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_reset() -> Result<()> {
+    fn test_reset() -> Result<()> {
+        fn mark_all_as_synced(db: &PlacesDb) -> Result<()> {
+            db.execute_cached(
+                &format!(
+                    "UPDATE moz_places set sync_status = {}",
+                    (SyncStatus::Normal as u8)
+                ),
+                NO_PARAMS,
+            )?;
+            Ok(())
+        }
+
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
         let _ = env_logger::try_init();
@@ -2108,19 +2134,30 @@ mod tests {
         delete_everything(&conn)?;
 
         let mut pi = get_observed_page(&mut conn, "http://example.com")?;
-        conn.execute_cached(
-            &format!(
-                "UPDATE moz_places set sync_status = {}",
-                (SyncStatus::Normal as u8)
-            ),
-            NO_PARAMS,
-        )?;
+        mark_all_as_synced(&conn)?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
             .page;
         assert_eq!(pi.sync_change_counter, 1);
         assert_eq!(pi.sync_status, SyncStatus::Normal);
-        history_sync::reset(&conn)?;
+
+        let sync_ids = CollSyncIds {
+            global: SyncGuid::random(),
+            coll: SyncGuid::random(),
+        };
+        history_sync::reset(&conn, &StoreSyncAssociation::Connected(sync_ids.clone()))?;
+
+        assert_eq!(
+            get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?,
+            Some(sync_ids.global)
+        );
+        assert_eq!(
+            get_meta::<SyncGuid>(&conn, COLLECTION_SYNCID_META_KEY)?,
+            Some(sync_ids.coll)
+        );
+        assert_eq!(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?, Some(0));
+        assert!(get_meta::<Timestamp>(&conn, DELETION_HIGH_WATER_MARK_META_KEY)?.is_some());
+
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
             .page;
@@ -2130,15 +2167,21 @@ mod tests {
         let outgoing = fetch_outgoing(&conn, 100, 100)?;
         assert_eq!(outgoing.len(), 1);
 
-        // Ensure we reset Sync metadata, too.
-        let global = get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?;
-        assert!(global.is_none());
-        let coll = get_meta::<SyncGuid>(&conn, COLLECTION_SYNCID_META_KEY)?;
-        assert!(coll.is_none());
-        let since = get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?;
-        assert_eq!(since, Some(0));
-        let mark = get_meta::<Timestamp>(&conn, DELETION_HIGH_WATER_MARK_META_KEY)?;
-        assert!(mark.is_some());
+        mark_all_as_synced(&conn)?;
+        assert!(fetch_outgoing(&conn, 100, 100)?.is_empty());
+        // ...
+
+        // Now simulate a reset on disconnect, and verify we've removed all Sync
+        // metadata again.
+        history_sync::reset(&conn, &StoreSyncAssociation::Disconnected)?;
+
+        assert_eq!(get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?, None);
+        assert_eq!(
+            get_meta::<SyncGuid>(&conn, COLLECTION_SYNCID_META_KEY)?,
+            None
+        );
+        assert_eq!(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?, Some(0));
+        assert!(get_meta::<Timestamp>(&conn, DELETION_HIGH_WATER_MARK_META_KEY)?.is_some());
 
         Ok(())
     }

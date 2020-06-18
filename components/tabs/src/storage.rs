@@ -86,11 +86,12 @@ impl TabsStorage {
         remote_tabs.replace(new_remote_tabs);
     }
 
-    pub fn wipe(&self, delete_local_tabs: bool) {
+    pub fn wipe_remote_tabs(&self) {
         self.remote_tabs.replace(None);
-        if delete_local_tabs {
-            self.local_tabs.replace(None);
-        }
+    }
+
+    pub fn wipe_local_tabs(&self) {
+        self.local_tabs.replace(None);
     }
 }
 

@@ -23,6 +23,7 @@ use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
 use std::collections::HashMap;
+use sync15::StoreSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use url::Url;
 
@@ -1076,34 +1077,17 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
 /// Erases all bookmarks and resets all Sync metadata.
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
-    delete_everything_in_tx(db)?;
-    tx.commit()?;
-    Ok(())
-}
-
-fn delete_everything_in_tx(db: &PlacesDb) -> Result<()> {
     db.execute_batch(&format!(
-        "DELETE FROM moz_bookmarks_synced;
-
-         DELETE FROM moz_bookmarks_deleted;
-
-         DELETE FROM moz_bookmarks
-         WHERE guid NOT IN ('{}', '{}', '{}', '{}', '{}');
-
-         UPDATE moz_bookmarks
-         SET syncChangeCounter = 1,
-             syncStatus = {}",
+        "DELETE FROM moz_bookmarks
+         WHERE guid NOT IN ('{}', '{}', '{}', '{}', '{}');",
         BookmarkRootGuid::Root.as_str(),
         BookmarkRootGuid::Menu.as_str(),
         BookmarkRootGuid::Mobile.as_str(),
         BookmarkRootGuid::Toolbar.as_str(),
         BookmarkRootGuid::Unfiled.as_str(),
-        (SyncStatus::New as u8)
     ))?;
-    bookmark_sync::create_synced_bookmark_roots(db)?;
-    put_meta(db, LAST_SYNC_META_KEY, &0)?;
-    delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
-    delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+    reset_in_tx(db, &StoreSyncAssociation::Disconnected)?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -1445,6 +1429,44 @@ fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark
     )?)
 }
 
+fn reset_in_tx(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
+    // Remove all synced bookmarks and pending tombstones, and mark all
+    // local bookmarks as new.
+    db.execute_batch(&format!(
+        "DELETE FROM moz_bookmarks_synced;
+
+         DELETE FROM moz_bookmarks_deleted;
+
+         UPDATE moz_bookmarks
+         SET syncChangeCounter = 1,
+             syncStatus = {}",
+        (SyncStatus::New as u8)
+    ))?;
+
+    // Recreate the set of synced roots, since we just removed all synced
+    // bookmarks.
+    bookmark_sync::create_synced_bookmark_roots(db)?;
+
+    // Reset the last sync time, so that the next sync fetches fresh records
+    // from the server.
+    put_meta(db, LAST_SYNC_META_KEY, &0)?;
+
+    // Clear the sync ID if we're signing out, or set it to whatever the
+    // server gave us if we're signing in.
+    match assoc {
+        StoreSyncAssociation::Disconnected => {
+            delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
+            delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        }
+        StoreSyncAssociation::Connected(ids) => {
+            put_meta(db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+            put_meta(db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub mod bookmark_sync {
     use super::*;
     use crate::bookmark_sync::SyncedBookmarkKind;
@@ -1452,32 +1474,10 @@ pub mod bookmark_sync {
     /// Removes all sync metadata, including synced bookmarks, pending tombstones,
     /// change counters, sync statuses, the last sync time, and sync ID. This
     /// should be called when the user signs out of Sync.
-    pub(crate) fn reset(db: &PlacesDb) -> Result<()> {
+    pub(crate) fn reset(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
         let tx = db.begin_transaction()?;
-        reset_meta(db)?;
-        delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
-        delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        reset_in_tx(db, assoc)?;
         tx.commit()?;
-        Ok(())
-    }
-
-    /// Removes all synced bookmarks and pending tombstones, and forgets the
-    /// last sync time, without resetting the sync ID. This means the next
-    /// sync will be treated as a first sync with all new local data. This
-    /// function should be called from within an open transaction.
-    pub(crate) fn reset_meta(db: &PlacesDb) -> Result<()> {
-        db.execute_batch(&format!(
-            "DELETE FROM moz_bookmarks_synced;
-
-             DELETE FROM moz_bookmarks_deleted;
-
-             UPDATE moz_bookmarks
-             SET syncChangeCounter = 1,
-                 syncStatus = {}",
-            (SyncStatus::New as u8)
-        ))?;
-        create_synced_bookmark_roots(db)?;
-        put_meta(db, LAST_SYNC_META_KEY, &0)?;
         Ok(())
     }
 
@@ -2525,7 +2525,7 @@ mod tests {
         assert_eq!(bmk.sync_change_counter, 0);
         assert_eq!(bmk.sync_status, SyncStatus::Normal);
 
-        bookmark_sync::reset(&conn)?;
+        bookmark_sync::reset(&conn, &StoreSyncAssociation::Disconnected)?;
 
         let bmk = get_raw_bookmark(&conn, &"bookmarkAAAA".into())?
             .expect("Should fetch A after resetting");
