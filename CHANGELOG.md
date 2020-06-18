@@ -1,3 +1,12 @@
+# v61.0.4 (_2020-06-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.3...v61.0.4)
+
+* Fix an issue where a node reassignment or signing out and signing back in
+  wouldn't clear the locally stored last sync time for engines
+  ([#3150](https://github.com/mozilla/application-services/issues/3150),
+  PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
+
 # v61.0.3 (_2020-06-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.2...v61.0.3)
