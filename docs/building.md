@@ -49,3 +49,17 @@ The following command will ensure your environment is ready to build the project
 ````
 
 The Xcode project is located at `megazords/ios/MozillaAppServices.xcodeproj`.
+
+## (Optional) Dev tool
+You can also install and use `asdev` to help you run the above commands, you can do that by running the following:
+
+```
+cargo dev-install
+```
+
+This will allow your to run all the above commands without having to remember where the scripts are. You will be able to do 
+
+```
+cargo verify_env
+``` 
+Which would run all three verification scrips. To check what other commands the dev tool supports, run `cargo asdev -h` or open the dialog using `cargo asdev`

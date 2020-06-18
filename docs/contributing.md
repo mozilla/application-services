@@ -6,6 +6,28 @@ Anyone is welcome to help with the Application Services project. Feel free to ge
 - Mailing list: <https://mail.mozilla.org/listinfo/sync-dev>
 - and of course, [the issues list](https://github.com/mozilla/application-services/issues)
 
+We recommend installing the `asdev` tool, it will help you navigate a variety of tasks in this repository. You can do that by running the following:
+```
+$ cargo dev-install
+```
+
+You can then view the possible commands using the dialog by running
+```
+$ cargo asdev
+```
+If you would like to run commands directly without the dialog, you can run commands using
+```
+$ cargo [SUBCOMMAND]
+```
+or
+```
+$ cargo asdev [SUBCOMMAND]
+```
+To view possible subcommands, you can check the aliases in `.cargo/config`, or run
+```
+$ cargo asdev -h
+```
+
 
 Participation in this project is governed by the
 [Mozilla Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/).
@@ -37,7 +59,7 @@ Before submitting a PR:
 - Run `cargo fmt` to ensure your Rust code is correctly formatted.
   - If you have modified any Swift code, also run `swiftformat --swiftversion 4` on the modified code.
 - Your code must run and pass all the automated tests before you submit your PR for review.
-  - The simplest way to confirm this is to use the `./automation/all_tests.sh` script, which runs all test suites
+  - The simplest way to confirm this is to run `cargo all_tests` which uses the `./automation/all_tests.sh` script, that runs all test suites
     and linters for Rust, Kotlin and Swift code.
   - "Work in progress" pull requests are welcome, but should be clearly labeled as such and should not be merged until all tests pass and the code has been reviewed.
 - Your patch should include new tests that cover your changes, or be accompanied by explanation for why it doesn't need any. It is your
