@@ -560,6 +560,21 @@ pub fn send_verification(config: &Config, body: serde_json::Value) -> Result<Res
     Ok(resp)
 }
 
+#[cfg(feature = "integration_test")]
+pub fn verify_session(
+    config: &Config,
+    body: serde_json::Value,
+    session_token: &str,
+) -> Result<Response> {
+    let auth_key = derive_auth_key_from_session_token(session_token)?;
+    let verify_endpoint = config.auth_url_path("v1/session/verify_code").unwrap();
+    let req = HawkRequestBuilder::new(Method::Post, verify_endpoint, &auth_key)
+        .body(body)
+        .build()?;
+    let client = Client::new();
+    client.make_request(req)
+}
+
 struct HawkRequestBuilder<'a> {
     url: Url,
     method: Method,

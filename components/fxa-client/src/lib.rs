@@ -41,6 +41,7 @@ pub mod msg_types {
 }
 mod http_client;
 mod oauth;
+pub mod pairing_channel;
 mod profile;
 mod push;
 mod scoped_keys;
@@ -48,7 +49,6 @@ pub mod scopes;
 pub mod send_tab;
 mod state_persistence;
 mod util;
-
 type FxAClient = dyn http_client::FxAClient + Sync + Send;
 
 // FIXME: https://github.com/myelin-ai/mockiato/issues/106.

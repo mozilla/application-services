@@ -44,6 +44,28 @@ pub fn expand(prk: &hmac::SigningKey, info: &[u8], out: &mut [u8]) -> Result<()>
     Ok(())
 }
 
+pub fn expand_label(
+    secret: &hmac::SigningKey,
+    label: &str,
+    transcript: &[u8],
+    length: usize,
+) -> Result<Vec<u8>> {
+    let mut info: Vec<u8> = Vec::new();
+    let length_u16: u16 = length as u16;
+    info.extend_from_slice(&length_u16.to_be_bytes());
+    let st = format!("tls13 {}", label);
+    extend_with_length_u8(&mut info, st.as_bytes());
+    extend_with_length_u8(&mut info, transcript);
+    let mut out = vec![0u8; length];
+    expand(secret, &info, &mut out)?;
+    Ok(out)
+}
+
+fn extend_with_length_u8(buff: &mut Vec<u8>, data: &[u8]) {
+    buff.extend_from_slice(&(data.len() as u8).to_be_bytes());
+    buff.extend_from_slice(data);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

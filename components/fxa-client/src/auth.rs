@@ -12,7 +12,7 @@ use crate::{
 };
 pub use http_client::{
     derive_auth_key_from_session_token, send_authorization_request, send_verification,
-    AuthorizationRequestParameters,
+    verify_session, AuthorizationRequestParameters,
 };
 use rc_crypto::{digest, hkdf, hmac, pbkdf2};
 use serde_derive::{Deserialize, Serialize};

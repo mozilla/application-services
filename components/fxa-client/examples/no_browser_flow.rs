@@ -4,7 +4,8 @@
 
 use cli_support::prompt::prompt_string;
 use dialoguer::Select;
-use fxa_client::{device, pairing_channel, Config, FirefoxAccount, IncomingDeviceCommand};
+use fxa_client::{auth, device, pairing_channel, Config, FirefoxAccount, IncomingDeviceCommand};
+use serde_json::json;
 use std::{
     collections::HashMap,
     fs,
@@ -13,11 +14,12 @@ use std::{
     thread, time,
 };
 use url::Url;
+use viaduct::Request;
 
 static CREDENTIALS_PATH: &str = "credentials.json";
-static CONTENT_SERVER: &str = "https://accounts.firefox.com";
+static CONTENT_SERVER: &str = "https://stable.dev.lcip.org/";
 static CLIENT_ID: &str = "a2270f727f45f648";
-static REDIRECT_URI: &str = "https://accounts.firefox.com/oauth/success/a2270f727f45f648";
+static REDIRECT_URI: &str = "https://stable.dev.lcip.org/oauth/success/a2270f727f45f648";
 static SCOPES: &[&str] = &["profile", "https://identity.mozilla.com/apps/oldsync"];
 static DEFAULT_DEVICE_NAME: &str = "Bobo device";
 
@@ -50,24 +52,77 @@ fn persist_fxa_state(acct: &FirefoxAccount) {
 }
 
 fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
-    let mut acct = FirefoxAccount::with_config(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&SCOPES, "device_api_example", None)?;
-
-    if webbrowser::open(&oauth_uri.as_ref()).is_err() {
-        println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
-        println!("\n    {}\n", oauth_uri);
-    } else {
-        println!("Please paste the final URL below:\n");
+    let mut acct = FirefoxAccount::with_config(cfg.clone());
+    let oauth_uri = acct.begin_oauth_flow(&SCOPES, "device_api_example")?;
+    let email = prompt_string("email").unwrap();
+    let password = dialoguer::Password::new()
+        .with_prompt("Enter password")
+        .interact()
+        .unwrap();
+    let login_endpoint = cfg.auth_url_path("v1/account/login?keys=true").unwrap();
+    let body = json!({
+        "email": &email,
+        "authPW": auth::auth_pwd(&email, &password)?,
+        "service": &cfg.client_id,
+        "verificationMethod": "email-otp",
+    });
+    let req = Request::post(login_endpoint).json(&body).send()?;
+    let resp: serde_json::Value = req.json()?;
+    let session_token = resp["sessionToken"]
+        .as_str()
+        .ok_or_else(|| anyhow::Error::msg("No session Token"))?;
+    let key_fetch_token = resp["keyFetchToken"]
+        .as_str()
+        .ok_or_else(|| anyhow::Error::msg("No Key fetch token"))?;
+    log::info!("POST /v1/account/create succeeded");
+    let verified = resp["verified"]
+        .as_bool()
+        .ok_or_else(|| anyhow::Error::msg("No verified"))?;
+    if !verified {
+        let verification_code = prompt_string("Verification code").unwrap();
+        let body = json!({ "code": verification_code });
+        auth::verify_session(&cfg, body, session_token)?;
     }
-
-    let redirect_uri: String = prompt_string("Final URL").unwrap();
+    let (sync_key, xcs_key) = auth::get_sync_keys(&cfg, &key_fetch_token, &email, &password)?;
+    let redirect_uri = execute_oauth_flow(&cfg, &oauth_uri, session_token, (&sync_key, &xcs_key))?;
     let redirect_uri = Url::parse(&redirect_uri).unwrap();
     let query_params: HashMap<_, _> = redirect_uri.query_pairs().into_owned().collect();
     let code = &query_params["code"];
     let state = &query_params["state"];
     acct.complete_oauth_flow(&code, &state).unwrap();
+    acct.set_session_token(session_token);
     persist_fxa_state(&acct);
     Ok(acct)
+}
+
+fn execute_oauth_flow(
+    cfg: &Config,
+    oauth_url: &str,
+    session_token: &str,
+    sync_keys: (&[u8], &[u8]),
+) -> Result<String> {
+    let url = Url::parse(oauth_url)?;
+    let auth_key = auth::derive_auth_key_from_session_token(session_token)?;
+    let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
+    let jwk_base_64 = query_map.get("keys_jwk").unwrap();
+    let decoded = base64::decode(&jwk_base_64).unwrap();
+    let jwk = std::str::from_utf8(&decoded)?;
+    let scope = query_map.get("scope").unwrap();
+    let client_id = query_map.get("client_id").unwrap();
+    let state = query_map.get("state").unwrap();
+    let code_challenge = query_map.get("code_challenge").unwrap();
+    let code_challenge_method = query_map.get("code_challenge_method").unwrap();
+    let keys_jwe = auth::create_keys_jwe(&client_id, &scope, &jwk, &auth_key, cfg, sync_keys)?;
+    let auth_params = auth::AuthorizationRequestParameters {
+        client_id: client_id.clone(),
+        code_challenge: Some(code_challenge.clone()),
+        code_challenge_method: Some(code_challenge_method.clone()),
+        scope: scope.clone(),
+        keys_jwe: Some(keys_jwe),
+        state: state.clone(),
+        access_type: "offline".to_string(),
+    };
+    auth::send_authorization_request(cfg, auth_params, &auth_key)
 }
 
 fn main() -> Result<()> {
@@ -114,7 +169,6 @@ fn main() -> Result<()> {
         });
     }
 
-    // Menu:
     loop {
         println!("Main menu:");
         let mut main_menu = Select::new();

@@ -24,6 +24,9 @@ rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }
 thiserror = "1.0"
 anyhow = "1.0"
+tungstenite = "0.11"
+bytes = "0.5"
+qr2term = "0.2.1"
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
