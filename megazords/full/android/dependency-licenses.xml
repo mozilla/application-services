@@ -277,6 +277,10 @@ the details of which are reproduced below.
     <url>https://github.com/sqlcipher/sqlcipher/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>Zlib License: tinyvec</name>
+    <url>https://github.com/Lokathor/tinyvec/blob/master/LICENSE-ZLIB.md</url>
+  </license>
+  <license>
     <name>Optional Notice: SQLite</name>
     <url>https://sqlite.org/copyright.html</url>
   </license>
