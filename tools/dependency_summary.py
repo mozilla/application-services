@@ -521,7 +521,7 @@ COMMON_LICENSE_FILE_NAME_ROOTS = {
     "Apache-2.0": ["license-apache", "licence-apache"],
     "MIT": ["license-mit", "licence-mit"],
     "CC0": ["license-cc0", "licence-cc0"],
-
+    "Zlib": ["license-zlib", "license-zlib"],
 }
 COMMON_LICENSE_FILE_NAME_SUFFIXES = ["", ".md", ".txt"]
 COMMON_LICENSE_FILE_NAMES = {}
