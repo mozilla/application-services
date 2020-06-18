@@ -209,7 +209,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
                 let target_visit_type = row.get::<_, Option<u8>>("target_visit_type")?.unwrap_or(0);
                 let visit_date: Timestamp = row.get("visit_date")?;
                 let age_in_days =
-                    (now.as_millis() as f64 - visit_date.as_millis() as f64) / 86400000.0;
+                    (now.as_millis() as f64 - visit_date.as_millis() as f64) / 86_400_000.0;
                 Ok((
                     VisitTransition::from_primitive(visit_type),
                     VisitTransition::from_primitive(target_visit_type),
