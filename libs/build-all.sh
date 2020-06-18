@@ -5,10 +5,10 @@ set -euvx
 SQLCIPHER_VERSION="4.3.0"
 SQLCIPHER_SHA256="fccb37e440ada898902b294d02cde7af9e8706b185d77ed9f6f4d5b18b4c305f"
 
-NSS="nss-3.53"
-NSS_ARCHIVE="nss-3.53-with-nspr-4.25.tar.gz"
-NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_53_RTM/src/${NSS_ARCHIVE}"
-NSS_SHA256="861a4510b7c21516f49a4cfa5b871aa796e4e1ef2dfe949091970e56f9d60cdf"
+NSS="nss-3.53.1"
+NSS_ARCHIVE="nss-3.53.1-with-nspr-4.25.tar.gz"
+NSS_URL="https://ftp.mozilla.org/pub/security/nss/releases/NSS_3_53_1_RTM/src/${NSS_ARCHIVE}"
+NSS_SHA256="132ce527f3963e3ae5be3337ed4e1099e160b9402be177b5704de3ed2f5271d2"
 
 # End of configuration.
 
