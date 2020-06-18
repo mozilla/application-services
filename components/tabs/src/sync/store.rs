@@ -202,7 +202,6 @@ impl<'a> Store for TabsStore<'a> {
         self.remote_clients.borrow_mut().clear();
         self.sync_store_assoc.replace(assoc.clone());
         self.last_sync.set(None);
-        self.local_id.borrow_mut().clear();
         self.storage.wipe_remote_tabs();
         Ok(())
     }
