@@ -98,7 +98,10 @@ pub fn fetch_bookmark(
     } else {
         FetchDepth::Specific(0)
     };
-    let mut bookmark = fetch_public_tree_with_depth(db, item_guid, &depth)?.unwrap();
+    let mut bookmark = match fetch_public_tree_with_depth(db, item_guid, &depth)? {
+        None => return Ok(None),
+        Some(b) => b,
+    };
 
     if get_direct_children {
         if let Some(child_nodes) = bookmark.child_nodes.as_mut() {
@@ -345,6 +348,9 @@ mod test {
             }
         );
 
+        let no_url = url::Url::parse("https://no.bookmark.com")?;
+        assert!(fetch_bookmarks_by_url(&conns.read, &no_url)?.is_empty());
+
         Ok(())
     }
     #[test]
@@ -497,6 +503,11 @@ mod test {
         assert!(unfiled.child_guids.is_none());
         assert!(unfiled.child_nodes.is_some());
         assert_eq!(unfiled.child_nodes.unwrap().len(), 0);
+
+        assert_eq!(
+            fetch_bookmark(&conns.read, &"not_exist___".into(), true)?,
+            None
+        );
         Ok(())
     }
     #[test]
