@@ -202,6 +202,7 @@ pub extern "C" fn fxa_begin_pairing_flow(
     handle: u64,
     pairing_url: FfiStr<'_>,
     scope: FfiStr<'_>,
+    entrypoint: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_pairing_flow");
@@ -209,7 +210,7 @@ pub extern "C" fn fxa_begin_pairing_flow(
         let pairing_url = pairing_url.as_str();
         let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(' ').collect();
-        fxa.begin_pairing_flow(&pairing_url, &scopes)
+        fxa.begin_pairing_flow(&pairing_url, &scopes, entrypoint.as_str())
     })
 }
 
@@ -229,13 +230,14 @@ pub extern "C" fn fxa_begin_pairing_flow(
 pub extern "C" fn fxa_begin_oauth_flow(
     handle: u64,
     scope: FfiStr<'_>,
+    entrypoint: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(' ').collect();
-        fxa.begin_oauth_flow(&scopes)
+        fxa.begin_oauth_flow(&scopes, entrypoint.as_str())
     })
 }
 

@@ -29,15 +29,15 @@ class FxAccount: RustFxAccount {
         }
     }
 
-    override func beginOAuthFlow(scopes: [String]) throws -> URL {
+    override func beginOAuthFlow(scopes: [String], entrypoint: String) throws -> URL {
         return try notifyAuthErrors {
-            try super.beginOAuthFlow(scopes: scopes)
+            try super.beginOAuthFlow(scopes: scopes, entrypoint: entrypoint)
         }
     }
 
-    override func beginPairingFlow(pairingUrl: String, scopes: [String]) throws -> URL {
+    override func beginPairingFlow(pairingUrl: String, scopes: [String], entrypoint: String) throws -> URL {
         return try notifyAuthErrors {
-            try super.beginPairingFlow(pairingUrl: pairingUrl, scopes: scopes)
+            try super.beginPairingFlow(pairingUrl: pairingUrl, scopes: scopes, entrypoint: entrypoint)
         }
     }
 

@@ -12,7 +12,7 @@ fn main() {
     viaduct_reqwest::use_reqwest_backend();
     let config = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
     let mut fxa = FirefoxAccount::with_config(config);
-    let url = fxa.begin_oauth_flow(&SCOPES).unwrap();
+    let url = fxa.begin_oauth_flow(&SCOPES, "oauth_flow_example").unwrap();
     println!("Open the following URL:");
     println!("{}", url);
     let redirect_uri: String = prompt_string("Obtained redirect URI").unwrap();
