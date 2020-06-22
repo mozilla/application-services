@@ -54,6 +54,24 @@ impl Payload {
         serde_json::from_value(value)
     }
 
+    /// Deserializes the BSO payload into a specific record type `T`.
+    ///
+    /// BSO payloads are unstructured JSON objects, with string keys and
+    /// dynamically-typed values. `into_record` makes it more convenient to
+    /// work with payloads by converting them into data type-specific structs.
+    /// Your record type only needs to derive or implement `serde::Deserialize`;
+    /// Serde will take care of the rest.
+    ///
+    /// # Errors
+    ///
+    /// `into_record` returns errors for type mismatches. As an example, trying
+    /// to deserialize a string value from the payload into an integer field in
+    /// `T` will fail.
+    ///
+    /// If there's a chance that a field contains invalid or mistyped data,
+    /// you'll want to extract it from `payload.data` manually, instead of using
+    /// `into_record`. This has been seen in the wild: for example, `dateAdded`
+    /// for bookmarks can be either an integer or a string.
     pub fn into_record<T>(self) -> Result<T, serde_json::Error>
     where
         for<'a> T: Deserialize<'a>,
