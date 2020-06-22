@@ -4,11 +4,13 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+use std::{collections::HashSet, process};
 use structopt::StructOpt;
 
 mod auth;
 mod logins;
 mod restmail;
+mod sync15;
 mod tabs;
 mod testing;
 
@@ -35,25 +37,51 @@ pub fn init_testing() {
     env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", log_filter));
 }
 
+// Runs each test group with a fresh Firefox account.
 pub fn run_test_groups(opts: &Opts, groups: Vec<TestGroup>) {
+    let all_names = groups
+        .iter()
+        .map(|group| group.name)
+        .collect::<HashSet<_>>();
+    let requested_names = if opts.groups.is_empty() {
+        all_names.clone()
+    } else {
+        opts.groups
+            .iter()
+            .map(|name| name.as_str())
+            .collect::<HashSet<_>>()
+    };
+    let unsupported_names = requested_names.difference(&all_names).collect::<Vec<_>>();
+    if !unsupported_names.is_empty() {
+        log::error!("+ Unknown test groups: {:?}", unsupported_names);
+        process::exit(1);
+    }
+    let groups = groups
+        .into_iter()
+        .filter(|group| requested_names.contains(&group.name))
+        .collect::<Vec<_>>();
+    log::info!("+ Testing {} groups", groups.len());
+    for group in groups {
+        run_test_group(opts, group);
+    }
+    log::info!("+ Test groups finished");
+}
+
+pub fn run_test_group(opts: &Opts, group: TestGroup) {
     let mut user = TestUser::new(opts, 2).expect("Failed to get test user.");
     let (c0, c1) = {
         let (c0s, c1s) = user.clients.split_at_mut(1);
         (&mut c0s[0], &mut c1s[0])
     };
-    log::info!("+ Testing {} groups", groups.len());
-    for group in groups {
-        log::info!("++ TestGroup begin {}", group.name);
-        for (name, test) in group.tests {
-            log::info!("+++ Test begin {}::{}", group.name, name);
-            test(c0, c1);
-            log::info!("+++ Test cleanup {}::{}", group.name, name);
-            cleanup_clients!(c0, c1);
-            log::info!("+++ Test finish {}::{}", group.name, name);
-        }
-        log::info!("++ TestGroup end {}", group.name);
+    log::info!("++ TestGroup begin {}", group.name);
+    for (name, test) in group.tests {
+        log::info!("+++ Test begin {}::{}", group.name, name);
+        test(c0, c1);
+        log::info!("+++ Test cleanup {}::{}", group.name, name);
+        cleanup_clients!(c0, c1);
+        log::info!("+++ Test finish {}::{}", group.name, name);
     }
-    log::info!("+ Test groups finished");
+    log::info!("++ TestGroup end {}", group.name);
 }
 
 // Note: this uses doc comments to generate the help text.
@@ -92,14 +120,22 @@ pub struct Opts {
     #[structopt(name = "helper-debug", long)]
     /// Run the helper browser as non-headless, and enable extra logging
     pub helper_debug: bool,
-    // TODO: allow specifying which test groups to use.
+
+    pub groups: Vec<String>,
 }
 
 pub fn main() {
     let opts = Opts::from_args();
     println!("### Running sync integration tests ###");
     init_testing();
-    run_test_groups(&opts, vec![crate::logins::get_test_group()]);
-    run_test_groups(&opts, vec![crate::tabs::get_test_group()]);
-    println!("### Sync integration tests passed!");
+    run_test_groups(
+        &opts,
+        vec![
+            crate::logins::get_test_group(),
+            crate::tabs::get_test_group(),
+            crate::sync15::get_test_group(),
+        ],
+    );
+
+    println!("\n### Sync integration tests passed!");
 }
