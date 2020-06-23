@@ -51,4 +51,4 @@ done
 
 # 2. Upload them.
 pip3 install --user -r automation/symbols-generation/requirements.txt
-python3 automation/symbols-generation/upload_symbols.py "${OUTPUT_FOLDER}"
+python3 automation/symbols-generation/upload_symbols.py "${OUTPUT_FOLDER}" -t "$PWD/.symbols_upload_token"

@@ -13,6 +13,23 @@ transforms = TransformSequence()
 
 
 @transforms.add
+def release_upload_symbols(config, tasks):
+    for task in tasks:
+        if (config.params["tasks_for"] == u"github-release" and
+            task["attributes"]["buildconfig"]["uploadSymbols"]):
+                task["run"].setdefault("post-gradlew", [])
+                task["run"]["post-gradlew"].append(
+                    [
+                        "source",
+                        "automation/upload_android_symbols.sh",
+                        unicode(task["attributes"]["buildconfig"]["path"])
+                    ]
+                )
+
+        yield task
+
+
+@transforms.add
 def build_task(config, tasks):
     for task in tasks:
         module_info = task["attributes"]["buildconfig"]
@@ -30,7 +47,7 @@ def build_task(config, tasks):
                 artifact_filename = "{}-{}{}".format(publication_name, version, extension)
                 artifacts.append({
                     "name": "public/build/{}".format(artifact_filename),
-                    "path": "/builds/worker/checkouts/src/build/maven/org/mozilla/appservices/{}/{}/{}".format(name, version, artifact_filename),
+                    "path": "/builds/worker/checkouts/src/build/maven/org/mozilla/appservices/{}/{}/{}".format(publication_name, version, artifact_filename),
                     "type": "file",
                 })
 

@@ -23,6 +23,12 @@ def get_components():
     return [{
         'name': name,
         'path': project['path'],
+        'artifactId': project['artifactId'],
+	'uploadSymbols': project.get('uploadSymbols'),
+	'publications': [{
+	    'name': publication['name'],
+            'type': publication['type'],
+        } for publication in project['publications']]
     } for (name, project) in build_config['projects'].items()]
 
 
