@@ -1,3 +1,9 @@
+# v61.0.5 (_2020-06-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.4...v61.0.5)
+
+- No content release: we have switched to Taskgraph. ([#3168](https://github.com/mozilla/application-services/issues/3168))
+
 # v61.0.4 (_2020-06-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.3...v61.0.4)
