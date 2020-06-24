@@ -91,7 +91,7 @@ object RustHttpConfig {
                     }
                     rb
                 } catch (e: Throwable) {
-                    MsgTypes.Response.newBuilder().setExceptionMessage(e.message)
+                    MsgTypes.Response.newBuilder().setExceptionMessage("Network error: ${e.message}")
                 }
                 val built = rb.build()
                 val needed = built.serializedSize
