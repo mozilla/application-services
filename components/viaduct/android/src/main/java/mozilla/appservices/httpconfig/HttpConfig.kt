@@ -91,7 +91,6 @@ object RustHttpConfig {
                     }
                     rb
                 } catch (e: Throwable) {
-                    LibViaduct.INSTANCE.viaduct_log_error("Network error: ${e.message}")
                     MsgTypes.Response.newBuilder().setExceptionMessage(e.message)
                 }
                 val built = rb.build()

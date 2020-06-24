@@ -64,11 +64,6 @@ impl Backend for FfiBackend {
         };
 
         if let Some(exn) = response.exception_message {
-            log::error!(
-                // Well, we caught *something* java wanted to tell us about, anyway.
-                "Caught network error (presumably). Message: {:?}",
-                exn
-            );
             return Err(Error::NetworkError(format!("Java error: {:?}", exn)));
         }
         let status = response
