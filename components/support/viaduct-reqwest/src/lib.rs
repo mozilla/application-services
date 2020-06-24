@@ -65,10 +65,9 @@ impl Backend for ReqwestBackend {
         viaduct::note_backend("reqwest (untrusted)");
         let request_method = request.method;
         let req = into_reqwest(request)?;
-        let mut resp = CLIENT.execute(req).map_err(|e| {
-            log::error!("Reqwest error: {:?}", e);
-            viaduct::Error::NetworkError(e.to_string())
-        })?;
+        let mut resp = CLIENT
+            .execute(req)
+            .map_err(|e| viaduct::Error::NetworkError(e.to_string()))?;
         let status = resp.status().as_u16();
         let url = resp.url().clone();
         let mut body = Vec::with_capacity(resp.content_length().unwrap_or_default() as usize);
