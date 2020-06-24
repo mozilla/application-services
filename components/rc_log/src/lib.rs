@@ -52,7 +52,7 @@ pub(crate) fn string_to_cstring_lossy(s: String) -> CString {
     CString::new(bytes).expect("Bug in string_to_cstring_lossy!")
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i32)]
 pub enum LogLevel {
     // Android logger levels
@@ -61,6 +61,17 @@ pub enum LogLevel {
     INFO = 4,
     WARN = 5,
     ERROR = 6,
+}
+
+impl LogLevel {
+    /// Equivalent to the `into()` conversion but avoids reporting network
+    /// errors as errors, and downgrades them into warnings.
+    pub(crate) fn from_level_and_message(mut level: log::Level, msg: &str) -> Self {
+        if level == log::Level::Error && msg.contains("[no-sentry]") {
+            level = log::Level::Warn;
+        }
+        level.into()
+    }
 }
 
 impl From<log::Level> for LogLevel {
@@ -123,3 +134,34 @@ pub extern "C" fn rc_log_adapter_test__log_msg(msg: ffi_support::FfiStr<'_>) {
 }
 
 ffi_support::define_string_destructor!(rc_log_adapter_destroy_string);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_level_msg() {
+        assert_eq!(
+            LogLevel::ERROR,
+            LogLevel::from_level_and_message(
+                log::Level::Error,
+                "Rusqlite Error: The database is wrong and bad.",
+            ),
+            "Normal errors should come through as errors",
+        );
+
+        assert_eq!(
+            LogLevel::WARN,
+            LogLevel::from_level_and_message(
+                log::Level::Error,
+                "Network Error: [no-sentry] Network error: the server is furious at you.",
+            ),
+            "[no-sentry] errors should come through as warnings",
+        );
+
+        assert_eq!(
+            LogLevel::INFO,
+            LogLevel::from_level_and_message(log::Level::Info, "[no-sentry] 🙀"),
+            "Everything else should be unchanged, even if it has a [no-sentry] tag",
+        );
+    }
+}

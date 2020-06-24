@@ -4,27 +4,27 @@
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Illegal characters in request header '{0}'")]
+    #[error("[no-sentry] Illegal characters in request header '{0}'")]
     RequestHeaderError(crate::HeaderName),
 
-    #[error("Backend error: {0}")]
+    #[error("[no-sentry] Backend error: {0}")]
     BackendError(String),
 
-    #[error("Network error: {0}")]
+    #[error("[no-sentry] Network error: {0}")]
     NetworkError(String),
 
-    #[error("The rust-components network backend must be initialized before use!")]
+    #[error("[no-sentry] The rust-components network backend must be initialized before use!")]
     BackendNotInitialized,
 
-    #[error("Backend already initialized.")]
+    #[error("[no-sentry] Backend already initialized.")]
     SetBackendError,
 
     /// Note: we return this if the server returns a bad URL with
     /// its response. This *probably* should never happen, but who knows.
-    #[error("URL Parse Error: {0}")]
+    #[error("[no-sentry] URL Parse Error: {0}")]
     UrlError(#[source] url::ParseError),
 
-    #[error("Validation error: URL does not use TLS protocol.")]
+    #[error("[no-sentry] Validation error: URL does not use TLS protocol.")]
     NonTlsUrl,
 }
 

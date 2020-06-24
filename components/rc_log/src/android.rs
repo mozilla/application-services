@@ -79,8 +79,9 @@ impl<'a, 'b> From<&'b log::Record<'a>> for LogRecord {
             thread_id
         };
         let message = format!("{} {}", thread_id, r.args());
+        let level = LogLevel::from_level_and_message(r.level(), &message);
         Self {
-            level: r.level().into(),
+            level,
             tag: r
                 .module_path()
                 .and_then(|mp| CString::new(mp.to_owned()).ok()),
