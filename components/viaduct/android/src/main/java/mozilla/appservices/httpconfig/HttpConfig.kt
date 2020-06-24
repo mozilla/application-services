@@ -91,8 +91,7 @@ object RustHttpConfig {
                     }
                     rb
                 } catch (e: Throwable) {
-                    LibViaduct.INSTANCE.viaduct_log_error("Network error: ${e.message}")
-                    MsgTypes.Response.newBuilder().setExceptionMessage(e.message)
+                    MsgTypes.Response.newBuilder().setExceptionMessage("fetch error: ${e.message ?: e.javaClass.canonicalName}")
                 }
                 val built = rb.build()
                 val needed = built.serializedSize
