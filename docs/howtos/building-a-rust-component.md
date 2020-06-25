@@ -1,7 +1,7 @@
 
 ## Guide to Building a Rust Component
 
-(Most likely you are looking for https://github.com/mozilla/application-services/blob/master/docs/building.md)
+(Most likely you are looking for https://github.com/mozilla/application-services/blob/main/docs/building.md)
 
 Welcome!
 

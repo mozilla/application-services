@@ -361,7 +361,7 @@ def linux_build_task(name):
             ./libs/verify-android-environment.sh
         """)
     )
-    # Send email notifications for failures on master.
+    # Send email notifications for failures on main.
     if os.environ["TASK_FOR"] == "github-push":
         task.with_routes("notify.email.a-s-ci-failures@mozilla.com.on-failed")
     return task

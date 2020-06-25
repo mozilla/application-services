@@ -1,6 +1,6 @@
 # Application Services Release Process
 
-## Make a new release from latest master.
+## Make a new release from latest main.
 
 1. Smoketest whether the release will integrate cleanly with key downstream consumers:
     - Run the `./automation/smoke-test-firefox-ios.py` script to test integration with Firefox for iOS.
@@ -34,7 +34,7 @@
     5. Get it PRed and landed.
 
 
-## Make a new point-release from an existing release that is behind latest master.
+## Make a new point-release from an existing release that is behind latest main.
 
 1. If necessary, make a new branch named `release-v0.XX` which will be used for all point-releases on the `v0.XX.Y`
    series. Example:
@@ -43,24 +43,24 @@
     git push -u origin release-v0.31
     ```
 2. Make a new branch with any fixes to be included in the release, *remembering not to make any breaking API
-   changes.*. This may involve cherry-picking fixes from master, or developing a new fix directly against the
+   changes.*. This may involve cherry-picking fixes from main, or developing a new fix directly against the
    branch. Example:
     ```
     git checkout -b fixes-for-v0.31.3 release-v0.31
     git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
     git push -u origin fixes-for-v0.31.3
     ```
-3. Follow the above steps for cutting a new release from master, except that:
+3. Follow the above steps for cutting a new release from main, except that:
     * When running the `./automation/prepare-release.py` script, use the `--base-branch` argument to point it at your release branch, and specify `patch` as the release type. Example:
        ```
        ./automation/prepare-release.py --base-branch=release-v0.31 patch
        ```
-    * When opening a PR to land the commits, target the `release-v0.XX` branch rather than master.
-    * When cutting the new release via github's UI, target the `release-v0.XX` branch rather than master.
-4. Merge the new release back to master.
+    * When opening a PR to land the commits, target the `release-v0.XX` branch rather than main.
+    * When cutting the new release via github's UI, target the `release-v0.XX` branch rather than main.
+4. Merge the new release back to main.
     * This will typically require a PR and involve resolving merge conflicts in the changelog.
     * This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
-      and also helps ensure that every release has an easily-discoverable changelog entry in master.
+      and also helps ensure that every release has an easily-discoverable changelog entry in main.
 
 ## Create a release commit manually
 
@@ -68,22 +68,22 @@
     1. Copy the contents from `CHANGES_UNRELEASED.md` into the top of `CHANGELOG.md`, except for the part that links to this document.
     2. In `CHANGELOG.md`:
         1. Replace `# Unreleased Changes` with `# v<new-version-number> (_<current date>_)`.
-        2. Replace `master` in the Full Changelog link (which you pasted in from `CHANGES_UNRELEASED.md`) to be `v<new-version-number>`. E.g. if you are releasing 0.13.2, the link should be
+        2. Replace `main` in the Full Changelog link (which you pasted in from `CHANGES_UNRELEASED.md`) to be `v<new-version-number>`. E.g. if you are releasing 0.13.2, the link should be
             ```
             [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...v0.13.2)
             ```
             Note that this needs three dots (`...`) between the two tags (two dots is different). Yes, the second tag doesn't exist yet, you'll make it later.
         3. Optionally, go over the commits between the past release and this one and see if anything is worth including.
-        4. Make sure the changelog follows the format of the other changelog entries. If you have access, [this document](https://docs.google.com/document/d/1oxdGm7OQcsy78NzXjMQKTbfzn21tl9Nopmvo8NCMWmU) is fairly comprehensive. For a concrete example, at the time of this writing, see the [0.13.0](https://github.com/mozilla/application-services/blob/master/CHANGELOG.md#0130-2019-01-09) release notes.
+        4. Make sure the changelog follows the format of the other changelog entries. If you have access, [this document](https://docs.google.com/document/d/1oxdGm7OQcsy78NzXjMQKTbfzn21tl9Nopmvo8NCMWmU) is fairly comprehensive. For a concrete example, at the time of this writing, see the [0.13.0](https://github.com/mozilla/application-services/blob/main/CHANGELOG.md#0130-2019-01-09) release notes.
             - Note that we try to provide PR or issue numbers (and links) for each change. Please add these if they are missing.
 
     3. In `CHANGES_UNRELEASED.md`:
         1. Delete the list of changes that are now in the changelog.
-        2. Update the "Full Changelog" link so that it starts at your new version and continues to master. E.g. for 0.13.2 this would be
+        2. Update the "Full Changelog" link so that it starts at your new version and continues to main. E.g. for 60.0.6 this would be
             ```
-            [Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.2...master)
+            [Full Changelog](https://github.com/mozilla/application-services/compare/v60.0.6...main)
             ```
             Again, this needs 3 dots.
 
-2. Bump `libraryVersion` in the top-level [.buildconfig-android.yml](https://github.com/mozilla/application-services/blob/master/.buildconfig-android.yml) file. Be sure you're following semver, and if in doubt, ask.
-3. Land the commits that perform the steps above. This takes a PR, typically, because of branch protection on master.
+2. Bump `libraryVersion` in the top-level [.buildconfig-android.yml](https://github.com/mozilla/application-services/blob/main/.buildconfig-android.yml) file. Be sure you're following semver, and if in doubt, ask.
+3. Land the commits that perform the steps above. This takes a PR, typically, because of branch protection on main.
