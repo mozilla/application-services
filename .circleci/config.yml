@@ -468,7 +468,7 @@ workflows:
       - Deploy website:
           filters:
             branches:
-              only: master
+              only: main
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
@@ -478,7 +478,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
   run-beta-tests-periodically:
     jobs:
       - Rust tests - beta
@@ -488,7 +488,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
   mirror-bugzilla-to-github-periodically:
     jobs:
       - Mirror Bugzilla issues into GitHub
@@ -498,7 +498,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
   run-tests:
     jobs:
       - Rust tests

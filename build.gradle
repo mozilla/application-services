@@ -74,12 +74,12 @@ task clean(type: Delete) {
 import com.sun.jna.Platform as DefaultPlatform
 
 // If this is `null`, we use libs from the source directory.
-// Check if there are any changes to `libs` since `master`, and if not,
+// Check if there are any changes to `libs` since `main`, and if not,
 // use the sha to download the artifacts from taskcluster.
 //
 // Note we pass the path to the git-dir so that this still works when
 // used as a dependency substitution from e.g. android-components.
-ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only master -- :/libs".execute().text.allWhitespace ?
+ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only main -- :/libs".execute().text.allWhitespace ?
                  "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
 
 // Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use

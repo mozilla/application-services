@@ -72,7 +72,7 @@ Before submitting a PR:
 
 When submitting a PR:
 - You agree to license your code under the project's open source license ([MPL 2.0](/LICENSE)).
-- Base your branch off the current `master` (see below for an example workflow).
+- Base your branch off the current branch `main` (see below for an example workflow).
 - Add both your code and new tests if relevant.
 - Please do not include merge commits in pull requests; include only commits with the new relevant code.
 - We encourage you to [GPG sign your commits](https://help.github.com/articles/managing-commit-signature-verification).

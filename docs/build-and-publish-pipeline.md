@@ -14,7 +14,7 @@ The key points:
   and [Carthage](https://github.com/Carthage/Carthage) driving [XCode](../xconfig)
   for combining Rust and Swift code into iOS components.
 * [TaskCluster](../automation/taskcluster/README.md) runs on every pull-request, release,
-  and push to master, to ensure Android artifacts build correctly and to execute their
+  and push to main, to ensure Android artifacts build correctly and to execute their
   tests via gradle.
 * [CircleCI](../.circleci/config.yml) runs on every branch, pull-request (including forks), and release,
   to execute lint checks and automated tests at the Rust and Swift level.
@@ -36,8 +36,8 @@ The key points:
 For Android consumers these are the steps by which Application Services code becomes available,
 and the integrity-protection mechanisms that apply at each step:
 
-1. Code is developed in branches and lands on `master` via pull request.
-    * GitHub branch protection prevents code being pushed to `master` without review.
+1. Code is developed in branches and lands on `main` via pull request.
+    * GitHub branch protection prevents code being pushed to `main` without review.
     * CircleCI and TaskCluster run automated tests against the code, but do not have
       the ability to push modified code back to GitHub thanks to the above branch protection.
       * TaskCluster jobs do not run against PRs opened by the general public,
@@ -45,7 +45,7 @@ and the integrity-protection mechanisms that apply at each step:
     * Contra the [github org security guidelines](https://wiki.mozilla.org/GitHub/Repository_Security),
       signing of individual commits is encouraged but is **not required**. Our experience in practice
       has been that this adds friction for contributors without sufficient tangible benefit.
-2. Developers manually create a release from latest `master`.
+2. Developers manually create a release from latest `main`.
     * The ability to create new releases is managed entirely via github's permission model.
     * TODO: the [github org security guidelines](https://wiki.mozilla.org/GitHub/Repository_Security)
       recommend signing tags, and auditing all included commits as part of the release process.
@@ -65,8 +65,8 @@ and the integrity-protection mechanisms that apply at each step:
 
 For iOS consumers the corresponding steps are:
 
-1. Code is developed in branches and lands on `master` via pull request, as above.
-2. Developers manually create a release from latest `master`, as above.
+1. Code is developed in branches and lands on `main` via pull request, as above.
+2. Developers manually create a release from latest `main`, as above.
 3. CircleCI checks out the release tag, builds it, and runs automated tests.
     * TODO: These tasks bootstrap their build environment by fetching software over https.
       could we do more to ensure the integrity of the build environment?
