@@ -54,7 +54,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: ffi-support</name>
-    <url>https://raw.githubusercontent.com/mozilla/application-services/master/components/support/ffi/LICENSE-APACHE</url>
+    <url>https://raw.githubusercontent.com/mozilla/application-services/main/components/support/ffi/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: getrandom</name>
