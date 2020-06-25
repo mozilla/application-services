@@ -462,7 +462,7 @@ PACKAGE_METADATA_FIXUPS = {
     "ffi-support": {
         "license_url": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/mozilla/application-services/master/components/support/ffi/LICENSE-APACHE"
+            "fixup": "https://raw.githubusercontent.com/mozilla/application-services/main/components/support/ffi/LICENSE-APACHE"
         },
     },
     "humantime": {
