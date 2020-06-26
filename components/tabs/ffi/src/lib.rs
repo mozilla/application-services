@@ -80,6 +80,20 @@ pub unsafe extern "C" fn remote_tabs_update_local(
         Ok(())
     })
 }
+#[no_mangle]
+pub unsafe extern "C" fn remote_tabs_update_local_from_json(
+    handle: u64,
+    local_state: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("remote_tabs_update_local");
+    use tabs::msg_types::RemoteTabs;
+    ENGINES.call_with_result(error, handle, |engine| -> Result<_> {
+        let remote_tabs = serde_json::from_str(local_state.as_str())?;
+        engine.lock().unwrap().update_local_state(remote_tabs);
+        Ok(())
+    })
+}
 
 #[no_mangle]
 pub extern "C" fn remote_tabs_get_all(handle: u64, error: &mut ExternError) -> ByteBuffer {

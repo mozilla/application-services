@@ -26,8 +26,7 @@ internal interface LibRemoteTabsFFI : Library {
 
     fun remote_tabs_update_local(
         handle: TabsApiHandle,
-        local_state_data: Pointer,
-        local_state_len: Int,
+        local_state_json: String,
         error: RustError.ByReference
     )
 
