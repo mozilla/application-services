@@ -1,0 +1,28 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+job-defaults:
+    fetches:
+        fetch:
+            - go-1.14.4
+            - moztaskmonitor
+    run:
+        script: build-resourcemonitor.sh
+        sparse-profile: null
+        toolchain-artifact: public/build/resource-monitor.tar.xz
+
+linux64-resource-monitor:
+    description: "linux64 resourcemonitor toolchain build"
+    run:
+        arguments: ['linux64']
+
+macos64-resource-monitor:
+    description: "macos64 resourcemonitor toolchain build"
+    run:
+        arguments: ['macos64']
+
+windows64-resource-monitor:
+    description: "windows64 resourcemonitor toolchain build"
+    run:
+        arguments: ['windows64']
