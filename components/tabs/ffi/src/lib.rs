@@ -64,25 +64,6 @@ pub extern "C" fn remote_tabs_sync(
 #[no_mangle]
 pub unsafe extern "C" fn remote_tabs_update_local(
     handle: u64,
-    local_state_data: *const u8,
-    local_state_len: i32,
-    error: &mut ExternError,
-) {
-    log::debug!("remote_tabs_update_local");
-    use tabs::msg_types::RemoteTabs;
-    ENGINES.call_with_result(error, handle, |engine| -> Result<_> {
-        let buffer = get_buffer(local_state_data, local_state_len);
-        let remote_tabs: RemoteTabs = prost::Message::decode(buffer)?;
-        engine
-            .lock()
-            .unwrap()
-            .update_local_state(remote_tabs.into());
-        Ok(())
-    })
-}
-#[no_mangle]
-pub unsafe extern "C" fn remote_tabs_update_local_from_json(
-    handle: u64,
     local_state: FfiStr<'_>,
     error: &mut ExternError,
 ) {
