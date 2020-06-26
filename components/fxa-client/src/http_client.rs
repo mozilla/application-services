@@ -901,16 +901,11 @@ pub struct IntrospectResponse {
 pub struct ProfileResponse {
     pub uid: String,
     pub email: String,
-    pub locale: String,
     #[serde(rename = "displayName")]
     pub display_name: Option<String>,
     pub avatar: String,
     #[serde(rename = "avatarDefault")]
     pub avatar_default: bool,
-    #[serde(rename = "amrValues")]
-    pub amr_values: Vec<String>,
-    #[serde(rename = "twoFactorAuthentication")]
-    pub two_factor_authentication: bool,
 }
 
 #[derive(Deserialize)]
