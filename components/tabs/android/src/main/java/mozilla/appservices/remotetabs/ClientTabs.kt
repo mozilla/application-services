@@ -33,11 +33,11 @@ data class RemoteTab(
     internal fun toJSON(): JSONObject {
         val result = JSONObject()
         result.put("title", title)
-        result.put("lastUsed", lastUsed ?: 0L)
+        result.put("last_used", lastUsed ?: 0L)
         icon?.let {
             result.put("icon", it)
         }
-        result.put("urlHistory", JSONArray().apply {
+        result.put("url_history", JSONArray().apply {
             urlHistory.forEach {
                 put(it)
             }
