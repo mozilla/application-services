@@ -1,0 +1,22 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+transforms:
+    - taskgraph.transforms.fetch:transforms
+    - taskgraph.transforms.job:transforms
+    - taskgraph.transforms.task:transforms
+
+job-defaults:
+    docker-image: {in-tree: linux}
+
+jobs:
+    go-1.14.4:
+        description: Golang 1.14.4 build tools
+        fetch:
+            type: static-url
+            url: https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz
+            sha256: aed845e4185a0b2a3c3d5e1d0a35491702c55889192bb9c30e67a3de6849c067
+            size: 123711003
