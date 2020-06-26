@@ -4,10 +4,8 @@
 
 package mozilla.appservices.remotetabs
 
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.remotetabs.rust.LibRemoteTabsFFI
-import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.remotetabs.rust.RustError
 import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
