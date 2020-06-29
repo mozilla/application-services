@@ -22,17 +22,10 @@ echo $GOOS
 echo $GOARCH
 ls -l $MOZ_FETCHES_DIR
 
-# make sure I'm in the right repo git repo clone here to be able to build
-cd "$MOZ_FETCHES_DIR" || exit 1
+# XXX: make sure I'm in the right repo git repo clone here to be able to build
+cd "$MOZ_FETCHES_DIR"/moztaskmonitor || exit 1
 go build .
 
-STAGING_DIR="resource-monitor"
-mv resource-monitor resource-monitor.tmp
-mkdir "${STAGING_DIR}"
-
-cp resource-monitor.tmp "${STAGING_DIR}"/resource-monitor
-
-tar -acf "resource-monitor.tar.$COMPRESS_EXT" "${STAGING_DIR}"/
+tar -acf "moztaskmonitor.tar.xz" "${PWD}"/moztaskmonitor
 mkdir -p "$UPLOAD_DIR"
-cp "resource-monitor.tar.$COMPRESS_EXT" "$UPLOAD_DIR"
-
+cp "moztaskmonitor.tar.xz" "$UPLOAD_DIR"
