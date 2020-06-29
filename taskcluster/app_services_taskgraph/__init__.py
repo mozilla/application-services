@@ -10,6 +10,8 @@ import os
 from six import text_type
 from voluptuous import Required, Any
 
+from .build_config import get_version
+
 
 def register(graph_config):
     """
@@ -33,9 +35,16 @@ def get_decision_parameters(graph_config, parameters):
         head_tag = parameters["head_tag"].decode("utf-8")
         if not head_tag:
             raise ValueError(
-                "Cannot run github-release if `head_tag` is not defined.Got {}".format(
+                "Cannot run github-release if `head_tag` is not defined. Got {}".format(
                     head_tag
                 )
+            )
+        version = get_version()
+        # XXX: tags are in the format of `v<semver>`
+        if head_tag[1:] != version:
+            raise ValueError(
+                "Cannot run github-release if tag {} is different than in-tree "
+                "{version} from buildconfig.yml".format(head_tag[1:], version)
             )
     elif parameters["tasks_for"] == "github-pull-request":
         pr_title = os.environ.get("APPSERVICES_PULL_REQUEST_TITLE", "").decode("UTF-8")
