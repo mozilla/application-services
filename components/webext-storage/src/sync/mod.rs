@@ -132,9 +132,9 @@ fn merge(mut other: JsonMap, mut ours: JsonMap, parent: Option<JsonMap>) -> Inco
     }
 }
 
-fn remove_matching_keys(mut ours: JsonMap, blacklist: &JsonMap) -> (JsonMap, StorageChanges) {
-    let mut changes = StorageChanges::with_capacity(blacklist.len());
-    for key in blacklist.keys() {
+fn remove_matching_keys(mut ours: JsonMap, keys_to_remove: &JsonMap) -> (JsonMap, StorageChanges) {
+    let mut changes = StorageChanges::with_capacity(keys_to_remove.len());
+    for key in keys_to_remove.keys() {
         if let Some(old_value) = ours.remove(key) {
             changes.push(StorageValueChange {
                 key: key.clone(),
