@@ -27,9 +27,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_error_count:
     type: labeled_counter
@@ -45,9 +46,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_count:
     type: counter
@@ -61,9 +63,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_error_count:
     type: labeled_counter
@@ -83,9 +86,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_time:
     type: timing_distribution
@@ -96,9 +100,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   scan_query_time:
     type: timing_distribution
@@ -110,9 +115,10 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_time:
     type: timing_distribution
@@ -123,6 +129,7 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
