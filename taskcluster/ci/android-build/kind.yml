@@ -46,6 +46,7 @@ jobs:
 
     fetches:
       toolchain:
+        - linux64-resource-monitor
         - android-libs
         - desktop-linux-libs
         - desktop-macos-libs
