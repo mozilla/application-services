@@ -2,8 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.6...main)
-
-## General
-
-- The default branch has been renamed from `master` to `main`
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...main)

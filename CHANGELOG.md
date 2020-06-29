@@ -1,3 +1,11 @@
+# v61.0.7 (_2020-06-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.6...v61.0.7)
+
+## General
+
+- The default branch has been renamed from `master` to `main`
+
 # v61.0.6 (_2020-06-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.5...v61.0.6)
