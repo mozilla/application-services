@@ -22,7 +22,7 @@ echo $GOOS
 echo $GOARCH
 ls -l $MOZ_FETCHES_DIR
 
-# XXX: make sure I'm in the right repo git repo clone here to be able to build
+# XXX: make sure we're in the right repo to be able to build
 cd "$MOZ_FETCHES_DIR"/moztaskmonitor || exit 1
 go build .
 
