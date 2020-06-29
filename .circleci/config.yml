@@ -448,7 +448,7 @@ workflows:
   swiftlint:
     jobs:
       - Check Swift formatting
-  check-formating:
+  check-formatting:
     jobs:
       - Check Rust formatting
   clippy:
