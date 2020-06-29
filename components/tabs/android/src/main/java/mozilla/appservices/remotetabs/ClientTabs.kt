@@ -4,6 +4,9 @@
 
 package mozilla.appservices.remotetabs
 
+import org.json.JSONArray
+import org.json.JSONObject
+
 data class ClientTabs(
     val clientId: String, // FxA device ID or the Sync client record ID if unavailable.
     val tabs: List<RemoteTab>
@@ -27,16 +30,19 @@ data class RemoteTab(
     val icon: String?,
     val lastUsed: Long?
 ) {
-    internal fun toProtobuf(): MsgTypes.RemoteTab {
-        val builder = MsgTypes.RemoteTab.newBuilder()
-        builder.setTitle(title)
+    internal fun toJSON(): JSONObject {
+        val result = JSONObject()
+        result.put("title", title)
+        result.put("last_used", lastUsed ?: 0L)
         icon?.let {
-            builder.setIcon(it)
+            result.put("icon", it)
         }
-
-        builder.setLastUsed(lastUsed ?: 0L)
-        builder.addAllUrlHistory(urlHistory)
-        return builder.build()
+        result.put("url_history", JSONArray().apply {
+            urlHistory.forEach {
+                put(it)
+            }
+        })
+        return result
     }
 
     companion object {

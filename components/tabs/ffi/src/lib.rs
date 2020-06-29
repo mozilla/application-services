@@ -64,19 +64,13 @@ pub extern "C" fn remote_tabs_sync(
 #[no_mangle]
 pub unsafe extern "C" fn remote_tabs_update_local(
     handle: u64,
-    local_state_data: *const u8,
-    local_state_len: i32,
+    local_state: FfiStr<'_>,
     error: &mut ExternError,
 ) {
     log::debug!("remote_tabs_update_local");
-    use tabs::msg_types::RemoteTabs;
     ENGINES.call_with_result(error, handle, |engine| -> Result<_> {
-        let buffer = get_buffer(local_state_data, local_state_len);
-        let remote_tabs: RemoteTabs = prost::Message::decode(buffer)?;
-        engine
-            .lock()
-            .unwrap()
-            .update_local_state(remote_tabs.into());
+        let remote_tabs = serde_json::from_str(local_state.as_str())?;
+        engine.lock().unwrap().update_local_state(remote_tabs);
         Ok(())
     })
 }
@@ -92,17 +86,6 @@ pub extern "C" fn remote_tabs_get_all(handle: u64, error: &mut ExternError) -> B
             .remote_tabs()
             .map(|tabs| -> ClientsTabs { tabs.into() }))
     })
-}
-
-unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
-    assert!(len >= 0, "Bad buffer len: {}", len);
-    if len == 0 {
-        // This will still fail, but as a bad protobuf format.
-        &[]
-    } else {
-        assert!(!data.is_null(), "Unexpected null data pointer");
-        std::slice::from_raw_parts(data, len as usize)
-    }
 }
 
 define_string_destructor!(remote_tabs_destroy_string);

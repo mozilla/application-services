@@ -10,7 +10,7 @@ const TAB_ENTRIES_LIMIT: usize = 5;
 use std::cell::RefCell;
 use sync15::clients::DeviceType;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct RemoteTab {
     pub title: String,
     pub url_history: Vec<String>,
@@ -18,7 +18,7 @@ pub struct RemoteTab {
     pub last_used: u64, // In ms.
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct ClientRemoteTabs {
     pub client_id: String, // Corresponds to the `clients` collection ID of the client.
     pub client_name: String,
