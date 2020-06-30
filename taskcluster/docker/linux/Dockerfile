@@ -88,8 +88,10 @@ RUN apt-get update -qq \
 
 RUN pip3 install --upgrade pip
 RUN pip3 install \
-    'taskcluster>=4,<5' \
-    pyyaml
+    pyyaml \
+    taskcluster \
+    # Required to manipulate archiving operations for upcoming monitoring work
+    zstandard
 
 # Compile the UTF-8 english locale files (required by Python).
 RUN locale-gen en_US.UTF-8
