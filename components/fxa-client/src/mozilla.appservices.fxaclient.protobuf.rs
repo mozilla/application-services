@@ -107,6 +107,10 @@ pub mod incoming_device_command {
         pub from: ::std::option::Option<super::Device>,
         #[prost(message, repeated, tag="2")]
         pub entries: ::std::vec::Vec<send_tab_data::TabHistoryEntry>,
+        #[prost(string, optional, tag="3")]
+        pub flow_id: ::std::option::Option<std::string::String>,
+        #[prost(string, optional, tag="4")]
+        pub stream_id: ::std::option::Option<std::string::String>,
     }
     pub mod send_tab_data {
         #[derive(Clone, PartialEq, ::prost::Message)]

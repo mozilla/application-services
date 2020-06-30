@@ -83,6 +83,8 @@ message IncomingDeviceCommand {
         }
         optional Device from = 1;
         repeated TabHistoryEntry entries = 2;
+        optional string flow_id = 3;
+        optional string stream_id = 4;
     }
 
     oneof data {

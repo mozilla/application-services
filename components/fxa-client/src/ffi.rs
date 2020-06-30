@@ -219,6 +219,8 @@ impl From<IncomingDeviceCommand> for msg_types::IncomingDeviceCommand {
                     msg_types::incoming_device_command::SendTabData {
                         from: sender.map(Into::into),
                         entries: payload.entries.into_iter().map(Into::into).collect(),
+                        flow_id: payload.flow_id,
+                        stream_id: payload.stream_id,
                     },
                 )),
             },

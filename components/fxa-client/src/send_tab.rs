@@ -44,7 +44,7 @@ impl FirefoxAccount {
             .iter()
             .find(|d| d.id == target_device_id)
             .ok_or_else(|| ErrorKind::UnknownTargetDevice(target_device_id.to_owned()))?;
-        let payload = SendTabPayload::single_tab(title, url);
+        let payload = SendTabPayload::single_tab(title, url)?;
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let command_payload = send_tab::build_send_command(&oldsync_key, target, &payload)?;
         self.invoke_command(send_tab::COMMAND_NAME, target, &command_payload)

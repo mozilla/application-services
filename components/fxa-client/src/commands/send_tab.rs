@@ -13,7 +13,7 @@
 /// uses the obtained public key to encrypt the `SendTabPayload` it created that
 /// contains the tab to send and finally forms the `EncryptedSendTabPayload` that is
 /// then sent to the target device.
-use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes};
+use crate::{device::Device, error::*, scoped_keys::ScopedKey, scopes, util};
 use rc_crypto::ece::{self, Aes128GcmEceWebPush, EcKeyComponents, WebPushParams};
 use rc_crypto::ece_crypto::{RcCryptoLocalKeyPair, RcCryptoRemotePublicKey};
 use serde_derive::*;
@@ -25,6 +25,11 @@ pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/open-uri";
 pub struct EncryptedSendTabPayload {
     /// URL Safe Base 64 encrypted send-tab payload.
     encrypted: String,
+    /// Older clients included the flow ID in this envelope. Newer versions
+    /// include a flow and stream ID in the encrypted payload. This is
+    /// read-only; the Rust component doesn't emit it.
+    #[serde(rename = "flowID", default)]
+    deprecated_flow_id: Option<String>,
 }
 
 impl EncryptedSendTabPayload {
@@ -33,23 +38,37 @@ impl EncryptedSendTabPayload {
         let encrypted = base64::decode_config(&self.encrypted, base64::URL_SAFE_NO_PAD)?;
         let private_key = RcCryptoLocalKeyPair::from_raw_components(&keys.p256key)?;
         let decrypted = Aes128GcmEceWebPush::decrypt(&private_key, &keys.auth_secret, &encrypted)?;
-        Ok(serde_json::from_slice(&decrypted)?)
+        let mut payload: SendTabPayload = serde_json::from_slice(&decrypted)?;
+        if let (None, Some(deprecated_flow_id)) = (payload.stream_id.as_ref(), self.deprecated_flow_id) {
+            payload.stream_id = Some(deprecated_flow_id);
+        }
+        Ok(payload)
     }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendTabPayload {
     pub entries: Vec<TabHistoryEntry>,
+    /// The flow ID is the same for all devices to which this tab was sent.
+    #[serde(rename = "flowID", default)]
+    pub flow_id: Option<String>,
+    /// The stream ID is different for each device to which this tab was sent.
+    /// This is always different than the stream ID, even if the tab was sent to
+    /// only one device.
+    #[serde(rename ="streamID", default)]
+    pub stream_id: Option<String>,
 }
 
 impl SendTabPayload {
-    pub fn single_tab(title: &str, url: &str) -> Self {
-        SendTabPayload {
+    pub fn single_tab(title: &str, url: &str) -> Result<Self> {
+        Ok(SendTabPayload {
             entries: vec![TabHistoryEntry {
                 title: title.to_string(),
                 url: url.to_string(),
             }],
-        }
+            flow_id: Some(util::random_base64_url_string(16)?),
+            stream_id: Some(util::random_base64_url_string(16)?),
+        })
     }
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
         rc_crypto::ensure_initialized();
@@ -64,7 +83,7 @@ impl SendTabPayload {
             WebPushParams::default(),
         )?;
         let encrypted = base64::encode_config(&encrypted, base64::URL_SAFE_NO_PAD);
-        Ok(EncryptedSendTabPayload { encrypted })
+        Ok(EncryptedSendTabPayload { encrypted, deprecated_flow_id: None })
     }
 }
 

@@ -106,7 +106,7 @@ public struct DevicePushSubscription {
 }
 
 public enum IncomingDeviceCommand {
-    case tabReceived(Device?, [TabData])
+    case tabReceived(Device?, [TabData], flowID: String?, streamID: String?)
 
     internal static func fromCollectionMsg(msg: MsgTypes_IncomingDeviceCommands) -> [IncomingDeviceCommand] {
         msg.commands.map { IncomingDeviceCommand.fromMsg(msg: $0) }
@@ -118,7 +118,9 @@ public enum IncomingDeviceCommand {
             let data = msg.tabReceivedData
             let device = data.hasFrom ? Device(msg: data.from) : nil
             let entries = data.entries.map { TabData(title: $0.title, url: $0.url) }
-            return .tabReceived(device, entries)
+            let flowID = data.hasFlowID ? data.flowID : nil
+            let streamID = data.hasStreamID ? data.streamID : nil
+            return .tabReceived(device, entries, flowID: flowID, streamID: streamID)
         }
         }
     }
