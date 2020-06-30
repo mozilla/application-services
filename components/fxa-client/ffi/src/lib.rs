@@ -12,7 +12,7 @@ use ffi_support::{
     ConcurrentHandleMap, ExternError, FfiStr,
 };
 use fxa_client::{
-    device::{Capability as DeviceCapability, PushSubscription},
+    device::{Capability as DeviceCapability, CommandFetchReason, PushSubscription},
     ffi::{from_protobuf_ptr, AuthorizationParameters, MetricsParams},
     migrator::MigrationState,
     msg_types, FirefoxAccount,
@@ -506,10 +506,11 @@ pub extern "C" fn fxa_handle_session_token_change(
 pub extern "C" fn fxa_poll_device_commands(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("fxa_poll_device_commands");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.poll_device_commands().map(|cmds| {
-            let commands = cmds.into_iter().map(|e| e.into()).collect();
-            fxa_client::msg_types::IncomingDeviceCommands { commands }
-        })
+        fxa.poll_device_commands(CommandFetchReason::Poll)
+            .map(|cmds| {
+                let commands = cmds.into_iter().map(|e| e.into()).collect();
+                fxa_client::msg_types::IncomingDeviceCommands { commands }
+            })
     })
 }
 
@@ -615,3 +616,10 @@ pub extern "C" fn fxa_get_ecosystem_anon_id(handle: u64, error: &mut ExternError
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_string_destructor!(fxa_str_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);
+
+/// Gather telemetry collected by FxA.
+#[no_mangle]
+pub extern "C" fn fxa_gather_telemetry(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_gather_telemetry");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.gather_telemetry())
+}

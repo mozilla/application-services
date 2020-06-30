@@ -92,7 +92,7 @@ fn main() -> Result<()> {
                 let evts = acct
                     .lock()
                     .unwrap()
-                    .poll_device_commands()
+                    .poll_device_commands(device::CommandFetchReason::Poll)
                     .unwrap_or_else(|_| vec![]); // Ignore 404 errors for now.
                 persist_fxa_state(&acct.lock().unwrap());
                 for e in evts {

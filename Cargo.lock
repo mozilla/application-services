@@ -888,6 +888,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
+ "sync-guid",
  "sync15",
  "thiserror",
  "url",
