@@ -6,14 +6,14 @@ pub mod attached_clients;
 
 use crate::{
     error::*,
-    http_client::OAuthTokenResponse,
+    http_client::{AuthorizationParameters, OAuthTokenResponse},
     scoped_keys::{ScopedKey, ScopedKeysFlow},
     util, FirefoxAccount,
 };
 use rc_crypto::digest;
 use serde_derive::*;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     iter::FromIterator,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -171,21 +171,46 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     /// * `state` - OAuth state.
     /// * `access_type` - Type of OAuth access, can be "offline" and "online.
+    /// * `code_challenge` - Code challenge for Proof Key for Code Exchange (PKCE)
+    /// * `code_challenge_method` - Code challenge method for PKCE, currently only 'S256' supported
+    /// * `keys_jwk` - Key to encrypt keys_jwe using, passed in as a base64 string
     pub fn authorize_code_using_session_token(
         &self,
         client_id: &str,
         scope: &str,
         state: &str,
         access_type: &str,
+        code_challenge: &str,
+        code_challenge_method: &str,
+        keys_jwk: &str,
     ) -> Result<String> {
         let session_token = self.get_session_token()?;
+        let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
+        let keys_jwk = String::from_utf8(keys_jwk)?;
+        let requested_scopes: HashSet<&str> = scope.split_whitespace().collect();
+        let data: HashMap<String, ScopedKey> = self
+            .state
+            .scoped_keys
+            .iter()
+            .filter(|(scope, _)| requested_scopes.contains(&(*scope).as_ref()))
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
+        let data = serde_json::to_string(&data)?;
+        let client_keys_flow = ScopedKeysFlow::with_random_key()?;
+        let keys_jwe = client_keys_flow.encrypt_keys_jwe(&keys_jwk, data.as_bytes())?;
+        let auth_params = AuthorizationParameters {
+            client_id: client_id.to_string(),
+            scope: scope.to_string(),
+            state: state.to_string(),
+            access_type: access_type.to_string(),
+            code_challenge: code_challenge.to_string(),
+            code_challenge_method: code_challenge_method.to_string(),
+            keys_jwe,
+        };
         let resp = self.client.authorization_code_using_session_token(
             &self.state.config,
-            &client_id,
             &session_token,
-            &scope,
-            &state,
-            &access_type,
+            auth_params,
         )?;
 
         Ok(resp.code)
@@ -363,6 +388,18 @@ impl FirefoxAccount {
     pub fn clear_access_token_cache(&mut self) {
         self.state.access_token_cache.clear();
     }
+
+    #[cfg(any(test, feature = "integration_test"))]
+    pub fn set_session_token(&mut self, session_token: &str) {
+        self.state.session_token = Some(session_token.to_owned());
+    }
+
+    #[cfg(feature = "integration_test")]
+    pub fn set_scoped_keys(&mut self, scoped_keys: HashMap<String, ScopedKey>) {
+        scoped_keys.iter().for_each(|(key, val)| {
+            self.state.scoped_keys.insert(key.to_string(), val.clone());
+        })
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -420,10 +457,6 @@ mod tests {
             self.state
                 .access_token_cache
                 .insert(scope.to_string(), token_info);
-        }
-
-        pub fn set_session_token(&mut self, session_token: &str) {
-            self.state.session_token = Some(session_token.to_owned());
         }
     }
 

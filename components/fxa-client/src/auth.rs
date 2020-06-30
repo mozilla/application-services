@@ -66,7 +66,7 @@ fn kw(name: &str) -> Vec<u8> {
         .to_vec()
 }
 
-fn get_scoped_keys(
+pub fn get_scoped_keys(
     scope: &str,
     client_id: &str,
     auth_key: &[u8],

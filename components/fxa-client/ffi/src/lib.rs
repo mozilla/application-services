@@ -453,6 +453,9 @@ pub extern "C" fn fxa_authorize_auth_code(
     scope: FfiStr<'_>,
     state: FfiStr<'_>,
     access_type: FfiStr<'_>,
+    code_challenge: FfiStr<'_>,
+    code_challenge_method: FfiStr<'_>,
+    keys_jwk: FfiStr<'_>,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_authorize_auth_code");
@@ -461,7 +464,18 @@ pub extern "C" fn fxa_authorize_auth_code(
         let scope = scope.as_str();
         let state = state.as_str();
         let access_type = access_type.as_str();
-        fxa.authorize_code_using_session_token(client_id, scope, state, access_type)
+        let code_challenge = code_challenge.as_str();
+        let code_challenge_method = code_challenge_method.as_str();
+        let keys_jwk = keys_jwk.as_str();
+        fxa.authorize_code_using_session_token(
+            client_id,
+            scope,
+            state,
+            access_type,
+            code_challenge,
+            code_challenge_method,
+            keys_jwk,
+        )
     })
 }
 

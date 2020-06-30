@@ -308,17 +308,33 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * @param scopes Array of scopes for the OAuth code.
      * @param state OAuth flow state.
      * @param accessType Type of access, "offline" or "online".
+     * @param codeChallenge Code challenge for Proof Key for Code Exchange (PKCE)
+     * @param codeChallengeMethod for PKCE, currently only 'S256' supported
+     * @param keysJwk Key to encrypt keys_jwe using, passed in as a base64 string
      * This performs network requests, and should not be used on the main thread.
      */
     fun authorizeOAuthCode(
         clientId: String,
         scopes: Array<String>,
         state: String,
-        accessType: String = "online"
+        accessType: String = "online",
+        codeChallenge: String,
+        codeChallengeMethod: String = "S256",
+        keysJwk: String
     ): String {
         val scope = scopes.joinToString(" ")
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(this.handle.get(), clientId, scope, state, accessType, e)
+            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(
+                this.handle.get(),
+                clientId,
+                scope,
+                state,
+                accessType,
+                codeChallenge,
+                codeChallengeMethod,
+                keysJwk,
+                e
+            )
         }.getAndConsumeRustString()
     }
 

@@ -56,7 +56,7 @@ internal interface LibFxAFFI : Library {
     fun fxa_get_access_token(fxa: FxaHandle, scope: String, ttl: Long, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_get_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_current_device_id(fxa: FxaHandle, e: RustError.ByReference): Pointer?
-    fun fxa_authorize_auth_code(fxa: FxaHandle, clientId: String, scope: String, state: String, accessType: String, e: RustError.ByReference): Pointer?
+    fun fxa_authorize_auth_code(fxa: FxaHandle, clientId: String, scope: String, state: String, accessType: String, codeChallenge: String, codeChallengeMethod: String, keysJwk: String, e: RustError.ByReference): Pointer?
     fun fxa_check_authorization_status(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_clear_access_token_cache(fxa: FxaHandle, e: RustError.ByReference)
 
