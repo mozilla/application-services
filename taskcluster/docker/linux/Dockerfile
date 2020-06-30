@@ -90,6 +90,7 @@ RUN pip3 install --upgrade pip
 RUN pip3 install \
     pyyaml \
     taskcluster \
+    # Required to manipulate archiving operations for upcoming monitoring work
     zstandard
 
 # Compile the UTF-8 english locale files (required by Python).
