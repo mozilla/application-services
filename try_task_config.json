@@ -1,0 +1,9 @@
+{
+    "parameters": {
+        "optimize_target_tasks": true,
+        "tasks_for": "github-release",
+        "head_tag": "60.0.4",
+        "target_tasks_method": "default"
+    },
+    "version": 2
+}
