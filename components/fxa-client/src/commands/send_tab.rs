@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::telemetry::SentReceivedTab;
 /// The Send Tab functionality is backed by Firefox Accounts device commands.
 /// A device shows it can handle "Send Tab" commands by advertising the "open-uri"
 /// command in its on own device record.
@@ -18,6 +19,7 @@ use rc_crypto::ece::{self, Aes128GcmEceWebPush, EcKeyComponents, WebPushParams};
 use rc_crypto::ece_crypto::{RcCryptoLocalKeyPair, RcCryptoRemotePublicKey};
 use serde_derive::*;
 use sync15::{EncryptedPayload, KeyBundle};
+use sync_guid::Guid;
 
 pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/open-uri";
 
@@ -40,16 +42,31 @@ impl EncryptedSendTabPayload {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendTabPayload {
     pub entries: Vec<TabHistoryEntry>,
+    // XXX - tests don't fail yet even though none add these 2 new items and
+    // they aren't marked as optional for serde, which seems odd!
+    #[serde(rename = "flowID")]
+    pub flow_id: String,
+    #[serde(rename = "streamID")]
+    pub stream_id: String,
 }
 
 impl SendTabPayload {
-    pub fn single_tab(title: &str, url: &str) -> Self {
-        SendTabPayload {
-            entries: vec![TabHistoryEntry {
-                title: title.to_string(),
-                url: url.to_string(),
-            }],
-        }
+    pub fn single_tab(title: &str, url: &str) -> (Self, SentReceivedTab) {
+        let sent_telemetry = SentReceivedTab {
+            flow_id: Guid::random().to_string(),
+            stream_id: Guid::random().to_string(),
+        };
+        (
+            SendTabPayload {
+                entries: vec![TabHistoryEntry {
+                    title: title.to_string(),
+                    url: url.to_string(),
+                }],
+                flow_id: sent_telemetry.flow_id.clone(),
+                stream_id: sent_telemetry.stream_id.clone(),
+            },
+            sent_telemetry,
+        )
     }
     fn encrypt(&self, keys: PublicSendTabKeys) -> Result<EncryptedSendTabPayload> {
         rc_crypto::ensure_initialized();

@@ -591,3 +591,10 @@ pub extern "C" fn fxa_send_tab(
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_string_destructor!(fxa_str_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);
+
+/// Gather telemetry collected by FxA.
+#[no_mangle]
+pub extern "C" fn fxa_gather_telemetry(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_gather_telemetry");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.gather_telemetry())
+}
