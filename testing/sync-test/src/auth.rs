@@ -225,7 +225,7 @@ impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self> {
         log::info!("Doing oauth flow!");
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE])?;
+        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test")?;
         let redirected_to = acct.execute_oauth_flow(&oauth_uri)?;
         let final_url = Url::parse(&redirected_to)?;
         let query_params = final_url

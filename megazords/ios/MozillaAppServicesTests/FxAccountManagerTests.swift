@@ -243,7 +243,7 @@ class FxAccountManagerTests: XCTestCase {
         let beginAuthDone = expectation(description: "beginAuthDone")
         var authURL: String?
         mgr.initialize { _ in
-            mgr.beginAuthentication { url in
+            mgr.beginAuthentication(entrypoint: "test_new_account_log_in") { url in
                 authURL = try! url.get().absoluteString
                 beginAuthDone.fulfill()
             }
@@ -276,7 +276,7 @@ class FxAccountManagerTests: XCTestCase {
         let beginAuthDone = expectation(description: "beginAuthDone")
         var authURL: String?
         mgr.initialize { _ in
-            mgr.beginAuthentication { url in
+            mgr.beginAuthentication(entrypoint: "test_auth_state_verification") { url in
                 authURL = try! url.get().absoluteString
                 beginAuthDone.fulfill()
             }

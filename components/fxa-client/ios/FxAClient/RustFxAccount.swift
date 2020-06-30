@@ -104,18 +104,18 @@ open class RustFxAccount {
     /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
     /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
     /// `completeOAuthFlow(...)` to complete the flow.
-    open func beginOAuthFlow(scopes: [String]) throws -> URL {
+    open func beginOAuthFlow(scopes: [String], entrypoint: String) throws -> URL {
         let scope = scopes.joined(separator: " ")
         let ptr = try rustCall { err in
-            fxa_begin_oauth_flow(self.raw, scope, err)
+            fxa_begin_oauth_flow(self.raw, scope, entrypoint, err)
         }
         return URL(string: String(freeingFxaString: ptr))!
     }
 
-    open func beginPairingFlow(pairingUrl: String, scopes: [String]) throws -> URL {
+    open func beginPairingFlow(pairingUrl: String, scopes: [String], entrypoint: String) throws -> URL {
         let scope = scopes.joined(separator: " ")
         let ptr = try rustCall { err in
-            fxa_begin_pairing_flow(self.raw, pairingUrl, scope, err)
+            fxa_begin_pairing_flow(self.raw, pairingUrl, scope, entrypoint, err)
         }
         return URL(string: String(freeingFxaString: ptr))!
     }

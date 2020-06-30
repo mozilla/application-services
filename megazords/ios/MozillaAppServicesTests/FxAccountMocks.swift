@@ -70,7 +70,7 @@ class MockFxAccount: FxAccount {
         return Profile(uid: "uid", email: "foo@bar.bobo")
     }
 
-    override func beginOAuthFlow(scopes _: [String]) throws -> URL {
+    override func beginOAuthFlow(scopes _: [String], entrypoint _: String) throws -> URL {
         return URL(string: "https://foo.bar/oauth?state=bobo")!
     }
 }

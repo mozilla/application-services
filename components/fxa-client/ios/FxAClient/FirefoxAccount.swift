@@ -30,10 +30,14 @@ open class FirefoxAccount: RustFxAccount {
     /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
     /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
     /// `completeOAuthFlow(...)` to complete the flow.
-    open func beginOAuthFlow(scopes: [String], completionHandler: @escaping (URL?, Error?) -> Void) {
+    open func beginOAuthFlow(
+        scopes: [String],
+        entrypoint: String,
+        completionHandler: @escaping (URL?, Error?) -> Void
+    ) {
         DispatchQueue.global().async {
             do {
-                let url = try super.beginOAuthFlow(scopes: scopes)
+                let url = try super.beginOAuthFlow(scopes: scopes, entrypoint: entrypoint)
                 DispatchQueue.main.async { completionHandler(url, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }

@@ -32,6 +32,7 @@ internal interface LibFxAFFI : Library {
     fun fxa_begin_oauth_flow(
         fxa: FxaHandle,
         scopes: String,
+        entrypoint: String,
         e: RustError.ByReference
     ): Pointer?
 
@@ -39,6 +40,7 @@ internal interface LibFxAFFI : Library {
         fxa: FxaHandle,
         pairingUrl: String,
         scopes: String,
+        entrypoint: String,
         e: RustError.ByReference
     ): Pointer?
 

@@ -93,11 +93,11 @@ open class FxAccountManager {
     /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
     /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
     /// `finishAuthentication(...)` to complete the flow.
-    public func beginAuthentication(completionHandler: @escaping (Result<URL, Error>) -> Void) {
+    public func beginAuthentication(entrypoint: String, completionHandler: @escaping (Result<URL, Error>) -> Void) {
         FxALog.info("beginAuthentication")
         DispatchQueue.global().async {
             let result = self.updatingLatestAuthState { account in
-                try account.beginOAuthFlow(scopes: self.applicationScopes)
+                try account.beginOAuthFlow(scopes: self.applicationScopes, entrypoint: entrypoint)
             }
             DispatchQueue.main.async { completionHandler(result) }
         }
@@ -114,11 +114,16 @@ open class FxAccountManager {
     /// `finishAuthentication(...)` to complete the flow.
     public func beginPairingAuthentication(
         pairingUrl: String,
+        entrypoint: String,
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
         DispatchQueue.global().async {
             let result = self.updatingLatestAuthState { account in
-                try account.beginPairingFlow(pairingUrl: pairingUrl, scopes: self.applicationScopes)
+                try account.beginPairingFlow(
+                    pairingUrl: pairingUrl,
+                    scopes: self.applicationScopes,
+                    entrypoint: entrypoint
+                )
             }
             DispatchQueue.main.async { completionHandler(result) }
         }
