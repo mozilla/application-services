@@ -25,11 +25,6 @@ pub const COMMAND_NAME: &str = "https://identity.mozilla.com/cmd/open-uri";
 pub struct EncryptedSendTabPayload {
     /// URL Safe Base 64 encrypted send-tab payload.
     encrypted: String,
-    /// Older clients included the flow ID in this envelope. Newer versions
-    /// include a flow and stream ID in the encrypted payload. This is
-    /// read-only; the Rust component doesn't emit it.
-    #[serde(rename = "flowID", default)]
-    deprecated_flow_id: Option<String>,
 }
 
 impl EncryptedSendTabPayload {
@@ -38,10 +33,7 @@ impl EncryptedSendTabPayload {
         let encrypted = base64::decode_config(&self.encrypted, base64::URL_SAFE_NO_PAD)?;
         let private_key = RcCryptoLocalKeyPair::from_raw_components(&keys.p256key)?;
         let decrypted = Aes128GcmEceWebPush::decrypt(&private_key, &keys.auth_secret, &encrypted)?;
-        let mut payload: SendTabPayload = serde_json::from_slice(&decrypted)?;
-        if let (None, Some(deprecated_flow_id)) = (payload.stream_id.as_ref(), self.deprecated_flow_id) {
-            payload.stream_id = Some(deprecated_flow_id);
-        }
+        let payload: SendTabPayload = serde_json::from_slice(&decrypted)?;
         Ok(payload)
     }
 }
@@ -55,7 +47,7 @@ pub struct SendTabPayload {
     /// The stream ID is different for each device to which this tab was sent.
     /// This is always different than the stream ID, even if the tab was sent to
     /// only one device.
-    #[serde(rename ="streamID", default)]
+    #[serde(rename = "streamID", default)]
     pub stream_id: Option<String>,
 }
 
@@ -83,7 +75,7 @@ impl SendTabPayload {
             WebPushParams::default(),
         )?;
         let encrypted = base64::encode_config(&encrypted, base64::URL_SAFE_NO_PAD);
-        Ok(EncryptedSendTabPayload { encrypted, deprecated_flow_id: None })
+        Ok(EncryptedSendTabPayload { encrypted })
     }
 }
 
