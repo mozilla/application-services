@@ -9,8 +9,8 @@ policy:
 tasks:
     - $let:
           taskgraph:
-              branch: taskgraph
-              revision: cab4565345d0d0effa66f18fe91335dd6d744031
+              branch: taskgraph-try
+              revision: 24b64df2ec29e2501b995f1c5f443207fdeced1f
           trustDomain: app-services
       in:
           $let:
