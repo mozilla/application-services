@@ -25,4 +25,4 @@ jobs:
         fetch:
             type: git
             repo: https://github.com/srfraser/moztaskmonitor
-            revision: 6cedba0b2013e5ce2dba56dd2749202407e55997
+            revision: 0ba73b3790f90ec99b440686ebb04969ad73a822
