@@ -40,6 +40,52 @@ impl Payload {
         self
     }
 
+    /// "Auto" fields are fields like 'sortindex' (and potentially 'ttl' in
+    /// the future) which are:
+    ///
+    /// - Added to the payload automatically when deserializing if present on
+    ///   the incoming BSO.
+    /// - Removed from the payload automatically and attached to the BSO if
+    ///   present on the outgoing payload.
+    pub fn with_auto_field<T: Into<JsonValue>>(mut self, name: &str, v: Option<T>) -> Payload {
+        let old_value: Option<JsonValue> = if let Some(value) = v {
+            self.data.insert(name.into(), value.into())
+        } else {
+            self.data.remove(name)
+        };
+
+        // This is a little dubious, but it seems like if we have a e.g. `sortindex` field on the payload
+        // it's going to be a bug if we use it instead of the "real" sort index.
+        if let Some(old_value) = old_value {
+            log::warn!(
+                "Payload for record {} already contains 'automatic' field \"{}\"? \
+                 Overwriting auto value: {} with 'real' value",
+                self.id,
+                name,
+                old_value,
+            );
+        }
+        return self
+    }
+
+    pub fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
+    where
+        for<'a> V: Deserialize<'a>,
+    {
+        let v = self.data.remove(name)?;
+        match serde_json::from_value(v) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                log::error!(
+                    "Automatic field {} exists on payload, but cannot be deserialized: {}",
+                    name,
+                    e
+                );
+                None
+            }
+        }
+    }
+
     #[inline]
     pub fn id(&self) -> &str {
         &self.id[..]
