@@ -9,7 +9,6 @@ use structopt::StructOpt;
 
 mod auth;
 mod logins;
-mod restmail;
 mod sync15;
 mod tabs;
 mod testing;

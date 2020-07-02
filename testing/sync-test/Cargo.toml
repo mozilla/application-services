@@ -11,6 +11,7 @@ viaduct = { path = "../../components/viaduct"}
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
 sync15-traits = { path = "../../components/support/sync15-traits" }
+restmail-client = { path = "../../components/support/restmail-client" }
 tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client", features = ["integration_test"] }
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"]}

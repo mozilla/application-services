@@ -2184,6 +2184,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "restmail-client"
+version = "0.1.0"
+dependencies = [
+ "log 0.4.8",
+ "serde_json",
+ "thiserror",
+ "url",
+ "viaduct",
+]
+
+[[package]]
 name = "rusqlite"
 version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2471,6 +2482,7 @@ dependencies = [
  "log 0.4.8",
  "logins",
  "rand 0.7.3",
+ "restmail-client",
  "serde",
  "serde_derive",
  "serde_json",
