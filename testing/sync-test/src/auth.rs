@@ -1,7 +1,7 @@
 /* Any copyright is dedicated to the Public Domain.
 http://creativecommons.org/publicdomain/zero/1.0/ */
 
-use crate::{restmail, Opts};
+use crate::Opts;
 use anyhow::Result;
 use fxa_client::{self, auth, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
@@ -61,7 +61,7 @@ impl TestAccount {
     ) -> Result<Arc<TestAccount>> {
         log::info!("Creating temporary fx account");
 
-        restmail::clear_mailbox(&email);
+        restmail_client::clear_mailbox(&email).unwrap();
 
         let create_endpoint = cfg.auth_url_path("v1/account/create?keys=true").unwrap();
         let body = json!({
@@ -128,9 +128,14 @@ impl TestAccount {
     }
 
     fn verify_account(email_in: &str, config: &FxaConfig, uid: &str) -> Result<()> {
-        let verification_email = restmail::find_email(email_in, |email| {
-            email["headers"]["x-uid"] == uid && email["headers"]["x-template-name"] == "verify"
-        });
+        let verification_email = restmail_client::find_email(
+            email_in,
+            |email| {
+                email["headers"]["x-uid"] == uid && email["headers"]["x-template-name"] == "verify"
+            },
+            10,
+        )
+        .unwrap();
         let code = verification_email["headers"]["x-verify-code"]
             .as_str()
             .unwrap();
