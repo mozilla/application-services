@@ -31,9 +31,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   unlock_error_count:
     type: labeled_counter
@@ -49,9 +50,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_count:
     type: counter
@@ -64,9 +66,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_error_count:
     type: labeled_counter
@@ -81,9 +84,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_count:
     type: counter
@@ -96,9 +100,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_error_count:
     type: labeled_counter
@@ -116,9 +121,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   # These help us understand the performance of the logins store in the wild.
   # We'll use them to identify any application or platform features that are leading to unacceptably
@@ -133,9 +139,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_time:
     type: timing_distribution
@@ -146,9 +153,10 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_time:
     type: timing_distribution
@@ -159,6 +167,7 @@ logins_store:
       - https://github.com/mozilla/application-services/issues/2225
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
