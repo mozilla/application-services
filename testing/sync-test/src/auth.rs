@@ -7,6 +7,7 @@ use fxa_client::{self, auth, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use serde_json::json;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::sync::Arc;
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsEngine;
@@ -174,12 +175,12 @@ impl TestAccount {
             &self.cfg,
             (&self.k_sync, &self.xcs),
         )?;
-        let auth_params = auth::AuthorizationParameters {
+        let auth_params = auth::AuthorizationRequestParameters {
             client_id: client_id.clone(),
-            code_challenge: code_challenge.clone(),
-            code_challenge_method: code_challenge_method.clone(),
+            code_challenge: Some(code_challenge.clone()),
+            code_challenge_method: Some(code_challenge_method.clone()),
             scope: scope.clone(),
-            keys_jwe,
+            keys_jwe: Some(keys_jwe),
             state: state.clone(),
             access_type: "offline".to_string(),
         };
@@ -188,36 +189,21 @@ impl TestAccount {
 
     fn execute_oauth_pair_flow(&self, oauth_uri: &str) -> Result<(String, String)> {
         let url = Url::parse(&oauth_uri)?;
-        let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
-        let keys_jwk = query_map.get("keys_jwk").unwrap();
-        let scope = query_map.get("scope").unwrap();
-        let client_id = query_map.get("client_id").unwrap();
-        let state = query_map.get("state").unwrap();
-        let code_challenge = query_map.get("code_challenge").unwrap();
-        let code_challenge_method = query_map.get("code_challenge_method").unwrap();
+        let auth_params = auth::AuthorizationParameters::try_from(url)?;
         let scoped_keys = auth::get_scoped_keys(
-            scope,
-            client_id,
+            &auth_params.scope,
+            &auth_params.client_id,
             &auth::derive_auth_key_from_session_token(&self.session_token)?,
             &self.cfg,
             (&self.k_sync, &self.xcs),
         )?;
         // Setup authority account that is logged in and has the appropriate scoped keys
-        let mut fxa = FirefoxAccount::with_config(self.cfg.clone());
-        fxa.set_scoped_keys(scoped_keys);
-        fxa.set_session_token(&self.session_token);
+        let fxa = FirefoxAccount::new_logged_in(self.cfg.clone(), &self.session_token, scoped_keys);
         // Use the logged in client to generate the oauth code for
         // a different client
-        let code = fxa.authorize_code_using_session_token(
-            &client_id,
-            &scope,
-            &state,
-            "offline",
-            &code_challenge,
-            &code_challenge_method,
-            &keys_jwk,
-        )?;
-        Ok((code, state.clone()))
+        let state = auth_params.state.clone();
+        let code = fxa.authorize_code_using_session_token(auth_params)?;
+        Ok((code, state))
     }
 }
 
@@ -265,14 +251,16 @@ impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self> {
         log::info!("Doing oauth flow!");
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test")?;
-
         // We either authenticate using the normal oauth_flow
         // Or we use a pairing flow with a logged in account
         // Both should work fine in executing the oauth flow
         let (code, state) = if rand::random() {
-            acct.execute_oauth_pair_flow(&oauth_uri)?
+            let pairing_url = acct.cfg.authorization_endpoint().unwrap();
+            let pairing_url =
+                fxa.begin_pairing_flow(pairing_url.as_str(), &[SYNC_SCOPE], "integration_test")?;
+            acct.execute_oauth_pair_flow(&pairing_url)?
         } else {
+            let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test")?;
             let redirect_uri = acct.execute_oauth_flow(&oauth_uri)?;
             let redirect_uri = Url::parse(&redirect_uri)?;
             let query_params = redirect_uri

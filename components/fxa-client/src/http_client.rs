@@ -53,7 +53,7 @@ pub trait FxAClient {
         &self,
         config: &Config,
         session_token: &str,
-        auth_params: AuthorizationParameters,
+        auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse>;
     fn duplicate_session(
         &self,
@@ -219,7 +219,7 @@ impl FxAClient for Client {
         &self,
         config: &Config,
         session_token: &str,
-        auth_params: AuthorizationParameters,
+        auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse> {
         let parameters = serde_json::to_value(&auth_params)?;
         let key = derive_auth_key_from_session_token(session_token)?;
@@ -481,14 +481,14 @@ pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct AuthorizationParameters {
+pub struct AuthorizationRequestParameters {
     pub client_id: String,
     pub scope: String,
     pub state: String,
     pub access_type: String,
-    pub code_challenge: String,
-    pub code_challenge_method: String,
-    pub keys_jwe: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
+    pub keys_jwe: Option<String>,
 }
 
 // Keeping those functions out of the FxAClient trate becouse functions in the
@@ -498,7 +498,7 @@ pub struct AuthorizationParameters {
 #[cfg(feature = "integration_test")]
 pub fn send_authorization_request(
     config: &Config,
-    auth_params: AuthorizationParameters,
+    auth_params: AuthorizationRequestParameters,
     auth_key: &[u8],
 ) -> anyhow::Result<String> {
     let auth_endpoint = config.auth_url_path("v1/oauth/authorization")?;

@@ -6,12 +6,13 @@ pub mod attached_clients;
 
 use crate::{
     error::*,
-    http_client::{AuthorizationParameters, OAuthTokenResponse},
+    http_client::{AuthorizationRequestParameters, OAuthTokenResponse},
     scoped_keys::{ScopedKey, ScopedKeysFlow},
     util, FirefoxAccount,
 };
 use rc_crypto::digest;
 use serde_derive::*;
+use std::convert::TryFrom;
 use std::{
     collections::{HashMap, HashSet},
     iter::FromIterator,
@@ -25,7 +26,6 @@ const OAUTH_MIN_TIME_LEFT: u64 = 60;
 // Special redirect urn based on the OAuth native spec, signals that the
 // WebChannel flow is used
 pub const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
-
 impl FirefoxAccount {
     /// Fetch a short-lived access token using the saved refresh token.
     /// If there is no refresh token held or if it is not authorized for some of the requested
@@ -165,52 +165,59 @@ impl FirefoxAccount {
     }
 
     /// Fetch an OAuth code for a particular client using a session token from the account state.
-    /// This method doesn't support OAuth public clients at this time.
     ///
-    /// * `client_id` - OAuth client id.
-    /// * `scopes` - Space-separated list of requested scopes.
-    /// * `state` - OAuth state.
-    /// * `access_type` - Type of OAuth access, can be "offline" and "online.
-    /// * `code_challenge` - Code challenge for Proof Key for Code Exchange (PKCE)
-    /// * `code_challenge_method` - Code challenge method for PKCE, currently only 'S256' supported
-    /// * `keys_jwk` - Key to encrypt keys_jwe using, passed in as a base64 string
+    /// * `auth_params` Authorization parameters  which includes:
+    ///     *  `client_id` - OAuth client id.
+    ///     *  `scope` - list of requested scopes.
+    ///     *  `state` - OAuth state.
+    ///     *  `access_type` - Type of OAuth access, can be "offline" and "online"
+    ///     *  `pkce_params` - Optional PKCE parameters for public clients (`code_challenge` and `code_challenge_method`)
+    ///     *  `keys_jwk` - Optional JWK used to encrypt scoped keys
     pub fn authorize_code_using_session_token(
         &self,
-        client_id: &str,
-        scope: &str,
-        state: &str,
-        access_type: &str,
-        code_challenge: &str,
-        code_challenge_method: &str,
-        keys_jwk: &str,
+        auth_params: AuthorizationParameters,
     ) -> Result<String> {
+        // TODO: Add validation to check for which keys the client is allowed to request,
+        //       And if we have those keys stored locally.
+        //       Currently we pull ALL available keys that match the requested scopes, regardless
+        //       if the client is actually allowed to request them.
         let session_token = self.get_session_token()?;
-        let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
-        let keys_jwk = String::from_utf8(keys_jwk)?;
-        let requested_scopes: HashSet<&str> = scope.split_whitespace().collect();
-        let data: HashMap<String, ScopedKey> = self
-            .state
-            .scoped_keys
-            .iter()
-            .filter(|(scope, _)| requested_scopes.contains(&(*scope).as_ref()))
-            .map(|(key, value)| (key.clone(), value.clone()))
-            .collect();
-        let data = serde_json::to_string(&data)?;
-        let client_keys_flow = ScopedKeysFlow::with_random_key()?;
-        let keys_jwe = client_keys_flow.encrypt_keys_jwe(&keys_jwk, data.as_bytes())?;
-        let auth_params = AuthorizationParameters {
-            client_id: client_id.to_string(),
-            scope: scope.to_string(),
-            state: state.to_string(),
-            access_type: access_type.to_string(),
-            code_challenge: code_challenge.to_string(),
-            code_challenge_method: code_challenge_method.to_string(),
+        let keys_jwe = if let Some(keys_jwk) = auth_params.keys_jwk {
+            let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
+            let keys_jwk = String::from_utf8(keys_jwk)?;
+            let requested_scopes: HashSet<&str> = auth_params.scope.split_whitespace().collect();
+            let data: HashMap<String, ScopedKey> = self
+                .state
+                .scoped_keys
+                .iter()
+                .filter(|(scope, _)| requested_scopes.contains(&(*scope).as_ref()))
+                .map(|(key, value)| (key.clone(), value.clone()))
+                .collect();
+            let data = serde_json::to_string(&data)?;
+            let client_keys_flow = ScopedKeysFlow::with_random_key()?;
+            Some(client_keys_flow.encrypt_keys_jwe(&keys_jwk, data.as_bytes())?)
+        } else {
+            None
+        };
+        let auth_request_params = AuthorizationRequestParameters {
+            client_id: auth_params.client_id,
+            scope: auth_params.scope,
+            state: auth_params.state,
+            access_type: auth_params.access_type,
+            code_challenge: auth_params
+                .pkce_params
+                .as_ref()
+                .map(|param| param.code_challenge.clone()),
+            code_challenge_method: auth_params
+                .pkce_params
+                .map(|param| param.code_challenge_method),
             keys_jwe,
         };
+
         let resp = self.client.authorization_code_using_session_token(
             &self.state.config,
             &session_token,
-            auth_params,
+            auth_request_params,
         )?;
 
         Ok(resp.code)
@@ -389,15 +396,73 @@ impl FirefoxAccount {
         self.state.access_token_cache.clear();
     }
 
-    #[cfg(any(test, feature = "integration_test"))]
-    pub fn set_session_token(&mut self, session_token: &str) {
-        self.state.session_token = Some(session_token.to_owned());
-    }
-
     #[cfg(feature = "integration_test")]
-    pub fn set_scoped_keys(&mut self, scoped_keys: HashMap<String, ScopedKey>) {
+    pub fn new_logged_in(
+        config: crate::Config,
+        session_token: &str,
+        scoped_keys: HashMap<String, ScopedKey>,
+    ) -> Self {
+        let mut fxa = FirefoxAccount::with_config(config);
+        fxa.state.session_token = Some(session_token.to_owned());
         scoped_keys.iter().for_each(|(key, val)| {
-            self.state.scoped_keys.insert(key.to_string(), val.clone());
+            fxa.state.scoped_keys.insert(key.to_string(), val.clone());
+        });
+        fxa
+    }
+}
+
+pub struct AuthorizationPKCEParams {
+    pub code_challenge: String,
+    pub code_challenge_method: String,
+}
+
+pub struct AuthorizationParameters {
+    pub client_id: String,
+    pub scope: String,
+    pub state: String,
+    pub access_type: String,
+    pub pkce_params: Option<AuthorizationPKCEParams>,
+    pub keys_jwk: Option<String>,
+}
+
+impl TryFrom<Url> for AuthorizationParameters {
+    type Error = Error;
+
+    fn try_from(url: Url) -> Result<Self> {
+        let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
+        let scope = query_map
+            .get("scope")
+            .cloned()
+            .ok_or_else(|| ErrorKind::MissingUrlParameter("scope"))?;
+        let client_id = query_map
+            .get("client_id")
+            .cloned()
+            .ok_or_else(|| ErrorKind::MissingUrlParameter("client_id"))?;
+        let state = query_map
+            .get("state")
+            .cloned()
+            .ok_or_else(|| ErrorKind::MissingUrlParameter("state"))?;
+        let access_type = query_map
+            .get("access_type")
+            .cloned()
+            .ok_or_else(|| ErrorKind::MissingUrlParameter("access_type"))?;
+        let code_challenge = query_map.get("code_challenge").cloned();
+        let code_challenge_method = query_map.get("code_challenge_method").cloned();
+        let pkce_params = match (code_challenge, code_challenge_method) {
+            (Some(code_challenge), Some(code_challenge_method)) => Some(AuthorizationPKCEParams {
+                code_challenge,
+                code_challenge_method,
+            }),
+            _ => None,
+        };
+        let keys_jwk = query_map.get("keys_jwk").cloned();
+        Ok(Self {
+            client_id,
+            scope,
+            state,
+            access_type,
+            pkce_params,
+            keys_jwk,
         })
     }
 }
@@ -457,6 +522,10 @@ mod tests {
             self.state
                 .access_token_cache
                 .insert(scope.to_string(), token_info);
+        }
+
+        pub fn set_session_token(&mut self, session_token: &str) {
+            self.state.session_token = Some(session_token.to_owned());
         }
     }
 
