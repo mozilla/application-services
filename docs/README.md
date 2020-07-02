@@ -31,9 +31,7 @@ you work on app-services projects.  We have:
       * [How to pass data cross the FFI boundary](./howtos/when-to-use-what-in-the-ffi.md)
         * [How to do that specifically using protobuf](./howtos/passing-protobuf-data-over-ffi.md)
     * Development Tooling:
-      * [How to set up your local android build environment](./howtos/setup-android-build-environment.md)
       * [How to try out local changes in Fenix](./howtos/locally-published-components-in-fenix.md)
-      * [How to try out local changes in the Reference Browser](./howtos/working-with-reference-browser.md)
       * [How to try out local changes in Firefox for iOS](./howtos/locally-published-components-in-ios.md)
       * [How to access logs for debugging](./logging.md)
     * Process guidelines:
