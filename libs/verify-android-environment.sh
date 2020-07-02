@@ -27,6 +27,9 @@ fi
 # NDK ez-install.
 "$ANDROID_HOME/tools/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
 
+# NDK ez-install
+"$ANDROID_HOME/tools/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
+
 rustup target add "${RUST_TARGETS[@]}"
 
 # Determine the Java command to use to start the JVM.

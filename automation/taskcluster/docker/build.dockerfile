@@ -36,8 +36,27 @@ ENV \
 
 RUN apt-get update -qq \
     && apt-get install -qy --no-install-recommends \
-        # To compile Android stuff.
+        ####################
+        # Build dependencies
+        # If you add anything below, please update building.md.
+        ####################
+        # Android builds
         openjdk-8-jdk \
+        # Required by gyp but also CI scripts.
+        python3 \
+        # libs/ source patching.
+        patch \
+        # NSS build system.
+        gyp ninja-build \
+        # NSS dependency.
+        zlib1g-dev \
+        # SQLCipher build system.
+        make \
+        # SQLCipher dependency.
+        tclsh \
+        ##########################
+        # CI-specific dependencies
+        ##########################
         git \
         curl \
         # Required by symbolstore.py.
@@ -49,7 +68,6 @@ RUN apt-get update -qq \
         # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
         # <TODO: Is this still true?>.
         g++ \
-        python3 \
         python3-pip \
         # taskcluster > mohawk > setuptools.
         python3-setuptools \
@@ -57,21 +75,10 @@ RUN apt-get update -qq \
         unzip \
         # Required by tooltool to extract tar.xz archives.
         xz-utils \
-        # Required to build libs/.
-        make \
-        # Required to build sqlcipher.
-        tclsh \
-        # Required in libs/ by some scripts patching the source they download.
-        patch \
         # For windows cross-compilation.
         mingw-w64 \
-        ## NSS build dependencies
-        gyp \
-        ninja-build \
-        zlib1g-dev \
         # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
         p7zip-full \
-        ## End of NSS build dependencies
     && apt-get clean
 
 RUN pip3 install --upgrade pip
