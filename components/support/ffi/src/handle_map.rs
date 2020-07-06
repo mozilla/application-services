@@ -1067,7 +1067,7 @@ mod test {
     use super::*;
 
     #[derive(PartialEq, Debug)]
-    struct Foobar(usize);
+    pub(super) struct Foobar(usize);
 
     #[test]
     fn test_invalid_handle() {
@@ -1165,76 +1165,90 @@ mod test {
         }
     }
 
-    struct PanicOnDrop(());
-    impl Drop for PanicOnDrop {
-        fn drop(&mut self) {
-            panic!("intentional panic (drop)");
+    /// Tests that check our behavior when panicing.
+    ///
+    /// Naturally these require panic=unwind, which means we can't run them when
+    /// generating coverage (well, `-Zprofile`-based coverage can't -- although
+    /// ptrace-based coverage like tarpaulin can), and so we turn them off.
+    ///
+    /// (For clarity, `cfg(coverage)` is not a standard thing. We add it in
+    /// `automation/emit_coverage_info.sh`, and you can force it by adding
+    /// "--cfg coverage" to your RUSTFLAGS manually if you need to do so).
+    #[cfg(not(coverage))]
+    mod panic_tests {
+        use super::*;
+
+        struct PanicOnDrop(());
+        impl Drop for PanicOnDrop {
+            fn drop(&mut self) {
+                panic!("intentional panic (drop)");
+            }
         }
-    }
 
-    #[test]
-    fn test_panicking_drop() {
-        let map = ConcurrentHandleMap::new();
-        let h = map.insert(PanicOnDrop(())).into_u64();
-        let mut e = ExternError::success();
-        crate::call_with_result(&mut e, || map.delete_u64(h));
-        assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
-        let _ = unsafe { e.get_and_consume_message() };
-        assert!(!map.map.is_poisoned());
-        let inner = map.map.read().unwrap();
-        inner.assert_valid();
-        assert_eq!(inner.len(), 0);
-    }
-
-    #[test]
-    fn test_panicking_call_with() {
-        let map = ConcurrentHandleMap::new();
-        let h = map.insert(Foobar(0)).into_u64();
-        let mut e = ExternError::success();
-        map.call_with_output(&mut e, h, |_thing| {
-            panic!("intentional panic (call_with_output)");
-        });
-
-        assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
-        let _ = unsafe { e.get_and_consume_message() };
-
-        {
+        #[test]
+        fn test_panicking_drop() {
+            let map = ConcurrentHandleMap::new();
+            let h = map.insert(PanicOnDrop(())).into_u64();
+            let mut e = ExternError::success();
+            crate::call_with_result(&mut e, || map.delete_u64(h));
+            assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
+            let _ = unsafe { e.get_and_consume_message() };
             assert!(!map.map.is_poisoned());
             let inner = map.map.read().unwrap();
             inner.assert_valid();
-            assert_eq!(inner.len(), 1);
-            let mut seen = false;
-            for e in &inner.entries {
-                if let EntryState::Active(v) = &e.state {
-                    assert!(!seen);
-                    assert!(v.is_poisoned());
-                    seen = true;
+            assert_eq!(inner.len(), 0);
+        }
+
+        #[test]
+        fn test_panicking_call_with() {
+            let map = ConcurrentHandleMap::new();
+            let h = map.insert(Foobar(0)).into_u64();
+            let mut e = ExternError::success();
+            map.call_with_output(&mut e, h, |_thing| {
+                panic!("intentional panic (call_with_output)");
+            });
+
+            assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
+            let _ = unsafe { e.get_and_consume_message() };
+
+            {
+                assert!(!map.map.is_poisoned());
+                let inner = map.map.read().unwrap();
+                inner.assert_valid();
+                assert_eq!(inner.len(), 1);
+                let mut seen = false;
+                for e in &inner.entries {
+                    if let EntryState::Active(v) = &e.state {
+                        assert!(!seen);
+                        assert!(v.is_poisoned());
+                        seen = true;
+                    }
                 }
             }
+            assert!(map.delete_u64(h).is_ok());
+            assert!(!map.map.is_poisoned());
+            let inner = map.map.read().unwrap();
+            inner.assert_valid();
+            assert_eq!(inner.len(), 0);
         }
-        assert!(map.delete_u64(h).is_ok());
-        assert!(!map.map.is_poisoned());
-        let inner = map.map.read().unwrap();
-        inner.assert_valid();
-        assert_eq!(inner.len(), 0);
-    }
 
-    #[test]
-    fn test_panicking_insert_with() {
-        let map = ConcurrentHandleMap::new();
-        let mut e = ExternError::success();
-        let res = map.insert_with_output(&mut e, || {
-            panic!("intentional panic (insert_with_output)");
-        });
+        #[test]
+        fn test_panicking_insert_with() {
+            let map = ConcurrentHandleMap::new();
+            let mut e = ExternError::success();
+            let res = map.insert_with_output(&mut e, || {
+                panic!("intentional panic (insert_with_output)");
+            });
 
-        assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
-        let _ = unsafe { e.get_and_consume_message() };
+            assert_eq!(e.get_code(), crate::ErrorCode::PANIC);
+            let _ = unsafe { e.get_and_consume_message() };
 
-        assert_eq!(res, 0);
+            assert_eq!(res, 0);
 
-        assert!(!map.map.is_poisoned());
-        let inner = map.map.read().unwrap();
-        inner.assert_valid();
-        assert_eq!(inner.len(), 0);
+            assert!(!map.map.is_poisoned());
+            let inner = map.map.read().unwrap();
+            inner.assert_valid();
+            assert_eq!(inner.len(), 0);
+        }
     }
 }

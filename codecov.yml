@@ -1,0 +1,9 @@
+# Don't trigger CI failure on coverage reduction.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true

@@ -30,6 +30,25 @@ commands:
       - run: |
           sccache --version
           sccache --zero-stats
+  install-grcov:
+    steps:
+      - run:
+          name: Install grcov
+          command: |
+            GRCOV_VERSION=v0.5.15
+            GRCOV_ARCHIVE=grcov-linux-x86_64.tar.bz2
+            GRCOV_SHA256=1182739b2b1df31dee74ed3533330001f9da921cf169bd8da4ec0386e4243ad0
+            GRCOV_URL="https://github.com/mozilla/grcov/releases/download/${GRCOV_VERSION}/${GRCOV_ARCHIVE}"
+            curl -sfSL --retry 5 --retry-delay 10 -O "${GRCOV_URL}"
+            echo "${GRCOV_SHA256} *${GRCOV_ARCHIVE}" | shasum -a 256 -c -
+
+            # Just install `grcov` to ~/.bin
+            mkdir -p "$HOME/.bin"
+            tar jxf "${GRCOV_ARCHIVE}" -C "$HOME/.bin"
+            echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
+      # Run in a different shell to source $BASH_ENV
+      - run: |
+          grcov --version
   install-mdbook:
     steps:
       - run:
@@ -41,12 +60,16 @@ commands:
             echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
             popd
   install-rust:
+    parameters:
+      rust-platform:
+        type: string
     steps:
       - run:
           name: Install Rust
           command: |
-            RUSTUP_PLATFORM=x86_64-apple-darwin
+            RUSTUP_PLATFORM=<<parameters.rust-platform>>
             RUSTUP_VERSION=1.18.3
+            # N.B: Only true on for rust-platform=x86_64-apple-darwin.
             RUSTUP_SHA256=16734a9a2d87a3054bd4eea962642687e50a34b6e73e17df6f3361c2c534dc30
             curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
@@ -221,7 +244,6 @@ commands:
       - store_artifacts:
           path: /tmp/sccache.log
           destination: logs/sccache.log
-
 jobs:
   Check Swift formatting:
     macos:
@@ -251,6 +273,22 @@ jobs:
       - run: cargo clippy --version
       - run: bash automation/all_clippy_checks.sh
       - save-sccache-cache
+  Generate code coverage:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: xlarge
+    steps:
+      # Need to use nightly for this.
+      - test-setup:
+          rust-version: "nightly"
+      - install-grcov
+      - run: bash ./automation/emit_coverage_info.sh
+      - run:
+          name: Compile coverage
+          command: grcov ./target/debug/ -s . -t lcov --llvm --branch --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
+      - run:
+          name: Upload to codecov.io
+          command: bash <(curl -s https://codecov.io/bash) -f lcov.info
   Check Protobuf files are up-to-date:
     docker:
       - image: circleci/rust:latest
@@ -325,7 +363,8 @@ jobs:
           name: Restore sccache cache
           key: sccache-cache-macos-{{ arch }}
       - checkout
-      - install-rust
+      - install-rust:
+          rust-platform: x86_64-apple-darwin
       - setup-rust-toolchain
       - run:
           name: Toggle brew auto-updates
@@ -504,6 +543,9 @@ workflows:
       - Rust tests
       - Rust benchmarks
       - Sync integration tests
+  coverage:
+    jobs:
+      - Generate code coverage
   carthage-framework:
     jobs:
       - iOS build and test:
