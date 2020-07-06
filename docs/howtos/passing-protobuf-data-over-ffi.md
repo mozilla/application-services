@@ -196,6 +196,12 @@ follow the examples of the other steps it takes.
         }
     ```
 
+If you make any changes to the `.proto` file and want regenerate your local kotlin files, you can use:
+```
+./gradlew generateDebugProto
+```
+While being in the root directory of `application-services`.
+
 ## Swift
 
 1. You need to install `carthage` and `swift-protobuf`, as well as `protobuf`
