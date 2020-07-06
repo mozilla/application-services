@@ -15,6 +15,8 @@ use sync15::{
 };
 use sync_guid::Guid;
 
+const TTL_1_YEAR: u32 = 31_622_400;
+
 impl RemoteTab {
     fn from_record_tab(tab: &TabsRecordTab) -> Self {
         Self {
@@ -65,6 +67,7 @@ impl ClientRemoteTabs {
                 .iter()
                 .map(RemoteTab::to_record_tab)
                 .collect(),
+            ttl: TTL_1_YEAR,
         }
     }
 }
