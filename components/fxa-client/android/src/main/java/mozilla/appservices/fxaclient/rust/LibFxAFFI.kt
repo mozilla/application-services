@@ -105,6 +105,24 @@ internal interface LibFxAFFI : Library {
 
     fun fxa_retry_migrate_from_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
 
+    fun fxa_testing_create_temp_account(
+        contentUrl: String,
+        clientId: String,
+        redirectUri: String,
+        tokenServerUrlOverride: String?,
+        e: RustError.ByReference
+    ): RustBuffer.ByValue
+
+    fun fxa_testing_destroy_temp_account(
+        contentUrl: String,
+        clientId: String,
+        redirectUri: String,
+        tokenServerUrlOverride: String?,
+        email: String,
+        password: String,
+        e: RustError.ByReference
+    )
+
     fun fxa_str_free(string: Pointer)
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)
     fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)

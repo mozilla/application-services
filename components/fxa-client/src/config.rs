@@ -79,12 +79,21 @@ impl Config {
     }
 
     pub fn new(content_url: &str, client_id: &str, redirect_uri: &str) -> Self {
+        Self::new_with_token_server_override(content_url, client_id, redirect_uri, None)
+    }
+
+    pub fn new_with_token_server_override(
+        content_url: &str,
+        client_id: &str,
+        redirect_uri: &str,
+        token_server_url_override: Option<&str>,
+    ) -> Self {
         Self {
             content_url: content_url.to_string(),
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             remote_config: RefCell::new(None),
-            token_server_url_override: None,
+            token_server_url_override: token_server_url_override.map(|s| s.to_owned()),
         }
     }
 

@@ -15,8 +15,10 @@
 use crate::{
     commands,
     device::{Capability as DeviceCapability, Device, PushSubscription, Type as DeviceType},
-    msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, IncomingDeviceCommand,
-    IntrospectInfo, Profile, ScopedKey,
+    msg_types, send_tab,
+    testing::TempAccountDetails,
+    AccessTokenInfo, AccountEvent, Error, ErrorKind, IncomingDeviceCommand, IntrospectInfo,
+    Profile, ScopedKey,
 };
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
@@ -266,6 +268,15 @@ impl msg_types::Capabilities {
     }
 }
 
+impl From<TempAccountDetails> for msg_types::TempAccountDetails {
+    fn from(details: TempAccountDetails) -> Self {
+        Self {
+            email: details.email,
+            password: details.password,
+        }
+    }
+}
+
 unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
     assert!(len >= 0, "Bad buffer len: {}", len);
     if len == 0 {
@@ -291,3 +302,5 @@ implement_into_ffi_by_protobuf!(msg_types::AccountEvents);
 implement_into_ffi_by_delegation!(IncomingDeviceCommand, msg_types::IncomingDeviceCommand);
 implement_into_ffi_by_protobuf!(msg_types::IncomingDeviceCommand);
 implement_into_ffi_by_protobuf!(msg_types::IncomingDeviceCommands);
+implement_into_ffi_by_protobuf!(msg_types::TempAccountDetails);
+implement_into_ffi_by_delegation!(TempAccountDetails, msg_types::TempAccountDetails);

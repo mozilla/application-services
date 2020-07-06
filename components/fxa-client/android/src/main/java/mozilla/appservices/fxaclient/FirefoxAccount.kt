@@ -631,7 +631,7 @@ private inline fun <U> nullableRustCall(callback: (RustError.ByReference) -> U?)
     }
 }
 
-private inline fun <U> rustCall(callback: (RustError.ByReference) -> U?): U {
+internal inline fun <U> rustCall(callback: (RustError.ByReference) -> U?): U {
     return nullableRustCall(callback)!!
 }
 

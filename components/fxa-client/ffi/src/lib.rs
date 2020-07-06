@@ -590,6 +590,65 @@ pub extern "C" fn fxa_send_tab(
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.send_tab(target, title, url))
 }
 
+/// Create a temporary Firefox Account for testing.
+///
+/// # Safety
+///
+/// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
+/// pointer type.
+#[no_mangle]
+pub extern "C" fn fxa_testing_create_temp_account(
+    content_url: FfiStr<'_>,
+    client_id: FfiStr<'_>,
+    redirect_uri: FfiStr<'_>,
+    token_server_url_override: FfiStr<'_>,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("fxa_testing_create_temp_account");
+    let content_url = content_url.as_str();
+    let client_id = client_id.as_str();
+    let redirect_uri = redirect_uri.as_str();
+    let token_server_url_override = token_server_url_override.as_opt_str();
+    ffi_support::call_with_result(error, || {
+        fxa_client::testing::create_temp_account(
+            content_url,
+            client_id,
+            redirect_uri,
+            token_server_url_override,
+        )
+    })
+}
+
+/// Destroy a temporary Firefox Account.
+#[no_mangle]
+pub extern "C" fn fxa_testing_destroy_temp_account(
+    content_url: FfiStr<'_>,
+    client_id: FfiStr<'_>,
+    redirect_uri: FfiStr<'_>,
+    token_server_url_override: FfiStr<'_>,
+    email: FfiStr<'_>,
+    password: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("fxa_testing_destroy_temp_account");
+    let content_url = content_url.as_str();
+    let client_id = client_id.as_str();
+    let redirect_uri = redirect_uri.as_str();
+    let token_server_url_override = token_server_url_override.as_opt_str();
+    let email = email.as_str();
+    let password = password.as_str();
+    ffi_support::call_with_result(error, || {
+        fxa_client::testing::destroy_account(
+            content_url,
+            client_id,
+            redirect_uri,
+            token_server_url_override,
+            email,
+            password,
+        )
+    })
+}
+
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_string_destructor!(fxa_str_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);

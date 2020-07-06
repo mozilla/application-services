@@ -150,6 +150,9 @@ pub enum ErrorKind {
 
     #[error("Protobuf decode error: {0}")]
     ProtobufDecodeError(#[from] prost::DecodeError),
+
+    #[error("Restmail client error: {0}")]
+    RestmailClientError(#[from] restmail_client::RestmailClientError),
 }
 
 error_support::define_error! {
@@ -165,6 +168,7 @@ error_support::define_error! {
         (MalformedUrl, url::ParseError),
         (SyncError, sync15::Error),
         (ProtobufDecodeError, prost::DecodeError),
+        (RestmailClientError, restmail_client::RestmailClientError),
     }
 }
 

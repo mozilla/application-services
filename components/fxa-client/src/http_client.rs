@@ -492,7 +492,6 @@ pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>
     Ok(out)
 }
 
-#[cfg(feature = "integration_test")]
 #[derive(Serialize, Deserialize)]
 pub struct AuthorizationParameters {
     access_type: String,
@@ -504,7 +503,6 @@ pub struct AuthorizationParameters {
     state: String,
 }
 
-#[cfg(feature = "integration_test")]
 impl AuthorizationParameters {
     pub fn new(
         client_id: String,
@@ -530,7 +528,6 @@ impl AuthorizationParameters {
 // FxAClient trate with a `test only` feature upsets the mockiato proc macro
 // And it's okay since they are only used in tests. (if they were not test only
 // Mockiato would not complain)
-#[cfg(feature = "integration_test")]
 pub fn send_authorization_request(
     config: &Config,
     auth_params: AuthorizationParameters,
@@ -550,7 +547,6 @@ pub fn send_authorization_request(
         .to_string())
 }
 
-#[cfg(feature = "integration_test")]
 pub fn get_scoped_key_data_response(
     scope: &str,
     client_id: &str,
@@ -570,7 +566,6 @@ pub fn get_scoped_key_data_response(
     Ok(resp)
 }
 
-#[cfg(feature = "integration_test")]
 pub fn get_keys_bundle(config: &Config, hkdf_sha256_key: &[u8]) -> Result<Vec<u8>> {
     let keys_url = config.auth_url_path("v1/account/keys").unwrap();
     let req = HawkRequestBuilder::new(Method::Get, keys_url, hkdf_sha256_key).build()?;
@@ -584,7 +579,6 @@ pub fn get_keys_bundle(config: &Config, hkdf_sha256_key: &[u8]) -> Result<Vec<u8
     Ok(bundle)
 }
 
-#[cfg(feature = "integration_test")]
 pub fn send_verification(config: &Config, body: serde_json::Value) -> Result<Response> {
     let verify_endpoint = config
         .auth_url_path("v1/recovery_email/verify_code")

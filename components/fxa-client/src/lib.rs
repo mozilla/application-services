@@ -32,8 +32,8 @@ pub mod device;
 pub mod error;
 pub mod ffi;
 pub mod migrator;
+pub mod testing;
 
-#[cfg(feature = "integration_test")]
 pub mod auth;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
@@ -113,10 +113,12 @@ impl FirefoxAccount {
         redirect_uri: &str,
         token_server_url_override: Option<&str>,
     ) -> Self {
-        let mut config = Config::new(content_url, client_id, redirect_uri);
-        if let Some(token_server_url_override) = token_server_url_override {
-            config.override_token_server_url(token_server_url_override);
-        }
+        let config = Config::new_with_token_server_override(
+            content_url,
+            client_id,
+            redirect_uri,
+            token_server_url_override,
+        );
         Self::with_config(config)
     }
 

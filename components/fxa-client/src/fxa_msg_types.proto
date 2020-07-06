@@ -122,3 +122,8 @@ message AccountEvent {
 message AccountEvents {
     repeated AccountEvent events = 1;
 }
+
+message TempAccountDetails {
+    required string email = 1;
+    required string password = 2;
+}

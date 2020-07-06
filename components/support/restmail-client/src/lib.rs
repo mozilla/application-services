@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use error::RestmailClientError;
+pub use error::RestmailClientError;
 use serde_json::Value as EmailJson;
 use url::Url;
 use viaduct::Request;

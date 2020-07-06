@@ -784,6 +784,7 @@ dependencies = [
  "prost",
  "prost-derive",
  "rc_crypto",
+ "restmail-client",
  "serde",
  "serde_derive",
  "serde_json",

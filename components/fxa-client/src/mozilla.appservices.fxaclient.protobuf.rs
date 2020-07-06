@@ -179,3 +179,10 @@ pub struct AccountEvents {
     #[prost(message, repeated, tag="1")]
     pub events: ::std::vec::Vec<AccountEvent>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TempAccountDetails {
+    #[prost(string, required, tag="1")]
+    pub email: std::string::String,
+    #[prost(string, required, tag="2")]
+    pub password: std::string::String,
+}
