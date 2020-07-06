@@ -46,12 +46,16 @@ typedef uint64_t FirefoxAccountHandle;
 char *_Nullable fxa_begin_oauth_flow(FirefoxAccountHandle handle,
                                      const char *_Nonnull scopes,
                                      const char *_Nonnull entrypoint,
+                                     uint8_t const *_Nonnull metrics_params,
+                                     int32_t metrics_params_len,
                                      FxAError *_Nonnull out);
 
 char *_Nullable fxa_begin_pairing_flow(FirefoxAccountHandle handle,
                                        const char *_Nonnull pairing_url,
                                        const char *_Nonnull scopes,
                                        const char *_Nonnull entrypoint,
+                                       uint8_t const *_Nonnull metrics_params,
+                                       int32_t metrics_params_len,
                                        FxAError *_Nonnull out);
 
 void fxa_complete_oauth_flow(FirefoxAccountHandle handle,

@@ -100,12 +100,26 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      *
      * @param scopes List of OAuth scopes for which the client wants access
      * @param entrypoint to be used for metrics
+     * @param metricsParams optional parameters used for metrics
      * @return String that resolves to the flow URL when complete
      */
-    fun beginOAuthFlow(scopes: Array<String>, entrypoint: String): String {
+    fun beginOAuthFlow(
+        scopes: Array<String>,
+        entrypoint: String,
+        metricsParams: MetricsParams = MetricsParams()
+    ): String {
         val scope = scopes.joinToString(" ")
+        val (nioBuf, len) = metricsParams.intoMessage().toNioDirectBuffer()
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, entrypoint, e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(
+                    this.handle.get(),
+                    scope,
+                    entrypoint,
+                    ptr,
+                    len,
+                    e
+            )
         }.getAndConsumeRustString()
     }
 
@@ -116,13 +130,29 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      *
      * @param pairingUrl the url to initilaize the paring flow with
      * @param scopes List of OAuth scopes for which the client wants access
-     * @param entrypoint to be used for data collection
+     * @param entrypoint to be used for metrics
+     * @param metricsParams optional parameters used for metrics
      * @return String that resoles to the flow URL when complete
      */
-    fun beginPairingFlow(pairingUrl: String, scopes: Array<String>, entrypoint: String): String {
+    fun beginPairingFlow(
+        pairingUrl: String,
+        scopes: Array<String>,
+        entrypoint: String,
+        metricsParams: MetricsParams = MetricsParams()
+    ): String {
         val scope = scopes.joinToString(" ")
+        val (nioBuf, len) = metricsParams.intoMessage().toNioDirectBuffer()
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_begin_pairing_flow(this.handle.get(), pairingUrl, scope, entrypoint, e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_begin_pairing_flow(
+                    this.handle.get(),
+                    pairingUrl,
+                    scope,
+                    entrypoint,
+                    ptr,
+                    len,
+                    e
+            )
         }.getAndConsumeRustString()
     }
 

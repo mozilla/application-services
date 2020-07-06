@@ -33,11 +33,16 @@ open class FirefoxAccount: RustFxAccount {
     open func beginOAuthFlow(
         scopes: [String],
         entrypoint: String,
+        metricsParams: MetricsParams = MetricsParams.newEmpty(),
         completionHandler: @escaping (URL?, Error?) -> Void
     ) {
         DispatchQueue.global().async {
             do {
-                let url = try super.beginOAuthFlow(scopes: scopes, entrypoint: entrypoint)
+                let url = try super.beginOAuthFlow(
+                    scopes: scopes,
+                    entrypoint: entrypoint,
+                    metricsParams: metricsParams
+                )
                 DispatchQueue.main.async { completionHandler(url, nil) }
             } catch {
                 DispatchQueue.main.async { completionHandler(nil, error) }

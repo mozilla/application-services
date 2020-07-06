@@ -12,7 +12,7 @@
 //!
 //! None of this is that bad in practice, but much of it is not ideal.
 
-pub use crate::oauth::{AuthorizationPKCEParams, AuthorizationParameters};
+pub use crate::oauth::{AuthorizationPKCEParams, AuthorizationParameters, MetricsParams};
 use crate::{
     commands,
     device::{Capability as DeviceCapability, Device, PushSubscription, Type as DeviceType},
@@ -35,6 +35,19 @@ pub mod error_codes {
 
     /// Code for network errors.
     pub const NETWORK: i32 = 3;
+}
+
+/// # Safety
+/// data is a raw pointer to the protobuf data
+/// get_buffer will return an error if the length is invalid,
+/// or if the pointer is a null pointer
+pub unsafe fn from_protobuf_ptr<T, F: prost::Message + Default + Into<T>>(
+    data: *const u8,
+    len: i32,
+) -> Result<T> {
+    let buffer = get_buffer(data, len)?;
+    let item: Result<F, _> = prost::Message::decode(buffer);
+    item.map(|inner| inner.into()).map_err(|e| e.into())
 }
 
 fn get_code(err: &Error) -> ErrorCode {
@@ -249,12 +262,12 @@ impl From<msg_types::device::Capability> for DeviceCapability {
 impl DeviceCapability {
     /// # Safety
     /// Deref pointer thus unsafe
-    pub unsafe fn from_protobuf_array_ptr(ptr: *const u8, len: i32) -> Vec<Self> {
-        let buffer = get_buffer(ptr, len);
+    pub unsafe fn from_protobuf_array_ptr(ptr: *const u8, len: i32) -> Result<Vec<Self>> {
+        let buffer = get_buffer(ptr, len)?;
         let capabilities: Result<msg_types::Capabilities, _> = prost::Message::decode(buffer);
-        capabilities
+        Ok(capabilities
             .map(|cc| cc.to_capabilities_vec())
-            .unwrap_or_else(|_| vec![])
+            .unwrap_or_else(|_| vec![]))
     }
 }
 
@@ -267,13 +280,16 @@ impl msg_types::Capabilities {
     }
 }
 
-unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
-    assert!(len >= 0, "Bad buffer len: {}", len);
-    if len == 0 {
-        &[]
-    } else {
-        assert!(!data.is_null(), "Unexpected null data pointer");
-        std::slice::from_raw_parts(data, len as usize)
+unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> Result<&'a [u8]> {
+    match len {
+        len if len < 0 => Err(ErrorKind::InvalidBufferLength(len).into()),
+        0 => Ok(&[]),
+        _ => {
+            if data.is_null() {
+                return Err(ErrorKind::NullPointer.into());
+            }
+            Ok(std::slice::from_raw_parts(data, len as usize))
+        }
     }
 }
 
@@ -296,22 +312,20 @@ impl From<msg_types::AuthorizationParams> for AuthorizationParameters {
     }
 }
 
+impl From<msg_types::MetricsParams> for MetricsParams {
+    fn from(proto_metrics_params: msg_types::MetricsParams) -> Self {
+        Self {
+            parameters: proto_metrics_params.parameters,
+        }
+    }
+}
+
 impl From<msg_types::AuthorizationPkceParams> for AuthorizationPKCEParams {
     fn from(proto_key_params: msg_types::AuthorizationPkceParams) -> Self {
         Self {
             code_challenge: proto_key_params.code_challenge,
             code_challenge_method: proto_key_params.code_challenge_method,
         }
-    }
-}
-
-impl AuthorizationParameters {
-    /// # Safety
-    /// Deref pointer thus unsafe
-    pub unsafe fn from_protobuf_ptr(ptr: *const u8, len: i32) -> Result<Self> {
-        let buffer = get_buffer(ptr, len);
-        let params: Result<msg_types::AuthorizationParams, _> = prost::Message::decode(buffer);
-        params.map(|ap| ap.into()).map_err(|e| e.into())
     }
 }
 

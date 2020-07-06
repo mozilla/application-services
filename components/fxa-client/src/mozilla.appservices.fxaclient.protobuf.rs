@@ -201,3 +201,8 @@ pub struct AuthorizationParams {
     #[prost(string, optional, tag="6")]
     pub keys_jwk: ::std::option::Option<std::string::String>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MetricsParams {
+    #[prost(map="string, string", tag="1")]
+    pub parameters: ::std::collections::HashMap<std::string::String, std::string::String>,
+}

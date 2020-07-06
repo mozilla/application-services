@@ -33,6 +33,8 @@ internal interface LibFxAFFI : Library {
         fxa: FxaHandle,
         scopes: String,
         entrypoint: String,
+        metrics_params: Pointer,
+        metrics_params_len: Int,
         e: RustError.ByReference
     ): Pointer?
 
@@ -41,6 +43,8 @@ internal interface LibFxAFFI : Library {
         pairingUrl: String,
         scopes: String,
         entrypoint: String,
+        metrics_params: Pointer,
+        metrics_params_len: Int,
         e: RustError.ByReference
     ): Pointer?
 
