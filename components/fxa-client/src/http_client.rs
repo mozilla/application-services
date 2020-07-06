@@ -100,6 +100,7 @@ pub trait FxAClient {
         &self,
         config: &Config,
         session_token: &str,
+        client_id: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
 }
@@ -364,10 +365,11 @@ impl FxAClient for Client {
         &self,
         config: &Config,
         session_token: &str,
+        client_id: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>> {
         let body = json!({
-            "client_id": config.client_id,
+            "client_id": client_id,
             "scope": scope,
         });
         let url = config.auth_url_path("v1/account/scoped-key-data")?;

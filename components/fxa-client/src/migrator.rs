@@ -167,6 +167,7 @@ impl FirefoxAccount {
         let scoped_key_data = self.client.scoped_key_data(
             &self.state.config,
             &migration_session_token,
+            &self.state.config.client_id,
             scopes::OLD_SYNC,
         )?;
         let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or_else(|| {
@@ -275,6 +276,7 @@ mod tests {
             .expect_scoped_key_data(
                 mockiato::Argument::any,
                 |arg| arg.partial_eq("dup_session"),
+                |arg| arg.partial_eq("12345678"),
                 |arg| arg.partial_eq(scopes::OLD_SYNC),
             )
             .returns_once(Ok(key_data));
@@ -349,6 +351,7 @@ mod tests {
             .expect_scoped_key_data(
                 mockiato::Argument::any,
                 |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq("12345678"),
                 |arg| arg.partial_eq(scopes::OLD_SYNC),
             )
             .returns_once(Err(ErrorKind::RemoteError {
@@ -377,6 +380,7 @@ mod tests {
             .expect_scoped_key_data(
                 mockiato::Argument::any,
                 |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq("12345678"),
                 |arg| arg.partial_eq(scopes::OLD_SYNC),
             )
             .returns_once(Err(ErrorKind::RemoteError {

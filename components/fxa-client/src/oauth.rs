@@ -177,31 +177,54 @@ impl FirefoxAccount {
         &self,
         auth_params: AuthorizationParameters,
     ) -> Result<String> {
-        // TODO: Add validation to check for which keys the client is allowed to request,
-        //       And if we have those keys stored locally.
-        //       Currently we pull ALL available keys that match the requested scopes, regardless
-        //       if the client is actually allowed to request them.
         let session_token = self.get_session_token()?;
+
+        // Validate request to ensure that the client is actually allowed to request
+        // the scopes they requested
+        let allowed_scopes = self.client.scoped_key_data(
+            &self.state.config,
+            &session_token,
+            &auth_params.client_id,
+            &auth_params.scope.join(" "),
+        )?;
+
+        if let Some(not_allowed_scope) = auth_params
+            .scope
+            .iter()
+            .find(|scope| !allowed_scopes.contains_key(*scope))
+        {
+            return Err(ErrorKind::ScopeNotAllowed(
+                auth_params.client_id.clone(),
+                not_allowed_scope.clone(),
+            )
+            .into());
+        }
+
         let keys_jwe = if let Some(keys_jwk) = auth_params.keys_jwk {
+            let mut scoped_keys = HashMap::new();
+            allowed_scopes
+                .iter()
+                .try_for_each(|(scope, _)| -> Result<()> {
+                    scoped_keys.insert(
+                        scope,
+                        self.state
+                            .scoped_keys
+                            .get(scope)
+                            .ok_or_else(|| ErrorKind::NoScopedKey(scope.clone()))?,
+                    );
+                    Ok(())
+                })?;
+            let scoped_keys = serde_json::to_string(&scoped_keys)?;
             let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
             let keys_jwk = String::from_utf8(keys_jwk)?;
-            let requested_scopes: HashSet<&str> = auth_params.scope.split_whitespace().collect();
-            let data: HashMap<String, ScopedKey> = self
-                .state
-                .scoped_keys
-                .iter()
-                .filter(|(scope, _)| requested_scopes.contains(&(*scope).as_ref()))
-                .map(|(key, value)| (key.clone(), value.clone()))
-                .collect();
-            let data = serde_json::to_string(&data)?;
             let client_keys_flow = ScopedKeysFlow::with_random_key()?;
-            Some(client_keys_flow.encrypt_keys_jwe(&keys_jwk, data.as_bytes())?)
+            Some(client_keys_flow.encrypt_keys_jwe(&keys_jwk, scoped_keys.as_bytes())?)
         } else {
             None
         };
         let auth_request_params = AuthorizationRequestParameters {
             client_id: auth_params.client_id,
-            scope: auth_params.scope,
+            scope: auth_params.scope.join(" "),
             state: auth_params.state,
             access_type: auth_params.access_type,
             code_challenge: auth_params
@@ -411,14 +434,16 @@ impl FirefoxAccount {
     }
 }
 
+#[derive(Clone)]
 pub struct AuthorizationPKCEParams {
     pub code_challenge: String,
     pub code_challenge_method: String,
 }
 
+#[derive(Clone)]
 pub struct AuthorizationParameters {
     pub client_id: String,
-    pub scope: String,
+    pub scope: Vec<String>,
     pub state: String,
     pub access_type: String,
     pub pkce_params: Option<AuthorizationPKCEParams>,
@@ -458,7 +483,7 @@ impl TryFrom<Url> for AuthorizationParameters {
         let keys_jwk = query_map.get("keys_jwk").cloned();
         Ok(Self {
             client_id,
-            scope,
+            scope: scope.split_whitespace().map(|s| s.to_string()).collect(),
             state,
             access_type,
             pkce_params,
@@ -782,5 +807,153 @@ mod tests {
 
         let auth_status = fxa.check_authorization_status().unwrap();
         assert_eq!(auth_status.active, true);
+    }
+
+    use crate::scopes;
+
+    #[test]
+    fn test_auth_code_pair_valid_not_allowed_scope() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+        fxa.set_session_token("session");
+        let mut client = FxAClientMock::new();
+        let not_allowed_scope = "https://identity.mozilla.com/apps/lockbox";
+        let expected_scopes = scopes::OLD_SYNC
+            .chars()
+            .chain(std::iter::once(' '))
+            .chain(not_allowed_scope.chars())
+            .collect::<String>();
+        client
+            .expect_scoped_key_data(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq("12345678"),
+                |arg| arg.partial_eq(expected_scopes),
+            )
+            .returns_once(Err(ErrorKind::RemoteError {
+                code: 400,
+                errno: 163,
+                error: "Invalid Scopes".to_string(),
+                message: "Not allowed to request scopes".to_string(),
+                info: "fyi, there was a server error".to_string(),
+            }
+            .into()));
+        fxa.set_client(Arc::new(client));
+        let auth_params = AuthorizationParameters {
+            client_id: "12345678".to_string(),
+            scope: vec![scopes::OLD_SYNC.to_string(), not_allowed_scope.to_string()],
+            state: "somestate".to_string(),
+            access_type: "offline".to_string(),
+            pkce_params: None,
+            keys_jwk: None,
+        };
+        let res = fxa.authorize_code_using_session_token(auth_params);
+        assert!(res.is_err());
+        let err = res.unwrap_err();
+        if let ErrorKind::RemoteError {
+            code,
+            errno,
+            error: _,
+            message: _,
+            info: _,
+        } = err.kind()
+        {
+            assert_eq!(*code, 400);
+            assert_eq!(*errno, 163); // Requested scopes not allowed
+        } else {
+            panic!("Should return an error from the server specifying that the requested scopes are not allowed");
+        }
+    }
+
+    #[test]
+    fn test_auth_code_pair_invalid_scope_not_allowed() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+        fxa.set_session_token("session");
+        let mut client = FxAClientMock::new();
+        let invalid_scope = "IamAnInvalidScope";
+        let expected_scopes = scopes::OLD_SYNC
+            .chars()
+            .chain(std::iter::once(' '))
+            .chain(invalid_scope.chars())
+            .collect::<String>();
+        let mut server_ret = HashMap::new();
+        server_ret.insert(
+            scopes::OLD_SYNC.to_string(),
+            ScopedKeyDataResponse {
+                key_rotation_secret: "IamASecret".to_string(),
+                key_rotation_timestamp: 100,
+                identifier: "".to_string(),
+            },
+        );
+        client
+            .expect_scoped_key_data(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq("12345678"),
+                |arg| arg.partial_eq(expected_scopes),
+            )
+            .returns_once(Ok(server_ret));
+        fxa.set_client(Arc::new(client));
+
+        let auth_params = AuthorizationParameters {
+            client_id: "12345678".to_string(),
+            scope: vec![scopes::OLD_SYNC.to_string(), invalid_scope.to_string()],
+            state: "somestate".to_string(),
+            access_type: "offline".to_string(),
+            pkce_params: None,
+            keys_jwk: None,
+        };
+        let res = fxa.authorize_code_using_session_token(auth_params);
+        assert!(res.is_err());
+        let err = res.unwrap_err();
+        if let ErrorKind::ScopeNotAllowed(client_id, scope) = err.kind() {
+            assert_eq!(client_id.clone(), "12345678");
+            assert_eq!(scope.clone(), "IamAnInvalidScope");
+        } else {
+            panic!("Should return an error that specifies the scope that is not allowed");
+        }
+    }
+
+    #[test]
+    fn test_auth_code_pair_scope_not_in_state() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+        fxa.set_session_token("session");
+        let mut client = FxAClientMock::new();
+        let mut server_ret = HashMap::new();
+        server_ret.insert(
+            scopes::OLD_SYNC.to_string(),
+            ScopedKeyDataResponse {
+                key_rotation_secret: "IamASecret".to_string(),
+                key_rotation_timestamp: 100,
+                identifier: "".to_string(),
+            },
+        );
+        client
+            .expect_scoped_key_data(
+                mockiato::Argument::any,
+                |arg| arg.partial_eq("session"),
+                |arg| arg.partial_eq("12345678"),
+                |arg| arg.partial_eq(scopes::OLD_SYNC),
+            )
+            .returns_once(Ok(server_ret));
+        fxa.set_client(Arc::new(client));
+        let auth_params = AuthorizationParameters {
+            client_id: "12345678".to_string(),
+            scope: vec![scopes::OLD_SYNC.to_string()],
+            state: "somestate".to_string(),
+            access_type: "offline".to_string(),
+            pkce_params: None,
+            keys_jwk: Some("IAmAVerySecretKeysJWkInBase64".to_string()),
+        };
+        let res = fxa.authorize_code_using_session_token(auth_params);
+        assert!(res.is_err());
+        let err = res.unwrap_err();
+        if let ErrorKind::NoScopedKey(scope) = err.kind() {
+            assert_eq!(scope.clone(), scopes::OLD_SYNC.to_string());
+        } else {
+            panic!("Should return an error that specifies the scope that is not in the state");
+        }
     }
 }
