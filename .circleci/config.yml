@@ -240,7 +240,7 @@ jobs:
       - setup-rust-toolchain
       - run: rustup component add rustfmt
       - run: rustfmt --version
-      - run: cargo fmt -- --check
+      - run: cargo fmt --all -- --check
   Lint Rust with clippy:
     docker:
       - image: circleci/rust:latest
