@@ -12,11 +12,12 @@
 //!
 //! None of this is that bad in practice, but much of it is not ideal.
 
+pub use crate::oauth::{AuthorizationPKCEParams, AuthorizationParameters};
 use crate::{
     commands,
     device::{Capability as DeviceCapability, Device, PushSubscription, Type as DeviceType},
     msg_types, send_tab, AccessTokenInfo, AccountEvent, Error, ErrorKind, IncomingDeviceCommand,
-    IntrospectInfo, Profile, ScopedKey,
+    IntrospectInfo, Profile, Result, ScopedKey,
 };
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
@@ -273,6 +274,40 @@ unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
     } else {
         assert!(!data.is_null(), "Unexpected null data pointer");
         std::slice::from_raw_parts(data, len as usize)
+    }
+}
+
+impl From<msg_types::AuthorizationParams> for AuthorizationParameters {
+    fn from(proto_params: msg_types::AuthorizationParams) -> Self {
+        Self {
+            client_id: proto_params.client_id,
+            scope: proto_params.scope,
+            state: proto_params.state,
+            access_type: proto_params.access_type,
+            pkce_params: proto_params
+                .pkce_params
+                .map(|pkce_params| pkce_params.into()),
+            keys_jwk: proto_params.keys_jwk,
+        }
+    }
+}
+
+impl From<msg_types::AuthorizationPkceParams> for AuthorizationPKCEParams {
+    fn from(proto_key_params: msg_types::AuthorizationPkceParams) -> Self {
+        Self {
+            code_challenge: proto_key_params.code_challenge,
+            code_challenge_method: proto_key_params.code_challenge_method,
+        }
+    }
+}
+
+impl AuthorizationParameters {
+    /// # Safety
+    /// Deref pointer thus unsafe
+    pub unsafe fn from_protobuf_ptr(ptr: *const u8, len: i32) -> Result<Self> {
+        let buffer = get_buffer(ptr, len);
+        let params: Result<msg_types::AuthorizationParams, _> = prost::Message::decode(buffer);
+        params.map(|ap| ap.into()).map_err(|e| e.into())
     }
 }
 

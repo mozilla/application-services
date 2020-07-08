@@ -7,6 +7,7 @@ use fxa_client::{self, auth, Config as FxaConfig, FirefoxAccount};
 use logins::PasswordEngine;
 use serde_json::json;
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::sync::Arc;
 use sync15::{KeyBundle, Sync15StorageClientInit};
 use tabs::TabsEngine;
@@ -47,7 +48,7 @@ pub struct TestAccount {
     pub pass: String,
     pub cfg: FxaConfig,
     pub no_delete: bool,
-    pub auth_key: Vec<u8>,
+    pub session_token: String,
     pub k_sync: Vec<u8>,
     pub xcs: Vec<u8>,
 }
@@ -83,7 +84,6 @@ impl TestAccount {
         log::info!("POST /v1/account/create succeeded");
 
         log::info!("Autoverifying account on restmail... uid = {}", uid);
-        let auth_key = auth::derive_auth_key_from_session_token(&session_token)?;
         Self::verify_account(&email, &cfg, &uid)?;
         let (sync_key, xcs_key) = auth::get_sync_keys(&cfg, &key_fetch_token, &email, &pass)?;
         log::info!("Account created and verified!");
@@ -93,7 +93,7 @@ impl TestAccount {
             pass,
             cfg,
             no_delete,
-            auth_key,
+            session_token: session_token.to_string(),
             k_sync: sync_key,
             xcs: xcs_key,
         }))
@@ -157,6 +157,7 @@ impl TestAccount {
 
     pub fn execute_oauth_flow(&self, oauth_url: &str) -> Result<String> {
         let url = Url::parse(oauth_url)?;
+        let auth_key = auth::derive_auth_key_from_session_token(&self.session_token)?;
         let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
         let jwk_base_64 = query_map.get("keys_jwk").unwrap();
         let decoded = base64::decode(&jwk_base_64).unwrap();
@@ -170,19 +171,39 @@ impl TestAccount {
             &client_id,
             &scope,
             &jwk,
-            &self.auth_key,
+            &auth_key,
             &self.cfg,
             (&self.k_sync, &self.xcs),
         )?;
-        let auth_params = auth::AuthorizationParameters::new(
-            client_id.clone(),
-            code_challenge.clone(),
-            code_challenge_method.clone(),
-            scope.clone(),
-            keys_jwe,
-            state.clone(),
-        );
-        auth::send_authorization_request(&self.cfg, auth_params, &self.auth_key)
+        let auth_params = auth::AuthorizationRequestParameters {
+            client_id: client_id.clone(),
+            code_challenge: Some(code_challenge.clone()),
+            code_challenge_method: Some(code_challenge_method.clone()),
+            scope: scope.clone(),
+            keys_jwe: Some(keys_jwe),
+            state: state.clone(),
+            access_type: "offline".to_string(),
+        };
+        auth::send_authorization_request(&self.cfg, auth_params, &auth_key)
+    }
+
+    fn execute_oauth_pair_flow(&self, oauth_uri: &str) -> Result<(String, String)> {
+        let url = Url::parse(&oauth_uri)?;
+        let auth_params = auth::AuthorizationParameters::try_from(url)?;
+        let scoped_keys = auth::get_scoped_keys(
+            &auth_params.scope,
+            &auth_params.client_id,
+            &auth::derive_auth_key_from_session_token(&self.session_token)?,
+            &self.cfg,
+            (&self.k_sync, &self.xcs),
+        )?;
+        // Setup authority account that is logged in and has the appropriate scoped keys
+        let fxa = FirefoxAccount::new_logged_in(self.cfg.clone(), &self.session_token, scoped_keys);
+        // Use the logged in client to generate the oauth code for
+        // a different client
+        let state = auth_params.state.clone();
+        let code = fxa.authorize_code_using_session_token(auth_params)?;
+        Ok((code, state))
     }
 }
 
@@ -230,15 +251,26 @@ impl TestClient {
     pub fn new(acct: Arc<TestAccount>) -> Result<Self> {
         log::info!("Doing oauth flow!");
         let mut fxa = FirefoxAccount::with_config(acct.cfg.clone());
-        let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test")?;
-        let redirected_to = acct.execute_oauth_flow(&oauth_uri)?;
-        let final_url = Url::parse(&redirected_to)?;
-        let query_params = final_url
-            .query_pairs()
-            .into_owned()
-            .collect::<HashMap<String, String>>();
+        // We either authenticate using the normal oauth_flow
+        // Or we use a pairing flow with a logged in account
+        // Both should work fine in executing the oauth flow
+        let (code, state) = if rand::random() {
+            let pairing_url = acct.cfg.authorization_endpoint().unwrap();
+            let pairing_url =
+                fxa.begin_pairing_flow(pairing_url.as_str(), &[SYNC_SCOPE], "integration_test")?;
+            acct.execute_oauth_pair_flow(&pairing_url)?
+        } else {
+            let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test")?;
+            let redirect_uri = acct.execute_oauth_flow(&oauth_uri)?;
+            let redirect_uri = Url::parse(&redirect_uri)?;
+            let query_params = redirect_uri
+                .query_pairs()
+                .into_owned()
+                .collect::<HashMap<String, String>>();
+            (query_params["code"].clone(), query_params["state"].clone())
+        };
         // should we be using the OAuthInfo this returns?
-        fxa.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
+        fxa.complete_oauth_flow(&code, &state)?;
         log::info!("OAuth flow finished");
 
         fxa.initialize_device("Testing Device", fxa_client::device::Type::Desktop, &[])?;

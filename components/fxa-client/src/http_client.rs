@@ -52,11 +52,8 @@ pub trait FxAClient {
     fn authorization_code_using_session_token(
         &self,
         config: &Config,
-        client_id: &str,
         session_token: &str,
-        scope: &str,
-        state: &str,
-        access_type: &str,
+        auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse>;
     fn duplicate_session(
         &self,
@@ -221,19 +218,10 @@ impl FxAClient for Client {
     fn authorization_code_using_session_token(
         &self,
         config: &Config,
-        client_id: &str,
         session_token: &str,
-        scope: &str,
-        state: &str,
-        access_type: &str,
+        auth_params: AuthorizationRequestParameters,
     ) -> Result<OAuthAuthResponse> {
-        let parameters = json!({
-            "client_id": client_id,
-            "scope": scope,
-            "response_type": "code",
-            "state": state,
-            "access_type": access_type,
-        });
+        let parameters = serde_json::to_value(&auth_params)?;
         let key = derive_auth_key_from_session_token(session_token)?;
         let url = config.auth_url_path("v1/oauth/authorization")?;
         let request = HawkRequestBuilder::new(Method::Post, url, &key)
@@ -492,38 +480,15 @@ pub fn derive_auth_key_from_session_token(session_token: &str) -> Result<Vec<u8>
     Ok(out)
 }
 
-#[cfg(feature = "integration_test")]
 #[derive(Serialize, Deserialize)]
-pub struct AuthorizationParameters {
-    access_type: String,
-    client_id: String,
-    code_challenge: String,
-    code_challenge_method: String,
-    scope: String,
-    keys_jwe: String,
-    state: String,
-}
-
-#[cfg(feature = "integration_test")]
-impl AuthorizationParameters {
-    pub fn new(
-        client_id: String,
-        code_challenge: String,
-        code_challenge_method: String,
-        scope: String,
-        keys_jwe: String,
-        state: String,
-    ) -> Self {
-        AuthorizationParameters {
-            access_type: "offline".to_string(),
-            client_id,
-            code_challenge,
-            code_challenge_method,
-            scope,
-            keys_jwe,
-            state,
-        }
-    }
+pub struct AuthorizationRequestParameters {
+    pub client_id: String,
+    pub scope: String,
+    pub state: String,
+    pub access_type: String,
+    pub code_challenge: Option<String>,
+    pub code_challenge_method: Option<String>,
+    pub keys_jwe: Option<String>,
 }
 
 // Keeping those functions out of the FxAClient trate becouse functions in the
@@ -533,7 +498,7 @@ impl AuthorizationParameters {
 #[cfg(feature = "integration_test")]
 pub fn send_authorization_request(
     config: &Config,
-    auth_params: AuthorizationParameters,
+    auth_params: AuthorizationRequestParameters,
     auth_key: &[u8],
 ) -> anyhow::Result<String> {
     let auth_endpoint = config.auth_url_path("v1/oauth/authorization")?;

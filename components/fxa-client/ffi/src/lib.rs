@@ -13,6 +13,7 @@ use ffi_support::{
 };
 use fxa_client::{
     device::{Capability as DeviceCapability, PushSubscription},
+    ffi::AuthorizationParameters,
     migrator::MigrationState,
     msg_types, FirefoxAccount,
 };
@@ -447,21 +448,16 @@ pub extern "C" fn fxa_get_devices(
 /// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_authorize_auth_code(
+pub unsafe extern "C" fn fxa_authorize_auth_code(
     handle: u64,
-    client_id: FfiStr<'_>,
-    scope: FfiStr<'_>,
-    state: FfiStr<'_>,
-    access_type: FfiStr<'_>,
+    auth_params: *const u8,
+    auth_params_len: i32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_authorize_auth_code");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let client_id = client_id.as_str();
-        let scope = scope.as_str();
-        let state = state.as_str();
-        let access_type = access_type.as_str();
-        fxa.authorize_code_using_session_token(client_id, scope, state, access_type)
+        let auth_params = AuthorizationParameters::from_protobuf_ptr(auth_params, auth_params_len)?;
+        fxa.authorize_code_using_session_token(auth_params)
     })
 }
 

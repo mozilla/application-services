@@ -128,10 +128,6 @@ impl ScopedKeysFlow {
         Ok(peer_pub_key)
     }
 
-    // Currently only used in the integration tests workflow, Will be consumed
-    //   by other consumers, the #[allow(dead_code)] will be removed
-    //   once consumers that are not under a feature consume it
-    #[allow(dead_code)]
     pub fn encrypt_keys_jwe(self, jwk: &str, data: &[u8]) -> Result<String> {
         let jwk: Jwk = serde_json::from_str(&jwk)?;
         let peer_public_key = Self::get_peer_public_from_jwk(jwk)?;

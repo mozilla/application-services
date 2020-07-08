@@ -304,21 +304,21 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     /**
      * Provisions an OAuth code using the session token from state
      *
-     * @param clientId OAuth client id.
-     * @param scopes Array of scopes for the OAuth code.
-     * @param state OAuth flow state.
-     * @param accessType Type of access, "offline" or "online".
+     * @param authParams Parameters needed for the authorization request
      * This performs network requests, and should not be used on the main thread.
      */
     fun authorizeOAuthCode(
-        clientId: String,
-        scopes: Array<String>,
-        state: String,
-        accessType: String = "online"
+        authParams: AuthorizationParams
     ): String {
-        val scope = scopes.joinToString(" ")
+        val (nioBuf, len) = authParams.intoMessage().toNioDirectBuffer()
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(this.handle.get(), clientId, scope, state, accessType, e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(
+                this.handle.get(),
+                ptr,
+                len,
+                e
+            )
         }.getAndConsumeRustString()
     }
 

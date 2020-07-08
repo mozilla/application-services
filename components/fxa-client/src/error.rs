@@ -105,6 +105,9 @@ pub enum ErrorKind {
     #[error("Unsupported command: {0}")]
     UnsupportedCommand(&'static str),
 
+    #[error("Missing URL parameter: {0}")]
+    MissingUrlParameter(&'static str),
+
     #[error("Remote server error: '{code}' '{errno}' '{error}' '{message}' '{info}'")]
     RemoteError {
         code: u64,

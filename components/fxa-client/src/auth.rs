@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+pub use crate::oauth::{AuthorizationPKCEParams, AuthorizationParameters};
 use crate::{
     error::*,
     http_client,
@@ -11,7 +12,7 @@ use crate::{
 };
 pub use http_client::{
     derive_auth_key_from_session_token, send_authorization_request, send_verification,
-    AuthorizationParameters,
+    AuthorizationRequestParameters,
 };
 use rc_crypto::{digest, hkdf, hmac, pbkdf2};
 use serde_derive::{Deserialize, Serialize};
@@ -66,7 +67,7 @@ fn kw(name: &str) -> Vec<u8> {
         .to_vec()
 }
 
-fn get_scoped_keys(
+pub fn get_scoped_keys(
     scope: &str,
     client_id: &str,
     auth_key: &[u8],
