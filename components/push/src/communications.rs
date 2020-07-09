@@ -12,7 +12,8 @@
 
 use serde_derive::*;
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
 use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
@@ -354,11 +355,9 @@ impl Connection for ConnectHttp {
             }
         };
         if request.is_server_error() {
-            // dbg!(request);
             return Err(CommunicationServerError("Server error".to_string()).into());
         }
         if request.is_client_error() {
-            // dbg!(&request);
             return Err(CommunicationError(format!("Unhandled client error {:?}", request)).into());
         }
         let payload: Payload = match request.json() {
@@ -378,8 +377,7 @@ impl Connection for ConnectHttp {
         }
         Ok(payload
             .channel_ids
-            .to_vec()
-            .into_iter()
+            .iter()
             .map(|s| Store::normalize_uuid(&s))
             .collect())
     }
@@ -404,17 +402,12 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
-        let my_chans: Vec<String> = channels
-            .to_vec()
-            .into_iter()
-            .map(|s| Store::normalize_uuid(&s))
-            .collect();
-        log::debug!("Getting Channel List");
-        let remote = self.channel_list()?;
-        // verify both lists match. Either side could have lost it's mind.
+        let local_channels: HashSet<String> = HashSet::from_iter(channels.iter().cloned());
+        let remote_channels: HashSet<String> = HashSet::from_iter(self.channel_list()?);
 
-        if remote != my_chans {
-            // Unsubscribe all the channels (just to be sure and avoid a loop)
+        // verify both lists match. Either side could have lost it's mind.
+        if remote_channels != local_channels {
+            // Unsubscribe all the channels (just to be sure and avoid a loop).
             self.unsubscribe(None)?;
             return Ok(false);
         }

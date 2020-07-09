@@ -128,12 +128,11 @@ impl PushManager {
         let uaid = self
             .conn
             .uaid
-            .clone()
+            .as_ref()
             .ok_or_else(|| ErrorKind::GeneralError("No subscriptions created yet.".into()))?;
 
         let channels = self.store.get_channel_list(&uaid)?;
-        let channels_match = self.conn.verify_connection(&channels)?;
-        if channels_match {
+        if self.conn.verify_connection(&channels)? {
             // Everything is fine, our subscriptions in the db match the remote server.
             return Ok(Vec::new());
         }
