@@ -5,6 +5,9 @@
 import Foundation
 @testable import MozillaAppServices
 
+// Arrays are not thread-safe in Swift.
+let queue = DispatchQueue(label: "InvocationsArrayQueue")
+
 class MockFxAccount: FxAccount {
     var invocations: [MethodInvocation] = []
     enum MethodInvocation {
@@ -35,38 +38,38 @@ class MockFxAccount: FxAccount {
     }
 
     override func initializeDevice(name _: String, deviceType _: DeviceType, supportedCapabilities _: [DeviceCapability]) throws {
-        invocations.append(.initializeDevice)
+        queue.sync { invocations.append(.initializeDevice) }
     }
 
     override func getDevices(ignoreCache _: Bool) throws -> [Device] {
-        invocations.append(.getDevices)
+        queue.sync { invocations.append(.getDevices) }
         return []
     }
 
     override func registerPersistCallback(_: PersistCallback) {
-        invocations.append(.registerPersistCallback)
+        queue.sync { invocations.append(.registerPersistCallback) }
     }
 
     override func ensureCapabilities(supportedCapabilities _: [DeviceCapability]) throws {
-        invocations.append(.ensureCapabilities)
+        queue.sync { invocations.append(.ensureCapabilities) }
     }
 
     override func checkAuthorizationStatus() throws -> IntrospectInfo {
-        invocations.append(.checkAuthorizationStatus)
+        queue.sync { invocations.append(.checkAuthorizationStatus) }
         return IntrospectInfo(active: true)
     }
 
     override func clearAccessTokenCache() throws {
-        invocations.append(.clearAccessTokenCache)
+        queue.sync { invocations.append(.clearAccessTokenCache) }
     }
 
     override func getAccessToken(scope _: String, ttl _: UInt64? = nil) throws -> AccessTokenInfo {
-        invocations.append(.getAccessToken)
+        queue.sync { invocations.append(.getAccessToken) }
         return AccessTokenInfo(scope: "profile", token: "toktok")
     }
 
     override func getProfile(ignoreCache _: Bool) throws -> Profile {
-        invocations.append(.getProfile)
+        queue.sync { invocations.append(.getProfile) }
         return Profile(uid: "uid", email: "foo@bar.bobo")
     }
 
@@ -80,9 +83,6 @@ class MockFxAccount: FxAccount {
 }
 
 class MockFxAccountManager: FxAccountManager {
-    var invocations: [MethodInvocation] = []
-    enum MethodInvocation {}
-
     var storedAccount: FxAccount?
 
     override func createAccount() -> FxAccount {
@@ -111,17 +111,17 @@ class MockDeviceConstellation: DeviceConstellation {
     }
 
     override func initDevice(name: String, type: DeviceType, capabilities: [DeviceCapability]) {
-        invocations.append(.initDevice)
+        queue.sync { invocations.append(.initDevice) }
         super.initDevice(name: name, type: type, capabilities: capabilities)
     }
 
     override func ensureCapabilities(capabilities: [DeviceCapability]) {
-        invocations.append(.ensureCapabilities)
+        queue.sync { invocations.append(.ensureCapabilities) }
         super.ensureCapabilities(capabilities: capabilities)
     }
 
     override func refreshState() {
-        invocations.append(.refreshState)
+        queue.sync { invocations.append(.refreshState) }
         super.refreshState()
     }
 }
