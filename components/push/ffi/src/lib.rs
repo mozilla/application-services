@@ -140,7 +140,7 @@ pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut Ex
 // Returns a bool indicating if channel_ids should resubscribe.
 #[no_mangle]
 pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> ByteBuffer {
-    log::debug!("push_verify");
+    log::debug!("push_verify_connection");
     use push::msg_types::PushSubscriptionChanged;
     use push::msg_types::PushSubscriptionsChanged;
 
