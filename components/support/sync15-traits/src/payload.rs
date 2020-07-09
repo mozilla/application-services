@@ -65,7 +65,7 @@ impl Payload {
                 old_value,
             );
         }
-        return self;
+        self
     }
 
     pub fn take_auto_field<V>(&mut self, name: &str) -> Option<V>
