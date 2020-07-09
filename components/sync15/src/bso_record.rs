@@ -9,7 +9,6 @@ use lazy_static::lazy_static;
 use serde::de::{Deserialize, DeserializeOwned};
 use serde::ser::Serialize;
 use serde_derive::*;
-use serde_json::Value as JsonValue;
 use std::ops::{Deref, DerefMut};
 pub use sync15_traits::Payload;
 use sync_guid::Guid;
@@ -254,9 +253,9 @@ impl EncryptedPayload {
 
 impl EncryptedBso {
     pub fn decrypt(self, key: &KeyBundle) -> error::Result<CleartextBso> {
-        let mut new_payload: Payload = self
+        let new_payload = self
             .payload
-            .decrypt_and_parse_payload(key)?
+            .decrypt_and_parse_payload::<Payload>(key)?
             .with_auto_field("sortindex", self.sortindex)
             .with_auto_field("ttl", self.ttl);
 
@@ -290,6 +289,7 @@ impl CleartextBso {
 mod tests {
     use super::*;
     use serde_json::json;
+    use serde_json::Value as JsonValue;
 
     #[test]
     fn test_deserialize_enc() {
