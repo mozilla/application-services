@@ -257,11 +257,15 @@ impl TestClient {
         // Both should work fine in executing the oauth flow
         let (code, state) = if rand::random() {
             let pairing_url = acct.cfg.authorization_endpoint().unwrap();
-            let pairing_url =
-                fxa.begin_pairing_flow(pairing_url.as_str(), &[SYNC_SCOPE], "integration_test")?;
+            let pairing_url = fxa.begin_pairing_flow(
+                pairing_url.as_str(),
+                &[SYNC_SCOPE],
+                "integration_test",
+                None,
+            )?;
             acct.execute_oauth_pair_flow(&pairing_url)?
         } else {
-            let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test")?;
+            let oauth_uri = fxa.begin_oauth_flow(&[SYNC_SCOPE], "integration_test", None)?;
             let redirect_uri = acct.execute_oauth_flow(&oauth_uri)?;
             let redirect_uri = Url::parse(&redirect_uri)?;
             let query_params = redirect_uri

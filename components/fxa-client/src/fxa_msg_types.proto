@@ -136,3 +136,7 @@ message AuthorizationParams {
     optional AuthorizationPKCEParams pkce_params = 5;
     optional string keys_jwk = 6;
 }
+
+message MetricsParams {
+    map<string, string> parameters = 1;
+}

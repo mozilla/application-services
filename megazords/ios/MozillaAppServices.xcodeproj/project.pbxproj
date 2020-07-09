@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1379D0682404BE1300AABD16 /* logins_msg_types.proto */; };
 		137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137C5892240257340016932F /* Data+LoginsRustBuffer.swift */; };
+		78B6532724B39B2400ED1555 /* FxAccountMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B6532624B39B2400ED1555 /* FxAccountMetrics.swift */; };
 		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
 		C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */; };
 		C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECC220A29FE00A6E79A /* LoginRecord.swift */; };
@@ -106,6 +107,7 @@
 /* Begin PBXFileReference section */
 		1379D0682404BE1300AABD16 /* logins_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = logins_msg_types.proto; path = ../../src/logins_msg_types.proto; sourceTree = "<group>"; };
 		137C5892240257340016932F /* Data+LoginsRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Data+LoginsRustBuffer.swift"; path = "Extensions/Data+LoginsRustBuffer.swift"; sourceTree = "<group>"; };
+		78B6532624B39B2400ED1555 /* FxAccountMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountMetrics.swift; sourceTree = "<group>"; };
 		C852EE9A220A26E600A6E79A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C852EE9D220A283200A6E79A /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
 		C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPasswordAPI.h; sourceTree = "<group>"; };
@@ -237,6 +239,7 @@
 				C852EEDD220A2A2B00A6E79A /* FirefoxAccount.swift */,
 				CEDDBC8B23DB438F00CFF5AA /* RustFxAccount.swift */,
 				CEDDBC8D23DB4CD600CFF5AA /* FxAccount.swift */,
+				78B6532624B39B2400ED1555 /* FxAccountMetrics.swift */,
 				CE1445AB23D6058B00B1E808 /* FxAccountConfig.swift */,
 				CED443CA23CCF385007E5FA6 /* FxAccountDevice.swift */,
 				CED443CC23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift */,
@@ -472,6 +475,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = CE9D201620914D0D00F1C8FA;
 			productRefGroup = CE9D202120914D0D00F1C8FA /* Products */;
@@ -542,6 +546,7 @@
 				CDC0089D2236CAB900893800 /* fxa_msg_types.proto in Sources */,
 				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
+				78B6532724B39B2400ED1555 /* FxAccountMetrics.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
 				CED443CB23CCF385007E5FA6 /* FxAccountDevice.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,

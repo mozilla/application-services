@@ -111,6 +111,12 @@ pub enum ErrorKind {
     #[error("Missing URL parameter: {0}")]
     MissingUrlParameter(&'static str),
 
+    #[error("Null pointer passed to FFI")]
+    NullPointer,
+
+    #[error("Invalid buffer length: {0}")]
+    InvalidBufferLength(i32),
+
     #[error("Remote server error: '{code}' '{errno}' '{error}' '{message}' '{info}'")]
     RemoteError {
         code: u64,
