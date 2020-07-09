@@ -36,7 +36,7 @@ anyhow = "1.0"
 
 [dependencies.rusqlite]
 version = "0.23.1"
-features = ["functions", "bundled"]
+features = ["functions", "bundled", "unlock_notify"]
 
 [dev-dependencies]
 more-asserts = "0.2"
