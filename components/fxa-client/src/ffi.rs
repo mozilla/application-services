@@ -281,7 +281,11 @@ impl From<msg_types::AuthorizationParams> for AuthorizationParameters {
     fn from(proto_params: msg_types::AuthorizationParams) -> Self {
         Self {
             client_id: proto_params.client_id,
-            scope: proto_params.scope,
+            scope: proto_params
+                .scope
+                .split_whitespace()
+                .map(|s| s.to_string())
+                .collect(),
             state: proto_params.state,
             access_type: proto_params.access_type,
             pkce_params: proto_params

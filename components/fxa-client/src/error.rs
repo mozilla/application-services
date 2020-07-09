@@ -102,6 +102,9 @@ pub enum ErrorKind {
     #[error("HMAC mismatch")]
     HmacMismatch,
 
+    #[error("Client: {0} is not allowed to request scope: {1}")]
+    ScopeNotAllowed(String, String),
+
     #[error("Unsupported command: {0}")]
     UnsupportedCommand(&'static str),
 

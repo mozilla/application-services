@@ -191,7 +191,7 @@ impl TestAccount {
         let url = Url::parse(&oauth_uri)?;
         let auth_params = auth::AuthorizationParameters::try_from(url)?;
         let scoped_keys = auth::get_scoped_keys(
-            &auth_params.scope,
+            &auth_params.scope.join(" "),
             &auth_params.client_id,
             &auth::derive_auth_key_from_session_token(&self.session_token)?,
             &self.cfg,
@@ -199,9 +199,10 @@ impl TestAccount {
         )?;
         // Setup authority account that is logged in and has the appropriate scoped keys
         let fxa = FirefoxAccount::new_logged_in(self.cfg.clone(), &self.session_token, scoped_keys);
+
+        let state = auth_params.state.clone();
         // Use the logged in client to generate the oauth code for
         // a different client
-        let state = auth_params.state.clone();
         let code = fxa.authorize_code_using_session_token(auth_params)?;
         Ok((code, state))
     }
