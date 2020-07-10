@@ -44,9 +44,9 @@ impl Payload {
     /// the future) which are:
     ///
     /// - Added to the payload automatically when deserializing if present on
-    ///   the incoming BSO.
-    /// - Removed from the payload automatically and attached to the BSO if
-    ///   present on the outgoing payload.
+    ///   the incoming BSO or envelope.
+    /// - Removed from the payload automatically and attached to the BSO or
+    ///   envelope if present on the outgoing payload.
     pub fn with_auto_field<T: Into<JsonValue>>(mut self, name: &str, v: Option<T>) -> Payload {
         let old_value: Option<JsonValue> = if let Some(value) = v {
             self.data.insert(name.into(), value.into())
