@@ -163,8 +163,7 @@ pub struct OutgoingEnvelope {
 }
 
 impl From<Payload> for OutgoingEnvelope {
-    fn from(payload: Payload) -> Self {
-        let mut payload = payload;
+    fn from(mut payload: Payload) -> Self {
         let id = payload.id.clone();
         // Remove auto field data from OutgoingEnvelope payload
         let ttl = payload.take_auto_field("ttl");
