@@ -40,8 +40,7 @@ impl Payload {
         self
     }
 
-    /// "Auto" fields are fields like 'sortindex' (and potentially 'ttl' in
-    /// the future) which are:
+    /// "Auto" fields are fields like 'sortindex' and 'ttl', which are:
     ///
     /// - Added to the payload automatically when deserializing if present on
     ///   the incoming BSO or envelope.
