@@ -1,3 +1,41 @@
+# v62.0.0 (_2020-07-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...v62.0.0)
+
+## FxA Client
+
+### ⚠️ Breaking changes ⚠️
+
+- Adds support for `entrypoint` in oauth flow APIs: consumers of `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios) are now ***required*** to pass an `entrypoint` argument that would be used for metrics. This puts the `beginOAuthFlow` and `beginPairingFlow` APIs inline with other existing APIs, like `getManageAccountUrl`.  ([#3265](https://github.com/mozilla/application-services/pull/3265))
+- Changes the `authorizeOAuthCode` API to now accept an `AuthorizationParams` object instead of the individual parameters. The `AuthorizationParams` also includes optional `AuthorizationPKCEParams` that contain the `codeChallenge`, `codeChallengeMethod`. `AuthorizationParams` also includes an optional `keysJwk` for requesting keys ([#3264](https://github.com/mozilla/application-services/pull/3264))
+
+### What's new ###
+- Consumers can now optionally include parameters for metrics in `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios). Those parameters can be passed in using a `MetricsParams` struct/class. `MetricsParams` is defined in both the Kotlin and Swift bindings. The parameters are the following ([#3328](https://github.com/mozilla/application-services/pull/3328)):
+  - flow_id
+  - flow_begin_time
+  - device_id
+  - utm_source
+  - utm_content
+  - utm_medium
+  - utm_term
+  - utm_campaign
+  - entrypoint_experiment
+  - entrypoint_variation
+
+## Logins
+
+### What's fixed ###
+
+- Fixed a bug where attempting to edit a login with an empty `form_submit_url` would incorrectly
+  reject the entry as invalid ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+
+## Tabs
+
+### What's new ###
+
+- Tab records now have an explicit TTL set when storing on the server, to match the behaviour
+  of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-services/pull/3322)).
+
 # v61.0.7 (_2020-06-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.6...v61.0.7)
@@ -2245,3 +2283,4 @@ N/A
 
 - Clarified which exceptions are thrown in documentation in cases where it was unclear. ([#495](https://github.com/mozilla/application-services/pull/495))
 - Added `@Throws` annotations to all methods which can throw. ([#495](https://github.com/mozilla/application-services/pull/495))
+
