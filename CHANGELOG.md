@@ -1,3 +1,11 @@
+# v62.0.1 (_2020-07-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v62.0.0...v62.0.1)
+
+## General
+
+- Bumping version due to failures on the GitHub side. Republishing...
+
 # v62.0.0 (_2020-07-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...v62.0.0)
