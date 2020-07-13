@@ -21,15 +21,10 @@ EXTRA_ARGS=( "$@" )
 
 cargo test --all ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
-#Linker failures because --all-features will activate the gecko feature, which lets Firefox for Desktop link its own sqlite
-#which we don't have here since we're not linking against Firefox.See PR 3151
-#cargo test --all --all-features ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
-
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
-# Instead we pull the list of individual package manifest files out of `cargo metadata` and
-# test using --manifest-path for each individual package.
-# This is a really gross way to parse JSON, but works with no external depdenencies...
-for manifest in $(cargo metadata --format-version 1 --no-deps | tr -s '"' '\n' | grep 'Cargo.toml'); do
+# Instead we pull the list of individual package manifest files which have default features
+# out of `cargo metadata` and test using --manifest-path for each individual package.
+for manifest in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select((.features | .default | length) > 0) | .manifest_path'); do
     package=$(dirname "$manifest")
     package=$(basename "$package")
     echo "## no-default-features test for package $package (manifest @ $manifest)"
@@ -38,3 +33,10 @@ done
 
 # Test NSS bindings
 cargo run -p systest
+
+# Test all features. nss-sys's --features handling is broken, and I don't feel
+# like shaving this yak any further today so just use a custom --cfg. This
+# shouldn't be this way!
+#
+# Do this last to minimize rebuild churn.
+env RUSTFLAGS="--cfg __appsvc_ci_hack" cargo test --all --all-features ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
