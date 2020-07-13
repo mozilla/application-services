@@ -12,3 +12,9 @@ log = "0.4"
 sync15 = { path = "../../sync15" }
 url = "2.1"
 webbrowser = "0.5"
+# disable regex feature, as it's very costly for compile time and very rarely
+# used.
+[dependencies.env_logger]
+version = "0.7"
+default-features = false
+features = ["termcolor", "atty", "humantime"]

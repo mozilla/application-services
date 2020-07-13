@@ -1,7 +1,7 @@
-#![allow(unknown_lints)]
-#![warn(rust_2018_idioms)]
-
-use criterion::{criterion_group, criterion_main, Criterion};
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+use criterion::Criterion;
 use places::api::{
     matcher::{match_url, search_frecent, SearchParams},
     places_api::ConnectionType,
@@ -11,16 +11,26 @@ use sql_support::ConnExt;
 use std::rc::Rc;
 use tempdir::TempDir;
 
-#[derive(Clone, Debug, serde_derive::Deserialize)]
+#[derive(Clone, Debug)]
 struct DummyHistoryEntry {
     url: String,
     title: String,
 }
+fn get_dummy_data() -> Vec<DummyHistoryEntry> {
+    let dummy_data = include_str!("../fixtures/dummy_urls.json");
+    let entries: Vec<serde_json::Value> = serde_json::from_str(dummy_data).unwrap();
+    entries
+        .into_iter()
+        .map(|m| DummyHistoryEntry {
+            url: m["url"].as_str().unwrap().into(),
+            title: m["title"].as_str().unwrap().into(),
+        })
+        .collect()
+}
 
 fn init_db(db: &mut PlacesDb) -> places::Result<()> {
-    let dummy_data = include_str!("../fixtures/dummy_urls.json");
-    let entries: Vec<DummyHistoryEntry> = serde_json::from_str(dummy_data)?;
     let tx = db.unchecked_transaction()?;
+    let entries = get_dummy_data();
     let day_ms = 24 * 60 * 60 * 1000;
     let now: places::Timestamp = std::time::SystemTime::now().into();
     for entry in entries {
@@ -75,7 +85,7 @@ macro_rules! db_bench {
     }};
 }
 
-fn bench_search_frecent(c: &mut Criterion) {
+pub fn bench_search_frecent(c: &mut Criterion) {
     let test_db = TestDb::new();
     db_bench!(c, "search_frecent string", |db: test_db| {
         search_frecent(
@@ -109,7 +119,7 @@ fn bench_search_frecent(c: &mut Criterion) {
     });
 }
 
-fn bench_match_url(c: &mut Criterion) {
+pub fn bench_match_url(c: &mut Criterion) {
     let test_db = TestDb::new();
     db_bench!(c, "match_url string", |db: test_db| {
         match_url(&db, "mozilla").unwrap()
@@ -121,6 +131,3 @@ fn bench_match_url(c: &mut Criterion) {
         match_url(&db, "https://hg.mozilla.org/mozilla-central").unwrap()
     });
 }
-
-criterion_group!(benches, bench_search_frecent, bench_match_url);
-criterion_main!(benches);

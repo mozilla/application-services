@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![recursion_limit = "4096"]
-#![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
@@ -226,15 +225,9 @@ fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> 
     Ok(Some(index_to_id[input].as_str().into()))
 }
 
-fn init_logging() {
-    // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
-    let spec = "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
-    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
-}
-
 #[allow(clippy::cognitive_complexity)] // FIXME
 fn main() -> Result<()> {
-    init_logging();
+    cli_support::init_trace_logging();
     std::env::set_var("RUST_BACKTRACE", "1");
 
     let matches = clap::App::new("sync_pass_sql")

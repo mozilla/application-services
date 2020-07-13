@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
@@ -14,6 +13,7 @@ use anyhow::Result;
 
 fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
+    cli_support::init_logging();
     let matches = clap::App::new("tabs_sync")
         .about("CLI for Sync tabs engine")
         .arg(

@@ -38,6 +38,9 @@ members = [
     "megazords/lockbox",
     "testing/sync-test",
     "tools/protobuf-gen",
+
+    "examples/*/",
+    "testing/separated/*/",
 ]
 
 # The `default-members` are the things that are built/tested when you run `cargo
@@ -96,6 +99,8 @@ default-members = [
     "components/webext-storage",
     "testing/sync-test",
     "tools/protobuf-gen",
+    "examples/*/",
+    "testing/separated/*/",
 ]
 
 [profile.release]

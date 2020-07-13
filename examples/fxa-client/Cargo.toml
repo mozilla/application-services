@@ -1,0 +1,29 @@
+[package]
+name = "examples-fxa-client"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+# These three all have the same deps, and not a ton of them, so just bundle them
+# as 3 examples in 1 crate.
+
+[[example]]
+name = "fxa-devices-api"
+path = "src/devices-api.rs"
+[[example]]
+name = "fxa-migration"
+path = "src/migration.rs"
+[[example]]
+name = "fxa-oauth-flow"
+path = "src/oauth-flow.rs"
+
+[dev-dependencies]
+viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+cli-support = { path = "../../components/support/cli" }
+fxa-client = { path = "../../components/fxa-client" }
+anyhow = "1.0"
+dialoguer = "0.6"
+webbrowser = "0.5"
+url = "2.1"

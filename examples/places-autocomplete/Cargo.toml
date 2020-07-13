@@ -1,0 +1,32 @@
+[package]
+name = "example-places-autocomplete"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+[[example]]
+name = "places-autocomplete"
+path = "src/autocomplete.rs"
+
+[dev-dependencies]
+places = { path = "../../components/places" }
+log = "0.4"
+url = "2.1"
+anyhow = "1.0"
+sql-support = { path = "../../components/support/sql" }
+clap = "2.33"
+tempfile = "3.1"
+rand = "0.7"
+find-places-db = "0.2"
+
+[dev-dependencies.rusqlite]
+version = "0.23.1"
+features = ["functions", "bundled"]
+
+# While we don't have a replacement for termion on Windows yet (and thus
+# our example doesn't work on Windows), it does get further in the compilation
+# such that "cargo test" etc shows errors in our code rather than in termion.
+[target.'cfg(not(windows))'.dev-dependencies]
+termion = "1.5"

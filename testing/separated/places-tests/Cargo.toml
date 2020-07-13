@@ -1,0 +1,25 @@
+[package]
+name = "places-integration-tests"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+
+[[test]]
+path = "src/tests.rs"
+name = "places-integration-tests"
+
+[dev-dependencies]
+sql-support = { path = "../../../components/support/sql" }
+sync-guid = { path = "../../../components/support/guid" }
+places = { path = "../../../components/places" }
+sync15 = { path = "../../../components/sync15" }
+serde_json = "1.0"
+url = "2.1"
+dogear = "0.4"
+tempfile = "3.1"
+env_logger = { version = "0.7", default-features = false }
+
+[dev-dependencies.rusqlite]
+version = "0.23.1"
+features = ["functions", "bundled"]

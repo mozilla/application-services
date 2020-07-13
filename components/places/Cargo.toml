@@ -39,30 +39,6 @@ version = "0.23.1"
 features = ["functions", "bundled", "unlock_notify"]
 
 [dev-dependencies]
-more-asserts = "0.2"
-env_logger = "0.7"
-find-places-db = "0.2"
-clap = "2.33"
-structopt = "0.3"
-tempfile = "3.1"
-rand = "0.7"
-fxa-client = { path = "../fxa-client" }
-criterion = "0.3"
-tempdir = "0.3"
-cli-support = { path = "../support/cli" }
 pretty_assertions = "0.6"
-ctrlc = "3.1"
-
-# While we don't have a replacement for termion on Windows yet (and thus
-# our example doesn't work on Windows), it does get further in the compilation
-# such that "cargo test" etc shows errors in our code rather than in termion.
-[target.'cfg(not(windows))'.dev-dependencies]
-termion = "1.5"
-
-[[bench]]
-name = "match_impl"
-harness = false
-
-[[bench]]
-name = "search"
-harness = false
+tempfile = "3.1"
+env_logger = {version = "0.7", default-features = false}

@@ -2,7 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
@@ -14,8 +13,6 @@ use places::storage::bookmarks::{
 };
 use places::types::{BookmarkType, Timestamp};
 use places::{ConnectionType, PlacesApi, PlacesDb};
-use sync_guid::Guid as SyncGuid;
-
 use serde_derive::*;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -24,15 +21,10 @@ use sync15::{
     sync_multiple, MemoryCachedState, SetupStorageClient, Store, StoreSyncAssociation,
     Sync15StorageClient,
 };
+use sync_guid::Guid as SyncGuid;
 use url::Url;
 
 use anyhow::Result;
-
-fn init_logging() {
-    // Explicitly ignore some rather noisy crates. Turn on trace for everyone else.
-    let spec = "trace,tokio_threadpool=warn,tokio_reactor=warn,tokio_core=warn,tokio=warn,hyper=warn,want=warn,mio=warn,reqwest=warn";
-    env_logger::init_from_env(env_logger::Env::default().filter_or("RUST_LOG", spec));
-}
 
 // A struct in the format of desktop with a union of all fields.
 #[derive(Debug, Default, Deserialize)]
@@ -381,7 +373,7 @@ enum Command {
 fn main() -> Result<()> {
     let opts = Opts::from_args();
     if !opts.no_logging {
-        init_logging();
+        cli_support::init_trace_logging();
     }
 
     let db_path = opts.database_path;

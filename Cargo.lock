@@ -248,6 +248,7 @@ name = "cli-support"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "env_logger",
  "fxa-client",
  "log 0.4.11",
  "sync15",
@@ -594,6 +595,101 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-places-autocomplete"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "find-places-db",
+ "log 0.4.11",
+ "places",
+ "rand 0.7.3",
+ "rusqlite",
+ "sql-support",
+ "tempfile",
+ "termion",
+ "url",
+]
+
+[[package]]
+name = "example-places-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cli-support",
+ "ctrlc",
+ "find-places-db",
+ "fxa-client",
+ "log 0.4.11",
+ "places",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "structopt",
+ "sync-guid",
+ "sync15",
+ "tempdir",
+ "url",
+]
+
+[[package]]
+name = "example-push-livetest"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "push",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
+name = "example-sync-pass"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "cli-support",
+ "fxa-client",
+ "log 0.4.11",
+ "logins",
+ "prettytable-rs",
+ "rusqlite",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15",
+ "tempdir",
+]
+
+[[package]]
+name = "example-tabs-sync"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "cli-support",
+ "clipboard",
+ "log 0.4.11",
+ "serde_json",
+ "tabs",
+ "viaduct-reqwest",
+]
+
+[[package]]
+name = "examples-fxa-client"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cli-support",
+ "dialoguer",
+ "fxa-client",
+ "url",
+ "viaduct-reqwest",
+ "webbrowser",
+]
+
+[[package]]
 name = "extend"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -635,11 +731,8 @@ name = "ffi-support"
 version = "0.4.0"
 dependencies = [
  "backtrace",
- "env_logger",
  "lazy_static",
  "log 0.4.11",
- "rand 0.7.3",
- "rayon",
 ]
 
 [[package]]
@@ -650,6 +743,17 @@ checksum = "087be066eb6e85d7150f0c5400018a32802f99d688b2d3868c526f7bbfe17960"
 dependencies = [
  "lazy_static",
  "log 0.4.11",
+]
+
+[[package]]
+name = "ffi-support-extra-test"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "ffi-support 0.4.0",
+ "log 0.4.11",
+ "rand 0.7.3",
+ "rayon",
 ]
 
 [[package]]
@@ -769,8 +873,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base64 0.12.3",
- "cli-support",
- "dialoguer",
  "error-support",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
@@ -789,7 +891,6 @@ dependencies = [
  "url",
  "viaduct",
  "viaduct-reqwest",
- "webbrowser",
 ]
 
 [[package]]
@@ -847,6 +948,15 @@ name = "half"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d36fab90f82edc3c747f9d438e06cf0a491055896f2a279638bb5beed6c40177"
+
+[[package]]
+name = "hashbrown"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "34f595585f103464d8d2f6e9864682d74c1601fed5e07d62b1c9058dba8246fb"
+dependencies = [
+ "autocfg 1.0.0",
+]
 
 [[package]]
 name = "hawk"
@@ -973,11 +1083,12 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c398b2b113b55809ceb9ee3e753fcbac793f1956663f3c36549c1346015c2afe"
+checksum = "5b88cd59ee5f71fea89a62248fc8f387d44400cefe05ef548466d61ced9029a7"
 dependencies = [
  "autocfg 1.0.0",
+ "hashbrown",
 ]
 
 [[package]]
@@ -1044,9 +1155,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.72"
+version = "0.2.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9f8082297d534141b30c8d39e9b1773713ab50fdbe4ff30f750d063b3bfd701"
+checksum = "bd7d4bd64732af4bf3a67f367c27df8520ad7e230c5817b8ff485864d80242b9"
 
 [[package]]
 name = "libsqlite3-sys"
@@ -1098,18 +1209,13 @@ name = "logins"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "chrono",
- "clap",
- "cli-support",
  "env_logger",
  "error-support",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "fxa-client",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
  "more-asserts",
- "prettytable-rs",
  "prost",
  "prost-derive",
  "rusqlite",
@@ -1505,9 +1611,9 @@ checksum = "77af24da69f9d9341038eba93a073b1fdaaa1b788221b00a69bce9e762cb32de"
 
 [[package]]
 name = "openssl-src"
-version = "111.10.1+1.1.1g"
+version = "111.10.2+1.1.1g"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "375f12316ddf0762f7cf1e2890a0a857954b96851b47b5af7fc06940c9e12f83"
+checksum = "a287fdb22e32b5b60624d4a5a7a02dbe82777f730ec0dbc42a0554326fef5a70"
 dependencies = [
  "cc",
 ]
@@ -1596,39 +1702,40 @@ dependencies = [
  "anyhow",
  "bitflags 1.2.1",
  "caseless",
- "clap",
- "cli-support",
- "criterion",
- "ctrlc",
  "dogear",
  "env_logger",
  "error-support",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "find-places-db",
- "fxa-client",
  "idna",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
  "memchr",
- "more-asserts",
  "percent-encoding",
  "pretty_assertions",
  "prost",
  "prost-derive",
- "rand 0.7.3",
  "rusqlite",
  "serde",
  "serde_derive",
  "serde_json",
  "sql-support",
- "structopt",
  "sync-guid",
  "sync15",
- "tempdir",
  "tempfile",
- "termion",
  "thiserror",
+ "url",
+]
+
+[[package]]
+name = "places-bench"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "places",
+ "serde_json",
+ "sql-support",
+ "tempdir",
  "url",
 ]
 
@@ -1648,6 +1755,22 @@ dependencies = [
  "sync15",
  "url",
  "viaduct",
+]
+
+[[package]]
+name = "places-integration-tests"
+version = "0.1.0"
+dependencies = [
+ "dogear",
+ "env_logger",
+ "places",
+ "rusqlite",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15",
+ "tempfile",
+ "url",
 ]
 
 [[package]]
@@ -1722,9 +1845,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.18"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beae6331a816b1f65d04c45b078fd8e6c93e8071771f41b8163255bbd8d7c8fa"
+checksum = "04f5f085b5d71e2188cb8271e5da0161ad52c3f227a661a3c135fdf28e258b12"
 dependencies = [
  "unicode-xid 0.2.1",
 ]
@@ -1797,7 +1920,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
  "bincode",
- "env_logger",
  "error-support",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
@@ -2428,9 +2550,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.34"
+version = "1.0.35"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "936cae2873c940d92e697597c5eee105fb570cd5689c695806f672883653349b"
+checksum = "fb7f4c519df8c117855e19dd8cc851e89eb746fe7a73f0157e0d95fdec5369b0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2516,12 +2638,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "interrupt-support",
  "log 0.4.11",
  "serde",
  "serde_json",
  "sync-guid",
- "thiserror",
  "url",
 ]
 
@@ -2618,9 +2738,6 @@ name = "tabs"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "clap",
- "cli-support",
- "clipboard",
  "error-support",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
@@ -2634,7 +2751,6 @@ dependencies = [
  "sync15",
  "thiserror",
  "url",
- "viaduct-reqwest",
 ]
 
 [[package]]
@@ -3105,10 +3221,11 @@ dependencies = [
 
 [[package]]
 name = "webbrowser"
-version = "0.5.4"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a83a4b8838569b89d2a3e7353995088e3b80c420a1269cd3d92ba8196875fc16"
+checksum = "ecad156490d6b620308ed411cfee90d280b3cbd13e189ea0d3fada8acc89158a"
 dependencies = [
+ "web-sys",
  "widestring",
  "winapi 0.3.9",
 ]

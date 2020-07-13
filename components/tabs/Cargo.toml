@@ -24,9 +24,3 @@ interrupt-support = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-
-[dev-dependencies]
-clipboard = "0.5"
-clap = "2.33"
-cli-support = { path = "../support/cli" }
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }

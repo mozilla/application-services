@@ -1,0 +1,20 @@
+[package]
+name = "places-bench"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+[[bench]]
+name = "places"
+harness = false
+path = "src/bench.rs"
+
+[dependencies]
+criterion = "0.3"
+tempdir = "0.3"
+places = { path = "../../../components/places" }
+sql-support = { path = "../../../components/support/sql" }
+serde_json = "1.0"
+url = "2.1"

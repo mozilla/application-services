@@ -2,19 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// This example demonstrates how our "cooperative transactions" work.
-// Execute with a cmdline something like:
-// % RUST_LOG=places::db::tx=debug cargo run --example check-coop-tx
-
 use places::api::places_api::ConnectionType;
-use places::PlacesDb;
+use places::{PlacesDb, Result};
 use rusqlite::NO_PARAMS;
 use std::fs::remove_file;
 use std::sync::mpsc::sync_channel;
 use std::sync::{Arc, Mutex};
 use std::thread;
-
-use anyhow::Result;
 
 fn update(t: &PlacesDb, n: u32) -> Result<()> {
     t.execute(
@@ -28,7 +22,8 @@ fn update(t: &PlacesDb, n: u32) -> Result<()> {
     Ok(())
 }
 
-fn main() -> Result<()> {
+#[test]
+fn test_coop_tx() {
     let path = "./test.db";
 
     let _ = remove_file(path); // ignore error
@@ -45,7 +40,7 @@ fn main() -> Result<()> {
         let mut t = db1
             .begin_transaction()
             .expect("should get the thread transaction");
-        println!("inner has tx");
+        eprintln!("inner has tx");
         tx.send(0).unwrap();
         for i in 0..100_000 {
             update(&db1, i).unwrap();
@@ -53,22 +48,20 @@ fn main() -> Result<()> {
         }
         t.commit().unwrap();
 
-        println!("finished inner thread");
+        eprintln!("finished inner thread");
     });
 
     let _ = rx.recv().unwrap();
-    println!("inner thread has tx lock, so charging ahead...");
+    eprintln!("inner thread has tx lock, so charging ahead...");
     for i in 100_000..100_020 {
         let tx = dbmain
             .begin_transaction()
             .expect("should get the main transaction");
         update(&dbmain, i).unwrap();
         tx.commit().expect("main thread should commit");
-        println!("main thread commited");
+        eprintln!("main thread commited");
     }
-    println!("completed outer, waiting for thread to complete.");
+    eprintln!("completed outer, waiting for thread to complete.");
 
     child.join().unwrap();
-
-    Ok(())
 }

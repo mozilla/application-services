@@ -1,10 +1,11 @@
-#![allow(unknown_lints)]
-#![warn(rust_2018_idioms)]
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::Criterion;
 use places::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
 
-fn bench_match_anywhere(c: &mut Criterion) {
+pub fn bench_match_anywhere(c: &mut Criterion) {
     c.bench_function("match anywhere url", |b| {
         let matcher = AutocompleteMatch {
             search_str: "lication-servic",
@@ -36,6 +37,3 @@ fn bench_match_anywhere(c: &mut Criterion) {
         b.iter(|| matcher.invoke())
     });
 }
-
-criterion_group!(benches, bench_match_anywhere);
-criterion_main!(benches);

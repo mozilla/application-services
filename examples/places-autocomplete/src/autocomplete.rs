@@ -2,14 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
 use anyhow::Result;
 use clap::value_t;
 use places::{PlacesDb, VisitObservation, VisitTransition};
 use rusqlite::NO_PARAMS;
-use serde_derive::*;
 use sql_support::ConnExt;
 use std::io::prelude::*;
 use std::time::Instant;
@@ -18,58 +16,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use url::Url;
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-pub struct SerializedObservation {
-    pub url: String, // This is actually required but we check after deserializing
-    pub title: Option<String>,
-    pub visit_type: Option<u8>,
-    pub error: bool,
-    pub is_redirect_source: bool,
-    pub at: Option<u64>,          // milliseconds
-    pub referrer: Option<String>, // A URL
-    pub remote: bool,
-}
-
-impl SerializedObservation {
-    // We'd use TryFrom/TryInto but those are nightly only... :|
-    pub fn into_visit(self) -> Result<VisitObservation> {
-        let url = Url::parse(&self.url)?;
-        let referrer = match self.referrer {
-            Some(s) => Some(Url::parse(&s)?),
-            _ => None,
-        };
-        let mut obs = VisitObservation::new(url)
-            .with_title(self.title)
-            .with_is_error(self.error)
-            .with_is_remote(self.remote)
-            .with_is_redirect_source(self.is_redirect_source)
-            .with_referrer(referrer);
-        if let Some(visit_type) = self.visit_type.and_then(VisitTransition::from_primitive) {
-            obs = obs.with_visit_type(visit_type);
-        }
-        if let Some(time) = self.at {
-            obs = obs.with_at(places::Timestamp(time));
-        }
-        Ok(obs)
-    }
-}
-
-impl From<VisitObservation> for SerializedObservation {
-    fn from(visit: VisitObservation) -> Self {
-        Self {
-            url: visit.url.to_string(),
-            title: visit.title,
-            visit_type: visit.visit_type.map(|vt| vt as u8),
-            at: visit.at.map(Into::into),
-            error: visit.is_error.unwrap_or(false),
-            is_redirect_source: visit.is_redirect_source.unwrap_or(false),
-            remote: visit.is_remote.unwrap_or(false),
-            referrer: visit.referrer,
-        }
-    }
-}
 
 #[derive(Default, Clone, Debug)]
 struct ImportPlacesOptions {
@@ -264,14 +210,6 @@ fn import_places(
 
     log::info!("Finished import!");
     Ok(())
-}
-
-fn read_json_file<T>(path: impl AsRef<Path>) -> Result<T>
-where
-    for<'a> T: serde::de::Deserialize<'a>,
-{
-    let file = fs::File::open(path.as_ref())?;
-    Ok(serde_json::from_reader(&file)?)
 }
 
 #[cfg(not(windows))]
@@ -813,12 +751,6 @@ fn main() -> Result<()> {
             .value_name("WEIGHT")
             .help("Probability (between 0.0 and 1.0, default = 0.1) that a given visit from `places` should \
                    be considered `remote`. Ignored when --import-places is not passed"))
-        .arg(clap::Arg::with_name("import_observations")
-            .long("import-observations")
-            .short("o")
-            .takes_value(true)
-            .value_name("path/to/observations.json")
-            .help("Path to a JSON file containing a list of 'observations'"))
         .arg(clap::Arg::with_name("no_interactive")
             .long("no-interactive")
             .short("x")
@@ -878,20 +810,6 @@ fn main() -> Result<()> {
 
         fs::copy(&import_source, &temp_places)?;
         import_places(&mut conn, temp_places, options)?;
-    }
-
-    if let Some(observations_json) = matches.value_of("import_observations") {
-        log::info!("Importing observations from {}", observations_json);
-        let observations: Vec<SerializedObservation> = read_json_file(observations_json)?;
-        let num_observations = observations.len();
-        log::info!("Found {} observations", num_observations);
-        for (counter, obs) in observations.into_iter().enumerate() {
-            let visit = obs.into_visit()?;
-            places::apply_observation(&mut conn, visit)?;
-            if (counter % 1000) == 0 {
-                log::trace!("Importing observations {} / {}", counter, num_observations);
-            }
-        }
     }
     // Close our connection before starting autocomplete.
     drop(conn);
