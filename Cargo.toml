@@ -30,6 +30,7 @@ members = [
     "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
+    "components/webext-storage/ffi",
     "megazords/full",
     "megazords/ios/rust",
     "megazords/lockbox",
