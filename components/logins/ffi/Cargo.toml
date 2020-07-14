@@ -22,10 +22,6 @@ sql-support = { path = "../../support/sql" }
 
 ffi-support = "0.4"
 
-[dependencies.rusqlite]
-version = "0.23.1"
-features = ["sqlcipher"]
-
 [dependencies.logins]
 path = ".."
 
