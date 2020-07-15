@@ -1,6 +1,14 @@
+# v61.0.9 (_2020-07-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.8...v61.0.9)
+
+## Logins
+
+- Empty strings are now correctly handled in login validation. ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+
 # v61.0.8 (_2020-07-15_)
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...v61.0.8)
 
 ## General
 
