@@ -1,3 +1,15 @@
+# v61.0.10 (_2020-07-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.8...v61.0.10)
+
+# General
+
+- This release exists to correct an error with the publishing process that happened for v61.0.9. As a result, it's changelog is repeated below and is present in the link above.
+
+## Logins
+
+- Empty strings are now correctly handled in login validation. ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+
 # v61.0.9 (_2020-07-15_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.8...v61.0.9)
