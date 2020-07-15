@@ -865,14 +865,14 @@ pub struct IntrospectResponse {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProfileResponse {
     pub uid: String,
     pub email: String,
-    #[serde(rename = "displayName")]
     pub display_name: Option<String>,
     pub avatar: String,
-    #[serde(rename = "avatarDefault")]
     pub avatar_default: bool,
+    pub ecosystem_anon_id: Option<String>,
 }
 
 #[derive(Deserialize)]

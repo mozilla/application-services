@@ -606,6 +606,12 @@ pub extern "C" fn fxa_send_tab(
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.send_tab(target, title, url))
 }
 
+#[no_mangle]
+pub extern "C" fn fxa_get_ecosystem_anon_id(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_get_ecosystem_anon_id");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.get_ecosystem_anon_id())
+}
+
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_string_destructor!(fxa_str_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);

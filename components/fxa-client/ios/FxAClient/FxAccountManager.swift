@@ -237,6 +237,18 @@ open class FxAccountManager {
         }
     }
 
+    /// Fetch the AET (Account Ecosystem Telemetry) anonymized user ID if available.
+    public func getEcosystemAnonId(completionHandler: @escaping (Result<String?, Error>) -> Void) {
+        DispatchQueue.global().async {
+            do {
+                let ecosystemAnonId = try self.requireAccount().getEcosystemAnonId()
+                DispatchQueue.main.async { completionHandler(.success(ecosystemAnonId)) }
+            } catch {
+                DispatchQueue.main.async { completionHandler(.failure(error)) }
+            }
+        }
+    }
+
     /// Get the account management URL.
     public func getManageAccountURL(
         entrypoint: String,
