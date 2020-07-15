@@ -2,8 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...main)
-
-## General
-
-- The logins and places metrics have been renewed until early 2021. ([#3290](https://github.com/mozilla/application-services/pull/3290)).
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.8...main)
