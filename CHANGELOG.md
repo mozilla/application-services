@@ -36,6 +36,14 @@
 - Tab records now have an explicit TTL set when storing on the server, to match the behaviour
   of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-services/pull/3322)).
 
+# v61.0.8 (_2020-07-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...v61.0.8)
+
+## General
+
+- The logins and places metrics have been renewed until early 2021. ([#3290](https://github.com/mozilla/application-services/pull/3290)).
+
 # v61.0.7 (_2020-06-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.6...v61.0.7)
