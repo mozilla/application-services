@@ -23,7 +23,6 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
  * on version updates.
  */
 import mozilla.components.service.glean.private.CounterMetricType
-import mozilla.components.service.glean.private.TimingDistributionMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
@@ -417,22 +416,6 @@ internal fun Pointer.getAndConsumeRustString(): String {
  */
 internal fun Pointer.getRustString(): String {
     return this.getString(0, "utf8")
-}
-
-/**
- * A helper extension method for conveniently measuring execution time of a closure.
- *
- * N.B. since we're measuring calls to Rust code here, the provided callback may be doing
- * unsafe things. It's very imporant that we always call the function exactly once here
- * and don't try to do anything tricky like stashing it for later or calling it multiple times.
- */
-inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
-    val timerId = this.start()
-    try {
-        return funcToMeasure()
-    } finally {
-        this.stopAndAccumulate(timerId)
-    }
 }
 
 /**

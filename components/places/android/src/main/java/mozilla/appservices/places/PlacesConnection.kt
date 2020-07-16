@@ -27,7 +27,6 @@ import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManage
  * on version updates.
  */
 import mozilla.components.service.glean.private.CounterMetricType
-import mozilla.components.service.glean.private.TimingDistributionMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
@@ -1270,22 +1269,6 @@ data class VisitInfosWithBound(
                 offset = msg.offset
             )
         }
-    }
-}
-
-/**
- * A helper extension method for conveniently measuring execution time of a closure.
- *
- * N.B. since we're measuring calls to Rust code here, the provided callback may be doing
- * unsafe things. It's very imporant that we always call the function exactly once here
- * and don't try to do anything tricky like stashing it for later or calling it multiple times.
- */
-inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
-    val timerId = this.start()
-    try {
-        return funcToMeasure()
-    } finally {
-        this.stopAndAccumulate(timerId)
     }
 }
 
