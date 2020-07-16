@@ -47,6 +47,7 @@ mod scoped_keys;
 pub mod scopes;
 pub mod send_tab;
 mod state_persistence;
+mod telemetry;
 mod util;
 
 type FxAClient = dyn http_client::FxAClient + Sync + Send;

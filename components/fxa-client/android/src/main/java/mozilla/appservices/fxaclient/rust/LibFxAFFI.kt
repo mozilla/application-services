@@ -64,6 +64,11 @@ internal interface LibFxAFFI : Library {
     fun fxa_check_authorization_status(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_clear_access_token_cache(fxa: FxaHandle, e: RustError.ByReference)
 
+    fun fxa_get_ecosystem_anon_id(
+        fxa: FxaHandle,
+        e: RustError.ByReference
+    ): Pointer?
+
     fun fxa_set_push_subscription(
         fxa: FxaHandle,
         endpoint: String,
