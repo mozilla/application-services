@@ -11,6 +11,9 @@ buildscript {
         compileSdkVersion: 29,
         targetSdkVersion: 28,
         minSdkVersion: 21, // So that we can publish for aarch64.
+        // This is required to support new AndroidX support libraries.
+        // See mozilla-mobile/android-components#842
+        jvmTargetCompatibility: "1.8",
     ]
 
     repositories {

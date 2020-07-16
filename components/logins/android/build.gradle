@@ -46,6 +46,19 @@ android {
             includeAndroidResources = true
         }
     }
+
+    // This is required to support new AndroidX support libraries.
+    // See mozilla-mobile/android-components#842
+    compileOptions {
+        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
+        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions {
+            jvmTarget = rootProject.ext.build.jvmTargetCompatibility
+        }
+    }
 }
 
 configurations {
