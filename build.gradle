@@ -4,16 +4,16 @@ buildscript {
     ext.kotlin_version = '1.3.71'
     ext.jna_version = '5.2.0'
     ext.android_gradle_plugin_version = '3.6.0'
-
-    // N.B. try to keep these two in sync
-    ext.android_components_version = '24.0.0'
-    ext.glean_version = '21.3.0'
+    ext.android_components_version = '47.0.0'
 
     ext.build = [
         ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
         compileSdkVersion: 29,
         targetSdkVersion: 28,
         minSdkVersion: 21, // So that we can publish for aarch64.
+        // This is required to support new AndroidX support libraries.
+        // See mozilla-mobile/android-components#842
+        jvmTargetCompatibility: "1.8",
     ]
 
     repositories {
@@ -43,6 +43,11 @@ buildscript {
         classpath 'de.undercouch:gradle-download-task:3.4.3'
 
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.12'
+
+        // Since the Glean version depends on the Android components version,
+        // it is very important to use a modern version of Glean and, ideally,
+        // let this come from the embedding product itself.
+        classpath "org.mozilla.components:tooling-glean-gradle:$android_components_version"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
