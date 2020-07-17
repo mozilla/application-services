@@ -18,7 +18,7 @@ the details of which are reproduced below.
 * [MIT License: mime_guess](#mit-license-mime_guess)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: slab](#mit-license-slab)
-* [MIT License: tokio, tokio-tls, tokio-util](#mit-license-tokio-tokio-tls-tokio-util)
+* [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
@@ -1086,12 +1086,14 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio, tokio-tls, tokio-util
+## MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core
 
 The following text applies to code linked from these dependencies:
 [tokio-tls](https://github.com/tokio-rs/tokio),
 [tokio-util](https://github.com/tokio-rs/tokio),
-[tokio](https://github.com/tokio-rs/tokio)
+[tokio](https://github.com/tokio-rs/tokio),
+[tracing-core](https://github.com/tokio-rs/tracing),
+[tracing](https://github.com/tokio-rs/tracing)
 
 ```
 Copyright (c) 2019 Tokio Contributors
