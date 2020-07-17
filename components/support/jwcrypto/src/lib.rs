@@ -17,12 +17,12 @@ use std::str::FromStr;
 pub mod ec;
 mod error;
 
-pub enum EncryptionParameters {
+pub enum EncryptionParameters<'a> {
     // ECDH-ES in Direct Key Agreement mode.
     #[allow(non_camel_case_types)]
     ECDH_ES {
         enc: EncryptionAlgorithm,
-        peer_jwk: Jwk,
+        peer_jwk: &'a Jwk,
     },
 }
 
@@ -65,7 +65,7 @@ struct JweHeader {
     apv: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Jwk {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kid: Option<String>,
@@ -73,7 +73,7 @@ pub struct Jwk {
     pub key_parameters: JwkKeyParameters,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "kty")]
 pub enum JwkKeyParameters {
     EC(ec::ECKeysParameters),
@@ -200,7 +200,7 @@ fn test_encrypt_decrypt_jwe_ecdh_es() {
         data,
         EncryptionParameters::ECDH_ES {
             enc: EncryptionAlgorithm::A256GCM,
-            peer_jwk: jwk,
+            peer_jwk: &jwk,
         },
     )
     .unwrap();

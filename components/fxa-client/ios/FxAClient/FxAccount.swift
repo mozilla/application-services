@@ -78,7 +78,7 @@ class FxAccount: RustFxAccount {
         try super.disconnect()
     }
 
-    override func getEcosystemAnonId() throws -> String? {
+    override func getEcosystemAnonId() throws -> String {
         defer { tryPersistState() }
         return try notifyAuthErrors {
             try super.getEcosystemAnonId()

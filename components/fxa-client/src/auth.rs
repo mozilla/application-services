@@ -37,11 +37,12 @@ pub fn create_keys_jwe(
         get_scoped_keys(scope, client_id, auth_key, config, acct_keys)?;
     let scoped = serde_json::to_string(&scoped)?;
     let scoped = scoped.as_bytes();
+    let jwk = serde_json::from_str(jwk)?;
     let res = jwcrypto::encrypt_to_jwe(
         scoped,
         EncryptionParameters::ECDH_ES {
             enc: EncryptionAlgorithm::A256GCM,
-            peer_jwk: serde_json::from_str(jwk)?,
+            peer_jwk: &jwk,
         },
     )?;
     Ok(res)

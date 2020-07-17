@@ -3,13 +3,19 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, error::*};
-use rc_crypto::hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256};
-use rc_crypto::{digest, hkdf, hmac};
-use serde_derive::*;
+use jwcrypto::Jwk;
+use rc_crypto::{
+    digest,
+    hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
+    hkdf, hmac,
+};
+use serde_derive::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    sync::Mutex,
+    time::{Duration, Instant},
+};
 use url::Url;
 use viaduct::{header_names, status_codes, Method, Request, Response};
 
@@ -18,7 +24,7 @@ const HAWK_KEY_LENGTH: usize = 32;
 const RETRY_AFTER_DEFAULT_SECONDS: u64 = 10;
 
 #[cfg_attr(test, mockiato::mockable)]
-pub trait FxAClient {
+pub(crate) trait FxAClient {
     fn refresh_token_with_code(
         &self,
         config: &Config,
@@ -68,6 +74,12 @@ pub trait FxAClient {
         profile_access_token: &str,
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>>;
+    fn set_ecosystem_anon_id(
+        &self,
+        config: &Config,
+        access_token: &str,
+        ecosystem_anon_id: &str,
+    ) -> Result<()>;
     fn pending_commands(
         &self,
         config: &Config,
@@ -103,6 +115,8 @@ pub trait FxAClient {
         client_id: &str,
         scope: &str,
     ) -> Result<HashMap<String, ScopedKeyDataResponse>>;
+    fn fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse>;
+    fn openid_configuration(&self, config: &Config) -> Result<OpenIdConfigurationResponse>;
 }
 
 enum HttpClientState {
@@ -117,6 +131,16 @@ pub struct Client {
     state: Mutex<HashMap<String, HttpClientState>>,
 }
 impl FxAClient for Client {
+    fn fxa_client_configuration(&self, config: &Config) -> Result<ClientConfigurationResponse> {
+        // Why go through two-levels of indirection? It looks kinda dumb.
+        // Well, `config:Config` also needs to fetch the config, but does not have access
+        // to an instance of `http_client`, so it calls the helper function directly.
+        fxa_client_configuration(config.client_config_url()?)
+    }
+    fn openid_configuration(&self, config: &Config) -> Result<OpenIdConfigurationResponse> {
+        openid_configuration(config.openid_config_url()?)
+    }
+
     fn profile(
         &self,
         config: &Config,
@@ -141,6 +165,25 @@ impl FxAClient for Client {
             etag,
             response: resp.json()?,
         }))
+    }
+
+    fn set_ecosystem_anon_id(
+        &self,
+        config: &Config,
+        access_token: &str,
+        ecosystem_anon_id: &str,
+    ) -> Result<()> {
+        let url = config.profile_url_path("v1/ecosystem_anon_id")?;
+        let body = json!({
+            "ecosystemAnonId": ecosystem_anon_id,
+        });
+        let request = Request::post(url)
+            .header(header_names::AUTHORIZATION, bearer_token(access_token))?
+            // If-none-match prevents us from overwriting an already set value.
+            .header(header_names::IF_NONE_MATCH, "*")?
+            .body(body.to_string());
+        self.make_request(request)?;
+        Ok(())
     }
 
     // For the one-off generation of a `refresh_token` and associated meta from transient credentials.
@@ -381,6 +424,24 @@ impl FxAClient for Client {
     }
 }
 
+macro_rules! fetch {
+    ($url:expr) => {
+        viaduct::Request::get($url)
+            .send()?
+            .require_success()?
+            .json()?
+    };
+}
+
+#[inline]
+pub(crate) fn fxa_client_configuration(url: Url) -> Result<ClientConfigurationResponse> {
+    Ok(fetch!(url))
+}
+#[inline]
+pub(crate) fn openid_configuration(url: Url) -> Result<OpenIdConfigurationResponse> {
+    Ok(fetch!(url))
+}
+
 impl Client {
     pub fn new() -> Self {
         Self {
@@ -616,6 +677,27 @@ impl<'a> HawkRequestBuilder<'a> {
         }
         Ok(request)
     }
+}
+
+#[derive(Deserialize)]
+pub(crate) struct ClientConfigurationResponse {
+    pub(crate) auth_server_base_url: String,
+    pub(crate) oauth_server_base_url: String,
+    pub(crate) profile_server_base_url: String,
+    pub(crate) sync_tokenserver_base_url: String,
+    // XXX: Remove Option once all prod servers have this field.
+    pub(crate) ecosystem_anon_id_keys: Option<Vec<Jwk>>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct OpenIdConfigurationResponse {
+    pub(crate) authorization_endpoint: String,
+    pub(crate) introspection_endpoint: String,
+    pub(crate) issuer: String,
+    pub(crate) jwks_uri: String,
+    #[allow(dead_code)]
+    pub(crate) token_endpoint: String,
+    pub(crate) userinfo_endpoint: String,
 }
 
 #[derive(Clone)]

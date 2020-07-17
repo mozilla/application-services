@@ -57,6 +57,9 @@ pub enum ErrorKind {
     #[error("Remote key and local key mismatch")]
     MismatchedKeys,
 
+    #[error("Could not find a suitable anon_id key")]
+    NoAnonIdKey,
+
     #[error("Client: {0} is not allowed to request scope: {1}")]
     ScopeNotAllowed(String, String),
 
