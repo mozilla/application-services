@@ -469,36 +469,6 @@ workflows:
           filters:
             branches:
               only: master
-  check-dependencies-periodically:
-    jobs:
-      - Check Rust dependencies
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - master
-  run-beta-tests-periodically:
-    jobs:
-      - Rust tests - beta
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - master
-  mirror-bugzilla-to-github-periodically:
-    jobs:
-      - Mirror Bugzilla issues into GitHub
-    triggers:
-      - schedule:
-          cron: "0,30 * * * *"
-          filters:
-            branches:
-              only:
-                - master
   run-tests:
     jobs:
       - Rust tests
