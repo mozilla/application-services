@@ -19,7 +19,7 @@ serde_derive = "1"
 serde_json = "1"
 log = "0.4"
 url = "2.1"
-cli-support = { path = "../../components/support/cli" }
+cli-support = { path = "../cli-support" }
 structopt = "0.3"
 fxa-client = { path = "../../components/fxa-client" }
 tempdir = "0.3"

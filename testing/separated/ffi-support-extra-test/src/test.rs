@@ -1,9 +1,10 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 //! This test is a stress test meant to trigger some bugs seen prior to the use
-//! of handlemaps. See ./docs/test-faster.md for why it's split -- TLDR: it uses
-//! rayon and is hard to rewrite with normal threads.
+//! of handlemaps. See /docs/design/test-faster.md for why it's split -- TLDR:
+//! it uses rayon and is hard to rewrite with normal threads.
 
 use ffi_support::{ConcurrentHandleMap, ExternError};
 use std::sync::atomic::{AtomicUsize, Ordering};

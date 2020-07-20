@@ -16,9 +16,9 @@ In an ideal world, cargo could run your tests as soon as it finished with the
 dependencies it needs for those tests, instead of waiting for your benchmark
 suite, or the arg-parser your examples use, or etc.
 
-Unfortunately, all cargo knows that these are `dev-dependencies`, and not which
-targets actually use them. (Aside: Now that per-target feature selection is
-stable we actually could fix this, however it would be extremely tedious, far
+Unfortunately, all cargo knows is that these are `dev-dependencies`, and not
+which targets actually use them. (Aside: Now that per-target feature selection
+is stable we actually could fix this, however it would be extremely tedious, far
 worse than the approach outlined in this document).
 
 Additionally, unqualified invocations of cargo (that is, without `-p`) might
@@ -33,7 +33,7 @@ careful about what shape the dependency graph ends up as when example code is
 taken into consideration (as it is by cargo during certain builds), and as a
 result, we have this problem. The problem is that this isn't really a problem we
 want to fix: Example code can and should depend on several different components,
-and use them together in intersting ways.
+and use them together in interesting ways.
 
 So, because we don't really want to change the things our examples do, or make
 major architectural changes of the non-test code for something like this, we
@@ -43,10 +43,10 @@ need to do something.
 
 To fix this, we manually insert "cuts" into the dependency graph to help cargo
 out. That is, we pull some of these build targets (e.g. examples, benchmarks,
-tests if they cause a substantial compile overhead) into their dedicated crates
-so that:
+tests if they cause a substantial compile overhead) into their own dedicated
+crates so that:
 
-1. They can be built in parallel with eachother.
+1. They can be built in parallel with each other.
 2. Crates depending on the component itself are not waiting on the
    test/bench/example build in order for their test build to begin.
 3. A potentially smaller set of our crates need to be rebuilt -- and a smaller

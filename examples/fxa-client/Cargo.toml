@@ -21,7 +21,7 @@ path = "src/oauth-flow.rs"
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
-cli-support = { path = "../../components/support/cli" }
+cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 anyhow = "1.0"
 dialoguer = "0.6"

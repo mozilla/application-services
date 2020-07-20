@@ -17,5 +17,5 @@ log = "0.4"
 anyhow = "1.0"
 clipboard = "0.5"
 clap = "2.33"
-cli-support = { path = "../../components/support/cli" }
+cli-support = { path = "../cli-support" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
