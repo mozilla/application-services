@@ -1,0 +1,28 @@
+[package]
+name = "example-places-utils"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+[[example]]
+name = "places-utils"
+path = "src/places-utils.rs"
+
+[dev-dependencies]
+places = { path = "../../components/places" }
+sync-guid = { path = "../../components/support/guid" }
+sync15 = { path = "../../components/sync15" }
+serde = "1"
+serde_derive = "1"
+serde_json = "1"
+log = "0.4"
+url = "2.1"
+cli-support = { path = "../cli-support" }
+structopt = "0.3"
+fxa-client = { path = "../../components/fxa-client" }
+tempdir = "0.3"
+find-places-db = "0.2"
+anyhow = "1.0"
+ctrlc = "3.1"

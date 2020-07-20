@@ -29,10 +29,9 @@ version = "0.23.1"
 features = ["functions", "bundled", "serde_json", "unlock_notify"]
 
 [dev-dependencies]
-env_logger = "0.7"
+env_logger = { version = "0.7", default-features = false }
 prettytable-rs = "0.8"
 tempfile = "3"
-
 # A *direct* dep on the -sys crate is required for our build.rs
 # to see the DEP_SQLITE3_LINK_TARGET env var that cargo sets
 # on its behalf.

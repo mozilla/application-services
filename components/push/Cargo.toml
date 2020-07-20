@@ -29,7 +29,6 @@ prost-derive = "0.6"
 thiserror = "1.0"
 
 [dev-dependencies]
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-env_logger = "0.7"
 mockito = "0.26"
 hex = "0.4"
+viaduct-reqwest = { path = "../support/viaduct-reqwest" }

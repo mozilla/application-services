@@ -27,9 +27,6 @@ anyhow = "1.0"
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-cli-support = { path = "../support/cli" }
-dialoguer = "0.6"
-webbrowser = "0.5"
 mockiato = "0.9"
 mockito = "0.26"
 

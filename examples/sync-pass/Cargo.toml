@@ -1,0 +1,30 @@
+[package]
+name = "example-sync-pass"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+[[example]]
+name = "sync-pass"
+path = "src/sync-pass.rs"
+
+[dev-dependencies]
+logins = { path = "../../components/logins" }
+sync15 = { path = "../../components/sync15" }
+sync-guid = { path = "../../components/support/guid" }
+log = "0.4"
+sql-support = { path = "../../components/support/sql" }
+anyhow = "1.0"
+prettytable-rs = "0.8"
+fxa-client = { path = "../../components/fxa-client" }
+chrono = "0.4"
+clap = "2.33"
+cli-support = { path = "../cli-support" }
+tempdir = "0.3"
+serde_json = "1.0"
+
+[dev-dependencies.rusqlite]
+version = "0.23.1"
+features = ["sqlcipher", "limits"]

@@ -1,0 +1,17 @@
+[package]
+name = "example-push-livetest"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+[[example]]
+path = "src/livetest.rs"
+name = "push-livetest"
+
+[dev-dependencies]
+push = { path = "../../components/push" }
+viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+viaduct = { path = "../../components/viaduct" }
+hex = "0.4"
