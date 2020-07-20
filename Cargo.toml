@@ -52,18 +52,18 @@ members = [
 # - Running the command from within that package (e.g. running `cargo build`
 #   inside `megazords/full` will build the full megazord, default or not).
 #
-# We use this to excludes a couple that have a disproportional compile time
+# We use this to exclude a couple that have a disproportional compile time
 # impact to how likely they are to get broken by average changes:
 #
 # - `nss_sys`'s companion test crate `systest` adds `syntex_syntax2` which is
 #   (surprisingly) by far the slowest crate to build in our dep graph, and very
 #   very rarely needs changing
 #
-# - The megazords just rexport ffi crates, which we aren't excluding, and get
+# - The megazords just re-export ffi crates, which we aren't excluding, and get
 #   built freqently enough as part of gradle/xcode's build process.
 #
-# To be clear: passing the `--all` or `--workspace` arg to cargo will make use
-# the full member set.
+# To be clear: passing the `--all` or `--workspace` arg to cargo will make it
+# use the full member set.
 default-members = [
     "components/fxa-client",
     "components/fxa-client/ffi",
