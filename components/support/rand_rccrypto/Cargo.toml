@@ -1,0 +1,13 @@
+[package]
+name = "rand_rccrypto"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+rc_crypto = { path = "../rc_crypto" }
+rand_core = "0.5"
