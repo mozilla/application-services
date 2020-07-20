@@ -47,11 +47,11 @@ fi
 # Formatters. These should always succeed, but might leave
 # uncomitted changes in your working directory.
 
-cargo fmt
+cargo fmt --all
 
 if [[ "$(uname -s)" == "Darwin" ]]
 then
-    swiftformat megazords components/*/ios --lint --swiftversion 4 
+    swiftformat megazords components/*/ios --lint --swiftversion 4
 else
     echo "WARNING: skipping swiftformat on non-Darwin host"
 fi

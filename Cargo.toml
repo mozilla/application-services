@@ -1,4 +1,5 @@
 [workspace]
+# Note: Any additions here should be repeated in default-members below.
 members = [
     "components/fxa-client",
     "components/fxa-client/ffi",
@@ -35,6 +36,64 @@ members = [
     "megazords/full",
     "megazords/ios/rust",
     "megazords/lockbox",
+    "testing/sync-test",
+    "tools/protobuf-gen",
+]
+
+# The `default-members` are the things that are built/tested when you run `cargo
+# build`, `cargo test` (or most of the cargo commands not provided by a
+# third-party `cargo-foo` binary) from a workspace root *without* doing one of:
+#
+# - Specifying a specific package (e.g. via `-p <package>`, `--manifest-dir
+#   <path>` ...)
+#
+# - Passing `--workspace` or `--all`.
+#
+# - Running the command from within that package (e.g. running `cargo build`
+#   inside `megazords/full` will build the full megazord, default or not).
+#
+# We use this to exclude a couple that have a disproportional compile time
+# impact to how likely they are to get broken by average changes:
+#
+# - `nss_sys`'s companion test crate `systest` adds `syntex_syntax2` which is
+#   (surprisingly) by far the slowest crate to build in our dep graph, and very
+#   very rarely needs changing
+#
+# - The megazords just re-export ffi crates, which we aren't excluding, and get
+#   built freqently enough as part of gradle/xcode's build process.
+#
+# To be clear: passing the `--all` or `--workspace` arg to cargo will make it
+# use the full member set.
+default-members = [
+    "components/fxa-client",
+    "components/fxa-client/ffi",
+    "components/logins",
+    "components/logins/ffi",
+    "components/places",
+    "components/places/ffi",
+    "components/push",
+    "components/push/ffi",
+    "components/rc_log",
+    "components/support/cli",
+    "components/support/error",
+    "components/support/ffi",
+    "components/support/guid",
+    "components/support/interrupt",
+    "components/support/restmail-client",
+    "components/support/rc_crypto",
+    "components/support/rc_crypto/nss",
+    "components/support/rc_crypto/nss/nss_build_common",
+    "components/support/rc_crypto/nss/nss_sys",
+    "components/support/sql",
+    "components/support/sync15-traits",
+    "components/support/viaduct-reqwest",
+    "components/sync_manager",
+    "components/sync_manager/ffi",
+    "components/sync15",
+    "components/tabs",
+    "components/tabs/ffi",
+    "components/viaduct",
+    "components/webext-storage",
     "testing/sync-test",
     "tools/protobuf-gen",
 ]
