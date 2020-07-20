@@ -12,12 +12,6 @@ pub enum ErrorKind {
     #[error("Unknown OAuth State")]
     UnknownOAuthState,
 
-    #[error("The client requested keys alongside the token but they were not included")]
-    TokenWithoutKeys,
-
-    #[error("Login state needs to be Married for the current operation")]
-    NotMarried,
-
     #[error("Multiple OAuth scopes requested")]
     MultipleScopesRequested,
 
@@ -39,20 +33,11 @@ pub enum ErrorKind {
     #[error("No stored current device id")]
     NoCurrentDeviceId,
 
-    #[error("Could not find a refresh token in the server response")]
-    RefreshTokenNotPresent,
-
-    #[error("Action requires a prior device registration")]
-    DeviceUnregistered,
-
     #[error("Device target is unknown (Device ID: {0})")]
     UnknownTargetDevice(String),
 
     #[error("Unrecoverable server error {0}")]
     UnrecoverableServerError(&'static str),
-
-    #[error("Invalid OAuth scope value {0}")]
-    InvalidOAuthScopeValue(String),
 
     #[error("Illegal state: {0}")]
     IllegalState(&'static str),
@@ -63,44 +48,14 @@ pub enum ErrorKind {
     #[error("Send Tab diagnosis error: {0}")]
     SendTabDiagnosisError(&'static str),
 
-    #[error("Empty names")]
-    EmptyOAuthScopeNames,
-
-    #[error("Key {0} had wrong length, got {1}, expected {2}")]
-    BadKeyLength(&'static str, usize, usize),
-
     #[error("Cannot xor arrays with different lengths: {0} and {1}")]
     XorLengthMismatch(usize, usize),
-
-    #[error("Audience URL without a host")]
-    AudienceURLWithoutHost,
 
     #[error("Origin mismatch")]
     OriginMismatch,
 
-    #[error("JWT signature validation failed")]
-    JWTSignatureValidationFailed,
-
-    #[error("ECDH key generation failed")]
-    KeyGenerationFailed,
-
-    #[error("Public key computation failed")]
-    PublicKeyComputationFailed,
-
     #[error("Remote key and local key mismatch")]
     MismatchedKeys,
-
-    #[error("Key import failed")]
-    KeyImportFailed,
-
-    #[error("AEAD open failure")]
-    AEADOpenFailure,
-
-    #[error("Random number generation failure")]
-    RngFailure,
-
-    #[error("HMAC mismatch")]
-    HmacMismatch,
 
     #[error("Client: {0} is not allowed to request scope: {1}")]
     ScopeNotAllowed(String, String),
@@ -142,6 +97,9 @@ pub enum ErrorKind {
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    #[error("JWCrypto error: {0}")]
+    JwCryptoError(#[from] jwcrypto::JwCryptoError),
+
     #[error("UTF8 decode error: {0}")]
     UTF8DecodeError(#[from] string::FromUtf8Error),
 
@@ -171,6 +129,7 @@ error_support::define_error! {
         (HexDecodeError, hex::FromHexError),
         (Base64Decode, base64::DecodeError),
         (JsonError, serde_json::Error),
+        (JwCryptoError, jwcrypto::JwCryptoError),
         (UTF8DecodeError, std::string::FromUtf8Error),
         (RequestError, viaduct::Error),
         (UnexpectedStatus, viaduct::UnexpectedStatus),

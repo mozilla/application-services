@@ -20,6 +20,7 @@ sync15 = { path = "../sync15" }
 url = "2.1"
 ffi-support = "0.4"
 viaduct = { path = "../viaduct" }
+jwcrypto = { path = "../support/jwcrypto" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece", "hawk"] }
 error-support = { path = "../support/error" }
 thiserror = "1.0"
