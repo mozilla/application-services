@@ -286,4 +286,20 @@ mod crypto_tests {
         let decrypted = decrypter(ciphertext, "aes128gcm", None, None).unwrap();
         assert_eq!(String::from_utf8(decrypted).unwrap(), PLAINTEXT.to_string());
     }
+
+    #[test]
+    fn test_extract_value_with_quotes() {
+        // XXX TODO: this fails because `extract_value` doesn't handle quoted values.
+        let header = "dh=\"YWJj\"";
+        let extracted = extract_value(Some(header), "dh").unwrap();
+        assert_eq!(extracted, "abc".as_bytes());
+    }
+
+    #[test]
+    fn test_extract_value_with_spaces() {
+        // XXX TODO: this fails because `extract_value` doesn't chomp whitespace between values.
+        let header = "foo=bar; dh=\"YWJj\"";
+        let extracted = extract_value(Some(header), "dh").unwrap();
+        assert_eq!(extracted, "abc".as_bytes());
+    }
 }
