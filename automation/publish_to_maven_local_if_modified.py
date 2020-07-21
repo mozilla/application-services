@@ -5,6 +5,7 @@
 # Usage: ./automation/publish_to_maven_local_if_modified.py
 
 import os
+import sys
 import time
 import hashlib
 import argparse
@@ -21,6 +22,19 @@ parser.parse_args()
 root_dir = find_app_services_root()
 if str(root_dir) != os.path.abspath(os.curdir):
     fatal_err(f"This only works if run from the repo root ({root_dir!r} != {os.path.abspath(os.curdir)!r})")
+
+# This doesn't work on "native" windows, so let's get that out of the way now.
+if sys.platform.startswith("win"):
+    print("NOTE: The autoPublish workflows do not work on native windows.")
+    print("You must follow the instructions in /docs/howtos/setup-android-build-environment.md#using-windows")
+    print("then, manually ensure that the following command has completed successfully in WSL:")
+    print(sys.argv)
+    print(f"(from the '{root_dir}' directory)")
+    print("Then restart the build")
+    # We don't want to fail here - the intention is that building, eg,
+    # android-components on native Windows still works, just that it prints the
+    # warning above.
+    sys.exit(0)
 
 # Calculate a hash reflecting the current state of the repo.
 
