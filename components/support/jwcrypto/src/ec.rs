@@ -5,7 +5,7 @@
 use crate::{
     error::{JwCryptoError, Result},
     Algorithm, CompactJwe, DecryptionParameters, EncryptionAlgorithm, EncryptionParameters,
-    JweHeader, Jwk,
+    JweHeader, Jwk, JwkKeyParameters,
 };
 use rc_crypto::{
     aead,
@@ -28,7 +28,9 @@ pub(crate) fn encrypt_to_jwe(
     let EncryptionParameters::ECDH_ES { enc, peer_jwk } = encryption_params;
     let local_key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256)?;
     let local_public_key = extract_pub_key_jwk(&local_key_pair)?;
+    let JwkKeyParameters::EC(ref ec_key_params) = peer_jwk.key_parameters;
     let protected_header = JweHeader {
+        kid: peer_jwk.kid,
         alg: Algorithm::ECDH_ES,
         enc,
         epk: Some(local_public_key),
@@ -36,7 +38,6 @@ pub(crate) fn encrypt_to_jwe(
         apv: None,
     };
 
-    let Jwk::EC(ec_key_params) = peer_jwk;
     let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
 
     let encryption_algorithm = match protected_header.enc {
@@ -84,7 +85,7 @@ pub(crate) fn decrypt_jwe(
         .epk
         .as_ref()
         .ok_or_else(|| JwCryptoError::IllegalState("epk not present"))?;
-    let Jwk::EC(ec_key_params) = peer_jwk;
+    let JwkKeyParameters::EC(ref ec_key_params) = peer_jwk.key_parameters;
     let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
 
     // Part 2: decrypt the payload
@@ -185,9 +186,12 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
     let x = base64::encode_config(&x, base64::URL_SAFE_NO_PAD);
     let y = Vec::from(&pub_key_bytes[33..]);
     let y = base64::encode_config(&y, base64::URL_SAFE_NO_PAD);
-    Ok(Jwk::EC(ECKeysParameters {
-        crv: "P-256".to_owned(),
-        x,
-        y,
-    }))
+    Ok(Jwk {
+        kid: None,
+        key_parameters: JwkKeyParameters::EC(ECKeysParameters {
+            crv: "P-256".to_owned(),
+            x,
+            y,
+        }),
+    })
 }

@@ -74,6 +74,7 @@ impl ScopedKeysFlow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jwcrypto::JwkKeyParameters;
     use rc_crypto::agreement::{KeyPair, PrivateKey};
 
     #[test]
@@ -99,7 +100,7 @@ mod tests {
         let key_pair = KeyPair::from(private_key).unwrap();
         let flow = ScopedKeysFlow::from_static_key_pair(key_pair).unwrap();
         let jwk = flow.get_public_key_jwk().unwrap();
-        let Jwk::EC(ec_key_params) = jwk;
+        let JwkKeyParameters::EC(ec_key_params) = jwk.key_parameters;
         assert_eq!(ec_key_params.crv, "P-256");
         assert_eq!(
             ec_key_params.x,

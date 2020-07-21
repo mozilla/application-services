@@ -55,15 +55,27 @@ impl EncryptionAlgorithm {
 struct JweHeader {
     alg: Algorithm,
     enc: EncryptionAlgorithm,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    kid: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     epk: Option<Jwk>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     apu: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     apv: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Jwk {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kid: Option<String>,
+    #[serde(flatten)]
+    pub key_parameters: JwkKeyParameters,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "kty")]
-pub enum Jwk {
-    #[serde(alias = "ec")]
+pub enum JwkKeyParameters {
     EC(ec::ECKeysParameters),
 }
 
@@ -214,6 +226,7 @@ fn test_compact_jwe_roundtrip() {
         Some(JweHeader {
             alg: Algorithm::ECDH_ES,
             enc: EncryptionAlgorithm::A256GCM,
+            kid: None,
             epk: None,
             apu: None,
             apv: None,
