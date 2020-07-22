@@ -29,7 +29,7 @@ pub mod error_codes {
     /// Catch-all error code used for anything that's not a panic or covered by AUTHENTICATION.
     pub const OTHER: i32 = 1;
 
-    /// Used for `ErrorKind::NotMarried`, `ErrorKind::NoCachedTokens`, `ErrorKind::NoScopedKey`
+    /// Used by `ErrorKind::NoCachedTokens`, `ErrorKind::NoScopedKey`
     /// and `ErrorKind::RemoteError`'s where `code == 401`.
     pub const AUTHENTICATION: i32 = 2;
 
@@ -53,7 +53,6 @@ pub unsafe fn from_protobuf_ptr<T, F: prost::Message + Default + Into<T>>(
 fn get_code(err: &Error) -> ErrorCode {
     match err.kind() {
         ErrorKind::RemoteError { code: 401, .. }
-        | ErrorKind::NotMarried
         | ErrorKind::NoRefreshToken
         | ErrorKind::NoScopedKey(_)
         | ErrorKind::NoCachedToken(_) => {

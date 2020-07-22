@@ -10,6 +10,7 @@ use crate::{
     scoped_keys::{ScopedKey, ScopedKeysFlow},
     util, FirefoxAccount,
 };
+use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rc_crypto::digest;
 use serde_derive::*;
 use std::convert::TryFrom;
@@ -231,8 +232,11 @@ impl FirefoxAccount {
             let scoped_keys = serde_json::to_string(&scoped_keys)?;
             let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
             let keys_jwk = String::from_utf8(keys_jwk)?;
-            let client_keys_flow = ScopedKeysFlow::with_random_key()?;
-            Some(client_keys_flow.encrypt_keys_jwe(&keys_jwk, scoped_keys.as_bytes())?)
+            let params = EncryptionParameters::ECDH_ES {
+                enc: EncryptionAlgorithm::A256GCM,
+                peer_jwk: serde_json::from_str(&keys_jwk)?,
+            };
+            Some(jwcrypto::encrypt_to_jwe(scoped_keys.as_bytes(), params)?)
         } else {
             None
         };
@@ -267,7 +271,8 @@ impl FirefoxAccount {
         let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
-        let jwk_json = scoped_keys_flow.generate_keys_jwk()?;
+        let jwk = scoped_keys_flow.get_public_key_jwk()?;
+        let jwk_json = serde_json::to_string(&jwk)?;
         let keys_jwk = base64::encode_config(&jwk_json, base64::URL_SAFE_NO_PAD);
         url.query_pairs_mut()
             .append_pair("client_id", &self.state.config.client_id)
@@ -351,7 +356,7 @@ impl FirefoxAccount {
         let old_refresh_token = self.state.refresh_token.clone();
         let new_refresh_token = resp
             .refresh_token
-            .ok_or_else(|| ErrorKind::RefreshTokenNotPresent)?;
+            .ok_or_else(|| ErrorKind::UnrecoverableServerError("No refresh token in response"))?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -415,7 +420,7 @@ impl FirefoxAccount {
         )?;
         let new_refresh_token = resp
             .refresh_token
-            .ok_or_else(|| ErrorKind::RefreshTokenNotPresent)?;
+            .ok_or_else(|| ErrorKind::UnrecoverableServerError("No refresh token in response"))?;
         self.state.refresh_token = Some(RefreshToken {
             token: new_refresh_token,
             scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),

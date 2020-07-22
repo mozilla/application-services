@@ -24,6 +24,8 @@ use core::marker::PhantomData;
 pub use ec::{Curve, EcKey};
 use nss::{ec, ecdh};
 
+pub type EphemeralKeyPair = KeyPair<Ephemeral>;
+
 /// A key agreement algorithm.
 #[derive(PartialEq)]
 pub struct Algorithm {

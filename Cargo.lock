@@ -876,6 +876,7 @@ dependencies = [
  "error-support",
  "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
+ "jwcrypto",
  "lazy_static",
  "log 0.4.11",
  "mockiato",
@@ -1135,6 +1136,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52732a3d3ad72c58ad2dc70624f9c17b46ecd0943b9a4f1ee37c4c18c5d983e2"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "jwcrypto"
+version = "0.1.0"
+dependencies = [
+ "base64 0.12.3",
+ "rc_crypto",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

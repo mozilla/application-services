@@ -3,17 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub use crate::oauth::{AuthorizationPKCEParams, AuthorizationParameters};
-use crate::{
-    error::*,
-    http_client,
-    scoped_keys::{ScopedKey, ScopedKeysFlow},
-    util::Xorable,
-    Config,
-};
+use crate::{error::*, http_client, scoped_keys::ScopedKey, util::Xorable, Config};
 pub use http_client::{
     derive_auth_key_from_session_token, send_authorization_request, send_verification,
     AuthorizationRequestParameters,
 };
+use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
 use rc_crypto::{digest, hkdf, hmac, pbkdf2};
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -42,8 +37,13 @@ pub fn create_keys_jwe(
         get_scoped_keys(scope, client_id, auth_key, config, acct_keys)?;
     let scoped = serde_json::to_string(&scoped)?;
     let scoped = scoped.as_bytes();
-    let epk = ScopedKeysFlow::with_random_key()?;
-    let res = epk.encrypt_keys_jwe(jwk, scoped)?;
+    let res = jwcrypto::encrypt_to_jwe(
+        scoped,
+        EncryptionParameters::ECDH_ES {
+            enc: EncryptionAlgorithm::A256GCM,
+            peer_jwk: serde_json::from_str(jwk)?,
+        },
+    )?;
     Ok(res)
 }
 

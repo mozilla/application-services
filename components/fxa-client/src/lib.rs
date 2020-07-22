@@ -26,20 +26,19 @@ use std::{
 };
 use url::Url;
 
+#[cfg(feature = "integration_test")]
+pub mod auth;
 mod commands;
 mod config;
 pub mod device;
 pub mod error;
 pub mod ffi;
+mod http_client;
 pub mod migrator;
-
-#[cfg(feature = "integration_test")]
-pub mod auth;
 // Include the `msg_types` module, which is generated from msg_types.proto.
 pub mod msg_types {
     include!("mozilla.appservices.fxaclient.protobuf.rs");
 }
-mod http_client;
 mod oauth;
 mod profile;
 mod push;
