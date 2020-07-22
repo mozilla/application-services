@@ -116,11 +116,13 @@ pub extern "C" fn rc_log_adapter_set_max_level(level: i32, out_err: &mut ffi_sup
 // Can't use define_box_destructor because this can panic. TODO: Maybe we should
 // keep this around globally (as lazy_static or something) and basically just
 // turn it on/off in create/destroy... Might be more reliable?
+/// # Safety
+/// Unsafe because it frees it's argument.
 #[no_mangle]
-pub extern "C" fn rc_log_adapter_destroy(to_destroy: Option<Box<imp::LogAdapterState>>) {
+pub unsafe extern "C" fn rc_log_adapter_destroy(to_destroy: *mut imp::LogAdapterState) {
     ffi_support::abort_on_panic::call_with_output(move || {
         log::set_max_level(log::LevelFilter::Off);
-        drop(to_destroy);
+        drop(Box::from_raw(to_destroy));
         settable_log::unset_logger();
     })
 }
