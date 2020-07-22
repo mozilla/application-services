@@ -373,10 +373,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         let changes = state_machine.changes_needed.take();
         // The state machine might have updated our persisted_global_state, so
         // update the caller's repr of it.
-        let _ = mem::replace(
-            self.persisted_global_state,
-            Some(serde_json::to_string(&pgs)?),
-        );
+        *self.persisted_global_state = Some(serde_json::to_string(&pgs)?);
 
         // Now that we've gone through the state machine, store the declined list in
         // the sync_result
