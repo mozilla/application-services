@@ -320,7 +320,7 @@ jobs:
     docker:
       - image: circleci/rust:latest
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: xlarge
+    resource_class: large
     steps:
       - restore-sccache-cache
       - rust-tests
@@ -329,7 +329,7 @@ jobs:
   Rust tests - beta:
     docker:
       - image: circleci/rust:latest
-    resource_class: xlarge
+    resource_class: large
     steps:
       - restore-sccache-cache
       - rust-tests:
