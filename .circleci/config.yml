@@ -273,7 +273,7 @@ jobs:
   Generate code coverage:
     docker:
       - image: circleci/rust:latest
-    resource_class: xlarge
+    resource_class: large
     steps:
       # Need to use nightly for this.
       - test-setup:
