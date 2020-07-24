@@ -883,6 +883,7 @@ dependencies = [
  "mockito",
  "prost",
  "prost-derive",
+ "rand_rccrypto",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -2138,6 +2139,7 @@ dependencies = [
 name = "rand_rccrypto"
 version = "0.1.0"
 dependencies = [
+ "rand 0.7.3",
  "rand_core 0.5.1",
  "rc_crypto",
 ]

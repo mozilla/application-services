@@ -212,12 +212,11 @@ open class RustFxAccount {
         }
     }
 
-    open func getEcosystemAnonId() throws -> String? {
-        let ptr = try nullableRustCall { err in
+    open func getEcosystemAnonId() throws -> String {
+        let ptr = try rustCall { err in
             fxa_get_ecosystem_anon_id(self.raw, err)
         }
-        guard let str = ptr else { return nil }
-        return String(freeingFxaString: str)
+        return String(freeingFxaString: ptr)
     }
 
     open func getDevices(ignoreCache: Bool = false) throws -> [Device] {

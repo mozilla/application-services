@@ -14,7 +14,7 @@ use rc_crypto::{
 };
 use serde_derive::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ECKeysParameters {
     pub crv: String,
     pub x: String,
@@ -30,7 +30,7 @@ pub(crate) fn encrypt_to_jwe(
     let local_public_key = extract_pub_key_jwk(&local_key_pair)?;
     let JwkKeyParameters::EC(ref ec_key_params) = peer_jwk.key_parameters;
     let protected_header = JweHeader {
-        kid: peer_jwk.kid,
+        kid: peer_jwk.kid.clone(),
         alg: Algorithm::ECDH_ES,
         enc,
         epk: Some(local_public_key),

@@ -231,12 +231,14 @@ impl FirefoxAccount {
                 })?;
             let scoped_keys = serde_json::to_string(&scoped_keys)?;
             let keys_jwk = base64::decode_config(keys_jwk, base64::URL_SAFE_NO_PAD)?;
-            let keys_jwk = String::from_utf8(keys_jwk)?;
-            let params = EncryptionParameters::ECDH_ES {
-                enc: EncryptionAlgorithm::A256GCM,
-                peer_jwk: serde_json::from_str(&keys_jwk)?,
-            };
-            Some(jwcrypto::encrypt_to_jwe(scoped_keys.as_bytes(), params)?)
+            let jwk = serde_json::from_slice(&keys_jwk)?;
+            Some(jwcrypto::encrypt_to_jwe(
+                scoped_keys.as_bytes(),
+                EncryptionParameters::ECDH_ES {
+                    enc: EncryptionAlgorithm::A256GCM,
+                    peer_jwk: &jwk,
+                },
+            )?)
         } else {
             None
         };
