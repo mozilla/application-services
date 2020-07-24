@@ -30,6 +30,25 @@ commands:
       - run: |
           sccache --version
           sccache --zero-stats
+  install-grcov:
+    steps:
+      - run:
+          name: Install grcov
+          command: |
+            GRCOV_VERSION=v0.5.15
+            GRCOV_ARCHIVE=grcov-linux-x86_64.tar.bz2
+            GRCOV_SHA256=1182739b2b1df31dee74ed3533330001f9da921cf169bd8da4ec0386e4243ad0
+            GRCOV_URL="https://github.com/mozilla/grcov/releases/download/${GRCOV_VERSION}/${GRCOV_ARCHIVE}"
+            curl -sfSL --retry 5 --retry-delay 10 -O "${GRCOV_URL}"
+            echo "${GRCOV_SHA256} *${GRCOV_ARCHIVE}" | shasum -a 256 -c -
+
+            # Just install `grcov` to ~/.bin
+            mkdir -p "$HOME/.bin"
+            tar jxf "${GRCOV_ARCHIVE}" -C "$HOME/.bin"
+            echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
+      # Run in a different shell to source $BASH_ENV
+      - run: |
+          grcov --version
   install-mdbook:
     steps:
       - run:
@@ -251,6 +270,22 @@ jobs:
       - run: cargo clippy --version
       - run: bash automation/all_clippy_checks.sh
       - save-sccache-cache
+  Generate code coverage:
+    docker:
+      - image: circleci/rust:latest
+    resource_class: large
+    steps:
+      # Need to use nightly for this.
+      - test-setup:
+          rust-version: "nightly"
+      - install-grcov
+      - run: bash ./automation/emit_coverage_info.sh
+      - run:
+          name: Compile coverage
+          command: grcov ./target/debug/ -s . -t lcov --llvm --branch --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
+      - run:
+          name: Upload to codecov.io
+          command: bash <(curl -s https://codecov.io/bash) -f lcov.info
   Check Protobuf files are up-to-date:
     docker:
       - image: circleci/rust:latest
@@ -285,7 +320,7 @@ jobs:
     docker:
       - image: circleci/rust:latest
     # We have to use a machine with more RAM for tests so we don't run out of memory.
-    resource_class: xlarge
+    resource_class: large
     steps:
       - restore-sccache-cache
       - rust-tests
@@ -294,7 +329,7 @@ jobs:
   Rust tests - beta:
     docker:
       - image: circleci/rust:latest
-    resource_class: xlarge
+    resource_class: large
     steps:
       - restore-sccache-cache
       - rust-tests:
@@ -504,6 +539,9 @@ workflows:
       - Rust tests
       - Rust benchmarks
       - Sync integration tests
+  coverage:
+    jobs:
+      - Generate code coverage
   carthage-framework:
     jobs:
       - iOS build and test:
