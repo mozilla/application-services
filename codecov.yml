@@ -1,5 +1,7 @@
-# Don't trigger CI failure on coverage reduction.
 coverage:
+  # Tell codecov our default branch.
+  branch: main
+  # Don't trigger CI failure on coverage reduction.
   status:
     project:
       default:
