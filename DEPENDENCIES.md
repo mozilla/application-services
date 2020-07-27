@@ -457,6 +457,7 @@ The following text applies to code linked from these dependencies:
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
 [iovec](https://github.com/carllerche/iovec),
+[ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [jna](https://github.com/java-native-access/jna),
