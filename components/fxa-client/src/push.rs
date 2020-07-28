@@ -2,6 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::device::CommandFetchReason;
 use crate::{error::*, AccountEvent, FirefoxAccount};
 use serde_derive::Deserialize;
 
@@ -13,6 +14,8 @@ impl FirefoxAccount {
     /// Since FxA sends one push notification per command received,
     /// we must only retrieve 1 command per push message,
     /// otherwise we risk receiving push messages for which the UI has already been shown.
+    /// However, note that this means iOS currently risks losing messages for
+    /// which a push notification doesn't arrive.
     ///
     /// **💾 This method alters the persisted account state.**
     pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>> {
@@ -30,14 +33,15 @@ impl FirefoxAccount {
         match payload {
             PushPayload::CommandReceived(CommandReceivedPushPayload { index, .. }) => {
                 if cfg!(target_os = "ios") {
-                    self.fetch_device_command(index)
+                    self.ios_fetch_device_command(index)
                         .map(|cmd| vec![AccountEvent::IncomingDeviceCommand(Box::new(cmd))])
                 } else {
-                    self.poll_device_commands().map(|cmds| {
-                        cmds.into_iter()
-                            .map(|cmd| AccountEvent::IncomingDeviceCommand(Box::new(cmd)))
-                            .collect()
-                    })
+                    self.poll_device_commands(CommandFetchReason::Push(index))
+                        .map(|cmds| {
+                            cmds.into_iter()
+                                .map(|cmd| AccountEvent::IncomingDeviceCommand(Box::new(cmd)))
+                                .collect()
+                        })
                 }
             }
             PushPayload::ProfileUpdated => {

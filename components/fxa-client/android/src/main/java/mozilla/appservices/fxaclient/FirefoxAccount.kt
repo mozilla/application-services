@@ -587,6 +587,18 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         }
     }
 
+    /**
+     * Gather any telemetry which has been collected internally and return
+     * the result as a JSON string.
+     *
+     * This does not make network requests, and can be used on the main thread.
+     */
+    fun gatherTelemetry(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_gather_telemetry(this.handle.get(), e)
+        }.getAndConsumeRustString()
+    }
+
     @Synchronized
     override fun close() {
         val handle = this.handle.getAndSet(0)
