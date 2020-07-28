@@ -429,6 +429,7 @@ impl FirefoxAccount {
         });
         self.state.session_token = Some(session_token.to_owned());
         self.clear_access_token_cache();
+        self.clear_devices_and_attached_clients_cache();
         // When our keys change, we might need to re-register device capabilities with the server.
         // Ensure that this happens on the next call to ensure_capabilities.
         self.state.device_capabilities.clear();

@@ -76,6 +76,8 @@ impl FirefoxAccount {
             }
             PushPayload::PasswordChanged | PushPayload::PasswordReset => {
                 let status = self.check_authorization_status()?;
+                // clear any device or client data due to password change.
+                self.clear_devices_and_attached_clients_cache();
                 Ok(if !status.active {
                     vec![AccountEvent::AccountAuthStateChanged]
                 } else {
@@ -140,6 +142,10 @@ pub struct AccountDestroyedPushPayload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::http_client::FxAClientMock;
+    use crate::http_client::IntrospectResponse;
+    use crate::CachedResponse;
+    use std::sync::Arc;
 
     #[test]
     fn test_deserialize_send_tab_command() {
@@ -186,6 +192,35 @@ mod tests {
             }
             _ => unreachable!(),
         };
+    }
+
+    #[test]
+    fn test_push_password_reset() {
+        let mut fxa =
+            FirefoxAccount::with_config(crate::Config::stable_dev("12345678", "https://foo.bar"));
+        let mut client = FxAClientMock::new();
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .times(1)
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        fxa.set_client(Arc::new(client));
+        let refresh_token_scopes = std::collections::HashSet::new();
+        fxa.state.refresh_token = Some(crate::oauth::RefreshToken {
+            token: "refresh_token".to_owned(),
+            scopes: refresh_token_scopes,
+        });
+        fxa.state.current_device_id = Some("my_id".to_owned());
+        fxa.devices_cache = Some(CachedResponse {
+            response: vec![],
+            cached_at: 0,
+            etag: "".to_string(),
+        });
+        let json = "{\"version\":1,\"command\":\"fxaccounts:password_reset\"}";
+        assert!(fxa.devices_cache.is_some());
+        fxa.handle_push_message(json).unwrap();
+        assert!(fxa.devices_cache.is_none());
     }
 
     #[test]

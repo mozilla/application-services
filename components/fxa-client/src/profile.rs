@@ -27,6 +27,7 @@ impl FirefoxAccount {
                         "Access token rejected, clearing the tokens cache and trying again."
                     );
                     self.clear_access_token_cache();
+                    self.clear_devices_and_attached_clients_cache();
                     self.get_profile_helper(ignore_cache)
                 }
                 _ => Err(e),
