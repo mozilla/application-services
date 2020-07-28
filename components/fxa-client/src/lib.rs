@@ -18,9 +18,11 @@ pub use crate::{
     oauth::IntrospectInfo,
     oauth::{AccessTokenInfo, RefreshToken},
     profile::Profile,
+    telemetry::FxaTelemetry,
 };
 use serde_derive::*;
 use std::{
+    cell::RefCell,
     collections::{HashMap, HashSet},
     sync::Arc,
 };
@@ -66,6 +68,9 @@ pub struct FirefoxAccount {
     flow_store: HashMap<String, OAuthFlow>,
     attached_clients_cache: Option<CachedResponse<Vec<http_client::GetAttachedClientResponse>>>,
     devices_cache: Option<CachedResponse<Vec<http_client::GetDeviceResponse>>>,
+    // 'telemetry' is only currently used by `&mut self` functions, but that's
+    // not something we want to insist on going forward, so RefCell<> it.
+    telemetry: RefCell<FxaTelemetry>,
 }
 
 impl FirefoxAccount {
@@ -76,6 +81,7 @@ impl FirefoxAccount {
             flow_store: HashMap::new(),
             attached_clients_cache: None,
             devices_cache: None,
+            telemetry: RefCell::new(FxaTelemetry::new()),
         }
     }
 
@@ -152,6 +158,7 @@ impl FirefoxAccount {
         self.state = self.state.start_over();
         self.flow_store.clear();
         self.clear_devices_and_attached_clients_cache();
+        self.telemetry.replace(FxaTelemetry::new());
     }
 
     /// Get the Sync Token Server endpoint URL.

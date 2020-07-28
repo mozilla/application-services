@@ -114,6 +114,8 @@ internal interface LibFxAFFI : Library {
 
     fun fxa_retry_migrate_from_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
 
+    fun fxa_gather_telemetry(fxa: FxaHandle, e: RustError.ByReference): Pointer?
+
     fun fxa_str_free(string: Pointer)
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)
     fun fxa_free(fxa: FxaHandle, err: RustError.ByReference)
