@@ -119,7 +119,8 @@ public class DeviceConstellation {
     /// Once Push has decrypted a payload, send the payload to this method
     /// which will tell the app what to do with it in form of `DeviceEvents`.
     public func processRawIncomingAccountEvent(pushPayload: String,
-                                               completionHandler: @escaping (Result<[AccountEvent], Error>) -> Void) {
+                                               completionHandler: @escaping (Result<[AccountEvent], Error>) -> Void)
+    {
         DispatchQueue.global().async {
             do {
                 let events = try self.account.handlePushMessage(payload: pushPayload)
