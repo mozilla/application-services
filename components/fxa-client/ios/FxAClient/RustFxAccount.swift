@@ -305,6 +305,14 @@ open class RustFxAccount {
         }
     }
 
+    open func gatherTelemetry() throws -> String? {
+        let maybeEvents = try nullableRustCall { err in fxa_gather_telemetry(self.raw, err) }
+        guard let events = maybeEvents else {
+            return nil
+        }
+        return String(freeingFxaString: events)
+    }
+
     private func msgToBuffer(msg: SwiftProtobuf.Message) -> (Data, Int32) {
         let data = try! msg.serializedData()
         let size = Int32(data.count)

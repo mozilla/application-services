@@ -163,8 +163,8 @@ char *_Nullable fxa_get_manage_devices_url(FirefoxAccountHandle handle,
                                            const char *_Nonnull entrypoint,
                                            FxAError *_Nonnull out);
 
-char *fxa_gather_telemetry(FirefoxAccountHandle handle,
-                           FxAError *_Nonnull out);
+char *_Nullable fxa_gather_telemetry(FirefoxAccountHandle handle,
+                                     FxAError *_Nonnull out);
 
 void fxa_str_free(char *_Nullable ptr);
 void fxa_free(FirefoxAccountHandle h, FxAError *_Nonnull out);
