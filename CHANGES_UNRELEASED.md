@@ -12,7 +12,7 @@
   returns a string of JSON.
 
   This JSON might grow to support non-sendtab telemetry in the future, but in
-  this change it will have:
+  this change it has:
   - `commands_sent`, an array of objects, each with `flow_id` and `stream_id`
     string values.
   - `commands_received`, an array of objects, each with `flow_id`, `stream_id`
