@@ -329,6 +329,17 @@ open class FxAccountManager {
         }
     }
 
+    /// Returns a JSON string containing telemetry events to submit in the next
+    /// Sync ping. This is used to collect telemetry for services like Send Tab.
+    /// This method can be called anytime, and returns `nil` if the account is
+    /// not initialized or there are no events to record.
+    public func gatherTelemetry() throws -> String? {
+        guard let acct = account else {
+            return nil
+        }
+        return try acct.gatherTelemetry()
+    }
+
     let fxaFsmQueue = DispatchQueue(label: "com.mozilla.fxa-mgr-queue")
 
     internal func processEvent(event: Event, completionHandler: @escaping () -> Void) {
