@@ -50,14 +50,18 @@
     git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
     git push -u origin fixes-for-v0.31.3
     ```
-3. Follow the above steps for cutting a new release from main, except that:
+3. Get a PR up with your changes and land them into the "base" branch.
+   For example, if you are making a `release-v0.31.X` release, all the changes
+   you want in that release must already be in the `release-v0.31` branch before
+   following the steps below.
+4. Follow the above steps for cutting a new release from main, except that:
     * When running the `./automation/prepare-release.py` script, use the `--base-branch` argument to point it at your release branch, and specify `patch` as the release type. Example:
        ```
        ./automation/prepare-release.py --base-branch=release-v0.31 patch
        ```
     * When opening a PR to land the commits, target the `release-v0.XX` branch rather than main.
     * When cutting the new release via github's UI, target the `release-v0.XX` branch rather than main.
-4. Merge the new release back to main.
+5. Merge the new release back to main.
     * This will typically require a PR and involve resolving merge conflicts in the changelog.
     * This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
       and also helps ensure that every release has an easily-discoverable changelog entry in main.
