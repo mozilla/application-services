@@ -729,18 +729,18 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 [[package]]
 name = "ffi-support"
 version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "087be066eb6e85d7150f0c5400018a32802f99d688b2d3868c526f7bbfe17960"
 dependencies = [
- "backtrace",
  "lazy_static",
  "log 0.4.11",
 ]
 
 [[package]]
 name = "ffi-support"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "087be066eb6e85d7150f0c5400018a32802f99d688b2d3868c526f7bbfe17960"
+version = "0.4.1"
 dependencies = [
+ "backtrace",
  "lazy_static",
  "log 0.4.11",
 ]
@@ -750,7 +750,7 @@ name = "ffi-support-extra-test"
 version = "0.1.0"
 dependencies = [
  "env_logger",
- "ffi-support 0.4.0",
+ "ffi-support 0.4.1",
  "log 0.4.11",
  "rand 0.7.3",
  "rayon",
@@ -874,7 +874,7 @@ dependencies = [
  "anyhow",
  "base64 0.12.3",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "hex",
  "jwcrypto",
  "lazy_static",
@@ -900,7 +900,7 @@ dependencies = [
 name = "fxaclient_ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "fxa-client",
  "lazy_static",
  "log 0.4.11",
@@ -1231,7 +1231,7 @@ dependencies = [
  "anyhow",
  "env_logger",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
@@ -1255,7 +1255,7 @@ name = "logins_ffi"
 version = "0.1.0"
 dependencies = [
  "base16",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "lazy_static",
  "log 0.4.11",
  "logins",
@@ -1725,7 +1725,7 @@ dependencies = [
  "dogear",
  "env_logger",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "idna",
  "interrupt-support",
  "lazy_static",
@@ -1763,7 +1763,7 @@ dependencies = [
 name = "places-ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
@@ -1941,7 +1941,7 @@ dependencies = [
  "base64 0.12.3",
  "bincode",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "hex",
  "lazy_static",
  "log 0.4.11",
@@ -1965,7 +1965,7 @@ name = "push-ffi"
 version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "lazy_static",
  "log 0.4.11",
  "prost",
@@ -2202,7 +2202,7 @@ name = "rc_log_ffi"
 version = "0.1.0"
 dependencies = [
  "cfg-if",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "lazy_static",
  "log 0.4.11",
 ]
@@ -2533,7 +2533,7 @@ dependencies = [
 name = "sql-support"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
@@ -2639,7 +2639,7 @@ dependencies = [
  "base64 0.12.3",
  "env_logger",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
@@ -2659,7 +2659,7 @@ name = "sync15-traits"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "log 0.4.11",
  "serde",
  "serde_json",
@@ -2673,7 +2673,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "lazy_static",
  "log 0.4.11",
@@ -2695,7 +2695,7 @@ dependencies = [
 name = "sync_manager_ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "log 0.4.11",
  "logins_ffi",
  "places-ffi",
@@ -2761,7 +2761,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "log 0.4.11",
  "prost",
@@ -2780,7 +2780,7 @@ name = "tabs_ffi"
 version = "0.1.0"
 dependencies = [
  "base16",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "lazy_static",
  "log 0.4.11",
  "prost",
@@ -3108,7 +3108,7 @@ checksum = "b5a972e5669d67ba988ce3dc826706fb0a8b01471c088cb0b6110b805cc36aed"
 name = "viaduct"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "log 0.4.11",
  "once_cell",
  "prost",
@@ -3123,7 +3123,7 @@ dependencies = [
 name = "viaduct-reqwest"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "lazy_static",
  "log 0.4.11",
  "reqwest",
@@ -3258,7 +3258,7 @@ version = "0.1.0"
 dependencies = [
  "env_logger",
  "error-support",
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "interrupt-support",
  "lazy_static",
  "libsqlite3-sys",
@@ -3281,7 +3281,7 @@ dependencies = [
 name = "webext-storage-ffi"
 version = "0.1.0"
 dependencies = [
- "ffi-support 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ffi-support 0.4.0",
  "lazy_static",
  "log 0.4.11",
  "serde_json",
