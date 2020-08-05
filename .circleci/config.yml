@@ -282,7 +282,7 @@ jobs:
       - run: bash ./automation/emit_coverage_info.sh
       - run:
           name: Compile coverage
-          command: grcov ./target/debug/ -s . -t lcov --llvm --branch --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
+          command: grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
       - run:
           name: Upload to codecov.io
           command: bash <(curl -s https://codecov.io/bash) -f lcov.info
