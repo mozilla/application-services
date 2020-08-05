@@ -15,3 +15,10 @@ crate-type = ["lib"]
 
 [dependencies]
 anyhow = "1"
+serde = "1"
+serde_derive = "1"
+log = "0.4"
+# Viaduct locked to version 61.0.10 of Application Services
+viaduct = { git = "https://github.com/mozilla/application-services",  rev = "2478bcf2b48d1867b01e8b7df4f86a69d564d49a"}
+thiserror = "1"
+

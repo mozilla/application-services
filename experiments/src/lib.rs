@@ -2,9 +2,17 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use anyhow::{anyhow, Result};
+pub mod error;
+mod evaluator;
+pub use error::*;
+mod http_client;
+mod matcher;
+mod persistence;
 
-#[derive(Debug, Clone)]
+use anyhow::{anyhow, Result};
+use serde_derive::*;
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Experiment {
     slug: String,
 }
