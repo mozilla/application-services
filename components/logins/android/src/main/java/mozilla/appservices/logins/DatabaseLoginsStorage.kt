@@ -89,10 +89,10 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun unlock(encryptionKey: ByteArray) {
         return unlockCounters.measure {
             rustCall {
-                if (!isLocked()) {
-                    throw MismatchedLockException("Unlock called when we are already unlocked")
-                }
                 LoginsStoreMetrics.unlockTime.measure {
+                    if (!isLocked()) {
+                        throw MismatchedLockException("Unlock called when we are already unlocked")
+                    }
                     raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
                             dbPath,
                             encryptionKey,
@@ -448,6 +448,9 @@ class LoginsStoreCounterMetrics(
                 throw e
             }
             when (e) {
+                is MismatchedLockException -> {
+                    errCount["mismatched_lock"].add()
+                }
                 is NoSuchRecordException -> {
                     errCount["no_such_record"].add()
                 }
