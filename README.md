@@ -1,4 +1,4 @@
-# nimbus-sdk
+# nimbus-sdk [![CircleCI](https://circleci.com/gh/mozilla/nimbus-sdk/tree/main.svg?style=svg)](https://circleci.com/gh/mozilla/nimbus-sdk/tree/main)
 Cross Platform Rapid Experiments "Nimbus" SDK
 
 ## Useful Resources
