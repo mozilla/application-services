@@ -17,8 +17,16 @@ crate-type = ["lib"]
 anyhow = "1"
 serde = "1"
 serde_derive = "1"
+serde_json = "1"
 log = "0.4"
 # Viaduct locked to version 61.0.10 of Application Services
 viaduct = { git = "https://github.com/mozilla/application-services",  rev = "2478bcf2b48d1867b01e8b7df4f86a69d564d49a"}
 thiserror = "1"
+chrono = { version = "0.4", features = ["serde"]}
+url = "2.1"
+
+
+[dev-dependencies]
+viaduct-reqwest = { git = "https://github.com/mozilla/application-services",  rev = "2478bcf2b48d1867b01e8b7df4f86a69d564d49a"}
+mockito = "0.27"
 
