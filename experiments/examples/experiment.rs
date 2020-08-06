@@ -3,9 +3,9 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use anyhow::Result;
-use experiments::Experiments;
+use experiments::{AppContext, Experiments};
 fn main() -> Result<()> {
-    let exp = Experiments::new();
+    let exp = Experiments::new(AppContext::default(), "../target/mydb", None);
     exp.get_experiments();
     Ok(())
 }

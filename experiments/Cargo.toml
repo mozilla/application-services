@@ -26,6 +26,8 @@ chrono = { version = "0.4", features = ["serde"]}
 url = "2.1"
 rkv = "0.10"
 jexl-eval = "0.1.1"
+uuid = { version = "0.8", features = ["serde", "v4"]}
+
 
 [dev-dependencies]
 viaduct-reqwest = { git = "https://github.com/mozilla/application-services",  rev = "2478bcf2b48d1867b01e8b7df4f86a69d564d49a"}
