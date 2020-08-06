@@ -23,8 +23,20 @@ use std::{
 #[repr(u8)]
 pub enum Curve {
     P256,
+    P384,
 }
+
+impl Curve {
+    pub fn get_field_len(&self) -> u32 {
+        match &self {
+            Curve::P256 => 32,
+            Curve::P384 => 48,
+        }
+    }
+}
+
 const CRV_P256: &str = "P-256";
+const CRV_P384: &str = "P-384";
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct EcKey {
@@ -39,6 +51,7 @@ impl EcKey {
     pub fn new(curve: Curve, private_key: &[u8], public_key: &[u8]) -> Self {
         let curve = match curve {
             Curve::P256 => CRV_P256,
+            Curve::P384 => CRV_P384,
         };
         Self {
             curve: curve.to_owned(),
@@ -55,6 +68,8 @@ impl EcKey {
     pub fn curve(&self) -> Curve {
         if self.curve == CRV_P256 {
             return Curve::P256;
+        } else if self.curve == CRV_P384 {
+            return Curve::P384;
         }
         unimplemented!("It is impossible to create a curve object with a different CRV.")
     }
@@ -94,9 +109,7 @@ pub fn generate_keypair(curve: Curve) -> Result<(PrivateKey, PublicKey)> {
     // 2. Generate the key pair
     // The following code is adapted from:
     // https://searchfox.org/mozilla-central/rev/f46e2bf881d522a440b30cbf5cf8d76fc212eaf4/dom/crypto/WebCryptoTask.cpp#2389
-    let mech = match curve {
-        Curve::P256 => nss_sys::CKM_EC_KEY_PAIR_GEN,
-    };
+    let mech = nss_sys::CKM_EC_KEY_PAIR_GEN;
     let slot = slot::get_internal_slot()?;
     let mut pub_key: *mut nss_sys::SECKEYPublicKey = ptr::null_mut();
     let prv_key = PrivateKey::from(curve, unsafe {
@@ -132,9 +145,7 @@ impl PrivateKey {
         let mut pub_key = self.wrapped.convert_to_public_key()?;
 
         // Workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=1562046.
-        let field_len = match self.curve {
-            Curve::P256 => 32,
-        };
+        let field_len = self.curve.get_field_len();
         let expected_len = 2 * field_len + 1;
         let mut pub_value = unsafe { (*pub_key.as_ptr()).u.ec.publicValue };
         if pub_value.len == expected_len - 2 {
@@ -340,12 +351,10 @@ impl PublicKey {
 }
 
 fn check_pub_key_bytes(bytes: &[u8], curve: Curve) -> Result<()> {
-    let field_len = match curve {
-        Curve::P256 => 32,
-    };
+    let field_len = curve.get_field_len();
     // Check length of uncompressed point coordinates. There are 2 field elements
     // and a leading "point form" octet (which must be EC_POINT_FORM_UNCOMPRESSED).
-    if bytes.len() != (2 * field_len + 1) {
+    if bytes.len() != usize::try_from(2 * field_len + 1)? {
         return Err(ErrorKind::InternalError.into());
     }
     // No support for compressed points.
@@ -360,6 +369,7 @@ fn create_ec_params_for_curve(curve: Curve) -> Result<Vec<u8>> {
     // https://searchfox.org/mozilla-central/rev/ec489aa170b6486891cf3625717d6fa12bcd11c1/dom/crypto/WebCryptoCommon.h#299
     let curve_oid_tag = match curve {
         Curve::P256 => nss_sys::SECOidTag::SEC_OID_ANSIX962_EC_PRIME256V1,
+        Curve::P384 => nss_sys::SECOidTag::SEC_OID_SECG_EC_SECP384R1,
     };
     // Retrieve curve data by OID tag.
     let oid_data = unsafe { nss_sys::SECOID_FindOIDByTag(curve_oid_tag as u32) };

@@ -36,6 +36,10 @@ pub static ECDH_P256: Algorithm = Algorithm {
     curve_id: ec::Curve::P256,
 };
 
+pub static ECDH_P384: Algorithm = Algorithm {
+    curve_id: ec::Curve::P384,
+};
+
 /// How many times the key may be used.
 pub trait Lifetime {}
 
@@ -179,6 +183,7 @@ impl PrivateKey<Static> {
         // XXX: we should just let ec::PrivateKey own alg.
         let alg = match ec_key.curve() {
             Curve::P256 => &ECDH_P256,
+            Curve::P384 => &ECDH_P384,
         };
         let private_key = ec::PrivateKey::import(ec_key)?;
         Ok(Self {
