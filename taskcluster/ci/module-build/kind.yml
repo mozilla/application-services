@@ -18,6 +18,7 @@ kind-dependencies:
 job-defaults:
   attributes:
     run-on-pr-type: full-ci
+    resource-monitor: true
   run-on-tasks-for: [github-pull-request, github-push]
   description: "{module_name} - Build and test"
   scopes:
@@ -27,6 +28,7 @@ job-defaults:
     chain-of-trust: true
     docker-image: { in-tree: linux }
     max-run-time: 1800
+    env: {}
   run:
     pre-gradlew:
       # XXX: scripts subshell at runtime so we need to source this here
