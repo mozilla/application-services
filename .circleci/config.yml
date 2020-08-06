@@ -1,9 +1,38 @@
-version: 2.1
-orbs:
-  rust: glotrade/rust@0.1.3
-workflows:
+version: 2
+
+jobs:
   build:
-    jobs:
-      - rust/check
-      - rust/format
-      - rust/test
+    docker:
+      - image: rust:1
+    steps:
+      - checkout
+      - run:
+          name: Version information
+          command: rustc --version; cargo --version; rustup --version
+      - run:
+          name: Calculate dependencies
+          command: cd experiments && cargo generate-lockfile
+      - restore_cache:
+          keys:
+            - v4-cargo-cache-{{ arch }}-{{ checksum "experiments/Cargo.lock" }}
+      - run:
+          name: Build all targets
+          command: cd experiments && cargo build --all --all-targets
+      - save_cache:
+          paths:
+            - /usr/local/cargo/registry
+            - experiments/target/debug/.fingerprint
+            - experiments/target/debug/build
+            - experiments/target/debug/deps
+          key: v4-cargo-cache-{{ arch }}-{{ checksum "experiments/Cargo.lock" }}
+      - run:
+          name: Run all tests
+          command: cd experiments &&  cargo test --all
+      - run:
+          name: Check formatting
+          command: |
+            if rustup component add rustfmt; then
+              cd experiments && cargo fmt --all -- --check
+            else
+              echo Skipping rustfmt
+            fi
