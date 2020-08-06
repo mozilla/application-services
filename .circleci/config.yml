@@ -1,0 +1,9 @@
+version: 2.1
+orbs:
+  rust: glotrade/rust@0.1.3
+workflows:
+  build:
+    jobs:
+      - rust/check
+      - rust/format
+      - rust/test
