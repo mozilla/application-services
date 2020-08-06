@@ -458,11 +458,6 @@ impl ByteBuffer {
     #[inline]
     pub fn from_vec(bytes: Vec<u8>) -> Self {
         use std::convert::TryFrom;
-        if bytes.is_empty() {
-            // Try and maintain the invariant that `len == 0` and
-            // `data.is_null()` are equivalent.
-            return Self::default();
-        }
         let mut buf = bytes.into_boxed_slice();
         let data = buf.as_mut_ptr();
         let len = i64::try_from(buf.len()).expect("buffer length cannot fit into a i64.");
@@ -617,12 +612,12 @@ mod test {
 
         let bb = ByteBuffer::new_with_size(0);
         assert_eq!(bb.as_slice(), &[]);
-        assert!(bb.data.is_null());
+        assert!(!bb.data.is_null());
         bb.destroy();
 
         let bb = ByteBuffer::from_vec(vec![]);
         assert_eq!(bb.as_slice(), &[]);
-        assert!(bb.data.is_null());
+        assert!(!bb.data.is_null());
         bb.destroy();
     }
 }

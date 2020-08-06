@@ -738,7 +738,7 @@ dependencies = [
 
 [[package]]
 name = "ffi-support"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "backtrace",
  "lazy_static",
@@ -750,7 +750,7 @@ name = "ffi-support-extra-test"
 version = "0.1.0"
 dependencies = [
  "env_logger",
- "ffi-support 0.4.1",
+ "ffi-support 0.4.2",
  "log 0.4.11",
  "rand 0.7.3",
  "rayon",
