@@ -354,8 +354,9 @@ fn init_panic_handling_once() {}
 /// be leaked if it is not explicitly destroyed by calling [`ByteBuffer::destroy`], or
 /// [`ByteBuffer::destroy_into_vec`]. This is for two reasons:
 ///
-/// 1. In the future, we may allow it's use for passing data into Rust code, and
-///    `ByteBuffer` assuming ownership of the data would make this a problem.
+/// 1. In the future, we may allow it to be used for data that is not managed by
+///    the Rust allocator\*, and `ByteBuffer` assuming it's okay to automatically
+///    deallocate this data with the Rust allocator.
 ///
 /// 2. Automatically running destructors in unsafe code is a
 ///    [frequent footgun](https://without.boats/blog/two-memory-bugs-from-ringbahn/)
@@ -368,6 +369,13 @@ fn init_panic_handling_once() {}
 /// Because this type is essentially *only* useful in unsafe or FFI code (and because
 /// the most common usage pattern does not require manually managing the memory), it
 /// does not implement `Drop`.
+///
+/// \* Note: in the case of multiple Rust shared libraries loaded at the same time,
+/// there may be multiple instances of "the Rust allocator" (one per shared library),
+/// in which case we're referring to whichever instance is active for the code using
+/// the `ByteBuffer`. Note that this doesn't occur on all platforms or build
+/// configurations, but treating allocators in different shared libraries as fully
+/// independent is always safe.
 ///
 /// ## Layout/fields
 ///
@@ -504,7 +512,7 @@ impl ByteBuffer {
     /// `Vec<u8>`'s lifetime is done.
     ///
     /// If this is undesirable, you can do `bb.as_slice().to_vec()` to get a
-    /// `Vec<u8>` containing the this `ByteBuffer`'s underlying data.
+    /// `Vec<u8>` containing a copy of this `ByteBuffer`'s underlying data.
     ///
     /// ## Caveats
     ///
@@ -512,8 +520,18 @@ impl ByteBuffer {
     /// by Rust code, e.g. this is a ByteBuffer created by
     /// `ByteBuffer::from_vec` or `Default::default`.
     ///
-    /// If the ByteBuffer is not allocated by the Rust allocator, then calling
-    /// this function is undefined behavior.
+    /// If the ByteBuffer were allocated by something other than the
+    /// current/local Rust `global_allocator`, then calling `destroy` is
+    /// fundamentally broken.
+    ///
+    /// For example, if it were allocated externally by some other language's
+    /// runtime, or if it were allocated by the global allocator of some other
+    /// Rust shared object in the same application, the behavior is undefined
+    /// (and likely to cause problems).
+    ///
+    /// Note that this currently can only happen if the `ByteBuffer` is passed
+    /// to you via an `extern "C"` function that you expose, as opposed to being
+    /// created locally.
     #[inline]
     pub fn destroy_into_vec(self) -> Vec<u8> {
         if self.data.is_null() {
@@ -537,8 +555,18 @@ impl ByteBuffer {
     /// by Rust code, e.g. this is a ByteBuffer created by
     /// `ByteBuffer::from_vec` or `Default::default`.
     ///
-    /// If the ByteBuffer were passed into Rust, then calling `destroy` is
+    /// If the ByteBuffer were allocated by something other than the
+    /// current/local Rust `global_allocator`, then calling `destroy` is
     /// fundamentally broken.
+    ///
+    /// For example, if it were allocated externally by some other language's
+    /// runtime, or if it were allocated by the global allocator of some other
+    /// Rust shared object in the same application, the behavior is undefined
+    /// (and likely to cause problems).
+    ///
+    /// Note that this currently can only happen if the `ByteBuffer` is passed
+    /// to you via an `extern "C"` function that you expose, as opposed to being
+    /// created locally.
     #[inline]
     pub fn destroy(self) {
         // Note: the drop is just for clarity, of course.
