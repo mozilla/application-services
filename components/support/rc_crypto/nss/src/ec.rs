@@ -368,7 +368,7 @@ fn create_ec_params_for_curve(curve: Curve) -> Result<Vec<u8>> {
     // The following code is adapted from:
     // https://searchfox.org/mozilla-central/rev/ec489aa170b6486891cf3625717d6fa12bcd11c1/dom/crypto/WebCryptoCommon.h#299
     let curve_oid_tag = match curve {
-        Curve::P256 => nss_sys::SECOidTag::SEC_OID_ANSIX962_EC_PRIME256V1,
+        Curve::P256 => nss_sys::SECOidTag::SEC_OID_SECG_EC_SECP256R1,
         Curve::P384 => nss_sys::SECOidTag::SEC_OID_SECG_EC_SECP384R1,
     };
     // Retrieve curve data by OID tag.
