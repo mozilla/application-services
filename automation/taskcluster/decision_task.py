@@ -60,6 +60,7 @@ def main(task_for):
         android_multiarch()
     elif task_for == "github-release":
         is_staging = os.environ['IS_STAGING'] == 'true'
+        "".replace("-Dwarnings", "")
         android_multiarch_release(is_staging)
     else:
         raise ValueError("Unrecognized $TASK_FOR value: %r", task_for)
@@ -74,6 +75,8 @@ log_artifacts_expire_in = "1 year"
 
 build_env = {
     "RUST_BACKTRACE": "1",
+    # Note: for tasks triggered by github releases, RUSTFLAGS has -Dwarnings
+    # filtered out
     "RUSTFLAGS": "-Dwarnings",
     "CARGO_INCREMENTAL": "0",
     "CI": "1",
@@ -334,7 +337,12 @@ def linux_task(name):
     return task
 
 def linux_build_task(name):
-    use_indexed_docker_image = os.environ["TASK_FOR"] != "github-release"
+    is_github_release = os.environ["TASK_FOR"] == "github-release"
+    env = build_env.copy()
+    if is_github_release:
+        # Avoid failing to produce a release if we hit a warning while building
+        env["RUSTFLAGS"] = env["RUSTFLAGS"].replace("-Dwarnings", "")
+    use_indexed_docker_image = not is_github_release
     task = (
         linux_task(name)
         # https://docs.taskcluster.net/docs/reference/workers/docker-worker/docs/caches
@@ -350,7 +358,7 @@ def linux_build_task(name):
         .with_artifacts("/build/sccache.log")
         .with_max_run_time_minutes(120)
         .with_dockerfile(dockerfile_path("build"), use_indexed_docker_image)
-        .with_env(**build_env, **linux_build_env)
+        .with_env(**env, **linux_build_env)
         .with_script("""
             rustup toolchain install stable
             rustup default stable
