@@ -89,10 +89,10 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun unlock(encryptionKey: ByteArray) {
         return unlockCounters.measure {
             rustCall {
-                if (!isLocked()) {
-                    throw MismatchedLockException("Unlock called when we are already unlocked")
-                }
                 LoginsStoreMetrics.unlockTime.measure {
+                    if (!isLocked()) {
+                        throw MismatchedLockException("Unlock called when we are already unlocked")
+                    }
                     raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
                             dbPath,
                             encryptionKey,
@@ -301,7 +301,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
 
     @Throws(InvalidRecordException::class)
     override fun ensureValid(login: ServerPassword) {
-        readQueryCounters.measure {
+        readQueryCounters.measureIgnoring({ e -> e is InvalidRecordException }) {
             val buf = login.toProtobuf()
             val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
@@ -431,13 +431,26 @@ class LoginsStoreCounterMetrics(
     val count: CounterMetricType,
     val errCount: LabeledMetricType<CounterMetricType>
 ) {
-    @Suppress("ComplexMethod", "TooGenericExceptionCaught")
     inline fun <U> measure(callback: () -> U): U {
+        return measureIgnoring({ false }, callback)
+    }
+
+    @Suppress("ComplexMethod", "TooGenericExceptionCaught")
+    inline fun <U> measureIgnoring(
+        shouldIgnore: (Exception) -> Boolean,
+        callback: () -> U
+    ): U {
         count.add()
         try {
             return callback()
         } catch (e: Exception) {
+            if (shouldIgnore(e)) {
+                throw e
+            }
             when (e) {
+                is MismatchedLockException -> {
+                    errCount["mismatched_lock"].add()
+                }
                 is NoSuchRecordException -> {
                     errCount["no_such_record"].add()
                 }
