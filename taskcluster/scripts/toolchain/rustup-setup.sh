@@ -1,6 +1,12 @@
 #!/bin/bash
+
+TASK_FOR="${1}"
+
 export RUST_BACKTRACE='1'
-export RUSTFLAGS='-Dwarnings'
+# Don't block releases on compilation warnings.
+if [ "$TASK_FOR" != "github-release" ]; then
+    export RUSTFLAGS='-Dwarnings'
+fi
 export CARGO_INCREMENTAL='0'
 export CI='1'
 export CCACHE='sccache'

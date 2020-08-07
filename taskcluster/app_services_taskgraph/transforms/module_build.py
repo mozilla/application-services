@@ -11,6 +11,18 @@ from ..build_config import get_version, get_extensions
 
 transforms = TransformSequence()
 
+@transforms.add
+def rustup_setup(config, tasks):
+    for task in tasks:
+        task["run"].setdefault("pre-gradlew", [])
+        task["run"]["pre-gradlew"].insert(0,
+            [
+                "source",
+                "taskcluster/scripts/toolchain/rustup-setup.sh",
+                unicode(config.params["tasks_for"])
+            ]
+        )
+        yield task
 
 @transforms.add
 def release_upload_symbols(config, tasks):
