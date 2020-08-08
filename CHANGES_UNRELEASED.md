@@ -4,7 +4,11 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v62.0.0...main)
 
- ## FxA Client
+## General
+
+- Do not check total bytes quota on storage.sync.remote operations ([Bug 1656947](https://bugzilla.mozilla.org/1656947))
+
+## FxA Client
 
 ### What's new ###
 - Send-tab metrics are recorded. A new function, `fxa_gather_telemetry` on the
