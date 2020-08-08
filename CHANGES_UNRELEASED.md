@@ -4,8 +4,6 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.59.0...master)
 
-## FxA Client
+## General
 
-### What's new
-
-- Additional special case for China FxA in `getPairingAuthorityURL`. ([#3160](https://github.com/mozilla/application-services/pull/3160))
+- Do not check total bytes quota on storage.sync.remote operations ([Bug 1656947](https://bugzilla.mozilla.org/1656947))
