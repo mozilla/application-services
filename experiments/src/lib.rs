@@ -5,34 +5,45 @@
 pub mod error;
 mod evaluator;
 pub use error::*;
+mod config;
 mod http_client;
 mod matcher;
 mod persistence;
+mod uuid;
 
+use ::uuid::Uuid;
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
+pub use config::Config;
+pub use matcher::AppContext;
 use serde_derive::*;
+use std::path::Path;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 
 /// Experiments is the main struct representing the experiements state
 /// It should hold all the information needed to communcate a specific user's
-/// Experiementation status (note: This should have some type of uuid)
+/// Experiementation status
 #[derive(Debug, Clone)]
 pub struct Experiments {
     experiments: Vec<Experiment>,
-}
-
-impl Default for Experiments {
-    fn default() -> Self {
-        Experiments::new()
-    }
+    app_context: AppContext,
+    uuid: Uuid,
 }
 
 impl Experiments {
-    pub fn new() -> Self {
+    pub fn new<P: AsRef<Path>>(
+        app_context: AppContext,
+        _db_path: P,
+        config: Option<Config>,
+    ) -> Self {
         let resp = vec![];
-        Self { experiments: resp }
+        let uuid = uuid::generate_uuid(config);
+        Self {
+            experiments: resp,
+            app_context,
+            uuid,
+        }
     }
 
     pub fn get_experiment_branch(&self) -> Result<String> {
