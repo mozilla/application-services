@@ -17,6 +17,10 @@ pub enum Error {
     IOError(#[from] std::io::Error),
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
+    #[error("EvaluationError")]
+    EvaluationError,
+    #[error("Invalid Expression")]
+    InvalidExpression,
 }
 
 // This can be replaced with #[from] in the enum definition
@@ -24,6 +28,13 @@ pub enum Error {
 impl From<rkv::StoreError> for Error {
     fn from(store_error: rkv::StoreError) -> Self {
         Error::RkvError(store_error)
+    }
+}
+
+impl<'a> From<jexl_eval::error::EvaluationError<'a>> for Error {
+    fn from(_eval_error: jexl_eval::error::EvaluationError<'a>) -> Self {
+        // TODO: have the eval_error as a part of our error
+        Error::EvaluationError
     }
 }
 
