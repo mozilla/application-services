@@ -5,7 +5,7 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-pub use fxaclient_ffi;
+pub use fxa_client;
 pub use logins_ffi;
 pub use places_ffi;
 pub use rc_log_ffi;

@@ -2,7 +2,6 @@
 # Note: Any additions here should be repeated in default-members below.
 members = [
     "components/fxa-client",
-    "components/fxa-client/ffi",
     "components/logins",
     "components/logins/ffi",
     "components/places",
@@ -69,7 +68,6 @@ members = [
 # use the full member set.
 default-members = [
     "components/fxa-client",
-    "components/fxa-client/ffi",
     "components/logins",
     "components/logins/ffi",
     "components/places",

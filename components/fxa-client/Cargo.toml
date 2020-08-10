@@ -27,6 +27,10 @@ error-support = { path = "../support/error" }
 thiserror = "1.0"
 anyhow = "1.0"
 sync-guid = { path = "../support/guid", features = ["random"] }
+uniffi = { git = "https://github.com/mozilla/uniffi-rs", branch = "main" }
+
+[build-dependencies]
+uniffi_build = { git = "https://github.com/mozilla/uniffi-rs", branch = "main" }
 
 [dev-dependencies]
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }

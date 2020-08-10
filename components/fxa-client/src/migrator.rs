@@ -11,7 +11,7 @@ use std::time::Instant;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct FxAMigrationResult {
-    pub total_duration: u128,
+    pub total_duration: u64, // XXXAWKWARD webidl doesn't have u128 types
 }
 
 pub enum MigrationState {
@@ -98,6 +98,10 @@ impl FirefoxAccount {
             }) => MigrationState::ReuseSessionToken,
         }
     }
+    // XXXAWKWARD: Alias for uniffi, would be nice if the IDL could do that.
+    pub fn retry_migrate_from_session_token(&mut self) -> Result<FxAMigrationResult> {
+        self.try_migration()
+    }
 
     pub fn try_migration(&mut self) -> Result<FxAMigrationResult> {
         let import_start = Instant::now();
@@ -129,7 +133,7 @@ impl FirefoxAccount {
         self.state.in_flight_migration = None;
 
         let metrics = FxAMigrationResult {
-            total_duration: import_start.elapsed().as_millis(),
+            total_duration: import_start.elapsed().as_secs(),
         };
 
         Ok(metrics)

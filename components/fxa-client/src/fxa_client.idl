@@ -1,0 +1,169 @@
+// XXXAWKWARD
+namespace fxa_client {};
+
+[Error]
+enum FxAClientError {
+  "Other", "Authentication", "Network"
+};
+
+dictionary IntrospectInfo {
+  boolean active;
+};
+
+dictionary AccessTokenInfo {
+  string scope;
+  string token;
+  ScopedKey? key;
+  u64 expires_at;
+};
+
+dictionary ScopedKey {
+  string kty;
+  string scope;
+  string k;
+  string kid;
+};
+
+dictionary AuthorizationParameters {
+    string client_id;
+    sequence<string> scope;
+    string state;
+    string access_type;
+    AuthorizationPKCEParams? pkce_params;
+    string? keys_jwk;
+};
+
+dictionary AuthorizationPKCEParams {
+    string code_challenge;
+    string code_challenge_method;
+};
+
+dictionary FxAMigrationResult {
+    u64 total_duration;
+};
+
+enum MigrationState {
+    "None",
+    "CopySessionToken",
+    "ReuseSessionToken",
+};
+
+dictionary Profile {
+    string uid;
+    string email;
+    string? display_name;
+    string avatar;
+    boolean avatar_default;
+    string? ecosystem_anon_id;
+};
+
+enum DeviceType {
+    "Desktop",
+    "Mobile",
+    "Tablet",
+    "VR",
+    "TV",
+    "Unknown",
+};
+
+enum DeviceCapability {
+    "SendTab",
+};
+
+dictionary PushSubscription {
+    string endpoint;
+    string public_key;
+    string auth_key;
+};
+
+// dictionary Device {
+//     DeviceResponseCommon common;
+//     boolean is_current_device;
+//     DeviceLocation location;
+//     u64? last_access_time;
+// };
+
+// XXXAWKWARD HashMaps are not supported!
+// dictionary DeviceResponseCommon {
+//     string id;
+//     string display_name;
+//     DeviceType device_type;
+//     PushSubscription? push_subscription;
+//     // pub available_commands: HashMap<String, String>,
+//     boolean push_endpoint_expired;
+// };
+
+dictionary DeviceLocation {
+    string? city;
+    string? country;
+    string? state;
+    string? state_code;
+};
+
+interface FirefoxAccount {
+  constructor([ByRef] string content_url, [ByRef] string client_id, [ByRef] string redirect_uri, string? token_server_url_override);
+  /*static FirefoxAccont fromJSON(string json); TODO: alternative constructors */
+  [Throws=FxAClientError]
+  string to_json();
+
+  // XXXAWKWARD https://github.com/mozilla/uniffi-rs/issues/225
+  [Throws=FxAClientError]
+  string get_pairing_authority_url();
+  [Throws=FxAClientError]
+  string get_token_server_endpoint_url();
+  [Throws=FxAClientError]
+  string get_connection_success_url();
+  [Throws=FxAClientError]
+  string get_manage_account_url([ByRef] string entrypoint);
+  [Throws=FxAClientError]
+  string get_manage_devices_url([ByRef] string entrypoint);
+
+  [Throws=FxAClientError]
+  string begin_oauth_flow([ByRef] sequence<string> scopes, [ByRef] string entrypoint);
+  [Throws=FxAClientError]
+  string begin_pairing_flow([ByRef] string pairing_url, [ByRef] sequence<string> scopes, [ByRef] string entrypoint);
+  [Throws=FxAClientError]
+  void complete_oauth_flow([ByRef] string code, [ByRef] string state);
+  void disconnect();
+
+  [Throws=FxAClientError]
+  IntrospectInfo check_authorization_status();
+  [Throws=FxAClientError]
+  AccessTokenInfo get_access_token([ByRef] string scope, u64? ttl);
+  [Throws=FxAClientError]
+  string get_session_token(); // really whish we weren't exposing this... :-/
+  [Throws=FxAClientError]
+  string get_current_device_id();
+  [Throws=FxAClientError]
+  string authorize_code_using_session_token(AuthorizationParameters params);
+  void clear_access_token_cache();
+
+  [Throws=FxAClientError]
+  FxAMigrationResult migrate_from_session_token([ByRef] string session_token, [ByRef] string k_sync, [ByRef] string k_xcs, boolean copy_session_token);
+  [Throws=FxAClientError]
+  FxAMigrationResult retry_migrate_from_session_token();
+  MigrationState is_in_migration_state();
+
+  [Throws=FxAClientError]
+  Profile get_profile(optional boolean ignore_cache=false);
+
+  [Throws=FxAClientError]
+  void initialize_device([ByRef] string name, DeviceType device_type, [ByRef] sequence<DeviceCapability> supported_capabilities);
+  [Throws=FxAClientError]
+  void ensure_capabilities([ByRef] sequence<DeviceCapability> supported_capabilities);
+  [Throws=FxAClientError]
+  void set_push_subscription(PushSubscription subscription);
+  [Throws=FxAClientError]
+  void set_device_name([ByRef] string display_name);
+//   XXXAWKWARD: Hashmap in dictionary not supported.
+//   [Throws=FxAClientError]
+//   sequence<Device> get_devices(optional boolean ignore_cache = false);
+//   XXXAWKWARD: AccountEvent is an enum with associated data, which we don't support yet.
+//   [Throws=FxAClientError]
+//   sequence<AccountEvent> handle_push_message(string payload);
+//   XXXAWKWARD: Enum with associated data.
+//   [Throws=FxAClientError]
+//   sequence<IncomingDeviceCommand> poll_device_commands();
+  [Throws=FxAClientError]
+  void send_tab([ByRef] string target_device_id, [ByRef] string title, [ByRef] string url);
+};

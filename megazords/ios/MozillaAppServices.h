@@ -7,7 +7,7 @@
 FOUNDATION_EXPORT double MegazordClientVersionNumber;
 FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 
-#import "RustFxAFFI.h"
+#import "fxa_client-Bridging-Header.h"
 #import "RustPasswordAPI.h"
 #import "RustLogFFI.h"
 #import "RustPlacesAPI.h"

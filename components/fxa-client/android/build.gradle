@@ -2,6 +2,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 apply plugin: 'com.google.protobuf'
+apply plugin: "idea"
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -121,6 +122,20 @@ afterEvaluate {
 
         // For unit tests.
         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+    }
+
+    // UNIFFI
+    // I'd be cool if we'd have a gradle plugin that did all of that ;-)
+    android.libraryVariants.all { variant ->
+        def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
+            workingDir "${project.projectDir}"
+            commandLine 'uniffi-bindgen', 'generate', '../src/fxa_client.idl', '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java/"
+        }
+        variant.javaCompileProvider.get().dependsOn(t)
+        def sourceSet = variant.sourceSets.find { it.name == variant.name }
+        sourceSet.java.srcDir new File(buildDir, "generated/source/uniffi/${variant.name}/java")
+        // XXX: I've been trying to make this work but I can't, so the compiled bindings will show as "regular sources" in Android Studio.
+        idea.module.generatedSourceDirs += file("${buildDir}/generated/source/uniffi/${variant.name}/java")
     }
 }
 

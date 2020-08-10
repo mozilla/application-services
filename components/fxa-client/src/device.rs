@@ -8,9 +8,7 @@ pub use crate::http_client::{
 use crate::{
     commands,
     error::*,
-    http_client::{
-        DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand, UpdateDeviceResponse,
-    },
+    http_client::{DeviceUpdateRequest, DeviceUpdateRequestBuilder, PendingCommand},
     telemetry, util, CachedResponse, FirefoxAccount, IncomingDeviceCommand,
 };
 use serde_derive::*;
@@ -98,15 +96,13 @@ impl FirefoxAccount {
         device_type: Type,
         capabilities: &[Capability],
     ) -> Result<()> {
-        let commands = self.register_capabilities(capabilities)?;
+        let commands = self.register_capabilities(&capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .display_name(name)
             .device_type(&device_type)
             .available_commands(&commands)
             .build();
-        let resp = self.update_device(update)?;
-        self.state.current_device_id = Option::from(resp.id);
-        Ok(())
+        self.update_device(update)
     }
 
     /// Register a set of device capabilities against the current device.
@@ -130,13 +126,11 @@ impl FirefoxAccount {
         {
             return Ok(());
         }
-        let commands = self.register_capabilities(capabilities)?;
+        let commands = self.register_capabilities(&capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
-        let resp = self.update_device(update)?;
-        self.state.current_device_id = Option::from(resp.id);
-        Ok(())
+        self.update_device(update)
     }
 
     /// Re-register the device capabilities, this should only be used internally.
@@ -269,22 +263,19 @@ impl FirefoxAccount {
         }
     }
 
-    pub fn set_device_name(&mut self, name: &str) -> Result<UpdateDeviceResponse> {
+    pub fn set_device_name(&mut self, name: &str) -> Result<()> {
         let update = DeviceUpdateRequestBuilder::new().display_name(name).build();
         self.update_device(update)
     }
 
-    pub fn clear_device_name(&mut self) -> Result<UpdateDeviceResponse> {
+    pub fn clear_device_name(&mut self) -> Result<()> {
         let update = DeviceUpdateRequestBuilder::new()
             .clear_display_name()
             .build();
         self.update_device(update)
     }
 
-    pub fn set_push_subscription(
-        &mut self,
-        push_subscription: &PushSubscription,
-    ) -> Result<UpdateDeviceResponse> {
+    pub fn set_push_subscription(&mut self, push_subscription: PushSubscription) -> Result<()> {
         let update = DeviceUpdateRequestBuilder::new()
             .push_subscription(&push_subscription)
             .build();
@@ -295,11 +286,7 @@ impl FirefoxAccount {
     // for the device because the server does not have a `PATCH commands`
     // endpoint yet.
     #[allow(dead_code)]
-    pub(crate) fn register_command(
-        &mut self,
-        command: &str,
-        value: &str,
-    ) -> Result<UpdateDeviceResponse> {
+    pub(crate) fn register_command(&mut self, command: &str, value: &str) -> Result<()> {
         self.state.device_capabilities.clear();
         let mut commands = HashMap::new();
         commands.insert(command.to_owned(), value.to_owned());
@@ -312,7 +299,7 @@ impl FirefoxAccount {
     // TODO: this currently deletes every command registered for the device
     // because the server does not have a `PATCH commands` endpoint yet.
     #[allow(dead_code)]
-    pub(crate) fn unregister_command(&mut self, _: &str) -> Result<UpdateDeviceResponse> {
+    pub(crate) fn unregister_command(&mut self, _: &str) -> Result<()> {
         self.state.device_capabilities.clear();
         let commands = HashMap::new();
         let update = DeviceUpdateRequestBuilder::new()
@@ -322,7 +309,7 @@ impl FirefoxAccount {
     }
 
     #[allow(dead_code)]
-    pub(crate) fn clear_commands(&mut self) -> Result<UpdateDeviceResponse> {
+    pub(crate) fn clear_commands(&mut self) -> Result<()> {
         self.state.device_capabilities.clear();
         let update = DeviceUpdateRequestBuilder::new()
             .clear_available_commands()
@@ -336,7 +323,7 @@ impl FirefoxAccount {
         device_type: &Type,
         push_subscription: &Option<PushSubscription>,
         commands: &HashMap<String, String>,
-    ) -> Result<UpdateDeviceResponse> {
+    ) -> Result<()> {
         self.state.device_capabilities.clear();
         let mut builder = DeviceUpdateRequestBuilder::new()
             .display_name(display_name)
@@ -348,13 +335,16 @@ impl FirefoxAccount {
         self.update_device(builder.build())
     }
 
-    fn update_device(&mut self, update: DeviceUpdateRequest<'_>) -> Result<UpdateDeviceResponse> {
+    fn update_device(&mut self, update: DeviceUpdateRequest<'_>) -> Result<()> {
         let refresh_token = self.get_refresh_token()?;
         let res = self
             .client
             .update_device(&self.state.config, refresh_token, update);
         match res {
-            Ok(resp) => Ok(resp),
+            Ok(resp) => {
+                self.state.current_device_id = Option::from(resp.id);
+                Ok(())
+            }
             Err(err) => {
                 // We failed to write an update to the server.
                 // Clear local state so that we'll be sure to retry later.

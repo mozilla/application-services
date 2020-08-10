@@ -114,15 +114,15 @@ impl FirefoxAccount {
     ///                                 by the FxA's autoconfig endpoint.
     ///
     /// **💾 This method alters the persisted account state.**
-    pub fn new(
+    pub fn new<S: AsRef<str>>(
         content_url: &str,
         client_id: &str,
         redirect_uri: &str,
-        token_server_url_override: Option<&str>,
+        token_server_url_override: Option<S>, // XXXAWKWARD: `[ByRef] string?` ends up as `&Option<String>`, not really what we need.
     ) -> Self {
         let mut config = Config::new(content_url, client_id, redirect_uri);
         if let Some(token_server_url_override) = token_server_url_override {
-            config.override_token_server_url(token_server_url_override);
+            config.override_token_server_url(token_server_url_override.as_ref());
         }
         Self::with_config(config)
     }
@@ -162,33 +162,33 @@ impl FirefoxAccount {
     }
 
     /// Get the Sync Token Server endpoint URL.
-    pub fn get_token_server_endpoint_url(&self) -> Result<Url> {
-        self.state.config.token_server_endpoint_url()
+    pub fn get_token_server_endpoint_url(&self) -> Result<String> {
+        Ok(self.state.config.token_server_endpoint_url()?.into_string())
     }
 
     /// Get the pairing URL to navigate to on the Auth side (typically
     /// a computer).
-    pub fn get_pairing_authority_url(&self) -> Result<Url> {
+    pub fn get_pairing_authority_url(&self) -> Result<String> {
         // Special case for the production server, we use the shorter firefox.com/pair URL.
         if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_RELEASE)? {
-            return Ok(Url::parse("https://firefox.com/pair")?);
+            return Ok("https://firefox.com/pair".to_owned());
         }
         // Similarly special case for the China server.
         if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_CHINA)? {
-            return Ok(Url::parse("https://firefox.com.cn/pair")?);
+            return Ok("https://firefox.com.cn/pair".to_owned());
         }
-        Ok(self.state.config.pair_url()?)
+        Ok(self.state.config.pair_url()?.into_string())
     }
 
     /// Get the "connection succeeded" page URL.
     /// It is typically used to redirect the user after
     /// having intercepted the OAuth login-flow state/code
     /// redirection.
-    pub fn get_connection_success_url(&self) -> Result<Url> {
+    pub fn get_connection_success_url(&self) -> Result<String> {
         let mut url = self.state.config.connect_another_device_url()?;
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
-        Ok(url)
+        Ok(url.into_string())
     }
 
     /// Get the "manage account" page URL.
@@ -198,7 +198,7 @@ impl FirefoxAccount {
     ///
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
-    pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<Url> {
+    pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<String> {
         let mut url = self.state.config.settings_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         if self.state.config.redirect_uri == OAUTH_WEBCHANNEL_REDIRECT {
@@ -215,18 +215,18 @@ impl FirefoxAccount {
     ///
     /// * `entrypoint` - Application-provided string identifying the UI touchpoint
     ///                  through which the page was accessed, for metrics purposes.
-    pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<Url> {
+    pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<String> {
         let mut url = self.state.config.settings_clients_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
         self.add_account_identifiers_to_url(url)
     }
 
-    fn add_account_identifiers_to_url(&mut self, mut url: Url) -> Result<Url> {
+    fn add_account_identifiers_to_url(&mut self, mut url: Url) -> Result<String> {
         let profile = self.get_profile(false)?;
         url.query_pairs_mut()
             .append_pair("uid", &profile.uid)
             .append_pair("email", &profile.email);
-        Ok(url)
+        Ok(url.into_string())
     }
 
     fn get_refresh_token(&self) -> Result<&str> {

@@ -8,7 +8,7 @@
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-pub use fxaclient_ffi;
+pub use fxa_client;
 pub use logins_ffi;
 pub use places_ffi;
 pub use push_ffi;

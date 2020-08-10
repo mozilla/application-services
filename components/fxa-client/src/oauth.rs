@@ -112,24 +112,25 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes by the pairing supplicant.
     /// * `entrypoint` - The entrypoint to be used for data collection
     /// * `metrics` - Optional parameters for metrics
-    pub fn begin_pairing_flow(
+    pub fn begin_pairing_flow<S: AsRef<str>>(
         &mut self,
         pairing_url: &str,
-        scopes: &[&str],
+        scopes: &[S],
         entrypoint: &str,
-        metrics: Option<MetricsParams>,
+        // metrics: Option<MetricsParams>,
     ) -> Result<String> {
         let mut url = self.state.config.pair_supp_url()?;
         url.query_pairs_mut().append_pair("entrypoint", entrypoint);
-        if let Some(metrics) = metrics {
-            metrics.append_params_to_url(&mut url);
-        }
+        // if let Some(metrics) = metrics {
+        //     metrics.append_params_to_url(&mut url);
+        // }
         let pairing_url = Url::parse(pairing_url)?;
         if url.host_str() != pairing_url.host_str() {
             return Err(ErrorKind::OriginMismatch.into());
         }
         url.set_fragment(pairing_url.fragment());
-        self.oauth_flow(url, scopes)
+        let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
+        self.oauth_flow(url, &scopes)
     }
 
     /// Initiate an OAuth login flow and return a URL that should be navigated to.
@@ -137,11 +138,13 @@ impl FirefoxAccount {
     /// * `scopes` - Space-separated list of requested scopes.
     /// * `entrypoint` - The entrypoint to be used for metrics
     /// * `metrics` - Optional metrics parameters
-    pub fn begin_oauth_flow(
+    pub fn begin_oauth_flow<S: AsRef<str>>(
         &mut self,
-        scopes: &[&str],
+        //XXXAWKWARD: [ByRef] sequence<string> ends up as a `&[String]` instead of `&[&str]`.
+        scopes: &[S],
         entrypoint: &str,
-        metrics: Option<MetricsParams>,
+        // HashMaps are not supported
+        // metrics: Option<MetricsParams>,
     ) -> Result<String> {
         let mut url = if self.state.last_seen_profile.is_some() {
             self.state.config.oauth_force_auth_url()?
@@ -153,9 +156,9 @@ impl FirefoxAccount {
             .append_pair("action", "email")
             .append_pair("response_type", "code")
             .append_pair("entrypoint", entrypoint);
-        if let Some(metrics) = metrics {
-            metrics.append_params_to_url(&mut url);
-        }
+        // if let Some(metrics) = metrics {
+        //     metrics.append_params_to_url(&mut url);
+        // }
 
         if let Some(ref cached_profile) = self.state.last_seen_profile {
             url.query_pairs_mut()
@@ -166,14 +169,18 @@ impl FirefoxAccount {
             Some(ref refresh_token) => {
                 // Union of the already held scopes and the one requested.
                 let mut all_scopes: Vec<String> = vec![];
-                all_scopes.extend(scopes.iter().map(ToString::to_string));
+                all_scopes.extend(scopes.iter().map(AsRef::as_ref).map(ToString::to_string));
                 let existing_scopes = refresh_token.scopes.clone();
                 all_scopes.extend(existing_scopes);
                 HashSet::<String>::from_iter(all_scopes)
                     .into_iter()
                     .collect()
             }
-            None => scopes.iter().map(ToString::to_string).collect(),
+            None => scopes
+                .iter()
+                .map(AsRef::as_ref)
+                .map(ToString::to_string)
+                .collect(),
         };
         let scopes: Vec<&str> = scopes.iter().map(<_>::as_ref).collect();
         self.oauth_flow(url, &scopes)
@@ -316,7 +323,7 @@ impl FirefoxAccount {
         };
         let resp = self.client.refresh_token_with_code(
             &self.state.config,
-            &code,
+            code,
             &oauth_flow.code_verifier,
         )?;
         self.handle_oauth_response(resp, oauth_flow.scoped_keys_flow)

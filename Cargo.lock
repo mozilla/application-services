@@ -187,6 +187,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
 
 [[package]]
+name = "cargo_metadata"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89fec17b16f1ac67908af82e47d0a90a7afd0e1827b181cd77504323d3263d35"
+dependencies = [
+ "semver 0.10.0",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "caseless"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -710,7 +721,7 @@ dependencies = [
  "num-traits",
  "rand 0.6.5",
  "rustc_version",
- "semver",
+ "semver 0.9.0",
  "serde",
 ]
 
@@ -891,23 +902,11 @@ dependencies = [
  "sync-guid",
  "sync15",
  "thiserror",
+ "uniffi",
+ "uniffi_build",
  "url",
  "viaduct",
  "viaduct-reqwest",
-]
-
-[[package]]
-name = "fxaclient_ffi"
-version = "0.1.0"
-dependencies = [
- "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "fxa-client",
- "lazy_static",
- "log 0.4.11",
- "prost",
- "serde_json",
- "url",
- "viaduct",
 ]
 
 [[package]]
@@ -1200,7 +1199,7 @@ checksum = "8dd5a6d5999d9907cda8ed67bbd137d3af8085216c2ac62de5be860bd41f304a"
 name = "lockbox"
 version = "0.1.0"
 dependencies = [
- "fxaclient_ffi",
+ "fxa-client",
  "logins_ffi",
  "rc_log_ffi",
  "viaduct",
@@ -1301,7 +1300,7 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 name = "megazord"
 version = "0.1.0"
 dependencies = [
- "fxaclient_ffi",
+ "fxa-client",
  "lazy_static",
  "logins_ffi",
  "places-ffi",
@@ -1315,7 +1314,7 @@ dependencies = [
 name = "megazord_ios"
 version = "0.1.0"
 dependencies = [
- "fxaclient_ffi",
+ "fxa-client",
  "logins_ffi",
  "places-ffi",
  "rc_log_ffi",
@@ -1660,6 +1659,12 @@ checksum = "53cdc5b785b7a58c5aad8216b3dfa114df64b0b06ae6e1501cef91df2fbdf8f9"
 dependencies = [
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6ddc8e145de01d9180ac7b78b9676f95a9c2447f6a88b2c2a04702211bc5d71"
 
 [[package]]
 name = "percent-encoding"
@@ -2363,7 +2368,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 dependencies = [
- "semver",
+ "semver 0.9.0",
 ]
 
 [[package]]
@@ -2427,6 +2432,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
  "semver-parser",
+]
+
+[[package]]
+name = "semver"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "394cec28fa623e00903caf7ba4fa6fb9a0e260280bb8cdbbba029611108a0190"
+dependencies = [
+ "semver-parser",
+ "serde",
 ]
 
 [[package]]
@@ -3060,6 +3075,29 @@ name = "unicode-xid"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
+
+[[package]]
+name = "uniffi"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#04e7bf65ce44fd7a8a768280e45ff697a658ac20"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "cargo_metadata",
+ "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static",
+ "log 0.4.11",
+ "paste",
+]
+
+[[package]]
+name = "uniffi_build"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/uniffi-rs?branch=main#04e7bf65ce44fd7a8a768280e45ff697a658ac20"
+dependencies = [
+ "anyhow",
+ "cargo_metadata",
+]
 
 [[package]]
 name = "url"

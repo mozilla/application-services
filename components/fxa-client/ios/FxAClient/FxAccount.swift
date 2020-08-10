@@ -7,7 +7,7 @@ import Foundation
 /// This class inherits from `RustFxAccount` and adds:
 /// - Automatic state persistence through `PersistCallback`.
 /// - Auth error signaling through observer notifications.
-class FxAccount: RustFxAccount {
+class FxAccount: FirefoxAccount {
     private var persistCallback: PersistCallback?
 
     /// Registers a persistance callback. The callback will get called every time
@@ -35,7 +35,7 @@ class FxAccount: RustFxAccount {
         metricsParams: MetricsParams = MetricsParams.newEmpty()
     ) throws -> URL {
         return try notifyAuthErrors {
-            try super.beginOAuthFlow(
+            try super.beginOauthFlow(
                 scopes: scopes,
                 entrypoint: entrypoint,
                 metricsParams: metricsParams
