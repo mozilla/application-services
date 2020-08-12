@@ -511,6 +511,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT",
         },
     },
+    "tinyvec": {
+        "repository": {
+            "check": "https://github.com/Lokathor/tinyvec"
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md"
+        }
+    }
 }
 
 # Sets of common licence file names, by license type.
