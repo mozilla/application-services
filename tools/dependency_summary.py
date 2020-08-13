@@ -821,11 +821,11 @@ class WorkspaceMetadata(object):
                     repo = repo.replace("http://", "https://")
                 if repo.startswith("https://github.com/"):
                     # Some projects include extra context in their repo URL; strip it off.
-                    for strip_suffix in [".git", "/tree/master/{}".format(pkgInfo["name"])]:
+                    for strip_suffix in [".git", "/tree/master/{}".format(pkgInfo["name"]), "/tree/main/{}".format(pkgInfo["name"]),]:
                         if repo.endswith(strip_suffix):
                             repo = repo[:-len(strip_suffix)]
                     # Try a couple of common locations for the license file.
-                    for path in ["/master/", "/master/{}/".format(pkgInfo["name"])]:
+                    for path in ["/master/", "/main/", "/master/{}/".format(pkgInfo["name"]), "/main/{}/".format(pkgInfo["name"]),]:
                         licenseUrl = repo.replace("github.com", "raw.githubusercontent.com")
                         licenseUrl += path + licenseFile
                         r = requests.get(licenseUrl)
