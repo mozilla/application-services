@@ -651,10 +651,11 @@ checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
 
 [[package]]
 name = "jexl-eval"
-version = "0.1.1"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e54f3cd97452b791d8f74eb99f0c8ba0b954e0f469847183efd6be367829f864"
+checksum = "b143ab78157ab6e8b0315bc17b28ca3f9235e14345be7778877439516a6ad43f"
 dependencies = [
+ "anyhow",
  "jexl-parser",
  "serde",
  "serde_json",
@@ -663,9 +664,9 @@ dependencies = [
 
 [[package]]
 name = "jexl-parser"
-version = "0.1.1"
+version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "18425d84229ff68498da1621b37fe2ae6dd69c444120a1c6caee44382e0763f8"
+checksum = "161a2040233efd87c7acaa4980da92375131f505f945b7f6b450c851c3b4f48b"
 dependencies = [
  "lalrpop",
  "lalrpop-util",

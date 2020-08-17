@@ -11,7 +11,7 @@
 
 use crate::error::{Error, Result};
 use crate::matcher::AppContext;
-use jexl_eval::eval_in_context;
+use jexl_eval::Evaluator;
 use serde_derive::*;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -41,7 +41,7 @@ impl Bucket {
 /// - jexl-rs returned an error
 #[allow(unused)]
 pub fn targeting(expression_statement: &str, ctx: AppContext) -> Result<bool> {
-    let res = eval_in_context(expression_statement, ctx)?;
+    let res = Evaluator::new().eval_in_context(expression_statement, ctx)?;
     res.as_bool().ok_or(Error::InvalidExpression)
 }
 
