@@ -7,6 +7,7 @@ Cross Platform Rapid Experiments "Nimbus" SDK
 * **[Project Plan Page](https://mana.mozilla.org/wiki/pages/viewpage.action?pageId=126619091)**
 * [Bucketing Technical Documentation](https://docs.google.com/document/d/1WAForAUIchVPaiZFCJO3hNQHY_7KZAjddfscTM_Lx0Y/edit#)
 * [Nimbus Mana Page](https://mana.mozilla.org/wiki/display/PM/Project+Nimbus)
+* [mozilla/nimbus-shared - Data and Schemas used across Project Nimbus](https://github.com/mozilla/nimbus-shared)
 * [mozilla/uniffi-rs](https://github.com/mozilla/uniffi-rs)
 * [mozilla/jexl-rs](https://github.com/mozilla/jexl-rs)
 
