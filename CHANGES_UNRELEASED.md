@@ -23,3 +23,7 @@
     and `reason` string values.
 
   [#3308](https://github.com/mozilla/application-services/pull/3308/)
+
+- Exclude download, redirects, reload, embed and framed link visit type from the
+  `get_top_frecent_site_infos` query.
+  ([#3505](https://github.com/mozilla/application-services/pull/3505))

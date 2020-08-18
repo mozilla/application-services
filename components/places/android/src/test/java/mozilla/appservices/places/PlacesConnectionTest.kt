@@ -176,6 +176,13 @@ class PlacesConnectionTest {
 
     @Test
     fun testGetTopFrecentSiteInfos() {
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.DOWNLOAD))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.EMBED))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_PERMANENT))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_TEMPORARY))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.FRAMED_LINK))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.RELOAD))
+
         val toAdd = listOf(
                 "https://www.example.com/123",
                 "https://www.example.com/123",

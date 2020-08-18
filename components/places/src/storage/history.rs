@@ -1195,16 +1195,34 @@ pub fn get_visited_urls(
 }
 
 pub fn get_top_frecent_site_infos(db: &PlacesDb, num_items: i32) -> Result<TopFrecentSiteInfos> {
+    // Get the complement of the visit types that should be excluded.
+    let allowed_types = VisitTransitionSet::for_specific(&[
+        VisitTransition::Download,
+        VisitTransition::Embed,
+        VisitTransition::RedirectPermanent,
+        VisitTransition::RedirectTemporary,
+        VisitTransition::FramedLink,
+        VisitTransition::Reload,
+    ])
+    .complement();
+
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT frecency, title, url
-         FROM moz_places
-         WHERE (SUBSTR(url, 1, 6) == 'https:' OR SUBSTR(url, 1, 5) == 'http:')
-           AND (last_visit_date_local + last_visit_date_remote) != 0 AND
-           NOT hidden
-         ORDER BY frecency DESC
-         LIMIT :limit",
+        "SELECT h.frecency, h.title, h.url
+        FROM moz_places h
+        WHERE EXISTS (
+            SELECT v.visit_type
+            FROM moz_historyvisits v
+            WHERE h.id = v.place_id
+              AND (SUBSTR(h.url, 1, 6) == 'https:' OR SUBSTR(h.url, 1, 5) == 'http:')
+              AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
+              AND ((1 << v.visit_type) & :allowed_types) != 0 AND
+              NOT h.hidden
+        )
+        ORDER BY h.frecency DESC
+        LIMIT :limit",
         rusqlite::named_params! {
             ":limit": num_items,
+            ":allowed_types": allowed_types,
         },
         TopFrecentSiteInfo::from_row,
     )?;
