@@ -1,6 +1,0 @@
-[alias]
-regen-protobufs = ["run", "--bin", "protobuf-gen", "tools/protobuf_files.toml"]
-dev-install = ["install", "asdev"]
-all_tests = ["asdev", "test"]
-rust_tests = ["asdev", "test_rust"]
-verify_env = ["asdev", "verify_env"]
