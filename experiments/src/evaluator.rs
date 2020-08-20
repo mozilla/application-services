@@ -53,18 +53,96 @@ mod tests {
     fn test_targeting() {
         // Here's our valid jexl statement
         let expression_statement =
-            "app_id == '1010' && ( app_version == '4.4' || locale == \"en-US\")";
-        // A valid context
+            "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\")";
+
+        // A matching context testing the logical AND + OR of the expression
         let ctx = AppContext {
             app_id: Some("1010".to_string()),
             app_version: Some("4.4".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
             locale: Some("en-US".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
             debug_tag: None,
+        };
+        assert!(targeting(expression_statement, ctx).unwrap());
+
+        // A matching context testing the logical OR of the expression
+        let ctx = AppContext {
+            app_id: Some("1010".to_string()),
+            app_version: Some("4.4".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
+            locale: Some("de-DE".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
+            debug_tag: None,
+        };
+        assert!(targeting(expression_statement, ctx).unwrap());
+
+        // A non-matching context testing the logical AND of the expression
+        let non_matching_ctx = AppContext {
+            app_id: Some("org.example.app".to_string()),
+            app_version: Some("4.4".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
+            locale: Some("en-US".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
+            debug_tag: None,
+        };
+        assert!(!targeting(expression_statement, non_matching_ctx).unwrap());
+
+        // A non-matching context testing the logical OR of the expression
+        let non_matching_ctx = AppContext {
+            app_id: Some("org.example.app".to_string()),
+            app_version: Some("4.5".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
+            locale: Some("de-DE".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
+            debug_tag: None,
+        };
+        assert!(!targeting(expression_statement, non_matching_ctx).unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "EvaluationError")]
+    fn test_invalid_expression() {
+        // This is an invlalid JEXL statement
+        let expression_statement =
+            "This is not a valid JEXL expression";
+
+        // A dummy context, we are really only interested in checking the
+        // expression in this test.
+        let ctx = AppContext {
+            app_id: Some("com.example.app".to_string()),
+            app_version: None,
+            app_build: None,
+            architecture: None,
             device_manufacturer: None,
             device_model: None,
-            region: None,
+            locale: None,
+            os: None,
+            os_version: None,
+            android_sdk_version: None,
+            debug_tag: None,
         };
-        assert!(targeting(expression_statement, ctx).unwrap())
+        targeting(expression_statement, ctx).unwrap();
     }
 }
 
