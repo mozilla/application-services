@@ -9,6 +9,7 @@ mod config;
 mod http_client;
 mod matcher;
 mod persistence;
+mod sampling;
 mod uuid;
 
 use ::uuid::Uuid;

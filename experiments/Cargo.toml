@@ -27,6 +27,8 @@ url = "2.1"
 rkv = "0.10"
 jexl-eval = "0.1.6"
 uuid = { version = "0.8", features = ["serde", "v4"]}
+sha2 = "0.9"
+hex = "0.4"
 
 
 [dev-dependencies]

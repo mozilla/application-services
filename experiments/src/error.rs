@@ -6,7 +6,6 @@
 //! This is where the error definitions can go
 //! TODO: Implement proper error handling, this would include defining the error enum,
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
-
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Invalid persisted data")]
@@ -21,6 +20,14 @@ pub enum Error {
     EvaluationError,
     #[error("Invalid Expression")]
     InvalidExpression,
+    #[error("InvalidFractionError: Should be between 0 and 1")]
+    InvalidFraction,
+    #[error("TryInto error: {0}")]
+    TryFromSliceError(#[from] std::array::TryFromSliceError),
+    #[error("Empty ratios!")]
+    EmptyRatiosError,
+    #[error("Attempt to access an element that is out of bounds")]
+    OutOfBoundsError,
 }
 
 // This can be replaced with #[from] in the enum definition
