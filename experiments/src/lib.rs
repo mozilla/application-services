@@ -32,6 +32,14 @@ pub struct Experiments {
     uuid: Uuid,
 }
 
+#[derive(Debug, Clone)]
+pub struct EnrolledExperiment {
+    pub slug: String,
+    pub user_facing_name: String,
+    pub user_facing_description: String,
+    pub branch_slug: String,
+}
+
 impl Experiments {
     pub fn new<P: AsRef<Path>>(
         app_context: AppContext,

@@ -36,7 +36,6 @@ const HASH_LENGTH: u32 = HASH_BITS / 4;
 /// Could error in the following cases (but not limited to)
 /// - An error occured in the hashing process
 /// - an error occured while checking if the hash belongs in the bucket
-#[allow(dead_code)]
 pub(crate) fn bucket_sample<T: serde::Serialize>(
     input: T,
     start: u32,
@@ -72,7 +71,6 @@ pub(crate) fn bucket_sample<T: serde::Serialize>(
 ///
 /// # Errors
 /// Could return an error if the input couldn't be hashed
-#[allow(dead_code)]
 pub(crate) fn ratio_sample<T: serde::Serialize>(input: T, ratios: &[u32]) -> Result<usize> {
     if ratios.is_empty() {
         return Err(Error::EmptyRatiosError);
