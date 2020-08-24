@@ -5,7 +5,7 @@
 use anyhow::Result;
 use experiments::{AppContext, Experiments};
 fn main() -> Result<()> {
-    let exp = Experiments::new(AppContext::default(), "../target/mydb", None);
-    exp.get_experiments();
+    let exp = Experiments::new(AppContext::default(), "../target/mydb", None).unwrap();
+    exp.get_active_experiments();
     Ok(())
 }

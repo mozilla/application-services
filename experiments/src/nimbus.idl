@@ -1,0 +1,52 @@
+namespace nimbus {};
+dictionary AppContext {
+    string? app_id;
+    string? app_version;
+    string? app_build;
+    string? architecture;
+    string? device_manufacturer;
+    string? device_model;
+    string? locale;
+    string? os;
+    string? os_version;
+    string? android_sdk_version;
+    string? debug_tag;
+};
+
+dictionary EnrolledExperiment {
+    string slug;
+    string user_facing_name;
+    string user_facing_description;
+    string branch_slug;
+};
+
+dictionary ExperimentConfig {
+    string? server_url;
+    string? uuid;
+    string? collection_name;
+    string? bucket_name;
+};
+
+[Error]
+enum Error {
+   "InvalidPersistedData", "RkvError", "IOError",
+   "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
+    "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError"
+};
+
+interface Experiments {
+    [Throws=Error]
+    constructor(AppContext app_ctx, string dbpath, ExperimentConfig? config);
+
+
+    string? get_experiment_branch(string experiment_slug);
+
+    sequence<EnrolledExperiment> get_active_experiments();
+
+    void opt_in_with_branch(string experiment_slug, string branch);
+    void opt_out(string experiment_slug);
+    void opt_out_all();
+
+    [Throws=Error]
+    void update_experiments();
+};

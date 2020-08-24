@@ -15,8 +15,8 @@
 /// - `collection_name`: The name of the collection on the server
 /// - `bucket_name`: The name of the bucket containing the collection on the server
 pub struct Config {
-    pub _server_url: Option<String>,
+    pub server_url: Option<String>,
     pub uuid: Option<String>,
-    pub _collection_name: Option<String>,
-    pub _bucket_name: Option<String>,
+    pub collection_name: Option<String>,
+    pub bucket_name: Option<String>,
 }

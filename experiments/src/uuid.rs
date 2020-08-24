@@ -6,7 +6,7 @@
 //! the uuid is persisted for later retrieval
 //! It is also possible to manually set the uuid by passing in a custome
 //! uuid as a part of the Config parameter in `Experiments`
-use crate::Config;
+use crate::config::Config;
 pub use uuid::Uuid;
 
 /// Generate uuid for `Experiments`

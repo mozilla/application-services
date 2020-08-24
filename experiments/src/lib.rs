@@ -4,7 +4,7 @@
 
 pub mod error;
 mod evaluator;
-pub use error::*;
+pub use error::{Error, Result};
 mod config;
 mod http_client;
 mod matcher;
@@ -13,9 +13,8 @@ mod sampling;
 mod uuid;
 
 use ::uuid::Uuid;
-use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
-pub use config::Config;
+pub use config::Config as ExperimentConfig;
 pub use matcher::AppContext;
 use serde_derive::*;
 use std::path::Path;
@@ -44,23 +43,47 @@ impl Experiments {
     pub fn new<P: AsRef<Path>>(
         app_context: AppContext,
         _db_path: P,
-        config: Option<Config>,
-    ) -> Self {
+        config: Option<ExperimentConfig>,
+    ) -> Result<Self> {
         let resp = vec![];
         let uuid = uuid::generate_uuid(config);
-        Self {
+        Ok(Self {
             experiments: resp,
             app_context,
             uuid,
-        }
+        })
     }
 
-    pub fn get_experiment_branch(&self) -> Result<String> {
-        Err(anyhow!("Not implemented"))
+    pub fn get_experiment_branch(&self, _slug: String) -> Option<String> {
+        unimplemented!();
     }
 
-    pub fn get_experiments(&self) -> &Vec<Experiment> {
-        &self.experiments
+    pub fn get_active_experiments(&self) -> Vec<EnrolledExperiment> {
+        self.experiments
+            .iter()
+            .map(|e| EnrolledExperiment {
+                slug: e.id.clone(),
+                user_facing_name: e.arguments.user_facing_name.clone(),
+                user_facing_description: e.arguments.user_facing_description.clone(),
+                branch_slug: Default::default(),
+            })
+            .collect()
+    }
+
+    pub fn opt_in_with_branch(&self, _experiment_slug: String, _branch: String) {
+        unimplemented!()
+    }
+
+    pub fn opt_out(&self, _experiment_slug: String) {
+        unimplemented!()
+    }
+
+    pub fn opt_out_all(&self) {
+        unimplemented!()
+    }
+
+    pub fn update_experiments(&self) -> Result<()> {
+        unimplemented!()
     }
 }
 
@@ -133,3 +156,5 @@ pub enum RandomizationUnit {
     #[serde(rename = "userId")]
     UserId,
 }
+
+include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
