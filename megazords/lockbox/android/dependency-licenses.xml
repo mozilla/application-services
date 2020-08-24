@@ -181,6 +181,10 @@ the details of which are reproduced below.
     <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
   </license>
   <license>
+    <name>Apache License 2.0: tinyvec</name>
+    <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
+  </license>
+  <license>
     <name>Apache License 2.0: unicode-bidi</name>
     <url>https://github.com/servo/unicode-bidi/blob/master/LICENSE-APACHE</url>
   </license>
@@ -243,10 +247,6 @@ the details of which are reproduced below.
   <license>
     <name>BSD-3-Clause License: sqlcipher</name>
     <url>https://github.com/sqlcipher/sqlcipher/blob/master/LICENSE</url>
-  </license>
-  <license>
-    <name>Zlib License: tinyvec</name>
-    <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
   </license>
   <license>
     <name>Optional Notice: SQLite</name>

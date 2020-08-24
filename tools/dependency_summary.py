@@ -526,6 +526,10 @@ PACKAGE_METADATA_FIXUPS = {
         "license_url": {
             "check": None,
             "fixup": "https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/Lokathor/tinyvec/main/LICENSE-ZLIB.md"
         }
     }
 }
