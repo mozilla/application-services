@@ -1,3 +1,15 @@
+# v61.0.13 (_2020-08-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.12...v61.0.13)
+
+## Places
+
+### What's fixed ###
+
+- Exclude download, redirects, reload, embed and framed link visit type from the
+  `get_top_frecent_site_infos` query.
+  ([#3505](https://github.com/mozilla/application-services/pull/3505))
+
 # v61.0.12 (_2020-08-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.11...v61.0.12)
@@ -710,7 +722,7 @@ Please call `Viaduct.shared.useReqwestBackend()` as soon as possible before usin
 
 - `LoginsStorage.importLogins` returns logins migration metrics as JSON object. ([#2382](https://github.com/mozilla/application-services/issues/2382))
 
-- iOS only: Added a migration path for apps to convert the encrypted database headers to plaintext([#2100](https://github.com/mozilla/application-services/issues/2100)).  
+- iOS only: Added a migration path for apps to convert the encrypted database headers to plaintext([#2100](https://github.com/mozilla/application-services/issues/2100)).
 New databases must be opened using `LoginsStorage.unlockWithKeyAndSalt` instead of `LoginsStorage.unlock` which is now deprecated.
 To migrate current users databases, it is required to call `LoginsStorage.migrateToPlaintextHeader` before opening the database. This new method requires a salt. The salt persistence is now the responsibility of the application, which should be stored alongside the encryption key. For an existing database, the salt can be obtained using `LoginsStorage.getDbSaltForKey`.
 
@@ -951,7 +963,7 @@ This release exists only to rectify a publishing error that occurred with v0.42.
 
 ### What's New
 
-- Our components are now built with the newer Android NDK r20 instead of r15c. This change will make it easier for contributors to set up their development environment since there's no need to generate Android toolchains anymore. ([#1916](https://github.com/mozilla/application-services/pull/1916))  
+- Our components are now built with the newer Android NDK r20 instead of r15c. This change will make it easier for contributors to set up their development environment since there's no need to generate Android toolchains anymore. ([#1916](https://github.com/mozilla/application-services/pull/1916))
 For existing contributors, here's what you need to do immediately:
   - Download and extract the [Android NDK r20](https://developer.android.com/ndk/downloads).
   - Change the `ANDROID_NDK_ROOT` and `ANDROID_NDK_HOME` environment variables to point to the newer NDK dir. You can also delete the now un-used `ANDROID_NDK_TOOLCHAIN_DIR` variable.
@@ -1470,7 +1482,7 @@ This release exists only to rectify a publishing error that occurred with v0.33.
 ### Features
 
 * Added `migrateFromSessionToken` to allow creating a refreshToken from an existing sessionToken.
-Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to 
+Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to
 create a new session with a refreshToken.
 
 # v0.29.0 (_2019-05-23_)
