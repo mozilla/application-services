@@ -2,4 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.12...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.13...main)
