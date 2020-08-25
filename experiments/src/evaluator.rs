@@ -131,7 +131,7 @@ pub(crate) fn targeting(expression_statement: &str, ctx: AppContext) -> Result<b
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BranchValue, BucketConfig, ExperimentArguments, RandomizationUnit};
+    use crate::{BucketConfig, ExperimentArguments, RandomizationUnit};
     #[test]
     fn test_targeting() {
         // Here's our valid jexl statement
@@ -235,13 +235,13 @@ mod tests {
                 slug: "control".to_string(),
                 group: None,
                 ratio: 1,
-                value: BranchValue {},
+                value: None,
             },
             Branch {
                 slug: "blue".to_string(),
                 group: None,
                 ratio: 1,
-                value: BranchValue {},
+                value: None,
             },
         ];
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d maps to the second index
@@ -275,8 +275,8 @@ mod tests {
                     total: 10000,
                 },
                 features: Default::default(),
-                branches: vec![Branch {slug: "control".to_string(), group: None, ratio: 1, value: BranchValue {}},
-                Branch {slug: "blue".to_string(), group: None, ratio: 1, value: BranchValue {}}],
+                branches: vec![Branch {slug: "control".to_string(), group: None, ratio: 1, value: None},
+                Branch {slug: "blue".to_string(), group: None, ratio: 1, value: None}],
                 start_date: serde_json::from_str("\"2020-06-17T23:20:47.230Z\"").unwrap(),
                 end_date: Default::default(),
                 proposed_duration: Default::default(),

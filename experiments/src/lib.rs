@@ -13,8 +13,8 @@ mod sampling;
 mod uuid;
 
 use ::uuid::Uuid;
-use chrono::{DateTime, Utc};
 pub use config::Config as ExperimentConfig;
+use http_client::{Client, SettingsClient};
 pub use matcher::AppContext;
 use serde_derive::*;
 use std::path::Path;
@@ -41,11 +41,13 @@ pub struct EnrolledExperiment {
 
 impl Experiments {
     pub fn new<P: AsRef<Path>>(
+        collection_name: String,
         app_context: AppContext,
         _db_path: P,
         config: Option<ExperimentConfig>,
     ) -> Result<Self> {
-        let resp = vec![];
+        let client = Client::new(&collection_name, config.clone())?;
+        let resp = client.get_experiments()?;
         let uuid = uuid::generate_uuid(config);
         Ok(Self {
             experiments: resp,
@@ -107,9 +109,10 @@ pub struct ExperimentArguments {
     pub bucket_config: BucketConfig,
     pub features: Vec<String>,
     pub branches: Vec<Branch>,
-    pub start_date: DateTime<Utc>,
-    pub end_date: Option<DateTime<Utc>>,
-    pub proposed_duration: u32,
+    pub start_date: String,       // TODO: Use a format here
+    pub end_date: Option<String>, // TODO: Use a date format here
+    // TODO: This shouldn't be optional based on the nimbus schema, but it is for now till the servers are updated
+    pub proposed_duration: Option<u32>,
     pub proposed_enrollment: u32,
     pub reference_branch: Option<String>,
 }
@@ -119,7 +122,7 @@ pub struct Branch {
     pub slug: String,
     pub ratio: u32,
     pub group: Option<Vec<Group>>,
-    pub value: BranchValue,
+    pub value: Option<BranchValue>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]

@@ -12,11 +12,10 @@
 /// Currently includes the following:
 /// - `server_url`: The url for the settings server that would be used to retrieve experiments
 /// - `uuid`: A custom user uuid that would otherwise be generated or loaded from persisted storage
-/// - `collection_name`: The name of the collection on the server
 /// - `bucket_name`: The name of the bucket containing the collection on the server
+#[derive(Debug, Clone)]
 pub struct Config {
     pub server_url: Option<String>,
     pub uuid: Option<String>,
-    pub collection_name: Option<String>,
     pub bucket_name: Option<String>,
 }

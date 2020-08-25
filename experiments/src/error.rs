@@ -28,6 +28,14 @@ pub enum Error {
     EmptyRatiosError,
     #[error("Attempt to access an element that is out of bounds")]
     OutOfBoundsError,
+    #[error("Error parsing URL: {0}")]
+    UrlParsingError(#[from] url::ParseError),
+    #[error("Error sending request: {0}")]
+    RequestError(#[from] viaduct::Error),
+    #[error("Error in network response: {0}")]
+    ResponseError(String),
+    #[error("Invalid experiments response recieved")]
+    InvalidExperimentResponse,
 }
 
 // This can be replaced with #[from] in the enum definition

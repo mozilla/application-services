@@ -23,7 +23,6 @@ dictionary EnrolledExperiment {
 dictionary ExperimentConfig {
     string? server_url;
     string? uuid;
-    string? collection_name;
     string? bucket_name;
 };
 
@@ -31,12 +30,13 @@ dictionary ExperimentConfig {
 enum Error {
    "InvalidPersistedData", "RkvError", "IOError",
    "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
-    "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError"
+    "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
+    "RequestError", "ResponseError", "InvalidExperimentResponse"
 };
 
 interface Experiments {
     [Throws=Error]
-    constructor(AppContext app_ctx, string dbpath, ExperimentConfig? config);
+    constructor(string collection_name, AppContext app_ctx, string dbpath, ExperimentConfig? config);
 
 
     string? get_experiment_branch(string experiment_slug);
