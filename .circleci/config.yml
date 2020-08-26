@@ -376,6 +376,11 @@ jobs:
           command: |
             rustup target add aarch64-apple-ios x86_64-apple-ios
             brew install swift-protobuf
+            echo 'EXCLUDED_ARCHS=$(inherited) $(EXCLUDED_ARCHS__EFFECTIVE_PLATFORM_SUFFIX_$(EFFECTIVE_PLATFORM_SUFFIX)__NATIVE_ARCH_64_BIT_$(NATIVE_ARCH_64_BIT))' >> /tmp/tmp.xcconfig
+            echo 'IPHONEOS_DEPLOYMENT_TARGET=11.4' >> /tmp/tmp.xcconfig
+            echo 'SWIFT_TREAT_WARNINGS_AS_ERRORS=NO' >> /tmp/tmp.xcconfig
+            echo 'GCC_TREAT_WARNINGS_AS_ERRORS=NO' >> /tmp/tmp.xcconfig
+            export XCODE_XCCONFIG_FILE=/tmp/tmp.xcconfig
       - carthage-bootstrap
       - run:
           name: Verify the build environment
