@@ -430,6 +430,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "clap",
  "env_logger",
  "hex",
  "jexl-eval",

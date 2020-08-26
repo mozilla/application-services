@@ -11,6 +11,8 @@ mod matcher;
 mod persistence;
 mod sampling;
 mod uuid;
+#[cfg(debug_assertions)]
+pub use evaluator::filter_enrolled;
 
 use ::uuid::Uuid;
 pub use config::Config as ExperimentConfig;
@@ -27,6 +29,7 @@ const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 #[derive(Debug, Clone)]
 pub struct Experiments {
     experiments: Vec<Experiment>,
+    enrolled_experiments: Vec<EnrolledExperiment>,
     app_context: AppContext,
     uuid: Uuid,
 }
@@ -49,8 +52,11 @@ impl Experiments {
         let client = Client::new(&collection_name, config.clone())?;
         let resp = client.get_experiments()?;
         let uuid = uuid::generate_uuid(config);
+        log::info!("uuid is {}", uuid);
+        let enrolled_experiments = evaluator::filter_enrolled(&uuid, &resp)?;
         Ok(Self {
             experiments: resp,
+            enrolled_experiments,
             app_context,
             uuid,
         })
@@ -61,15 +67,11 @@ impl Experiments {
     }
 
     pub fn get_active_experiments(&self) -> Vec<EnrolledExperiment> {
-        self.experiments
-            .iter()
-            .map(|e| EnrolledExperiment {
-                slug: e.id.clone(),
-                user_facing_name: e.arguments.user_facing_name.clone(),
-                user_facing_description: e.arguments.user_facing_description.clone(),
-                branch_slug: Default::default(),
-            })
-            .collect()
+        self.enrolled_experiments.clone()
+    }
+
+    pub fn get_all_experiments(&self) -> Vec<Experiment> {
+        self.experiments.clone()
     }
 
     pub fn opt_in_with_branch(&self, _experiment_slug: String, _branch: String) {

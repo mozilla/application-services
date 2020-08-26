@@ -45,10 +45,7 @@ impl Bucket {
 /// - If the bucket sampling failed (i.e we could not find if the user should or should not be enrolled in the experiment based on the bucketing)
 /// - If an error occurs while determining the branch the user should be enrolled in any of the experiments
 #[allow(dead_code)]
-pub(crate) fn filter_enrolled(
-    id: &Uuid,
-    experiments: &[Experiment],
-) -> Result<Vec<EnrolledExperiment>> {
+pub fn filter_enrolled(id: &Uuid, experiments: &[Experiment]) -> Result<Vec<EnrolledExperiment>> {
     let mut res = Vec::with_capacity(experiments.len());
     for exp in experiments {
         let bucket_config = exp.arguments.bucket_config.clone();
