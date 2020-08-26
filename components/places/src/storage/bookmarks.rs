@@ -919,7 +919,14 @@ pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Opt
     )?;
 
     match bookmark_url {
-        Some(b) => Ok(Some(Url::parse(&b)?)),
+        Some(b) => match Url::parse(&b) {
+            Ok(u) => Ok(Some(u)),
+            Err(e) => {
+                // We don't have the guid to log and the keyword is PII...
+                log::warn!("ignoring invalid url: {:?}", e);
+                Ok(None)
+            }
+        },
         None => Ok(None),
     }
 }
@@ -1241,14 +1248,33 @@ pub fn fetch_tree(
                     children: Vec::new(),
                 }
                 .into(),
-                BookmarkType::Bookmark => BookmarkNode {
-                    guid: Some(row.guid.clone()),
-                    date_added: Some(row.date_added),
-                    last_modified: Some(row.last_modified),
-                    title: row.title,
-                    url: Url::parse(row.url.unwrap().as_str())?,
+                BookmarkType::Bookmark => {
+                    // pretend invalid or missing URLs don't exist.
+                    match row.url {
+                        Some(str_val) => match Url::parse(str_val.as_str()) {
+                            // an invalid URL presumably means a logic error
+                            // somewhere far away from here...
+                            Err(_) => return Ok(None),
+                            Ok(url) => BookmarkNode {
+                                guid: Some(row.guid.clone()),
+                                date_added: Some(row.date_added),
+                                last_modified: Some(row.last_modified),
+                                title: row.title,
+                                url,
+                            }
+                            .into(),
+                        },
+                        // This is double-extra-invalid because various
+                        // constaints in the schema should prevent it (but we
+                        // know from desktop's experience that on-disk
+                        // corruption can cause it, so it's possible) - but
+                        // we treat it as an `error` rather than just a `warn`
+                        None => {
+                            log::error!("bookmark {:#} has missing url", row.guid);
+                            return Ok(None);
+                        }
+                    }
                 }
-                .into(),
                 BookmarkType::Separator => SeparatorNode {
                     guid: Some(row.guid.clone()),
                     date_added: Some(row.date_added),
@@ -1532,7 +1558,9 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::db::PlacesDb;
     use crate::storage::get_meta;
-    use crate::tests::{assert_json_tree, assert_json_tree_with_depth, insert_json_tree};
+    use crate::tests::{
+        append_invalid_bookmark, assert_json_tree, assert_json_tree_with_depth, insert_json_tree,
+    };
     use pretty_assertions::assert_eq;
     use rusqlite::NO_PARAMS;
     use serde_json::Value;
@@ -1592,6 +1620,33 @@ mod tests {
         );
         assert_eq!(bookmarks_get_url_for_keyword(&conn, "donut")?, None);
         assert_eq!(bookmarks_get_url_for_keyword(&conn, "ice")?, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_bookmark_invalid_url_for_keyword() -> Result<()> {
+        let conn = new_mem_connection();
+
+        let place_id = append_invalid_bookmark(
+            &conn,
+            &BookmarkRootGuid::Unfiled.guid(),
+            "invalid",
+            "badurl",
+        )
+        .place_id;
+
+        // create a bookmark with keyword 'donut' pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_keywords
+                (keyword, place_id)
+            VALUES
+                ('donut', :place_id)",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "donut")?, None);
 
         Ok(())
     }

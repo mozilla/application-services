@@ -2903,6 +2903,78 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_invalid_url() -> Result<()> {
+        let api = new_mem_api();
+        let syncer = api.open_sync_connection()?;
+
+        syncer
+            .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
+            .expect("should work");
+
+        let records = vec![
+            json!({
+                "id": "bookmarkXXXX",
+                "type": "bookmark",
+                "parentid": "menu",
+                "parentName": "menu",
+                "dateAdded": 1_552_183_116_885u64,
+                "title": "Invalid",
+                "bmkUri": "invalid url",
+            }),
+            json!({
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "dateAdded": 0,
+                "title": "menu",
+                "children": ["bookmarkXXXX"],
+            }),
+        ];
+
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
+
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
+        for record in records {
+            let payload = Payload::from_json(record).unwrap();
+            incoming.changes.push((payload, ServerTimestamp(0)));
+        }
+
+        let mut outgoing = store
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
+            .expect("Should apply incoming and stage outgoing records");
+        outgoing.changes.sort_by(|a, b| a.id.cmp(&b.id));
+        assert_eq!(
+            outgoing
+                .changes
+                .iter()
+                .map(|p| p.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["bookmarkXXXX", "menu",]
+        );
+
+        let record_for_invalid = outgoing
+            .changes
+            .iter()
+            .find(|p| p.id == "bookmarkXXXX")
+            .expect("Should re-upload the invalid record");
+        assert!(record_for_invalid.deleted, "should be a tombstone");
+
+        let record_for_menu = outgoing
+            .changes
+            .iter()
+            .find(|p| p.id == "menu")
+            .expect("Should upload menu");
+        assert_eq!(
+            record_for_menu.data.get("children"),
+            Some(&json!([])),
+            "should have been removed from the parent"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_keywords() -> Result<()> {
         use crate::storage::bookmarks::bookmarks_get_url_for_keyword;
 
