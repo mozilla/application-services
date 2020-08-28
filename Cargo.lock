@@ -107,12 +107,6 @@ checksum = "d27c3610c36aee21ce8ac510e6224498de4228ad772a171ed65643a24693a5a8"
 
 [[package]]
 name = "base64"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
-
-[[package]]
-name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
@@ -374,6 +368,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "crossbeam-channel"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09ee0cc8804d5393478d743b035099520087a5186f3b93fa58cec08fa62407b6"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+]
+
+[[package]]
 name = "crossbeam-deque"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -397,17 +401,6 @@ dependencies = [
  "maybe-uninit",
  "memoffset",
  "scopeguard",
-]
-
-[[package]]
-name = "crossbeam-queue"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "774ba60a54c213d409d5353bda12d49cd68d14e45036a285234c8d6f91f92570"
-dependencies = [
- "cfg-if",
- "crossbeam-utils",
- "maybe-uninit",
 ]
 
 [[package]]
@@ -545,7 +538,7 @@ version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bc1b4aa60de558deb8a5c2f803ac354ba733189a5dddeb19323144a540410497"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "byteorder",
  "once_cell",
  "serde",
@@ -872,7 +865,7 @@ name = "fxa-client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.12.3",
+ "base64",
  "error-support",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
@@ -918,7 +911,7 @@ checksum = "7abc8dd8451921606d809ba32e95b6111925cd2906060d2dcc29c070220503eb"
 dependencies = [
  "cfg-if",
  "libc",
- "wasi",
+ "wasi 0.9.0+wasi-snapshot-preview1",
 ]
 
 [[package]]
@@ -968,7 +961,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7539c8d8699bae53238aacd3f93cfb0bcaef77b85dc963902b9367c5d7a84c48"
 dependencies = [
  "anyhow",
- "base64 0.12.3",
+ "base64",
  "log 0.4.11",
  "once_cell",
  "thiserror",
@@ -1149,7 +1142,7 @@ dependencies = [
 name = "jwcrypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -1445,9 +1438,9 @@ checksum = "0debeb9fcf88823ea64d64e4a815ab1643f33127d995978e099942ce38f25238"
 
 [[package]]
 name = "multimap"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8883adfde9756c1d30b0f519c9b8c502a94b41ac62f696453c37c7fc0a958ce"
+checksum = "1255076139a83bb467426e7f8d0134968a8118844faa755985e077cf31850333"
 
 [[package]]
 name = "nameof"
@@ -1507,7 +1500,7 @@ dependencies = [
 name = "nss"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "error-support",
  "nss_sys",
  "serde",
@@ -1936,7 +1929,7 @@ dependencies = [
 name = "push"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "bincode",
  "error-support",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1962,7 +1955,7 @@ dependencies = [
 name = "push-ffi"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log 0.4.11",
@@ -2159,9 +2152,9 @@ dependencies = [
 
 [[package]]
 name = "rayon"
-version = "1.3.1"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62f02856753d04e03e26929f820d0a0a337ebe71f849801eea335d464b349080"
+checksum = "cfd016f0c045ad38b5251be2c9c0ab806917f82da4d36b2a327e5166adad9270"
 dependencies = [
  "autocfg 1.0.1",
  "crossbeam-deque",
@@ -2171,12 +2164,12 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.7.1"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e92e15d89083484e11353891f1af602cc661426deb9564c298b270c726973280"
+checksum = "91739a34c4355b5434ce54c9086c5895604a9c278586d1f1aa95e04f66b525a0"
 dependencies = [
+ "crossbeam-channel",
  "crossbeam-deque",
- "crossbeam-queue",
  "crossbeam-utils",
  "lazy_static",
  "num_cpus",
@@ -2186,7 +2179,7 @@ dependencies = [
 name = "rc_crypto"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "ece",
  "error-support",
  "hawk",
@@ -2231,9 +2224,9 @@ dependencies = [
 
 [[package]]
 name = "redox_users"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09b23093265f8d200fa7b4c2c76297f47e681c655f6f1285a8780d6a022f7431"
+checksum = "de0737333e7a9502c789a36d7c7fa6092a49895d4faa31ca5df163857ded2e9d"
 dependencies = [
  "getrandom",
  "redox_syscall",
@@ -2278,11 +2271,11 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.10.7"
+version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12427a5577082c24419c9c417db35cfeb65962efc7675bb6b0d5f1f9d315bfe6"
+checksum = "e9eaa17ac5d7b838b7503d118fa16ad88f440498bf9ffe5424e621f93190d61e"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -2341,11 +2334,11 @@ dependencies = [
 
 [[package]]
 name = "rust-argon2"
-version = "0.7.0"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bc8af4bda8e1ff4932523b94d3dd20ee30a87232323eda55903ffd71d2fb017"
+checksum = "9dab61250775933275e84053ac235621dfb739556d5c54a2f2e9313b7cf43a19"
 dependencies = [
- "base64 0.11.0",
+ "base64",
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
@@ -2546,9 +2539,9 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "structopt"
-version = "0.3.16"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de5472fb24d7e80ae84a7801b7978f95a19ec32cb1876faea59ab711eb901976"
+checksum = "6cc388d94ffabf39b5ed5fadddc40147cb21e605f53db6f8f36a625d27489ac5"
 dependencies = [
  "clap",
  "lazy_static",
@@ -2557,9 +2550,9 @@ dependencies = [
 
 [[package]]
 name = "structopt-derive"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0eb37335aeeebe51be42e2dc07f031163fbabfa6ac67d7ea68b5c2f68d5f99"
+checksum = "5e2513111825077552a6751dfad9e11ce0fba07d7276a3943a037d7e93e64c5f"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -2583,7 +2576,7 @@ dependencies = [
 name = "sync-guid"
 version = "0.1.0"
 dependencies = [
- "base64 0.12.3",
+ "base64",
  "rand 0.7.3",
  "rusqlite",
  "serde",
@@ -2595,7 +2588,7 @@ name = "sync-test"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "base64 0.12.3",
+ "base64",
  "env_logger",
  "fxa-client",
  "interrupt-support",
@@ -2623,7 +2616,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "base16",
- "base64 0.12.3",
+ "base64",
  "env_logger",
  "error-support",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2903,11 +2896,12 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.43"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
+checksum = "6db9e6914ab8b1ae1c260a4ae7a49b6c5611b40328a735b21862567685e73255"
 dependencies = [
  "libc",
+ "wasi 0.10.0+wasi-snapshot-preview1",
  "winapi 0.3.9",
 ]
 
@@ -3149,6 +3143,12 @@ name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
+
+[[package]]
+name = "wasi"
+version = "0.10.0+wasi-snapshot-preview1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasm-bindgen"
