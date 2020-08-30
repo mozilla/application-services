@@ -71,6 +71,14 @@
 - Tab records now have an explicit TTL set when storing on the server, to match the behaviour
   of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-services/pull/3322)).
 
+# v61.0.12 (_2020-08-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.11...v61.0.12)
+
+## General
+
+- This release only exists to correct issues that occured when publishing a v61.0.11, which failed to produce an artifact because of a warning which occured during the build process. (It contains a small number of additional cherry-picked patches which correct these warnings).
+
 # v61.0.11 (_2020-08-07_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.10...v61.0.11)
