@@ -1,0 +1,4 @@
+libraryVersion: 0.1.0
+groupId: uniffi
+artifactId: nimbus
+description: A uniffi generated android bindings for the Nimbus SDK

@@ -1,0 +1,48 @@
+apply from: './settings.gradle'
+
+// We configure what we publish when
+// running `./gradlew publish...`
+ext.configurePublish = { jnaForTestConfiguration = null ->
+    // Those values are retrieved from
+    // the .buildconfig.yaml file
+    def theGroupId = ext.groupId
+    def theArtifactId = ext.artifactId
+    def theDescription = ext.description
+    def theVersion = ext.version
+
+    task sourcesJar(type: Jar) {
+        from android.sourceSets.main.java.srcDirs
+        classifier = 'sources'
+    }
+
+    publishing {
+        publications {
+            aar(MavenPublication) {
+                project.afterEvaluate {
+                    from components.findByName("androidRelease")
+                }
+                artifact sourcesJar
+
+                // If this goes haywire with
+                // 'Cannot configure the 'publishing' extension after it has been accessed.',
+                // see https://github.com/researchgate/gradle-release/issues/125 and
+                // https://stackoverflow.com/q/28020520.
+                pom {
+                    groupId = theGroupId
+                    artifactId = theArtifactId
+                    description = theDescription
+                    version = theVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                    packaging = "aar"
+
+
+                    developers {
+                        developer {
+                            name = 'Mozilla Nimbus SDK'
+                        }
+                    }
+
+                }
+            }
+        }
+    }
+}

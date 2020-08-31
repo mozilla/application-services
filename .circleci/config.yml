@@ -10,6 +10,9 @@ jobs:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
       - run:
+          name: Install uniffi
+          command: git clone https://github.com/mozilla/uniffi-rs.git; cargo install --path uniffi-rs/uniffi_bindgen
+      - run:
           name: Calculate dependencies
           command: cd experiments && cargo generate-lockfile
       - restore_cache:
