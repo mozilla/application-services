@@ -13,7 +13,7 @@ open class LoginsStorage {
     // It's not 100% clear to me that this is necessary, but without it
     // we might have a data race between reading `interruptHandle` in
     // `interrupt()`, and writing it in `doDestroy` (or `doOpen`)
-    private let interruptHandleLock: NSLock = NSLock()
+    private let interruptHandleLock = NSLock()
     private let queue = DispatchQueue(label: "com.mozilla.logins-storage")
 
     public init(databasePath: String) {
