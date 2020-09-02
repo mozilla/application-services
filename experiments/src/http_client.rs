@@ -101,7 +101,9 @@ impl SettingsClient for Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Branch, BranchValue, BucketConfig, ExperimentArguments, Group, RandomizationUnit};
+    use crate::{
+        Branch, BucketConfig, ExperimentArguments, FeatureConfig, Group, RandomizationUnit,
+    };
     use mockito::mock;
 
     #[test]
@@ -113,7 +115,7 @@ mod tests {
             {
                 "id": "ABOUTWELCOME-PULL-FACTOR-REINFORCEMENT-76-RELEASE",
                 "enabled": true,
-                "filter_expression": "(env.version >= '76.' && env.version < '77.' && env.channel == 'release' && !(env.telemetry.main.environment.profile.creationDate < ('2020-05-13'|date / 1000 / 60 / 60 / 24))) || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))",
+                "targeting": "(firefoxVersion >= 76 && firefoxVersion < 77 && channel == 'release') || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))",
                 "arguments": {
                     "slug": "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77",
                     "userFacingName": "About:Welcome Pull Factor Reinforcement",
@@ -134,8 +136,8 @@ mod tests {
                     "referenceBranch": "control",
                     "features": [],
                     "branches": [
-                        { "slug": "control", "ratio": 1, "value": {}, "group": ["cfr"] },
-                        { "slug": "treatment-variation-b", "ratio": 1, "value": {} }
+                        { "slug": "control", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } },
+                        { "slug": "treatment-variation-b", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } }
                     ]
                 }
             },
@@ -145,7 +147,7 @@ mod tests {
             {
                 "id": "ABOUTWELCOME-PULL-FACTOR-REINFORCEMENT-76-RELEASE",
                 "enabled": true,
-                "filter_expression": "(env.version >= '76.' && env.version < '77.' && env.channel == 'release' && !(env.telemetry.main.environment.profile.creationDate < ('2020-05-13'|date / 1000 / 60 / 60 / 24))) || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))",
+                "targeting": "(firefoxVersion >= 76 && firefoxVersion < 77 && channel == 'release') || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))",
                 "arguments": {
                     "slug": "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77",
                     "userFacingName": "About:Welcome Pull Factor Reinforcement",
@@ -166,8 +168,8 @@ mod tests {
                     "referenceBranch": "control",
                     "features": [],
                     "branches": [
-                        { "slug": "control", "ratio": 1, "value": {}, "group": ["cfr"] },
-                        { "slug": "treatment-variation-b", "ratio": 1, "value": {} }
+                        { "slug": "control", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } },
+                        { "slug": "treatment-variation-b", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } }
                     ]
                 }
             }
@@ -195,7 +197,7 @@ mod tests {
         assert_eq!(exp.clone(), Experiment {
             id: "ABOUTWELCOME-PULL-FACTOR-REINFORCEMENT-76-RELEASE".to_string(),
             enabled: true,
-            filter_expression: "(env.version >= '76.' && env.version < '77.' && env.channel == 'release' && !(env.telemetry.main.environment.profile.creationDate < ('2020-05-13'|date / 1000 / 60 / 60 / 24))) || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))".to_string(),
+            targeting: Some("(firefoxVersion >= 76 && firefoxVersion < 77 && channel == 'release') || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))".to_string()),
             arguments: ExperimentArguments {
                     slug: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),
                     user_facing_name: "About:Welcome Pull Factor Reinforcement".to_string(),
@@ -216,11 +218,10 @@ mod tests {
                     reference_branch: Some("control".to_string()),
                     features: vec![],
                     branches: vec![
-                        Branch { slug: "control".to_string(), ratio: 1, value: Some(BranchValue {}), group: Some(vec![Group::Cfr]) },
-                        Branch { slug: "treatment-variation-b".to_string(), ratio: 1, value: Some(BranchValue {}), group: None }
+                        Branch { slug: "control".to_string(), ratio: 1, feature: FeatureConfig { feature_id: Group::Cfr, enabled: true, value: None } },
+                        Branch { slug: "treatment-variation-b".to_string(), ratio: 1, feature: FeatureConfig { feature_id: Group::Cfr, enabled: true, value: None } }
                     ]
                 },
-            targeting: None,
         })
     }
 }

@@ -94,7 +94,6 @@ impl Experiments {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Experiment {
     pub id: String,
-    pub filter_expression: String,
     pub targeting: Option<String>,
     pub enabled: bool,
     pub arguments: ExperimentArguments,
@@ -120,11 +119,18 @@ pub struct ExperimentArguments {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FeatureConfig {
+    pub feature_id: Group,
+    pub enabled: bool,
+    pub value: Option<BranchValue>,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct Branch {
     pub slug: String,
     pub ratio: u32,
-    pub group: Option<Vec<Group>>,
-    pub value: Option<BranchValue>,
+    pub feature: FeatureConfig,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
