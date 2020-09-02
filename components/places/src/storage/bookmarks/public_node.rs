@@ -171,28 +171,37 @@ pub fn fetch_public_tree_with_depth(
 
 pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<PublicNode>> {
     let scope = db.begin_interrupt_scope();
-    Ok(db.query_rows_into_cached(
-        &SEARCH_QUERY,
-        &[(":search", &search), (":limit", &limit)],
-        |row| -> Result<_> {
-            scope.err_if_interrupted()?;
-            Ok(PublicNode {
-                node_type: BookmarkType::Bookmark,
-                guid: row.get("guid")?,
-                parent_guid: row.get("parentGuid")?,
-                position: row.get("position")?,
-                date_added: row.get("dateAdded")?,
-                last_modified: row.get("lastModified")?,
-                title: row.get("title")?,
-                url: row
-                    .get::<_, Option<String>>("url")?
-                    .map(|href| url::Url::parse(&href))
-                    .transpose()?,
-                child_guids: None,
-                child_nodes: None,
-            })
-        },
-    )?)
+    Ok(db
+        .query_rows_into_cached::<Vec<Option<PublicNode>>, _, _, _>(
+            &SEARCH_QUERY,
+            &[(":search", &search), (":limit", &limit)],
+            |row| -> Result<_> {
+                scope.err_if_interrupted()?;
+                Ok(
+                    match row
+                        .get::<_, Option<String>>("url")?
+                        .and_then(|href| url::Url::parse(&href).ok())
+                    {
+                        Some(url) => Some(PublicNode {
+                            node_type: BookmarkType::Bookmark,
+                            guid: row.get("guid")?,
+                            parent_guid: row.get("parentGuid")?,
+                            position: row.get("position")?,
+                            date_added: row.get("dateAdded")?,
+                            last_modified: row.get("lastModified")?,
+                            title: row.get("title")?,
+                            url: Some(url),
+                            child_guids: None,
+                            child_nodes: None,
+                        }),
+                        None => None,
+                    },
+                )
+            },
+        )?
+        .into_iter()
+        .filter_map(|r| r)
+        .collect())
 }
 
 pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
@@ -214,26 +223,37 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
         LIMIT :limit",
         bookmark_type = BookmarkType::Bookmark as u8,
     );
-    Ok(
-        db.query_rows_into_cached(&sql, &[(":limit", &limit)], |row| -> Result<_> {
-            scope.err_if_interrupted()?;
-            Ok(PublicNode {
-                node_type: BookmarkType::Bookmark,
-                guid: row.get("guid")?,
-                parent_guid: row.get("parentGuid")?,
-                position: row.get("position")?,
-                date_added: row.get("dateAdded")?,
-                last_modified: row.get("lastModified")?,
-                title: row.get("title")?,
-                url: row
-                    .get::<_, Option<String>>("url")?
-                    .map(|href| url::Url::parse(&href))
-                    .transpose()?,
-                child_guids: None,
-                child_nodes: None,
-            })
-        })?,
-    )
+    Ok(db
+        .query_rows_into_cached::<Vec<Option<PublicNode>>, _, _, _>(
+            &sql,
+            &[(":limit", &limit)],
+            |row| -> Result<_> {
+                scope.err_if_interrupted()?;
+                Ok(
+                    match row
+                        .get::<_, Option<String>>("url")?
+                        .and_then(|href| url::Url::parse(&href).ok())
+                    {
+                        Some(url) => Some(PublicNode {
+                            node_type: BookmarkType::Bookmark,
+                            guid: row.get("guid")?,
+                            parent_guid: row.get("parentGuid")?,
+                            position: row.get("position")?,
+                            date_added: row.get("dateAdded")?,
+                            last_modified: row.get("lastModified")?,
+                            title: row.get("title")?,
+                            url: Some(url),
+                            child_guids: None,
+                            child_nodes: None,
+                        }),
+                        None => None,
+                    },
+                )
+            },
+        )?
+        .into_iter()
+        .filter_map(|r| r)
+        .collect())
 }
 
 lazy_static::lazy_static! {
@@ -277,7 +297,7 @@ lazy_static::lazy_static! {
 mod test {
     use super::*;
     use crate::api::places_api::test::new_mem_connections;
-    use crate::tests::insert_json_tree;
+    use crate::tests::{append_invalid_bookmark, insert_json_tree};
     use serde_json::json;
     #[test]
     fn test_get_by_url() -> Result<()> {
@@ -400,6 +420,12 @@ mod test {
                 ]
             }),
         );
+        append_invalid_bookmark(
+            &conns.write,
+            &BookmarkRootGuid::Unfiled.guid(),
+            "invalid",
+            "badurl",
+        );
         let mut bmks = search_bookmarks(&conns.read, "ample", 10)?;
         bmks.sort_by_key(|b| b.guid.as_str().to_string());
         assert_eq!(bmks.len(), 6);
@@ -465,6 +491,20 @@ mod test {
             }),
         );
 
+        // Put a couple of invalid items in the tree - not only should fetching
+        // them directly "work" (as in, not crash!), fetching their parent's
+        // tree should also do a sane thing (ie, not crash *and* return the
+        // valid items)
+        let guid_bad = append_invalid_bookmark(
+            &conns.write,
+            &BookmarkRootGuid::Mobile.guid(),
+            "invalid url",
+            "badurl",
+        )
+        .guid;
+        assert_eq!(fetch_bookmark(&conns.read, &guid_bad, false)?, None);
+
+        // Now fetch the entire tree.
         let root = fetch_bookmark(&conns.read, BookmarkRootGuid::Root.guid(), false)?.unwrap();
 
         assert!(root.child_guids.is_some());
@@ -530,6 +570,13 @@ mod test {
                     },
                 ]
             }),
+        );
+
+        append_invalid_bookmark(
+            &conns.write,
+            &BookmarkRootGuid::Mobile.guid(),
+            "invalid url",
+            "badurl",
         );
 
         let root = fetch_public_tree(&conns.read, BookmarkRootGuid::Root.guid())?.unwrap();
@@ -610,7 +657,16 @@ mod test {
             );
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-        let bmks = recent_bookmarks(&conns.read, 3)?;
+
+        append_invalid_bookmark(
+            &conns.write,
+            &BookmarkRootGuid::Unfiled.guid(),
+            "invalid url",
+            "badurl",
+        );
+
+        // The limit applies before we filter the invalid bookmark, so ask for 4.
+        let bmks = recent_bookmarks(&conns.read, 4)?;
         assert_eq!(bmks.len(), 3);
 
         assert_eq!(

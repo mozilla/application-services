@@ -7,8 +7,10 @@ use serde_json::Value;
 
 use crate::{
     db::PlacesDb,
-    storage::bookmarks::{fetch_tree, insert_tree, BookmarkTreeNode, FetchDepth},
+    storage::bookmarks::{fetch_tree, get_raw_bookmark, insert_tree, BookmarkTreeNode, FetchDepth},
+    types::{BookmarkType, Timestamp},
 };
+use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
 
 use pretty_assertions::assert_eq;
@@ -20,6 +22,54 @@ pub fn insert_json_tree(conn: &PlacesDb, jtree: Value) {
         _ => panic!("must be a folder"),
     };
     insert_tree(conn, &folder_node).expect("should insert");
+}
+
+pub struct InvalidBookmarkIds {
+    pub place_id: i64,
+    pub guid: SyncGuid,
+}
+
+// Append a bookmark with an invalid URL to the specified parent. Note that it's
+// currently impossible to append a bookmark with NULL as there is a CHECK
+// contraint in the schema.
+pub fn append_invalid_bookmark(
+    db: &PlacesDb,
+    parent_guid: &SyncGuid,
+    title: &str,
+    url: &str,
+) -> InvalidBookmarkIds {
+    let parent = get_raw_bookmark(db, parent_guid)
+        .expect("should work")
+        .expect("parent must exist");
+    assert_eq!(parent.bookmark_type, BookmarkType::Folder);
+    let position = parent.child_count;
+    let guid = SyncGuid::random();
+
+    // Assume the invalid URL isn't already there.
+    let place_sql = "
+        INSERT INTO moz_places (guid, url, url_hash)
+        VALUES (:guid, :url, hash(:url))";
+    db.execute_named_cached(place_sql, &[(":guid", &guid), (":url", &url.to_string())])
+        .expect("should insert");
+    let place_id = db.conn().last_insert_rowid();
+
+    let bm_sql = format!(
+        "
+        INSERT INTO moz_bookmarks
+            (fk, type, parent, position,
+             title,  dateAdded, lastModified, guid)
+        VALUES
+            ({place_id}, {bm_type}, {parent_id}, {position},
+             :title, {timestamp}, {timestamp}, :guid)",
+        place_id = place_id,
+        bm_type = BookmarkType::Bookmark as u8,
+        timestamp = Timestamp::now(),
+        parent_id = parent.row_id.0,
+        position = position,
+    );
+    db.execute_named_cached(&bm_sql, &[(":title", &title.to_string()), (":guid", &guid)])
+        .expect("should insert bookmark");
+    InvalidBookmarkIds { place_id, guid }
 }
 
 pub fn assert_json_tree(conn: &PlacesDb, folder: &SyncGuid, expected: Value) {
