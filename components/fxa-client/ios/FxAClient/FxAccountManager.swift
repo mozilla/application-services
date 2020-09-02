@@ -30,7 +30,7 @@ open class FxAccountManager {
         }
     }
 
-    var state: AccountState = AccountState.start
+    var state = AccountState.start
     var profile: Profile?
     var constellation: DeviceConstellation?
     var latestOAuthStateParam: String?
