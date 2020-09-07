@@ -12,3 +12,4 @@ FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 #import "RustLogFFI.h"
 #import "RustPlacesAPI.h"
 #import "RustViaductFFI.h"
+#import "GleanFfi.h"
