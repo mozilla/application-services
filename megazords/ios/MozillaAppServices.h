@@ -7,6 +7,14 @@
 FOUNDATION_EXPORT double MegazordClientVersionNumber;
 FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 
+/**
+ * FIXME: Glean has a `getGleanVersion` function that uses this constant.
+ * That function is not actually used (and the version wrong anyway).
+ * Because Glean is added as a submodule it's easier to change this occurence than it it to change the one of Glean,
+ * for now.
+ */
+static double GleanVersionNumber = 0.0;
+
 #import "RustFxAFFI.h"
 #import "RustPasswordAPI.h"
 #import "RustLogFFI.h"
