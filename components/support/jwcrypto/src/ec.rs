@@ -9,7 +9,7 @@ use crate::{
 };
 use rc_crypto::{
     aead,
-    agreement::{self, EphemeralKeyPair, InputKeyMaterial},
+    agreement::{self, EphemeralKeyPair, InputKeyMaterial, UnparsedPublicKey},
     digest, rand,
 };
 use serde_derive::{Deserialize, Serialize};
@@ -122,10 +122,11 @@ fn derive_shared_secret(
     peer_key: &ECKeysParameters,
 ) -> Result<digest::Digest> {
     let (private_key, _) = local_key_pair.split();
-    let peer_public_key = public_key_from_ec_params(peer_key)?;
+    let peer_public_key_raw_bytes = public_key_from_ec_params(peer_key)?;
+    let peer_public_key = UnparsedPublicKey::new(&agreement::ECDH_P256, &peer_public_key_raw_bytes);
     // Note: We don't support key-wrapping, but if we did `algorithm_id` would be `alg` instead.
     let algorithm_id = protected_header.enc.algorithm_id();
-    let ikm = private_key.agree(&agreement::ECDH_P256, &peer_public_key)?;
+    let ikm = private_key.agree(&peer_public_key)?;
     let apu = protected_header.apu.as_deref().unwrap_or_default();
     let apv = protected_header.apv.as_deref().unwrap_or_default();
     get_secret_from_ikm(ikm, &apu, &apv, &algorithm_id)
