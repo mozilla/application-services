@@ -77,7 +77,12 @@ impl Config {
         &'a mut self,
         token_server_url_override: &str,
     ) -> &'a mut Self {
-        self.token_server_url_override = Some(token_server_url_override.to_owned());
+        // In self-hosting setups it is common to specify the `/1.0/sync/1.5` suffix on the
+        // tokenserver URL. Accept and strip this form as a convenience for users.
+        match token_server_url_override.strip_suffix("/1.0/sync/1.5") {
+            Some(stripped) => self.token_server_url_override = Some(stripped.to_owned()),
+            None => self.token_server_url_override = Some(token_server_url_override.to_owned()),
+        }
         self
     }
 
@@ -345,6 +350,49 @@ mod tests {
         assert_eq!(
             config.token_server_endpoint_url().unwrap().to_string(),
             "https://foo.bar/"
+        );
+    }
+
+    #[test]
+    fn test_tokenserver_url_override_strips_sync_service_prefix() {
+        let remote_config = RemoteConfig {
+            auth_url: "https://stable.dev.lcip.org/auth/".to_string(),
+            oauth_url: "https://oauth-stable.dev.lcip.org/".to_string(),
+            profile_url: "https://stable.dev.lcip.org/profile/".to_string(),
+            token_server_endpoint_url: "https://stable.dev.lcip.org/syncserver/token/".to_string(),
+            authorization_endpoint: "https://oauth-stable.dev.lcip.org/v1/authorization"
+                .to_string(),
+            issuer: "https://dev.lcip.org/".to_string(),
+            jwks_uri: "https://oauth-stable.dev.lcip.org/v1/jwks".to_string(),
+            token_endpoint: "https://stable.dev.lcip.org/auth/v1/oauth/token".to_string(),
+            introspection_endpoint: "https://oauth-stable.dev.lcip.org/v1/introspect".to_string(),
+            userinfo_endpoint: "https://stable.dev.lcip.org/profile/v1/profile".to_string(),
+        };
+
+        let mut config = Config {
+            content_url: "https://stable.dev.lcip.org/".to_string(),
+            remote_config: RefCell::new(Some(Arc::new(remote_config))),
+            client_id: "263ceaa5546dce83".to_string(),
+            redirect_uri: "https://127.0.0.1:8080".to_string(),
+            token_server_url_override: None,
+        };
+
+        config.override_token_server_url("https://foo.bar/prefix/1.0/sync/1.5");
+        assert_eq!(
+            config.token_server_endpoint_url().unwrap().to_string(),
+            "https://foo.bar/prefix"
+        );
+
+        config.override_token_server_url("https://foo.bar/prefix-1.0/sync/1.5");
+        assert_eq!(
+            config.token_server_endpoint_url().unwrap().to_string(),
+            "https://foo.bar/prefix-1.0/sync/1.5"
+        );
+
+        config.override_token_server_url("https://foo.bar/1.0/sync/1.5/foobar");
+        assert_eq!(
+            config.token_server_endpoint_url().unwrap().to_string(),
+            "https://foo.bar/1.0/sync/1.5/foobar"
         );
     }
 }
