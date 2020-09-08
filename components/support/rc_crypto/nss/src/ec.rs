@@ -5,10 +5,12 @@
 use crate::{
     error::*,
     pk11::{
+        self,
+        context::HashAlgorithm,
         slot,
         types::{Pkcs11Object, PrivateKey as PK11PrivateKey, PublicKey as PK11PublicKey},
     },
-    util::{ensure_nss_initialized, sec_item_as_slice, ScopedPtr},
+    util::{ensure_nss_initialized, map_nss_secstatus, sec_item_as_slice, ScopedPtr},
 };
 use serde_derive::{Deserialize, Serialize};
 use std::{
@@ -302,6 +304,39 @@ impl PublicKey {
 
     pub fn curve(&self) -> Curve {
         self.curve
+    }
+
+    /// ECDSA verify operation
+    pub fn verify(
+        &self,
+        message: &[u8],
+        signature: &[u8],
+        hash_algorithm: HashAlgorithm,
+    ) -> Result<()> {
+        // The following code is adapted from:
+        // https://searchfox.org/mozilla-central/rev/b2716c233e9b4398fc5923cbe150e7f83c7c6c5b/dom/crypto/WebCryptoTask.cpp#1144
+        let signature = nss_sys::SECItem {
+            len: u32::try_from(signature.len())?,
+            data: signature.as_ptr() as *mut u8,
+            type_: 0,
+        };
+        let hash = pk11::context::hash_buf(&hash_algorithm, message)?;
+        let hash = nss_sys::SECItem {
+            len: u32::try_from(hash.len())?,
+            data: hash.as_ptr() as *mut u8,
+            type_: 0,
+        };
+        map_nss_secstatus(|| unsafe {
+            nss_sys::PK11_VerifyWithMechanism(
+                self.as_mut_ptr(),
+                nss_sys::PK11_MapSignKeyType((*self.wrapped.as_ptr()).keyType),
+                ptr::null(),
+                &signature,
+                &hash,
+                ptr::null_mut(),
+            )
+        })?;
+        Ok(())
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>> {
