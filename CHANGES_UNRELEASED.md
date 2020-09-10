@@ -2,6 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v62.1.0...main)
-
-- `android-components` has been updated to 56.0.0 (previously 47.0.0) ([#3538](https://github.com/mozilla/application-services/pull/3538))
+[Full Changelog](https://github.com/mozilla/application-services/compare/v63.0.0...main)
