@@ -1,3 +1,53 @@
+# v63.0.0 (_2020-09-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v62.1.0...v63.0.0)
+
+## iOS
+
+### ⚠️ Breaking changes ⚠️
+
+- The `MozillaAppServices.framework` build now includes Glean. Applications that were previously consuming Glean via
+  its standalone framework and using `import Glean` will instead need to `import MozillaAppServices`.
+  ([#3554](https://github.com/mozilla/application-services/pull/3554))
+
+### What's changed ###
+
+- The version of xcode used to build `MozillaAppServices.framework` has been updated to v11.7.
+  ([#3556](https://github.com/mozilla/application-services/pull/3556))
+- When using a custom sync tokenserver URL, the `/1.0/sync/1.5` suffix will be stripped if present.
+  This should simplify setup for self-hosters who are accustomed to supplying the tokenserver URL
+  in this form on other platforms.
+  ([#3555](https://github.com/mozilla/application-services/pull/3555))
+
+## Android
+
+### What's changed ###
+
+- `android-components` has been updated to 56.0.0 (previously 47.0.0) ([#3538](https://github.com/mozilla/application-services/pull/3538))
+
+## Places
+
+### What's fixed ###
+
+- Fixed a bug where sync could ask places to recalculate the frecency of iitems that are not bookmarks,
+  which would fail and prevent the sync from completing.
+  ([#3567](https://github.com/mozilla/application-services/pull/3567))
+
+### What's changed ###
+
+- If the database somehow contains bookmarks with an invalid URL, they will now be ignored
+  on read; previously invalid URLs would trigger an error and crash.
+  ([#3537](https://github.com/mozilla/application-services/pull/3537))
+
+## Push
+
+### What's fixed ###
+
+- Messages using the legacy `aesgcm` encryption method will how have padding bytes correctly stripped;
+  previously the padding bytes would be returned as part of the message and could cause message-parsing
+  errors in consuming code.
+  ([#3569](https://github.com/mozilla/application-services/pull/3569))
+
 # v62.1.0 (_2020-08-21_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v62.0.0...v62.1.0)
