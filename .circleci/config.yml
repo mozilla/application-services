@@ -303,10 +303,11 @@ jobs:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
-    docker:
-      - image: circleci/rust:latest
+    # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
+    macos:
+      xcode: "11.7.0"
     steps:
-      - run: sudo apt-get install python3-pip
+      - install-rust
       - setup-rust-toolchain
       - checkout
       - dependency-checks

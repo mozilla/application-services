@@ -17,6 +17,7 @@ import subprocess
 import hashlib
 import json
 import textwrap
+import difflib
 import itertools
 import collections
 from urllib.parse import urlparse, urlunparse
@@ -1086,7 +1087,13 @@ if __name__ == "__main__":
         print_dependency_summary_markdown(deps, file=output)
 
     if args.check:
+        output.seek(0)
+        outlines = output.readlines()
         with open(args.check, 'r') as f:
-            if f.read() != output.getvalue():
+            checklines = f.readlines()
+            if outlines != checklines:
                 raise RuntimeError(
-                    "Dependency details have changed from those in {}".format(args.check))
+                    "Dependency details have changed from those in {}:\n{}".format(
+                        args.check,
+                        "".join(difflib.unified_diff(checklines, outlines))
+                    ))
