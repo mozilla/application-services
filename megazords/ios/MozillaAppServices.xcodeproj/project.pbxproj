@@ -10,6 +10,43 @@
 		1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1379D0682404BE1300AABD16 /* logins_msg_types.proto */; };
 		137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137C5892240257340016932F /* Data+LoginsRustBuffer.swift */; };
 		78B6532724B39B2400ED1555 /* FxAccountMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B6532624B39B2400ED1555 /* FxAccountMetrics.swift */; };
+		BF1A879025064A4C00FED88E /* Dispatchers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A878C25064A4C00FED88E /* Dispatchers.swift */; };
+		BF1A879125064A4C00FED88E /* Glean.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A878D25064A4C00FED88E /* Glean.swift */; };
+		BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */ = {isa = PBXBuildFile; fileRef = BF1A878E25064A4C00FED88E /* GleanFfi.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		BF1A879325064A4C00FED88E /* GleanMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A878F25064A4C00FED88E /* GleanMetrics.swift */; };
+		BF1A879525064A6600FED88E /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879425064A6600FED88E /* Configuration.swift */; };
+		BF1A879725064A7300FED88E /* GleanDebugTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879625064A7300FED88E /* GleanDebugTools.swift */; };
+		BF1A87AA25064A8100FED88E /* RecordedExperimentData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879825064A8000FED88E /* RecordedExperimentData.swift */; };
+		BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879925064A8000FED88E /* DistributionData.swift */; };
+		BF1A87AC25064A8100FED88E /* MemoryUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879A25064A8000FED88E /* MemoryUnit.swift */; };
+		BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879B25064A8000FED88E /* Lifetime.swift */; };
+		BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879C25064A8000FED88E /* BooleanMetric.swift */; };
+		BF1A87AF25064A8100FED88E /* MemoryDistributionMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879D25064A8000FED88E /* MemoryDistributionMetric.swift */; };
+		BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879E25064A8100FED88E /* LabeledMetric.swift */; };
+		BF1A87B125064A8100FED88E /* TimeUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A879F25064A8100FED88E /* TimeUnit.swift */; };
+		BF1A87B225064A8100FED88E /* DatetimeMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A025064A8100FED88E /* DatetimeMetric.swift */; };
+		BF1A87B325064A8100FED88E /* StringListMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A125064A8100FED88E /* StringListMetric.swift */; };
+		BF1A87B425064A8100FED88E /* EventMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A225064A8100FED88E /* EventMetric.swift */; };
+		BF1A87B525064A8100FED88E /* CounterMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A325064A8100FED88E /* CounterMetric.swift */; };
+		BF1A87B625064A8100FED88E /* UuidMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A425064A8100FED88E /* UuidMetric.swift */; };
+		BF1A87B725064A8100FED88E /* Ping.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A525064A8100FED88E /* Ping.swift */; };
+		BF1A87B825064A8100FED88E /* JweMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A625064A8100FED88E /* JweMetric.swift */; };
+		BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A725064A8100FED88E /* TimingDistributionMetric.swift */; };
+		BF1A87BA25064A8100FED88E /* StringMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A825064A8100FED88E /* StringMetric.swift */; };
+		BF1A87BB25064A8100FED88E /* TimespanMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87A925064A8100FED88E /* TimespanMetric.swift */; };
+		BF1A87BE25064A9400FED88E /* HttpPingUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87BC25064A9400FED88E /* HttpPingUploader.swift */; };
+		BF1A87BF25064A9400FED88E /* Upload.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87BD25064A9400FED88E /* Upload.swift */; };
+		BF1A87C425064AA500FED88E /* GleanLifecycleObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C025064AA500FED88E /* GleanLifecycleObserver.swift */; };
+		BF1A87C525064AA500FED88E /* GleanOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C125064AA500FED88E /* GleanOperation.swift */; };
+		BF1A87C625064AA500FED88E /* MetricsPingScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C225064AA500FED88E /* MetricsPingScheduler.swift */; };
+		BF1A87C725064AA500FED88E /* PingUploadOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C325064AA500FED88E /* PingUploadOperation.swift */; };
+		BF1A87C925064AB300FED88E /* ErrorType.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C825064AB300FED88E /* ErrorType.swift */; };
+		BF1A87CE25064AC000FED88E /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CA25064AC000FED88E /* Logger.swift */; };
+		BF1A87CF25064AC000FED88E /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CB25064AC000FED88E /* Utils.swift */; };
+		BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CC25064AC000FED88E /* Sysctl.swift */; };
+		BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CD25064AC000FED88E /* Unreachable.swift */; };
+		BF1A87D325064B1100FED88E /* sdk_generator.sh in Resources */ = {isa = PBXBuildFile; fileRef = BF1A87D225064B1100FED88E /* sdk_generator.sh */; };
+		BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
 		C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */; };
 		C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECC220A29FE00A6E79A /* LoginRecord.swift */; };
@@ -108,6 +145,43 @@
 		1379D0682404BE1300AABD16 /* logins_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = logins_msg_types.proto; path = ../../src/logins_msg_types.proto; sourceTree = "<group>"; };
 		137C5892240257340016932F /* Data+LoginsRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Data+LoginsRustBuffer.swift"; path = "Extensions/Data+LoginsRustBuffer.swift"; sourceTree = "<group>"; };
 		78B6532624B39B2400ED1555 /* FxAccountMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountMetrics.swift; sourceTree = "<group>"; };
+		BF1A878C25064A4C00FED88E /* Dispatchers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dispatchers.swift; sourceTree = "<group>"; };
+		BF1A878D25064A4C00FED88E /* Glean.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Glean.swift; sourceTree = "<group>"; };
+		BF1A878E25064A4C00FED88E /* GleanFfi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GleanFfi.h; sourceTree = "<group>"; };
+		BF1A878F25064A4C00FED88E /* GleanMetrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GleanMetrics.swift; sourceTree = "<group>"; };
+		BF1A879425064A6600FED88E /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Configuration.swift; sourceTree = "<group>"; };
+		BF1A879625064A7300FED88E /* GleanDebugTools.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GleanDebugTools.swift; sourceTree = "<group>"; };
+		BF1A879825064A8000FED88E /* RecordedExperimentData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RecordedExperimentData.swift; sourceTree = "<group>"; };
+		BF1A879925064A8000FED88E /* DistributionData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DistributionData.swift; sourceTree = "<group>"; };
+		BF1A879A25064A8000FED88E /* MemoryUnit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MemoryUnit.swift; sourceTree = "<group>"; };
+		BF1A879B25064A8000FED88E /* Lifetime.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Lifetime.swift; sourceTree = "<group>"; };
+		BF1A879C25064A8000FED88E /* BooleanMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BooleanMetric.swift; sourceTree = "<group>"; };
+		BF1A879D25064A8000FED88E /* MemoryDistributionMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MemoryDistributionMetric.swift; sourceTree = "<group>"; };
+		BF1A879E25064A8100FED88E /* LabeledMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LabeledMetric.swift; sourceTree = "<group>"; };
+		BF1A879F25064A8100FED88E /* TimeUnit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimeUnit.swift; sourceTree = "<group>"; };
+		BF1A87A025064A8100FED88E /* DatetimeMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DatetimeMetric.swift; sourceTree = "<group>"; };
+		BF1A87A125064A8100FED88E /* StringListMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StringListMetric.swift; sourceTree = "<group>"; };
+		BF1A87A225064A8100FED88E /* EventMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EventMetric.swift; sourceTree = "<group>"; };
+		BF1A87A325064A8100FED88E /* CounterMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CounterMetric.swift; sourceTree = "<group>"; };
+		BF1A87A425064A8100FED88E /* UuidMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UuidMetric.swift; sourceTree = "<group>"; };
+		BF1A87A525064A8100FED88E /* Ping.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Ping.swift; sourceTree = "<group>"; };
+		BF1A87A625064A8100FED88E /* JweMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JweMetric.swift; sourceTree = "<group>"; };
+		BF1A87A725064A8100FED88E /* TimingDistributionMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimingDistributionMetric.swift; sourceTree = "<group>"; };
+		BF1A87A825064A8100FED88E /* StringMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StringMetric.swift; sourceTree = "<group>"; };
+		BF1A87A925064A8100FED88E /* TimespanMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TimespanMetric.swift; sourceTree = "<group>"; };
+		BF1A87BC25064A9400FED88E /* HttpPingUploader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HttpPingUploader.swift; sourceTree = "<group>"; };
+		BF1A87BD25064A9400FED88E /* Upload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Upload.swift; sourceTree = "<group>"; };
+		BF1A87C025064AA500FED88E /* GleanLifecycleObserver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GleanLifecycleObserver.swift; sourceTree = "<group>"; };
+		BF1A87C125064AA500FED88E /* GleanOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GleanOperation.swift; sourceTree = "<group>"; };
+		BF1A87C225064AA500FED88E /* MetricsPingScheduler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetricsPingScheduler.swift; sourceTree = "<group>"; };
+		BF1A87C325064AA500FED88E /* PingUploadOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PingUploadOperation.swift; sourceTree = "<group>"; };
+		BF1A87C825064AB300FED88E /* ErrorType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ErrorType.swift; sourceTree = "<group>"; };
+		BF1A87CA25064AC000FED88E /* Logger.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
+		BF1A87CB25064AC000FED88E /* Utils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
+		BF1A87CC25064AC000FED88E /* Sysctl.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Sysctl.swift; sourceTree = "<group>"; };
+		BF1A87CD25064AC000FED88E /* Unreachable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Unreachable.swift; sourceTree = "<group>"; };
+		BF1A87D225064B1100FED88E /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = ../sdk_generator.sh; sourceTree = "<group>"; };
+		BF1A87D625064B4C00FED88E /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		C852EE9A220A26E600A6E79A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C852EE9D220A283200A6E79A /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
 		C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPasswordAPI.h; sourceTree = "<group>"; };
@@ -189,6 +263,116 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		BF1A877F2506490700FED88E /* Glean */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A87D525064B3300FED88E /* Generated */,
+				BF1A87D225064B1100FED88E /* sdk_generator.sh */,
+				BF1A878C25064A4C00FED88E /* Dispatchers.swift */,
+				BF1A878D25064A4C00FED88E /* Glean.swift */,
+				BF1A878E25064A4C00FED88E /* GleanFfi.h */,
+				BF1A878F25064A4C00FED88E /* GleanMetrics.swift */,
+				BF1A8783250649B600FED88E /* Config */,
+				BF1A8786250649E200FED88E /* Debug */,
+				BF1A878B25064A0A00FED88E /* Metrics */,
+				BF1A878A25064A0300FED88E /* Net */,
+				BF1A8789250649FD00FED88E /* Scheduler */,
+				BF1A8788250649F500FED88E /* Testing */,
+				BF1A8787250649EA00FED88E /* Utils */,
+			);
+			name = Glean;
+			path = "../../components/glean/glean-core/ios/Glean";
+			sourceTree = "<group>";
+		};
+		BF1A8783250649B600FED88E /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A879425064A6600FED88E /* Configuration.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		BF1A8786250649E200FED88E /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A879625064A7300FED88E /* GleanDebugTools.swift */,
+			);
+			path = Debug;
+			sourceTree = "<group>";
+		};
+		BF1A8787250649EA00FED88E /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A87CA25064AC000FED88E /* Logger.swift */,
+				BF1A87CC25064AC000FED88E /* Sysctl.swift */,
+				BF1A87CD25064AC000FED88E /* Unreachable.swift */,
+				BF1A87CB25064AC000FED88E /* Utils.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		BF1A8788250649F500FED88E /* Testing */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A87C825064AB300FED88E /* ErrorType.swift */,
+			);
+			path = Testing;
+			sourceTree = "<group>";
+		};
+		BF1A8789250649FD00FED88E /* Scheduler */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A87C025064AA500FED88E /* GleanLifecycleObserver.swift */,
+				BF1A87C125064AA500FED88E /* GleanOperation.swift */,
+				BF1A87C225064AA500FED88E /* MetricsPingScheduler.swift */,
+				BF1A87C325064AA500FED88E /* PingUploadOperation.swift */,
+			);
+			path = Scheduler;
+			sourceTree = "<group>";
+		};
+		BF1A878A25064A0300FED88E /* Net */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A87BC25064A9400FED88E /* HttpPingUploader.swift */,
+				BF1A87BD25064A9400FED88E /* Upload.swift */,
+			);
+			path = Net;
+			sourceTree = "<group>";
+		};
+		BF1A878B25064A0A00FED88E /* Metrics */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A879C25064A8000FED88E /* BooleanMetric.swift */,
+				BF1A87A325064A8100FED88E /* CounterMetric.swift */,
+				BF1A87A025064A8100FED88E /* DatetimeMetric.swift */,
+				BF1A879925064A8000FED88E /* DistributionData.swift */,
+				BF1A87A225064A8100FED88E /* EventMetric.swift */,
+				BF1A87A625064A8100FED88E /* JweMetric.swift */,
+				BF1A879E25064A8100FED88E /* LabeledMetric.swift */,
+				BF1A879B25064A8000FED88E /* Lifetime.swift */,
+				BF1A879D25064A8000FED88E /* MemoryDistributionMetric.swift */,
+				BF1A879A25064A8000FED88E /* MemoryUnit.swift */,
+				BF1A87A525064A8100FED88E /* Ping.swift */,
+				BF1A879825064A8000FED88E /* RecordedExperimentData.swift */,
+				BF1A87A125064A8100FED88E /* StringListMetric.swift */,
+				BF1A87A825064A8100FED88E /* StringMetric.swift */,
+				BF1A87A925064A8100FED88E /* TimespanMetric.swift */,
+				BF1A879F25064A8100FED88E /* TimeUnit.swift */,
+				BF1A87A725064A8100FED88E /* TimingDistributionMetric.swift */,
+				BF1A87A425064A8100FED88E /* UuidMetric.swift */,
+			);
+			path = Metrics;
+			sourceTree = "<group>";
+		};
+		BF1A87D525064B3300FED88E /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				BF1A87D625064B4C00FED88E /* Metrics.swift */,
+			);
+			name = Generated;
+			path = ../../../../../megazords/ios/MozillaAppServices/Generated;
+			sourceTree = "<group>";
+		};
 		C852EEB2220A285B00A6E79A /* config */ = {
 			isa = PBXGroup;
 			children = (
@@ -336,6 +520,7 @@
 				C852EEB2220A285B00A6E79A /* config */,
 				C852EEDA220A2A2B00A6E79A /* FxAClient */,
 				C852EEC7220A29FE00A6E79A /* Logins */,
+				BF1A877F2506490700FED88E /* Glean */,
 				EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */,
 				CE9D202120914D0D00F1C8FA /* Products */,
 				CE9D203720914D4800F1C8FA /* Frameworks */,
@@ -405,6 +590,7 @@
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
 				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
 				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
+				BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -416,6 +602,7 @@
 			buildConfigurationList = CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "MozillaAppServices" */;
 			buildPhases = (
 				CEEA12EF20AA1D630018998A /* Build Rust libraries */,
+				BF1A87712506468F00FED88E /* Generate Glean metrics */,
 				CE9D201B20914D0D00F1C8FA /* Sources */,
 				CE9D201C20914D0D00F1C8FA /* Frameworks */,
 				CE9D201D20914D0D00F1C8FA /* Headers */,
@@ -493,6 +680,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF1A87D325064B1100FED88E /* sdk_generator.sh in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -506,6 +694,27 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		BF1A87712506468F00FED88E /* Generate Glean metrics */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../components/glean/glean-core/metrics.yaml",
+				"$(SRCROOT)/../../components/glean/glean-core/pings.yaml",
+			);
+			name = "Generate Glean metrics";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Generated/Metrics.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash $PWD/../../components/glean/glean-core/ios/sdk_generator.sh --allow-reserved\n";
+		};
 		CEEA12EF20AA1D630018998A /* Build Rust libraries */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -527,42 +736,77 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF1A87B625064A8100FED88E /* UuidMetric.swift in Sources */,
+				BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */,
 				CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */,
 				CE1B09A5231865BC006226E1 /* FxAccountStorage.swift in Sources */,
 				1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */,
+				BF1A87B525064A8100FED88E /* CounterMetric.swift in Sources */,
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CEDDBC9023DB4F7400CFF5AA /* FxAccountOAuth.swift in Sources */,
 				137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */,
+				BF1A879525064A6600FED88E /* Configuration.swift in Sources */,
 				CE1ADA9722249FDA00E89714 /* Data+RustBuffer.swift in Sources */,
 				C852EEE8220A2A2B00A6E79A /* String+Free_FxAClient.swift in Sources */,
+				BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */,
 				CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */,
+				BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */,
+				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
+				BF1A87AF25064A8100FED88E /* MemoryDistributionMetric.swift in Sources */,
+				BF1A87C725064AA500FED88E /* PingUploadOperation.swift in Sources */,
+				BF1A87BB25064A8100FED88E /* TimespanMetric.swift in Sources */,
+				BF1A879025064A4C00FED88E /* Dispatchers.swift in Sources */,
+				BF1A87C425064AA500FED88E /* GleanLifecycleObserver.swift in Sources */,
 				CEDDBC8E23DB4CD600CFF5AA /* FxAccount.swift in Sources */,
 				CEDDBC8C23DB438F00CFF5AA /* RustFxAccount.swift in Sources */,
 				CED443CD23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift in Sources */,
+				BF1A87B825064A8100FED88E /* JweMetric.swift in Sources */,
+				BF1A87B225064A8100FED88E /* DatetimeMetric.swift in Sources */,
+				BF1A87AA25064A8100FED88E /* RecordedExperimentData.swift in Sources */,
+				BF1A879125064A4C00FED88E /* Glean.swift in Sources */,
 				CEDDBC9223DB4F9A00CFF5AA /* FxAccountProfile.swift in Sources */,
+				BF1A87C925064AB300FED88E /* ErrorType.swift in Sources */,
 				C852EEEB220A2A2B00A6E79A /* FxAError.swift in Sources */,
+				BF1A87BA25064A8100FED88E /* StringMetric.swift in Sources */,
 				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
+				BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */,
 				CD02CF3922568BCC00124DA2 /* SyncUnlockInfo.swift in Sources */,
 				CDC0089D2236CAB900893800 /* fxa_msg_types.proto in Sources */,
 				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
+				BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */,
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
 				78B6532724B39B2400ED1555 /* FxAccountMetrics.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
 				CED443CB23CCF385007E5FA6 /* FxAccountDevice.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
+				BF1A87AC25064A8100FED88E /* MemoryUnit.swift in Sources */,
+				BF1A87BE25064A9400FED88E /* HttpPingUploader.swift in Sources */,
+				BF1A87CF25064AC000FED88E /* Utils.swift in Sources */,
+				BF1A87B125064A8100FED88E /* TimeUnit.swift in Sources */,
+				BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */,
 				CE2D04C5231822AC00AF5722 /* FxAccountManager.swift in Sources */,
 				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
+				BF1A87C525064AA500FED88E /* GleanOperation.swift in Sources */,
 				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
 				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
 				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
 				C852EEE7220A2A2B00A6E79A /* FirefoxAccount.swift in Sources */,
 				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
+				BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */,
 				CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */,
 				CE13F19D23F448D0005187A7 /* FxAccountState.swift in Sources */,
+				BF1A879325064A4C00FED88E /* GleanMetrics.swift in Sources */,
 				C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */,
+				BF1A87B725064A8100FED88E /* Ping.swift in Sources */,
+				BF1A87B425064A8100FED88E /* EventMetric.swift in Sources */,
+				BF1A87C625064AA500FED88E /* MetricsPingScheduler.swift in Sources */,
 				C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */,
+				BF1A87BF25064A9400FED88E /* Upload.swift in Sources */,
 				CE1445AF23D6315200B1E808 /* FxAccountLogging.swift in Sources */,
+				BF1A87B325064A8100FED88E /* StringListMetric.swift in Sources */,
 				CD85A45922361E890099BFA9 /* Bookmark.swift in Sources */,
+				BF1A879725064A7300FED88E /* GleanDebugTools.swift in Sources */,
+				BF1A87CE25064AC000FED88E /* Logger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

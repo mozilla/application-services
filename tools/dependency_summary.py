@@ -531,7 +531,37 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/Lokathor/tinyvec/main/LICENSE-ZLIB.md"
         }
-    }
+    },
+    "glean-core": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/glean/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
+        }
+    },
+    "glean-ffi": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/glean/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
+        }
+    },
+    "lmdb-rkv-sys": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/lmdb-rs/blob/master/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/lmdb-rs/master/LICENSE",
+        }
+    },
 }
 
 # Sets of common licence file names, by license type.
