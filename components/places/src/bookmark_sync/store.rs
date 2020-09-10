@@ -349,7 +349,8 @@ impl<'a> BookmarksStore<'a> {
                          )
                          SELECT b.fk, {now}
                          FROM moz_bookmarks b
-                         WHERE b.guid IN ({vars})",
+                         WHERE b.guid IN ({vars})
+                         AND b.fk NOT NULL",
                         now = now,
                         vars = sql_support::repeat_sql_vars(chunk.len())
                     ),
@@ -1113,7 +1114,7 @@ impl<'a> Merger<'a> {
         let driver = Driver::default();
         self.prepare()?;
         let result = self.merge_with_driver(&driver, &MergeInterruptee(self.store.interruptee));
-        log::debug!("merge completed");
+        log::debug!("merge completed: {:?}", result);
 
         // Record telemetry in all cases, even if the merge fails.
         if let Some(ref mut telem) = self.telem {
@@ -2006,7 +2007,7 @@ mod tests {
             {
                 "id": "unfiled",
                 "type": "folder",
-                "parentid": "root",
+                "parentid": "places",
                 "dateAdded": 1_381_542_355_843u64,
                 "title": "Unfiled",
                 "children": ["bookmark1___"],
@@ -2259,28 +2260,28 @@ mod tests {
         }, {
             "id": "unfiled",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "dateAdded": 1_381_542_355_843u64,
             "title": "Unfiled",
             "children": ["bookmarkBBBB", "bookmarkCCC1", "bookmarkDDDD"],
         }, {
             "id": "menu",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "dateAdded": 1_381_542_355_843u64,
             "title": "Menu",
             "children": ["bookmarkCCC2", "bookmarkCCC3"],
         }, {
             "id": "toolbar",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "dateAdded": 1_381_542_355_843u64,
             "title": "Toolbar",
             "children": ["bookmarkEEE1", "bookmarkFFF1"],
         }, {
             "id": "mobile",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "dateAdded": 1_381_542_355_843u64,
             "title": "Mobile",
             "children": ["bookmarkEEE2", "bookmarkFFF2"],
@@ -2552,7 +2553,7 @@ mod tests {
             }, {
                 "id": "unfiled",
                 "type": "folder",
-                "parentid": "root",
+                "parentid": "places",
                 "dateAdded": 1_381_542_355_843u64,
                 "title": "Unfiled",
                 "children": ["bookmarkBBBB", "bookmarkCCCC"],
@@ -2628,7 +2629,7 @@ mod tests {
         {
             "id": "unfiled",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "dateAdded": 1_381_542_355_843u64,
             "title": "Unfiled",
             "children": ["bookmarkAAAA"],
@@ -2706,7 +2707,7 @@ mod tests {
             {
                 "id": "unfiled",
                 "type": "folder",
-                "parentid": "root",
+                "parentid": "places",
                 "dateAdded": 1_381_542_355_843u64,
                 "title": "Unfiled",
                 "children": ["query1______"],
@@ -2975,6 +2976,116 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_tombstones() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let local_modified = Timestamp::now();
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Unfiled.as_guid(),
+                "children": [{
+                    "guid": "bookmarkAAAA",
+                    "title": "A",
+                    "url": "http://example.com/a",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }, {
+                    "guid": "separatorAAA",
+                    "type": BookmarkType::Separator as u8,
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }, {
+                    "guid": "folderAAAAAA",
+                    "children": [{
+                        "guid": "bookmarkBBBB",
+                        "title": "b",
+                        "url": "http://example.com/b",
+                        "date_added": local_modified,
+                        "last_modified": local_modified,
+                    }],
+                }],
+            }),
+        );
+        // a first sync, which will populate our mirror.
+        let syncer = api.open_sync_connection()?;
+        let interrupt_scope = syncer.begin_interrupt_scope();
+        let store = BookmarksStore::new(&syncer, &interrupt_scope);
+        let outgoing = store
+            .apply_incoming(
+                vec![IncomingChangeset::new(
+                    store.collection_name(),
+                    ServerTimestamp(1000),
+                )],
+                &mut telemetry::Engine::new("bookmarks"),
+            )
+            .expect("should apply");
+        let outgoing_ids = outgoing
+            .changes
+            .iter()
+            .map(|p| p.id.clone())
+            .collect::<Vec<_>>();
+        // 4 roots + 4 items
+        assert_eq!(outgoing_ids.len(), 8, "{:?}", outgoing_ids);
+
+        store
+            .sync_finished(ServerTimestamp(0), outgoing_ids)
+            .expect("should work");
+
+        // Now the next sync with incoming tombstones.
+        let mut incoming = IncomingChangeset::new(store.collection_name(), ServerTimestamp(0));
+        incoming
+            .changes
+            .push((Payload::new_tombstone("bookmarkAAAA"), ServerTimestamp(0)));
+        incoming
+            .changes
+            .push((Payload::new_tombstone("separatorAAA"), ServerTimestamp(0)));
+        incoming
+            .changes
+            .push((Payload::new_tombstone("folderAAAAAA"), ServerTimestamp(0)));
+        incoming
+            .changes
+            .push((Payload::new_tombstone("bookmarkBBBB"), ServerTimestamp(0)));
+
+        let remote_unfiled = json!({
+            "id": "unfiled",
+            "type": "folder",
+            "parentid": "places",
+            "title": "Unfiled",
+            "children": [],
+        });
+
+        incoming.changes.push((
+            Payload::from_json(remote_unfiled).unwrap(),
+            ServerTimestamp(0),
+        ));
+
+        let outgoing = store
+            .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
+            .expect("should apply");
+        let outgoing_ids = outgoing
+            .changes
+            .iter()
+            .map(|p| p.id.clone())
+            .collect::<Vec<_>>();
+        assert_eq!(outgoing_ids.len(), 0, "{:?}", outgoing_ids);
+
+        store
+            .sync_finished(ServerTimestamp(0), outgoing_ids)
+            .expect("should work");
+
+        // We deleted everything from unfiled.
+        assert_local_json_tree(
+            &syncer,
+            &BookmarkRootGuid::Unfiled.as_guid(),
+            json!({"children" : []}),
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_keywords() -> Result<()> {
         use crate::storage::bookmarks::bookmarks_get_url_for_keyword;
 
@@ -3172,13 +3283,13 @@ mod tests {
         }, {
             "id": "unfiled",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "title": "Unfiled",
             "children": ["bookmarkAAA1", "bookmarkBBB1", "bookmarkCCC1", "bookmarkDDDD"],
         }, {
             "id": "menu",
             "type": "folder",
-            "parentid": "root",
+            "parentid": "places",
             "title": "Menu",
             "children": ["bookmarkAAA2", "bookmarkBBB2", "bookmarkCCC2"],
         }]);
