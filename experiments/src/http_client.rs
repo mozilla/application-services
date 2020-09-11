@@ -2,9 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! This is a simple Http client that uses viaduct to retrieve experiment data from the server
+//! This is a simple HTTP client that uses viaduct to retrieve experiment data from the server.
 //! Currently configured to use Kinto and the old schema, although that would change once we start
-//! Working on the real Nimbus schema.
+//! working on the real Nimbus schema.
+//!
+//! In the future we might replace this with a more fully-feature Remote Settings client, such as:
+//!
+//!   https://github.com/mozilla-services/remote-settings-client
+//!
+//! But the simple subset implemented here meets our needs for now.
 
 use super::Experiment;
 use crate::config::Config;

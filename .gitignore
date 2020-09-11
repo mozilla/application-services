@@ -15,7 +15,6 @@ build
 captures
 .externalNativeBuild
 .lastAutoPublishContentsHash
-# Not sure if we should ignore those, but we don't check them
-# into Application Services
-gradle-wrapper.jar
-gradle-wrapper.properties
+
+*.jar
+!android/gradle/wrapper/gradle-wrapper.jar

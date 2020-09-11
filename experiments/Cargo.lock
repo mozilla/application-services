@@ -1793,7 +1793,8 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 [[package]]
 name = "uniffi"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/uniffi-rs?rev=686a8ec672cb6b86a6de920c43ff2d5678afd84a#686a8ec672cb6b86a6de920c43ff2d5678afd84a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9732fbfcc09e2c05d066111411d43ec8a3c3e923768a58f58f14557dbfa68865"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1807,7 +1808,8 @@ dependencies = [
 [[package]]
 name = "uniffi_build"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/uniffi-rs?rev=686a8ec672cb6b86a6de920c43ff2d5678afd84a#686a8ec672cb6b86a6de920c43ff2d5678afd84a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f771815f62ace8ad47a6715329d7e45348e6bd2f452608d0889b9f91c094547f"
 dependencies = [
  "anyhow",
  "cargo_metadata",

@@ -3,9 +3,9 @@ This directory contains the build script that compiles the Nimbus SDK and genera
 bindings
 
 ## Prerequisites
-- `uniffi-bindgen`: The library uses `uniffi` to generate the bindings, you will need to install
-`uniffi-bindgen`. To do that, check https://github.com/mozilla/uniffi-rs/issues/253 if the crate
-is on crates.io. If it is not, do the following: `git clone git@github.com:mozilla/uniffi-rs.git; cargo install --path uniffi-rs/uniffi_bindgen`
+- `uniffi-bindgen`: The library uses [`uniffi`](https://mozilla.github.io/uniffi-rs) to generate Kotlin bindings
+  for the Rust `experiments` crate, so you will need to install the `uniffi-bindgen` tool via
+  `cargo install uniffi_bindgen`.
 - Android Studio: It is preferred you use Android Studio to build the project
 
 ## How to use

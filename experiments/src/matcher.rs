@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! This module defines all the information needed to match a user with an experiment
-//! this module should also include a `match` function of some sort that does the matching
-//! it has two main types, the `matcher` retrieved from the server, and the `AppContext`
-//! from the client
-//! Note: This could be where the logic to evaluate the filter_expressions lies
+//! This module defines all the information needed to match a user with an experiment.
+//! Soon it will also include a `match` function of some sort that does the matching.
+//!
+//! It has two main types, the `Matcher` retrieved from the server, and the `AppContext`
+//! provided by the consuming client.
+//!
+//! Note: This could be where the logic to evaluate the filter_expressions lives.
 use serde_derive::*;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
