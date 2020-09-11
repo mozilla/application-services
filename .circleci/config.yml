@@ -452,33 +452,6 @@ jobs:
             echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
             unzip "${GHR}.zip"
             ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
-  Deploy website:
-    docker:
-      - image: circleci/node:latest
-    resource_class: small
-    steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "f1:3e:05:3a:66:69:60:4f:1f:9f:8f:af:6e:1f:0f:53"
-      - install-mdbook
-      - checkout
-      - run:
-          name: Build and publish books and product portal
-          command: |
-            pushd docs/sync-storage-handbook
-            mdbook build
-            popd
-            pushd docs/synconomicon
-            mdbook build
-            popd
-            pushd website
-            npm install
-            cp -R ../docs/sync-storage-handbook/book static/sync-storage-handbook
-            cp -R ../docs/synconomicon/book static/synconomicon
-            git config --global user.name "Application Services"
-            git config --global user.email "application-services@mozilla.com"
-            USE_SSH=true npm run publish-gh-pages
-            popd
 workflows:
   version: 2
   swiftlint:
@@ -499,12 +472,6 @@ workflows:
   bash-lint:
     jobs:
       - Lint Bash scripts
-  deploy-website:
-    jobs:
-      - Deploy website:
-          filters:
-            branches:
-              only: main
   check-dependencies-periodically:
     jobs:
       - Check Rust dependencies
