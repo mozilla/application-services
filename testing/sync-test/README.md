@@ -10,10 +10,6 @@ Run the tests using `cargo run`.
 
 Use `cargo run -- --help` to see the available options.
 
-Running the tests currently requires nodejs, in order to drive a headless browser.
-There is an [open issue](https://github.com/mozilla/application-services/issues/2403)
-to investigate how to remove this dependency.
-
 ## Adding tests
 
 For each datatype managed by sync, there should be a suite of corresponding tests.
