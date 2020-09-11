@@ -20,27 +20,6 @@ pub const SYNC_SCOPE: &str = "https://identity.mozilla.com/apps/oldsync";
 // TODO: This is wrong for dev?
 pub const REDIRECT_URI: &str = "https://stable.dev.lcip.org/oauth/success/3c49430b43dfba77";
 
-lazy_static::lazy_static! {
-    // Figures out where `sync-test/helper` lives. This is pretty gross, but once
-    // https://github.com/rust-lang/cargo/issues/2841 is resolved it should be simpler.
-    // That said, it's possible we should probably just rewrite that script in rust instead :p.
-    static ref HELPER_SCRIPT_DIR: std::path::PathBuf = {
-        let mut path = std::env::current_exe().expect("Failed to get current exe path...");
-        // Find `target` which should contain this program.
-        while path.file_name().expect("Failed to find target!") != "target" {
-            path.pop();
-        }
-        // And go up once more, to the root of the workspace.
-        path.pop();
-        // TODO: it would be nice not to hardcode these given that we're
-        // planning on moving stuff around, but such is life.
-        path.push("testing");
-        path.push("sync-test");
-        path.push("helper");
-        path
-    };
-}
-
 // It's important that this doesn't implement Clone! (It destroys it's temporary fxaccount on drop)
 #[derive(Debug)]
 pub struct TestAccount {
