@@ -35,15 +35,15 @@ dependencies = [
 
 [[package]]
 name = "android_log-sys"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8052e2d8aabbb8d556d6abbcce2a22b9590996c5f849b9c7ce4544a2e3b984e"
+checksum = "85965b6739a430150bdd138e2374a98af0c3ee0d030b3bb7fc3bddff58d0102e"
 
 [[package]]
 name = "android_logger"
-version = "0.8.6"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cbd542dd180566fad88fd2729a53a62a734843c626638006a9d63ec0688484e"
+checksum = "5027a747b8132dc36dc894415a300aab31d6489ee788e9ba07bc99558b1278ca"
 dependencies = [
  "android_log-sys",
  "env_logger",
@@ -1023,9 +1023,9 @@ checksum = "aaf91faf136cb47367fa430cd46e37a788775e7fa104f8b4bcb3861dc389b724"
 
 [[package]]
 name = "glean-core"
-version = "32.3.0"
+version = "32.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6f0abf4118ae6cf08b4b11e3694a4524e27eda43f1ab63643b3d28f02a33a4a"
+checksum = "683f9dc6a439108b0e3a6391cb22b3c265b58b0de6ed22efa20a76361147a79f"
 dependencies = [
  "bincode",
  "chrono",
@@ -1041,9 +1041,9 @@ dependencies = [
 
 [[package]]
 name = "glean-ffi"
-version = "32.3.0"
+version = "32.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cfca7c2f681eec8d1da7b0e424f0f9deadee50c18ec208c5823b2fd6d43cd35"
+checksum = "e079fef09473ca4ad715a4e2910b0f312d12f7aae5abba6b930d9a175e71979e"
 dependencies = [
  "android_logger",
  "env_logger",
