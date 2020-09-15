@@ -126,7 +126,7 @@ fn main() {
                     .len()
             }
             println!("======================================");
-            println!("Generated Uuid is: {}", uuid);
+            println!("Generated UUID is: {}", uuid);
         }
         (&_, _) => println!("Invalid subcommand"),
     }

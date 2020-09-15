@@ -9,6 +9,7 @@
 //! In the future we might replace this with a more fully-feature Remote Settings client, such as:
 //!
 //!   https://github.com/mozilla-services/remote-settings-client
+//!   Issue: https://github.com/mozilla/application-services/issues/3475
 //!
 //! But the simple subset implemented here meets our needs for now.
 

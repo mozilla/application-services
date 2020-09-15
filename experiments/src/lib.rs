@@ -23,9 +23,9 @@ use std::path::Path;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 
-/// Experiments is the main struct representing the experiements state
-/// It should hold all the information needed to communcate a specific user's
-/// Experiementation status
+/// Experiments is the main struct representing the experiments state
+/// It should hold all the information needed to communicate a specific user's
+/// experimentation status
 #[derive(Debug, Clone)]
 pub struct Experiments {
     experiments: Vec<Experiment>,

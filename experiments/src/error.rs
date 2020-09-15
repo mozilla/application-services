@@ -34,7 +34,7 @@ pub enum Error {
     RequestError(#[from] viaduct::Error),
     #[error("Error in network response: {0}")]
     ResponseError(String),
-    #[error("Invalid experiments response recieved")]
+    #[error("Invalid experiments response received")]
     InvalidExperimentResponse,
 }
 

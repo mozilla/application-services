@@ -110,7 +110,7 @@ pub(crate) fn choose_branch<'a>(
 /// - `expression_statement`: The JEXL statement provided by the server
 /// - `ctx`: The application context provided by the client
 ///
-/// Returns true if the user is targeted by the expriment, false otherwise
+/// Returns true if the user is targeted by the experiment, false otherwise
 ///
 /// # Errors
 ///
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "EvaluationError")]
     fn test_invalid_expression() {
-        // This is an invlalid JEXL statement
+        // This is an invalid JEXL statement
         let expression_statement = "This is not a valid JEXL expression";
 
         // A dummy context, we are really only interested in checking the

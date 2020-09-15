@@ -8,7 +8,6 @@
 //! It has two main types, the `Matcher` retrieved from the server, and the `AppContext`
 //! provided by the consuming client.
 //!
-//! Note: This could be where the logic to evaluate the filter_expressions lives.
 use serde_derive::*;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]

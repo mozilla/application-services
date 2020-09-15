@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! This module is reponsible for generating a random uuid per device.
+//! This module is responsible for generating a random uuid per device.
 //! The framework will persist this uuid for later retrieval
 //! It is also possible to manually set the uuid by passing in a custom
 //! uuid as a part of the Config parameter in `Experiments`.
