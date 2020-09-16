@@ -11,7 +11,7 @@ jobs:
           command: rustc --version; cargo --version; rustup --version
       - run:
           name: Install uniffi
-          command: git clone https://github.com/mozilla/uniffi-rs.git; cd uniffi-rs && git checkout f025ceef31270918329f3ced772f7d68caaf255e && cd ..; cargo install --path uniffi-rs/uniffi_bindgen
+          command: cargo install --version 0.1.0 uniffi_bindgen
       - run:
           name: Calculate dependencies
           command: cd experiments && cargo generate-lockfile
