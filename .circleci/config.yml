@@ -137,7 +137,7 @@ commands:
           key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
       - run:
           name: Bootstrap Carthage dependencies
-          command: carthage bootstrap --platform iOS --cache-builds
+          command: XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig carthage bootstrap --platform iOS --cache-builds
       - save_cache:
           name: Save Carthage/ cache
           key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
@@ -402,9 +402,9 @@ jobs:
               # XCode tests build in Debug configuration, save us a full
               # Rust rebuild in Release mode by forcing Debug mode on
               # non-release builds.
-              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
+              XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
             else
-              bash build-carthage.sh --out MozillaAppServices.framework.zip
+              XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig bash build-carthage.sh --out MozillaAppServices.framework.zip
             fi
       - store_artifacts:
           path: raw_xcodebuild.log
