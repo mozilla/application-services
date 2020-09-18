@@ -137,7 +137,7 @@ commands:
           key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
       - run:
           name: Bootstrap Carthage dependencies
-          command: carthage bootstrap --platform iOS --cache-builds
+          command: XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig carthage bootstrap --platform iOS --cache-builds
       - save_cache:
           name: Save Carthage/ cache
           key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
@@ -244,7 +244,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "11.7.0"
+      xcode: "12.0.0"
     steps:
       - checkout
       - run: brew install swiftlint swiftformat
@@ -305,7 +305,7 @@ jobs:
   Check Rust dependencies:
     # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
     macos:
-      xcode: "11.7.0"
+      xcode: "12.0.0"
     steps:
       - install-rust
       - setup-rust-toolchain
@@ -353,7 +353,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "11.7.0"
+      xcode: "12.0.0"
     steps:
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
@@ -402,9 +402,9 @@ jobs:
               # XCode tests build in Debug configuration, save us a full
               # Rust rebuild in Release mode by forcing Debug mode on
               # non-release builds.
-              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
+              XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
             else
-              bash build-carthage.sh --out MozillaAppServices.framework.zip
+              XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig bash build-carthage.sh --out MozillaAppServices.framework.zip
             fi
       - store_artifacts:
           path: raw_xcodebuild.log
@@ -438,7 +438,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "11.7.0"
+      xcode: "12.0.0"
     steps:
       - checkout
       - attach_workspace:
