@@ -3,3 +3,8 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v63.0.0...main)
+
+## Autofill
+
+### What's changed ###
+- Added a basic API and database layer for the autofill component. ([#3582](https://github.com/mozilla/application-services/pull/3582))

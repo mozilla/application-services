@@ -1,6 +1,7 @@
 [workspace]
 # Note: Any additions here should be repeated in default-members below.
 members = [
+    "components/autofill",
     "components/fxa-client",
     "components/fxa-client/ffi",
     "components/logins",
@@ -24,6 +25,7 @@ members = [
     "components/support/rc_crypto/nss/systest",
     "components/support/sql",
     "components/support/sync15-traits",
+    "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
     "components/sync_manager/ffi",
@@ -68,6 +70,7 @@ members = [
 # To be clear: passing the `--all` or `--workspace` arg to cargo will make it
 # use the full member set.
 default-members = [
+    "components/autofill",
     "components/fxa-client",
     "components/fxa-client/ffi",
     "components/logins",
@@ -88,6 +91,7 @@ default-members = [
     "components/support/rc_crypto/nss/nss_sys",
     "components/support/sql",
     "components/support/sync15-traits",
+    "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
     "components/sync_manager/ffi",
