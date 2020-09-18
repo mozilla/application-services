@@ -9,7 +9,7 @@ use super::record::{
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
-use crate::db::PlacesDb;
+use crate::db::{GlobalChangeCounterTracker, PlacesDb};
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{
@@ -1055,6 +1055,9 @@ pub(crate) struct Merger<'a> {
     // turns it on, to avoid accidentally enabling unintentionally.
     external_transaction: bool,
     telem: Option<&'a mut telemetry::Engine>,
+    // Allows us to abort applying the result of the merge if the local tree
+    // changed since we fetched it.
+    global_change_tracker: GlobalChangeCounterTracker,
 }
 
 impl<'a> Merger<'a> {
@@ -1065,6 +1068,7 @@ impl<'a> Merger<'a> {
             local_time: Timestamp::now(),
             external_transaction: false,
             telem: None,
+            global_change_tracker: store.db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1079,6 +1083,7 @@ impl<'a> Merger<'a> {
             local_time: Timestamp::now(),
             external_transaction: false,
             telem: Some(telem),
+            global_change_tracker: store.db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1094,6 +1099,7 @@ impl<'a> Merger<'a> {
             local_time,
             external_transaction: false,
             telem: None,
+            global_change_tracker: store.db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1496,6 +1502,16 @@ impl<'a> dogear::Store for Merger<'a> {
         } else {
             None
         };
+
+        // If the local tree has changed since we started the merge, we abort
+        // in the expectation it will succeed next time.
+        if self.global_change_tracker.changed() {
+            log::info!("Aborting update of local items as local tree changed while merging");
+            if let Some(tx) = tx {
+                tx.rollback()?;
+            }
+            return Ok(());
+        }
 
         log::debug!("Updating local items in Places");
         self.store
