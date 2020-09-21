@@ -1146,7 +1146,7 @@ mod tests {
             assert_eq!(*backoff_end_duration, Duration::from_secs(1_000_000));
 
             let path2 = format!("{}/{}", mockito::server_url(), "v1/account/device/commands");
-            // Hacky way to drop the mutex gaurd, so that the next call to
+            // Hacky way to drop the mutex guard, so that the next call to
             // client.make_request doesn't hang or panic
             std::mem::drop(state);
             let second_request = Request::get(Url::parse(&path2).unwrap());

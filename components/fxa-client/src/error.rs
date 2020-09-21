@@ -75,6 +75,9 @@ pub enum ErrorKind {
     #[error("Invalid buffer length: {0}")]
     InvalidBufferLength(i32),
 
+    #[error("Too many calls to auth introspection endpoint")]
+    AuthCircuitBreakerError,
+
     #[error("Remote server error: '{code}' '{errno}' '{error}' '{message}' '{info}'")]
     RemoteError {
         code: u64,

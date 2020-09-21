@@ -12,6 +12,12 @@
   update their own build accordingly.
   ([#3586](https://github.com/mozilla/application-services/pull/3586))
 
+## FxA Client
+
+### What's changed
+
+- Added a circuit-breaker to the `check_authorization_status` method: in specific circumstances, it was in possible to trigger a failure-recover infinite loop. ([#3585](https://github.com/mozilla/application-services/pull/3585))
+
 ## Autofill
 
 ### What's changed ###
