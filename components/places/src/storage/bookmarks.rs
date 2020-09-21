@@ -10,7 +10,7 @@ use crate::bookmark_sync::store::{
 };
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::types::{BookmarkType, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use serde::{
@@ -25,6 +25,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use sync15::StoreSyncAssociation;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 pub use public_node::PublicNode;

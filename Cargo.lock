@@ -700,6 +700,7 @@ dependencies = [
  "sql-support",
  "tempfile",
  "termion",
+ "types",
  "url",
 ]
 
@@ -721,6 +722,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempdir",
+ "types",
  "url",
 ]
 
@@ -1949,6 +1951,7 @@ dependencies = [
  "sync15",
  "tempfile",
  "thiserror",
+ "types",
  "url",
 ]
 
@@ -1961,6 +1964,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "tempdir",
+ "types",
  "url",
 ]
 
@@ -1978,6 +1982,7 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
+ "types",
  "url",
  "viaduct",
 ]
@@ -1995,6 +2000,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
+ "types",
  "url",
 ]
 

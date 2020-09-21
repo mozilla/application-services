@@ -19,7 +19,7 @@ use crate::storage::{
     },
     delete_pending_temp_tables, get_meta, put_meta,
 };
-use crate::types::{BookmarkType, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus};
 use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
@@ -35,6 +35,7 @@ use sync15::{
     ServerTimestamp, Store, StoreSyncAssociation,
 };
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
 // for the global sync ID, because engines are reset individually.

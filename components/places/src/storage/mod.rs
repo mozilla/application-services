@@ -12,7 +12,7 @@ pub mod tags;
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
 use crate::msg_types::{HistoryVisitInfo, TopFrecentSiteInfo};
-use crate::types::{SyncStatus, Timestamp, VisitTransition};
+use crate::types::{SyncStatus, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -20,6 +20,7 @@ use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 /// From https://searchfox.org/mozilla-central/rev/93905b660f/toolkit/components/places/PlacesUtils.jsm#189

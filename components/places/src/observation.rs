@@ -4,6 +4,7 @@
 
 use crate::types::*;
 use serde_derive::*;
+use types::Timestamp;
 use url::Url;
 
 /// An "observation" based model for updating history.

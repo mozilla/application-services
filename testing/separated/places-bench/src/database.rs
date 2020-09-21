@@ -10,6 +10,7 @@ use places::PlacesDb;
 use sql_support::ConnExt;
 use std::rc::Rc;
 use tempdir::TempDir;
+use types::Timestamp;
 
 #[derive(Clone, Debug)]
 struct DummyHistoryEntry {
@@ -32,7 +33,7 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
     let tx = db.unchecked_transaction()?;
     let entries = get_dummy_data();
     let day_ms = 24 * 60 * 60 * 1000;
-    let now: places::Timestamp = std::time::SystemTime::now().into();
+    let now: Timestamp = std::time::SystemTime::now().into();
     for entry in entries {
         let url = url::Url::parse(&entry.url).unwrap();
         for i in 0..20 {
@@ -40,7 +41,7 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
                 .with_title(entry.title.clone())
                 .with_is_remote(i < 10)
                 .with_visit_type(places::VisitTransition::Link)
-                .with_at(places::Timestamp(now.0 - day_ms * (1 + i)));
+                .with_at(Timestamp(now.0 - day_ms * (1 + i)));
             places::storage::history::apply_observation_direct(&db, obs)?;
         }
     }

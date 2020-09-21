@@ -615,7 +615,8 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::observation::VisitObservation;
     use crate::storage::history::apply_observation;
-    use crate::types::{Timestamp, VisitTransition};
+    use crate::types::VisitTransition;
+    use types::Timestamp;
 
     #[test]
     fn split() {

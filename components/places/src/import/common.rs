@@ -4,8 +4,8 @@
 
 use crate::api::places_api::SyncConn;
 use crate::error::*;
-use crate::types::Timestamp;
 use rusqlite::named_params;
+use types::Timestamp;
 use url::Url;
 
 // sanitize_timestamp can't use `Timestamp::now();` directly because it needs
@@ -23,9 +23,9 @@ lazy_static::lazy_static! {
 pub mod sql_fns {
     use crate::import::common::NOW;
     use crate::storage::URL_LENGTH_MAX;
-    use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Result};
     use std::convert::TryFrom;
+    use types::Timestamp;
     use url::Url;
 
     #[inline(never)]

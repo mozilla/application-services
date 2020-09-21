@@ -21,6 +21,7 @@ url = { version = "2.1", features = ["serde"] }
 percent-encoding = "2.1"
 caseless = "0.2"
 sql-support = { path = "../support/sql" }
+types = { path = "../support/types" }
 ffi-support = "0.4"
 bitflags = "1.2"
 idna = "0.2"

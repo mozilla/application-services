@@ -12,6 +12,7 @@ name = "places-integration-tests"
 [dev-dependencies]
 sql-support = { path = "../../../components/support/sql" }
 sync-guid = { path = "../../../components/support/guid" }
+types = { path = "../../../components/support/types" }
 places = { path = "../../../components/places" }
 sync15 = { path = "../../../components/sync15" }
 serde_json = "1.0"

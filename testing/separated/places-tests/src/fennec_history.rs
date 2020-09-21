@@ -3,12 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use places::import::fennec::history::HistoryMigrationResult;
-use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result, Timestamp};
+use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result};
 use rusqlite::{Connection, NO_PARAMS};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_guid::Guid;
 use tempfile::tempdir;
+use types::Timestamp;
 
 fn empty_fennec_db(path: &Path) -> Result<Connection> {
     let conn = Connection::open(path)?;
