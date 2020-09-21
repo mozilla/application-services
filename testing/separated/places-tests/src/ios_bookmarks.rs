@@ -7,7 +7,7 @@ use places::{
     api::places_api::{ConnectionType, PlacesApi},
     import::ios_bookmarks::IosBookmarkType,
     storage::bookmarks,
-    Result, Timestamp,
+    Result,
 };
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -15,6 +15,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use sync_guid::Guid as SyncGuid;
 use tempfile::tempdir;
+use types::Timestamp;
 
 fn empty_ios_db(path: &Path) -> Result<Connection> {
     let conn = Connection::open(path)?;

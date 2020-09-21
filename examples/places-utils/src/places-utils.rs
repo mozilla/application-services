@@ -11,7 +11,7 @@ use places::storage::bookmarks::{
     fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
     FolderNode, SeparatorNode,
 };
-use places::types::{BookmarkType, Timestamp};
+use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
 use std::fs::File;
@@ -22,6 +22,7 @@ use sync15::{
     Sync15StorageClient,
 };
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 use anyhow::Result;

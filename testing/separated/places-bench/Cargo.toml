@@ -16,5 +16,6 @@ criterion = "0.3"
 tempdir = "0.3"
 places = { path = "../../../components/places" }
 sql-support = { path = "../../../components/support/sql" }
+types = { path = "../../../components/support/types" }
 serde_json = "1.0"
 url = "2.1"

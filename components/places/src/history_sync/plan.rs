@@ -14,13 +14,14 @@ use crate::storage::{
         fetch_visits, finish_outgoing, FetchedVisit, FetchedVisitPage, OutgoingInfo,
     },
 };
-use crate::types::{Timestamp, VisitTransition};
+use crate::types::VisitTransition;
 use interrupt_support::Interruptee;
 use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 use sync15::telemetry;
 use sync15::{IncomingChangeset, OutgoingChangeset, Payload};
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 /// Clamps a history visit date between the current date and the earliest
@@ -301,12 +302,13 @@ mod tests {
     use crate::observation::VisitObservation;
     use crate::storage::history::history_sync::fetch_visits;
     use crate::storage::history::{apply_observation, delete_visits_for, url_to_guid};
-    use crate::types::{SyncStatus, Timestamp};
+    use crate::types::SyncStatus;
     use interrupt_support::NeverInterrupts;
     use serde_json::json;
     use sql_support::ConnExt;
     use std::time::Duration;
     use sync15::{IncomingChangeset, ServerTimestamp};
+    use types::Timestamp;
     use url::Url;
 
     fn get_existing_guid(conn: &PlacesDb, url: &Url) -> SyncGuid {

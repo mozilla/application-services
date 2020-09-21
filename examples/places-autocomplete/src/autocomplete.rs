@@ -73,7 +73,7 @@ impl LegacyPlace {
                 .with_visit_type(
                     VisitTransition::from_primitive(v.visit_type).unwrap_or(VisitTransition::Link),
                 )
-                .with_at(places::Timestamp((v.date / 1000) as u64))
+                .with_at(types::Timestamp((v.date / 1000) as u64))
                 .with_title(self.title.clone())
                 .with_is_remote(rand::random::<f64>() < options.remote_probability);
             places::storage::history::apply_observation_direct(db, obs)?;

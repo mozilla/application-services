@@ -7,6 +7,7 @@ use crate::db::PlacesDb;
 use crate::error::*;
 use crate::observation::VisitObservation;
 use crate::types::*;
+use types::Timestamp;
 use url::Url;
 // This module can become, roughly: PlacesUtils.history()
 

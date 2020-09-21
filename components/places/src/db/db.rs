@@ -278,10 +278,10 @@ pub(crate) mod sql_fns {
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
-    use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
     use std::sync::atomic::Ordering;
     use sync_guid::Guid as SyncGuid;
+    use types::Timestamp;
 
     // Helpers for define_functions
     fn get_raw_str<'a>(ctx: &'a Context<'_>, fname: &'static str, idx: usize) -> Result<&'a str> {

@@ -13,6 +13,7 @@ path = "src/places-utils.rs"
 [dev-dependencies]
 places = { path = "../../components/places" }
 sync-guid = { path = "../../components/support/guid" }
+types = { path = "../../components/support/types" }
 sync15 = { path = "../../components/sync15" }
 serde = "1"
 serde_derive = "1"
