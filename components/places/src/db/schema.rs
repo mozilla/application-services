@@ -18,7 +18,7 @@ use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 12;
+const VERSION: i64 = 13;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -266,6 +266,21 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         ],
         || Ok(()),
     )?;
+    migration(
+        db,
+        12,
+        13,
+        &[
+            // Reconciled items didn't end up with the correct syncStatus.
+            // See #3504
+            "UPDATE moz_bookmarks AS b
+             SET syncStatus = 2 -- SyncStatus::Normal
+             WHERE EXISTS (SELECT 1 FROM moz_bookmarks_synced
+                                    WHERE guid = b.guid)",
+        ],
+        || Ok(()),
+    )?;
+
     // Add more migrations here...
 
     if get_current_schema_version(db)? == VERSION {
@@ -775,6 +790,84 @@ mod tests {
             get_current_schema_version(&upgrade)?,
             VERSION,
             "Should upgrade schema without errors"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_upgrade_schema_12_13() -> Result<()> {
+        // As above, create a named in-memory database.
+        let path = "file:test_upgrade_schema_12_13?mode=memory&cache=shared";
+
+        // On the first connection, we downgrade the schema version to 12 and
+        // setup test data.
+        let db = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
+            .expect("Should open first in-memory database with shared cache");
+        db.execute_batch("PRAGMA user_version = 12")?;
+        assert_eq!(
+            get_current_schema_version(&db)?,
+            12,
+            "Should downgrade schema version"
+        );
+
+        // Create 2 items - both with SyncStatus::New
+        db.execute(
+            "INSERT INTO moz_bookmarks
+                (type, parent, position, dateAdded, lastModified, guid, syncStatus)
+             VALUES
+                (3, 1, 0, 1, 1, 'fake_guid_1_', 1)",
+            NO_PARAMS,
+        )
+        .expect("should insert first regular bookmark folder");
+        db.execute(
+            "INSERT INTO moz_bookmarks
+                (type, parent, position, dateAdded, lastModified, guid, syncStatus)
+             VALUES
+                (3, 1, 0, 1, 1, 'fake_guid_2_', 1)",
+            NO_PARAMS,
+        )
+        .expect("should insert regular bookmark folder");
+
+        // create a mirror entry for one of them.
+        db.execute(
+            "
+            INSERT INTO moz_bookmarks_synced
+                (guid, parentGuid)
+            VALUES
+                ('fake_guid_2_', 'root')",
+            NO_PARAMS,
+        )
+        .expect("should insert into moz_bookmarks_synced");
+
+        // Now open a second connection to the same named in-memory database.
+        // This should do our migration.
+        let upgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
+            .expect("Should open second in-memory database with shared cache");
+        assert_eq!(
+            get_current_schema_version(&upgrade)?,
+            13,
+            "Should upgrade schema without errors"
+        );
+        // One with no mirror entry should still be New
+        assert_eq!(
+            select_simple_int(
+                &upgrade,
+                "
+                SELECT syncStatus FROM moz_bookmarks
+                WHERE guid='fake_guid_1_'"
+            ),
+            SyncStatus::New as u32
+        );
+        // One with the mirror should be Normal
+        assert_eq!(
+            select_simple_int(
+                &upgrade,
+                "
+                SELECT syncStatus FROM moz_bookmarks
+                WHERE guid='fake_guid_2_'"
+            ),
+            SyncStatus::Normal as u32
         );
 
         Ok(())
