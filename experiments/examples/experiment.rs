@@ -4,7 +4,7 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
-use experiments::{AppContext, ExperimentConfig, Experiments};
+use nimbus::{AppContext, ExperimentConfig, Experiments};
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
@@ -121,7 +121,7 @@ fn main() {
             let mut uuid = uuid::Uuid::new_v4();
             while num_of_experiments_enrolled != num {
                 uuid = uuid::Uuid::new_v4();
-                num_of_experiments_enrolled = experiments::filter_enrolled(&uuid, &all_experiments)
+                num_of_experiments_enrolled = nimbus::filter_enrolled(&uuid, &all_experiments)
                     .unwrap()
                     .len()
             }

@@ -49,7 +49,27 @@ buildscript {
     }
 }
 
+configurations {
+    // There's an interaction between Gradle's resolution of dependencies with different types
+    // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
+    // JUnit test runner.  The runtime classpath in the built-in JUnit test runner gets the
+    // dependency from the `implementation`, which is type @aar, and therefore the JNA dependency
+    // doesn't provide the JNI dispatch libraries in the correct Java resource directories.  I think
+    // what's happening is that @aar type in `implementation` resolves to the @jar type in
+    // `testImplementation`, and that it wins the dependency resolution battle.
+    //
+    // A workaround is to add a new configuration which depends on the @jar type and to reference
+    // the underlying JAR file directly in `testImplementation`.  This JAR file doesn't resolve to
+    // the @aar type in `implementation`.  This works when invoked via `gradle`, but also sets the
+    // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
+    // Success!
+    jnaForTest
+}
 
+dependencies {
+    jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
+    implementation "net.java.dev.jna:jna:$jna_version@aar"
+}
 
 android {
     compileSdkVersion 29
@@ -71,6 +91,41 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+
+    // This is required to support new AndroidX support libraries.
+    // See mozilla-mobile/android-components#842
+    compileOptions {
+        sourceCompatibility 1.8
+        targetCompatibility 1.8
+    }
+
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+        kotlinOptions {
+            jvmTarget = "1.8"
+        }
+    }
+
+    testOptions {
+        unitTests.all {
+            testLogging {
+                showStandardStreams = true
+            }
+
+            maxHeapSize = "1024m"
+        }
+
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+    lintOptions {
+        abortOnError false
+    }
+
+    sourceSets {
+        test.jniLibs.srcDirs += "$buildDir/rustJniLibs/desktop"
+    }
 }
 
 allprojects {
@@ -90,17 +145,29 @@ allprojects {
     }
 }
 
-ext {
-    rustTargets = [
+// Avoid Gradle namespace collision.  This is here, rather than in `buildscript
+// { ... }`, to avoid issues with importing.
+import com.sun.jna.Platform as DefaultPlatform
+
+ext.rustTargets = [
         'arm',
         'arm64',
         'x86_64',
         'x86',
-    ]
+]
 
+// Generate libs for our current platform so we can run unit tests.
+switch (DefaultPlatform.RESOURCE_PREFIX) {
+    case 'darwin':
+        ext.rustTargets += 'darwin'
+        break
+    case 'linux-x86-64':
+        ext.rustTargets += 'linux-x86-64'
+        break
+    case 'win32-x86-64':
+        ext.rustTargets += 'win32-x86-64-msvc'
+        break
 }
-
-// TODO: Add current platform to rustTargets to allow for unit testing
 
 cargo {
     // The directory of the Cargo.toml to build.
@@ -110,7 +177,7 @@ cargo {
     apiLevel = 29
 
     // Where Cargo writes its outputs.
-    targetDirectory = '../target'
+    targetDirectory = '../experiments/target'
 
     // This is the name of the library that the kotlin code
     // *must* use to import the native code
@@ -127,7 +194,6 @@ cargo {
     extraCargoBuildArguments = []
 }
 
-
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
     android.libraryVariants.all { variant ->
@@ -137,6 +203,9 @@ afterEvaluate {
         }
         def buildType = "${variant.buildType.name.capitalize()}"
         tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(tasks["cargoBuild"])
+
+        // For unit tests.
+        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(tasks["cargoBuild"])
     }
 }
 
@@ -176,5 +245,5 @@ allprojects {
 
 apply from: "./publish.gradle"
 
-ext.configurePublish()
+ext.configurePublish(configurations.jnaForTest)
 

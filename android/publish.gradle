@@ -1,5 +1,10 @@
 apply from: './settings.gradle'
 
+// The note to be added at the end of the description for 'forUnitTests'
+// artifacts.
+def forUnitTestDescriptionSuffix =
+        "This artifact is to be used for running unit tests on developer's systems."
+
 // We configure what we publish when
 // running `./gradlew publish...`
 ext.configurePublish = { jnaForTestConfiguration = null ->
@@ -9,6 +14,38 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
     def theArtifactId = ext.artifactId
     def theDescription = ext.description
     def theVersion = ext.version
+
+    task extractJnaResources(type: Sync) {
+        dependsOn jnaForTestConfiguration
+
+        from {
+            // Defer the resolution of the configuration.  This helps to
+            // avoid a nasty issue with the Android-Gradle plugin 3.2.1,
+            // like `Cannot change attributes of configuration
+            // ':PROJECT:kapt' after it has been resolved`.
+            zipTree(jnaForTestConfiguration.singleFile)
+        }
+
+        into "${buildDir}/jnaResources/"
+
+        eachFile { FileCopyDetails fcp ->
+            // The intention is to just keep the various `*jnidispatch.*` files.
+            if (fcp.relativePath.pathString.startsWith("META-INFO") || fcp.relativePath.pathString.endsWith(".class")) {
+                fcp.exclude()
+            }
+        }
+
+        includeEmptyDirs false
+    }
+
+    def forUnitTestsJarTask = task forUnitTestsJar(type: Jar) {
+        from extractJnaResources
+        from "$buildDir/rustJniLibs/desktop"
+    }
+
+    project.afterEvaluate {
+        forUnitTestsJarTask.dependsOn(tasks["cargoBuild"])
+    }
 
     task sourcesJar(type: Jar) {
         from android.sourceSets.main.java.srcDirs
@@ -34,6 +71,12 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                     version = theVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
                     packaging = "aar"
 
+                    licenses {
+                        license {
+                            name = libLicense
+                            url = libLicenseUrl
+                        }
+                    }
 
                     developers {
                         developer {
@@ -41,7 +84,60 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
                         }
                     }
 
+                    scm {
+                        connection = libVcsUrl
+                        developerConnection = libVcsUrl
+                        url = libUrl
+                    }
                 }
+            }
+
+            forUnitTestsJar(MavenPublication) {
+                artifact tasks['forUnitTestsJar']
+                pom {
+                    groupId = theGroupId
+                    artifactId = "${theArtifactId}-forUnitTests"
+                    description = theDescription + " " + forUnitTestDescriptionSuffix
+                    version = theVersion + (rootProject.hasProperty('local') ? '-' + rootProject.property('local') : '')
+                    packaging = "jar"
+
+                    licenses {
+                        license {
+                            name = libLicense
+                            url = libLicenseUrl
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            name = 'Mozilla Nimbus SDK'
+                        }
+                    }
+
+                    scm {
+                        connection = libVcsUrl
+                        developerConnection = libVcsUrl
+                        url = libUrl
+                    }
+                }
+
+                pom.withXml {
+                    // The 'forUnitTest' JAR, used to run unit tests on the host system,
+                    // needs to declare any dependency it requires (e.g. JNA).
+                    def dependenciesNode = asNode().appendNode("dependencies")
+                    configurations["jnaForTest"].allDependencies.forEach {
+                        if (it.group != null) {
+                            def dependencyNode = dependenciesNode.appendNode("dependency")
+                            dependencyNode.appendNode("groupId", it.group)
+                            dependencyNode.appendNode("artifactId", it.name)
+                            dependencyNode.appendNode("version", it.version)
+                        }
+                    }
+                }
+
+                // This is never the publication we want to use when publishing a
+                // parent project with us as a child `project()` dependency.
+                alias = true
             }
         }
     }

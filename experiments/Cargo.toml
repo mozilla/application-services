@@ -10,8 +10,8 @@ license = "MPL-2.0"
 keywords = ["experiment"]
 
 [lib]
-name = "experiments"
-crate-type = ["lib"]
+name = "nimbus"
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 anyhow = "1"
