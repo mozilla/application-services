@@ -113,6 +113,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
+name = "autofill"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "error-support",
+ "interrupt-support",
+ "libsqlite3-sys",
+ "log 0.4.11",
+ "nss_build_common",
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sql-support",
+ "sync-guid",
+ "sync15-traits",
+ "thiserror",
+ "types",
+ "url",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -656,6 +678,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "example-autofill-utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "cli-support",
+ "structopt",
+]
+
+[[package]]
 name = "example-places-autocomplete"
 version = "0.1.0"
 dependencies = [
@@ -669,6 +700,7 @@ dependencies = [
  "sql-support",
  "tempfile",
  "termion",
+ "types",
  "url",
 ]
 
@@ -690,6 +722,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempdir",
+ "types",
  "url",
 ]
 
@@ -1918,6 +1951,7 @@ dependencies = [
  "sync15",
  "tempfile",
  "thiserror",
+ "types",
  "url",
 ]
 
@@ -1930,6 +1964,7 @@ dependencies = [
  "serde_json",
  "sql-support",
  "tempdir",
+ "types",
  "url",
 ]
 
@@ -1947,6 +1982,7 @@ dependencies = [
  "sql-support",
  "sync-guid",
  "sync15",
+ "types",
  "url",
  "viaduct",
 ]
@@ -1964,6 +2000,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempfile",
+ "types",
  "url",
 ]
 
@@ -3222,6 +3259,16 @@ name = "try-lock"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59547bce71d9c38b83d9c0e92b6066c4253371f15005def0c30d9657f50c7642"
+
+[[package]]
+name = "types"
+version = "0.1.0"
+dependencies = [
+ "rusqlite",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
 
 [[package]]
 name = "unicase"

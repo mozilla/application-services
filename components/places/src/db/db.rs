@@ -5,14 +5,25 @@
 use super::schema;
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
+use lazy_static::lazy_static;
 use rusqlite::Connection;
 use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::Path;
 
-use std::sync::{atomic::AtomicUsize, Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicI64, AtomicUsize, Ordering},
+    Arc, Mutex, RwLock,
+};
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;
+
+lazy_static! {
+    // Each API has a single bookmark change counter shared across all connections.
+    // This hashmap indexes them by the "api id" of the API.
+    pub static ref GLOBAL_BOOKMARK_CHANGE_COUNTERS: RwLock<HashMap<usize, AtomicI64>> = RwLock::new(HashMap::new());
+}
 
 #[derive(Debug)]
 pub struct PlacesDb {
@@ -67,7 +78,7 @@ impl PlacesDb {
         ";
 
         db.execute_batch(initial_pragmas)?;
-        define_functions(&db)?;
+        define_functions(&db, api_id)?;
         db.set_prepared_statement_cache_capacity(128);
         let res = Self {
             db,
@@ -136,6 +147,14 @@ impl PlacesDb {
         self.conn_type
     }
 
+    /// Returns an object that can tell you whether any changes have been made
+    /// to bookmarks since this was called.
+    /// While this conceptually should live on the PlacesApi, the things that
+    /// need this typically only have a PlacesDb, so we expose it here.
+    pub fn global_bookmark_change_tracker(&self) -> GlobalChangeCounterTracker {
+        GlobalChangeCounterTracker::new(self.api_id)
+    }
+
     #[inline]
     pub fn api_id(&self) -> usize {
         self.api_id
@@ -168,7 +187,39 @@ impl Deref for PlacesDb {
     }
 }
 
-fn define_functions(c: &Connection) -> Result<()> {
+/// An object that can tell you whether a bookmark changing operation has
+/// happened since the object was created.
+pub struct GlobalChangeCounterTracker {
+    api_id: usize,
+    start_value: i64,
+}
+
+impl GlobalChangeCounterTracker {
+    pub fn new(api_id: usize) -> Self {
+        GlobalChangeCounterTracker {
+            api_id,
+            start_value: Self::cur_value(api_id),
+        }
+    }
+
+    // The value is an implementation detail, so just expose what we care
+    // about - ie, "has it changed?"
+    pub fn changed(&self) -> bool {
+        Self::cur_value(self.api_id) != self.start_value
+    }
+
+    fn cur_value(api_id: usize) -> i64 {
+        let map = GLOBAL_BOOKMARK_CHANGE_COUNTERS
+            .read()
+            .expect("gbcc poisoned");
+        match map.get(&api_id) {
+            Some(counter) => counter.load(Ordering::Acquire),
+            None => 0,
+        }
+    }
+}
+
+fn define_functions(c: &Connection, api_id: usize) -> Result<()> {
     use rusqlite::functions::FunctionFlags;
     c.create_scalar_function(
         "get_prefix",
@@ -213,16 +264,24 @@ fn define_functions(c: &Connection) -> Result<()> {
         FunctionFlags::SQLITE_UTF8,
         sql_fns::generate_guid,
     )?;
+    c.create_scalar_function(
+        "note_bookmarks_sync_change",
+        0,
+        FunctionFlags::SQLITE_UTF8,
+        move |ctx| -> rusqlite::Result<i64> { sql_fns::note_bookmarks_sync_change(ctx, api_id) },
+    )?;
     Ok(())
 }
 
 pub(crate) mod sql_fns {
+    use super::GLOBAL_BOOKMARK_CHANGE_COUNTERS;
     use crate::api::matcher::{split_after_host_and_port, split_after_prefix};
     use crate::hash;
     use crate::match_impl::{AutocompleteMatch, MatchBehavior, SearchBehavior};
-    use crate::types::Timestamp;
     use rusqlite::{functions::Context, types::ValueRef, Error, Result};
+    use std::sync::atomic::Ordering;
     use sync_guid::Guid as SyncGuid;
+    use types::Timestamp;
 
     // Helpers for define_functions
     fn get_raw_str<'a>(ctx: &'a Context<'_>, fname: &'static str, idx: usize) -> Result<&'a str> {
@@ -366,6 +425,26 @@ pub(crate) mod sql_fns {
     #[inline(never)]
     pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
         Ok(SyncGuid::random())
+    }
+
+    #[inline(never)]
+    pub fn note_bookmarks_sync_change(_ctx: &Context<'_>, api_id: usize) -> Result<i64> {
+        let map = GLOBAL_BOOKMARK_CHANGE_COUNTERS
+            .read()
+            .expect("gbcc poisoned");
+        if let Some(counter) = map.get(&api_id) {
+            // Because we only ever check for equality, we can use Relaxed ordering.
+            return Ok(counter.fetch_add(1, Ordering::Relaxed));
+        }
+        // Need to add the counter to the map - drop the read lock before
+        // taking the write lock.
+        drop(map);
+        let mut map = GLOBAL_BOOKMARK_CHANGE_COUNTERS
+            .write()
+            .expect("gbcc poisoned");
+        let counter = map.entry(api_id).or_default();
+        // Because we only ever check for equality, we can use Relaxed ordering.
+        Ok(counter.fetch_add(1, Ordering::Relaxed))
     }
 }
 

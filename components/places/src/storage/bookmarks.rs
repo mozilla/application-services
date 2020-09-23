@@ -10,7 +10,7 @@ use crate::bookmark_sync::store::{
 };
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::types::{BookmarkType, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use serde::{
@@ -25,6 +25,7 @@ use std::cmp::{max, min};
 use std::collections::HashMap;
 use sync15::StoreSyncAssociation;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 pub use public_node::PublicNode;
@@ -1660,6 +1661,8 @@ mod tests {
         conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
             .expect("should work");
 
+        let global_change_tracker = conn.global_bookmark_change_tracker();
+        assert!(!global_change_tracker.changed(), "can't start as changed!");
         let bm = InsertableItem::Bookmark(InsertableBookmark {
             parent_guid: BookmarkRootGuid::Unfiled.into(),
             position: BookmarkPosition::Append,
@@ -1682,6 +1685,7 @@ mod tests {
         assert_eq!(rb.url, Some(url));
         assert_eq!(rb.sync_status, SyncStatus::New);
         assert_eq!(rb.sync_change_counter, 1);
+        assert!(global_change_tracker.changed());
         assert_eq!(rb.child_count, 0);
 
         let unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())?
@@ -1764,10 +1768,21 @@ mod tests {
 
         insert_json_tree(&conn, jtree);
 
+        conn.execute(
+            &format!(
+                "UPDATE moz_bookmarks SET syncChangeCounter = 1, syncStatus = {}",
+                SyncStatus::Normal as u8
+            ),
+            NO_PARAMS,
+        )
+        .expect("should work");
+
         // Make sure the positions are correct now.
         assert_eq!(get_pos(&conn, &guid1), 0);
         assert_eq!(get_pos(&conn, &guid2), 1);
         assert_eq!(get_pos(&conn, &guid3), 2);
+
+        let global_change_tracker = conn.global_bookmark_change_tracker();
 
         // Delete the middle folder.
         delete_bookmark(&conn, &guid2)?;
@@ -1778,6 +1793,7 @@ mod tests {
         // Positions of the remaining should be correct.
         assert_eq!(get_pos(&conn, &guid1), 0);
         assert_eq!(get_pos(&conn, &guid3), 1);
+        assert!(global_change_tracker.changed());
 
         Ok(())
     }
@@ -1825,6 +1841,7 @@ mod tests {
 
         // A helper to make the moves below more concise.
         let do_move = |guid: &str, pos: BookmarkPosition| {
+            let global_change_tracker = conn.global_bookmark_change_tracker();
             update_bookmark(
                 &conn,
                 &guid.into(),
@@ -1835,6 +1852,7 @@ mod tests {
                 .into(),
             )
             .expect("update should work");
+            assert!(global_change_tracker.changed(), "should be tracked");
         };
 
         // A helper to make the checks below more concise.

@@ -16,13 +16,14 @@ use crate::msg_types::{
 };
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{SyncStatus, Timestamp, VisitTransition, VisitTransitionSet};
+use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
 use sync15::StoreSyncAssociation;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 /// When `delete_everything` is called (to perform a permanent local deletion), in
@@ -1367,10 +1368,11 @@ mod tests {
     use super::*;
     use crate::api::places_api::ConnectionType;
     use crate::history_sync::record::{HistoryRecord, HistoryRecordVisit};
-    use crate::types::{Timestamp, VisitTransitionSet};
+    use crate::types::VisitTransitionSet;
     use pretty_assertions::assert_eq;
     use std::time::{Duration, SystemTime};
     use sync15::CollSyncIds;
+    use types::Timestamp;
 
     #[test]
     fn test_get_visited_urls() {

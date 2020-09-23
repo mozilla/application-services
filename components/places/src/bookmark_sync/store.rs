@@ -9,7 +9,7 @@ use super::record::{
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
 use crate::api::places_api::ConnectionType;
-use crate::db::PlacesDb;
+use crate::db::{GlobalChangeCounterTracker, PlacesDb};
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
 use crate::storage::{
@@ -19,7 +19,7 @@ use crate::storage::{
     },
     delete_pending_temp_tables, get_meta, put_meta,
 };
-use crate::types::{BookmarkType, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus};
 use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
@@ -35,6 +35,7 @@ use sync15::{
     ServerTimestamp, Store, StoreSyncAssociation,
 };
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 pub const LAST_SYNC_META_KEY: &str = "bookmarks_last_sync_time";
 // Note that all engines in this crate should use a *different* meta key
 // for the global sync ID, because engines are reset individually.
@@ -507,7 +508,8 @@ impl<'a> BookmarksStore<'a> {
                title = excluded.title,
                dateAdded = excluded.dateAdded,
                lastModified = excluded.lastModified,
-               fk = excluded.fk",
+               fk = excluded.fk,
+               syncStatus = {sync_status}",
             root_guid = BookmarkRootGuid::Root.as_guid().as_str(),
             type_fragment = ItemTypeFragment("newKind"),
             sync_status = SyncStatus::Normal as u8,
@@ -1055,6 +1057,9 @@ pub(crate) struct Merger<'a> {
     // turns it on, to avoid accidentally enabling unintentionally.
     external_transaction: bool,
     telem: Option<&'a mut telemetry::Engine>,
+    // Allows us to abort applying the result of the merge if the local tree
+    // changed since we fetched it.
+    global_change_tracker: GlobalChangeCounterTracker,
 }
 
 impl<'a> Merger<'a> {
@@ -1065,6 +1070,7 @@ impl<'a> Merger<'a> {
             local_time: Timestamp::now(),
             external_transaction: false,
             telem: None,
+            global_change_tracker: store.db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1079,6 +1085,7 @@ impl<'a> Merger<'a> {
             local_time: Timestamp::now(),
             external_transaction: false,
             telem: Some(telem),
+            global_change_tracker: store.db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1094,6 +1101,7 @@ impl<'a> Merger<'a> {
             local_time,
             external_transaction: false,
             telem: None,
+            global_change_tracker: store.db.global_bookmark_change_tracker(),
         }
     }
 
@@ -1497,6 +1505,16 @@ impl<'a> dogear::Store for Merger<'a> {
             None
         };
 
+        // If the local tree has changed since we started the merge, we abort
+        // in the expectation it will succeed next time.
+        if self.global_change_tracker.changed() {
+            log::info!("Aborting update of local items as local tree changed while merging");
+            if let Some(tx) = tx {
+                tx.rollback()?;
+            }
+            return Ok(());
+        }
+
         log::debug!("Updating local items in Places");
         self.store
             .update_local_items_in_places(self.local_time, &ops)?;
@@ -1759,7 +1777,14 @@ mod tests {
         }
     }
 
-    fn apply_incoming(conn: &PlacesDb, remote_time: ServerTimestamp, records_json: Value) {
+    // Applys the incoming records, and also "finishes" the sync by pretending
+    // we uploaded the outgoing items and marks them as uploaded.
+    // Returns the GUIDs of the outgoing items.
+    fn apply_incoming(
+        conn: &PlacesDb,
+        remote_time: ServerTimestamp,
+        records_json: Value,
+    ) -> Vec<Guid> {
         // suck records into the store.
         let interrupt_scope = conn.begin_interrupt_scope();
         let store = BookmarksStore::new(&conn, &interrupt_scope);
@@ -1811,8 +1836,9 @@ mod tests {
             .collect();
 
         store
-            .push_synced_items(remote_time, uploaded_guids)
+            .push_synced_items(remote_time, uploaded_guids.clone())
             .expect("Should push synced changes back to the store");
+        uploaded_guids
     }
 
     fn assert_incoming_creates_local_tree(
@@ -4115,6 +4141,181 @@ mod tests {
             }),
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_reconcile_sync_metadata() -> anyhow::Result<()> {
+        let _ = env_logger::try_init();
+
+        let api = new_mem_api();
+        let writer = api.open_connection(ConnectionType::ReadWrite)?;
+        let syncer = api.open_sync_connection()?;
+
+        let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
+        let remote_modified = local_modified.as_millis() as f64 / 1000f64;
+
+        insert_local_json_tree(
+            &writer,
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    // this folder is going to reconcile exactly
+                    "guid": "folderAAAAAA",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "A",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                    "children": [{
+                        "guid": "bookmarkBBBB",
+                        "title": "B",
+                        "url": "http://example.com/b",
+                        "date_added": local_modified,
+                        "last_modified": local_modified,
+                    }]
+                }, {
+                    // this folder's existing child isn't on the server (so will be
+                    // outgoing) and also will take a new child from the server.
+                    "guid": "folderCCCCCC",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "C",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                    "children": [{
+                        "guid": "bookmarkEEEE",
+                        "title": "E",
+                        "url": "http://example.com/e",
+                        "date_added": local_modified,
+                        "last_modified": local_modified,
+                    }]
+                }, {
+                    // This bookmark is going to take the remote title.
+                    "guid": "bookmarkFFFF",
+                    "title": "f",
+                    "url": "http://example.com/f",
+                    "date_added": local_modified,
+                    "last_modified": local_modified,
+                }],
+            }),
+        );
+
+        let outgoing = apply_incoming(
+            &syncer,
+            ServerTimestamp::from_float_seconds(remote_modified),
+            json!([{
+                "id": "menu",
+                "type": "folder",
+                "parentid": "places",
+                "parentName": "",
+                "title": "menu",
+                "children": ["folderAAAAAA", "folderCCCCCC", "bookmarkFFFF"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "folderAAAAAA",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "A",
+                "children": ["bookmarkBBBB"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkBBBB",
+                "type": "bookmark",
+                "parentid": "folderAAAAAA",
+                "parentName": "A",
+                "title": "B",
+                "bmkUri": "http://example.com/b",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "folderCCCCCC",
+                "type": "folder",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "C",
+                "children": ["bookmarkDDDD"],
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkDDDD",
+                "type": "bookmark",
+                "parentid": "folderCCCCCC",
+                "parentName": "C",
+                "title": "D",
+                "bmkUri": "http://example.com/d",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified,
+            }, {
+                "id": "bookmarkFFFF",
+                "type": "bookmark",
+                "parentid": "menu",
+                "parentName": "menu",
+                "title": "F",
+                "bmkUri": "http://example.com/f",
+                "dateAdded": local_modified.as_millis(),
+                "modified": remote_modified + 5f64,
+            },]),
+        );
+
+        // Assert the tree is correct even though that's not really the point
+        // of this test.
+        assert_local_json_tree(
+            &writer,
+            &BookmarkRootGuid::Menu.as_guid(),
+            json!({
+                "guid": &BookmarkRootGuid::Menu.as_guid(),
+                "children": [{
+                    // this folder is going to reconcile exactly
+                    "guid": "folderAAAAAA",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "A",
+                    "children": [{
+                        "guid": "bookmarkBBBB",
+                        "title": "B",
+                        "url": "http://example.com/b",
+                    }]
+                }, {
+                    "guid": "folderCCCCCC",
+                    "type": BookmarkType::Folder as u8,
+                    "title": "C",
+                    "children": [{
+                        "guid": "bookmarkDDDD",
+                        "title": "D",
+                        "url": "http://example.com/d",
+                    },{
+                        "guid": "bookmarkEEEE",
+                        "title": "E",
+                        "url": "http://example.com/e",
+                    }]
+                }, {
+                    "guid": "bookmarkFFFF",
+                    "title": "F",
+                    "url": "http://example.com/f",
+                }],
+            }),
+        );
+
+        // After application everything should have SyncStatus::Normal and
+        // a change counter of zero.
+        for guid in &[
+            "folderAAAAAA",
+            "bookmarkBBBB",
+            "folderCCCCCC",
+            "bookmarkDDDD",
+            "bookmarkFFFF",
+        ] {
+            let bm = get_raw_bookmark(&writer, &guid.into())
+                .expect("must work")
+                .expect("must exist");
+            assert_eq!(bm.sync_status, SyncStatus::Normal, "{}", guid);
+            assert_eq!(bm.sync_change_counter, 0, "{}", guid);
+        }
+        // And bookmarkEEEE wasn't on the server, so should be outgoing, and
+        // it's parent too.
+        assert!(outgoing.contains(&"bookmarkEEEE".into()));
+        assert!(outgoing.contains(&"folderCCCCCC".into()));
         Ok(())
     }
 }

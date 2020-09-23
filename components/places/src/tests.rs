@@ -8,10 +8,11 @@ use serde_json::Value;
 use crate::{
     db::PlacesDb,
     storage::bookmarks::{fetch_tree, get_raw_bookmark, insert_tree, BookmarkTreeNode, FetchDepth},
-    types::{BookmarkType, Timestamp},
+    types::BookmarkType,
 };
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 
 use pretty_assertions::assert_eq;
 

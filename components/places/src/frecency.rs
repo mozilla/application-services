@@ -3,8 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::types::{Timestamp, VisitTransition};
+use crate::types::VisitTransition;
 use rusqlite::Connection;
+use types::Timestamp;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum RedirectBonus {
