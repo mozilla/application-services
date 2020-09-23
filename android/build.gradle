@@ -171,13 +171,13 @@ switch (DefaultPlatform.RESOURCE_PREFIX) {
 
 cargo {
     // The directory of the Cargo.toml to build.
-    module = '../experiments'
+    module = '../nimbus'
 
     // The Android NDK API level to target.
     apiLevel = 29
 
     // Where Cargo writes its outputs.
-    targetDirectory = '../experiments/target'
+    targetDirectory = '../nimbus/target'
 
     // This is the name of the library that the kotlin code
     // *must* use to import the native code
@@ -214,7 +214,7 @@ android.libraryVariants.all { variant ->
     def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
         workingDir "${project.projectDir}"
         // Runs the bindings generation, note that you must have uniffi-bindgen installed and in your PATH environment variable
-        commandLine 'uniffi-bindgen', 'generate', '../experiments/src/nimbus.idl', '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+        commandLine 'uniffi-bindgen', 'generate', '../nimbus/src/nimbus.idl', '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
     }
     variant.javaCompileProvider.get().dependsOn(t)
     def sourceSet = variant.sourceSets.find { it.name == variant.name }

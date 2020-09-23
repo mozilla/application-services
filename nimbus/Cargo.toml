@@ -1,5 +1,5 @@
 [package]
-name = "experiments"
+name = "nimbus-sdk"
 version = "1.0.0"
 authors = ["The Glean Team <glean-team@mozilla.com>", "The Sync Team <sync-team@mozilla.com>"]
 edition = "2018"
@@ -7,7 +7,7 @@ description = "A rapid experiment library"
 repository = "https://github.com/mozilla/nimbus-sdk"
 readme = "README.md"
 license = "MPL-2.0"
-keywords = ["experiment"]
+keywords = ["experiment", "nimbus"]
 
 [lib]
 name = "nimbus"

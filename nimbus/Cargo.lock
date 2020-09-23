@@ -378,32 +378,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "experiments"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "env_logger",
- "hex",
- "jexl-eval",
- "log",
- "mockito",
- "rkv",
- "serde",
- "serde_derive",
- "serde_json",
- "sha2 0.9.1",
- "thiserror",
- "uniffi",
- "uniffi_build",
- "url",
- "uuid",
- "viaduct",
- "viaduct-reqwest",
-]
-
-[[package]]
 name = "extend"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -984,6 +958,32 @@ name = "new_debug_unreachable"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
+
+[[package]]
+name = "nimbus-sdk"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "env_logger",
+ "hex",
+ "jexl-eval",
+ "log",
+ "mockito",
+ "rkv",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "sha2 0.9.1",
+ "thiserror",
+ "uniffi",
+ "uniffi_build",
+ "url",
+ "uuid",
+ "viaduct",
+ "viaduct-reqwest",
+]
 
 [[package]]
 name = "num-integer"

@@ -23,11 +23,11 @@ use std::path::Path;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 
-/// Experiments is the main struct representing the experiments state
+/// Nimbus is the main struct representing the experiments state
 /// It should hold all the information needed to communicate a specific user's
 /// experimentation status
 #[derive(Debug, Clone)]
-pub struct Experiments {
+pub struct NimbusClient {
     experiments: Vec<Experiment>,
     enrolled_experiments: Vec<EnrolledExperiment>,
     app_context: AppContext,
@@ -42,7 +42,7 @@ pub struct EnrolledExperiment {
     pub branch_slug: String,
 }
 
-impl Experiments {
+impl NimbusClient {
     pub fn new<P: AsRef<Path>>(
         collection_name: String,
         app_context: AppContext,

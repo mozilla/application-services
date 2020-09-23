@@ -34,7 +34,7 @@ enum Error {
     "RequestError", "ResponseError", "InvalidExperimentResponse"
 };
 
-interface Experiments {
+interface NimbusClient {
     [Throws=Error]
     constructor(string collection_name, AppContext app_ctx, string dbpath, ExperimentConfig? config);
 
