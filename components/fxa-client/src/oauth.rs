@@ -20,13 +20,13 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use url::Url;
-
 // If a cached token has less than `OAUTH_MIN_TIME_LEFT` seconds left to live,
 // it will be considered already expired.
 const OAUTH_MIN_TIME_LEFT: u64 = 60;
 // Special redirect urn based on the OAuth native spec, signals that the
 // WebChannel flow is used
 pub const OAUTH_WEBCHANNEL_REDIRECT: &str = "urn:ietf:wg:oauth:2.0:oob:oauth-redirect-webchannel";
+
 impl FirefoxAccount {
     /// Fetch a short-lived access token using the saved refresh token.
     /// If there is no refresh token held or if it is not authorized for some of the requested
@@ -93,11 +93,13 @@ impl FirefoxAccount {
     }
 
     /// Check whether user is authorized using our refresh token.
-    pub fn check_authorization_status(&self) -> Result<IntrospectInfo> {
+    pub fn check_authorization_status(&mut self) -> Result<IntrospectInfo> {
         let resp = match self.state.refresh_token {
-            Some(ref refresh_token) => self
-                .client
-                .oauth_introspect_refresh_token(&self.state.config, &refresh_token.token)?,
+            Some(ref refresh_token) => {
+                self.auth_circuit_breaker.check()?;
+                self.client
+                    .oauth_introspect_refresh_token(&self.state.config, &refresh_token.token)?
+            }
             None => return Err(ErrorKind::NoRefreshToken.into()),
         };
         Ok(IntrospectInfo {
@@ -453,6 +455,61 @@ impl FirefoxAccount {
             fxa.state.scoped_keys.insert(key.to_string(), val.clone());
         });
         fxa
+    }
+}
+
+const AUTH_CIRCUIT_BREAKER_CAPACITY: u8 = 5;
+const AUTH_CIRCUIT_BREAKER_RENEWAL_RATE: f32 = 3.0 / 60.0 / 1000.0; // 3 tokens every minute.
+
+// The auth circuit breaker rate-limits access to the `oauth_introspect_refresh_token`
+// using a fairly naively implemented token bucket algorithm.
+#[derive(Clone, Copy)]
+pub(crate) struct AuthCircuitBreaker {
+    tokens: u8,
+    last_refill: u64, // in ms.
+}
+
+impl Default for AuthCircuitBreaker {
+    fn default() -> Self {
+        AuthCircuitBreaker {
+            tokens: AUTH_CIRCUIT_BREAKER_CAPACITY,
+            last_refill: Self::now(),
+        }
+    }
+}
+
+impl AuthCircuitBreaker {
+    pub(crate) fn check(&mut self) -> Result<()> {
+        self.refill();
+        if self.tokens == 0 {
+            return Err(ErrorKind::AuthCircuitBreakerError.into());
+        }
+        self.tokens -= 1;
+        Ok(())
+    }
+
+    fn refill(&mut self) {
+        let now = Self::now();
+        let new_tokens =
+            ((now - self.last_refill) as f64 * AUTH_CIRCUIT_BREAKER_RENEWAL_RATE as f64) as u8; // `as` is a truncating/saturing cast.
+        if new_tokens > 0 {
+            self.last_refill = now;
+            self.tokens = std::cmp::min(
+                AUTH_CIRCUIT_BREAKER_CAPACITY,
+                self.tokens.saturating_add(new_tokens),
+            );
+        }
+    }
+
+    #[cfg(not(test))]
+    #[inline]
+    fn now() -> u64 {
+        util::now()
+    }
+
+    #[cfg(test)]
+    fn now() -> u64 {
+        1600000000000
     }
 }
 
@@ -869,6 +926,74 @@ mod tests {
 
         let auth_status = fxa.check_authorization_status().unwrap();
         assert_eq!(auth_status.active, true);
+    }
+
+    #[test]
+    fn test_check_authorization_status_circuit_breaker() {
+        let config = Config::stable_dev("12345678", "https://foo.bar");
+        let mut fxa = FirefoxAccount::with_config(config);
+
+        let refresh_token_scopes = std::collections::HashSet::new();
+        fxa.state.refresh_token = Some(RefreshToken {
+            token: "refresh_token".to_owned(),
+            scopes: refresh_token_scopes,
+        });
+
+        let mut client = FxAClientMock::new();
+        // This copy-pasta (equivalent to `.returns(..).times(5)`) is there
+        // because `Error` is not cloneable :/
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        client
+            .expect_oauth_introspect_refresh_token(mockiato::Argument::any, |token| {
+                token.partial_eq("refresh_token")
+            })
+            .returns_once(Ok(IntrospectResponse { active: true }));
+        client.expect_oauth_introspect_refresh_token_calls_in_order();
+        fxa.set_client(Arc::new(client));
+
+        for _ in 0..5 {
+            assert!(fxa.check_authorization_status().is_ok());
+        }
+        match fxa.check_authorization_status() {
+            Ok(_) => unreachable!("should not happen"),
+            Err(err) => assert!(matches!(err.kind(), ErrorKind::AuthCircuitBreakerError)),
+        }
+    }
+
+    #[test]
+    fn test_auth_circuit_breaker_unit_recovery() {
+        let mut breaker = AuthCircuitBreaker::default();
+        // AuthCircuitBreaker::now is fixed for tests, let's assert that for sanity.
+        assert_eq!(AuthCircuitBreaker::now(), 1600000000000);
+        for _ in 0..AUTH_CIRCUIT_BREAKER_CAPACITY {
+            assert!(breaker.check().is_ok());
+        }
+        assert!(breaker.check().is_err());
+        // Jump back in time (1 min).
+        breaker.last_refill -= 60 * 1000;
+        let expected_tokens_before_check: u8 =
+            (AUTH_CIRCUIT_BREAKER_RENEWAL_RATE * 60.0 * 1000.0) as u8;
+        assert!(breaker.check().is_ok());
+        assert_eq!(breaker.tokens, expected_tokens_before_check - 1);
     }
 
     use crate::scopes;
