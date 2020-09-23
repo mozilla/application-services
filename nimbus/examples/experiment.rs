@@ -4,7 +4,7 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
-use nimbus::{AppContext, ExperimentConfig, Experiments};
+use nimbus::{AppContext, ExperimentConfig, NimbusClient};
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
@@ -85,9 +85,9 @@ fn main() {
         uuid,
     };
 
-    // Here we initialize our main `Experiments` struct
-    let experiments =
-        Experiments::new(collection_name.to_string(), context, "", Some(config)).unwrap();
+    // Here we initialize our main `NimbusClient` struct
+    let nimbus_client =
+        NimbusClient::new(collection_name.to_string(), context, "", Some(config)).unwrap();
 
     // We match against the subcommands
     match matches.subcommand() {
@@ -95,13 +95,13 @@ fn main() {
         ("show_experiments", _) => {
             println!("======================================");
             println!("Printing all experiments (regardless of enrollment)");
-            experiments
+            nimbus_client
                 .get_all_experiments()
                 .iter()
                 .for_each(|e| println!("Experiment: {}", e.id));
             println!("======================================");
             println!("Printing only enrolled experiments");
-            experiments.get_active_experiments().iter().for_each(|e| {
+            nimbus_client.get_active_experiments().iter().for_each(|e| {
                 println!(
                     "Enrolled in experiment: {}, in branch: {}",
                     e.slug, e.branch_slug
@@ -116,7 +116,7 @@ fn main() {
                 .unwrap_or("0")
                 .parse::<usize>()
                 .expect("the number parameter should be a number");
-            let all_experiments = experiments.get_all_experiments();
+            let all_experiments = nimbus_client.get_all_experiments();
             let mut num_of_experiments_enrolled = 0;
             let mut uuid = uuid::Uuid::new_v4();
             while num_of_experiments_enrolled != num {
