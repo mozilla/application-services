@@ -14,28 +14,28 @@ jobs:
           command: cargo install --version 0.1.0 uniffi_bindgen
       - run:
           name: Calculate dependencies
-          command: cd experiments && cargo generate-lockfile
+          command: cd nimbus && cargo generate-lockfile
       - restore_cache:
           keys:
-            - v4-cargo-cache-{{ arch }}-{{ checksum "experiments/Cargo.lock" }}
+            - v4-cargo-cache-{{ arch }}-{{ checksum "nimbus/Cargo.lock" }}
       - run:
           name: Build all targets
-          command: cd experiments && cargo build --all --all-targets
+          command: cd nimbus && cargo build --all --all-targets
       - save_cache:
           paths:
             - /usr/local/cargo/registry
-            - experiments/target/debug/.fingerprint
-            - experiments/target/debug/build
-            - experiments/target/debug/deps
-          key: v4-cargo-cache-{{ arch }}-{{ checksum "experiments/Cargo.lock" }}
+            - nimbus/target/debug/.fingerprint
+            - nimbus/target/debug/build
+            - nimbus/target/debug/deps
+          key: v4-cargo-cache-{{ arch }}-{{ checksum "nimbus/Cargo.lock" }}
       - run:
           name: Run all tests
-          command: cd experiments &&  cargo test --all
+          command: cd nimbus &&  cargo test --all
       - run:
           name: Check formatting
           command: |
             if rustup component add rustfmt; then
-              cd experiments && cargo fmt --all -- --check
+              cd nimbus && cargo fmt --all -- --check
             else
               echo Skipping rustfmt
             fi
