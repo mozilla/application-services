@@ -4,7 +4,7 @@
 
 use crate::{
     aead,
-    agreement::{self, Curve, EcKey},
+    agreement::{self, Curve, EcKey, UnparsedPublicKey},
     digest, hkdf, hmac, rand,
 };
 use ece::crypto::{Cryptographer, EcKeyComponents, LocalKeyPair, RemotePublicKey};
@@ -39,9 +39,12 @@ impl RcCryptoLocalKeyPair {
     }
 
     fn agree(&self, peer: &RcCryptoRemotePublicKey) -> Result<Vec<u8>, ece::Error> {
+        let peer_public_key_raw_bytes = &peer.as_raw()?;
+        let peer_public_key =
+            UnparsedPublicKey::new(&agreement::ECDH_P256, &peer_public_key_raw_bytes);
         self.wrapped
             .private_key()
-            .agree_static(&agreement::ECDH_P256, &peer.as_raw()?)?
+            .agree_static(&peer_public_key)?
             .derive(|z| Ok(z.to_vec()))
     }
 }

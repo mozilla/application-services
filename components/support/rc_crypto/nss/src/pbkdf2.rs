@@ -30,6 +30,7 @@ pub fn pbkdf2_key_derive(
     ensure_nss_initialized();
     let oid_tag = match hash_algorithm {
         HashAlgorithm::SHA256 => SECOidTag::SEC_OID_HMAC_SHA256 as u32,
+        HashAlgorithm::SHA384 => SECOidTag::SEC_OID_HMAC_SHA384 as u32,
     };
     let mut sec_salt = nss_sys::SECItem {
         len: u32::try_from(salt.len())?,

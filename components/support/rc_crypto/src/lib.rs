@@ -37,6 +37,7 @@ pub mod hkdf;
 pub mod hmac;
 pub mod pbkdf2;
 pub mod rand;
+pub mod signature;
 
 // Expose `hawk` if the hawk feature is on. This avoids consumers needing to
 // configure this separately, which is more or less trivial to do incorrectly.
