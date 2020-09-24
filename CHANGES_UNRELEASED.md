@@ -2,28 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v63.0.0...main)
-
-## iOS
-
-### ⚠️ Breaking changes ⚠️
-
-- The `MozillaAppServices.framework` is now built using Xcode 12, so consumers will need
-  update their own build accordingly.
-  ([#3586](https://github.com/mozilla/application-services/pull/3586))
-
-## FxA Client
-
-### What's changed
-
-- Added a circuit-breaker to the `check_authorization_status` method: in specific circumstances, it was in possible to trigger a failure-recover infinite loop. ([#3585](https://github.com/mozilla/application-services/pull/3585))
-
-## Autofill
-
-### What's changed ###
-- Added a basic API and database layer for the autofill component. ([#3582](https://github.com/mozilla/application-services/pull/3582))
-
-## Places
-
-### What's changed
-- Removed the duplicate Timestamp logic from Places, which now exists in Support, and updated the references. ([#3593](https://github.com/mozilla/application-services/pull/3593))
+[Full Changelog](https://github.com/mozilla/application-services/compare/v64.0.0...main)
