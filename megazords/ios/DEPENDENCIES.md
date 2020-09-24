@@ -462,6 +462,7 @@ The following text applies to code linked from these dependencies:
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
+[httpdate](https://github.com/pyfisch/httpdate),
 [humantime](https://github.com/tailhook/humantime),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
 [idna](https://github.com/servo/rust-url/),
