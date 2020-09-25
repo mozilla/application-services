@@ -12,5 +12,8 @@ path = "src/autofill-utils.rs"
 
 [dev-dependencies]
 anyhow = "1.0"
+autofill = { path = "../../components/autofill" }
 cli-support = { path = "../cli-support" }
+serde_json = "1"
 structopt = "0.3"
+sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"] }

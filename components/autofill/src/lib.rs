@@ -5,8 +5,8 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-mod api;
-mod db;
+pub mod api;
+pub mod db;
 pub mod error;
 mod schema;
 pub mod store;

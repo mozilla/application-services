@@ -38,7 +38,6 @@ pub fn init(db: &Connection) -> Result<()> {
 #[allow(dead_code)]
 fn create(db: &Connection) -> Result<()> {
     log::debug!("Creating schema");
-    // db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?;
     db.execute_batch(
         format!(
             "{}\n{}",

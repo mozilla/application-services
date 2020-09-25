@@ -682,8 +682,11 @@ name = "example-autofill-utils"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "autofill",
  "cli-support",
+ "serde_json",
  "structopt",
+ "sync-guid",
 ]
 
 [[package]]
