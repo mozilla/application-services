@@ -16,6 +16,7 @@ use types::Timestamp;
 pub struct NewAddressFields {
     pub given_name: String,
 
+    #[serde(default)]
     pub additional_name: String,
 
     pub family_name: String,
@@ -23,17 +24,21 @@ pub struct NewAddressFields {
     #[serde(default)]
     pub organization: String,
 
-    #[serde(default)]
     pub street_address: String,
 
+    #[serde(default)]
     pub address_level3: String,
 
+    #[serde(default)]
     pub address_level2: String,
 
+    #[serde(default)]
     pub address_level1: String,
 
+    #[serde(default)]
     pub postal_code: String,
 
+    #[serde(default)]
     pub country: String,
 
     #[serde(default)]
@@ -51,15 +56,19 @@ pub struct Address {
 
     pub fields: NewAddressFields,
 
+    #[serde(default)]
     pub time_created: Timestamp,
 
+    #[serde(default)]
     pub time_last_used: Timestamp,
 
+    #[serde(default)]
     pub time_last_modified: Timestamp,
 
     #[serde(default)]
     pub times_used: i64,
 
+    #[serde(default)]
     pub(crate) sync_change_counter: i64,
 }
 
@@ -239,8 +248,7 @@ pub fn update_address(conn: &mut Connection, address: Address) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
-fn delete_address(conn: &mut Connection, guid: &Guid) -> Result<bool> {
+pub fn delete_address(conn: &mut Connection, guid: &Guid) -> Result<bool> {
     let tx = conn.transaction()?;
 
     // check that guid exists

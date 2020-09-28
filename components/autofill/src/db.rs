@@ -13,7 +13,7 @@ use std::{
 use url::Url;
 
 pub struct AutofillDb {
-    writer: Connection,
+    pub writer: Connection,
 }
 
 impl AutofillDb {
