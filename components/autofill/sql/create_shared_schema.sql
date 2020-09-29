@@ -51,49 +51,43 @@ CREATE TABLE IF NOT EXISTS addresses_tombstones (
     time_deleted    INTEGER NOT NULL
 ) WITHOUT ROWID;
 
--- NOTE: The credit card tables below are not being implemented as there are still outstanding
--- questions around how we address security model.
+-- XXX There are still questions around how we implement the necessary security model for credit cards, specifically
+-- whether the `cc_number` and/or other details should be encrypted or stored as plain text. Currently, we are storing
+-- them as plain text.
+CREATE TABLE IF NOT EXISTS credit_cards_data (
+    guid                TEXT NOT NULL PRIMARY KEY,
+    cc_name             TEXT NOT NULL, -- full name
+    cc_number           TEXT NOT NULL, -- TODO: consider storing this field as a hash
+    cc_exp_month        INTEGER,
+    cc_exp_year         INTEGER,
+    cc_type             TEXT NOT NULL,
+    -- cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
 
--- CREATE TABLE IF NOT EXISTS credit_cards_data (
---     guid                TEXT NOT NULL PRIMARY KEY,
---     cc_name             TEXT NOT NULL, -- full name
---     cc_given_name       TEXT NOT NULL,
---     cc_additonal_name   TEXT NOT NULL,
---     cc_family_name      TEXT NOT NULL,
---     cc_number           TEXT NOT NULL,
---     cc_exp_month        INTEGER,
---     cc_exp_year         INTEGER,
---     cc_type             TEXT NOT NULL,
---     cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
+    time_created        INTEGER NOT NULL,
+    time_last_used      INTEGER,
+    time_last_modified  INTEGER NOT NULL,
+    times_used          INTEGER NOT NULL DEFAULT 0,
 
---     time_created        INTEGER NOT NULL,
---     time_last_used      INTEGER,
---     time_last_modified  INTEGER NOT NULL,
---     times_used          INTEGER NOT NULL DEFAULT 0,
+    /* Same "sync change counter" strategy used by other components. */
+    sync_change_counter INTEGER NOT NULL DEFAULT 1
+);
 
---     /* Same "sync change counter" strategy used by other components. */
---     sync_change_counter INTEGER NOT NULL DEFAULT 1
--- );
+CREATE TABLE IF NOT EXISTS credit_cards_mirror (
+    guid                TEXT NOT NULL PRIMARY KEY,
+    cc_name             TEXT NOT NULL, -- full name
+    cc_number           TEXT NOT NULL,
+    cc_exp_month        INTEGER,
+    cc_exp_year         INTEGER,
+    cc_type             TEXT NOT NULL,
+    -- cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
 
--- CREATE TABLE IF NOT EXISTS credit_cards_mirror (
---     guid                TEXT NOT NULL PRIMARY KEY,
---     cc_name             TEXT NOT NULL, -- full name
---     cc_given_name       TEXT NOT NULL,
---     cc_additonal_name   TEXT NOT NULL,
---     cc_family_name      TEXT NOT NULL,
---     cc_number           TEXT NOT NULL,
---     cc_exp_month        INTEGER,
---     cc_exp_year         INTEGER,
---     cc_type             TEXT NOT NULL,
---     cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
+    time_created        INTEGER NOT NULL,
+    time_last_used      INTEGER,
+    time_last_modified  INTEGER NOT NULL,
+    times_used          INTEGER NOT NULL DEFAULT 0
+);
 
---     time_created        INTEGER NOT NULL,
---     time_last_used      INTEGER,
---     time_last_modified  INTEGER NOT NULL,
---     times_used          INTEGER NOT NULL DEFAULT 0
--- );
-
--- CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
---     guid            TEXT PRIMARY KEY,
---     time_deleted    INTEGER NOT NULL
--- ) WITHOUT ROWID;
+CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
+    guid            TEXT PRIMARY KEY,
+    time_deleted    INTEGER NOT NULL
+) WITHOUT ROWID;

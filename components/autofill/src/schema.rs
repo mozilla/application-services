@@ -5,7 +5,7 @@
 use crate::error::Result;
 use rusqlite::Connection;
 
-pub const COMMON_COLS: &str = "
+pub const ADDRESS_COMMON_COLS: &str = "
     guid,
     given_name,
     additional_name,
@@ -19,6 +19,19 @@ pub const COMMON_COLS: &str = "
     country,
     tel,
     email,
+    time_created,
+    time_last_used,
+    time_last_modified,
+    times_used,
+    sync_change_counter";
+
+pub const CREDIT_CARD_COMMON_COLS: &str = "
+    guid,
+    cc_name,
+    cc_number,
+    cc_exp_month,
+    cc_exp_year,
+    cc_type,
     time_created,
     time_last_used,
     time_last_modified,

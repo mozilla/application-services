@@ -18,3 +18,17 @@ WHEN NEW.guid IN (SELECT guid FROM addresses_data)
 BEGIN
     SELECT RAISE(FAIL, 'guid exists in `addresses_data`');
 END;
+
+CREATE TEMP TRIGGER credit_cards_data_afterinsert_trigger
+AFTER INSERT ON credit_cards_data
+FOR EACH ROW WHEN NEW.guid IN (SELECT guid FROM credit_cards_tombstones)
+BEGIN
+    SELECT RAISE(FAIL, 'guid exists in `credit_cards_tombstones`');
+END;
+
+CREATE TEMP TRIGGER credit_cards_tombstones_afterinsert_trigger
+AFTER INSERT ON credit_cards_tombstones
+WHEN NEW.guid IN (SELECT guid FROM credit_cards_data)
+BEGIN
+    SELECT RAISE(FAIL, 'guid exists in `credit_cards_data`');
+END;
