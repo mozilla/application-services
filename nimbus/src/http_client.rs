@@ -24,7 +24,7 @@ const DEFAULT_BUCKET_NAME: &str = "main";
 
 // Making this a trait so that we can mock those later.
 pub(crate) trait SettingsClient {
-    fn get_experiements_metadata(&self) -> Result<String>;
+    fn get_experiments_metadata(&self) -> Result<String>;
     fn get_experiments(&self) -> Result<Vec<Experiment>>;
 }
 
@@ -74,7 +74,7 @@ impl Client {
 }
 
 impl SettingsClient for Client {
-    fn get_experiements_metadata(&self) -> Result<String> {
+    fn get_experiments_metadata(&self) -> Result<String> {
         unimplemented!();
     }
 
