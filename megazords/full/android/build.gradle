@@ -44,6 +44,46 @@ android {
     }
 }
 
+// Some nasty hacks needed to use nimbus in our megazord. Ideally these should
+// not be in gradle - they are both needed for things other than Android
+// builds - but markh thinks we might need help from releng to make
+// this better (in particularly, we have no control over the tools/scripts which
+// run the jobs which publish this to mozilla-maven.)
+// Specifically:
+// * We need to update submodules - by default we get a checkout but no
+//   submodules populated.
+// * We need to install uniffi-bindgen quite early - it's used by both the
+//   rust build steps and the android build steps.
+
+// There's almost certainly a better way, but this gets the job done.
+tasks.named("preBuild").get().dependsOn(
+    tasks.register("updateSubmodules", Exec) {
+        commandLine 'git', 'submodule', 'update', '--init'
+    }
+)
+
+tasks.named("preBuild").get().dependsOn(
+    tasks.register("installUniffiBindgen", Exec) {
+        commandLine 'cargo', 'install', '--version', '0.3.0', 'uniffi_bindgen'
+    }
+)
+
+// The uniffi magic needed for nimbus.
+android.libraryVariants.all { variant ->
+    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
+        workingDir "${project.projectDir}"
+        // Runs the bindings generation
+        commandLine 'uniffi-bindgen', 'generate', '../../../components/nimbus-sdk/nimbus/src/nimbus.idl', '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+    }
+    tasks.named("compile${name.capitalize()}Kotlin").get().dependsOn(t)
+    def sourceSet = variant.sourceSets.find { it.name == variant.name }
+    sourceSet.java.srcDir new File(buildDir, "generated/source/uniffi/${variant.name}/java")
+    // XXX: I've been trying to make this work but I can't, so the compiled bindings will show as "regular sources" in Android Studio.
+    // XXX: and in the megazord it fails with "unknown property 'idea'" - this is probably
+    // resolved by adding `apply plugin: 'idea'`, but there's no point if it doesn't work :)
+    // idea.module.generatedSourceDirs += file("${buildDir}/generated/source/uniffi/${variant.name}/java/uniffi")
+}
+
 configurations {
     // There's an interaction between Gradle's resolution of dependencies with different types
     // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
@@ -92,7 +132,7 @@ cargo {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-
+    implementation "net.java.dev.jna:jna:$jna_version@aar"
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
 }
 
