@@ -4,6 +4,12 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v64.0.0...main)
 
+## Android
+
+### What's changed ###
+
+- Upgraded the JNA dependency version to 5.5.0. ([#3618](https://github.com/mozilla/application-services/pull/3618))
+
 ## Autofill
 
 ### What's changed ###
