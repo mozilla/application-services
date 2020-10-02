@@ -150,6 +150,9 @@ commands:
         default: "stable"
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: git submodule update --init
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
@@ -256,6 +259,9 @@ jobs:
     resource_class: small
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: git submodule update --init
       - setup-rust-toolchain
       - run: rustup component add rustfmt
       - run: rustfmt --version
@@ -292,6 +298,9 @@ jobs:
     resource_class: small
     steps:
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: git submodule update --init
       - run: ./automation/check_protobuf_files_current.py
   Lint Bash scripts:
     docker:
@@ -310,6 +319,9 @@ jobs:
       - install-rust
       - setup-rust-toolchain
       - checkout
+      - run:
+          name: "Pull Submodules"
+          command: git submodule update --init
       - dependency-checks
   Mirror Bugzilla issues into GitHub:
     docker:

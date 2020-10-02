@@ -1,3 +1,6 @@
 [submodule "components/glean"]
 	path = components/glean
 	url = https://github.com/mozilla/glean
+[submodule "components/nimbus-sdk"]
+	path = components/nimbus-sdk
+	url = https://github.com/mozilla/nimbus-sdk
