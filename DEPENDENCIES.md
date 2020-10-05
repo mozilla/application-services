@@ -459,7 +459,7 @@ The following text applies to code linked from these dependencies:
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
-[flate2](https://github.com/alexcrichton/flate2-rs),
+[flate2](https://github.com/rust-lang/flate2-rs),
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),
 [foreign-types](https://github.com/sfackler/foreign-types),
