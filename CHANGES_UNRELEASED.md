@@ -14,3 +14,4 @@
 
 ### What's changed ###
 - Updated the autofill-utils example app to include API calls for addresses. ([#3605](https://github.com/mozilla/application-services/pull/3605))
+- Added API calls for credit cards. ([#3615](https://github.com/mozilla/application-services/pull/3615))

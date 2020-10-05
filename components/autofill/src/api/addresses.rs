@@ -1,9 +1,9 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::schema::COMMON_COLS;
+use crate::schema::ADDRESS_COMMON_COLS;
 
 use rusqlite::{Connection, Row, NO_PARAMS};
 use serde::Serialize;
@@ -12,7 +12,7 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub struct NewAddressFields {
     pub given_name: String,
 
@@ -49,26 +49,29 @@ pub struct NewAddressFields {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
 pub struct Address {
-    #[serde(rename = "id")]
     pub guid: Guid,
 
     pub fields: NewAddressFields,
 
     #[serde(default)]
+    #[serde(rename = "timeCreated")]
     pub time_created: Timestamp,
 
     #[serde(default)]
+    #[serde(rename = "timeLastUsed")]
     pub time_last_used: Timestamp,
 
     #[serde(default)]
+    #[serde(rename = "timeLastModified")]
     pub time_last_modified: Timestamp,
 
     #[serde(default)]
+    #[serde(rename = "timesUsed")]
     pub times_used: i64,
 
     #[serde(default)]
+    #[serde(rename = "changeCounter")]
     pub(crate) sync_change_counter: i64,
 }
 
@@ -139,7 +142,7 @@ pub fn add_address(conn: &mut Connection, new_address: NewAddressFields) -> Resu
                 :times_used,
                 :sync_change_counter
             )",
-            common_cols = COMMON_COLS
+            common_cols = ADDRESS_COMMON_COLS
         ),
         rusqlite::named_params! {
             ":guid": address.guid,
@@ -175,7 +178,7 @@ pub fn get_address(conn: &mut Connection, guid: &Guid) -> Result<Address> {
             {common_cols}
         FROM addresses_data
         WHERE guid = :guid",
-        common_cols = COMMON_COLS
+        common_cols = ADDRESS_COMMON_COLS
     );
 
     let address = tx.query_row(&sql, &[guid.as_str()], |row| Ok(Address::from_row(row)?))?;
@@ -192,7 +195,7 @@ pub fn get_all_addresses(conn: &mut Connection) -> Result<Vec<Address>> {
         "SELECT
             {common_cols}
         FROM addresses_data",
-        common_cols = COMMON_COLS
+        common_cols = ADDRESS_COMMON_COLS
     );
 
     {
@@ -213,7 +216,7 @@ pub fn update_address(conn: &mut Connection, address: Address) -> Result<()> {
     let tx = conn.transaction()?;
     tx.execute_named(
         "UPDATE addresses_data
-         SET given_name         = :given_name,
+        SET given_name         = :given_name,
             additional_name     = :additional_name,
             family_name         = :family_name,
             organization        = :organization,
@@ -270,7 +273,7 @@ pub fn delete_address(conn: &mut Connection, guid: &Guid) -> Result<bool> {
     if exists {
         tx.execute_named(
             "DELETE FROM addresses_data
-             WHERE guid = :guid",
+            WHERE guid = :guid",
             rusqlite::named_params! {
                 ":guid": guid.as_str(),
             },
@@ -558,7 +561,7 @@ mod tests {
                     :times_used,
                     :sync_change_counter
                 )",
-                common_cols = COMMON_COLS
+                common_cols = ADDRESS_COMMON_COLS
             ),
             rusqlite::named_params! {
                 ":guid": address.guid,
@@ -635,7 +638,7 @@ mod tests {
                     :times_used,
                     :sync_change_counter
                 )",
-                common_cols = COMMON_COLS
+                common_cols = ADDRESS_COMMON_COLS
             ),
             rusqlite::named_params! {
                 ":guid": address.guid,
