@@ -62,10 +62,10 @@ impl NimbusClient {
         })
     }
 
-    pub fn get_experiment_branch(&self, _slug: String) -> Option<String> {
+    pub fn get_experiment_branch(&self, slug: String) -> Option<String> {
         self.enrolled_experiments
             .iter()
-            .find(|e| e.slug == _slug)
+            .find(|e| e.slug == slug)
             .map(|e| e.branch_slug.clone())
     }
 
