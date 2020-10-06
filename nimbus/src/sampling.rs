@@ -76,10 +76,10 @@ pub(crate) fn ratio_sample<T: serde::Serialize>(input: T, ratios: &[u32]) -> Res
         return Err(Error::EmptyRatiosError);
     }
     let input_hash = hex::encode(truncated_hash(input)?);
-    let ratio_total = ratios.iter().fold(0u32, |acc, r| acc + r);
+    let ratio_total: u32 = ratios.iter().sum();
     let mut sample_point = 0;
-    for i in 0..ratios.len() - 1 {
-        sample_point += ratios[i];
+    for (i, ratio) in ratios.iter().enumerate() {
+        sample_point += ratio;
         if input_hash <= fraction_to_key(sample_point as f64 / ratio_total as f64)? {
             return Ok(i);
         }

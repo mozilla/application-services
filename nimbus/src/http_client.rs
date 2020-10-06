@@ -192,7 +192,7 @@ mod tests {
         .with_header("content-type", "application/json")
         .create();
         let config = Config {
-            server_url: Some(mockito::server_url().to_string()),
+            server_url: Some(mockito::server_url()),
             bucket_name: None,
             uuid: None,
         };
