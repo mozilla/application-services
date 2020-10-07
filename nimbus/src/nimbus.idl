@@ -31,7 +31,7 @@ enum Error {
    "InvalidPersistedData", "RkvError", "IOError",
    "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
-    "RequestError", "ResponseError", "InvalidExperimentResponse"
+    "RequestError", "ResponseError", "UuidError", "InvalidExperimentResponse"
 };
 
 interface NimbusClient {

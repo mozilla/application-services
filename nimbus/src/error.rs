@@ -32,6 +32,8 @@ pub enum Error {
     UrlParsingError(#[from] url::ParseError),
     #[error("Error sending request: {0}")]
     RequestError(#[from] viaduct::Error),
+    #[error("UUID parsing error: {0}")]
+    UuidError(#[from] uuid::Error),
     #[error("Error in network response: {0}")]
     ResponseError(String),
     #[error("Invalid experiments response received")]

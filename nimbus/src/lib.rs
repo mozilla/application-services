@@ -10,7 +10,6 @@ mod http_client;
 mod matcher;
 mod persistence;
 mod sampling;
-mod uuid;
 #[cfg(debug_assertions)]
 pub use evaluator::filter_enrolled;
 
@@ -18,20 +17,22 @@ use ::uuid::Uuid;
 pub use config::Config as ExperimentConfig;
 use http_client::{Client, SettingsClient};
 pub use matcher::AppContext;
+use persistence::Database;
 use serde_derive::*;
 use std::path::Path;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
+const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 
 /// Nimbus is the main struct representing the experiments state
 /// It should hold all the information needed to communicate a specific user's
 /// experimentation status
-#[derive(Debug, Clone)]
 pub struct NimbusClient {
     experiments: Vec<Experiment>,
     enrolled_experiments: Vec<EnrolledExperiment>,
     app_context: AppContext,
-    uuid: Uuid,
+    db: Database,
+    id: Uuid,
 }
 
 #[derive(Debug, Clone)]
@@ -46,19 +47,24 @@ impl NimbusClient {
     pub fn new<P: AsRef<Path>>(
         collection_name: String,
         app_context: AppContext,
-        _db_path: P,
+        db_path: P,
         config: Option<ExperimentConfig>,
     ) -> Result<Self> {
         let client = Client::new(&collection_name, config.clone())?;
         let resp = client.get_experiments()?;
-        let uuid = uuid::generate_uuid(config);
-        log::info!("uuid is {}", uuid);
-        let enrolled_experiments = evaluator::filter_enrolled(&uuid, &resp)?;
+        let db = Database::new(db_path)?;
+        let id = match config.map(|c| c.uuid).flatten() {
+            Some(ref uuid) => Uuid::parse_str(uuid)?,
+            None => Self::get_or_create_nimbus_id(&db)?,
+        };
+        log::info!("id is {}", id);
+        let enrolled_experiments = evaluator::filter_enrolled(&id, &resp)?;
         Ok(Self {
             experiments: resp,
             enrolled_experiments,
             app_context,
-            uuid,
+            db,
+            id,
         })
     }
 
@@ -91,6 +97,23 @@ impl NimbusClient {
 
     pub fn update_experiments(&self) -> Result<()> {
         unimplemented!()
+    }
+
+    // TODO: do we want an accessor for `self.id` (which is either passed by config or the nimbus_id),
+    // or do we want a nimbus_id accessor? (what we have now).
+    pub fn nimbus_id(&self) -> Result<Uuid> {
+        Self::get_or_create_nimbus_id(&self.db)
+    }
+
+    fn get_or_create_nimbus_id(db: &Database) -> Result<Uuid> {
+        Ok(match db.get(DB_KEY_NIMBUS_ID)? {
+            Some(nimbus_id) => nimbus_id,
+            None => {
+                let nimbus_id = Uuid::new_v4();
+                db.put(DB_KEY_NIMBUS_ID, &nimbus_id)?;
+                nimbus_id
+            }
+        })
     }
 }
 
