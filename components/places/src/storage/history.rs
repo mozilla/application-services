@@ -1195,7 +1195,11 @@ pub fn get_visited_urls(
     )?)
 }
 
-pub fn get_top_frecent_site_infos(db: &PlacesDb, num_items: i32) -> Result<TopFrecentSiteInfos> {
+pub fn get_top_frecent_site_infos(
+    db: &PlacesDb,
+    num_items: i32,
+    frecency_threshold: i64,
+) -> Result<TopFrecentSiteInfos> {
     // Get the complement of the visit types that should be excluded.
     let allowed_types = VisitTransitionSet::for_specific(&[
         VisitTransition::Download,
@@ -1216,7 +1220,8 @@ pub fn get_top_frecent_site_infos(db: &PlacesDb, num_items: i32) -> Result<TopFr
             WHERE h.id = v.place_id
               AND (SUBSTR(h.url, 1, 6) == 'https:' OR SUBSTR(h.url, 1, 5) == 'http:')
               AND (h.last_visit_date_local + h.last_visit_date_remote) != 0
-              AND ((1 << v.visit_type) & :allowed_types) != 0 AND
+              AND ((1 << v.visit_type) & :allowed_types) != 0
+              AND h.frecency >= :frecency_threshold AND
               NOT h.hidden
         )
         ORDER BY h.frecency DESC
@@ -1224,6 +1229,7 @@ pub fn get_top_frecent_site_infos(db: &PlacesDb, num_items: i32) -> Result<TopFr
         rusqlite::named_params! {
             ":limit": num_items,
             ":allowed_types": allowed_types,
+            ":frecency_threshold": frecency_threshold,
         },
         TopFrecentSiteInfo::from_row,
     )?;

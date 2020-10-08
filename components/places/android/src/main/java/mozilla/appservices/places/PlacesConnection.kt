@@ -280,9 +280,9 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
-    override fun getTopFrecentSiteInfos(numItems: Int): List<TopFrecentSiteInfo> {
+    override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {
         val infoBuffer = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_get_top_frecent_site_infos(this.handle.get(), numItems, error)
+            LibPlacesFFI.INSTANCE.places_get_top_frecent_site_infos(this.handle.get(), numItems, frecencyThreshold.value, error)
         }
         try {
             val infos = MsgTypes.TopFrecentSiteInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
@@ -836,12 +836,14 @@ interface ReadableHistoryConnection : InterruptibleConnection {
 
     /**
      * Returns a list of the top frecent site infos limited by the given number of items
-     * sorted by most to least frecent.
+     * and frecency threshold sorted by most to least frecent.
      *
      * @param numItems the number of top frecent sites to return in the list.
+     * @param frecencyThreshold frecency threshold options for filtering visited sites based on
+     * their frecency score.
      * @return a list of the top frecent site infos sorted by most to least frecent.
      */
-    fun getTopFrecentSiteInfos(numItems: Int): List<TopFrecentSiteInfo>
+    fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo>
 
     /**
      * Maps a list of page URLs to a list of booleans indicating if each URL was visited.
@@ -1202,6 +1204,18 @@ data class TopFrecentSiteInfo(
             }
         }
     }
+}
+
+/**
+ * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
+ * with a frecency score greater or equal to the [value].
+ */
+enum class FrecencyThresholdOption(val value: Long) {
+    /** Returns all visited pages. */
+    NONE(0),
+
+    /** Skip visited pages that were only visited once. */
+    SKIP_ONE_TIME_PAGES(101)
 }
 
 /**
