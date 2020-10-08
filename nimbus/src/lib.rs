@@ -14,7 +14,7 @@ mod sampling;
 pub use evaluator::filter_enrolled;
 
 use ::uuid::Uuid;
-pub use config::Config as ExperimentConfig;
+pub use config::Config;
 use http_client::{Client, SettingsClient};
 pub use matcher::AppContext;
 use persistence::Database;
@@ -48,7 +48,7 @@ impl NimbusClient {
         collection_name: String,
         app_context: AppContext,
         db_path: P,
-        config: Option<ExperimentConfig>,
+        config: Option<Config>,
     ) -> Result<Self> {
         let client = Client::new(&collection_name, config.clone())?;
         let resp = client.get_experiments()?;

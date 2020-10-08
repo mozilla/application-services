@@ -20,7 +20,7 @@ dictionary EnrolledExperiment {
     string branch_slug;
 };
 
-dictionary ExperimentConfig {
+dictionary Config {
     string? server_url;
     string? bucket_name;
 };
@@ -35,7 +35,7 @@ enum Error {
 
 interface NimbusClient {
     [Throws=Error]
-    constructor(string collection_name, AppContext app_ctx, string dbpath, ExperimentConfig? config);
+    constructor(string collection_name, AppContext app_ctx, string dbpath, Config? config);
 
 
     string? get_experiment_branch(string experiment_slug);
