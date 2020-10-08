@@ -161,7 +161,6 @@ mod tests {
         let config = Config {
             server_url: Some(mockito::server_url()),
             bucket_name: None,
-            uuid: None,
         };
         let http_client = Client::new("messaging-experiments", Some(config)).unwrap();
         let resp = http_client.get_experiments().unwrap();

@@ -22,7 +22,6 @@ dictionary EnrolledExperiment {
 
 dictionary ExperimentConfig {
     string? server_url;
-    string? uuid;
     string? bucket_name;
 };
 

@@ -53,11 +53,7 @@ impl NimbusClient {
         let client = Client::new(&collection_name, config.clone())?;
         let resp = client.get_experiments()?;
         let db = Database::new(db_path)?;
-        let id = match config.map(|c| c.uuid).flatten() {
-            Some(ref uuid) => Uuid::parse_str(uuid)?,
-            None => Self::get_or_create_nimbus_id(&db)?,
-        };
-        log::info!("id is {}", id);
+        let id = Self::get_or_create_nimbus_id(&db)?;
         let enrolled_experiments = evaluator::filter_enrolled(&id, &resp)?;
         Ok(Self {
             experiments: resp,

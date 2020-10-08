@@ -74,15 +74,10 @@ fn main() {
 
     log::info!("Collection name is {}", collection_name);
 
-    // For the uuid, we do not set a default value, instead
-    // a random uuid will be generated if none is provided
-    let uuid = config.get("uuid").map(|u| u.as_str().unwrap().to_string());
-
     // initiate the optional config
     let config = ExperimentConfig {
         server_url: Some(server_url.to_string()),
         bucket_name: Some(bucket_name.to_string()),
-        uuid,
     };
 
     // Here we initialize our main `NimbusClient` struct
