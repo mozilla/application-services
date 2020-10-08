@@ -404,6 +404,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
+[ahash](https://github.com/tkaitchuck/ahash),
 [anyhow](https://github.com/dtolnay/anyhow),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
@@ -414,6 +415,8 @@ The following text applies to code linked from these dependencies:
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
 [getrandom](https://github.com/rust-random/getrandom),
+[hashbrown](https://github.com/rust-lang/hashbrown),
+[hashlink](https://github.com/kyren/hashlink),
 [hex](https://github.com/KokaKiwi/rust-hex),
 [idna](https://github.com/servo/rust-url/),
 [itertools](https://github.com/bluss/rust-itertools),
@@ -421,9 +424,7 @@ The following text applies to code linked from these dependencies:
 [jna](https://github.com/java-native-access/jna),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
-[linked-hash-map](https://github.com/contain-rs/linked-hash-map),
 [log](https://github.com/rust-lang/log),
-[lru-cache](https://github.com/contain-rs/lru-cache),
 [once_cell](https://github.com/matklad/once_cell),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
@@ -443,14 +444,11 @@ The following text applies to code linked from these dependencies:
 [syn](https://github.com/dtolnay/syn),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
-[time](https://github.com/time-rs/time),
 [tinyvec](https://github.com/Lokathor/tinyvec),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-xid](https://github.com/unicode-rs/unicode-xid),
-[url](https://github.com/servo/rust-url),
-[winapi-x86_64-pc-windows-gnu](https://github.com/retep998/winapi-rs),
-[winapi](https://github.com/retep998/winapi-rs)
+[url](https://github.com/servo/rust-url)
 
 ```
                               Apache License

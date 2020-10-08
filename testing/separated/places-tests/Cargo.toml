@@ -22,5 +22,5 @@ tempfile = "3.1"
 env_logger = { version = "0.7", default-features = false }
 
 [dev-dependencies.rusqlite]
-version = "0.23.1"
+version = "0.24.1"
 features = ["functions", "bundled"]
