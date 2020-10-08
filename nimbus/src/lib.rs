@@ -32,7 +32,7 @@ pub struct NimbusClient {
     enrolled_experiments: Vec<EnrolledExperiment>,
     app_context: AppContext,
     db: Database,
-    id: Uuid,
+    nimbus_id: Uuid,
 }
 
 #[derive(Debug, Clone)]
@@ -53,14 +53,14 @@ impl NimbusClient {
         let client = Client::new(&collection_name, config.clone())?;
         let resp = client.get_experiments()?;
         let db = Database::new(db_path)?;
-        let id = Self::get_or_create_nimbus_id(&db)?;
-        let enrolled_experiments = evaluator::filter_enrolled(&id, &resp)?;
+        let nimbus_id = Self::get_or_create_nimbus_id(&db)?;
+        let enrolled_experiments = evaluator::filter_enrolled(&nimbus_id, &resp)?;
         Ok(Self {
             experiments: resp,
             enrolled_experiments,
             app_context,
             db,
-            id,
+            nimbus_id,
         })
     }
 
@@ -95,8 +95,6 @@ impl NimbusClient {
         unimplemented!()
     }
 
-    // TODO: do we want an accessor for `self.id` (which is either passed by config or the nimbus_id),
-    // or do we want a nimbus_id accessor? (what we have now).
     pub fn nimbus_id(&self) -> Result<Uuid> {
         Self::get_or_create_nimbus_id(&self.db)
     }
