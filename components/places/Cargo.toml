@@ -34,8 +34,8 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 
 [dependencies.rusqlite]
-version = "0.23.1"
-features = ["functions", "bundled"]
+version = "0.24.1"
+features = ["functions", "bundled", "unlock_notify"]
 
 [dev-dependencies]
 more-asserts = "0.2"
