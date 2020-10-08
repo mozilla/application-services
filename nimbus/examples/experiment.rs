@@ -98,7 +98,7 @@ fn main() {
             nimbus_client
                 .get_all_experiments()
                 .iter()
-                .for_each(|e| println!("Experiment: {}", e.id));
+                .for_each(|e| println!("Experiment: {}", e.slug));
             println!("======================================");
             println!("Printing only enrolled experiments");
             nimbus_client.get_active_experiments().iter().for_each(|e| {

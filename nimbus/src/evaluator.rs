@@ -48,7 +48,7 @@ impl Bucket {
 pub fn filter_enrolled(id: &Uuid, experiments: &[Experiment]) -> Result<Vec<EnrolledExperiment>> {
     let mut res = Vec::with_capacity(experiments.len());
     for exp in experiments {
-        let bucket_config = exp.arguments.bucket_config.clone();
+        let bucket_config = exp.bucket_config.clone();
         if sampling::bucket_sample(
             vec![id.to_string(), bucket_config.namespace],
             bucket_config.start,
@@ -56,12 +56,10 @@ pub fn filter_enrolled(id: &Uuid, experiments: &[Experiment]) -> Result<Vec<Enro
             bucket_config.total,
         )? {
             res.push(EnrolledExperiment {
-                slug: exp.arguments.slug.clone(),
-                user_facing_name: exp.arguments.user_facing_name.clone(),
-                user_facing_description: exp.arguments.user_facing_description.clone(),
-                branch_slug: choose_branch(&exp.arguments.slug, &exp.arguments.branches, id)?
-                    .clone()
-                    .slug,
+                slug: exp.slug.clone(),
+                user_facing_name: exp.user_facing_name.clone(),
+                user_facing_description: exp.user_facing_description.clone(),
+                branch_slug: choose_branch(&exp.slug, &exp.branches, id)?.clone().slug,
             });
         }
     }
@@ -128,7 +126,7 @@ pub(crate) fn targeting(expression_statement: &str, ctx: AppContext) -> Result<b
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BucketConfig, ExperimentArguments, FeatureConfig, Group, RandomizationUnit};
+    use crate::{BucketConfig, Experiment, RandomizationUnit};
     #[test]
     fn test_targeting() {
         // Here's our valid jexl statement
@@ -231,20 +229,12 @@ mod tests {
             Branch {
                 slug: "control".to_string(),
                 ratio: 1,
-                feature: FeatureConfig {
-                    feature_id: Group::Cfr,
-                    enabled: true,
-                    value: None,
-                },
+                feature: None,
             },
             Branch {
                 slug: "blue".to_string(),
                 ratio: 1,
-                feature: FeatureConfig {
-                    feature_id: Group::Cfr,
-                    enabled: true,
-                    value: None,
-                },
+                feature: None,
             },
         ];
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d maps to the second index
@@ -260,35 +250,25 @@ mod tests {
     #[test]
     fn test_filter_enrolled() {
         let experiment1 = Experiment {
-            id: "ID_1".to_string(),
-            targeting: Default::default(),
-            enabled: true,
-            arguments: ExperimentArguments {
-                slug: "TEST_EXP1".to_string(),
-                user_facing_name: Default::default(),
-                user_facing_description: Default::default(),
-                active: true,
-                is_enrollment_paused: false,
-                bucket_config: BucketConfig {
-                    randomization_unit: RandomizationUnit::NormandyId,
-                    namespace: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),
-                    start: 0,
-                    count: 2000,
-                    total: 10000,
-                },
-                features: Default::default(),
-                branches: vec![Branch {slug: "control".to_string(), ratio: 1, feature: FeatureConfig { feature_id: Group::Cfr, enabled: true, value: None }},
-                Branch {slug: "blue".to_string(), ratio: 1, feature: FeatureConfig { feature_id: Group::Cfr, enabled: true, value: None }}],
-                start_date: serde_json::from_str("\"2020-06-17T23:20:47.230Z\"").unwrap(),
-                end_date: Default::default(),
-                proposed_duration: Default::default(),
-                proposed_enrollment: Default::default(),
-                reference_branch: Some("control".to_string())
+            slug: "TEST_EXP1".to_string(),
+            is_enrollment_paused: false,
+            bucket_config: BucketConfig {
+                randomization_unit: RandomizationUnit::NimbusId,
+                namespace: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),
+                start: 0,
+                count: 2000,
+                total: 10000,
             },
+            branches: vec![
+                Branch {slug: "control".to_string(), ratio: 1, feature: None },
+                Branch {slug: "blue".to_string(), ratio: 1, feature: None }
+            ],
+            reference_branch: Some("control".to_string()),
+            ..Default::default()
         };
         let mut experiment2 = experiment1.clone();
-        experiment2.arguments.bucket_config = BucketConfig {
-            randomization_unit: RandomizationUnit::NormandyId,
+        experiment2.bucket_config = BucketConfig {
+            randomization_unit: RandomizationUnit::NimbusId,
             namespace:
                 "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77"
                     .to_string(),
@@ -296,7 +276,7 @@ mod tests {
             count: 3000,
             total: 10000,
         };
-        experiment2.arguments.slug = "TEST_EXP2".to_string();
+        experiment2.slug = "TEST_EXP2".to_string();
         let experiments = vec![experiment1, experiment2];
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d uuid fits in start: 0, count: 2000, total: 10000 with the example namespace, to the treatment-variation-b branch
         // Tested against the desktop implementation

@@ -117,64 +117,49 @@ impl NimbusClient {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct Experiment {
-    pub id: String,
-    pub targeting: Option<String>,
-    pub enabled: bool,
-    pub arguments: ExperimentArguments,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct ExperimentArguments {
+pub struct Experiment {
     pub slug: String,
+    pub application: String,
     pub user_facing_name: String,
     pub user_facing_description: String,
-    pub active: bool,
     pub is_enrollment_paused: bool,
     pub bucket_config: BucketConfig,
-    pub features: Vec<String>,
+    pub probe_sets: Vec<String>,
     pub branches: Vec<Branch>,
-    pub start_date: String,       // TODO: Use a format here
-    pub end_date: Option<String>, // TODO: Use a date format here
-    // TODO: This shouldn't be optional based on the nimbus schema, but it is for now till the servers are updated
+    pub targeting: Option<String>,
+    pub start_date: Option<String>, // TODO: Use a date format here
+    pub end_date: Option<String>,   // TODO: Use a date format here
     pub proposed_duration: Option<u32>,
     pub proposed_enrollment: u32,
     pub reference_branch: Option<String>,
+    // N.B. eecords in RemoteSettings will have `id` and `filter_expression` fields,
+    // but we ignore them because they're for internal use by RemoteSettings.
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeatureConfig {
-    pub feature_id: Group,
+    pub feature_id: String,
     pub enabled: bool,
-    pub value: Option<BranchValue>,
+    // There is a nullable `value` field that can contain key-value config options
+    // that modify the behaviour of an application feature, but we don't support
+    // it yet and the details are still being finalized, so we ignore it for now.
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 pub struct Branch {
     pub slug: String,
     pub ratio: u32,
-    pub feature: FeatureConfig,
+    pub feature: Option<FeatureConfig>,
 }
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum Group {
-    Cfr,
-    AboutWelcome,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct BranchValue {} // TODO: This is not defined explicitly in the nimbus schema yet
 
 fn default_buckets() -> u32 {
     DEFAULT_TOTAL_BUCKETS
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BucketConfig {
     pub randomization_unit: RandomizationUnit,
@@ -188,10 +173,15 @@ pub struct BucketConfig {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum RandomizationUnit {
-    ClientId,
-    NormandyId,
+    NimbusId,
     #[serde(rename = "userId")]
     UserId,
+}
+
+impl Default for RandomizationUnit {
+    fn default() -> Self {
+        Self::NimbusId
+    }
 }
 
 include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));

@@ -108,79 +108,46 @@ impl SettingsClient for Client {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        Branch, BucketConfig, ExperimentArguments, FeatureConfig, Group, RandomizationUnit,
-    };
+    use crate::{Branch, BucketConfig, RandomizationUnit};
     use mockito::mock;
 
     #[test]
     fn test_get_experiments_from_schema() {
         viaduct_reqwest::use_reqwest_backend();
         let body = r#"
-        { "data":
-        [
+        { "data": [
             {
-                "id": "ABOUTWELCOME-PULL-FACTOR-REINFORCEMENT-76-RELEASE",
-                "enabled": true,
-                "targeting": "(firefoxVersion >= 76 && firefoxVersion < 77 && channel == 'release') || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))",
-                "arguments": {
-                    "slug": "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77",
-                    "userFacingName": "About:Welcome Pull Factor Reinforcement",
-                    "userFacingDescription": "4 branch experiment different variants of about:welcome with a goal of testing new experiment framework and get insights on whether reinforcing pull-factors improves retention. Test deployment of multiple branches using new experiment framework",
-                    "isEnrollmentPaused": true,
-                    "active": true,
-                    "bucketConfig": {
-                        "randomizationUnit": "normandy_id",
-                        "namespace": "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77",
-                        "start": 0,
-                        "count": 2000,
-                        "total": 10000
+                "slug": "mobile-a-a-example",
+                "application": "reference-browser",
+                "userFacingName": "Mobile A/A Example",
+                "userFacingDescription": "An A/A Test to validate the Rust SDK",
+                "isEnrollmentPaused": false,
+                "bucketConfig": {
+                    "randomizationUnit": "nimbus_id",
+                    "namespace": "mobile-a-a-example",
+                    "start": 0,
+                    "count": 5000,
+                    "total": 10000
+                },
+                "startDate": null,
+                "endDate": null,
+                "proposedEnrollment": 7,
+                "referenceBranch": "control",
+                "probeSets": [],
+                "branches": [
+                    {
+                    "slug": "control",
+                    "ratio": 1
                     },
-                    "startDate": "2020-06-17T23:20:47.230Z",
-                    "endDate": null,
-                    "proposedDuration": 28,
-                    "proposedEnrollment": 7,
-                    "referenceBranch": "control",
-                    "features": [],
-                    "branches": [
-                        { "slug": "control", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } },
-                        { "slug": "treatment-variation-b", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } }
-                    ]
-                }
+                    {
+                    "slug": "treatment-variation-b",
+                    "ratio": 1
+                    }
+                ]
             },
             {
                 "hello": "bye"
-            },
-            {
-                "id": "ABOUTWELCOME-PULL-FACTOR-REINFORCEMENT-76-RELEASE",
-                "enabled": true,
-                "targeting": "(firefoxVersion >= 76 && firefoxVersion < 77 && channel == 'release') || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))",
-                "arguments": {
-                    "slug": "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77",
-                    "userFacingName": "About:Welcome Pull Factor Reinforcement",
-                    "userFacingDescription": "4 branch experiment different variants of about:welcome with a goal of testing new experiment framework and get insights on whether reinforcing pull-factors improves retention. Test deployment of multiple branches using new experiment framework",
-                    "isEnrollmentPaused": true,
-                    "active": true,
-                    "bucketConfig": {
-                        "randomizationUnit": "normandy_id",
-                        "namespace": "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77",
-                        "start": 0,
-                        "count": 2000,
-                        "total": 10000
-                    },
-                    "startDate": "2020-06-17T23:20:47.230Z",
-                    "endDate": null,
-                    "proposedDuration": 28,
-                    "proposedEnrollment": 7,
-                    "referenceBranch": "control",
-                    "features": [],
-                    "branches": [
-                        { "slug": "control", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } },
-                        { "slug": "treatment-variation-b", "ratio": 1, "feature": { "featureId": "cfr", "enabled": true, "value": null } }
-                    ]
-                }
             }
-
         ]}
           "#;
         let m = mock(
@@ -199,36 +166,43 @@ mod tests {
         let http_client = Client::new("messaging-experiments", Some(config)).unwrap();
         let resp = http_client.get_experiments().unwrap();
         m.expect(1).assert();
-        assert_eq!(resp.len(), 2);
+        assert_eq!(resp.len(), 1);
         let exp = &resp[0];
-        assert_eq!(exp.clone(), Experiment {
-            id: "ABOUTWELCOME-PULL-FACTOR-REINFORCEMENT-76-RELEASE".to_string(),
-            enabled: true,
-            targeting: Some("(firefoxVersion >= 76 && firefoxVersion < 77 && channel == 'release') || (locale == 'en-US' && [userId, \"aboutwelcome-pull-factor-reinforcement-76-release\"]|bucketSample(0, 2000, 10000) && (!('trailhead.firstrun.didSeeAboutWelcome'|preferenceValue) || 'bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77' in activeExperiments))".to_string()),
-            arguments: ExperimentArguments {
-                    slug: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),
-                    user_facing_name: "About:Welcome Pull Factor Reinforcement".to_string(),
-                    user_facing_description: "4 branch experiment different variants of about:welcome with a goal of testing new experiment framework and get insights on whether reinforcing pull-factors improves retention. Test deployment of multiple branches using new experiment framework".to_string(),
-                    is_enrollment_paused: true,
-                    active: true,
-                    bucket_config: BucketConfig {
-                        randomization_unit: RandomizationUnit::NormandyId,
-                        namespace: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),
-                        start: 0,
-                        count: 2000,
-                        total: 10000
-                    },
-                    start_date: serde_json::from_str("\"2020-06-17T23:20:47.230Z\"").unwrap(),
-                    end_date: None,
-                    proposed_duration: Some(28),
-                    proposed_enrollment: 7,
-                    reference_branch: Some("control".to_string()),
-                    features: vec![],
-                    branches: vec![
-                        Branch { slug: "control".to_string(), ratio: 1, feature: FeatureConfig { feature_id: Group::Cfr, enabled: true, value: None } },
-                        Branch { slug: "treatment-variation-b".to_string(), ratio: 1, feature: FeatureConfig { feature_id: Group::Cfr, enabled: true, value: None } }
-                    ]
+        assert_eq!(
+            exp.clone(),
+            Experiment {
+                slug: "mobile-a-a-example".to_string(),
+                application: "reference-browser".to_string(),
+                user_facing_name: "Mobile A/A Example".to_string(),
+                user_facing_description: "An A/A Test to validate the Rust SDK".to_string(),
+                is_enrollment_paused: false,
+                bucket_config: BucketConfig {
+                    randomization_unit: RandomizationUnit::NimbusId,
+                    namespace: "mobile-a-a-example".to_string(),
+                    start: 0,
+                    count: 5000,
+                    total: 10000
                 },
-        })
+                start_date: None,
+                end_date: None,
+                proposed_duration: None,
+                proposed_enrollment: 7,
+                reference_branch: Some("control".to_string()),
+                probe_sets: vec![],
+                branches: vec![
+                    Branch {
+                        slug: "control".to_string(),
+                        ratio: 1,
+                        feature: None
+                    },
+                    Branch {
+                        slug: "treatment-variation-b".to_string(),
+                        ratio: 1,
+                        feature: None
+                    },
+                ],
+                targeting: None,
+            }
+        )
     }
 }
