@@ -25,6 +25,10 @@ dictionary Config {
     string? bucket_name;
 };
 
+dictionary AvailableRandomizationUnits {
+    string? client_id;
+};
+
 [Error]
 enum Error {
    "InvalidPersistedData", "RkvError", "IOError",
@@ -35,7 +39,13 @@ enum Error {
 
 interface NimbusClient {
     [Throws=Error]
-    constructor(string collection_name, AppContext app_ctx, string dbpath, Config? config);
+    constructor(
+        string collection_name,
+        AppContext app_ctx,
+        string dbpath,
+        Config? config,
+        AvailableRandomizationUnits available_randomization_units
+    );
 
 
     string? get_experiment_branch(string experiment_slug);

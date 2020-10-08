@@ -49,12 +49,14 @@ impl NimbusClient {
         app_context: AppContext,
         db_path: P,
         config: Option<Config>,
+        available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
         let client = Client::new(&collection_name, config.clone())?;
         let resp = client.get_experiments()?;
         let db = Database::new(db_path)?;
         let nimbus_id = Self::get_or_create_nimbus_id(&db)?;
-        let enrolled_experiments = evaluator::filter_enrolled(&nimbus_id, &resp)?;
+        let enrolled_experiments =
+            evaluator::filter_enrolled(&nimbus_id, &available_randomization_units, &resp)?;
         Ok(Self {
             experiments: resp,
             enrolled_experiments,
@@ -95,8 +97,8 @@ impl NimbusClient {
         unimplemented!()
     }
 
-    pub fn nimbus_id(&self) -> Result<Uuid> {
-        Self::get_or_create_nimbus_id(&self.db)
+    pub fn nimbus_id(&self) -> Uuid {
+        self.nimbus_id
     }
 
     fn get_or_create_nimbus_id(db: &Database) -> Result<Uuid> {
@@ -174,6 +176,23 @@ pub enum RandomizationUnit {
 impl Default for RandomizationUnit {
     fn default() -> Self {
         Self::NimbusId
+    }
+}
+
+pub struct AvailableRandomizationUnits {
+    pub client_id: Option<String>,
+}
+
+impl AvailableRandomizationUnits {
+    pub fn get_value<'a>(
+        &'a self,
+        nimbus_id: &'a str,
+        wanted: &'a RandomizationUnit,
+    ) -> Option<&'a str> {
+        match wanted {
+            RandomizationUnit::NimbusId => Some(nimbus_id),
+            RandomizationUnit::ClientId => self.client_id.as_deref(),
+        }
     }
 }
 

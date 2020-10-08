@@ -9,7 +9,10 @@
 
 //! TODO: Implement the bucketing logic from the nimbus project
 
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    AvailableRandomizationUnits,
+};
 use crate::{matcher::AppContext, sampling};
 use crate::{Branch, EnrolledExperiment, Experiment};
 use jexl_eval::Evaluator;
@@ -29,7 +32,8 @@ impl Bucket {
 ///
 /// # Arguments:
 ///
-/// - `id` The user's id
+/// - `nimbus_id` The auto-generated nimbus_id
+/// - `available_randomization_units`: The app provded available randomization units
 /// - `experiments` A list of experiments, usually retrieved from the network or persisted storage
 ///
 /// # Returns:
@@ -45,12 +49,29 @@ impl Bucket {
 /// - If the bucket sampling failed (i.e we could not find if the user should or should not be enrolled in the experiment based on the bucketing)
 /// - If an error occurs while determining the branch the user should be enrolled in any of the experiments
 #[allow(dead_code)]
-pub fn filter_enrolled(id: &Uuid, experiments: &[Experiment]) -> Result<Vec<EnrolledExperiment>> {
+pub fn filter_enrolled(
+    nimbus_id: &Uuid,
+    available_randomization_units: &AvailableRandomizationUnits,
+    experiments: &[Experiment],
+) -> Result<Vec<EnrolledExperiment>> {
+    let nimbus_id = nimbus_id.to_string();
     let mut res = Vec::with_capacity(experiments.len());
     for exp in experiments {
         let bucket_config = exp.bucket_config.clone();
+        let id = match available_randomization_units
+            .get_value(&nimbus_id, &bucket_config.randomization_unit)
+        {
+            Some(id) => id,
+            None => {
+                log::info!(
+                    "Could not find a suitable randomization unit for {}. Skipping experiment.",
+                    &exp.slug
+                );
+                continue;
+            }
+        };
         if sampling::bucket_sample(
-            vec![id.to_string(), bucket_config.namespace],
+            vec![id.to_owned(), bucket_config.namespace],
             bucket_config.start,
             bucket_config.count,
             bucket_config.total,
@@ -59,7 +80,7 @@ pub fn filter_enrolled(id: &Uuid, experiments: &[Experiment]) -> Result<Vec<Enro
                 slug: exp.slug.clone(),
                 user_facing_name: exp.user_facing_name.clone(),
                 user_facing_description: exp.user_facing_description.clone(),
-                branch_slug: choose_branch(&exp.slug, &exp.branches, id)?.clone().slug,
+                branch_slug: choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
             });
         }
     }
@@ -90,7 +111,7 @@ pub fn filter_enrolled(id: &Uuid, experiments: &[Experiment]) -> Result<Vec<Enro
 pub(crate) fn choose_branch<'a>(
     slug: &str,
     branches: &'a [Branch],
-    id: &Uuid,
+    id: &str,
 ) -> Result<&'a Branch> {
     let ratios = branches.iter().map(|b| b.ratio).collect::<Vec<_>>();
     // Note: The "experiment-manager" here comes from https://searchfox.org/mozilla-central/source/toolkit/components/messaging-system/experiments/ExperimentManager.jsm#421
@@ -239,11 +260,11 @@ mod tests {
         ];
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d maps to the second index
         let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
-        let b = choose_branch(slug, &branches, &id).unwrap();
+        let b = choose_branch(slug, &branches, &id.to_string()).unwrap();
         assert_eq!(b.slug, "blue");
         // 542213c0-9aef-47eb-bc6b-3b8529736ba2 maps to the first index
         let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
-        let b = choose_branch(slug, &branches, &id).unwrap();
+        let b = choose_branch(slug, &branches, &id.to_string()).unwrap();
         assert_eq!(b.slug, "control");
     }
 
@@ -268,26 +289,31 @@ mod tests {
         };
         let mut experiment2 = experiment1.clone();
         experiment2.bucket_config = BucketConfig {
-            randomization_unit: RandomizationUnit::NimbusId,
+            randomization_unit: RandomizationUnit::ClientId,
             namespace:
                 "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77"
                     .to_string(),
-            start: 2000,
-            count: 3000,
+            start: 9000,
+            count: 1000,
             total: 10000,
         };
         experiment2.slug = "TEST_EXP2".to_string();
         let experiments = vec![experiment1, experiment2];
+        let available_randomization_units = AvailableRandomizationUnits {
+            client_id: None, // We will not match EXP_2 because we don't have the necessary randomization unit.
+        };
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d uuid fits in start: 0, count: 2000, total: 10000 with the example namespace, to the treatment-variation-b branch
         // Tested against the desktop implementation
         let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
-        let enrolled = filter_enrolled(&id, &experiments).unwrap();
+        let enrolled = filter_enrolled(&id, &available_randomization_units, &experiments).unwrap();
         assert_eq!(enrolled.len(), 1);
         assert_eq!(enrolled[0].slug, "TEST_EXP1");
-        // 542213c0-9aef-47eb-bc6b-3b8529736ba2 uuid fits in start: 2000, count: 3000, total: 10000 with the example namespace, to the control branch
-        // Tested against the desktop implementation
+        // Fits because of the client_id.
+        let available_randomization_units = AvailableRandomizationUnits {
+            client_id: Some("bobo".to_string()),
+        };
         let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
-        let enrolled = filter_enrolled(&id, &experiments).unwrap();
+        let enrolled = filter_enrolled(&id, &available_randomization_units, &experiments).unwrap();
         assert_eq!(enrolled.len(), 1);
         assert_eq!(enrolled[0].slug, "TEST_EXP2");
     }

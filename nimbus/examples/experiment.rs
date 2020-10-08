@@ -4,7 +4,7 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
-use nimbus::{AppContext, Config, NimbusClient};
+use nimbus::{AppContext, AvailableRandomizationUnits, Config, NimbusClient};
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
@@ -80,9 +80,17 @@ fn main() {
         bucket_name: Some(bucket_name.to_string()),
     };
 
+    let available_randomization_units = AvailableRandomizationUnits { client_id: None };
+
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client =
-        NimbusClient::new(collection_name.to_string(), context, "", Some(config)).unwrap();
+    let nimbus_client = NimbusClient::new(
+        collection_name.to_string(),
+        context,
+        "",
+        Some(config),
+        available_randomization_units,
+    )
+    .unwrap();
 
     // We match against the subcommands
     match matches.subcommand() {
@@ -114,11 +122,15 @@ fn main() {
             let all_experiments = nimbus_client.get_all_experiments();
             let mut num_of_experiments_enrolled = 0;
             let mut uuid = uuid::Uuid::new_v4();
+            let available_randomization_units = AvailableRandomizationUnits {
+                client_id: Some("bobo".to_string()),
+            };
             while num_of_experiments_enrolled != num {
                 uuid = uuid::Uuid::new_v4();
-                num_of_experiments_enrolled = nimbus::filter_enrolled(&uuid, &all_experiments)
-                    .unwrap()
-                    .len()
+                num_of_experiments_enrolled =
+                    nimbus::filter_enrolled(&uuid, &available_randomization_units, &all_experiments)
+                        .unwrap()
+                        .len()
             }
             println!("======================================");
             println!("Generated UUID is: {}", uuid);
