@@ -168,6 +168,7 @@ open class RustFxAccount {
     /// the desired scope.
     open func getAccessToken(scope: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
         let ptr = try rustCall { err in
+            // A zero ttl here means to use the server-controlled default.
             fxa_get_access_token(self.raw, scope, ttl ?? .zero, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
