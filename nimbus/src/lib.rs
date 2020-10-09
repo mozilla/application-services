@@ -14,7 +14,7 @@ mod sampling;
 pub use evaluator::filter_enrolled;
 
 use ::uuid::Uuid;
-pub use config::Config;
+pub use config::RemoteSettingsConfig;
 use http_client::{Client, SettingsClient};
 pub use matcher::AppContext;
 use persistence::Database;
@@ -48,7 +48,7 @@ impl NimbusClient {
         collection_name: String,
         app_context: AppContext,
         db_path: P,
-        config: Option<Config>,
+        config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
         let client = Client::new(&collection_name, config.clone())?;

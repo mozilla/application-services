@@ -4,7 +4,7 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
-use nimbus::{AppContext, AvailableRandomizationUnits, Config, NimbusClient};
+use nimbus::{AppContext, AvailableRandomizationUnits, NimbusClient, RemoteSettingsConfig};
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
@@ -75,7 +75,7 @@ fn main() {
     log::info!("Collection name is {}", collection_name);
 
     // initiate the optional config
-    let config = Config {
+    let config = RemoteSettingsConfig {
         server_url: Some(server_url.to_string()),
         bucket_name: Some(bucket_name.to_string()),
     };

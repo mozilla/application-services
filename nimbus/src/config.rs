@@ -13,7 +13,7 @@
 /// - `server_url`: The url for the settings server that would be used to retrieve experiments
 /// - `bucket_name`: The name of the bucket containing the collection on the server
 #[derive(Debug, Clone)]
-pub struct Config {
+pub struct RemoteSettingsConfig {
     pub server_url: Option<String>,
     pub bucket_name: Option<String>,
 }

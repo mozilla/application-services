@@ -63,6 +63,8 @@ pub fn filter_enrolled(
         {
             Some(id) => id,
             None => {
+                // XXX: When we link we glean, it would be nice
+                // if we could emit a failure telemetry event here.
                 log::info!(
                     "Could not find a suitable randomization unit for {}. Skipping experiment.",
                     &exp.slug

@@ -14,7 +14,7 @@
 //! But the simple subset implemented here meets our needs for now.
 
 use super::Experiment;
-use crate::config::Config;
+use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
 use url::Url;
 use viaduct::{status_codes, Request, Response};
@@ -36,8 +36,11 @@ pub struct Client {
 
 impl Client {
     #[allow(unused)]
-    pub fn new(collection_name: &str, config: Option<Config>) -> Result<Self> {
-        let (base_url, bucket_name) = Self::get_params_from_config(config)?;
+    pub fn new(
+        collection_name: &str,
+        remote_settings_config: Option<RemoteSettingsConfig>,
+    ) -> Result<Self> {
+        let (base_url, bucket_name) = Self::get_params_from_config(remote_settings_config)?;
         Ok(Self {
             base_url,
             collection_name: collection_name.to_string(),
@@ -45,7 +48,7 @@ impl Client {
         })
     }
 
-    fn get_params_from_config(config: Option<Config>) -> Result<(Url, String)> {
+    fn get_params_from_config(config: Option<RemoteSettingsConfig>) -> Result<(Url, String)> {
         Ok(match config {
             Some(config) => {
                 let base_url = config
@@ -158,7 +161,7 @@ mod tests {
         .with_status(200)
         .with_header("content-type", "application/json")
         .create();
-        let config = Config {
+        let config = RemoteSettingsConfig {
             server_url: Some(mockito::server_url()),
             bucket_name: None,
         };
