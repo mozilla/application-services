@@ -26,10 +26,7 @@ impl<'a> ValidatedTag<'a> {
     /// Returns `true` if the original tag is valid; `false` if it's invalid or
     /// normalized.
     pub fn is_original(&self) -> bool {
-        match &self {
-            ValidatedTag::Original(_) => true,
-            _ => false,
-        }
+        matches!(&self, ValidatedTag::Original(_))
     }
 
     /// Returns the tag string if the tag is valid or normalized, or an error

@@ -82,11 +82,7 @@ enum DbData {
 
 impl DbData {
     fn has_data(&self) -> bool {
-        if let DbData::Data(_) = self {
-            true
-        } else {
-            false
-        }
+        matches!(self, DbData::Data(_))
     }
 }
 

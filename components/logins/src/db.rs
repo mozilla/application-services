@@ -1540,9 +1540,9 @@ mod tests {
             .into_iter()
             .map(|l| l.hostname)
             .collect::<Vec<String>>();
-        results.sort();
+        results.sort_unstable();
         let mut sorted = expected.to_owned();
-        sorted.sort();
+        sorted.sort_unstable();
         assert_eq!(sorted, results);
     }
 

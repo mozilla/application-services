@@ -214,20 +214,11 @@ mod tests {
         FirefoxAccount::with_config(config)
     }
 
-    macro_rules! assert_match {
-        ($value:expr, $pattern:pat) => {
-            assert!(match $value {
-                $pattern => true,
-                _ => false,
-            });
-        };
-    }
-
     #[test]
     fn test_migration_can_retry_after_network_errors() {
         let mut fxa = setup();
 
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
 
         // Initial attempt fails with a server-side failure, which we can retry.
         let mut client = FxAClientMock::new();
@@ -246,11 +237,11 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
-        assert_match!(err.kind(), ErrorKind::RemoteError { code: 500, .. });
-        assert_match!(
+        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 500, .. }));
+        assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::CopySessionToken
-        );
+        ));
 
         // Retrying can succeed.
         // It makes a lot of network requests, so we have a lot to mock!
@@ -300,14 +291,14 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         fxa.try_migration().unwrap();
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
 
     #[test]
     fn test_migration_cannot_retry_after_other_errors() {
         let mut fxa = setup();
 
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
 
         let mut client = FxAClientMock::new();
         client
@@ -325,26 +316,26 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
-        assert_match!(err.kind(), ErrorKind::RemoteError { code: 400, .. });
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 400, .. }));
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
 
     #[test]
     fn try_migration_fails_if_nothing_in_flight() {
         let mut fxa = setup();
 
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
 
         let err = fxa.try_migration().unwrap_err();
-        assert_match!(err.kind(), ErrorKind::NoMigrationData);
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(err.kind(), ErrorKind::NoMigrationData));
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
 
     #[test]
     fn test_migration_state_remembers_whether_to_copy_session_token() {
         let mut fxa = setup();
 
-        assert_match!(fxa.is_in_migration_state(), MigrationState::None);
+        assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
 
         let mut client = FxAClientMock::new();
         client
@@ -367,11 +358,11 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", false)
             .unwrap_err();
-        assert_match!(err.kind(), ErrorKind::RemoteError { code: 500, .. });
-        assert_match!(
+        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 500, .. }));
+        assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::ReuseSessionToken
-        );
+        ));
 
         // Retrying should fail again in the same way (as opposed to, say, trying
         // to duplicate the sessionToken rather than reusing it).
@@ -394,10 +385,10 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         let err = fxa.try_migration().unwrap_err();
-        assert_match!(err.kind(), ErrorKind::RemoteError { code: 500, .. });
-        assert_match!(
+        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 500, .. }));
+        assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::ReuseSessionToken
-        );
+        ));
     }
 }
