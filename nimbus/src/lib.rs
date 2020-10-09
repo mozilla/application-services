@@ -168,8 +168,7 @@ pub struct BucketConfig {
 #[serde(rename_all = "snake_case")]
 pub enum RandomizationUnit {
     NimbusId,
-    #[serde(rename = "userId")]
-    UserId,
+    ClientId,
 }
 
 impl Default for RandomizationUnit {
