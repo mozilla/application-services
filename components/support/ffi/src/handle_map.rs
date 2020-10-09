@@ -120,10 +120,7 @@ enum EntryState<T> {
 impl<T> EntryState<T> {
     #[cfg(any(debug_assertions, test))]
     fn is_end_of_list(&self) -> bool {
-        match self {
-            EntryState::EndOfFreeList => true,
-            _ => false,
-        }
+        matches!(self, EntryState::EndOfFreeList)
     }
 
     #[inline]

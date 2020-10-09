@@ -361,10 +361,10 @@ mod tests {
             visits: vec![],
         };
 
-        assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Invalid(_) => true,
-            _ => false,
-        });
+        assert!(matches!(
+            plan_incoming_record(&conn, record, 10),
+            IncomingPlan::Invalid(_)
+        ));
         Ok(())
     }
 
@@ -381,10 +381,10 @@ mod tests {
             visits: vec![],
         };
 
-        assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Invalid(_) => true,
-            _ => false,
-        });
+        assert!(matches!(
+            plan_incoming_record(&conn, record, 10),
+            IncomingPlan::Invalid(_)
+        ));
         Ok(())
     }
 
@@ -405,10 +405,7 @@ mod tests {
             visits,
         };
 
-        assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply { .. } => true,
-            _ => false,
-        });
+        assert!(matches!(plan_incoming_record(&conn, record, 10), IncomingPlan::Apply{..}));
         Ok(())
     }
 
@@ -442,10 +439,10 @@ mod tests {
             visits,
         };
         // We should have reconciled it.
-        assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Reconciled => true,
-            _ => false,
-        });
+        assert!(matches!(
+            plan_incoming_record(&conn, record, 10),
+            IncomingPlan::Reconciled
+        ));
         Ok(())
     }
 
@@ -474,10 +471,7 @@ mod tests {
         };
         // Even though there are no visits we should record that it will be
         // applied with the guid change.
-        assert!(match plan_incoming_record(&conn, record, 10) {
-            IncomingPlan::Apply { .. } => true,
-            _ => false,
-        });
+        assert!(matches!(plan_incoming_record(&conn, record, 10), IncomingPlan::Apply{..}));
     }
 
     // These "dupe" tests all do the full application of the plan and checks
@@ -745,10 +739,7 @@ mod tests {
         let plan = plan_incoming_record(&db, record, 10);
         // We expect "Reconciled" because after skipping the invalid visit
         // we found nothing to apply.
-        assert!(match plan {
-            IncomingPlan::Reconciled => true,
-            _ => false,
-        });
+        assert!(matches!(plan, IncomingPlan::Reconciled));
         Ok(())
     }
 

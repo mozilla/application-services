@@ -3651,7 +3651,7 @@ mod tests {
             .into_iter()
             .map(|p| p.id.as_str())
             .collect::<Vec<_>>();
-        outgoing_record_ids.sort();
+        outgoing_record_ids.sort_unstable();
         assert_eq!(
             outgoing_record_ids,
             &["bookmarkFFFF", "menu", "mobile", "toolbar", "unfiled"],
