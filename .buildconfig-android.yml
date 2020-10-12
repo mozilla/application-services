@@ -1,6 +1,6 @@
 # This is the nimbus-megazord branch, so we use a custom version string,
 # but one which is always "less than" a real release
-libraryVersion: 0.64.5-nimbus
+libraryVersion: 0.64.6-nimbus
 groupId: org.mozilla.appservices
 projects:
   fxaclient:
