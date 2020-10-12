@@ -24,4 +24,4 @@ lazy_static = "1.4"
 
 [dependencies.backtrace]
 optional = true
-version = "0.3.48"
+version = "0.3.53"
