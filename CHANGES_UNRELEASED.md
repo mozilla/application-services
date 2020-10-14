@@ -8,7 +8,7 @@
 
 ### What's changed ###
 
-- Upgraded the JNA dependency version to 5.5.0. ([#3618](https://github.com/mozilla/application-services/pull/3618))
+- Upgraded the JNA dependency version to 5.6.0. ([#3647](https://github.com/mozilla/application-services/pull/3647))
 
 ## Autofill
 
