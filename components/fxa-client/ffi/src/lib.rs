@@ -327,6 +327,11 @@ pub extern "C" fn fxa_retry_migrate_from_session_token(
 ///
 /// If not, the caller must start an OAuth flow with [fxa_begin_oauth_flow].
 ///
+/// Arguments:
+///   * scope: space-separated list of scopes that the token should have
+///   * ttl: the time in seconds for which the token should be valid
+///          (or zero to use the server-controlled default ttl)
+///
 /// # Safety
 ///
 /// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this

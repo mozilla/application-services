@@ -295,6 +295,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getAccessToken(scope: String, ttl: Long? = null): AccessTokenInfo {
         val buffer = rustCallWithLock { e ->
+            // A zero ttl here means to use the server-controlled default.
             LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, ttl ?: 0L, e)
         }
         this.tryPersistState()
