@@ -782,6 +782,7 @@ dependencies = [
  "jexl-eval",
  "log",
  "mockito",
+ "once_cell",
  "rkv",
  "serde",
  "serde_derive",
