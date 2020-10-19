@@ -1,2 +1,2 @@
-github "apple/swift-protobuf" "1.10.0"
-github "jrendel/SwiftKeychainWrapper" "3.4.0"
+github "apple/swift-protobuf" "1.12.0"
+github "jrendel/SwiftKeychainWrapper" "4.0.1"
