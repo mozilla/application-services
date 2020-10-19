@@ -6,7 +6,7 @@ import Foundation
 
 /// Snarfed from firefox-ios, although we don't have the fake desktop root,
 /// and we only have the `All` Set.
-public struct BookmarkRoots {
+public enum BookmarkRoots {
     public static let RootGUID = "root________"
     public static let MobileFolderGUID = "mobile______"
     public static let MenuFolderGUID = "menu________"

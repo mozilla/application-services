@@ -47,7 +47,7 @@ internal enum Event {
 extension FxAccountManager {
     // State transition matrix. Returns nil if there's no transition.
     // swiftlint:disable function_body_length
-    internal static func nextState(state: AccountState, event: Event) -> AccountState? {
+    static func nextState(state: AccountState, event: Event) -> AccountState? {
         switch state {
         case .start:
             switch event {
