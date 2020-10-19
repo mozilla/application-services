@@ -321,6 +321,16 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/rusqlite/rusqlite/master/LICENSE",
         }
     },
+    "miniz_oxide": {
+        "license": {
+            "check": "MIT OR Zlib OR Apache-2.0",
+            "fixup": "MIT"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/Frommi/miniz_oxide/master/miniz_oxide/LICENSE-MIT.md",
+        }
+    },
     "phf": {
         "repository": {
             "check": "https://github.com/sfackler/rust-phf",

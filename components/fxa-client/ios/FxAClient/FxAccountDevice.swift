@@ -80,7 +80,7 @@ public enum DeviceCapability {
 }
 
 extension Array where Element == DeviceCapability {
-    internal func toCollectionMsg() -> MsgTypes_Capabilities {
+    func toCollectionMsg() -> MsgTypes_Capabilities {
         MsgTypes_Capabilities.with {
             $0.capability = self.map { $0.toMsg() }
         }
