@@ -24,6 +24,6 @@ viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 cli-support = { path = "../cli-support" }
 fxa-client = { path = "../../components/fxa-client" }
 anyhow = "1.0"
-dialoguer = "0.6"
+dialoguer = "0.7"
 webbrowser = "0.5"
 url = "2.1"
