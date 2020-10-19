@@ -48,14 +48,35 @@ interface NimbusClient {
     );
 
 
+    // Returns the branch allocated for a given experiment ID. Returns null
+    // if the user is not enrolled in the specified experiment or if the
+    // specified experiment does not exist.
+    [Throws=Error]
     string? get_experiment_branch(string experiment_slug);
 
+    // Returns a list of experiments this user is enrolled in.
+    [Throws=Error]
     sequence<EnrolledExperiment> get_active_experiments();
 
-    void opt_in_with_branch(string experiment_slug, string branch);
-    void opt_out(string experiment_slug);
-    void opt_out_all();
-
+    // Updates the list of experiments from the server. After calling this, the
+    // list of active experiments might change (there might be new experiments,
+    // or old experiments might have expired)
     [Throws=Error]
     void update_experiments();
+
+    // These are test-only functions and should never be exposed to production
+    // users, as they mess with the "statistical requirements" of the SDK.
+
+    // Opt in to a specific branch on a specific experiment. Useful for
+    // developers to test their app's interaction with the experiment.
+    [Throws=Error]
+    void opt_in_with_branch(string experiment_slug, string branch);
+
+    // Opt out of a specific experiment.
+    [Throws=Error]
+    void opt_out(string experiment_slug);
+
+    [Throws=Error]
+    void reset_enrollment(string experiment_slug);
+
 };

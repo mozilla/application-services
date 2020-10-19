@@ -16,9 +16,9 @@ pub enum Error {
     IOError(#[from] std::io::Error),
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
-    #[error("EvaluationError")]
-    EvaluationError,
-    #[error("Invalid Expression")]
+    #[error("EvaluationError: {0}")]
+    EvaluationError(String),
+    #[error("Invalid Expression - didn't evaluate to a bool")]
     InvalidExpression,
     #[error("InvalidFractionError: Should be between 0 and 1")]
     InvalidFraction,
@@ -49,9 +49,8 @@ impl From<rkv::StoreError> for Error {
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for Error {
-    fn from(_eval_error: jexl_eval::error::EvaluationError<'a>) -> Self {
-        // TODO: have the eval_error as a part of our error
-        Error::EvaluationError
+    fn from(eval_error: jexl_eval::error::EvaluationError<'a>) -> Self {
+        Error::EvaluationError(eval_error.to_string())
     }
 }
 

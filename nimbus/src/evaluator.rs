@@ -9,12 +9,13 @@
 
 //! TODO: Implement the bucketing logic from the nimbus project
 
+use crate::enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment};
 use crate::{
     error::{Error, Result},
     AvailableRandomizationUnits,
 };
 use crate::{matcher::AppContext, sampling};
-use crate::{Branch, EnrolledExperiment, Experiment};
+use crate::{Branch, Experiment};
 use jexl_eval::Evaluator;
 use serde_derive::*;
 use uuid::Uuid;
@@ -28,65 +29,80 @@ impl Bucket {
     }
 }
 
-/// Filter incoming experiments and enroll users in the appropriate branch
+/// Determine the enrolment status for an experiment.
 ///
 /// # Arguments:
 ///
 /// - `nimbus_id` The auto-generated nimbus_id
 /// - `available_randomization_units`: The app provded available randomization units
-/// - `experiments` A list of experiments, usually retrieved from the network or persisted storage
+/// - `experiment` - The experiment.
 ///
-/// # Returns:
-///
-/// Returns a list of `EnrolledExperiments` that only includes experiments that the user is enrolled in
-/// the `EnrolledExperiments` struct contains a `branch` member to indicate the branch chosen for
-/// the user.
-///
+/// An `ExperimentEnrollment` -  you need to inspect the EnrollmentStatus to
+/// determine if the user is actually enrolled.
 /// # Errors:
 ///
 /// The function can return errors in one of the following cases (but not limited to):
 ///
 /// - If the bucket sampling failed (i.e we could not find if the user should or should not be enrolled in the experiment based on the bucketing)
 /// - If an error occurs while determining the branch the user should be enrolled in any of the experiments
-#[allow(dead_code)]
-pub fn filter_enrolled(
+pub fn evaluate_enrollment(
     nimbus_id: &Uuid,
     available_randomization_units: &AvailableRandomizationUnits,
-    experiments: &[Experiment],
-) -> Result<Vec<EnrolledExperiment>> {
-    let nimbus_id = nimbus_id.to_string();
-    let mut res = Vec::with_capacity(experiments.len());
-    for exp in experiments {
+    app_context: &AppContext,
+    exp: &Experiment,
+) -> Result<ExperimentEnrollment> {
+    // get targeting out of the way first - "if let chains" are experimental,
+    // otherwise we could improve this.
+    if let Some(expr) = &exp.targeting {
+        if let Some(status) = targeting(expr, app_context) {
+            return Ok(ExperimentEnrollment {
+                slug: exp.slug.clone(),
+                status,
+            });
+        }
+    }
+    let status = if exp.is_enrollment_paused {
+        // TODO: We also need to be passed a server timestamp and check the
+        // start_date and end_date.
+        EnrollmentStatus::NotRunning
+    } else {
+        // We are going to see if we qualify for the bucketing etc.
         let bucket_config = exp.bucket_config.clone();
-        let id = match available_randomization_units
-            .get_value(&nimbus_id, &bucket_config.randomization_unit)
+        match available_randomization_units
+            .get_value(&nimbus_id.to_string(), &bucket_config.randomization_unit)
         {
-            Some(id) => id,
+            Some(id) => {
+                if sampling::bucket_sample(
+                    vec![id.to_owned(), bucket_config.namespace],
+                    bucket_config.start,
+                    bucket_config.count,
+                    bucket_config.total,
+                )? {
+                    EnrollmentStatus::Enrolled {
+                        reason: EnrolledReason::Qualified,
+                        branch: choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
+                    }
+                } else {
+                    EnrollmentStatus::NotSelected
+                }
+            }
             None => {
-                // XXX: When we link we glean, it would be nice
-                // if we could emit a failure telemetry event here.
+                // XXX: When we link in glean, it would be nice if we could emit
+                // a failure telemetry event here.
                 log::info!(
                     "Could not find a suitable randomization unit for {}. Skipping experiment.",
                     &exp.slug
                 );
-                continue;
+                EnrollmentStatus::Error {
+                    reason: "No randomization unit".into(),
+                }
             }
-        };
-        if sampling::bucket_sample(
-            vec![id.to_owned(), bucket_config.namespace],
-            bucket_config.start,
-            bucket_config.count,
-            bucket_config.total,
-        )? {
-            res.push(EnrolledExperiment {
-                slug: exp.slug.clone(),
-                user_facing_name: exp.user_facing_name.clone(),
-                user_facing_description: exp.user_facing_description.clone(),
-                branch_slug: choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
-            });
         }
-    }
-    Ok(res)
+    };
+    Ok(ExperimentEnrollment {
+        slug: exp.slug.clone(),
+        status,
+    })
 }
 
 /// Chooses a branch randomly from a set of branches
@@ -110,11 +126,7 @@ pub fn filter_enrolled(
 /// # Errors:
 ///
 /// An error could occur if something goes wrong while sampling the ratios
-pub(crate) fn choose_branch<'a>(
-    slug: &str,
-    branches: &'a [Branch],
-    id: &str,
-) -> Result<&'a Branch> {
+fn choose_branch<'a>(slug: &str, branches: &'a [Branch], id: &str) -> Result<&'a Branch> {
     let ratios = branches.iter().map(|b| b.ratio).collect::<Vec<_>>();
     // Note: The "experiment-manager" here comes from https://searchfox.org/mozilla-central/source/toolkit/components/messaging-system/experiments/ExperimentManager.jsm#421
     // TODO: Change it to be something more related to the SDK if it is needed
@@ -131,25 +143,36 @@ pub(crate) fn choose_branch<'a>(
 /// - `expression_statement`: The JEXL statement provided by the server
 /// - `ctx`: The application context provided by the client
 ///
-/// Returns true if the user is targeted by the experiment, false otherwise
+/// If this app can not be targeted, returns an EnrollmentStatus to indicate
+/// why. Returns None if we should continue to evaluate the enrollment status.
 ///
-/// # Errors
-///
-/// Returns errors in the following cases (But not limited to):
+/// In practice, if this returns an EnrollmentStatus, it will be either
+/// EnrollmentStatus::NotTargeted, or EnrollmentStatus::Error in the following
+/// cases (But not limited to):
 /// - The `expression_statement` is not a valid JEXL statement
 /// - The `expression_statement` expects fields that do not exist in the AppContext definition
 /// - The result of evaluating the statement against the context is not a boolean
 /// - jexl-rs returned an error
-#[allow(unused)]
-pub(crate) fn targeting(expression_statement: &str, ctx: AppContext) -> Result<bool> {
-    let res = Evaluator::new().eval_in_context(expression_statement, ctx)?;
-    res.as_bool().ok_or(Error::InvalidExpression)
+fn targeting(expression_statement: &str, ctx: &AppContext) -> Option<EnrollmentStatus> {
+    match Evaluator::new().eval_in_context(expression_statement, ctx.clone()) {
+        Ok(res) => match res.as_bool() {
+            Some(true) => None,
+            Some(false) => Some(EnrollmentStatus::NotTargeted),
+            None => Some(EnrollmentStatus::Error {
+                reason: Error::InvalidExpression.to_string(),
+            }),
+        },
+        Err(e) => Some(EnrollmentStatus::Error {
+            reason: Error::EvaluationError(e.to_string()).to_string(),
+        }),
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{BucketConfig, Experiment, RandomizationUnit};
+
     #[test]
     fn test_targeting() {
         // Here's our valid jexl statement
@@ -170,7 +193,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
         };
-        assert!(targeting(expression_statement, ctx).unwrap());
+        assert_eq!(targeting(expression_statement, &ctx), None);
 
         // A matching context testing the logical OR of the expression
         let ctx = AppContext {
@@ -186,7 +209,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
         };
-        assert!(targeting(expression_statement, ctx).unwrap());
+        assert_eq!(targeting(expression_statement, &ctx), None);
 
         // A non-matching context testing the logical AND of the expression
         let non_matching_ctx = AppContext {
@@ -202,7 +225,10 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
         };
-        assert!(!targeting(expression_statement, non_matching_ctx).unwrap());
+        assert_eq!(
+            targeting(expression_statement, &non_matching_ctx),
+            Some(EnrollmentStatus::NotTargeted)
+        );
 
         // A non-matching context testing the logical OR of the expression
         let non_matching_ctx = AppContext {
@@ -218,31 +244,33 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
         };
-        assert!(!targeting(expression_statement, non_matching_ctx).unwrap());
+        assert_eq!(
+            targeting(expression_statement, &non_matching_ctx),
+            Some(EnrollmentStatus::NotTargeted)
+        );
     }
 
     #[test]
-    #[should_panic(expected = "EvaluationError")]
     fn test_invalid_expression() {
+        // This expression doesn't return a bool
+        let expression_statement = "2.0";
+
+        assert_eq!(
+            targeting(expression_statement, &Default::default()),
+            Some(EnrollmentStatus::Error {
+                reason: "Invalid Expression - didn't evaluate to a bool".to_string()
+            })
+        )
+    }
+
+    #[test]
+    fn test_evaluation_error() {
         // This is an invalid JEXL statement
         let expression_statement = "This is not a valid JEXL expression";
 
-        // A dummy context, we are really only interested in checking the
-        // expression in this test.
-        let ctx = AppContext {
-            app_id: Some("com.example.app".to_string()),
-            app_version: None,
-            app_build: None,
-            architecture: None,
-            device_manufacturer: None,
-            device_model: None,
-            locale: None,
-            os: None,
-            os_version: None,
-            android_sdk_version: None,
-            debug_tag: None,
-        };
-        targeting(expression_statement, ctx).unwrap();
+        assert!(
+            matches!(targeting(expression_statement, &Default::default()), Some(EnrollmentStatus::Error { reason }) if reason.starts_with("EvaluationError:"))
+        )
     }
 
     #[test]
@@ -271,7 +299,7 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_enrolled() {
+    fn test_get_enrollment() {
         let experiment1 = Experiment {
             slug: "TEST_EXP1".to_string(),
             is_enrollment_paused: false,
@@ -300,23 +328,47 @@ mod tests {
             total: 10000,
         };
         experiment2.slug = "TEST_EXP2".to_string();
-        let experiments = vec![experiment1, experiment2];
         let available_randomization_units = AvailableRandomizationUnits {
             client_id: None, // We will not match EXP_2 because we don't have the necessary randomization unit.
         };
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d uuid fits in start: 0, count: 2000, total: 10000 with the example namespace, to the treatment-variation-b branch
         // Tested against the desktop implementation
         let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
-        let enrolled = filter_enrolled(&id, &available_randomization_units, &experiments).unwrap();
-        assert_eq!(enrolled.len(), 1);
-        assert_eq!(enrolled[0].slug, "TEST_EXP1");
+        let enrollment = evaluate_enrollment(
+            &id,
+            &available_randomization_units,
+            &Default::default(),
+            &experiment1,
+        )
+        .unwrap();
+        assert!(
+            matches!(enrollment.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
+        );
+
+        let enrollment = evaluate_enrollment(
+            &id,
+            &available_randomization_units,
+            &Default::default(),
+            &experiment2,
+        )
+        .unwrap();
+        // Don't have the correct randomization_unit
+        assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
+
         // Fits because of the client_id.
         let available_randomization_units = AvailableRandomizationUnits {
             client_id: Some("bobo".to_string()),
         };
         let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
-        let enrolled = filter_enrolled(&id, &available_randomization_units, &experiments).unwrap();
-        assert_eq!(enrolled.len(), 1);
-        assert_eq!(enrolled[0].slug, "TEST_EXP2");
+        let enrollment = evaluate_enrollment(
+            &id,
+            &available_randomization_units,
+            &Default::default(),
+            &experiment2,
+        )
+        .unwrap();
+        assert!(
+            matches!(enrollment.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
+        );
     }
 }

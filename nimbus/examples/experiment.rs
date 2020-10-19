@@ -4,13 +4,15 @@
 
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
-use nimbus::{AppContext, AvailableRandomizationUnits, NimbusClient, RemoteSettingsConfig};
+use nimbus::{
+    error::Result, AppContext, AvailableRandomizationUnits, NimbusClient, RemoteSettingsConfig,
+};
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
 const DEFAULT_BUCKET_NAME: &str = "main";
 const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
-fn main() {
+fn main() -> Result<()> {
     // We set the logging level to be `warn` here, meaning that only
     // logs of `warn` or higher will be actually be shown, any other
     // error will be omitted
@@ -34,11 +36,63 @@ fn main() {
                 .takes_value(true),
         )
         .subcommand(
-            SubCommand::with_name("show_experiments")
+            SubCommand::with_name("show-experiments")
                 .about("Show all experiments, followed by the enrolled experiments"),
         )
         .subcommand(
-            SubCommand::with_name("gen_uuid")
+            SubCommand::with_name("update-experiments")
+            .about("Updates experiments and enrollments from the server"),
+        )
+        .subcommand(
+            SubCommand::with_name("opt-in")
+            .about("Opts in to an experiment and branch")
+            .arg(
+                Arg::with_name("experiment")
+                .long("experiment")
+                .value_name("EXPERIMENT_ID")
+                .help("The ID of the experiment to opt in to")
+                .required(true)
+                .takes_value(true)
+            )
+            .arg(
+                Arg::with_name("branch")
+                .long("branch")
+                .value_name("BRANCH_ID")
+                .help("The ID of the branch to opt in to")
+                .required(true)
+                .takes_value(true)
+            )
+        )
+        .subcommand(
+            SubCommand::with_name("opt-out")
+            .about("Opts out of an experiment")
+            .arg(
+                Arg::with_name("experiment")
+                .long("experiment")
+                .value_name("EXPERIMENT_ID")
+                .help("The ID of the experiment to opt out of")
+                .required(true)
+                .takes_value(true)
+            )
+        )
+        .subcommand(
+            SubCommand::with_name("opt-out-all")
+            .about("Opts out of all experiments")
+        )
+        .subcommand(
+            SubCommand::with_name("reset-enrollment")
+            .about("Resets enrollment information for the specified experiment")
+            .arg(
+                Arg::with_name("experiment")
+                .long("experiment")
+                .value_name("EXPERIMENT_ID")
+                .help("The ID of the experiment to reset")
+                .required(true)
+                .takes_value(true)
+            )
+        )
+        .subcommand(
+            SubCommand::with_name("gen-uuid")
             .about("Generate a uuid that can get enrolled in experiments")
             .arg(
                 Arg::with_name("number")
@@ -89,52 +143,90 @@ fn main() {
         "",
         Some(config),
         available_randomization_units,
-    )
-    .unwrap();
+    )?;
 
     // We match against the subcommands
     match matches.subcommand() {
         // show_enrolled shows only the enrolled experiments and the chosen branches
-        ("show_experiments", _) => {
+        ("show-experiments", _) => {
             println!("======================================");
             println!("Printing all experiments (regardless of enrollment)");
             nimbus_client
-                .get_all_experiments()
+                .get_all_experiments()?
                 .iter()
                 .for_each(|e| println!("Experiment: {}", e.slug));
             println!("======================================");
             println!("Printing only enrolled experiments");
-            nimbus_client.get_active_experiments().iter().for_each(|e| {
-                println!(
-                    "Enrolled in experiment: {}, in branch: {}",
-                    e.slug, e.branch_slug
-                )
-            });
+            nimbus_client
+                .get_active_experiments()?
+                .iter()
+                .for_each(|e| {
+                    println!(
+                        "Enrolled in experiment: {}, in branch: {}",
+                        e.slug, e.branch_slug
+                    )
+                });
+        }
+        ("update-experiments", _) => {
+            println!("======================================");
+            println!("Updating experiments");
+            nimbus_client.update_experiments()?;
+        }
+        ("opt-in", Some(matches)) => {
+            println!("======================================");
+            let experiment = matches.value_of("experiment").unwrap();
+            let branch = matches.value_of("branch").unwrap();
+            println!(
+                "Opting in to experiment '{}', branch '{}'",
+                experiment, branch
+            );
+            nimbus_client.opt_in_with_branch(experiment.to_string(), branch.to_string())?;
+        }
+        ("opt-out", Some(matches)) => {
+            println!("======================================");
+            let experiment = matches.value_of("experiment").unwrap();
+            println!("Opting out of experiment '{}'", experiment);
+            nimbus_client.opt_out(experiment.to_string())?;
+        }
+        ("reset-enrollment", Some(matches)) => {
+            println!("======================================");
+            let experiment = matches.value_of("experiment").unwrap();
+            println!("Resetting enrollment of experiment '{}'", experiment);
+            nimbus_client.reset_enrollment(experiment.to_string())?;
         }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
         // experiments
-        ("gen_uuid", Some(matches)) => {
-            let num = matches
-                .value_of("number")
-                .unwrap_or("0")
-                .parse::<usize>()
-                .expect("the number parameter should be a number");
-            let all_experiments = nimbus_client.get_all_experiments();
-            let mut num_of_experiments_enrolled = 0;
-            let mut uuid = uuid::Uuid::new_v4();
-            let available_randomization_units = AvailableRandomizationUnits {
-                client_id: Some("bobo".to_string()),
-            };
-            while num_of_experiments_enrolled != num {
-                uuid = uuid::Uuid::new_v4();
-                num_of_experiments_enrolled =
-                    nimbus::filter_enrolled(&uuid, &available_randomization_units, &all_experiments)
-                        .unwrap()
-                        .len()
-            }
-            println!("======================================");
-            println!("Generated UUID is: {}", uuid);
-        }
+        // Should we get back to this? Or is the ability to explicitly opt-in
+        // good enough?
+        // Another idea: command to "brute-force" an experiment - ie, run a loop
+        // where each iteration generates a new uuid and attempts enrollment,
+        // keeping track of how often we were enrolled and in which branch, then
+        // print those stats.
+        /*
+                ("gen_uuid", Some(matches)) => {
+                    let num = matches
+                        .value_of("number")
+                        .unwrap_or("0")
+                        .parse::<usize>()
+                        .expect("the number parameter should be a number");
+                    let all_experiments = nimbus_client.get_all_experiments()?;
+                    let mut num_of_experiments_enrolled = 0;
+                    let mut uuid = uuid::Uuid::new_v4();
+                    let available_randomization_units = AvailableRandomizationUnits {
+                        client_id: Some("bobo".to_string()),
+                    };
+                    while num_of_experiments_enrolled != num {
+                        uuid = uuid::Uuid::new_v4();
+                        num_of_experiments_enrolled =
+                            nimbus::filter_enrolled(&uuid, &available_randomization_units, &all_experiments)
+                                .unwrap()
+                                .len()
+                    }
+                    println!("======================================");
+                    println!("Generated UUID is: {}", uuid);
+                }
+        */
         (&_, _) => println!("Invalid subcommand"),
-    }
+    };
+    Ok(())
 }

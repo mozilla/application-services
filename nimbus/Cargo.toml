@@ -39,3 +39,4 @@ viaduct-reqwest = { git = "https://github.com/mozilla/application-services",  re
 mockito = "0.27"
 env_logger = "0.7"
 clap = "2.33.3"
+tempdir = "0.3"
