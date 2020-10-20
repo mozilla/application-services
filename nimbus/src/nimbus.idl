@@ -21,8 +21,9 @@ dictionary EnrolledExperiment {
 };
 
 dictionary RemoteSettingsConfig {
-    string? server_url;
-    string? bucket_name;
+    string server_url;
+    string collection_name;
+    string bucket_name;
 };
 
 dictionary AvailableRandomizationUnits {
@@ -40,10 +41,9 @@ enum Error {
 interface NimbusClient {
     [Throws=Error]
     constructor(
-        string collection_name,
         AppContext app_ctx,
         string dbpath,
-        RemoteSettingsConfig? remote_settings_config,
+        RemoteSettingsConfig remote_settings_config,
         AvailableRandomizationUnits available_randomization_units
     );
 

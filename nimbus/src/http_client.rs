@@ -19,9 +19,6 @@ use crate::error::{Error, Result};
 use url::Url;
 use viaduct::{status_codes, Request, Response};
 
-const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
-const DEFAULT_BUCKET_NAME: &str = "main";
-
 // Making this a trait so that we can mock those later.
 pub(crate) trait SettingsClient {
     fn get_experiments_metadata(&self) -> Result<String>;
@@ -36,33 +33,12 @@ pub struct Client {
 
 impl Client {
     #[allow(unused)]
-    pub fn new(
-        collection_name: &str,
-        remote_settings_config: Option<RemoteSettingsConfig>,
-    ) -> Result<Self> {
-        let (base_url, bucket_name) = Self::get_params_from_config(remote_settings_config)?;
+    pub fn new(config: RemoteSettingsConfig) -> Result<Self> {
+        let base_url = Url::parse(&config.server_url)?;
         Ok(Self {
             base_url,
-            collection_name: collection_name.to_string(),
-            bucket_name,
-        })
-    }
-
-    fn get_params_from_config(config: Option<RemoteSettingsConfig>) -> Result<(Url, String)> {
-        Ok(match config {
-            Some(config) => {
-                let base_url = config
-                    .server_url
-                    .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
-                let bucket_name = config
-                    .bucket_name
-                    .unwrap_or_else(|| DEFAULT_BUCKET_NAME.to_string());
-                (Url::parse(&base_url)?, bucket_name)
-            }
-            None => (
-                Url::parse(DEFAULT_BASE_URL)?,
-                DEFAULT_BUCKET_NAME.to_string(),
-            ),
+            collection_name: config.collection_name,
+            bucket_name: config.bucket_name,
         })
     }
 
@@ -162,10 +138,11 @@ mod tests {
         .with_header("content-type", "application/json")
         .create();
         let config = RemoteSettingsConfig {
-            server_url: Some(mockito::server_url()),
-            bucket_name: None,
+            server_url: mockito::server_url(),
+            collection_name: "messaging-experiments".to_string(),
+            bucket_name: "main".to_string(),
         };
-        let http_client = Client::new("messaging-experiments", Some(config)).unwrap();
+        let http_client = Client::new(config).unwrap();
         let resp = http_client.get_experiments().unwrap();
         m.expect(1).assert();
         assert_eq!(resp.len(), 1);

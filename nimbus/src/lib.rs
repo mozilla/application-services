@@ -44,13 +44,12 @@ impl NimbusClient {
     // This constructor *must* not do any kind of I/O since it might be called on the main
     // thread in the gecko Javascript stack, hence the use of OnceCell for the db.
     pub fn new<P: Into<PathBuf>>(
-        collection_name: String,
         app_context: AppContext,
         db_path: P,
-        config: Option<RemoteSettingsConfig>,
+        config: RemoteSettingsConfig,
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
-        let http_client = Client::new(&collection_name, config)?;
+        let http_client = Client::new(config)?;
         Ok(Self {
             http_client,
             available_randomization_units,

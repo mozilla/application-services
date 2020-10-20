@@ -35,6 +35,29 @@ fn main() -> Result<()> {
                 .required(true)
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("collection")
+                .short("n")
+                .long("collection")
+                .value_name("COLLECTION")
+                .help("Sets a custom collection name")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("server")
+                .short("s")
+                .long("server")
+                .value_name("SERVER_URL")
+                .help("Specifies the server to use")
+                .takes_value(true),
+        )
+        .arg(
+            Arg::with_name("db-path")
+                .long("db-path")
+                .value_name("PATH")
+                .help("The path where the database will be created")
+                .takes_value(true),
+        )
         .subcommand(
             SubCommand::with_name("show-experiments")
                 .about("Show all experiments, followed by the enrolled experiments"),
@@ -111,39 +134,50 @@ fn main() -> Result<()> {
 
     let context = config.get("context").unwrap();
     let context = serde_json::from_value::<AppContext>(context.clone()).unwrap();
-    let server_url = match config.get("server_url") {
-        Some(v) => v.as_str().unwrap(),
-        _ => DEFAULT_BASE_URL,
-    };
+    let server_url = matches
+        .value_of("server")
+        .unwrap_or_else(|| match config.get("server_url") {
+            Some(v) => v.as_str().unwrap(),
+            _ => DEFAULT_BASE_URL,
+        });
     log::info!("Server url is {}", server_url);
+
     let bucket_name = match config.get("bucket_name") {
         Some(v) => v.as_str().unwrap(),
         _ => DEFAULT_BUCKET_NAME,
     };
     log::info!("Bucket name is {}", bucket_name);
-    let collection_name = match config.get("collection_name") {
-        Some(v) => v.as_str().unwrap(),
-        _ => DEFAULT_COLLECTION_NAME,
-    };
 
+    let collection_name =
+        matches
+            .value_of("collection")
+            .unwrap_or_else(|| match config.get("collection_name") {
+                Some(v) => v.as_str().unwrap(),
+                _ => DEFAULT_COLLECTION_NAME,
+            });
     log::info!("Collection name is {}", collection_name);
+
+    let temp_dir = std::env::temp_dir();
+    let db_path_default = temp_dir.to_str().unwrap();
+    let db_path = matches
+        .value_of("db-path")
+        .unwrap_or_else(|| match config.get("db_path") {
+            Some(v) => v.as_str().unwrap(),
+            _ => &db_path_default,
+        });
+    log::info!("Database directory is {}", db_path);
 
     // initiate the optional config
     let config = RemoteSettingsConfig {
-        server_url: Some(server_url.to_string()),
-        bucket_name: Some(bucket_name.to_string()),
+        server_url: server_url.to_string(),
+        collection_name: collection_name.to_string(),
+        bucket_name: bucket_name.to_string(),
     };
 
     let available_randomization_units = AvailableRandomizationUnits { client_id: None };
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(
-        collection_name.to_string(),
-        context,
-        "",
-        Some(config),
-        available_randomization_units,
-    )?;
+    let nimbus_client = NimbusClient::new(context, "", config, available_randomization_units)?;
 
     // We match against the subcommands
     match matches.subcommand() {

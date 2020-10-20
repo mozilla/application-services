@@ -14,6 +14,7 @@
 /// - `bucket_name`: The name of the bucket containing the collection on the server
 #[derive(Debug, Clone)]
 pub struct RemoteSettingsConfig {
-    pub server_url: Option<String>,
-    pub bucket_name: Option<String>,
+    pub server_url: String,
+    pub collection_name: String,
+    pub bucket_name: String,
 }
