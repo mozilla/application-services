@@ -71,6 +71,13 @@ projects:
     - name: tabs
       type: aar
     description: Sync 1.5 remote tabs implementation.
+  nimbus:
+    path: components/nimbus
+    artifactId: nimbus
+    publications:
+    - name: nimbus
+      type: aar
+    description: The Nimbus SDK, compiled to work with the Application Services full-megazord.
   lockbox-megazord:
     uploadSymbols: true
     path: megazords/lockbox/android
