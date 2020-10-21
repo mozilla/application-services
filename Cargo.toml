@@ -122,3 +122,4 @@ lto = "thin"
 # We always want to use the local version of our own crates in that case.
 [patch."https://github.com/mozilla/application-services"]
 viaduct = { path = "components/viaduct" }
+glean = { path = "components/external/glean/glean-core/rlb" }

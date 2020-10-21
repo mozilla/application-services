@@ -85,6 +85,13 @@ projects:
     - name: nimbus
       type: aar
     description: The Nimbus SDK, compiled to work with the Application Services full-megazord.
+  glean:
+    path: components/glean
+    artifactId: glean
+    publications:
+    - name: glean
+      type: aar
+    description: The Glean SDK, compiled to work with the Application Services full-megazord.
   full-megazord:
     uploadSymbols: true
     path: megazords/full/android

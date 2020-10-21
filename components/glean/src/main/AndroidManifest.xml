@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="mozilla.telemetry.glean" >
+    <application>
+        <activity android:name=".debug.GleanDebugActivity"
+            android:launchMode="singleInstance"
+            android:exported="true" />
+    </application>
+</manifest>

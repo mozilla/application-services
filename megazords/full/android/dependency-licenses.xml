@@ -41,8 +41,20 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Apache License 2.0: adler</name>
+    <url>https://github.com/jonas-schievink/adler/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ahash</name>
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: android_log-sys</name>
+    <url>https://github.com/nercury/android_log-sys-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: android_logger</name>
+    <url>https://github.com/Nercury/android_logger-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: anyhow</name>
@@ -93,8 +105,24 @@ the details of which are reproduced below.
     <url>https://github.com/alexcrichton/cfg-if/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: chrono</name>
+    <url>https://github.com/chronotope/chrono/blob/master/LICENSE.txt</url>
+  </license>
+  <license>
     <name>Apache License 2.0: cpuid-bool</name>
     <url>https://github.com/RustCrypto/utils/blob/master/cpuid-bool/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crc32fast</name>
+    <url>https://github.com/srijs/rust-crc32fast/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crossbeam-channel</name>
+    <url>https://github.com/crossbeam-rs/crossbeam/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: crossbeam-utils</name>
+    <url>https://github.com/crossbeam-rs/crossbeam/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: digest</name>
@@ -107,6 +135,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: either</name>
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: env_logger</name>
+    <url>https://github.com/sebasmagri/env_logger/blob//master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: failure</name>
@@ -129,6 +161,10 @@ the details of which are reproduced below.
     <url>https://raw.githubusercontent.com/mozilla/application-services/main/components/support/ffi/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: flate2</name>
+    <url>https://github.com/rust-lang/flate2-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: getrandom</name>
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
   </license>
@@ -149,12 +185,20 @@ the details of which are reproduced below.
     <url>https://github.com/KokaKiwi/rust-hex/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: humantime</name>
+    <url>https://github.com/tailhook/humantime/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: id-arena</name>
     <url>https://github.com/fitzgen/id-arena/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: idna</name>
     <url>https://github.com/servo/rust-url/blob//master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: inherent</name>
+    <url>https://github.com/dtolnay/inherent/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: itertools</name>
@@ -191,6 +235,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: log</name>
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: maybe-uninit</name>
+    <url>https://github.com/est31/maybe-uninit/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: num-integer</name>
+    <url>https://github.com/rust-num/num-integer/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
@@ -243,6 +295,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: prost-derive</name>
     <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: quick-error</name>
+    <url>https://github.com/tailhook/quick-error/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: quote</name>
@@ -325,6 +381,10 @@ the details of which are reproduced below.
     <url>https://github.com/Amanieu/thread_local-rs/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: time</name>
+    <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
+  </license>
+  <license>
     <name>Apache License 2.0: tinyvec</name>
     <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
   </license>
@@ -369,6 +429,14 @@ the details of which are reproduced below.
     <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: winapi</name>
+    <url>https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: winapi-x86_64-pc-windows-gnu</name>
+    <url>https://github.com/retep998/winapi-rs/blob/0.3/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>MIT License: aho-corasick</name>
     <url>https://github.com/BurntSushi/aho-corasick/blob/master/LICENSE-MIT</url>
   </license>
@@ -379,6 +447,14 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: memchr</name>
     <url>https://github.com/BurntSushi/rust-memchr/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: termcolor</name>
+    <url>https://github.com/BurntSushi/termcolor/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: atty</name>
+    <url>https://github.com/softprops/atty/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: bincode</name>
@@ -417,6 +493,10 @@ the details of which are reproduced below.
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: miniz_oxide</name>
+    <url>https://github.com/Frommi/miniz_oxide/blob/master/miniz_oxide/LICENSE-MIT.md</url>
+  </license>
+  <license>
     <name>MIT License: nom</name>
     <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
   </license>
@@ -435,6 +515,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: weedle</name>
     <url>https://github.com/rustwasm/weedle/blob/master/LICENSE.md</url>
+  </license>
+  <license>
+    <name>MIT License: winapi-util</name>
+    <url>https://github.com/BurntSushi/winapi-util/blob/master/LICENSE-MIT</url>
   </license>
   <license>
     <name>CC0-1.0 License: base16</name>

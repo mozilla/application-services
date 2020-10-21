@@ -113,6 +113,7 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
     api project(":full-megazord")
     implementation project(":native-support")
+    implementation project(":glean")
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot

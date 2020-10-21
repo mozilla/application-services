@@ -16,6 +16,8 @@ job-defaults:
     docker-image: { in-tree: linux }
     max-run-time: 1800
   run:
+    pre-gradlew:
+      - [git, submodule, update, '--init']
     using: gradlew
 
 jobs:

@@ -3,21 +3,34 @@
 // READ THIS CAREFULLY before editing this file.
 // =============================================
 //
-// This is a lightly-modified version of the `build.gradle` file from Nimbus,
-// which you can find at `../external/nimbus-sdk/android/build.gradle`.
+// This is a lightly-modified version of the `build.gradle` file from Glean,
+// which you can find at `../external/glean/glean-core/android/build.gradle`.
 //
-// The aim here is to pre-package the Nimbus Kotlin code and publish it under
-// `org.mozilla.appservices:nimbus` rather than `org.mozilla.experiments:nimbus`,
+// The aim here is to pre-package the Glean Kotlin code and publish it under
+// `org.mozilla.appservices:glean` rather than `org.mozilla.telemetry:glean`,
 // and to make it depend on `org.mozilla.appservices:full-megazord` for the
 // compiled Rust code.
 //
-// We expect consumers that want to use Nimbus and AppServices together, will
-// use our re-packaged version rather than standalone Nimbus SDK.
+// We expect consumers that want to use Glean and AppServices together, will
+// use our re-packaged version rather than standalone Glean.
+//
+// In order for this to work without heavy modification to the underlying
+// Glean code, we've duplicated much of the logic from Glean's standard
+// build file, including the use of the glean gradle plugin to generate
+// the standard builtin metrics. As upstream changes happen in Glean's build
+// process we will need to duplicate them in this file.
+
+import groovy.json.JsonOutput
+
+plugins {
+    id "com.jetbrains.python.envs" version "0.0.26"
+}
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
+File GLEAN_PING_SCHEMA_PATH = file("$rootDir/components/external/glean/glean.1.schema.json")
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -27,7 +40,11 @@ android {
         minSdkVersion rootProject.ext.build['minSdkVersion']
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
+        buildConfigField("String", "JNA_LIBRARY_NAME", "\"megazord\"")
         buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
+        // Carefully escape the string here so it will support `\` in
+        // Windows paths correctly.
+        buildConfigField("String", "GLEAN_PING_SCHEMA_PATH", JsonOutput.toJson(GLEAN_PING_SCHEMA_PATH.path))
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
@@ -41,10 +58,11 @@ android {
     }
 
     // We don't have any source files of our own, we're re-packaging the ones
-    // from the Nimbus repo (which is included as a submodule in our repo).
+    // from the Glean repo (which is included as a submodule in our repo).
     sourceSets {
-        main.java.srcDirs += "../external/nimbus-sdk/android/src/main/java"
-        test.java.srcDirs += "../external/nimbus-sdk/android/src/test"
+        main.java.srcDirs += "../external/glean/glean-core/android/src/main/java"
+        test.java.srcDirs += "../external/glean/glean-core/android/src/test"
+        test.resources.srcDirs += "../external/glean/glean-core/android/src/test/resources"
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
     }
@@ -98,13 +116,23 @@ dependencies {
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5"
+    implementation "androidx.annotation:annotation:1.1.0"
+    implementation "androidx.lifecycle:lifecycle-extensions:2.1.0"
+    implementation "androidx.lifecycle:lifecycle-common:2.1.0"
+    implementation "androidx.work:work-runtime-ktx:2.2.0"
 
-    // Unlike standard Nimbus which builds a standalone package, this version depends
+    // Unlike standard Glean which builds a standalone package, this version depends
     // on `:full-megazord` for the underlying native library. The full-megazord needs
-    // to be configured to include the corresponding Nimbus FFI functions.
+    // to be configured to include the corresponding Glean FFI functions.
     implementation project(":native-support")
-    implementation project(":glean")
     api project(":full-megazord")
+
+    // Glean needs a compileOnly dependency on the following block of testing
+    // libraries in order to expose the GleanTestRule to applications/libraries
+    // using the Glean SDK.
+    compileOnly "junit:junit:4.12"
+    compileOnly "androidx.work:work-testing:2.2.0"
 
     // For reasons unknown, resolving the jnaForTest configuration directly
     // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
@@ -114,20 +142,43 @@ dependencies {
     // causing it to be resolved.  Cloning first dissociates the configuration,
     // avoiding other configurations from being resolved.  Tricky!
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
-    testImplementation 'junit:junit:4.12'
+    testImplementation "androidx.test.ext:junit:1.1.1"
+    testImplementation "org.robolectric:robolectric:4.2.1"
+    testImplementation "org.mockito:mockito-core:2.28.2"
+    testImplementation "androidx.test:core-ktx:1.2.0"
+    testImplementation "com.squareup.okhttp3:mockwebserver:3.10.0"
+    testImplementation "androidx.work:work-testing:2.2.0"
+
+    androidTestImplementation "androidx.test:runner:1.2.0"
+    androidTestImplementation "androidx.test.espresso:espresso-core:3.2.0"
 }
 
+// Use the Glean Gradle plugin to generate the builtin metrics definitions for Glean itself.
+// We have to pretend that we're Glean here in order to generate internal-only definitions.
+apply from: '../external/glean/gradle-plugin/src/main/groovy/mozilla/telemetry/glean-gradle-plugin/GleanGradlePlugin.groovy'
+ext.gleanYamlFiles = [
+    "../external/glean/glean-core/metrics.yaml",
+    "../external/glean/glean-core/android/metrics.yaml",
+    "../external/glean/glean-core/pings.yaml",
+]
+ext.allowGleanInternal = true
+ext.gleanNamespace = "mozilla.telemetry.glean"
+ext.glean_plugin.apply(project)
 
-// We also do the binding generation here:
-android.libraryVariants.all { variant ->
-    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
-        workingDir "${project.projectDir}"
-        // Runs the bindings generation, note that you must have uniffi-bindgen installed and in your PATH environment variable
-        commandLine 'uniffi-bindgen', 'generate', '../external/nimbus-sdk/nimbus/src/nimbus.idl', '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+// Store the path to the Glean Miniconda installation in a buildConfigField
+// so that unit tests can validate JSON schema.
+// Note that despite the name of this variable it isn't strictly for Miniconda
+// anymore, it's for any sort of Python environment.
+android {
+    defaultConfig {
+        buildConfigField(
+            "String",
+            "GLEAN_MINICONDA_DIR",
+            // Carefully escape the string here so it will support `\` in
+            // Windows paths correctly.
+            JsonOutput.toJson(project.ext.gleanPythonEnvDir.path)
+        )
     }
-    variant.javaCompileProvider.get().dependsOn(t)
-    def sourceSet = variant.sourceSets.find { it.name == variant.name }
-    sourceSet.java.srcDir new File(buildDir, "generated/source/uniffi/${variant.name}/java")
 }
 
 evaluationDependsOn(":full-megazord")

@@ -10,6 +10,7 @@ use std::os::raw::c_char;
 
 pub use autofill;
 pub use fxaclient_ffi;
+pub use glean_ffi;
 pub use logins_ffi;
 pub use nimbus;
 pub use places_ffi;

@@ -18,5 +18,5 @@ viaduct = { path = "../../components/viaduct" }
 sync_manager_ffi = { path = "../../components/sync_manager/ffi" }
 nimbus-sdk = { path = "../../components/external/nimbus-sdk/nimbus" }
 autofill = { path = "../../components/autofill" }
-
+glean-ffi = { path = "../../components/external/glean/glean-core/ffi" }
 lazy_static = "1.4"
