@@ -15,4 +15,4 @@ places-ffi = { path = "../../../components/places/ffi" }
 rc_log_ffi = { path = "../../../components/rc_log" }
 viaduct = { path = "../../../components/viaduct" }
 viaduct-reqwest = { path = "../../../components/support/viaduct-reqwest" }
-glean-ffi = { version = "32.3.0" }
+glean-ffi = { path = "../../../components/external/glean/glean-core/ffi" }

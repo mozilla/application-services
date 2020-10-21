@@ -579,6 +579,82 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/mozilla/lmdb-rs/master/LICENSE",
         }
     },
+    "uniffi_bindgen": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi_build": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "jexl-eval": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/jexl-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/jexl-rs/main/LICENSE",
+        }
+    },
+    "jexl-parser": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/jexl-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/jexl-rs/main/LICENSE",
+        }
+    },
+    "lalrpop-util": {
+        "license": {
+            "check": "Apache-2.0/MIT",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/lalrpop/lalrpop/blob/master/LICENSE-APACHE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/lalrpop/lalrpop/master/LICENSE-APACHE",
+        }
+    },
+    "humansize": {
+        "license": {
+            "check": "MIT/Apache-2.0",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/LeopoldArkham/humansize/blob/master/LICENSE-APACHE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
+        }
+    },
 }
 
 # Sets of common licence file names, by license type.
