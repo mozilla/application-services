@@ -68,35 +68,20 @@ pub fn evaluate_enrollment(
     } else {
         // We are going to see if we qualify for the bucketing etc.
         let bucket_config = exp.bucket_config.clone();
-        match available_randomization_units
-            .get_value(&nimbus_id.to_string(), &bucket_config.randomization_unit)
-        {
-            Some(id) => {
-                if sampling::bucket_sample(
-                    vec![id.to_owned(), bucket_config.namespace],
-                    bucket_config.start,
-                    bucket_config.count,
-                    bucket_config.total,
-                )? {
-                    EnrollmentStatus::Enrolled {
-                        reason: EnrolledReason::Qualified,
-                        branch: choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
-                    }
-                } else {
-                    EnrollmentStatus::NotSelected
-                }
+        let nid = nimbus_id.to_string();
+        let id = available_randomization_units.get_value(&nid, &bucket_config.randomization_unit);
+        if sampling::bucket_sample(
+            vec![id.to_owned(), bucket_config.namespace],
+            bucket_config.start,
+            bucket_config.count,
+            bucket_config.total,
+        )? {
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                branch: choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
             }
-            None => {
-                // XXX: When we link in glean, it would be nice if we could emit
-                // a failure telemetry event here.
-                log::info!(
-                    "Could not find a suitable randomization unit for {}. Skipping experiment.",
-                    &exp.slug
-                );
-                EnrollmentStatus::Error {
-                    reason: "No randomization unit".into(),
-                }
-            }
+        } else {
+            EnrollmentStatus::NotSelected
         }
     };
     Ok(ExperimentEnrollment {
@@ -328,36 +313,10 @@ mod tests {
             total: 10000,
         };
         experiment2.slug = "TEST_EXP2".to_string();
-        let available_randomization_units = AvailableRandomizationUnits {
-            client_id: None, // We will not match EXP_2 because we don't have the necessary randomization unit.
-        };
-        // 299eed1e-be6d-457d-9e53-da7b1a03f10d uuid fits in start: 0, count: 2000, total: 10000 with the example namespace, to the treatment-variation-b branch
-        // Tested against the desktop implementation
-        let id = uuid::Uuid::parse_str("299eed1e-be6d-457d-9e53-da7b1a03f10d").unwrap();
-        let enrollment = evaluate_enrollment(
-            &id,
-            &available_randomization_units,
-            &Default::default(),
-            &experiment1,
-        )
-        .unwrap();
-        assert!(
-            matches!(enrollment.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
-        );
-
-        let enrollment = evaluate_enrollment(
-            &id,
-            &available_randomization_units,
-            &Default::default(),
-            &experiment2,
-        )
-        .unwrap();
-        // Don't have the correct randomization_unit
-        assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
 
         // Fits because of the client_id.
         let available_randomization_units = AvailableRandomizationUnits {
-            client_id: Some("bobo".to_string()),
+            client_id: "bobo".to_string(),
         };
         let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
         let enrollment = evaluate_enrollment(

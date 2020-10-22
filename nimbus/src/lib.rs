@@ -222,18 +222,14 @@ impl Default for RandomizationUnit {
 }
 
 pub struct AvailableRandomizationUnits {
-    pub client_id: Option<String>,
+    pub client_id: String,
 }
 
 impl AvailableRandomizationUnits {
-    pub fn get_value<'a>(
-        &'a self,
-        nimbus_id: &'a str,
-        wanted: &'a RandomizationUnit,
-    ) -> Option<&'a str> {
+    pub fn get_value<'a>(&'a self, nimbus_id: &'a str, wanted: &'a RandomizationUnit) -> &'a str {
         match wanted {
-            RandomizationUnit::NimbusId => Some(nimbus_id),
-            RandomizationUnit::ClientId => self.client_id.as_deref(),
+            RandomizationUnit::NimbusId => nimbus_id,
+            RandomizationUnit::ClientId => &self.client_id,
         }
     }
 }

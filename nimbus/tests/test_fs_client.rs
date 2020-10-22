@@ -26,7 +26,9 @@ fn test_simple() -> Result<()> {
 
     let tmp_dir = TempDir::new("test_fs_client-test_simple")?;
 
-    let aru = AvailableRandomizationUnits { client_id: None };
+    let aru = AvailableRandomizationUnits {
+        client_id: "guid".to_string(),
+    };
     let client = NimbusClient::new(Default::default(), tmp_dir.path(), config, aru)?;
 
     let experiments = client.get_all_experiments()?;

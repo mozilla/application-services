@@ -27,7 +27,7 @@ dictionary RemoteSettingsConfig {
 };
 
 dictionary AvailableRandomizationUnits {
-    string? client_id;
+    string client_id;
 };
 
 [Error]

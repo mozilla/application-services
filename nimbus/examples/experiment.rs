@@ -174,7 +174,9 @@ fn main() -> Result<()> {
         bucket_name: bucket_name.to_string(),
     };
 
-    let available_randomization_units = AvailableRandomizationUnits { client_id: None };
+    let available_randomization_units = AvailableRandomizationUnits {
+        client_id: "guid".to_string(),
+    };
 
     // Here we initialize our main `NimbusClient` struct
     let nimbus_client = NimbusClient::new(context, "", config, available_randomization_units)?;

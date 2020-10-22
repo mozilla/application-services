@@ -251,7 +251,9 @@ mod tests {
         let db = Database::new(&tmp_dir)?;
         let exp = &get_test_experiments()[0];
         let nimbus_id = Uuid::new_v4();
-        let aru = AvailableRandomizationUnits { client_id: None };
+        let aru = AvailableRandomizationUnits {
+            client_id: "guid".to_string(),
+        };
         assert_eq!(get_enrollments(&db)?.len(), 0);
         db.put(
             StoreId::Experiments,
@@ -303,7 +305,9 @@ mod tests {
         let tmp_dir = TempDir::new("test_updates")?;
         let db = Database::new(&tmp_dir)?;
         let nimbus_id = Uuid::new_v4();
-        let aru = AvailableRandomizationUnits { client_id: None };
+        let aru = AvailableRandomizationUnits {
+            client_id: "guid".to_string(),
+        };
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let exps = get_test_experiments();
         for exp in exps {
