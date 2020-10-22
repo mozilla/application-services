@@ -13,17 +13,12 @@
 //!
 //! But the simple subset implemented here meets our needs for now.
 
-use super::Experiment;
 use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
+use crate::Experiment;
+use crate::SettingsClient;
 use url::Url;
 use viaduct::{status_codes, Request, Response};
-
-// Making this a trait so that we can mock those later.
-pub(crate) trait SettingsClient {
-    fn get_experiments_metadata(&self) -> Result<String>;
-    fn get_experiments(&self) -> Result<Vec<Experiment>>;
-}
 
 pub struct Client {
     base_url: Url,
@@ -73,11 +68,14 @@ impl SettingsClient for Client {
         for exp in data.as_array().ok_or(Error::InvalidExperimentResponse)? {
             match serde_json::from_value::<Experiment>(exp.clone()) {
                 Ok(exp) => res.push(exp),
-                Err(e) => log::warn!(
-                    "Malformed experiment found! Experiment {},  Error: {}",
-                    exp.get("id").unwrap_or(&serde_json::json!("ID_NOT_FOUND")),
-                    e
-                ),
+                Err(e) => {
+                    log::trace!("Malformed experiment data: {:#?}", exp);
+                    log::warn!(
+                        "Malformed experiment found! Experiment {},  Error: {}",
+                        exp.get("id").unwrap_or(&serde_json::json!("ID_NOT_FOUND")),
+                        e
+                    );
+                }
             }
         }
         Ok(res)

@@ -6,19 +6,19 @@ mod enrollment;
 pub mod error;
 mod evaluator;
 pub use error::{Error, Result};
+mod client;
 mod config;
-mod http_client;
 mod matcher;
 mod persistence;
 mod sampling;
 #[cfg(debug_assertions)]
 pub use evaluator::evaluate_enrollment;
 
+use client::{create_client, SettingsClient};
 pub use config::RemoteSettingsConfig;
 use enrollment::{
     get_enrollments, opt_in_with_branch, opt_out, reset_enrollment, update_enrollments,
 };
-use http_client::{Client, SettingsClient};
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId};
@@ -33,7 +33,7 @@ const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 /// It should hold all the information needed to communicate a specific user's
 /// experimentation status
 pub struct NimbusClient {
-    http_client: Client,
+    settings_client: Box<dyn SettingsClient + Send>,
     available_randomization_units: AvailableRandomizationUnits,
     app_context: AppContext,
     db: OnceCell<Database>,
@@ -49,9 +49,9 @@ impl NimbusClient {
         config: RemoteSettingsConfig,
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
-        let http_client = Client::new(config)?;
+        let settings_client = create_client(config)?;
         Ok(Self {
-            http_client,
+            settings_client,
             available_randomization_units,
             app_context,
             db_path: db_path.into(),
@@ -112,7 +112,7 @@ impl NimbusClient {
         // I suspect we need to take some action when we find experiments we
         // previously had no longer exist? For now though, just nuke them all.
         log::info!("updating experiment list");
-        let experiments = self.http_client.get_experiments()?;
+        let experiments = self.settings_client.get_experiments()?;
         // XXX - we need transaction support but it's not clear how to expose
         // that support.
         self.db()?.clear(StoreId::Experiments)?;

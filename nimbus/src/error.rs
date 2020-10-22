@@ -38,6 +38,8 @@ pub enum Error {
     ResponseError(String),
     #[error("Invalid experiments response received")]
     InvalidExperimentResponse,
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
 }
 
 // This can be replaced with #[from] in the enum definition
