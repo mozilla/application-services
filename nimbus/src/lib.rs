@@ -142,6 +142,13 @@ impl NimbusClient {
         })
     }
 
+    // Sets the nimbus ID - TEST ONLY - should not be exposed to real clients.
+    // (Useful for testing so you can have some control over what experiments
+    // are enrolled)
+    pub fn set_nimbus_id(&self, uuid: &Uuid) -> Result<()> {
+        self.db()?.put(StoreId::Meta, DB_KEY_NIMBUS_ID, uuid)
+    }
+
     fn db(&self) -> Result<&Database> {
         self.db.get_or_try_init(|| Database::new(&self.db_path))
     }

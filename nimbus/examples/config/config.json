@@ -1,5 +1,5 @@
 {
     "context": {"app_id": "101010", "locale": "en-US"},
     "collection_name": "nimbus-mobile-experiments",
-    "bucket_name": "main"
+    "client_id": "{2204ac0e-1428-11eb-adc1-0242ac120002}"
 }

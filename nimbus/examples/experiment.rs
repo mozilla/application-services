@@ -7,6 +7,7 @@ use env_logger::Env;
 use nimbus::{
     error::Result, AppContext, AvailableRandomizationUnits, NimbusClient, RemoteSettingsConfig,
 };
+use std::collections::HashMap;
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
@@ -119,15 +120,39 @@ fn main() -> Result<()> {
             .about("Generate a uuid that can get enrolled in experiments")
             .arg(
                 Arg::with_name("number")
+                .default_value("1")
                 .help("The number of experiments the uuid generated should be able to enroll in, WARNING: This can end in an infinite loop if the number is too high")
-            ))
+            )
+            .arg(
+                Arg::with_name("set")
+                .long("set")
+                .help("Sets the UUID in the database when complete.")
+            )
+        )
+        .subcommand(
+            SubCommand::with_name("brute-force")
+            .about("Brute-force an experiment a number of times, showing enrollment results")
+            .arg(
+                Arg::with_name("experiment")
+                .long("experiment")
+                .value_name("EXPERIMENT_ID")
+                .help("The ID of the experiment to reset")
+                .required(true)
+                .takes_value(true)
+            )
+            .arg(
+                Arg::with_name("num")
+                .long("num")
+                .short("n")
+                .default_value("10000")
+                .help("The number of times to generate a UUID and attempt enrollment.")
+            )
+        )
         .get_matches();
 
     // Read command line arguments, or set default values
-    let config_file = matches
-        .value_of("config")
-        .unwrap_or("./examples/context.json");
-    let mut config_file = std::fs::File::open(config_file).unwrap();
+    let mut config_file = std::fs::File::open(matches.value_of("config").unwrap())
+        .expect("Config file does not exist");
     let mut config = String::new();
     config_file.read_to_string(&mut config).unwrap();
     let config = serde_json::from_str::<serde_json::Value>(&config).unwrap();
@@ -141,6 +166,12 @@ fn main() -> Result<()> {
             _ => DEFAULT_BASE_URL,
         });
     log::info!("Server url is {}", server_url);
+
+    let client_id = config
+        .get("client_id")
+        .map(|v| v.to_string())
+        .unwrap_or("no-client-id-specified".to_string());
+    log::info!("Client ID is {}", client_id);
 
     let bucket_name = match config.get("bucket_name") {
         Some(v) => v.as_str().unwrap(),
@@ -174,12 +205,12 @@ fn main() -> Result<()> {
         bucket_name: bucket_name.to_string(),
     };
 
-    let available_randomization_units = AvailableRandomizationUnits {
-        client_id: "guid".to_string(),
+    let aru = AvailableRandomizationUnits {
+        client_id: client_id.clone(),
     };
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(context, "", config, available_randomization_units)?;
+    let nimbus_client = NimbusClient::new(context, "", config, aru)?;
 
     // We match against the subcommands
     match matches.subcommand() {
@@ -231,37 +262,96 @@ fn main() -> Result<()> {
             nimbus_client.reset_enrollment(experiment.to_string())?;
         }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
-        // experiments
-        // Should we get back to this? Or is the ability to explicitly opt-in
-        // good enough?
-        // Another idea: command to "brute-force" an experiment - ie, run a loop
-        // where each iteration generates a new uuid and attempts enrollment,
-        // keeping track of how often we were enrolled and in which branch, then
-        // print those stats.
-        /*
-                ("gen_uuid", Some(matches)) => {
-                    let num = matches
-                        .value_of("number")
-                        .unwrap_or("0")
-                        .parse::<usize>()
-                        .expect("the number parameter should be a number");
-                    let all_experiments = nimbus_client.get_all_experiments()?;
-                    let mut num_of_experiments_enrolled = 0;
-                    let mut uuid = uuid::Uuid::new_v4();
-                    let available_randomization_units = AvailableRandomizationUnits {
-                        client_id: Some("bobo".to_string()),
-                    };
-                    while num_of_experiments_enrolled != num {
-                        uuid = uuid::Uuid::new_v4();
-                        num_of_experiments_enrolled =
-                            nimbus::filter_enrolled(&uuid, &available_randomization_units, &all_experiments)
-                                .unwrap()
-                                .len()
+        // experiments, optionally settting the generated ID in the database.
+        ("gen-uuid", Some(matches)) => {
+            let num = matches
+                .value_of("number")
+                .unwrap()
+                .parse::<usize>()
+                .expect("the number parameter should be a number");
+            let all_experiments = nimbus_client.get_all_experiments()?;
+            // XXX - this check below isn't good enough - we need to know how
+            // many of those experiments we are actually eligible for!
+            if all_experiments.len() < num {
+                println!(
+                    "Can't try to enroll in {} experiments - only {} exist",
+                    num,
+                    all_experiments.len(),
+                );
+                std::process::exit(1);
+            }
+
+            let mut num_tries = 0;
+            let aru = AvailableRandomizationUnits { client_id };
+            'outer: loop {
+                let uuid = uuid::Uuid::new_v4();
+                let mut num_of_experiments_enrolled = 0;
+                for exp in &all_experiments {
+                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &Default::default(), &exp)?;
+                    if enr.status.is_enrolled() {
+                        num_of_experiments_enrolled += 1;
+                        if num_of_experiments_enrolled >= num {
+                            println!("======================================");
+                            println!("Generated UUID is: {}", uuid);
+                            println!("(it took {} goes to find it)", num_tries);
+                            // ideally we'd
+                            if matches.is_present("set") {
+                                println!("Setting uuid in the database...");
+                                nimbus_client.set_nimbus_id(&uuid)?;
+                            }
+                            break 'outer;
+                        }
                     }
-                    println!("======================================");
-                    println!("Generated UUID is: {}", uuid);
                 }
-        */
+                num_tries += 1;
+                if num_tries % 5000 == 0 {
+                    println!(
+                        "Made {} attempts so far; it's not looking good...",
+                        num_tries
+                    );
+                }
+            }
+        }
+        ("brute-force", Some(matches)) => {
+            let experiment_id = matches.value_of("experiment").unwrap();
+            let num = matches
+                .value_of("num")
+                .unwrap()
+                .parse::<usize>()
+                .expect("the number of iterations to brute-force");
+            println!("Brute-forcing experiment '{}' {} times", experiment_id, num);
+
+            // *sob* no way currently to get by id.
+            let find_exp = || {
+                for exp in nimbus_client
+                    .get_all_experiments()
+                    .expect("can't fetch experiments!?")
+                {
+                    if exp.slug == experiment_id {
+                        return exp;
+                    }
+                }
+                panic!("No such experiment");
+            };
+            let exp = find_exp();
+            let mut results = HashMap::new();
+            for _i in 0..num {
+                // Rather than inspecting what randomization unit is specified
+                // by the experiment just generate a new uuid for all possible
+                // options.
+                let uuid = uuid::Uuid::new_v4();
+                let aru = AvailableRandomizationUnits {
+                    client_id: uuid.to_string(),
+                };
+                let enrollment =
+                    nimbus::evaluate_enrollment(&uuid, &aru, &Default::default(), &exp)?;
+                results.insert(
+                    enrollment.status.clone(),
+                    results.get(&enrollment.status).unwrap_or(&0) + 1,
+                );
+            }
+            println!("Results: {:#?}", results);
+        }
         (&_, _) => println!("Invalid subcommand"),
     };
     Ok(())

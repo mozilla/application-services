@@ -12,7 +12,7 @@ use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
 // These are types we use internally for managing enrollments.
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
     Qualified, // A normal enrollment as per the experiment's rules.
     OptIn,     // Explicit opt-in.
@@ -25,7 +25,7 @@ pub struct ExperimentEnrollment {
     pub status: EnrollmentStatus,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrollmentStatus {
     // Enrolled
     Enrolled {
@@ -46,6 +46,15 @@ pub enum EnrollmentStatus {
         // serde compatible, which isn't trivial nor desirable.
         reason: String,
     },
+}
+
+impl EnrollmentStatus {
+    pub fn is_enrolled(&self) -> bool {
+        match self {
+            EnrollmentStatus::Enrolled { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 /// Return information about all enrolled experiments.
