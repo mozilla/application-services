@@ -27,7 +27,11 @@ dictionary RemoteSettingsConfig {
 };
 
 dictionary AvailableRandomizationUnits {
-    string client_id;
+    string? client_id;
+    // work around uniffi-rs #331 by including a non-optional value. We'll
+    // try and hide this in the bindings used by clients and eventually remove
+    // it entirely.
+    u8 dummy;
 };
 
 [Error]

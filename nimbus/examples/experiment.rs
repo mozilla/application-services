@@ -205,9 +205,7 @@ fn main() -> Result<()> {
         bucket_name: bucket_name.to_string(),
     };
 
-    let aru = AvailableRandomizationUnits {
-        client_id: client_id.clone(),
-    };
+    let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
     let nimbus_client = NimbusClient::new(context, "", config, aru)?;
@@ -282,7 +280,7 @@ fn main() -> Result<()> {
             }
 
             let mut num_tries = 0;
-            let aru = AvailableRandomizationUnits { client_id };
+            let aru = AvailableRandomizationUnits::with_client_id(&client_id);
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
@@ -340,9 +338,7 @@ fn main() -> Result<()> {
                 // by the experiment just generate a new uuid for all possible
                 // options.
                 let uuid = uuid::Uuid::new_v4();
-                let aru = AvailableRandomizationUnits {
-                    client_id: uuid.to_string(),
-                };
+                let aru = AvailableRandomizationUnits::with_client_id(&client_id);
                 let enrollment =
                     nimbus::evaluate_enrollment(&uuid, &aru, &Default::default(), &exp)?;
                 results.insert(

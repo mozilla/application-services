@@ -4,7 +4,7 @@
 
 // Simple tests for our file-system client
 
-use nimbus::{error::Result, AvailableRandomizationUnits, NimbusClient, RemoteSettingsConfig};
+use nimbus::{error::Result, NimbusClient, RemoteSettingsConfig};
 use std::path::PathBuf;
 use tempdir::TempDir;
 use url::Url;
@@ -26,9 +26,7 @@ fn test_simple() -> Result<()> {
 
     let tmp_dir = TempDir::new("test_fs_client-test_simple")?;
 
-    let aru = AvailableRandomizationUnits {
-        client_id: "guid".to_string(),
-    };
+    let aru = Default::default();
     let client = NimbusClient::new(Default::default(), tmp_dir.path(), config, aru)?;
 
     let experiments = client.get_all_experiments()?;

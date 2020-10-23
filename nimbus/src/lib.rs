@@ -228,15 +228,30 @@ impl Default for RandomizationUnit {
     }
 }
 
+#[derive(Default)]
 pub struct AvailableRandomizationUnits {
-    pub client_id: String,
+    pub client_id: Option<String>,
+    dummy: u8, // See comments in nimbus.idl for why this hacky item exists.
 }
 
 impl AvailableRandomizationUnits {
-    pub fn get_value<'a>(&'a self, nimbus_id: &'a str, wanted: &'a RandomizationUnit) -> &'a str {
+    // Use ::with_client_id when you want to specify one, or use
+    // Default::default if you don't!
+    pub fn with_client_id(client_id: &str) -> Self {
+        Self {
+            client_id: Some(client_id.to_string()),
+            dummy: 0,
+        }
+    }
+
+    pub fn get_value<'a>(
+        &'a self,
+        nimbus_id: &'a str,
+        wanted: &'a RandomizationUnit,
+    ) -> Option<&'a str> {
         match wanted {
-            RandomizationUnit::NimbusId => nimbus_id,
-            RandomizationUnit::ClientId => &self.client_id,
+            RandomizationUnit::NimbusId => Some(nimbus_id),
+            RandomizationUnit::ClientId => self.client_id.as_deref(),
         }
     }
 }
