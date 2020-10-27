@@ -63,7 +63,7 @@ BEGIN
     INSERT OR REPLACE INTO storage_sync_mirror (guid, ext_id, data)
     -- Our mirror has a constraint for tombstones, so handle that - if data is
     -- null we want a null ext_id (as that's whats on the server)
-    VALUES (NEW.guid, iif(NEW.data IS NULL, NULL, NEW.ext_id), NEW.data);
+    VALUES (NEW.guid, CASE WHEN NEW.data IS NULL THEN NULL ELSE NEW.ext_id END, NEW.data);
 END;
 
 DELETE FROM temp.storage_sync_outgoing_staging;
