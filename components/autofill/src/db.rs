@@ -1,6 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 
 use crate::error::*;
 use crate::schema;
@@ -12,6 +13,9 @@ use std::{
 };
 use url::Url;
 
+use crate::api::{addresses::*, credit_cards::*};
+use sync_guid::Guid;
+
 pub struct AutofillDb {
     pub writer: Connection,
 }
@@ -20,6 +24,59 @@ impl AutofillDb {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         let db_path = normalize_path(db_path)?;
         Self::new_named(db_path)
+    }
+
+    #[allow(dead_code)]
+    pub fn add_credit_card(
+        &self,
+        new_credit_card_fields: NewCreditCardFields,
+    ) -> Result<CreditCard> {
+        credit_cards::add_credit_card(self.unchecked_transaction()?, new_credit_card_fields)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_credit_card(&self, guid: &Guid) -> Result<CreditCard> {
+        credit_cards::get_credit_card(self.unchecked_transaction()?, guid)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
+        credit_cards::get_all_credit_cards(self.unchecked_transaction()?)
+    }
+
+    #[allow(dead_code)]
+    pub fn update_credit_card(&self, credit_card: CreditCard) -> Result<()> {
+        credit_card::update_credit_card(self.unchecked_transaction()?, credit_card)
+    }
+
+    #[allow(dead_code)]
+    pub fn delete_credit_card(&self, guid: &Guid) -> Result<bool> {
+        credit_card::delete_credit_card(self.unchecked_transaction()?, guid)
+    }
+
+    #[allow(dead_code)]
+    pub fn add_address(&self, new_address: NewAddressFields) -> Result<Address> {
+        addresses::add_address(self.unchecked_transaction()?, new_address)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_address(&self, guid: &Guid) -> Result<Address> {
+        addresses::get_address(self.unchecked_transaction()?, guid)
+    }
+
+    #[allow(dead_code)]
+    pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
+        addresses::get_all_addresses(self.unchecked_transaction()?)
+    }
+
+    #[allow(dead_code)]
+    pub fn update_address(&self, address: Address) -> Result<()> {
+        addresses::update_address(self.unchecked_transaction()?, address)
+    }
+
+    #[allow(dead_code)]
+    pub fn delete_address(&self, guid: &Guid) -> Result<bool> {
+        addresses::delete_address(self.unchecked_transaction()?, guid)
     }
 
     #[cfg(test)]
