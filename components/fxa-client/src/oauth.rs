@@ -11,6 +11,7 @@ use crate::{
     util, FirefoxAccount,
 };
 use jwcrypto::{EncryptionAlgorithm, EncryptionParameters};
+use rate_limiter::RateLimiter;
 use rc_crypto::digest;
 use serde_derive::*;
 use std::convert::TryFrom;
@@ -461,55 +462,28 @@ impl FirefoxAccount {
 const AUTH_CIRCUIT_BREAKER_CAPACITY: u8 = 5;
 const AUTH_CIRCUIT_BREAKER_RENEWAL_RATE: f32 = 3.0 / 60.0 / 1000.0; // 3 tokens every minute.
 
-// The auth circuit breaker rate-limits access to the `oauth_introspect_refresh_token`
-// using a fairly naively implemented token bucket algorithm.
 #[derive(Clone, Copy)]
 pub(crate) struct AuthCircuitBreaker {
-    tokens: u8,
-    last_refill: u64, // in ms.
+    rate_limiter: RateLimiter,
 }
 
 impl Default for AuthCircuitBreaker {
     fn default() -> Self {
         AuthCircuitBreaker {
-            tokens: AUTH_CIRCUIT_BREAKER_CAPACITY,
-            last_refill: Self::now(),
+            rate_limiter: RateLimiter::new(
+                AUTH_CIRCUIT_BREAKER_CAPACITY,
+                AUTH_CIRCUIT_BREAKER_RENEWAL_RATE,
+            ),
         }
     }
 }
 
 impl AuthCircuitBreaker {
     pub(crate) fn check(&mut self) -> Result<()> {
-        self.refill();
-        if self.tokens == 0 {
+        if !self.rate_limiter.check() {
             return Err(ErrorKind::AuthCircuitBreakerError.into());
         }
-        self.tokens -= 1;
         Ok(())
-    }
-
-    fn refill(&mut self) {
-        let now = Self::now();
-        let new_tokens =
-            ((now - self.last_refill) as f64 * AUTH_CIRCUIT_BREAKER_RENEWAL_RATE as f64) as u8; // `as` is a truncating/saturing cast.
-        if new_tokens > 0 {
-            self.last_refill = now;
-            self.tokens = std::cmp::min(
-                AUTH_CIRCUIT_BREAKER_CAPACITY,
-                self.tokens.saturating_add(new_tokens),
-            );
-        }
-    }
-
-    #[cfg(not(test))]
-    #[inline]
-    fn now() -> u64 {
-        util::now()
-    }
-
-    #[cfg(test)]
-    fn now() -> u64 {
-        1600000000000
     }
 }
 
@@ -977,23 +951,6 @@ mod tests {
             Ok(_) => unreachable!("should not happen"),
             Err(err) => assert!(matches!(err.kind(), ErrorKind::AuthCircuitBreakerError)),
         }
-    }
-
-    #[test]
-    fn test_auth_circuit_breaker_unit_recovery() {
-        let mut breaker = AuthCircuitBreaker::default();
-        // AuthCircuitBreaker::now is fixed for tests, let's assert that for sanity.
-        assert_eq!(AuthCircuitBreaker::now(), 1600000000000);
-        for _ in 0..AUTH_CIRCUIT_BREAKER_CAPACITY {
-            assert!(breaker.check().is_ok());
-        }
-        assert!(breaker.check().is_err());
-        // Jump back in time (1 min).
-        breaker.last_refill -= 60 * 1000;
-        let expected_tokens_before_check: u8 =
-            (AUTH_CIRCUIT_BREAKER_RENEWAL_RATE * 60.0 * 1000.0) as u8;
-        assert!(breaker.check().is_ok());
-        assert_eq!(breaker.tokens, expected_tokens_before_check - 1);
     }
 
     use crate::scopes;
