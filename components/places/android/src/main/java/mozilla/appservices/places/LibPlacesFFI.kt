@@ -156,6 +156,7 @@ internal interface LibPlacesFFI : Library {
     fun places_get_top_frecent_site_infos(
         handle: PlacesConnectionHandle,
         numItems: Int,
+        frecencyThreshold: Long,
         error: RustError.ByReference
     ): RustBuffer.ByValue
 

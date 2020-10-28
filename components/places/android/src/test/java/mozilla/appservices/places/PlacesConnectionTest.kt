@@ -198,23 +198,41 @@ class PlacesConnectionTest {
             db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
         }
 
-        var infos = db.getTopFrecentSiteInfos(0)
+        var infos = db.getTopFrecentSiteInfos(numItems = 0, frecencyThreshold = FrecencyThresholdOption.NONE)
+
         assertEquals(0, infos.size)
 
-        infos = db.getTopFrecentSiteInfos(3)
+        infos = db.getTopFrecentSiteInfos(numItems = 0, frecencyThreshold = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES)
+
+        assertEquals(0, infos.size)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 3, frecencyThreshold = FrecencyThresholdOption.NONE)
 
         assertEquals(3, infos.size)
         assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
         assertEquals("https://www.example.com/123", infos[1].url)
         assertEquals("https://news.ycombinator.com/", infos[2].url)
 
-        infos = db.getTopFrecentSiteInfos(5)
+        infos = db.getTopFrecentSiteInfos(numItems = 3, frecencyThreshold = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES)
+
+        assertEquals(2, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 5, frecencyThreshold = FrecencyThresholdOption.NONE)
+
         assertEquals(5, infos.size)
         assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
         assertEquals("https://www.example.com/123", infos[1].url)
         assertEquals("https://news.ycombinator.com/", infos[2].url)
         assertEquals("https://mozilla.com/a1/b2/c3", infos[3].url)
         assertEquals("https://www.example.com/12345", infos[4].url)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 5, frecencyThreshold = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES)
+
+        assertEquals(2, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
     }
 
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
