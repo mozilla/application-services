@@ -6,17 +6,22 @@
 //!
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
-use crate::communications::{connect, ConnectHttp, Connection, RegisterResponse};
+use crate::communications::{
+    connect, ConnectHttp, Connection, PersistedRateLimiter, RegisterResponse,
+};
 use crate::config::PushConfiguration;
 use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
+use crate::error::{self, ErrorKind, Result};
 use crate::storage::{PushRecord, Storage, Store};
 
-use crate::error::{self, ErrorKind, Result};
+const UPDATE_RATE_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 500 calls per 24 hours.
+const UPDATE_RATE_LIMITER_MAX_CALLS: u16 = 500;
 
 pub struct PushManager {
     config: PushConfiguration,
     pub conn: ConnectHttp,
     pub store: Store,
+    update_rate_limiter: PersistedRateLimiter,
 }
 
 impl PushManager {
@@ -27,10 +32,15 @@ impl PushManager {
             Store::open_in_memory()?
         };
         let uaid = store.get_meta("uaid")?;
-        let pm = PushManager {
+        let pm = Self {
             config: config.clone(),
             conn: connect(config, uaid, store.get_meta("auth")?)?,
             store,
+            update_rate_limiter: PersistedRateLimiter::new(
+                "update_token",
+                UPDATE_RATE_LIMITER_INTERVAL,
+                UPDATE_RATE_LIMITER_MAX_CALLS,
+            ),
         };
         Ok(pm)
     }
@@ -117,6 +127,9 @@ impl PushManager {
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        }
+        if !self.update_rate_limiter.check(&self.store) {
+            return Ok(false);
         }
         let result = self.conn.update(&new_token)?;
         self.store
