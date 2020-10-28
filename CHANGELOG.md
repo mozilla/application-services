@@ -1,3 +1,12 @@
+# v66.0.0 (_2020-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v65.0.0...v66.0.0)
+
+### Breaking changes
+
+- Android: Updated the `getTopFrecentSiteInfos` API to specify a frecency threshold parameter for the
+  fetched top frecent sites in `PlacesReaderConnection`. ([#3635](https://github.com/mozilla/application-services/issues/3635))
+
 # v65.0.0 (_2020-10-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v64.0.0...v65.0.0)
