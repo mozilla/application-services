@@ -106,8 +106,8 @@ impl Address {
 }
 
 #[allow(dead_code)]
-pub fn add_address(conn: &mut Connection, new_address: NewAddressFields) -> Result<Address> {
-    let tx = conn.transaction()?;
+pub fn add_address(conn: &Connection, new_address: NewAddressFields) -> Result<Address> {
+    let tx = conn.unchecked_transaction()?;
 
     let address = Address {
         guid: Guid::random(),
@@ -172,8 +172,8 @@ pub fn add_address(conn: &mut Connection, new_address: NewAddressFields) -> Resu
 }
 
 #[allow(dead_code)]
-pub fn get_address(conn: &mut Connection, guid: &Guid) -> Result<Address> {
-    let tx = conn.transaction()?;
+pub fn get_address(conn: &Connection, guid: &Guid) -> Result<Address> {
+    let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
             {common_cols}
@@ -189,8 +189,8 @@ pub fn get_address(conn: &mut Connection, guid: &Guid) -> Result<Address> {
 }
 
 #[allow(dead_code)]
-pub fn get_all_addresses(conn: &mut Connection) -> Result<Vec<Address>> {
-    let tx = conn.transaction()?;
+pub fn get_all_addresses(conn: &Connection) -> Result<Vec<Address>> {
+    let tx = conn.unchecked_transaction()?;
     let mut addresses = Vec::new();
     let sql = format!(
         "SELECT
@@ -213,8 +213,8 @@ pub fn get_all_addresses(conn: &mut Connection) -> Result<Vec<Address>> {
 }
 
 #[allow(dead_code)]
-pub fn update_address(conn: &mut Connection, address: Address) -> Result<()> {
-    let tx = conn.transaction()?;
+pub fn update_address(conn: &Connection, address: Address) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE addresses_data
         SET given_name         = :given_name,
@@ -252,8 +252,8 @@ pub fn update_address(conn: &mut Connection, address: Address) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_address(conn: &mut Connection, guid: &Guid) -> Result<bool> {
-    let tx = conn.transaction()?;
+pub fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
+    let tx = conn.unchecked_transaction()?;
 
     // check that guid exists
     let exists = tx.query_row(
