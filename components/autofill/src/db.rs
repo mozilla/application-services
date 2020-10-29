@@ -13,7 +13,7 @@ use std::{
 };
 use url::Url;
 
-use crate::api::{addresses::*, credit_cards::*};
+use crate::api::{addresses, credit_cards};
 use sync_guid::Guid;
 
 pub struct AutofillDb {
@@ -29,54 +29,57 @@ impl AutofillDb {
     #[allow(dead_code)]
     pub fn add_credit_card(
         &self,
-        new_credit_card_fields: NewCreditCardFields,
-    ) -> Result<CreditCard> {
-        credit_cards::add_credit_card(self.unchecked_transaction()?, new_credit_card_fields)
+        new_credit_card_fields: credit_cards::NewCreditCardFields,
+    ) -> Result<credit_cards::CreditCard> {
+        credit_cards::add_credit_card(&self.writer, new_credit_card_fields)
     }
 
     #[allow(dead_code)]
-    pub fn get_credit_card(&self, guid: &Guid) -> Result<CreditCard> {
-        credit_cards::get_credit_card(self.unchecked_transaction()?, guid)
+    pub fn get_credit_card(&self, guid: &Guid) -> Result<credit_cards::CreditCard> {
+        credit_cards::get_credit_card(&self.writer, guid)
     }
 
     #[allow(dead_code)]
-    pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
-        credit_cards::get_all_credit_cards(self.unchecked_transaction()?)
+    pub fn get_all_credit_cards(&self) -> Result<Vec<credit_cards::CreditCard>> {
+        credit_cards::get_all_credit_cards(&self.writer)
     }
 
     #[allow(dead_code)]
-    pub fn update_credit_card(&self, credit_card: CreditCard) -> Result<()> {
-        credit_card::update_credit_card(self.unchecked_transaction()?, credit_card)
+    pub fn update_credit_card(&self, credit_card: credit_cards::CreditCard) -> Result<()> {
+        credit_cards::update_credit_card(&self.writer, credit_card)
     }
 
     #[allow(dead_code)]
     pub fn delete_credit_card(&self, guid: &Guid) -> Result<bool> {
-        credit_card::delete_credit_card(self.unchecked_transaction()?, guid)
+        credit_cards::delete_credit_card(&self.writer, guid)
     }
 
     #[allow(dead_code)]
-    pub fn add_address(&self, new_address: NewAddressFields) -> Result<Address> {
-        addresses::add_address(self.unchecked_transaction()?, new_address)
+    pub fn add_address(
+        &self,
+        new_address: addresses::NewAddressFields,
+    ) -> Result<addresses::Address> {
+        addresses::add_address(&self.writer, new_address)
     }
 
     #[allow(dead_code)]
-    pub fn get_address(&self, guid: &Guid) -> Result<Address> {
-        addresses::get_address(self.unchecked_transaction()?, guid)
+    pub fn get_address(&self, guid: &Guid) -> Result<addresses::Address> {
+        addresses::get_address(&self.writer, guid)
     }
 
     #[allow(dead_code)]
-    pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
-        addresses::get_all_addresses(self.unchecked_transaction()?)
+    pub fn get_all_addresses(&self) -> Result<Vec<addresses::Address>> {
+        addresses::get_all_addresses(&self.writer)
     }
 
     #[allow(dead_code)]
-    pub fn update_address(&self, address: Address) -> Result<()> {
-        addresses::update_address(self.unchecked_transaction()?, address)
+    pub fn update_address(&self, address: addresses::Address) -> Result<()> {
+        addresses::update_address(&self.writer, address)
     }
 
     #[allow(dead_code)]
     pub fn delete_address(&self, guid: &Guid) -> Result<bool> {
-        addresses::delete_address(self.unchecked_transaction()?, guid)
+        addresses::delete_address(&self.writer, guid)
     }
 
     #[cfg(test)]

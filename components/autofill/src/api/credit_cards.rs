@@ -77,12 +77,11 @@ impl CreditCard {
     }
 }
 
-#[allow(dead_code)]
 pub fn add_credit_card(
-    conn: &mut Connection,
+    conn: &Connection,
     new_credit_card_fields: NewCreditCardFields,
 ) -> Result<CreditCard> {
-    let tx = conn.transaction()?;
+    let tx = conn.unchecked_transaction()?;
 
     let credit_card = CreditCard {
         guid: Guid::random(),
@@ -132,9 +131,8 @@ pub fn add_credit_card(
     Ok(credit_card)
 }
 
-#[allow(dead_code)]
-pub fn get_credit_card(conn: &mut Connection, guid: &Guid) -> Result<CreditCard> {
-    let tx = conn.transaction()?;
+pub fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<CreditCard> {
+    let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
             {common_cols}
@@ -149,9 +147,8 @@ pub fn get_credit_card(conn: &mut Connection, guid: &Guid) -> Result<CreditCard>
     Ok(credit_card)
 }
 
-#[allow(dead_code)]
-pub fn get_all_credit_cards(conn: &mut Connection) -> Result<Vec<CreditCard>> {
-    let tx = conn.transaction()?;
+pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<CreditCard>> {
+    let tx = conn.unchecked_transaction()?;
     let credit_cards;
     let sql = format!(
         "SELECT
@@ -171,9 +168,8 @@ pub fn get_all_credit_cards(conn: &mut Connection) -> Result<Vec<CreditCard>> {
     Ok(credit_cards)
 }
 
-#[allow(dead_code)]
-pub fn update_credit_card(conn: &mut Connection, credit_card: CreditCard) -> Result<()> {
-    let tx = conn.transaction()?;
+pub fn update_credit_card(conn: &Connection, credit_card: CreditCard) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
@@ -205,9 +201,8 @@ pub fn update_credit_card(conn: &mut Connection, credit_card: CreditCard) -> Res
     Ok(())
 }
 
-#[allow(dead_code)]
-pub fn delete_credit_card(conn: &mut Connection, guid: &Guid) -> Result<bool> {
-    let tx = conn.transaction()?;
+pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
+    let tx = conn.unchecked_transaction()?;
 
     // check that guid exists
     let exists = tx.query_row(
