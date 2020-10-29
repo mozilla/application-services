@@ -12,4 +12,10 @@ pub mod error;
 mod schema;
 pub mod store;
 
+// Expose stuff needed by the uniffi generated code.
+use api::addresses::*;
+use api::credit_cards::*;
+use db::AutofillDb;
+use error::ErrorKind;
+
 include!(concat!(env!("OUT_DIR"), "/autofill.uniffi.rs"));

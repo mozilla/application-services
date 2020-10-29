@@ -61,7 +61,7 @@ pub struct Address {
 
     #[serde(default)]
     #[serde(rename = "timeLastUsed")]
-    pub time_last_used: Timestamp,
+    pub time_last_used: Option<Timestamp>,
 
     #[serde(default)]
     #[serde(rename = "timeLastModified")]
