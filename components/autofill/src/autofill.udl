@@ -1,3 +1,5 @@
+namespace autofill {};
+
 dictionary NewCreditCardFields {
     string cc_name;
     string cc_number;
@@ -45,7 +47,10 @@ enum ErrorKind {
    "SqlError", "IoError", "InterruptedError", "Utf8Error"
 };
 
-namespace autofill {
+interface AutofillDb {
+    [Throws=ErrorKind]
+    constructor(string dbpath);
+
     [Throws=ErrorKind]
     CreditCard add_credit_card(NewCreditCardFields a);
 
