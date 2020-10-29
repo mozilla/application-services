@@ -3,87 +3,21 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use crate::db::models::credit_card::{CreditCard, InternalCreditCard, NewCreditCardFields};
+use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::error::*;
-use crate::schema::CREDIT_CARD_COMMON_COLS;
 
-use rusqlite::{Connection, Row, NO_PARAMS};
-use serde::Serialize;
-use serde_derive::*;
+use rusqlite::{Connection, NO_PARAMS};
 use sync_guid::Guid;
 use types::Timestamp;
-
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
-pub struct NewCreditCardFields {
-    pub cc_name: String,
-
-    pub cc_number: String,
-
-    pub cc_exp_month: i64,
-
-    pub cc_exp_year: i64,
-
-    // Credit card types are a fixed set of strings as defined in the link below
-    // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
-    pub cc_type: String,
-}
-
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-pub struct CreditCard {
-    pub guid: Guid,
-
-    pub fields: NewCreditCardFields,
-
-    #[serde(default)]
-    #[serde(rename = "timeCreated")]
-    pub time_created: Timestamp,
-
-    #[serde(default)]
-    #[serde(rename = "timeLastUsed")]
-    pub time_last_used: Option<Timestamp>,
-
-    #[serde(default)]
-    #[serde(rename = "timeLastModified")]
-    pub time_last_modified: Timestamp,
-
-    #[serde(default)]
-    #[serde(rename = "timesUsed")]
-    pub times_used: i64,
-
-    #[serde(default)]
-    #[serde(rename = "changeCounter")]
-    pub(crate) sync_change_counter: i64,
-}
-
-impl CreditCard {
-    pub fn from_row(row: &Row<'_>) -> Result<CreditCard, rusqlite::Error> {
-        let credit_card_fields = NewCreditCardFields {
-            cc_name: row.get("cc_name")?,
-            cc_number: row.get("cc_number")?,
-            cc_exp_month: row.get("cc_exp_month")?,
-            cc_exp_year: row.get("cc_exp_year")?,
-            cc_type: row.get("cc_type")?,
-        };
-
-        Ok(CreditCard {
-            guid: Guid::from_string(row.get("guid")?),
-            fields: credit_card_fields,
-            time_created: row.get("time_created")?,
-            time_last_used: row.get("time_last_used")?,
-            time_last_modified: row.get("time_last_modified")?,
-            times_used: row.get("times_used")?,
-            sync_change_counter: row.get("sync_change_counter")?,
-        })
-    }
-}
 
 pub fn add_credit_card(
     conn: &Connection,
     new_credit_card_fields: NewCreditCardFields,
-) -> Result<CreditCard> {
+) -> Result<InternalCreditCard> {
     let tx = conn.unchecked_transaction()?;
 
-    let credit_card = CreditCard {
+    let credit_card = InternalCreditCard {
         guid: Guid::random(),
         fields: new_credit_card_fields,
         time_created: Timestamp::now(),
@@ -131,7 +65,7 @@ pub fn add_credit_card(
     Ok(credit_card)
 }
 
-pub fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<CreditCard> {
+pub fn get_credit_card(conn: &Connection, guid: String) -> Result<InternalCreditCard> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
@@ -141,13 +75,13 @@ pub fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<CreditCard> {
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    let credit_card = tx.query_row(&sql, &[guid.as_str()], CreditCard::from_row)?;
+    let credit_card = tx.query_row(&sql, &[guid.as_str()], InternalCreditCard::from_row)?;
 
     tx.commit()?;
     Ok(credit_card)
 }
 
-pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<CreditCard>> {
+pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
     let tx = conn.unchecked_transaction()?;
     let credit_cards;
     let sql = format!(
@@ -160,15 +94,15 @@ pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<CreditCard>> {
     {
         let mut stmt = tx.prepare(&sql)?;
         credit_cards = stmt
-            .query_map(NO_PARAMS, CreditCard::from_row)?
-            .collect::<Result<Vec<CreditCard>, _>>()?;
+            .query_map(NO_PARAMS, InternalCreditCard::from_row)?
+            .collect::<Result<Vec<InternalCreditCard>, _>>()?;
     }
 
     tx.commit()?;
     Ok(credit_cards)
 }
 
-pub fn update_credit_card(conn: &Connection, credit_card: CreditCard) -> Result<()> {
+pub fn update_credit_card(conn: &Connection, credit_card: &CreditCard) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE credit_cards_data
@@ -177,23 +111,17 @@ pub fn update_credit_card(conn: &Connection, credit_card: CreditCard) -> Result<
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
             cc_type                     = :cc_type,
-            time_created                = :time_created,
-            time_last_used              = :time_last_used,
             time_last_modified          = :time_last_modified,
-            times_used                  = :times_used,
             sync_change_counter         = sync_change_counter + 1
         WHERE guid                      = :guid",
         rusqlite::named_params! {
-            ":cc_name": credit_card.fields.cc_name,
-            ":cc_number": credit_card.fields.cc_number,
-            ":cc_exp_month": credit_card.fields.cc_exp_month,
-            ":cc_exp_year": credit_card.fields.cc_exp_year,
-            ":cc_type": credit_card.fields.cc_type,
-            ":time_created": credit_card.time_created,
-            ":time_last_used": credit_card.time_last_used,
-            ":time_last_modified": credit_card.time_last_modified,
-            ":times_used": credit_card.times_used,
-            ":guid": credit_card.guid,
+            ":cc_name": credit_card.cc_name,
+            ":cc_number": credit_card.cc_number,
+            ":cc_exp_month": credit_card.cc_exp_month,
+            ":cc_exp_year": credit_card.cc_exp_year,
+            ":cc_type": credit_card.cc_type,
+            ":time_last_modified": Timestamp::now(),
+            ":guid": credit_card.guid.as_str(),
         },
     )?;
 
@@ -201,7 +129,7 @@ pub fn update_credit_card(conn: &Connection, credit_card: CreditCard) -> Result<
     Ok(())
 }
 
-pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
+pub fn delete_credit_card(conn: &Connection, guid: String) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
     // check that guid exists
@@ -261,6 +189,26 @@ pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
     Ok(exists)
 }
 
+pub fn touch(conn: &Connection, guid: String) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    let now_ms = Timestamp::now();
+
+    tx.execute_named(
+        "UPDATE credit_cards_data
+        SET time_last_used              = :time_last_used,
+            times_used                  = times_used + 1,
+            sync_change_counter         = sync_change_counter + 1
+        WHERE guid                      = :guid",
+        rusqlite::named_params! {
+            ":time_last_used": now_ms,
+            ":guid": guid.as_str(),
+        },
+    )?;
+
+    tx.commit()?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,7 +236,7 @@ mod tests {
         assert_eq!(1, saved_credit_card.sync_change_counter);
 
         // get created credit card
-        let retrieved_credit_card = get_credit_card(&mut db, &saved_credit_card.guid)?;
+        let retrieved_credit_card = get_credit_card(&mut db, saved_credit_card.guid.to_string())?;
 
         assert_eq!(saved_credit_card.guid, retrieved_credit_card.guid);
         assert_eq!(
@@ -313,11 +261,11 @@ mod tests {
         );
 
         // converting the created record into a tombstone to check that it's not returned on a second `get_credit_card` call
-        let delete_result = delete_credit_card(&mut db, &saved_credit_card.guid);
+        let delete_result = delete_credit_card(&mut db, saved_credit_card.guid.to_string());
         assert!(delete_result.is_ok());
         assert!(delete_result?);
 
-        assert!(get_credit_card(&mut db, &saved_credit_card.guid).is_err());
+        assert!(get_credit_card(&mut db, saved_credit_card.guid.to_string()).is_err());
 
         Ok(())
     }
@@ -360,7 +308,7 @@ mod tests {
             },
         )?;
 
-        let delete_result = delete_credit_card(&mut db, &saved_credit_card3.guid);
+        let delete_result = delete_credit_card(&mut db, saved_credit_card3.guid.to_string());
         assert!(delete_result.is_ok());
         assert!(delete_result?);
 
@@ -401,22 +349,18 @@ mod tests {
         let expected_cc_name = "john doe".to_string();
         let update_result = update_credit_card(
             &mut db,
-            CreditCard {
-                guid: saved_credit_card.guid.clone(),
-                fields: NewCreditCardFields {
-                    cc_name: expected_cc_name.clone(),
-                    cc_number: "1111222233334444".to_string(),
-                    cc_exp_month: 10,
-                    cc_exp_year: 2025,
-                    cc_type: "mastercard".to_string(),
-                },
-
-                ..CreditCard::default()
+            &CreditCard {
+                guid: saved_credit_card.guid.clone().to_string(),
+                cc_name: expected_cc_name.clone(),
+                cc_number: "1111222233334444".to_string(),
+                cc_type: "mastercard".to_string(),
+                cc_exp_month: 10,
+                cc_exp_year: 2025,
             },
         );
         assert!(update_result.is_ok());
 
-        let updated_credit_card = get_credit_card(&mut db, &saved_credit_card.guid)?;
+        let updated_credit_card = get_credit_card(&mut db, saved_credit_card.guid.to_string())?;
 
         assert_eq!(saved_credit_card.guid, updated_credit_card.guid);
         assert_eq!(expected_cc_name, updated_credit_card.fields.cc_name);
@@ -442,7 +386,7 @@ mod tests {
             },
         )?;
 
-        let delete_result = delete_credit_card(&mut db, &saved_credit_card.guid);
+        let delete_result = delete_credit_card(&mut db, saved_credit_card.guid.to_string());
         assert!(delete_result.is_ok());
         assert!(delete_result?);
 
@@ -496,7 +440,7 @@ mod tests {
             },
         )?;
 
-        let delete_result2 = delete_credit_card(&mut db, &saved_credit_card2.guid);
+        let delete_result2 = delete_credit_card(&mut db, saved_credit_card2.guid.to_string());
         assert!(delete_result2.is_ok());
         assert!(delete_result2?);
 
@@ -546,7 +490,7 @@ mod tests {
         assert!(tombstone_result.is_ok());
 
         // create a new credit card with the tombstone's guid
-        let credit_card = CreditCard {
+        let credit_card = InternalCreditCard {
             guid,
             fields: NewCreditCardFields {
                 cc_name: "john deer".to_string(),
@@ -556,7 +500,7 @@ mod tests {
                 cc_type: "mastercard".to_string(),
             },
 
-            ..CreditCard::default()
+            ..InternalCreditCard::default()
         };
 
         let add_credit_card_result = db.execute_named(
@@ -607,7 +551,7 @@ mod tests {
         let guid = Guid::random();
 
         // create an credit card
-        let credit_card = CreditCard {
+        let credit_card = InternalCreditCard {
             guid,
             fields: NewCreditCardFields {
                 cc_name: "jane doe".to_string(),
@@ -617,7 +561,7 @@ mod tests {
                 cc_type: "visa".to_string(),
             },
 
-            ..CreditCard::default()
+            ..InternalCreditCard::default()
         };
 
         let add_credit_card_result = db.execute_named(
@@ -676,5 +620,32 @@ mod tests {
             expected_error_message,
             tombstone_result.unwrap_err().to_string()
         );
+    }
+
+    #[test]
+    fn test_credit_card_touch() -> Result<()> {
+        let db = new_mem_db();
+        let saved_credit_card = add_credit_card(
+            &db,
+            NewCreditCardFields {
+                cc_name: "john doe".to_string(),
+                cc_number: "5555666677778888".to_string(),
+                cc_exp_month: 5,
+                cc_exp_year: 2024,
+                cc_type: "visa".to_string(),
+            },
+        )?;
+
+        assert_eq!(saved_credit_card.sync_change_counter, 1);
+        assert_eq!(saved_credit_card.times_used, 0);
+
+        touch(&db, saved_credit_card.guid.to_string())?;
+
+        let touched_credit_card = get_credit_card(&db, saved_credit_card.guid.to_string())?;
+
+        assert_eq!(touched_credit_card.sync_change_counter, 2);
+        assert_eq!(touched_credit_card.times_used, 1);
+
+        Ok(())
     }
 }

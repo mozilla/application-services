@@ -10,44 +10,19 @@ dictionary NewCreditCardFields {
 
 dictionary CreditCard {
     string guid;
-    NewCreditCardFields fields;
-    u64 time_created;
-    u64? time_last_used;
-    u64 time_last_modified;
-    i64 times_used;
+    string cc_name;
+    string cc_number;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
 };
 
-dictionary Address {
-    string guid;
-    NewAddressFields fields;
-    u64 time_created;
-    u64? time_last_used;
-    u64 time_last_modified;
-    i64 times_used;
-    i64 sync_change_counter;
-};
-
-dictionary NewAddressFields {
-    string given_name;
-    string additional_name;
-    string family_name;
-    string organization;
-    string street_address;
-    string address_level3;
-    string address_level2;
-    string address_level1;
-    string postal_code;
-    string country;
-    string tel;
-    string email;
-};
-
-[Error]
+/*[Error]
 enum ErrorKind {
    "SqlError", "IoError", "InterruptedError", "Utf8Error"
 };
 
-interface AutofillDb {
+interface Store {
     [Throws=ErrorKind]
     constructor(string dbpath);
 
@@ -61,23 +36,5 @@ interface AutofillDb {
     sequence<CreditCard> get_all_credit_cards();
 
     [Throws=ErrorKind]
-    void update_credit_card(CreditCard a);
-
-    [Throws=ErrorKind]
     boolean delete_credit_card(string guid);
-
-    [Throws=ErrorKind]
-    Address add_address(NewAddressFields a);
-
-    [Throws=ErrorKind]
-    Address get_address(string guid);
-
-    [Throws=ErrorKind]
-    sequence<Address> get_all_addresses();
-
-    [Throws=ErrorKind]
-    void update_address(Address a);
-
-    [Throws=ErrorKind]
-    boolean delete_address(string guid);
-};
+};*/

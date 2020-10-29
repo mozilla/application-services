@@ -39,15 +39,15 @@ open class RustBuffer : Structure() {
 
     companion object {
         internal fun alloc(size: Int = 0) = rustCall(InternalError.ByReference()) { err ->
-            _UniFFILib.INSTANCE.ffi_autofill_1986_rustbuffer_alloc(size, err)
+            _UniFFILib.INSTANCE.ffi_autofill_ed_rustbuffer_alloc(size, err)
         }
 
         internal fun free(buf: RustBuffer.ByValue) = rustCall(InternalError.ByReference()) { err ->
-            _UniFFILib.INSTANCE.ffi_autofill_1986_rustbuffer_free(buf, err)
+            _UniFFILib.INSTANCE.ffi_autofill_ed_rustbuffer_free(buf, err)
         }
 
         internal fun reserve(buf: RustBuffer.ByValue, additional: Int) = rustCall(InternalError.ByReference()) { err ->
-            _UniFFILib.INSTANCE.ffi_autofill_1986_rustbuffer_reserve(buf, additional, err)
+            _UniFFILib.INSTANCE.ffi_autofill_ed_rustbuffer_reserve(buf, additional, err)
         }
     }
 
@@ -200,6 +200,18 @@ internal fun<T> lowerIntoRustBuffer(v: T, writeItem: (T, RustBufferBuilder) -> U
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 internal fun Long.Companion.lift(v: Long): Long {
     return v
 }
@@ -214,150 +226,6 @@ internal fun Long.lower(): Long {
 
 internal fun Long.write(buf: RustBufferBuilder) {
     buf.putLong(this)
-}
-
-
-
-
-
-internal fun Boolean.Companion.lift(v: Byte): Boolean {
-    return v.toInt() != 0
-}
-
-internal fun Boolean.Companion.read(buf: ByteBuffer): Boolean {
-    return Boolean.lift(buf.get())
-}
-
-internal fun Boolean.lower(): Byte {
-    return if (this) 1.toByte() else 0.toByte()
-}
-
-internal fun Boolean.write(buf: RustBufferBuilder) {
-    buf.putByte(this.lower())
-}
-
-
-
-
-
-
-
-// Helper functions for pasing values of type ULong?
-
-internal fun liftOptionalu64(rbuf: RustBuffer.ByValue): ULong? {
-    return liftFromRustBuffer(rbuf) { buf ->
-        readOptionalu64(buf)
-    }
-}
-
-internal fun readOptionalu64(buf: ByteBuffer): ULong? {
-    if (buf.get().toInt() == 0) {
-        return null
-    }
-    return ULong.read(buf)
-}
-
-internal fun lowerOptionalu64(v: ULong?): RustBuffer.ByValue {
-    return lowerIntoRustBuffer(v) { v, buf ->
-        writeOptionalu64(v, buf)
-    }
-}
-
-internal fun writeOptionalu64(v: ULong?, buf: RustBufferBuilder) {
-    if (v === null) {
-        buf.putByte(0)
-    } else {
-        buf.putByte(1)
-        v.write(buf)
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-@ExperimentalUnsignedTypes
-internal fun ULong.Companion.lift(v: Long): ULong {
-    return v.toULong()
-}
-
-@ExperimentalUnsignedTypes
-internal fun ULong.Companion.read(buf: ByteBuffer): ULong {
-    return ULong.lift(buf.getLong())
-}
-
-@ExperimentalUnsignedTypes
-internal fun ULong.lower(): Long {
-    return this.toLong()
-}
-
-@ExperimentalUnsignedTypes
-internal fun ULong.write(buf: RustBufferBuilder) {
-    buf.putLong(this.toLong())
-}
-
-
-
-
-
-
-
-// Helper functions for pasing values of type List<CreditCard>
-
-internal fun liftSequenceRecordCreditCard(rbuf: RustBuffer.ByValue): List<CreditCard> {
-    return liftFromRustBuffer(rbuf) { buf ->
-        readSequenceRecordCreditCard(buf)
-    }
-}
-
-internal fun readSequenceRecordCreditCard(buf: ByteBuffer): List<CreditCard> {
-    val len = buf.getInt()
-    return List<CreditCard>(len) {
-        CreditCard.read(buf)
-    }
-}
-
-internal fun lowerSequenceRecordCreditCard(v: List<CreditCard>): RustBuffer.ByValue {
-    return lowerIntoRustBuffer(v) { v, buf ->
-        writeSequenceRecordCreditCard(v, buf)
-    }
-}
-
-internal fun writeSequenceRecordCreditCard(v: List<CreditCard>, buf: RustBufferBuilder) {
-    buf.putInt(v.size)
-    v.forEach {
-        it.write(buf)
-    }
 }
 
 
@@ -399,40 +267,6 @@ internal fun String.write(buf: RustBufferBuilder) {
 
 
 
-
-
-
-// Helper functions for pasing values of type List<Address>
-
-internal fun liftSequenceRecordAddress(rbuf: RustBuffer.ByValue): List<Address> {
-    return liftFromRustBuffer(rbuf) { buf ->
-        readSequenceRecordAddress(buf)
-    }
-}
-
-internal fun readSequenceRecordAddress(buf: ByteBuffer): List<Address> {
-    val len = buf.getInt()
-    return List<Address>(len) {
-        Address.read(buf)
-    }
-}
-
-internal fun lowerSequenceRecordAddress(v: List<Address>): RustBuffer.ByValue {
-    return lowerIntoRustBuffer(v) { v, buf ->
-        writeSequenceRecordAddress(v, buf)
-    }
-}
-
-internal fun writeSequenceRecordAddress(v: List<Address>, buf: RustBufferBuilder) {
-    buf.putInt(v.size)
-    v.forEach {
-        it.write(buf)
-    }
-}
-
-
-
-
 @Synchronized
 fun findLibraryName(componentName: String): String {
     val libOverride = System.getProperty("uniffi.component.${componentName}.libraryOverride")
@@ -456,63 +290,23 @@ internal interface _UniFFILib : Library {
         internal var INSTANCE: _UniFFILib = loadIndirect(componentName = "autofill")
     }
 
-    fun autofill_1986_add_credit_card(a: RustBuffer.ByValue
+    fun ffi_autofill_ed_rustbuffer_alloc(size: Int
     , uniffi_out_err: Structure.ByReference
     ): RustBuffer.ByValue
 
-    fun autofill_1986_get_credit_card(guid: RustBuffer.ByValue
+    fun ffi_autofill_ed_rustbuffer_from_bytes(bytes: ForeignBytes.ByValue
     , uniffi_out_err: Structure.ByReference
     ): RustBuffer.ByValue
 
-    fun autofill_1986_get_all_credit_cards(
-     uniffi_out_err: Structure.ByReference
-    ): RustBuffer.ByValue
-
-    fun autofill_1986_update_credit_card(a: RustBuffer.ByValue
+    fun ffi_autofill_ed_rustbuffer_free(buf: RustBuffer.ByValue
     , uniffi_out_err: Structure.ByReference
     ): Unit
 
-    fun autofill_1986_delete_credit_card(guid: RustBuffer.ByValue
-    , uniffi_out_err: Structure.ByReference
-    ): Byte
-
-    fun autofill_1986_add_address(a: RustBuffer.ByValue
+    fun ffi_autofill_ed_rustbuffer_reserve(buf: RustBuffer.ByValue,additional: Int
     , uniffi_out_err: Structure.ByReference
     ): RustBuffer.ByValue
 
-    fun autofill_1986_get_address(guid: RustBuffer.ByValue
-    , uniffi_out_err: Structure.ByReference
-    ): RustBuffer.ByValue
-
-    fun autofill_1986_get_all_addresses(
-     uniffi_out_err: Structure.ByReference
-    ): RustBuffer.ByValue
-
-    fun autofill_1986_update_address(a: RustBuffer.ByValue
-    , uniffi_out_err: Structure.ByReference
-    ): Unit
-
-    fun autofill_1986_delete_address(guid: RustBuffer.ByValue
-    , uniffi_out_err: Structure.ByReference
-    ): Byte
-
-    fun ffi_autofill_1986_rustbuffer_alloc(size: Int
-    , uniffi_out_err: Structure.ByReference
-    ): RustBuffer.ByValue
-
-    fun ffi_autofill_1986_rustbuffer_from_bytes(bytes: ForeignBytes.ByValue
-    , uniffi_out_err: Structure.ByReference
-    ): RustBuffer.ByValue
-
-    fun ffi_autofill_1986_rustbuffer_free(buf: RustBuffer.ByValue
-    , uniffi_out_err: Structure.ByReference
-    ): Unit
-
-    fun ffi_autofill_1986_rustbuffer_reserve(buf: RustBuffer.ByValue,additional: Int
-    , uniffi_out_err: Structure.ByReference
-    ): RustBuffer.ByValue
-
-    fun ffi_autofill_1986_string_free(cstr: Pointer
+    fun ffi_autofill_ed_string_free(cstr: Pointer
     , uniffi_out_err: Structure.ByReference
     ): Unit
 
@@ -586,7 +380,7 @@ internal open class RustError : Structure() {
     fun ensureConsumed() {
         if (this.message != null) {
             rustCall(InternalError.ByReference()) { err ->
-                _UniFFILib.INSTANCE.ffi_autofill_1986_string_free(this.message!!, err)
+                _UniFFILib.INSTANCE.ffi_autofill_ed_string_free(this.message!!, err)
              }
             this.message = null
         }
@@ -642,36 +436,6 @@ internal open class InternalError : RustError() {
 }
 
 class InternalException(message: String) : Exception(message)
-internal open class ErrorKind : RustError() {
-    class ByReference: ErrorKind(), RustErrorReference
-
-    @Suppress("ReturnCount", "TooGenericExceptionThrown", "UNCHECKED_CAST")
-    override fun<E: Exception> intoException(): E {
-        if (!isFailure()) {
-            // It's probably a bad idea to throw here! We're probably leaking something if this is
-            // ever hit! (But we shouldn't ever hit it?)
-            throw RuntimeException("[Bug] intoException called on non-failure!")
-        }
-        val message = this.consumeErrorMessage()
-        when (code) {
-            1 -> return ErrorKindException.SqlError(message) as E
-            2 -> return ErrorKindException.IoError(message) as E
-            3 -> return ErrorKindException.InterruptedError(message) as E
-            4 -> return ErrorKindException.Utf8Error(message) as E
-            else -> throw RuntimeException("Invalid error received...")
-        }
-    }
-}
-
-open class ErrorKindException(message: String) : Exception(message) {
-    class SqlError(msg: String) : ErrorKindException(msg)
-    class IoError(msg: String) : ErrorKindException(msg)
-    class InterruptedError(msg: String) : ErrorKindException(msg)
-    class Utf8Error(msg: String) : ErrorKindException(msg)
-    
-}
-
-
 
 // Helpers for calling Rust with errors:
 // In practice we usually need to be synchronized to call this safely, so it doesn't
@@ -734,11 +498,11 @@ data class NewCreditCardFields (
 
 data class CreditCard (
     val guid: String,
-    val fields: NewCreditCardFields,
-    val timeCreated: ULong,
-    val timeLastUsed: ULong?,
-    val timeLastModified: ULong,
-    val timesUsed: Long
+    val ccName: String,
+    val ccNumber: String,
+    val ccExpMonth: Long,
+    val ccExpYear: Long,
+    val ccType: String
 ) {
     companion object {
         // XXX TODO: put this in a superclass maybe?
@@ -749,105 +513,10 @@ data class CreditCard (
         internal fun read(buf: ByteBuffer): CreditCard {
             return CreditCard(
             String.read(buf),
-            NewCreditCardFields.read(buf),
-            ULong.read(buf),
-            readOptionalu64(buf),
-            ULong.read(buf),
-            Long.read(buf)
-            )
-        }
-    }
-
-    internal fun lower(): RustBuffer.ByValue {
-        return lowerIntoRustBuffer(this, {v, buf -> v.write(buf)})
-    }
-
-    internal fun write(buf: RustBufferBuilder) {
-            this.guid.write(buf)
-            this.fields.write(buf)
-            this.timeCreated.write(buf)
-            writeOptionalu64(this.timeLastUsed, buf)
-            this.timeLastModified.write(buf)
-            this.timesUsed.write(buf)
-    }
-}
-
-data class Address (
-    val guid: String,
-    val fields: NewAddressFields,
-    val timeCreated: ULong,
-    val timeLastUsed: ULong?,
-    val timeLastModified: ULong,
-    val timesUsed: Long,
-    val syncChangeCounter: Long
-) {
-    companion object {
-        // XXX TODO: put this in a superclass maybe?
-        internal fun lift(rbuf: RustBuffer.ByValue): Address {
-            return liftFromRustBuffer(rbuf) { buf -> Address.read(buf) }
-        }
-
-        internal fun read(buf: ByteBuffer): Address {
-            return Address(
             String.read(buf),
-            NewAddressFields.read(buf),
-            ULong.read(buf),
-            readOptionalu64(buf),
-            ULong.read(buf),
+            String.read(buf),
             Long.read(buf),
-            Long.read(buf)
-            )
-        }
-    }
-
-    internal fun lower(): RustBuffer.ByValue {
-        return lowerIntoRustBuffer(this, {v, buf -> v.write(buf)})
-    }
-
-    internal fun write(buf: RustBufferBuilder) {
-            this.guid.write(buf)
-            this.fields.write(buf)
-            this.timeCreated.write(buf)
-            writeOptionalu64(this.timeLastUsed, buf)
-            this.timeLastModified.write(buf)
-            this.timesUsed.write(buf)
-            this.syncChangeCounter.write(buf)
-    }
-}
-
-data class NewAddressFields (
-    val givenName: String,
-    val additionalName: String,
-    val familyName: String,
-    val organization: String,
-    val streetAddress: String,
-    val addressLevel3: String,
-    val addressLevel2: String,
-    val addressLevel1: String,
-    val postalCode: String,
-    val country: String,
-    val tel: String,
-    val email: String
-) {
-    companion object {
-        // XXX TODO: put this in a superclass maybe?
-        internal fun lift(rbuf: RustBuffer.ByValue): NewAddressFields {
-            return liftFromRustBuffer(rbuf) { buf -> NewAddressFields.read(buf) }
-        }
-
-        internal fun read(buf: ByteBuffer): NewAddressFields {
-            return NewAddressFields(
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
-            String.read(buf),
+            Long.read(buf),
             String.read(buf)
             )
         }
@@ -858,129 +527,17 @@ data class NewAddressFields (
     }
 
     internal fun write(buf: RustBufferBuilder) {
-            this.givenName.write(buf)
-            this.additionalName.write(buf)
-            this.familyName.write(buf)
-            this.organization.write(buf)
-            this.streetAddress.write(buf)
-            this.addressLevel3.write(buf)
-            this.addressLevel2.write(buf)
-            this.addressLevel1.write(buf)
-            this.postalCode.write(buf)
-            this.country.write(buf)
-            this.tel.write(buf)
-            this.email.write(buf)
+            this.guid.write(buf)
+            this.ccName.write(buf)
+            this.ccNumber.write(buf)
+            this.ccExpMonth.write(buf)
+            this.ccExpYear.write(buf)
+            this.ccType.write(buf)
     }
 }
 
 
 // Namespace functions
-
-
-
-fun addCreditCard(a: NewCreditCardFields ): CreditCard {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_add_credit_card(a.lower() ,err)
-}
-    return CreditCard.lift(_retval)
-}
-
-
-
-
-fun getCreditCard(guid: String ): CreditCard {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_get_credit_card(guid.lower() ,err)
-}
-    return CreditCard.lift(_retval)
-}
-
-
-
-
-fun getAllCreditCards(): List<CreditCard> {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_get_all_credit_cards(err)
-}
-    return liftSequenceRecordCreditCard(_retval)
-}
-
-
-
-
-fun updateCreditCard(a: CreditCard ) =
-    rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_update_credit_card(a.lower() ,err)
-}
-
-
-
-
-fun deleteCreditCard(guid: String ): Boolean {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_delete_credit_card(guid.lower() ,err)
-}
-    return Boolean.lift(_retval)
-}
-
-
-
-
-fun addAddress(a: NewAddressFields ): Address {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_add_address(a.lower() ,err)
-}
-    return Address.lift(_retval)
-}
-
-
-
-
-fun getAddress(guid: String ): Address {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_get_address(guid.lower() ,err)
-}
-    return Address.lift(_retval)
-}
-
-
-
-
-fun getAllAddresses(): List<Address> {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_get_all_addresses(err)
-}
-    return liftSequenceRecordAddress(_retval)
-}
-
-
-
-
-fun updateAddress(a: Address ) =
-    rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_update_address(a.lower() ,err)
-}
-
-
-
-
-fun deleteAddress(guid: String ): Boolean {
-    val _retval = rustCall(ErrorKind.ByReference()
-) { err ->
-    _UniFFILib.INSTANCE.autofill_1986_delete_address(guid.lower() ,err)
-}
-    return Boolean.lift(_retval)
-}
-
 
 
 // Objects

@@ -1,10 +1,14 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- */
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+pub mod addresses;
+pub mod credit_cards;
+pub mod models;
+pub mod schema;
+pub mod store;
 
 use crate::error::*;
-use crate::schema;
 
 use rusqlite::{Connection, OpenFlags};
 use std::{
@@ -12,9 +16,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use url::Url;
-
-use crate::api::{addresses, credit_cards};
-use sync_guid::Guid;
 
 pub struct AutofillDb {
     pub writer: Connection,
@@ -24,62 +25,6 @@ impl AutofillDb {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         let db_path = normalize_path(db_path)?;
         Self::new_named(db_path)
-    }
-
-    #[allow(dead_code)]
-    pub fn add_credit_card(
-        &self,
-        new_credit_card_fields: credit_cards::NewCreditCardFields,
-    ) -> Result<credit_cards::CreditCard> {
-        credit_cards::add_credit_card(&self.writer, new_credit_card_fields)
-    }
-
-    #[allow(dead_code)]
-    pub fn get_credit_card(&self, guid: &Guid) -> Result<credit_cards::CreditCard> {
-        credit_cards::get_credit_card(&self.writer, guid)
-    }
-
-    #[allow(dead_code)]
-    pub fn get_all_credit_cards(&self) -> Result<Vec<credit_cards::CreditCard>> {
-        credit_cards::get_all_credit_cards(&self.writer)
-    }
-
-    #[allow(dead_code)]
-    pub fn update_credit_card(&self, credit_card: credit_cards::CreditCard) -> Result<()> {
-        credit_cards::update_credit_card(&self.writer, credit_card)
-    }
-
-    #[allow(dead_code)]
-    pub fn delete_credit_card(&self, guid: &Guid) -> Result<bool> {
-        credit_cards::delete_credit_card(&self.writer, guid)
-    }
-
-    #[allow(dead_code)]
-    pub fn add_address(
-        &self,
-        new_address: addresses::NewAddressFields,
-    ) -> Result<addresses::Address> {
-        addresses::add_address(&self.writer, new_address)
-    }
-
-    #[allow(dead_code)]
-    pub fn get_address(&self, guid: &Guid) -> Result<addresses::Address> {
-        addresses::get_address(&self.writer, guid)
-    }
-
-    #[allow(dead_code)]
-    pub fn get_all_addresses(&self) -> Result<Vec<addresses::Address>> {
-        addresses::get_all_addresses(&self.writer)
-    }
-
-    #[allow(dead_code)]
-    pub fn update_address(&self, address: addresses::Address) -> Result<()> {
-        addresses::update_address(&self.writer, address)
-    }
-
-    #[allow(dead_code)]
-    pub fn delete_address(&self, guid: &Guid) -> Result<bool> {
-        addresses::delete_address(&self.writer, guid)
     }
 
     #[cfg(test)]
