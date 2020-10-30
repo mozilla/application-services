@@ -10,9 +10,6 @@ jobs:
           name: Version information
           command: rustc --version; cargo --version; rustup --version
       - run:
-          name: Install uniffi
-          command: cargo install --version 0.3.0 uniffi_bindgen
-      - run:
           name: Calculate dependencies
           command: cd nimbus && cargo generate-lockfile
       - restore_cache:
