@@ -25,7 +25,7 @@ the details of which are reproduced below.
 * [MIT License: oslog](#mit-license-oslog)
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: synstructure](#mit-license-synstructure)
-* [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core)
+* [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core-tracing-futures)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
@@ -1317,13 +1317,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ```
 -------------
-## MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core
+## MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures
 
 The following text applies to code linked from these dependencies:
 [tokio-tls](https://github.com/tokio-rs/tokio),
 [tokio-util](https://github.com/tokio-rs/tokio),
 [tokio](https://github.com/tokio-rs/tokio),
 [tracing-core](https://github.com/tokio-rs/tracing),
+[tracing-futures](https://github.com/tokio-rs/tracing),
 [tracing](https://github.com/tokio-rs/tracing)
 
 ```

@@ -214,9 +214,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/remram44/adler32-rs/master/LICENSE",
         }
     },
-    # This package is a part of a workspace, the workspace has the licensing file,
-    # But the crate itself does not, we link to the workspace's LICENSE
+    # These packages are a part of a workspace, the workspace has the licensing file,
+    # but the crates themselves do not; we link to the workspace's LICENSE
     "tracing": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
+        }
+    },
+    "tracing-futures": {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
