@@ -1,6 +1,12 @@
 # nimbus-sdk [![CircleCI](https://circleci.com/gh/mozilla/nimbus-sdk/tree/main.svg?style=svg)](https://circleci.com/gh/mozilla/nimbus-sdk/tree/main)
 Cross Platform Rapid Experiments "Nimbus" SDK
 
+## Changelog
+
+New and significant features should be listed in the [CHANGELOG.md](./CHANGELOG.md) in the section `Unreleased Changes`.
+
+Before issuing a new release, the `Unreleased Changes` section should be renamed to the version that is being released and match with the tagged version, and a new `Unreleased Changes` section added to the top of the document.
+
 ## Useful Resources
 
 * **[Issue Tracker / Epic](https://jira.mozilla.com/browse/SYNC-1528)**
