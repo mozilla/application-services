@@ -50,10 +50,7 @@ pub enum EnrollmentStatus {
 
 impl EnrollmentStatus {
     pub fn is_enrolled(&self) -> bool {
-        match self {
-            EnrollmentStatus::Enrolled { .. } => true,
-            _ => false,
-        }
+        matches!(self, EnrollmentStatus::Enrolled { .. })
     }
 }
 
