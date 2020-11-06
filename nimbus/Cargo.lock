@@ -820,7 +820,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-sdk"
-version = "1.0.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1684,7 +1684,7 @@ checksum = "b5a972e5669d67ba988ce3dc826706fb0a8b01471c088cb0b6110b805cc36aed"
 [[package]]
 name = "viaduct"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=2478bcf2b48d1867b01e8b7df4f86a69d564d49a#2478bcf2b48d1867b01e8b7df4f86a69d564d49a"
+source = "git+https://github.com/mozilla/application-services?tag=v66.0.0#b7839356f2fe07dee03d593e9d9d12ae91b3e062"
 dependencies = [
  "ffi-support",
  "log",
@@ -1700,7 +1700,7 @@ dependencies = [
 [[package]]
 name = "viaduct-reqwest"
 version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=2478bcf2b48d1867b01e8b7df4f86a69d564d49a#2478bcf2b48d1867b01e8b7df4f86a69d564d49a"
+source = "git+https://github.com/mozilla/application-services?tag=v66.0.0#b7839356f2fe07dee03d593e9d9d12ae91b3e062"
 dependencies = [
  "ffi-support",
  "lazy_static",
