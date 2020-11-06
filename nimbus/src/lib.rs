@@ -231,7 +231,7 @@ impl Default for RandomizationUnit {
 #[derive(Default)]
 pub struct AvailableRandomizationUnits {
     pub client_id: Option<String>,
-    dummy: u8, // See comments in nimbus.idl for why this hacky item exists.
+    dummy: i8, // See comments in nimbus.idl for why this hacky item exists.
 }
 
 impl AvailableRandomizationUnits {
