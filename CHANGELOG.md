@@ -2,7 +2,18 @@
 
 Unreleased changes go here.
 
-# 1.0.0 (_2020-10-27_)
+# 0.4.0 (_2020-11-06)
+
+## General
+
+### What's Fixed
+
+- Removed use of unsigned types from the Kotlin API, since these
+  are experimental and require opt-in from consuming apps.
+- Fixed various warnings when compiling the Rust code.
+
+
+# 0.3.0 (_2020-10-27_)
 
 ## General
 
