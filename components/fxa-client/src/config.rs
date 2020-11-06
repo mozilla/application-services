@@ -79,10 +79,14 @@ impl Config {
     ) -> &'a mut Self {
         // In self-hosting setups it is common to specify the `/1.0/sync/1.5` suffix on the
         // tokenserver URL. Accept and strip this form as a convenience for users.
-        match token_server_url_override.strip_suffix("/1.0/sync/1.5") {
-            Some(stripped) => self.token_server_url_override = Some(stripped.to_owned()),
-            None => self.token_server_url_override = Some(token_server_url_override.to_owned()),
-        }
+        // (ideally we'd use `strip_suffix`, but we currently target a rust version
+        // where this doesn't exist - `trim_end_matches` will repeatedly remove
+        // the suffix, but that seems fine for this use-case)
+        self.token_server_url_override = Some(
+            token_server_url_override
+                .trim_end_matches("/1.0/sync/1.5")
+                .to_owned(),
+        );
         self
     }
 

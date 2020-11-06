@@ -8,6 +8,9 @@ we haven't fully hashed out all those details).
 
 The key points:
 
+* We use "stable" [Rust](https://www.rust-lang.org/). CI is pinned to whatever version is currently used on mozilla-central
+  to help with vendoring into that repository. You should check what current values are
+  specified for [CircleCI](../.circleci/config.yml) and for [TaskCluster](../taskcluster/scripts/toolchain/rustup-setup.sh)
 * We use [Cargo](https://github.com/rust-lang/cargo) for building and testing the core Rust code in isolation,
   [Gradle](https://gradle.org/) with [rust-android-gradle](https://github.com/mozilla/rust-android-gradle)
   for combining Rust and Kotlin code into Android components and running tests against them,
