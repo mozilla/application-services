@@ -49,6 +49,8 @@ pub enum EnrollmentStatus {
 }
 
 impl EnrollmentStatus {
+    // This is used in examples, but not in the main dylib.
+    #[allow(dead_code)]
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
     }
