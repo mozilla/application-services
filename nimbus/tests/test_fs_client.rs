@@ -20,8 +20,8 @@ fn test_simple() -> Result<()> {
 
     let config = RemoteSettingsConfig {
         server_url: url.as_str().to_string(),
-        collection_name: "doesn't matter".to_string(),
         bucket_name: "doesn't matter".to_string(),
+        collection_name: "doesn't matter".to_string(),
     };
 
     let tmp_dir = TempDir::new("test_fs_client-test_simple")?;

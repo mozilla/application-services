@@ -22,8 +22,8 @@ dictionary EnrolledExperiment {
 
 dictionary RemoteSettingsConfig {
     string server_url;
-    string collection_name;
     string bucket_name;
+    string collection_name;
 };
 
 dictionary AvailableRandomizationUnits {

@@ -201,8 +201,8 @@ fn main() -> Result<()> {
     // initiate the optional config
     let config = RemoteSettingsConfig {
         server_url: server_url.to_string(),
-        collection_name: collection_name.to_string(),
         bucket_name: bucket_name.to_string(),
+        collection_name: collection_name.to_string(),
     };
 
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);

@@ -32,8 +32,8 @@ impl Client {
         let base_url = Url::parse(&config.server_url)?;
         Ok(Self {
             base_url,
-            collection_name: config.collection_name,
             bucket_name: config.bucket_name,
+            collection_name: config.collection_name,
         })
     }
 
@@ -137,8 +137,8 @@ mod tests {
         .create();
         let config = RemoteSettingsConfig {
             server_url: mockito::server_url(),
-            collection_name: "messaging-experiments".to_string(),
             bucket_name: "main".to_string(),
+            collection_name: "messaging-experiments".to_string(),
         };
         let http_client = Client::new(config).unwrap();
         let resp = http_client.get_experiments().unwrap();

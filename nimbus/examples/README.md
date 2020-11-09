@@ -20,8 +20,8 @@ You can set a config file using the `-c` option, which can include the following
 {
     "context": {..},// App context elements
     "server_url": "...", // A remote settings url
-    "collection_name": "...", // Name of a collection in the remote server (Defaults to `messaging-experiment`)
     "bucket_name": "..." // Name of the bucket in the remote server (Defaults to `main`)
+    "collection_name": "...", // Name of a collection in the remote server (Defaults to `messaging-experiment`)
     "uuid": ".." // A custom uuid to use
 }
 ```
