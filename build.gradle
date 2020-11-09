@@ -3,8 +3,8 @@
 buildscript {
     ext.kotlin_version = '1.3.71'
     ext.jna_version = '5.6.0'
-    ext.android_gradle_plugin_version = '3.6.0'
-    ext.android_components_version = '56.0.0'
+    ext.android_gradle_plugin_version = '4.0.1'
+    ext.android_components_version = '63.0.0'
 
     ext.build = [
         ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
@@ -252,7 +252,11 @@ ext.cargoExecWithSQLCipher = { spec, toolchain ->
 
 detekt {
     toolVersion = "1.7.4"
-    input = files("${projectDir}/components", "${projectDir}/gradle-plugin", "buildSrc")
+    input = files(
+        fileTree(dir: "${projectDir}/components", excludes: ["external"]),
+        "${projectDir}/gradle-plugin",
+        "buildSrc"
+    )
     buildUponDefaultConfig = true
     config = files("${projectDir}/.detekt.yml")
     failFast = false

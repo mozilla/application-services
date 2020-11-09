@@ -41,8 +41,6 @@ The following text applies to code linked from these dependencies:
 [NSPR](https://hg.mozilla.org/projects/nspr),
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
-[glean-core](https://github.com/mozilla/glean),
-[glean-ffi](https://github.com/mozilla/glean),
 [hawk](https://github.com/taskcluster/rust-hawk)
 
 ```
@@ -466,6 +464,7 @@ The following text applies to code linked from these dependencies:
 [httpdate](https://github.com/pyfisch/httpdate),
 [humantime](https://github.com/tailhook/humantime),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
+[id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
 [iovec](https://github.com/carllerche/iovec),
@@ -484,6 +483,8 @@ The following text applies to code linked from these dependencies:
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
+[paste-impl](https://github.com/dtolnay/paste),
+[paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-internal](https://github.com/taiki-e/pin-project),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
