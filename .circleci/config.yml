@@ -2,6 +2,12 @@ version: 2.1
 
 # ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
 
+parameters:
+  # See also ../taskcluster/scripts/toolchain/rustup-setup.sh
+  stable-rust-version:
+    type: string
+    default: 1.43.0
+
 commands:
   setup-sccache:
     steps:
@@ -77,7 +83,7 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: "stable"
+        default: << pipeline.parameters.stable-rust-version >>
     steps:
       - run:
           name: Set up Rust toolchain
@@ -147,7 +153,7 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: "stable"
+        default: << pipeline.parameters.stable-rust-version >>
     steps:
       - checkout
       - build-desktop-libs
@@ -168,7 +174,7 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: "stable"
+        default: << pipeline.parameters.stable-rust-version >>
     steps:
       - test-setup:
           rust-version: <<parameters.rust-version>>
@@ -182,6 +188,8 @@ commands:
       - run:
           name: Check for security vulnerabilities in dependencies
           command: |
+            rustup install nightly
+            rustup default nightly
             cargo install cargo-audit
             cargo audit
       - run:
@@ -189,6 +197,7 @@ commands:
           command: |
             pip3 install --require-hashes -r ./tools/requirements.txt
             rustup install nightly
+            rustup default nightly
             cargo metadata --locked > /dev/null
             python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
