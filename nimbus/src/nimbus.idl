@@ -63,6 +63,16 @@ interface NimbusClient {
     [Throws=Error]
     sequence<EnrolledExperiment> get_active_experiments();
 
+    // Getter and setter for user's participation in all experiments.
+    // Possible values are:
+    // * `true`: the user will not enroll in new experiments, and opt out of all exisitng ones.
+    // * `false`: experiments proceed as usual.
+    [Throws=Error]
+    boolean get_global_user_participation();
+
+    [Throws=Error]
+    void set_global_user_participation(boolean opt_in);
+
     // Updates the list of experiments from the server. After calling this, the
     // list of active experiments might change (there might be new experiments,
     // or old experiments might have expired)

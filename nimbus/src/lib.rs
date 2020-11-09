@@ -17,7 +17,8 @@ pub use evaluator::evaluate_enrollment;
 use client::{create_client, SettingsClient};
 pub use config::RemoteSettingsConfig;
 use enrollment::{
-    get_enrollments, opt_in_with_branch, opt_out, reset_enrollment, update_enrollments,
+    get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out, reset_enrollment,
+    set_global_user_participation, update_enrollments,
 };
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
@@ -78,6 +79,21 @@ impl NimbusClient {
             .iter()
             .find(|e| e.slug == slug)
             .map(|e| e.branch_slug.clone()))
+    }
+
+    pub fn get_global_user_participation(&self) -> Result<bool> {
+        get_global_user_participation(self.db()?)
+    }
+
+    pub fn set_global_user_participation(&self, flag: bool) -> Result<()> {
+        set_global_user_participation(self.db()?, flag)?;
+        // Now update all enrollments based on this new opt in/out setting.
+        update_enrollments(
+            self.db()?,
+            &self.nimbus_id()?,
+            &self.available_randomization_units,
+            &self.app_context,
+        )
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {

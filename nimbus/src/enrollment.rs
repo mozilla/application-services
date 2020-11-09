@@ -11,6 +11,9 @@ use ::uuid::Uuid;
 use serde_derive::*;
 use std::collections::{HashMap, HashSet};
 
+const DB_KEY_GLOBAL_USER_PARTICIPATION: &str = "user-opt-in";
+const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
+
 // These are types we use internally for managing enrollments.
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
@@ -110,6 +113,9 @@ pub fn update_enrollments(
         map_enrollments.insert(e.slug.clone(), e);
     }
 
+    // The user may have opted out from experiments altogether.
+    let is_user_participating = get_global_user_participation(db)?;
+
     // XXX - we want to emit events for many of these things, but we are hoping
     // we can put that off until we have a glean rust sdk available and thus
     // avoid the complexity of passing the info to glean via kotlin/swift/js.
@@ -117,19 +123,36 @@ pub fn update_enrollments(
         match (map_experiments.get(slug), map_enrollments.get(slug)) {
             (Some(_), Some(enr)) => {
                 // XXX - should check:
-                // * is it still active?
                 // * is enrollment was previously paused it may not be now.
+                // * is it still active?
                 // * the branch still exists, etc?
-                log::debug!("Experiment '{}' already has enrollment {:?}", slug, enr)
+                if !is_user_participating && enr.status.is_enrolled() {
+                    let enr = ExperimentEnrollment {
+                        slug: slug.clone(),
+                        status: EnrollmentStatus::OptedOut,
+                    };
+                    log::debug!(
+                        "Experiment '{}' already has updated enrollment {:?}",
+                        slug,
+                        enr
+                    );
+                    db.put(StoreId::Enrollments, slug, &enr)?;
+                } else if is_user_participating && enr.status == EnrollmentStatus::OptedOut {
+                    reset_enrollment(db, slug, nimbus_id, aru, app_context)?;
+                } else {
+                    log::debug!("Experiment '{}' already has enrollment {:?}", slug, enr)
+                }
             }
             (Some(exp), None) => {
-                let enr = evaluate_enrollment(nimbus_id, aru, app_context, &exp)?;
-                log::debug!(
-                    "Experiment '{}' is new - enrollment status is {:?}",
-                    slug,
-                    enr
-                );
-                db.put(StoreId::Enrollments, slug, &enr)?;
+                if is_user_participating {
+                    let enr = evaluate_enrollment(nimbus_id, aru, app_context, &exp)?;
+                    log::debug!(
+                        "Experiment '{}' is new - enrollment status is {:?}",
+                        slug,
+                        enr
+                    );
+                    db.put(StoreId::Enrollments, slug, &enr)?;
+                }
             }
             (None, Some(enr)) => {
                 log::debug!(
@@ -162,6 +185,11 @@ pub fn reset_enrollment(
         Some(e) => e,
     };
     let enrollment = evaluate_enrollment(nimbus_id, aru, app_context, &exp)?;
+    log::debug!(
+        "Experiment '{}' reset enrollment {:?}",
+        experiment_slug,
+        enrollment
+    );
     db.put(StoreId::Enrollments, experiment_slug, &enrollment)
 }
 
@@ -185,6 +213,19 @@ pub fn opt_out(db: &Database, experiment_slug: &str) -> Result<()> {
         status: EnrollmentStatus::OptedOut,
     };
     db.put(StoreId::Enrollments, experiment_slug, &enrollment)
+}
+
+pub fn get_global_user_participation(db: &Database) -> Result<bool> {
+    let opted_in = db.get(StoreId::Meta, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+    if let Some(opted_in) = opted_in {
+        Ok(opted_in)
+    } else {
+        Ok(DEFAULT_GLOBAL_USER_PARTICIPATION)
+    }
+}
+
+pub fn set_global_user_participation(db: &Database, opt_in: bool) -> Result<()> {
+    db.put(StoreId::Meta, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
 }
 
 #[cfg(test)]
@@ -251,6 +292,33 @@ mod tests {
         ]
     }
 
+    fn insert_experiments(db: &Database, exps: Vec<serde_json::Value>) -> Result<()> {
+        db.clear(StoreId::Experiments)?;
+        for exp in exps {
+            db.put(
+                StoreId::Experiments,
+                exp.get("slug").unwrap().as_str().unwrap(),
+                &exp,
+            )?;
+        }
+        Ok(())
+    }
+
+    fn get_experiment_enrollments(db: &Database) -> Result<Vec<ExperimentEnrollment>> {
+        db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+    }
+
+    fn get_experiment_enrollments_with_status(
+        db: &Database,
+        status: EnrollmentStatus,
+    ) -> Result<Vec<ExperimentEnrollment>> {
+        let enrollments = get_experiment_enrollments(db)?;
+        Ok(enrollments
+            .into_iter()
+            .filter(|enr| enr.status == status)
+            .collect())
+    }
+
     #[test]
     fn test_enrollments() -> Result<()> {
         let _ = env_logger::try_init();
@@ -313,13 +381,7 @@ mod tests {
         let aru = Default::default();
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let exps = get_test_experiments();
-        for exp in exps {
-            db.put(
-                StoreId::Experiments,
-                exp.get("slug").unwrap().as_str().unwrap(),
-                &exp,
-            )?;
-        }
+        insert_experiments(&db, exps)?;
         update_enrollments(&db, &nimbus_id, &aru, &Default::default())?;
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 2);
@@ -329,6 +391,82 @@ mod tests {
         // should only have 1 now.
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn test_global_opt_out() -> Result<()> {
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("test_global_opt_out")?;
+        let db = Database::new(&tmp_dir)?;
+        let nimbus_id = Uuid::new_v4();
+        let aru = Default::default();
+        let app_context = Default::default();
+        assert_eq!(get_enrollments(&db)?.len(), 0);
+        let exps = get_test_experiments();
+        insert_experiments(&db, exps)?;
+
+        // User has opted out of new experiments.
+        // New experiments exist, but no enrolments have happened.
+        set_global_user_participation(&db, false)?;
+        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let enrollments = get_enrollments(&db)?;
+        assert_eq!(enrollments.len(), 0);
+        // We should see no experiment enrolments.
+        assert_eq!(get_experiment_enrollments(&db)?.len(), 0);
+        assert_eq!(
+            get_experiment_enrollments_with_status(&db, EnrollmentStatus::OptedOut)?.len(),
+            0
+        );
+
+        // User opts in, and updating should enrol us in 2 experiments.
+        set_global_user_participation(&db, true)?;
+        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let enrollments = get_enrollments(&db)?;
+        assert_eq!(enrollments.len(), 2);
+        // We should see 2 experiment enrolments.
+        assert_eq!(get_experiment_enrollments(&db)?.len(), 2);
+        assert_eq!(
+            get_experiment_enrollments_with_status(&db, EnrollmentStatus::OptedOut)?.len(),
+            0
+        );
+        let branches: Vec<String> = enrollments
+            .iter()
+            .map(|exp| exp.branch_slug.clone())
+            .collect();
+
+        // Opting out and updating should give us no enrolled experiments,
+        // but 2 experiment enrolments.
+        set_global_user_participation(&db, false)?;
+        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let enrollments = get_enrollments(&db)?;
+        assert_eq!(enrollments.len(), 0);
+        // We should see 2 experiment enrolments, this time they're both opt outs
+        assert_eq!(get_experiment_enrollments(&db)?.len(), 2);
+        assert_eq!(
+            get_experiment_enrollments_with_status(&db, EnrollmentStatus::OptedOut)?.len(),
+            2
+        );
+
+        // Opting in again and updating should enrol us in 2 experiments.
+        set_global_user_participation(&db, true)?;
+        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let enrollments = get_enrollments(&db)?;
+        assert_eq!(enrollments.len(), 2);
+        let new_branches: Vec<String> = enrollments
+            .into_iter()
+            .map(|exp| exp.branch_slug.clone())
+            .collect();
+
+        // Between opting in and out multiple times, branches remain stable.
+        assert_eq!(branches, new_branches);
+
+        // // pretend we just updated from the server and one of the 2 is missing.
+        // db.delete(StoreId::Experiments, "secure-gold")?;
+        // update_enrollments(&db, &nimbus_id, &aru, &Default::default())?;
+        // // should only have 1 now.
+        // let enrollments = get_enrollments(&db)?;
+        // assert_eq!(enrollments.len(), 1);
         Ok(())
     }
 }
