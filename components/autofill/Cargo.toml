@@ -26,7 +26,7 @@ version = "0.24.1"
 features = ["functions", "bundled", "serde_json", "unlock_notify"]
 
 [dev-dependencies]
-env_logger = { version = "0.7", default-features = false }
+env_logger = { version = "0.8", default-features = false }
 libsqlite3-sys = "0.20.1"
 
 [build-dependencies]
