@@ -4,6 +4,16 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v66.0.0...main)
 
+## General
+
+### ⚠️ Breaking changes ⚠️
+
+- The custom "Lockbox Megazord" package (`org.mozilla.appservices:lockbox-megazord`) has been removed.
+  Existing consumers of this package who wish to update to the latest release of application-services
+  should migrate to using the default `appservices:full-megazord` package, or contact the development
+  team to discuss an alternate approach.
+  ([#3702](https://github.com/mozilla/application-services/pull/3702))
+
 ## iOS
 
 ## What's Changed

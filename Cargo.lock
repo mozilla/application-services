@@ -1562,16 +1562,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "lockbox"
-version = "0.1.0"
-dependencies = [
- "fxaclient_ffi",
- "logins_ffi",
- "rc_log_ffi",
- "viaduct",
-]
-
-[[package]]
 name = "log"
 version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

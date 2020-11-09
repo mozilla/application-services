@@ -78,16 +78,6 @@ projects:
     - name: nimbus
       type: aar
     description: The Nimbus SDK, compiled to work with the Application Services full-megazord.
-  lockbox-megazord:
-    uploadSymbols: true
-    path: megazords/lockbox/android
-    artifactId: lockbox-megazord
-    publications:
-    - name: lockbox-megazord
-      type: aar
-    - name: lockbox-megazord-forUnitTests
-      type: jar
-    description: Megazord of [fxaclient, logins, logging].
   full-megazord:
     uploadSymbols: true
     path: megazords/full/android
