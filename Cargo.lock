@@ -2663,7 +2663,7 @@ dependencies = [
 name = "rc_log_ffi"
 version = "0.1.0"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
  "log 0.4.11",
