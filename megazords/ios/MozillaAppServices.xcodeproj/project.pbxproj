@@ -281,7 +281,7 @@
 				BF1A8787250649EA00FED88E /* Utils */,
 			);
 			name = Glean;
-			path = "../../components/glean/glean-core/ios/Glean";
+			path = "../../components/external/glean/glean-core/ios/Glean";
 			sourceTree = "<group>";
 		};
 		BF1A8783250649B600FED88E /* Config */ = {
@@ -370,7 +370,7 @@
 				BF1A87D625064B4C00FED88E /* Metrics.swift */,
 			);
 			name = Generated;
-			path = ../../../../../megazords/ios/MozillaAppServices/Generated;
+			path = ../../../../../../megazords/ios/MozillaAppServices/Generated;
 			sourceTree = "<group>";
 		};
 		C852EEB2220A285B00A6E79A /* config */ = {
@@ -702,8 +702,8 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../../components/glean/glean-core/metrics.yaml",
-				"$(SRCROOT)/../../components/glean/glean-core/pings.yaml",
+				"$(SRCROOT)/../../components/external/glean/glean-core/metrics.yaml",
+				"$(SRCROOT)/../../components/external/glean/glean-core/pings.yaml",
 			);
 			name = "Generate Glean metrics";
 			outputFileListPaths = (
@@ -713,7 +713,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash $PWD/../../components/glean/glean-core/ios/sdk_generator.sh --allow-reserved\n";
+			shellScript = "bash $PWD/../../components/external/glean/glean-core/ios/sdk_generator.sh --allow-reserved\n";
 		};
 		CEEA12EF20AA1D630018998A /* Build Rust libraries */ = {
 			isa = PBXShellScriptBuildPhase;

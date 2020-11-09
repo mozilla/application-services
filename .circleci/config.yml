@@ -9,6 +9,12 @@ parameters:
     default: 1.43.0
 
 commands:
+  full-checkout:
+    steps:
+      - checkout
+      - run:
+          name: "Pull git submodules"
+          command: git submodule update --init
   setup-sccache:
     steps:
       - run:
@@ -92,6 +98,9 @@ commands:
             rustup install <<parameters.rust-version>>
             rustup default <<parameters.rust-version>>
             rustc --version
+      - run:
+          name: Install UniFFI
+          command: cargo install --version 0.4.0 uniffi_bindgen
   build-libs:
     parameters:
       platform:
@@ -155,7 +164,7 @@ commands:
         type: string
         default: << pipeline.parameters.stable-rust-version >>
     steps:
-      - checkout
+      - full-checkout
       - build-desktop-libs
       - setup-rust-toolchain:
           rust-version: <<parameters.rust-version>>
@@ -205,7 +214,6 @@ commands:
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --check megazords/lockbox/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package lockbox --format pom --check megazords/lockbox/android/dependency-licenses.xml
-
   sync-bugzilla-to-github:
     steps:
       - checkout
@@ -255,7 +263,7 @@ jobs:
     macos:
       xcode: "12.0.0"
     steps:
-      - checkout
+      - full-checkout
       - run: brew install swiftlint swiftformat
       - run: swiftlint --strict
       - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose
@@ -264,7 +272,7 @@ jobs:
       - image: circleci/rust:latest
     resource_class: small
     steps:
-      - checkout
+      - full-checkout
       - setup-rust-toolchain
       - run: rustup component add rustfmt
       - run: rustfmt --version
@@ -300,7 +308,7 @@ jobs:
       - image: circleci/rust:latest
     resource_class: small
     steps:
-      - checkout
+      - full-checkout
       - run: ./automation/check_protobuf_files_current.py
   Lint Bash scripts:
     docker:
@@ -318,7 +326,7 @@ jobs:
     steps:
       - install-rust
       - setup-rust-toolchain
-      - checkout
+      - full-checkout
       - dependency-checks
   Mirror Bugzilla issues into GitHub:
     docker:
@@ -369,7 +377,7 @@ jobs:
       - restore_cache:
           name: Restore sccache cache
           key: sccache-cache-macos-{{ arch }}
-      - checkout
+      - full-checkout
       - install-rust
       - setup-rust-toolchain
       - run:
@@ -449,7 +457,7 @@ jobs:
     macos:
       xcode: "12.0.0"
     steps:
-      - checkout
+      - full-checkout
       - attach_workspace:
           at: .
       - run:

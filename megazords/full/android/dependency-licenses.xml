@@ -21,12 +21,52 @@ the details of which are reproduced below.
     <url>https://github.com/taskcluster/rust-hawk/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: jexl-eval</name>
+    <url>https://github.com/mozilla/jexl-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Mozilla Public License 2.0: jexl-parser</name>
+    <url>https://github.com/mozilla/jexl-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Mozilla Public License 2.0: uniffi</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Mozilla Public License 2.0: uniffi_bindgen</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
+    <name>Mozilla Public License 2.0: uniffi_build</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ahash</name>
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: anyhow</name>
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama</name>
+    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_derive</name>
+    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_escape</name>
+    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: askama_shared</name>
+    <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: autocfg</name>
+    <url>https://github.com/cuviper/autocfg/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: base64</name>
@@ -37,6 +77,10 @@ the details of which are reproduced below.
     <url>https://github.com/bitflags/bitflags/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: block-buffer</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/block-buffer/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: cc</name>
     <url>https://github.com/alexcrichton/cc-rs/blob/master/LICENSE-APACHE</url>
   </license>
@@ -45,12 +89,32 @@ the details of which are reproduced below.
     <url>https://github.com/alexcrichton/cfg-if/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: cfg-if</name>
+    <url>https://github.com/alexcrichton/cfg-if/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: cpuid-bool</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/cpuid-bool/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: digest</name>
+    <url>https://github.com/RustCrypto/traits/blob/master/digest/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: dogear</name>
     <url>https://github.com/mozilla/dogear/blob/master/LICENSE</url>
   </license>
   <license>
     <name>Apache License 2.0: either</name>
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: failure</name>
+    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: failure_derive</name>
+    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: fallible-iterator</name>
@@ -77,8 +141,16 @@ the details of which are reproduced below.
     <url>https://github.com/kyren/hashlink/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: heck</name>
+    <url>https://github.com/withoutboats/heck/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: hex</name>
     <url>https://github.com/KokaKiwi/rust-hex/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: humansize</name>
+    <url>https://github.com/LeopoldArkham/humansize/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: idna</name>
@@ -97,6 +169,10 @@ the details of which are reproduced below.
     <url>https://github.com/java-native-access/jna/blob/master/AL2.0</url>
   </license>
   <license>
+    <name>Apache License 2.0: lalrpop-util</name>
+    <url>https://github.com/lalrpop/lalrpop/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: lazy_static</name>
     <url>https://github.com/rust-lang-nursery/lazy-static.rs/blob/master/LICENSE-APACHE</url>
   </license>
@@ -105,12 +181,32 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/libc/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: lmdb-rkv</name>
+    <url>https://github.com/mozilla/lmdb-rs/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: lmdb-rkv-sys</name>
+    <url>https://github.com/mozilla/lmdb-rs/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: log</name>
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: num-traits</name>
+    <url>https://github.com/rust-num/num-traits/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: once_cell</name>
     <url>https://github.com/matklad/once_cell/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: opaque-debug</name>
+    <url>https://github.com/RustCrypto/utils/blob/master/opaque-debug/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: paste</name>
+    <url>https://github.com/dtolnay/paste/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: percent-encoding</name>
@@ -161,8 +257,20 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/regex/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: rkv</name>
+    <url>https://github.com/mozilla/rkv/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ryu</name>
     <url>https://github.com/dtolnay/ryu/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: semver</name>
+    <url>https://github.com/steveklabnik/semver/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: semver-parser</name>
+    <url>https://github.com/steveklabnik/semver-parser/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: serde</name>
@@ -175,6 +283,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: serde_json</name>
     <url>https://github.com/serde-rs/json/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: sha2</name>
+    <url>https://github.com/RustCrypto/hashes/blob/master/sha2/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: smallbitvec</name>
@@ -205,6 +317,14 @@ the details of which are reproduced below.
     <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
   </license>
   <license>
+    <name>Apache License 2.0: toml</name>
+    <url>https://github.com/alexcrichton/toml-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: typenum</name>
+    <url>https://github.com/paholg/typenum/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: unicode-bidi</name>
     <url>https://github.com/servo/unicode-bidi/blob/master/LICENSE-APACHE</url>
   </license>
@@ -213,12 +333,32 @@ the details of which are reproduced below.
     <url>https://github.com/unicode-rs/unicode-normalization/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: unicode-segmentation</name>
+    <url>https://github.com/unicode-rs/unicode-segmentation/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: unicode-width</name>
+    <url>https://github.com/unicode-rs/unicode-width/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: unicode-xid</name>
     <url>https://github.com/unicode-rs/unicode-xid/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: url</name>
     <url>https://github.com/servo/rust-url/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: uuid</name>
+    <url>https://github.com/uuid-rs/uuid/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: vec_map</name>
+    <url>https://github.com/contain-rs/vec-map/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: version_check</name>
+    <url>https://github.com/SergioBenitez/version_check/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>MIT License: aho-corasick</name>
@@ -233,6 +373,14 @@ the details of which are reproduced below.
     <url>https://github.com/BurntSushi/rust-memchr/blob/master/LICENSE-MIT</url>
   </license>
   <license>
+    <name>MIT License: ansi_term</name>
+    <url>https://github.com/ogham/rust-ansi-term/blob/master/LICENCE</url>
+  </license>
+  <license>
+    <name>MIT License: atty</name>
+    <url>https://github.com/softprops/atty/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: bincode</name>
     <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
   </license>
@@ -241,8 +389,20 @@ the details of which are reproduced below.
     <url>https://github.com/tokio-rs/bytes/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: cargo_metadata</name>
+    <url>https://github.com/oli-obk/cargo_metadata/blob/main/LICENSE-MIT</url>
+  </license>
+  <license>
     <name>MIT License: caseless</name>
     <url>https://github.com/SimonSapin/rust-caseless/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: clap</name>
+    <url>https://github.com/clap-rs/clap/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: generic-array</name>
+    <url>https://github.com/fizyk20/generic-array/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: libsqlite3-sys</name>
@@ -257,12 +417,40 @@ the details of which are reproduced below.
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: nom</name>
+    <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: ordered-float</name>
+    <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: strsim</name>
+    <url>https://github.com/dguo/strsim-rs/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: synstructure</name>
+    <url>https://github.com/mystor/synstructure/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: textwrap</name>
+    <url>https://github.com/mgeisler/textwrap/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: weedle</name>
+    <url>https://github.com/rustwasm/weedle/blob/master/LICENSE.md</url>
+  </license>
+  <license>
     <name>CC0-1.0 License: base16</name>
     <url>https://github.com/thomcc/rust-base16/blob/master/LICENSE-CC0</url>
   </license>
   <license>
     <name>ISC License: ring</name>
     <url>https://github.com/briansmith/ring/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>BSD-2-Clause License: arrayref</name>
+    <url>https://github.com/droundy/arrayref/blob/master/LICENSE</url>
   </license>
   <license>
     <name>BSD-3-Clause License: protobuf</name>
