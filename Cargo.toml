@@ -17,6 +17,7 @@ members = [
     "components/support/interrupt",
     "components/support/jwcrypto",
     "components/support/rand_rccrypto",
+    "components/support/rate-limiter",
     "components/support/restmail-client",
     "components/support/rc_crypto",
     "components/support/rc_crypto/nss",

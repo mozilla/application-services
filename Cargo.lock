@@ -1124,6 +1124,7 @@ dependencies = [
  "prost",
  "prost-derive",
  "rand_rccrypto",
+ "rate-limiter",
  "rc_crypto",
  "serde",
  "serde_derive",
@@ -2620,6 +2621,10 @@ checksum = "cbf7e9e623549b0e21f6e97cf8ecf247c1a8fd2e8a992ae265314300b2455d5c"
 dependencies = [
  "rand_core 0.3.1",
 ]
+
+[[package]]
+name = "rate-limiter"
+version = "0.1.0"
 
 [[package]]
 name = "rayon"

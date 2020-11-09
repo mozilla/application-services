@@ -24,6 +24,9 @@ use crate::error::{
 };
 use crate::storage::Store;
 
+mod rate_limiter;
+pub use rate_limiter::PersistedRateLimiter;
+
 #[derive(Debug)]
 pub struct RegisterResponse {
     /// The UAID associated with the request

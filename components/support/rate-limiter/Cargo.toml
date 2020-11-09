@@ -1,0 +1,9 @@
+[package]
+name = "rate-limiter"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["lib"]
