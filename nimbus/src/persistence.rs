@@ -11,7 +11,7 @@ use crate::error::{Error, Result};
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
 use core::iter::Iterator;
-use rkv::{Rkv, SingleStore, StoreOptions};
+use rkv::StoreOptions;
 use std::fs;
 use std::path::Path;
 
@@ -20,6 +20,9 @@ pub enum StoreId {
     Enrollments,
     Meta,
 }
+
+type Rkv = rkv::Rkv<rkv::backend::LmdbEnvironment>;
+type SingleStore = rkv::SingleStore<rkv::backend::LmdbDatabase>;
 
 /// Database used to access persisted data
 /// This an abstraction around an Rkv database
@@ -66,7 +69,7 @@ impl Database {
         let path = std::path::Path::new(path.as_ref()).join("db");
         log::debug!("Database path: {:?}", path.display());
         fs::create_dir_all(&path)?;
-        let rkv = Rkv::new(&path)?;
+        let rkv = Rkv::new::<rkv::backend::Lmdb>(&path)?;
         log::debug!("Database initialized");
         Ok(rkv)
     }
@@ -143,7 +146,7 @@ impl Database {
         let reader = self.rkv.read()?;
         let mut iter = self.get_store(store_id).iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
-            if let Some(rkv::Value::Json(data)) = data {
+            if let rkv::Value::Json(data) = data {
                 result.push(serde_json::from_str::<T>(&data)?);
             }
         }
