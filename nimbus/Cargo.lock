@@ -66,10 +66,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62fc272363345c8cdc030e4c259d9d028237f8b057dc9bb327772a257bde6bb5"
 dependencies = [
  "askama_escape",
- "humansize",
  "nom",
- "num-traits",
- "percent-encoding",
  "proc-macro2",
  "quote",
  "serde",
@@ -520,12 +517,6 @@ name = "httpdate"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "494b4d60369511e7dea41cf646832512a94e542f68bb9c49e54518e0f468eb47"
-
-[[package]]
-name = "humansize"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6cab2627acfc432780848602f3f558f7e9dd427352224b0d9324025796d2a5e"
 
 [[package]]
 name = "humantime"
@@ -1674,9 +1665,9 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uniffi"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61c4ab58b81243770e57108ea885c938ea81c6fcb89d46a96f6a33842cf6f67a"
+checksum = "4bec682ed64f9e7d63038df2c1482d078bde432acf10418573a1fd7414cf7e40"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1689,9 +1680,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a259359cdd5009ebfd6cb25d4b8de60709c67efa6ba73d6f1356de7c4712d4f"
+checksum = "d666448591e47695c05de35d1a8f3314971143b08d0ea8e95cc0983ea33da29b"
 dependencies = [
  "anyhow",
  "askama",
@@ -1705,12 +1696,11 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.4.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0923223a674334c32c4b45d054339426b04826ec1e751ebcc99b61a9fcee0bc8"
+checksum = "42c9c966bd14ab3871f6308acb83818232b08679767555404293119335680f5f"
 dependencies = [
  "anyhow",
- "cargo_metadata",
  "uniffi_bindgen",
 ]
 
