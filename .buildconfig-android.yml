@@ -1,6 +1,13 @@
 libraryVersion: 67.0.0
 groupId: org.mozilla.appservices
 projects:
+  autofill:
+    path: components/autofill/android
+    artifactId: autofill
+    publications:
+    - name: autofill
+    - type: aar
+    description: Addresses and Credit Cards autofill.
   fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
