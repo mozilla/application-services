@@ -1,6 +1,8 @@
 # Unreleased changes
 
-Unreleased changes go here.
+## General
+
+Addition of schema version to the schema, and validation of supported versions by the SDK.
 
 # 0.5.1 (_2020-11-10)
 

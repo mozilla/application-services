@@ -4,8 +4,7 @@
 use crate::error::Result;
 use crate::evaluator::evaluate_enrollment;
 use crate::persistence::{Database, StoreId, Writer};
-use crate::AvailableRandomizationUnits;
-use crate::{AppContext, EnrolledExperiment, Experiment};
+use crate::{AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment};
 
 use ::uuid::Uuid;
 use serde_derive::*;
@@ -260,6 +259,7 @@ mod tests {
     fn get_test_experiments() -> Vec<serde_json::Value> {
         vec![
             json!({
+                "schemaVersion": "1.0.0",
                 "slug": "secure-gold",
                 "endDate": null,
                 "branches":[
@@ -286,6 +286,7 @@ mod tests {
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
+                "schemaVersion": "1.0.0",
                 "slug": "secure-silver",
                 "endDate": null,
                 "branches":[

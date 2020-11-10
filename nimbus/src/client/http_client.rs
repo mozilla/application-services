@@ -15,8 +15,7 @@
 
 use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
-use crate::Experiment;
-use crate::SettingsClient;
+use crate::{Experiment, SettingsClient, SCHEMA_VERSION};
 use url::Url;
 use viaduct::{status_codes, Request, Response};
 
@@ -66,6 +65,29 @@ impl SettingsClient for Client {
         let data = resp.get("data").ok_or(Error::InvalidExperimentResponse)?;
         let mut res = Vec::new();
         for exp in data.as_array().ok_or(Error::InvalidExperimentResponse)? {
+            // Validate the schema major version matches the supported version
+            let exp_schema_version = match exp.get("schemaVersion") {
+                Some(ver) => {
+                    serde_json::from_value::<String>(ver.to_owned()).unwrap_or("".to_string())
+                }
+                None => {
+                    log::trace!("Missing schemaVersion: {:#?}", exp);
+                    continue;
+                }
+            };
+            let schema_maj_version = exp_schema_version.split(".").next().unwrap_or("");
+            // While "0" is a valid schema version, we have already passed that so reserving zero as
+            // a special value here in order to avoid a panic, and just ignore the experiment.
+            let schema_version: u32 = schema_maj_version.parse().unwrap_or(0);
+            if schema_version != SCHEMA_VERSION {
+                log::info!(
+                    "Schema version mismatch: Expected version {}, discarding experiment with version {}",
+                    SCHEMA_VERSION, schema_version
+                );
+                // Schema version mismatch
+                continue;
+            }
+
             match serde_json::from_value::<Experiment>(exp.clone()) {
                 Ok(exp) => res.push(exp),
                 Err(e) => {
@@ -91,42 +113,75 @@ mod tests {
     #[test]
     fn test_get_experiments_from_schema() {
         viaduct_reqwest::use_reqwest_backend();
-        let body = r#"
-        { "data": [
-            {
+        // There are two experiments defined here, one has a "newer" schema version
+        // in order to test filtering of unsupported schema versions.
+        let body = format!(
+            r#"
+        {{ "data": [
+            {{
+                "schemaVersion": "{current_version}.0.0",
                 "slug": "mobile-a-a-example",
                 "application": "reference-browser",
                 "userFacingName": "Mobile A/A Example",
                 "userFacingDescription": "An A/A Test to validate the Rust SDK",
                 "isEnrollmentPaused": false,
-                "bucketConfig": {
+                "bucketConfig": {{
                     "randomizationUnit": "nimbus_id",
                     "namespace": "mobile-a-a-example",
                     "start": 0,
                     "count": 5000,
                     "total": 10000
-                },
+                }},
                 "startDate": null,
                 "endDate": null,
                 "proposedEnrollment": 7,
                 "referenceBranch": "control",
                 "probeSets": [],
                 "branches": [
-                    {
+                    {{
                     "slug": "control",
                     "ratio": 1
-                    },
-                    {
+                    }},
+                    {{
                     "slug": "treatment-variation-b",
                     "ratio": 1
-                    }
+                    }}
                 ]
-            },
-            {
-                "hello": "bye"
-            }
-        ]}
-          "#;
+            }},
+            {{
+                "schemaVersion": "{newer_version}.0.0",
+                "slug": "mobile-a-a-example",
+                "application": "reference-browser",
+                "userFacingName": "Mobile A/A Example",
+                "userFacingDescription": "An A/A Test to validate the Rust SDK",
+                "isEnrollmentPaused": false,
+                "bucketConfig": {{
+                    "randomizationUnit": "nimbus_id",
+                    "namespace": "mobile-a-a-example",
+                    "start": 0,
+                    "count": 5000,
+                    "total": 10000
+                }},
+                "startDate": null,
+                "endDate": null,
+                "proposedEnrollment": 7,
+                "referenceBranch": "control",
+                "probeSets": [],
+                "branches": [
+                    {{
+                    "slug": "control",
+                    "ratio": 1
+                    }},
+                    {{
+                    "slug": "treatment-variation-b",
+                    "ratio": 1
+                    }}
+                ]
+            }}
+        ]}}"#,
+            current_version = SCHEMA_VERSION,
+            newer_version = SCHEMA_VERSION + 1
+        );
         let m = mock(
             "GET",
             "/buckets/main/collections/messaging-experiments/records",
@@ -148,6 +203,7 @@ mod tests {
         assert_eq!(
             exp.clone(),
             Experiment {
+                schema_version: format!("{}.0.0", SCHEMA_VERSION),
                 slug: "mobile-a-a-example".to_string(),
                 application: "reference-browser".to_string(),
                 user_facing_name: "Mobile A/A Example".to_string(),

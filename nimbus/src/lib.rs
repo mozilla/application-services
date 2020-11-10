@@ -204,9 +204,16 @@ pub struct EnrolledExperiment {
     pub branch_slug: String,
 }
 
+/// This is the currently supported major schema version.
+pub const SCHEMA_VERSION: u32 = 1;
+// XXX: In the future it would be nice if this lived in its own versioned crate so that
+// the schema could be decoupled from the sdk so that it can be iterated on while the
+// sdk depends on a particular version of the schema through the cargo.toml.
+
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Experiment {
+    pub schema_version: String,
     pub slug: String,
     pub application: String,
     pub user_facing_name: String,

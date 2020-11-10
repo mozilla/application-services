@@ -1,13 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-
-//! This might be where the bucketing logic can go
-//! It would be different from current experimentation tools
-//! There is a namespacing concept to allow users to be in multiple
-//! unrelated experiments at the same time.
-
-//! TODO: Implement the bucketing logic from the nimbus project
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ */
 
 use crate::enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment};
 use crate::{
@@ -51,7 +45,7 @@ pub fn evaluate_enrollment(
     app_context: &AppContext,
     exp: &Experiment,
 ) -> Result<ExperimentEnrollment> {
-    // get targeting out of the way first - "if let chains" are experimental,
+    // Get targeting out of the way first - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {
         if let Some(status) = targeting(expr, app_context) {
@@ -301,6 +295,7 @@ mod tests {
     #[test]
     fn test_get_enrollment() {
         let experiment1 = Experiment {
+            schema_version: "1.0.0".to_string(),
             slug: "TEST_EXP1".to_string(),
             is_enrollment_paused: false,
             bucket_config: BucketConfig {
