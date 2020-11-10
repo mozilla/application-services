@@ -2,6 +2,9 @@
 
 Unreleased changes go here.
 
+# 0.5.1 (_2020-11-10)
+
+- Fix the version number in `Cargo.lock`.
 
 # 0.5.0 (_2020-11-10)
 

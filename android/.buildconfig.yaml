@@ -1,4 +1,4 @@
-libraryVersion: 0.5.0
+libraryVersion: 0.5.1
 groupId: org.mozilla.experiments
 artifactId: nimbus
 description: A uniffi generated android bindings for the Nimbus SDK

@@ -824,7 +824,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-sdk"
-version = "0.4.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "clap",
