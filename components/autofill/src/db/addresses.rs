@@ -5,17 +5,14 @@
 
 use crate::db::models::address::{Address, InternalAddress, NewAddressFields};
 use crate::db::schema::ADDRESS_COMMON_COLS;
-use crate::error::ErrorKind;
+use crate::error::*;
 
 use rusqlite::{Connection, NO_PARAMS};
 use sync_guid::Guid;
 use types::Timestamp;
 
 #[allow(dead_code)]
-pub fn add_address(
-    conn: &Connection,
-    new_address: NewAddressFields,
-) -> Result<InternalAddress, ErrorKind> {
+pub fn add_address(conn: &Connection, new_address: NewAddressFields) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
 
     let address = InternalAddress {
@@ -81,7 +78,7 @@ pub fn add_address(
 }
 
 #[allow(dead_code)]
-pub fn get_address(conn: &Connection, guid: String) -> Result<InternalAddress, ErrorKind> {
+pub fn get_address(conn: &Connection, guid: String) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
@@ -100,7 +97,7 @@ pub fn get_address(conn: &Connection, guid: String) -> Result<InternalAddress, E
 }
 
 #[allow(dead_code)]
-pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>, ErrorKind> {
+pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
     let tx = conn.unchecked_transaction()?;
     let mut addresses = Vec::new();
     let sql = format!(
@@ -125,7 +122,7 @@ pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>, Erro
 }
 
 #[allow(dead_code)]
-pub fn update_address(conn: &Connection, address: &Address) -> Result<(), ErrorKind> {
+pub fn update_address(conn: &Connection, address: &Address) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE addresses_data
@@ -164,7 +161,7 @@ pub fn update_address(conn: &Connection, address: &Address) -> Result<(), ErrorK
     Ok(())
 }
 
-pub fn delete_address(conn: &Connection, guid: String) -> Result<bool, ErrorKind> {
+pub fn delete_address(conn: &Connection, guid: String) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
     // check that guid exists
@@ -211,7 +208,7 @@ pub fn delete_address(conn: &Connection, guid: String) -> Result<bool, ErrorKind
     Ok(exists)
 }
 
-pub fn touch(conn: &Connection, guid: String) -> Result<(), ErrorKind> {
+pub fn touch(conn: &Connection, guid: String) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
 
@@ -621,7 +618,7 @@ mod tests {
     }
 
     #[test]
-    fn test_address_touch() -> Result<(), ErrorKind> {
+    fn test_address_touch() -> Result<()> {
         let db = new_mem_db();
         let saved_address = add_address(
             &db,

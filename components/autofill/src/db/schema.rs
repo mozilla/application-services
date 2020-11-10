@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error::ErrorKind;
+use crate::error::*;
 use rusqlite::Connection;
 
 pub const ADDRESS_COMMON_COLS: &str = "
@@ -43,13 +43,13 @@ const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_sch
 const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
 
 #[allow(dead_code)]
-pub fn init(db: &Connection) -> Result<(), ErrorKind> {
+pub fn init(db: &Connection) -> Result<()> {
     create(db)?;
     Ok(())
 }
 
 #[allow(dead_code)]
-fn create(db: &Connection) -> Result<(), ErrorKind> {
+fn create(db: &Connection) -> Result<()> {
     log::debug!("Creating schema");
     db.execute_batch(
         format!(

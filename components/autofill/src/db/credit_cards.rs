@@ -5,7 +5,7 @@
 
 use crate::db::models::credit_card::{CreditCard, InternalCreditCard, NewCreditCardFields};
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
-use crate::error::ErrorKind;
+use crate::error::*;
 
 use rusqlite::{Connection, NO_PARAMS};
 use sync_guid::Guid;
@@ -14,7 +14,7 @@ use types::Timestamp;
 pub fn add_credit_card(
     conn: &Connection,
     new_credit_card_fields: NewCreditCardFields,
-) -> Result<InternalCreditCard, ErrorKind> {
+) -> Result<InternalCreditCard> {
     let tx = conn.unchecked_transaction()?;
 
     let credit_card = InternalCreditCard {
@@ -65,7 +65,7 @@ pub fn add_credit_card(
     Ok(credit_card)
 }
 
-pub fn get_credit_card(conn: &Connection, guid: String) -> Result<InternalCreditCard, ErrorKind> {
+pub fn get_credit_card(conn: &Connection, guid: String) -> Result<InternalCreditCard> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
@@ -81,7 +81,7 @@ pub fn get_credit_card(conn: &Connection, guid: String) -> Result<InternalCredit
     Ok(credit_card)
 }
 
-pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>, ErrorKind> {
+pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
     let tx = conn.unchecked_transaction()?;
     let credit_cards;
     let sql = format!(
@@ -95,14 +95,14 @@ pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>
         let mut stmt = tx.prepare(&sql)?;
         credit_cards = stmt
             .query_map(NO_PARAMS, InternalCreditCard::from_row)?
-            .collect::<Result<Vec<InternalCreditCard>, _>>()?;
+            .collect::<std::result::Result<Vec<InternalCreditCard>, _>>()?;
     }
 
     tx.commit()?;
     Ok(credit_cards)
 }
 
-pub fn update_credit_card(conn: &Connection, credit_card: &CreditCard) -> Result<(), ErrorKind> {
+pub fn update_credit_card(conn: &Connection, credit_card: &CreditCard) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE credit_cards_data
@@ -129,7 +129,7 @@ pub fn update_credit_card(conn: &Connection, credit_card: &CreditCard) -> Result
     Ok(())
 }
 
-pub fn delete_credit_card(conn: &Connection, guid: String) -> Result<bool, ErrorKind> {
+pub fn delete_credit_card(conn: &Connection, guid: String) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
     // check that guid exists
@@ -189,7 +189,7 @@ pub fn delete_credit_card(conn: &Connection, guid: String) -> Result<bool, Error
     Ok(exists)
 }
 
-pub fn touch(conn: &Connection, guid: String) -> Result<(), ErrorKind> {
+pub fn touch(conn: &Connection, guid: String) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
 
@@ -215,7 +215,7 @@ mod tests {
     use crate::db::test::new_mem_db;
 
     #[test]
-    fn test_credit_card_create_and_read() -> Result<(), ErrorKind> {
+    fn test_credit_card_create_and_read() -> Result<()> {
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -271,7 +271,7 @@ mod tests {
     }
 
     #[test]
-    fn test_credit_card_read_all() -> Result<(), ErrorKind> {
+    fn test_credit_card_read_all() -> Result<()> {
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -332,7 +332,7 @@ mod tests {
     }
 
     #[test]
-    fn test_credit_card_update() -> Result<(), ErrorKind> {
+    fn test_credit_card_update() -> Result<()> {
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -372,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn test_credit_card_delete() -> Result<(), ErrorKind> {
+    fn test_credit_card_delete() -> Result<()> {
         let db = new_mem_db();
 
         let saved_credit_card = add_credit_card(
@@ -623,7 +623,7 @@ mod tests {
     }
 
     #[test]
-    fn test_credit_card_touch() -> Result<(), ErrorKind> {
+    fn test_credit_card_touch() -> Result<()> {
         let db = new_mem_db();
         let saved_credit_card = add_credit_card(
             &db,

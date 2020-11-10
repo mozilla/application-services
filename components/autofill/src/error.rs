@@ -25,3 +25,5 @@ pub enum ErrorKind {
     #[error("UTF8 Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 }
+
+pub type Result<T> = std::result::Result<T, ErrorKind>;
