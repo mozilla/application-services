@@ -53,8 +53,8 @@ impl Store {
     }
 
     #[allow(dead_code)]
-    pub fn update_credit_card(&self, credit_card: &CreditCard) -> Result<()> {
-        credit_cards::update_credit_card(&self.db.writer, credit_card)
+    pub fn update_credit_card(&self, credit_card: CreditCard) -> Result<()> {
+        credit_cards::update_credit_card(&self.db.writer, &credit_card)
     }
 
     #[allow(dead_code)]
@@ -88,8 +88,8 @@ impl Store {
     }
 
     #[allow(dead_code)]
-    pub fn update_address(&self, address: &Address) -> Result<()> {
-        addresses::update_address(&self.db.writer, address)
+    pub fn update_address(&self, address: Address) -> Result<()> {
+        addresses::update_address(&self.db.writer, &address)
     }
 
     #[allow(dead_code)]

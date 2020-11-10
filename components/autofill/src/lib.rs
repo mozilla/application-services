@@ -8,3 +8,11 @@
 
 pub mod db;
 pub mod error;
+
+// Expose stuff needed by the uniffi generated code.
+use crate::db::models::address::*;
+use crate::db::models::credit_card::*;
+use crate::db::store::Store;
+use error::ErrorKind;
+
+include!(concat!(env!("OUT_DIR"), "/autofill.uniffi.rs"));

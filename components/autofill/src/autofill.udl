@@ -82,7 +82,7 @@ interface Store {
     Address get_address(string guid);
 
     [Throws=ErrorKind]
-    sequence<Address> get_all_address();
+    sequence<Address> get_all_addresses();
 
     [Throws=ErrorKind]
     void update_address(Address a);
