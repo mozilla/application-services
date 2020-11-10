@@ -38,3 +38,10 @@
 
 - We no longer discard the final path component from self-hosted sync tokenserver URLs.
   ([#3694](https://github.com/mozilla/application-services/pull/3694))
+
+
+## Autofill
+
+### What's Changed
+
+- We added the `touch_address` and `touch_credit_card` store functions and refactored the component.([#3691](https://github.com/mozilla/application-services/pull/3691))

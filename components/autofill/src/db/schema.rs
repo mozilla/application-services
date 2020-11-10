@@ -39,8 +39,8 @@ pub const CREDIT_CARD_COMMON_COLS: &str = "
     sync_change_counter";
 
 #[allow(dead_code)]
-const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../sql/create_shared_schema.sql");
-const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../sql/create_shared_triggers.sql");
+const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
+const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
 
 #[allow(dead_code)]
 pub fn init(db: &Connection) -> Result<()> {

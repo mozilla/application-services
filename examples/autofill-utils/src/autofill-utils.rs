@@ -1,15 +1,16 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #![warn(rust_2018_idioms)]
 
 use anyhow::Result;
-use autofill::api::{addresses, credit_cards};
-use autofill::db::AutofillDb;
+use autofill::db::{
+    models::{address, credit_card},
+    store::Store,
+};
 use std::{fs::File, io::BufReader};
 use structopt::StructOpt;
-use sync_guid::Guid;
 
 // Note: this uses doc comments to generate the help text.
 #[derive(Clone, Debug, StructOpt)]
@@ -107,125 +108,119 @@ enum Command {
     },
 }
 
-fn run_add_address(db: &mut AutofillDb, filename: String) -> Result<()> {
+fn run_add_address(store: &Store, filename: String) -> Result<()> {
     println!("Retrieving address data from {}", filename);
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let address_fields: addresses::NewAddressFields = serde_json::from_reader(reader)?;
+    let address_fields: address::NewAddressFields = serde_json::from_reader(reader)?;
 
     println!("Making `add_address` api call");
-    let address = addresses::add_address(&mut db.writer, address_fields)?;
+    let address = Store::add_address(store, address_fields)?;
 
     println!("Created address: {:#?}", address);
     Ok(())
 }
 
-fn run_get_address(db: &mut AutofillDb, guid: String) -> Result<()> {
+fn run_get_address(store: &Store, guid: String) -> Result<()> {
     println!("Getting address for guid `{}`", guid);
 
-    let address = addresses::get_address(&mut db.writer, &Guid::from(guid))?;
+    let address = Store::get_address(store, guid)?;
 
     println!("Retrieved address: {:#?}", address);
     Ok(())
 }
 
-fn run_get_all_addresses(db: &mut AutofillDb) -> Result<()> {
+fn run_get_all_addresses(store: &Store) -> Result<()> {
     println!("Getting all addresses");
 
-    let addresses = addresses::get_all_addresses(&mut db.writer)?;
+    let addresses = Store::get_all_addresses(store)?;
 
     println!("Retrieved addresses: {:#?}", addresses);
 
     Ok(())
 }
 
-fn run_update_address(db: &mut AutofillDb, filename: String) -> Result<()> {
+fn run_update_address(store: &Store, filename: String) -> Result<()> {
     println!("Updating address data from {}", filename);
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let address_fields: addresses::Address = serde_json::from_reader(reader)?;
+    let address_fields: address::Address = serde_json::from_reader(reader)?;
     let guid = address_fields.guid.clone();
 
-    println!(
-        "Making `update_address` api call for guid {}",
-        guid.to_string()
-    );
-    addresses::update_address(&mut db.writer, address_fields)?;
+    println!("Making `update_address` api call for guid {}", guid);
+    Store::update_address(store, &address_fields)?;
 
-    let address = addresses::get_address(&mut db.writer, &guid)?;
+    let address = Store::get_address(store, guid)?;
     println!("Updated address: {:#?}", address);
 
     Ok(())
 }
 
-fn run_delete_address(db: &mut AutofillDb, guid: String) -> Result<()> {
+fn run_delete_address(store: &Store, guid: String) -> Result<()> {
     println!("Deleting address for guid `{}`", guid);
 
-    addresses::delete_address(&mut db.writer, &Guid::from(guid))?;
+    Store::delete_address(store, guid)?;
 
     println!("Successfully deleted address");
     Ok(())
 }
 
-fn run_add_credit_card(db: &mut AutofillDb, filename: String) -> Result<()> {
+fn run_add_credit_card(store: &Store, filename: String) -> Result<()> {
     println!("Retrieving credit card data from {}", filename);
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let credit_card_fields: credit_cards::NewCreditCardFields = serde_json::from_reader(reader)?;
+    let credit_card_fields: credit_card::NewCreditCardFields = serde_json::from_reader(reader)?;
 
     println!("Making `add_credit_card` api call");
-    let credit_card = credit_cards::add_credit_card(&mut db.writer, credit_card_fields)?;
+    let credit_card = Store::add_credit_card(store, credit_card_fields)?;
 
     println!("Created credit card: {:#?}", credit_card);
     Ok(())
 }
 
-fn run_get_credit_card(db: &mut AutofillDb, guid: String) -> Result<()> {
+fn run_get_credit_card(store: &Store, guid: String) -> Result<()> {
     println!("Getting credit card for guid `{}`", guid);
 
-    let credit_card = credit_cards::get_credit_card(&mut db.writer, &Guid::from(guid))?;
+    let credit_card = Store::get_credit_card(store, guid)?;
 
     println!("Retrieved credit card: {:#?}", credit_card);
     Ok(())
 }
 
-fn run_get_all_credit_cards(db: &mut AutofillDb) -> Result<()> {
+fn run_get_all_credit_cards(store: &Store) -> Result<()> {
     println!("Getting all credit cards");
 
-    let credit_cards = credit_cards::get_all_credit_cards(&mut db.writer)?;
+    let credit_cards = Store::get_all_credit_cards(store)?;
 
     println!("Retrieved credit cards: {:#?}", credit_cards);
 
     Ok(())
 }
 
-fn run_update_credit_card(db: &mut AutofillDb, filename: String) -> Result<()> {
+fn run_update_credit_card(store: &Store, filename: String) -> Result<()> {
     println!("Updating credit card data from {}", filename);
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let credit_card_fields: credit_cards::CreditCard = serde_json::from_reader(reader)?;
+    let credit_card_fields: credit_card::CreditCard = serde_json::from_reader(reader)?;
     let guid = credit_card_fields.guid.clone();
 
-    println!(
-        "Making `update_credit_card` api call for guid {}",
-        guid.to_string()
-    );
-    credit_cards::update_credit_card(&mut db.writer, credit_card_fields)?;
+    println!("Making `update_credit_card` api call for guid {}", guid);
+    Store::update_credit_card(store, &credit_card_fields)?;
 
-    let credit_card = credit_cards::get_credit_card(&mut db.writer, &guid)?;
+    let credit_card = Store::get_credit_card(store, guid)?;
     println!("Updated credit card: {:#?}", credit_card);
 
     Ok(())
 }
 
-fn run_delete_credit_card(db: &mut AutofillDb, guid: String) -> Result<()> {
+fn run_delete_credit_card(store: &Store, guid: String) -> Result<()> {
     println!("Deleting credit card for guid `{}`", guid);
 
-    credit_cards::delete_credit_card(&mut db.writer, &Guid::from(guid))?;
+    Store::delete_credit_card(store, guid)?;
 
     println!("Successfully deleted credit card");
     Ok(())
@@ -238,19 +233,19 @@ fn main() -> Result<()> {
     }
 
     let db_path = opts.database_path;
-    let mut db = AutofillDb::new(db_path)?;
+    let store = Store::new(db_path)?;
 
     match opts.cmd {
-        Command::AddAddress { input_file } => run_add_address(&mut db, input_file),
-        Command::GetAddress { guid } => run_get_address(&mut db, guid),
-        Command::GetAllAddresses => run_get_all_addresses(&mut db),
-        Command::UpdateAddress { input_file } => run_update_address(&mut db, input_file),
-        Command::DeleteAddress { guid } => run_delete_address(&mut db, guid),
+        Command::AddAddress { input_file } => run_add_address(&store, input_file),
+        Command::GetAddress { guid } => run_get_address(&store, guid),
+        Command::GetAllAddresses => run_get_all_addresses(&store),
+        Command::UpdateAddress { input_file } => run_update_address(&store, input_file),
+        Command::DeleteAddress { guid } => run_delete_address(&store, guid),
 
-        Command::AddCreditCard { input_file } => run_add_credit_card(&mut db, input_file),
-        Command::GetCreditCard { guid } => run_get_credit_card(&mut db, guid),
-        Command::GetAllCreditCards => run_get_all_credit_cards(&mut db),
-        Command::UpdateCreditCard { input_file } => run_update_credit_card(&mut db, input_file),
-        Command::DeleteCreditCard { guid } => run_delete_credit_card(&mut db, guid),
+        Command::AddCreditCard { input_file } => run_add_credit_card(&store, input_file),
+        Command::GetCreditCard { guid } => run_get_credit_card(&store, guid),
+        Command::GetAllCreditCards => run_get_all_credit_cards(&store),
+        Command::UpdateCreditCard { input_file } => run_update_credit_card(&store, input_file),
+        Command::DeleteCreditCard { guid } => run_delete_credit_card(&store, guid),
     }
 }

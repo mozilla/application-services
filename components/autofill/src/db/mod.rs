@@ -2,8 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+pub mod addresses;
+pub mod credit_cards;
+pub mod models;
+pub mod schema;
+pub mod store;
+
 use crate::error::*;
-use crate::schema;
 
 use rusqlite::{Connection, OpenFlags};
 use std::{
