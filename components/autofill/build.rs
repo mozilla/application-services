@@ -8,6 +8,8 @@
 //! gross hack).
 
 fn main() {
+    uniffi_build::generate_scaffolding("./src/autofill.udl").unwrap();
+
     println!("cargo:rerun-if-changed=build.rs");
     // Ugh. This is really really dumb. We don't care about sqlcipher at all. really
     if nss_build_common::env_str("DEP_SQLITE3_LINK_TARGET") == Some("sqlcipher".into()) {
