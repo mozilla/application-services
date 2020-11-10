@@ -181,6 +181,8 @@ dependencies = [
  "sync15-traits",
  "thiserror",
  "types",
+ "uniffi",
+ "uniffi_build",
  "url",
 ]
 
@@ -1835,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-sdk"
-version = "0.5.1"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "hex",
