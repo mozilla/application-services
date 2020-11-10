@@ -8,7 +8,7 @@ pub mod models;
 pub mod schema;
 pub mod store;
 
-use crate::error::*;
+use crate::error::ErrorKind;
 
 use rusqlite::{Connection, OpenFlags};
 use std::{
@@ -22,19 +22,19 @@ pub struct AutofillDb {
 }
 
 impl AutofillDb {
-    pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
+    pub fn new(db_path: impl AsRef<Path>) -> Result<Self, ErrorKind> {
         let db_path = normalize_path(db_path)?;
         Self::new_named(db_path)
     }
 
     #[cfg(test)]
-    pub fn new_memory(db_path: &str) -> Result<Self> {
+    pub fn new_memory(db_path: &str) -> Result<Self, ErrorKind> {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
         Self::new_named(name)
     }
 
     #[allow(dead_code)]
-    fn new_named(db_path: PathBuf) -> Result<Self> {
+    fn new_named(db_path: PathBuf) -> Result<Self, ErrorKind> {
         // We always create the read-write connection for an initial open so
         // we can create the schema and/or do version upgrades.
         let flags = OpenFlags::SQLITE_OPEN_NO_MUTEX
@@ -64,7 +64,7 @@ impl DerefMut for AutofillDb {
     }
 }
 
-fn init_sql_connection(conn: &Connection, is_writable: bool) -> Result<()> {
+fn init_sql_connection(conn: &Connection, is_writable: bool) -> Result<(), ErrorKind> {
     define_functions(&conn)?;
     conn.set_prepared_statement_cache_capacity(128);
     if is_writable {
@@ -89,7 +89,7 @@ fn unurl_path(p: impl AsRef<Path>) -> PathBuf {
         .unwrap_or_else(|| p.as_ref().to_owned())
 }
 
-fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf> {
+fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf, ErrorKind> {
     let path = unurl_path(p);
     if let Ok(canonical) = path.canonicalize() {
         return Ok(canonical);
@@ -129,12 +129,13 @@ fn define_functions(c: &Connection) -> Result<()> {
 }
 
 pub(crate) mod sql_fns {
+    use crate::error::ErrorKind;
     use rusqlite::{functions::Context, Result};
     use sync_guid::Guid as SyncGuid;
 
     #[inline(never)]
     #[allow(dead_code)]
-    pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
+    pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid, ErrorKind> {
         Ok(SyncGuid::random())
     }
 }

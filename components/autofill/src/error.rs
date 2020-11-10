@@ -25,12 +25,3 @@ pub enum ErrorKind {
     #[error("UTF8 Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 }
-
-error_support::define_error! {
-    ErrorKind {
-        (SqlError, rusqlite::Error),
-        (IoError, std::io::Error),
-        (InterruptedError, Interrupted),
-        (Utf8Error, std::str::Utf8Error)
-    }
-}
