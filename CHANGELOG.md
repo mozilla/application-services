@@ -2,6 +2,18 @@
 
 Unreleased changes go here.
 
+
+# 0.5.0 (_2020-11-10)
+
+- Added support for global opt-out via new method
+  `NimbusClient.set_global_user_participation(bool)`
+- Updated uniffi and rkv dependencies to their latest
+  release versions.
+- Switched to using the "safe mode" backend for rkv;
+  this can be disabled at build time by disabling the
+  `rkv-safe-mode` feature.
+
+
 # 0.4.0 (_2020-11-06)
 
 ## General
