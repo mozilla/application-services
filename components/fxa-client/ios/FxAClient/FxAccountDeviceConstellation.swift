@@ -92,8 +92,8 @@ public class DeviceConstellation {
             do {
                 switch e {
                 case let .sendTab(title, url): do {
-                    try self.account.sendSingleTab(targetId: targetDeviceId, title: title, url: url)
-                }
+                        try self.account.sendSingleTab(targetId: targetDeviceId, title: title, url: url)
+                    }
                 }
             } catch {
                 FxALog.error("Error sending event to another device: \(error).")
