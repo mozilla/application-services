@@ -26,7 +26,10 @@ jobs:
             - nimbus/target/debug/deps
           key: v4-cargo-cache-{{ arch }}-{{ checksum "nimbus/Cargo.lock" }}
       - run:
-          name: Run all tests
+          name: Run all tests (rkv lmdb mode)
+          command: cd nimbus &&  cargo test --no-default-features --all
+      - run:
+          name: Run all tests (rkv safe mode)
           command: cd nimbus &&  cargo test --all
       - run:
           name: Check formatting

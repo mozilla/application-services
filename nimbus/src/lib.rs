@@ -82,18 +82,28 @@ impl NimbusClient {
     }
 
     pub fn get_global_user_participation(&self) -> Result<bool> {
-        get_global_user_participation(self.db()?)
+        // This is a bit smelly, but get_global_user_participation() needs a
+        // writer so that the implementation of update_enrollments can pass one
+        // and see the correct value.
+        let db = self.db()?;
+        let writer = db.write()?;
+        get_global_user_participation(db, &writer)
     }
 
     pub fn set_global_user_participation(&self, flag: bool) -> Result<()> {
-        set_global_user_participation(self.db()?, flag)?;
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        set_global_user_participation(db, &mut writer, flag)?;
         // Now update all enrollments based on this new opt in/out setting.
         update_enrollments(
-            self.db()?,
+            db,
+            &mut writer,
             &self.nimbus_id()?,
             &self.available_randomization_units,
             &self.app_context,
-        )
+        )?;
+        writer.commit()?;
+        Ok(())
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
@@ -115,13 +125,18 @@ impl NimbusClient {
     }
 
     pub fn reset_enrollment(&self, experiment_slug: String) -> Result<()> {
+        let db = self.db()?;
+        let mut writer = db.write()?;
         reset_enrollment(
-            self.db()?,
+            db,
+            &mut writer,
             &experiment_slug,
             &self.nimbus_id()?,
             &self.available_randomization_units,
             &self.app_context,
-        )
+        )?;
+        writer.commit()?;
+        Ok(())
     }
 
     pub fn update_experiments(&self) -> Result<()> {
@@ -129,30 +144,36 @@ impl NimbusClient {
         // previously had no longer exist? For now though, just nuke them all.
         log::info!("updating experiment list");
         let experiments = self.settings_client.get_experiments()?;
-        // XXX - we need transaction support but it's not clear how to expose
-        // that support.
-        self.db()?.clear(StoreId::Experiments)?;
-        for experiment in experiments {
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let exp_store = db.get_store(StoreId::Experiments);
+        exp_store.clear(&mut writer)?;
+        for experiment in &experiments {
             log::debug!("found experiment {}", experiment.slug);
-            self.db()?
-                .put(StoreId::Experiments, &experiment.slug, &experiment)?;
+            exp_store.put(&mut writer, &experiment.slug, experiment)?;
         }
         // Now update all enrollments based on the new set.
         update_enrollments(
-            self.db()?,
-            &self.nimbus_id()?,
+            &db,
+            &mut writer,
+            &self.nimbus_id()?, // XXX - this might write but not in its own transaction!?
             &self.available_randomization_units,
             &self.app_context,
-        )
+        )?;
+        writer.commit()?;
+        Ok(())
     }
 
     pub fn nimbus_id(&self) -> Result<Uuid> {
-        Ok(match self.db()?.get(StoreId::Meta, DB_KEY_NIMBUS_ID)? {
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        let store = db.get_store(StoreId::Meta);
+        Ok(match store.get(&writer, DB_KEY_NIMBUS_ID)? {
             Some(nimbus_id) => nimbus_id,
             None => {
                 let nimbus_id = Uuid::new_v4();
-                self.db()?
-                    .put(StoreId::Meta, DB_KEY_NIMBUS_ID, &nimbus_id)?;
+                store.put(&mut writer, DB_KEY_NIMBUS_ID, &nimbus_id)?;
+                writer.commit()?;
                 nimbus_id
             }
         })
@@ -162,7 +183,12 @@ impl NimbusClient {
     // (Useful for testing so you can have some control over what experiments
     // are enrolled)
     pub fn set_nimbus_id(&self, uuid: &Uuid) -> Result<()> {
-        self.db()?.put(StoreId::Meta, DB_KEY_NIMBUS_ID, uuid)
+        let db = self.db()?;
+        let mut writer = db.write()?;
+        db.get_store(StoreId::Meta)
+            .put(&mut writer, DB_KEY_NIMBUS_ID, uuid)?;
+        writer.commit()?;
+        Ok(())
     }
 
     fn db(&self) -> Result<&Database> {

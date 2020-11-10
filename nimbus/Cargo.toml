@@ -13,6 +13,11 @@ keywords = ["experiment", "nimbus"]
 name = "nimbus"
 crate-type = ["lib", "cdylib"]
 
+[features]
+# `rkv-safe-mode` is the same name as used by glean. For us though, it's the default.
+default=["rkv-safe-mode"]
+rkv-safe-mode = []
+
 [dependencies]
 anyhow = "1"
 serde = "1"

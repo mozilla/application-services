@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::error::Result;
 use crate::evaluator::evaluate_enrollment;
-use crate::persistence::{Database, StoreId};
+use crate::persistence::{Database, StoreId, Writer};
 use crate::AvailableRandomizationUnits;
 use crate::{AppContext, EnrolledExperiment, Experiment};
 
@@ -91,6 +91,7 @@ pub fn get_enrollments(db: &Database) -> Result<Vec<EnrolledExperiment>> {
 /// might have expired, etc.
 pub fn update_enrollments(
     db: &Database,
+    mut writer: &mut Writer,
     nimbus_id: &Uuid,
     aru: &AvailableRandomizationUnits,
     app_context: &AppContext,
@@ -99,14 +100,17 @@ pub fn update_enrollments(
     // We might have enrollments for experiments which no longer exist, so we
     // first build a set of all IDs in both groups.
     let mut all_slugs = HashSet::new();
-    let experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
+    let experiments = db
+        .get_store(StoreId::Experiments)
+        .collect_all::<Experiment>(writer)?;
     let mut map_experiments = HashMap::with_capacity(experiments.len());
     for e in experiments {
         all_slugs.insert(e.slug.clone());
         map_experiments.insert(e.slug.clone(), e);
     }
     // and existing enrollments.
-    let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
+    let store = db.get_store(StoreId::Enrollments);
+    let enrollments = store.collect_all::<ExperimentEnrollment>(&writer)?;
     let mut map_enrollments = HashMap::with_capacity(enrollments.len());
     for e in enrollments {
         all_slugs.insert(e.slug.clone());
@@ -114,7 +118,7 @@ pub fn update_enrollments(
     }
 
     // The user may have opted out from experiments altogether.
-    let is_user_participating = get_global_user_participation(db)?;
+    let is_user_participating = get_global_user_participation(db, writer)?;
 
     // XXX - we want to emit events for many of these things, but we are hoping
     // we can put that off until we have a glean rust sdk available and thus
@@ -136,9 +140,9 @@ pub fn update_enrollments(
                         slug,
                         enr
                     );
-                    db.put(StoreId::Enrollments, slug, &enr)?;
+                    store.put(&mut writer, slug, &enr)?;
                 } else if is_user_participating && enr.status == EnrollmentStatus::OptedOut {
-                    reset_enrollment(db, slug, nimbus_id, aru, app_context)?;
+                    reset_enrollment(db, writer, slug, nimbus_id, aru, app_context)?;
                 } else {
                     log::debug!("Experiment '{}' already has enrollment {:?}", slug, enr)
                 }
@@ -151,7 +155,7 @@ pub fn update_enrollments(
                         slug,
                         enr
                     );
-                    db.put(StoreId::Enrollments, slug, &enr)?;
+                    store.put(&mut writer, slug, &enr)?;
                 }
             }
             (None, Some(enr)) => {
@@ -160,7 +164,7 @@ pub fn update_enrollments(
                     slug,
                     enr
                 );
-                db.delete(StoreId::Enrollments, slug)?;
+                store.delete(&mut writer, slug)?;
             }
             _ => unreachable!(),
         }
@@ -171,12 +175,14 @@ pub fn update_enrollments(
 /// Resets an experiment to remove any opt-in or opt-out overrides.
 pub fn reset_enrollment(
     db: &Database,
+    writer: &mut Writer,
     experiment_slug: &str,
     nimbus_id: &Uuid,
     aru: &AvailableRandomizationUnits,
     app_context: &AppContext,
 ) -> Result<()> {
-    let exp = match db.get::<Experiment>(StoreId::Experiments, experiment_slug)? {
+    let exp_store = db.get_store(StoreId::Experiments);
+    let exp = match exp_store.get::<Experiment>(&writer, experiment_slug)? {
         None => {
             // XXX - do we want specific errors for this kind of thing?
             log::warn!("No such experiment '{}'", experiment_slug);
@@ -190,7 +196,9 @@ pub fn reset_enrollment(
         experiment_slug,
         enrollment
     );
-    db.put(StoreId::Enrollments, experiment_slug, &enrollment)
+    let enr_store = db.get_store(StoreId::Enrollments);
+    enr_store.put(writer, experiment_slug, &enrollment)?;
+    Ok(())
 }
 
 pub fn opt_in_with_branch(db: &Database, experiment_slug: &str, branch: &str) -> Result<()> {
@@ -203,7 +211,11 @@ pub fn opt_in_with_branch(db: &Database, experiment_slug: &str, branch: &str) ->
             branch: branch.to_string(),
         },
     };
-    db.put(StoreId::Enrollments, experiment_slug, &enrollment)
+    let mut writer = db.write()?;
+    db.get_store(StoreId::Enrollments)
+        .put(&mut writer, experiment_slug, &enrollment)?;
+    writer.commit()?;
+    Ok(())
 }
 
 pub fn opt_out(db: &Database, experiment_slug: &str) -> Result<()> {
@@ -212,11 +224,16 @@ pub fn opt_out(db: &Database, experiment_slug: &str) -> Result<()> {
         slug: experiment_slug.to_string(),
         status: EnrollmentStatus::OptedOut,
     };
-    db.put(StoreId::Enrollments, experiment_slug, &enrollment)
+    let mut writer = db.write()?;
+    db.get_store(StoreId::Enrollments)
+        .put(&mut writer, experiment_slug, &enrollment)?;
+    writer.commit()?;
+    Ok(())
 }
 
-pub fn get_global_user_participation(db: &Database) -> Result<bool> {
-    let opted_in = db.get(StoreId::Meta, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+pub fn get_global_user_participation(db: &Database, writer: &Writer) -> Result<bool> {
+    let store = db.get_store(StoreId::Meta);
+    let opted_in = store.get(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
     if let Some(opted_in) = opted_in {
         Ok(opted_in)
     } else {
@@ -224,8 +241,13 @@ pub fn get_global_user_participation(db: &Database) -> Result<bool> {
     }
 }
 
-pub fn set_global_user_participation(db: &Database, opt_in: bool) -> Result<()> {
-    db.put(StoreId::Meta, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
+pub fn set_global_user_participation(
+    db: &Database,
+    writer: &mut Writer,
+    opt_in: bool,
+) -> Result<()> {
+    let store = db.get_store(StoreId::Meta);
+    store.put(writer, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
 }
 
 #[cfg(test)]
@@ -292,14 +314,15 @@ mod tests {
         ]
     }
 
-    fn insert_experiments(db: &Database, exps: Vec<serde_json::Value>) -> Result<()> {
-        db.clear(StoreId::Experiments)?;
+    fn insert_experiments(
+        db: &Database,
+        writer: &mut Writer,
+        exps: Vec<serde_json::Value>,
+    ) -> Result<()> {
+        let store = db.get_store(StoreId::Experiments);
+        store.clear(writer)?;
         for exp in exps {
-            db.put(
-                StoreId::Experiments,
-                exp.get("slug").unwrap().as_str().unwrap(),
-                &exp,
-            )?;
+            store.put(writer, exp.get("slug").unwrap().as_str().unwrap(), &exp)?;
         }
         Ok(())
     }
@@ -328,12 +351,16 @@ mod tests {
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
         assert_eq!(get_enrollments(&db)?.len(), 0);
-        db.put(
-            StoreId::Experiments,
+        let mut writer = db.write()?;
+        db.get_store(StoreId::Experiments).put(
+            &mut writer,
             exp.get("slug").unwrap().as_str().unwrap(),
             exp,
         )?;
-        update_enrollments(&db, &nimbus_id, &aru, &Default::default())?;
+
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &Default::default())?;
+        writer.commit()?;
+
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 1);
         let enrollment = &enrollments[0];
@@ -381,13 +408,20 @@ mod tests {
         let aru = Default::default();
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let exps = get_test_experiments();
-        insert_experiments(&db, exps)?;
-        update_enrollments(&db, &nimbus_id, &aru, &Default::default())?;
+        let mut writer = db.write()?;
+        insert_experiments(&db, &mut writer, exps)?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &Default::default())?;
+        writer.commit()?;
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 2);
+
+        let mut writer = db.write()?;
+        let store = db.get_store(StoreId::Experiments);
         // pretend we just updated from the server and one of the 2 is missing.
-        db.delete(StoreId::Experiments, "secure-gold")?;
-        update_enrollments(&db, &nimbus_id, &aru, &Default::default())?;
+        store.delete(&mut writer, "secure-gold")?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &Default::default())?;
+        writer.commit()?;
+
         // should only have 1 now.
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 1);
@@ -399,17 +433,20 @@ mod tests {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("test_global_opt_out")?;
         let db = Database::new(&tmp_dir)?;
+        let mut writer = db.write()?;
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
         let app_context = Default::default();
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let exps = get_test_experiments();
-        insert_experiments(&db, exps)?;
+        insert_experiments(&db, &mut writer, exps)?;
 
         // User has opted out of new experiments.
         // New experiments exist, but no enrolments have happened.
-        set_global_user_participation(&db, false)?;
-        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        set_global_user_participation(&db, &mut writer, false)?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
+        writer.commit()?;
+
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 0);
         // We should see no experiment enrolments.
@@ -420,8 +457,10 @@ mod tests {
         );
 
         // User opts in, and updating should enrol us in 2 experiments.
-        set_global_user_participation(&db, true)?;
-        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let mut writer = db.write()?;
+        set_global_user_participation(&db, &mut writer, true)?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
+        writer.commit()?;
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 2);
         // We should see 2 experiment enrolments.
@@ -437,8 +476,10 @@ mod tests {
 
         // Opting out and updating should give us no enrolled experiments,
         // but 2 experiment enrolments.
-        set_global_user_participation(&db, false)?;
-        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let mut writer = db.write()?;
+        set_global_user_participation(&db, &mut writer, false)?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
+        writer.commit()?;
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 0);
         // We should see 2 experiment enrolments, this time they're both opt outs
@@ -449,8 +490,10 @@ mod tests {
         );
 
         // Opting in again and updating should enrol us in 2 experiments.
-        set_global_user_participation(&db, true)?;
-        update_enrollments(&db, &nimbus_id, &aru, &app_context)?;
+        let mut writer = db.write()?;
+        set_global_user_participation(&db, &mut writer, true)?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
+        writer.commit()?;
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 2);
         let new_branches: Vec<String> = enrollments
