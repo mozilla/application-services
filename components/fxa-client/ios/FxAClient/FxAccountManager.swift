@@ -368,256 +368,256 @@ open class FxAccountManager {
     internal func stateActions(forState: AccountState, via: Event) -> Event? {
         switch forState {
         case .start: do {
-            switch via {
-            case .initialize: do {
-                if let acct = tryRestoreAccount() {
-                    account = acct
-                    if !acct.isInMigrationState() {
-                        return .accountRestored
-                    } else {
-                        // We may have attempted a migration previously, which failed
-                        // in a way that allows us to retry it.
-                        return .inFlightMigration
+                switch via {
+                case .initialize: do {
+                        if let acct = tryRestoreAccount() {
+                            account = acct
+                            if !acct.isInMigrationState() {
+                                return .accountRestored
+                            } else {
+                                // We may have attempted a migration previously, which failed
+                                // in a way that allows us to retry it.
+                                return .inFlightMigration
+                            }
+                        } else {
+                            return .accountNotFound
+                        }
                     }
-                } else {
-                    return .accountNotFound
+                default: return nil
                 }
             }
-            default: return nil
-            }
-        }
         case .notAuthenticated: do {
-            switch via {
-            case .logout: do {
-                // Clean up internal account state and destroy the current FxA device record.
-                do {
-                    try requireAccount().disconnect()
-                    FxALog.info("Disconnected FxA account")
-                } catch {
-                    FxALog.error("Failed to fully disconnect the FxA account: \(error).")
-                }
-                profile = nil
-                constellation = nil
-                accountStorage.clear()
-                // If we cannot instanciate FxA something is *really* wrong, crashing is a valid option.
-                account = createAccount()
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(
-                        name: .accountLoggedOut,
-                        object: nil
-                    )
-                }
-            }
-            case .accountNotFound: do {
-                account = createAccount()
-            }
-            case let .authenticateViaMigration(sessionToken, kSync, kXCS): do {
-                let acct = requireAccount()
-                FxALog.info("Registering persistence callback")
-                acct.registerPersistCallback(statePersistenceCallback)
+                switch via {
+                case .logout: do {
+                        // Clean up internal account state and destroy the current FxA device record.
+                        do {
+                            try requireAccount().disconnect()
+                            FxALog.info("Disconnected FxA account")
+                        } catch {
+                            FxALog.error("Failed to fully disconnect the FxA account: \(error).")
+                        }
+                        profile = nil
+                        constellation = nil
+                        accountStorage.clear()
+                        // If we cannot instanciate FxA something is *really* wrong, crashing is a valid option.
+                        account = createAccount()
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(
+                                name: .accountLoggedOut,
+                                object: nil
+                            )
+                        }
+                    }
+                case .accountNotFound: do {
+                        account = createAccount()
+                    }
+                case let .authenticateViaMigration(sessionToken, kSync, kXCS): do {
+                        let acct = requireAccount()
+                        FxALog.info("Registering persistence callback")
+                        acct.registerPersistCallback(statePersistenceCallback)
 
-                if acct.migrateFromSessionToken(
-                    sessionToken: sessionToken,
-                    kSync: kSync,
-                    kXCS: kXCS
-                ) {
-                    return .authenticatedViaMigration
-                }
-                if acct.isInMigrationState() {
-                    return .retryMigrationLater
+                        if acct.migrateFromSessionToken(
+                            sessionToken: sessionToken,
+                            kSync: kSync,
+                            kXCS: kXCS
+                        ) {
+                            return .authenticatedViaMigration
+                        }
+                        if acct.isInMigrationState() {
+                            return .retryMigrationLater
+                        }
+                    }
+                default: break // Do nothing
                 }
             }
-            default: break // Do nothing
-            }
-        }
         case .canAutoretryMigration: do {
-            switch via {
-            case .retryMigration, .inFlightMigration: do {
-                let acct = requireAccount()
-                FxALog.info("Registering persistence callback")
-                acct.registerPersistCallback(statePersistenceCallback)
+                switch via {
+                case .retryMigration, .inFlightMigration: do {
+                        let acct = requireAccount()
+                        FxALog.info("Registering persistence callback")
+                        acct.registerPersistCallback(statePersistenceCallback)
 
-                // Case 1: Success!
-                if acct.retryMigrateFromSessionToken() {
-                    return .authenticatedViaMigration
+                        // Case 1: Success!
+                        if acct.retryMigrateFromSessionToken() {
+                            return .authenticatedViaMigration
+                        }
+                        // Case 2: Transient error, we can still retry later.
+                        if acct.isInMigrationState() {
+                            return .retryMigrationLater
+                        }
+                        // Case 3: Non-recoverable error, at this point there's nothing we can do.
+                        return .migrationFailure
+                    }
+                default: break // Do Nothing
                 }
-                // Case 2: Transient error, we can still retry later.
-                if acct.isInMigrationState() {
-                    return .retryMigrationLater
-                }
-                // Case 3: Non-recoverable error, at this point there's nothing we can do.
-                return .migrationFailure
             }
-            default: break // Do Nothing
-            }
-        }
         case .authenticatedNoProfile: do {
-            switch via {
-            case let .authenticated(authData): do {
-                FxALog.info("Registering persistence callback")
-                requireAccount().registerPersistCallback(statePersistenceCallback)
+                switch via {
+                case let .authenticated(authData): do {
+                        FxALog.info("Registering persistence callback")
+                        requireAccount().registerPersistCallback(statePersistenceCallback)
 
-                FxALog.debug("Completing oauth flow")
-                do {
-                    try requireAccount().completeOAuthFlow(code: authData.code, state: authData.state)
-                } catch {
-                    // Reasons this can fail:
-                    // - network errors
-                    // - unknown auth state
-                    // - authenticating via web-content; we didn't beginOAuthFlowAsync
-                    FxALog.error("Error completing OAuth flow: \(error)")
+                        FxALog.debug("Completing oauth flow")
+                        do {
+                            try requireAccount().completeOAuthFlow(code: authData.code, state: authData.state)
+                        } catch {
+                            // Reasons this can fail:
+                            // - network errors
+                            // - unknown auth state
+                            // - authenticating via web-content; we didn't beginOAuthFlowAsync
+                            FxALog.error("Error completing OAuth flow: \(error)")
+                        }
+
+                        FxALog.info("Initializing device")
+                        requireConstellation().initDevice(
+                            name: deviceConfig.name,
+                            type: deviceConfig.type,
+                            capabilities: deviceConfig.capabilities
+                        )
+
+                        postAuthenticated(authType: authData.authType)
+
+                        return Event.fetchProfile(ignoreCache: false)
+                    }
+                case .accountRestored: do {
+                        FxALog.info("Registering persistence callback")
+                        requireAccount().registerPersistCallback(statePersistenceCallback)
+
+                        FxALog.info("Ensuring device capabilities...")
+                        requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
+
+                        postAuthenticated(authType: .existingAccount)
+
+                        return Event.fetchProfile(ignoreCache: false)
+                    }
+                case .authenticatedViaMigration: do {
+                        // Note that we are not registering an account persistence callback here like
+                        // we do in other `.authenticatedNoProfile` cases, because it would have been
+                        // already registered while handling any of the precursor events, such as
+                        // `.authenticateViaMigration`, `.retryMigration` or `.inFlightMigration`
+                        FxALog.info("Ensuring device capabilities...")
+                        // At the minimum, we need to ensure the device capabilities.
+                        requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
+
+                        postAuthenticated(authType: .migrated)
+
+                        return Event.fetchProfile(ignoreCache: false)
+                    }
+                case .recoveredFromAuthenticationProblem: do {
+                        FxALog.info("Registering persistence callback")
+                        requireAccount().registerPersistCallback(statePersistenceCallback)
+
+                        FxALog.info("Initializing device")
+                        requireConstellation().initDevice(
+                            name: deviceConfig.name,
+                            type: deviceConfig.type,
+                            capabilities: deviceConfig.capabilities
+                        )
+
+                        postAuthenticated(authType: .recovered)
+
+                        return Event.fetchProfile(ignoreCache: false)
+                    }
+                case let .changedPassword(newSessionToken): do {
+                        do {
+                            try requireAccount().handleSessionTokenChange(sessionToken: newSessionToken)
+
+                            FxALog.info("Initializing device")
+                            requireConstellation().initDevice(
+                                name: deviceConfig.name,
+                                type: deviceConfig.type,
+                                capabilities: deviceConfig.capabilities
+                            )
+
+                            postAuthenticated(authType: .existingAccount)
+
+                            return Event.fetchProfile(ignoreCache: false)
+                        } catch {
+                            FxALog.error("Error handling the session token change: \(error)")
+                        }
+                    }
+                case let .fetchProfile(ignoreCache): do {
+                        // Profile fetching and account authentication issues:
+                        // https://github.com/mozilla/application-services/issues/483
+                        FxALog.info("Fetching profile...")
+
+                        do {
+                            profile = try requireAccount().getProfile(ignoreCache: ignoreCache)
+                        } catch {
+                            return Event.failedToFetchProfile
+                        }
+                        return Event.fetchedProfile
+                    }
+                default: break // Do nothing
                 }
-
-                FxALog.info("Initializing device")
-                requireConstellation().initDevice(
-                    name: deviceConfig.name,
-                    type: deviceConfig.type,
-                    capabilities: deviceConfig.capabilities
-                )
-
-                postAuthenticated(authType: authData.authType)
-
-                return Event.fetchProfile(ignoreCache: false)
             }
-            case .accountRestored: do {
-                FxALog.info("Registering persistence callback")
-                requireAccount().registerPersistCallback(statePersistenceCallback)
-
-                FxALog.info("Ensuring device capabilities...")
-                requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
-
-                postAuthenticated(authType: .existingAccount)
-
-                return Event.fetchProfile(ignoreCache: false)
-            }
-            case .authenticatedViaMigration: do {
-                // Note that we are not registering an account persistence callback here like
-                // we do in other `.authenticatedNoProfile` cases, because it would have been
-                // already registered while handling any of the precursor events, such as
-                // `.authenticateViaMigration`, `.retryMigration` or `.inFlightMigration`
-                FxALog.info("Ensuring device capabilities...")
-                // At the minimum, we need to ensure the device capabilities.
-                requireConstellation().ensureCapabilities(capabilities: deviceConfig.capabilities)
-
-                postAuthenticated(authType: .migrated)
-
-                return Event.fetchProfile(ignoreCache: false)
-            }
-            case .recoveredFromAuthenticationProblem: do {
-                FxALog.info("Registering persistence callback")
-                requireAccount().registerPersistCallback(statePersistenceCallback)
-
-                FxALog.info("Initializing device")
-                requireConstellation().initDevice(
-                    name: deviceConfig.name,
-                    type: deviceConfig.type,
-                    capabilities: deviceConfig.capabilities
-                )
-
-                postAuthenticated(authType: .recovered)
-
-                return Event.fetchProfile(ignoreCache: false)
-            }
-            case let .changedPassword(newSessionToken): do {
-                do {
-                    try requireAccount().handleSessionTokenChange(sessionToken: newSessionToken)
-
-                    FxALog.info("Initializing device")
-                    requireConstellation().initDevice(
-                        name: deviceConfig.name,
-                        type: deviceConfig.type,
-                        capabilities: deviceConfig.capabilities
-                    )
-
-                    postAuthenticated(authType: .existingAccount)
-
-                    return Event.fetchProfile(ignoreCache: false)
-                } catch {
-                    FxALog.error("Error handling the session token change: \(error)")
-                }
-            }
-            case let .fetchProfile(ignoreCache): do {
-                // Profile fetching and account authentication issues:
-                // https://github.com/mozilla/application-services/issues/483
-                FxALog.info("Fetching profile...")
-
-                do {
-                    profile = try requireAccount().getProfile(ignoreCache: ignoreCache)
-                } catch {
-                    return Event.failedToFetchProfile
-                }
-                return Event.fetchedProfile
-            }
-            default: break // Do nothing
-            }
-        }
         case .authenticatedWithProfile: do {
-            switch via {
-            case .fetchedProfile: do {
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(
-                        name: .accountProfileUpdate,
-                        object: nil,
-                        userInfo: ["profile": self.profile!]
-                    )
+                switch via {
+                case .fetchedProfile: do {
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(
+                                name: .accountProfileUpdate,
+                                object: nil,
+                                userInfo: ["profile": self.profile!]
+                            )
+                        }
+                    }
+                case let .fetchProfile(refresh): do {
+                        FxALog.info("Refreshing profile...")
+                        do {
+                            profile = try requireAccount().getProfile(ignoreCache: refresh)
+                        } catch {
+                            return Event.failedToFetchProfile
+                        }
+                        return Event.fetchedProfile
+                    }
+                default: break // Do nothing
                 }
             }
-            case let .fetchProfile(refresh): do {
-                FxALog.info("Refreshing profile...")
-                do {
-                    profile = try requireAccount().getProfile(ignoreCache: refresh)
-                } catch {
-                    return Event.failedToFetchProfile
-                }
-                return Event.fetchedProfile
-            }
-            default: break // Do nothing
-            }
-        }
         case .authenticationProblem:
             switch via {
             case .authenticationError: do {
-                // Somewhere in the system, we've just hit an authentication problem.
-                // There are two main causes:
-                // 1) an access token we've obtain from fxalib via 'getAccessToken' expired
-                // 2) password was changed, or device was revoked
-                // We can recover from (1) and test if we're in (2) by asking the fxalib.
-                // If it succeeds, then we can go back to whatever
-                // state we were in before. Future operations that involve access tokens should
-                // succeed.
+                    // Somewhere in the system, we've just hit an authentication problem.
+                    // There are two main causes:
+                    // 1) an access token we've obtain from fxalib via 'getAccessToken' expired
+                    // 2) password was changed, or device was revoked
+                    // We can recover from (1) and test if we're in (2) by asking the fxalib.
+                    // If it succeeds, then we can go back to whatever
+                    // state we were in before. Future operations that involve access tokens should
+                    // succeed.
 
-                func onError() {
-                    // We are either certainly in the scenario (2), or were unable to determine
-                    // our connectivity state. Let's assume we need to re-authenticate.
-                    // This uncertainty about real state means that, hopefully rarely,
-                    // we will disconnect users that hit transient network errors during
-                    // an authorization check.
-                    // See https://github.com/mozilla-mobile/android-components/issues/3347
-                    FxALog.error("Unable to recover from an auth problem.")
-                    DispatchQueue.main.async {
-                        NotificationCenter.default.post(
-                            name: .accountAuthProblems,
-                            object: nil
-                        )
+                    func onError() {
+                        // We are either certainly in the scenario (2), or were unable to determine
+                        // our connectivity state. Let's assume we need to re-authenticate.
+                        // This uncertainty about real state means that, hopefully rarely,
+                        // we will disconnect users that hit transient network errors during
+                        // an authorization check.
+                        // See https://github.com/mozilla-mobile/android-components/issues/3347
+                        FxALog.error("Unable to recover from an auth problem.")
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(
+                                name: .accountAuthProblems,
+                                object: nil
+                            )
+                        }
                     }
-                }
 
-                do {
-                    let account = requireAccount()
-                    let info = try account.checkAuthorizationStatus()
-                    if !info.active {
+                    do {
+                        let account = requireAccount()
+                        let info = try account.checkAuthorizationStatus()
+                        if !info.active {
+                            onError()
+                            return nil
+                        }
+                        try account.clearAccessTokenCache()
+                        // Make sure we're back on track by re-requesting the profile access token.
+                        _ = try account.getAccessToken(scope: OAuthScope.profile)
+                        return .recoveredFromAuthenticationProblem
+                    } catch {
                         onError()
-                        return nil
                     }
-                    try account.clearAccessTokenCache()
-                    // Make sure we're back on track by re-requesting the profile access token.
-                    _ = try account.getAccessToken(scope: OAuthScope.profile)
-                    return .recoveredFromAuthenticationProblem
-                } catch {
-                    onError()
+                    return nil
                 }
-                return nil
-            }
             default: break // Do nothing
             }
         }

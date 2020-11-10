@@ -115,11 +115,11 @@ public enum IncomingDeviceCommand {
     internal static func fromMsg(msg: MsgTypes_IncomingDeviceCommand) -> IncomingDeviceCommand {
         switch msg.type {
         case .tabReceived: do {
-            let data = msg.tabReceivedData
-            let device = data.hasFrom ? Device(msg: data.from) : nil
-            let entries = data.entries.map { TabData(title: $0.title, url: $0.url) }
-            return .tabReceived(device, entries)
-        }
+                let data = msg.tabReceivedData
+                let device = data.hasFrom ? Device(msg: data.from) : nil
+                let entries = data.entries.map { TabData(title: $0.title, url: $0.url) }
+                return .tabReceived(device, entries)
+            }
         }
     }
 }
@@ -136,17 +136,17 @@ public enum AccountEvent {
     internal static func fromMsg(msg: MsgTypes_AccountEvent) -> AccountEvent? {
         switch msg.type {
         case .incomingDeviceCommand: do {
-            return .incomingDeviceCommand(IncomingDeviceCommand.fromMsg(msg: msg.deviceCommand))
-        }
+                return .incomingDeviceCommand(IncomingDeviceCommand.fromMsg(msg: msg.deviceCommand))
+            }
         case .deviceConnected: do {
-            return .deviceConnected(deviceName: msg.deviceConnectedName)
-        }
+                return .deviceConnected(deviceName: msg.deviceConnectedName)
+            }
         case .deviceDisconnected: do {
-            return .deviceDisconnected(
-                deviceId: msg.deviceDisconnectedData.deviceID,
-                isLocalDevice: msg.deviceDisconnectedData.isLocalDevice
-            )
-        }
+                return .deviceDisconnected(
+                    deviceId: msg.deviceDisconnectedData.deviceID,
+                    isLocalDevice: msg.deviceDisconnectedData.isLocalDevice
+                )
+            }
         // The following push messages are filtered upstream by the FxA server,
         // because iOS requires all Push messages to show a UI notification to the user
         // and in these cases it was deemed not useful.
