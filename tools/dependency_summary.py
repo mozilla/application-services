@@ -304,7 +304,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
         }
     },
     "kernel32-sys": {
