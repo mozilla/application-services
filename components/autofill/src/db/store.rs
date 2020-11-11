@@ -6,7 +6,6 @@ use crate::db::models::address::{Address, ExternalizeAddress, NewAddressFields};
 use crate::db::models::credit_card::{CreditCard, ExternalizeCreditCard, NewCreditCardFields};
 use crate::db::{addresses, credit_cards, AutofillDb};
 use crate::error::*;
-
 use std::path::Path;
 
 #[allow(dead_code)]
