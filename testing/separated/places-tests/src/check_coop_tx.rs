@@ -40,7 +40,7 @@ fn test_coop_tx() {
         let mut t = db1
             .begin_transaction()
             .expect("should get the thread transaction");
-        eprintln!("inner has tx");
+        println!("inner has tx");
         tx.send(0).unwrap();
         for i in 0..100_000 {
             update(&db1, i).unwrap();
@@ -48,20 +48,20 @@ fn test_coop_tx() {
         }
         t.commit().unwrap();
 
-        eprintln!("finished inner thread");
+        println!("finished inner thread");
     });
 
     let _ = rx.recv().unwrap();
-    eprintln!("inner thread has tx lock, so charging ahead...");
+    println!("inner thread has tx lock, so charging ahead...");
     for i in 100_000..100_020 {
         let tx = dbmain
             .begin_transaction()
             .expect("should get the main transaction");
         update(&dbmain, i).unwrap();
         tx.commit().expect("main thread should commit");
-        eprintln!("main thread commited");
+        println!("main thread commited");
     }
-    eprintln!("completed outer, waiting for thread to complete.");
+    println!("completed outer, waiting for thread to complete.");
 
     child.join().unwrap();
 }
