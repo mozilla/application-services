@@ -105,11 +105,11 @@ fn normalize_path(p: impl AsRef<Path>) -> Result<PathBuf> {
     // parent directory, etc.
     let file_name = path
         .file_name()
-        .ok_or_else(|| ErrorKind::IllegalDatabasePath(path.clone()))?;
+        .ok_or_else(|| Error::IllegalDatabasePath(path.clone()))?;
 
     let parent = path
         .parent()
-        .ok_or_else(|| ErrorKind::IllegalDatabasePath(path.clone()))?;
+        .ok_or_else(|| Error::IllegalDatabasePath(path.clone()))?;
 
     let mut canonical = parent.canonicalize()?;
     canonical.push(file_name);

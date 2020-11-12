@@ -95,7 +95,7 @@ pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>
         let mut stmt = tx.prepare(&sql)?;
         credit_cards = stmt
             .query_map(NO_PARAMS, InternalCreditCard::from_row)?
-            .collect::<Result<Vec<InternalCreditCard>, _>>()?;
+            .collect::<std::result::Result<Vec<InternalCreditCard>, _>>()?;
     }
 
     tx.commit()?;

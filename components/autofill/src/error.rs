@@ -6,7 +6,7 @@
 use interrupt_support::Interrupted;
 
 #[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
+pub enum Error {
     #[error("Error executing SQL: {0}")]
     SqlError(#[from] rusqlite::Error),
 
@@ -26,11 +26,4 @@ pub enum ErrorKind {
     Utf8Error(#[from] std::str::Utf8Error),
 }
 
-error_support::define_error! {
-    ErrorKind {
-        (SqlError, rusqlite::Error),
-        (IoError, std::io::Error),
-        (InterruptedError, Interrupted),
-        (Utf8Error, std::str::Utf8Error)
-    }
-}
+pub type Result<T> = std::result::Result<T, Error>;

@@ -150,7 +150,7 @@ fn run_update_address(store: &Store, filename: String) -> Result<()> {
     let guid = address_fields.guid.clone();
 
     println!("Making `update_address` api call for guid {}", guid);
-    Store::update_address(store, &address_fields)?;
+    Store::update_address(store, address_fields)?;
 
     let address = Store::get_address(store, guid)?;
     println!("Updated address: {:#?}", address);
@@ -209,7 +209,7 @@ fn run_update_credit_card(store: &Store, filename: String) -> Result<()> {
     let guid = credit_card_fields.guid.clone();
 
     println!("Making `update_credit_card` api call for guid {}", guid);
-    Store::update_credit_card(store, &credit_card_fields)?;
+    Store::update_credit_card(store, credit_card_fields)?;
 
     let credit_card = Store::get_credit_card(store, guid)?;
     println!("Updated credit card: {:#?}", credit_card);

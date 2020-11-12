@@ -181,6 +181,8 @@ dependencies = [
  "sync15-traits",
  "thiserror",
  "types",
+ "uniffi",
+ "uniffi_build",
  "url",
 ]
 
