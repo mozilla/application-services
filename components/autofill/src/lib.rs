@@ -13,6 +13,6 @@ pub mod error;
 use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
 use crate::db::store::Store;
-use error::ErrorKind;
+use error::Error;
 
 include!(concat!(env!("OUT_DIR"), "/autofill.uniffi.rs"));

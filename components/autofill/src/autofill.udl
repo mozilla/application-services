@@ -49,47 +49,47 @@ dictionary Address {
 };
 
 [Error]
-enum ErrorKind {
+enum Error {
    "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath", "Utf8Error"
 };
 
 interface Store {
-    [Throws=ErrorKind]
+    [Throws=Error]
     constructor(string dbpath);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     CreditCard add_credit_card(NewCreditCardFields a);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     CreditCard get_credit_card(string guid);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     sequence<CreditCard> get_all_credit_cards();
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     void update_credit_card(CreditCard a);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     boolean delete_credit_card(string guid);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     void touch_credit_card(string guid);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     Address add_address(NewAddressFields a);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     Address get_address(string guid);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     sequence<Address> get_all_addresses();
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     void update_address(Address a);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     boolean delete_address(string guid);
 
-    [Throws=ErrorKind]
+    [Throws=Error]
     void touch_address(string guid);
 };
