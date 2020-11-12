@@ -17,4 +17,6 @@ rc_log_ffi = { path = "../../components/rc_log" }
 viaduct = { path = "../../components/viaduct" }
 sync_manager_ffi = { path = "../../components/sync_manager/ffi" }
 nimbus-sdk = { path = "../../components/external/nimbus-sdk/nimbus" }
+autofill = { path = "../../components/autofill" }
+
 lazy_static = "1.4"
