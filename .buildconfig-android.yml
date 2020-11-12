@@ -6,7 +6,7 @@ projects:
     artifactId: autofill
     publications:
     - name: autofill
-    - type: aar
+      type: aar
     description: Addresses and Credit Cards autofill.
   fxaclient:
     path: components/fxa-client/android
