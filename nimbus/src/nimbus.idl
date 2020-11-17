@@ -48,7 +48,7 @@ interface NimbusClient {
     constructor(
         AppContext app_ctx,
         string dbpath,
-        RemoteSettingsConfig remote_settings_config,
+        RemoteSettingsConfig? remote_settings_config,
         AvailableRandomizationUnits available_randomization_units
     );
 

@@ -47,7 +47,7 @@ impl NimbusClient {
     pub fn new<P: Into<PathBuf>>(
         app_context: AppContext,
         db_path: P,
-        config: RemoteSettingsConfig,
+        config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
         let settings_client = create_client(config)?;

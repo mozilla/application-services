@@ -208,7 +208,7 @@ fn main() -> Result<()> {
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(context, "", config, aru)?;
+    let nimbus_client = NimbusClient::new(context, "", Some(config), aru)?;
 
     // We match against the subcommands
     match matches.subcommand() {
