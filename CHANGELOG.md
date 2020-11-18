@@ -1,3 +1,19 @@
+# v68.0.0 (_2020-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v67.0.0...v68.0.0)
+
+### What's Changed
+
+- The bundled version of Glean has been updated to v33.4.0.
+  (as part of [#3724](https://github.com/mozilla/application-services/pull/3724))
+
+## Autofill
+
+### What's New
+
+The autofill component has a first cut at Kotlin bindings and is now bundled in
+the full megazord.
+
 # v67.0.0 (_2020-11-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v66.0.0...v67.0.0)
