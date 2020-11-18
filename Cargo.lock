@@ -1193,7 +1193,7 @@ checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
 
 [[package]]
 name = "glean-core"
-version = "33.1.2"
+version = "33.4.0"
 dependencies = [
  "bincode",
  "chrono",
@@ -1209,7 +1209,7 @@ dependencies = [
 
 [[package]]
 name = "glean-ffi"
-version = "33.1.2"
+version = "33.4.0"
 dependencies = [
  "android_logger",
  "env_logger",
