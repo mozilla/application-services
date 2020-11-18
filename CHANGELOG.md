@@ -1,6 +1,6 @@
-# v68.0.0 (_2020-11-18_)
+# v67.1.0 (_2020-11-18_)
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v67.0.0...v68.0.0)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v67.0.0...v67.1.0)
 
 ### What's Changed
 
