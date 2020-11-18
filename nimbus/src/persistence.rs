@@ -125,12 +125,6 @@ impl SingleStore {
         }
         Ok(result)
     }
-
-    #[allow(dead_code)]
-    pub fn has_any(&self, writer: &Writer) -> Result<bool> {
-        let mut iter = self.store.iter_start(writer)?;
-        Ok(iter.next().is_some())
-    }
 }
 
 /// Database used to access persisted data
@@ -230,12 +224,6 @@ impl Database {
             }
         }
         Ok(result)
-    }
-
-    pub fn has_any(&self, store_id: StoreId) -> Result<bool> {
-        let reader = self.rkv.read()?;
-        let mut iter = self.get_store(store_id).store.iter_start(&reader)?;
-        Ok(iter.next().is_some())
     }
 }
 

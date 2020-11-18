@@ -60,19 +60,6 @@ impl NimbusClient {
         })
     }
 
-    // This is a little suspect but it's not clear what the right thing is.
-    // Maybe it's OK we initially start with no experiments and just need to
-    // wait for the app to schedule a regular `update_experiments()` call?
-    // But for now, if we have no experiments we assume we have never
-    // successfully hit our server, so should do that now.
-    fn maybe_initial_experiment_fetch(&self) -> Result<()> {
-        if !self.db()?.has_any(StoreId::Experiments)? {
-            log::info!("No experiments in our database - fetching them");
-            self.update_experiments()?;
-        }
-        Ok(())
-    }
-
     pub fn get_experiment_branch(&self, slug: String) -> Result<Option<String>> {
         Ok(self
             .get_active_experiments()?
@@ -107,12 +94,10 @@ impl NimbusClient {
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
-        self.maybe_initial_experiment_fetch()?;
         get_enrollments(self.db()?)
     }
 
     pub fn get_all_experiments(&self) -> Result<Vec<Experiment>> {
-        self.maybe_initial_experiment_fetch()?;
         self.db()?.collect_all(StoreId::Experiments)
     }
 
