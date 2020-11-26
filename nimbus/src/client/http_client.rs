@@ -67,15 +67,14 @@ impl SettingsClient for Client {
         for exp in data.as_array().ok_or(Error::InvalidExperimentResponse)? {
             // Validate the schema major version matches the supported version
             let exp_schema_version = match exp.get("schemaVersion") {
-                Some(ver) => {
-                    serde_json::from_value::<String>(ver.to_owned()).unwrap_or("".to_string())
-                }
+                Some(ver) => serde_json::from_value::<String>(ver.to_owned())
+                    .unwrap_or_else(|_| "".to_string()),
                 None => {
                     log::trace!("Missing schemaVersion: {:#?}", exp);
                     continue;
                 }
             };
-            let schema_maj_version = exp_schema_version.split(".").next().unwrap_or("");
+            let schema_maj_version = exp_schema_version.split('.').next().unwrap_or("");
             // While "0" is a valid schema version, we have already passed that so reserving zero as
             // a special value here in order to avoid a panic, and just ignore the experiment.
             let schema_version: u32 = schema_maj_version.parse().unwrap_or(0);

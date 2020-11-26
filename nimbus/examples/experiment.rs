@@ -104,18 +104,6 @@ fn main() -> Result<()> {
             .about("Opts out of all experiments")
         )
         .subcommand(
-            SubCommand::with_name("reset-enrollment")
-            .about("Resets enrollment information for the specified experiment")
-            .arg(
-                Arg::with_name("experiment")
-                .long("experiment")
-                .value_name("EXPERIMENT_ID")
-                .help("The ID of the experiment to reset")
-                .required(true)
-                .takes_value(true)
-            )
-        )
-        .subcommand(
             SubCommand::with_name("gen-uuid")
             .about("Generate a uuid that can get enrolled in experiments")
             .arg(
@@ -255,12 +243,6 @@ fn main() -> Result<()> {
             let experiment = matches.value_of("experiment").unwrap();
             println!("Opting out of experiment '{}'", experiment);
             nimbus_client.opt_out(experiment.to_string())?;
-        }
-        ("reset-enrollment", Some(matches)) => {
-            println!("======================================");
-            let experiment = matches.value_of("experiment").unwrap();
-            println!("Resetting enrollment of experiment '{}'", experiment);
-            nimbus_client.reset_enrollment(experiment.to_string())?;
         }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
         // experiments, optionally settting the generated ID in the database.

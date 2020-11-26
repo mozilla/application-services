@@ -34,13 +34,27 @@ dictionary AvailableRandomizationUnits {
     i8 dummy;
 };
 
+dictionary EnrollmentChangeEvent {
+    string experiment_slug;
+    string branch_slug;
+    string enrollment_id;
+    string? reason;
+    EnrollmentChangeEventType change;
+};
+
+enum EnrollmentChangeEventType {
+    "Enrollment",
+    "Disqualification",
+    "Unenrollment",
+};
+
 [Error]
 enum Error {
    "InvalidPersistedData", "RkvError", "IOError",
    "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
     "RequestError", "ResponseError", "UuidError", "InvalidExperimentResponse",
-    "InvalidPath"
+    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch"
 };
 
 interface NimbusClient {
@@ -71,13 +85,13 @@ interface NimbusClient {
     boolean get_global_user_participation();
 
     [Throws=Error]
-    void set_global_user_participation(boolean opt_in);
+    sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
 
     // Updates the list of experiments from the server. After calling this, the
     // list of active experiments might change (there might be new experiments,
     // or old experiments might have expired)
     [Throws=Error]
-    void update_experiments();
+    sequence<EnrollmentChangeEvent> update_experiments();
 
     // These are test-only functions and should never be exposed to production
     // users, as they mess with the "statistical requirements" of the SDK.
@@ -85,13 +99,9 @@ interface NimbusClient {
     // Opt in to a specific branch on a specific experiment. Useful for
     // developers to test their app's interaction with the experiment.
     [Throws=Error]
-    void opt_in_with_branch(string experiment_slug, string branch);
+    sequence<EnrollmentChangeEvent> opt_in_with_branch(string experiment_slug, string branch);
 
     // Opt out of a specific experiment.
     [Throws=Error]
-    void opt_out(string experiment_slug);
-
-    [Throws=Error]
-    void reset_enrollment(string experiment_slug);
-
+    sequence<EnrollmentChangeEvent> opt_out(string experiment_slug);
 };

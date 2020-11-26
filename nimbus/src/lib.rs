@@ -17,8 +17,9 @@ pub use evaluator::evaluate_enrollment;
 use client::{create_client, SettingsClient};
 pub use config::RemoteSettingsConfig;
 use enrollment::{
-    get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out, reset_enrollment,
-    set_global_user_participation, update_enrollments,
+    get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
+    set_global_user_participation, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    EnrollmentsEvolver,
 };
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
@@ -77,20 +78,28 @@ impl NimbusClient {
         get_global_user_participation(db, &writer)
     }
 
-    pub fn set_global_user_participation(&self, flag: bool) -> Result<()> {
+    pub fn set_global_user_participation(
+        &self,
+        user_participating: bool,
+    ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        set_global_user_participation(db, &mut writer, flag)?;
-        // Now update all enrollments based on this new opt in/out setting.
-        update_enrollments(
-            db,
-            &mut writer,
-            &self.nimbus_id()?,
+        set_global_user_participation(db, &mut writer, user_participating)?;
+
+        let existing_experiments = db
+            .get_store(StoreId::Experiments)
+            .collect_all::<Experiment>(&writer)?;
+        // We pass the existing experiments as "updated experiments"
+        // to the evolver.
+        let nimbus_id = self.nimbus_id()?;
+        let evolver = EnrollmentsEvolver::new(
+            &nimbus_id,
             &self.available_randomization_units,
             &self.app_context,
-        )?;
+        );
+        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
         writer.commit()?;
-        Ok(())
+        Ok(events)
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
@@ -101,52 +110,32 @@ impl NimbusClient {
         self.db()?.collect_all(StoreId::Experiments)
     }
 
-    pub fn opt_in_with_branch(&self, experiment_slug: String, branch: String) -> Result<()> {
+    pub fn opt_in_with_branch(
+        &self,
+        experiment_slug: String,
+        branch: String,
+    ) -> Result<Vec<EnrollmentChangeEvent>> {
         opt_in_with_branch(self.db()?, &experiment_slug, &branch)
     }
 
-    pub fn opt_out(&self, experiment_slug: String) -> Result<()> {
+    pub fn opt_out(&self, experiment_slug: String) -> Result<Vec<EnrollmentChangeEvent>> {
         opt_out(self.db()?, &experiment_slug)
     }
 
-    pub fn reset_enrollment(&self, experiment_slug: String) -> Result<()> {
-        let db = self.db()?;
-        let mut writer = db.write()?;
-        reset_enrollment(
-            db,
-            &mut writer,
-            &experiment_slug,
-            &self.nimbus_id()?,
-            &self.available_randomization_units,
-            &self.app_context,
-        )?;
-        writer.commit()?;
-        Ok(())
-    }
-
-    pub fn update_experiments(&self) -> Result<()> {
-        // I suspect we need to take some action when we find experiments we
-        // previously had no longer exist? For now though, just nuke them all.
+    pub fn update_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
-        let experiments = self.settings_client.get_experiments()?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        let exp_store = db.get_store(StoreId::Experiments);
-        exp_store.clear(&mut writer)?;
-        for experiment in &experiments {
-            log::debug!("found experiment {}", experiment.slug);
-            exp_store.put(&mut writer, &experiment.slug, experiment)?;
-        }
-        // Now update all enrollments based on the new set.
-        update_enrollments(
-            &db,
-            &mut writer,
-            &self.nimbus_id()?, // XXX - this might write but not in its own transaction!?
+        let new_experiments = self.settings_client.get_experiments()?;
+        let nimbus_id = self.nimbus_id()?;
+        let evolver = EnrollmentsEvolver::new(
+            &nimbus_id,
             &self.available_randomization_units,
             &self.app_context,
-        )?;
+        );
+        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
         writer.commit()?;
-        Ok(())
+        Ok(events)
     }
 
     pub fn nimbus_id(&self) -> Result<Uuid> {
@@ -215,6 +204,14 @@ pub struct Experiment {
     pub reference_branch: Option<String>,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
+}
+
+impl Experiment {
+    fn has_branch(&self, branch_slug: &str) -> bool {
+        self.branches
+            .iter()
+            .any(|branch| branch.slug == branch_slug)
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]

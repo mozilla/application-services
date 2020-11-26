@@ -3,7 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
-use crate::enrollment::{EnrolledReason, EnrollmentStatus, ExperimentEnrollment};
+use crate::enrollment::{
+    EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
+};
 use crate::{
     error::{Error, Result},
     AvailableRandomizationUnits,
@@ -50,7 +52,9 @@ pub fn evaluate_enrollment(
     if !exp.application.eq(&app_context.app_id) {
         return Ok(ExperimentEnrollment {
             slug: exp.slug.clone(),
-            status: EnrollmentStatus::NotTargeted,
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted,
+            },
         });
     }
 
@@ -64,47 +68,43 @@ pub fn evaluate_enrollment(
             });
         }
     }
-    let status = if exp.is_enrollment_paused {
-        // TODO: We also need to be passed a server timestamp and check the
-        // start_date and end_date.
-        EnrollmentStatus::NotRunning
-    } else {
-        // We are going to see if we qualify for the bucketing etc.
-        let bucket_config = exp.bucket_config.clone();
-        match available_randomization_units
-            .get_value(&nimbus_id.to_string(), &bucket_config.randomization_unit)
-        {
-            Some(id) => {
-                if sampling::bucket_sample(
-                    vec![id.to_owned(), bucket_config.namespace],
-                    bucket_config.start,
-                    bucket_config.count,
-                    bucket_config.total,
-                )? {
-                    EnrollmentStatus::Enrolled {
-                        reason: EnrolledReason::Qualified,
-                        branch: choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
-                    }
-                } else {
-                    EnrollmentStatus::NotSelected
-                }
-            }
-            None => {
-                // XXX: When we link in glean, it would be nice if we could emit
-                // a failure telemetry event here.
-                log::info!(
-                    "Could not find a suitable randomization unit for {}. Skipping experiment.",
-                    &exp.slug
-                );
-                EnrollmentStatus::Error {
-                    reason: "No randomization unit".into(),
-                }
-            }
-        }
-    };
     Ok(ExperimentEnrollment {
         slug: exp.slug.clone(),
-        status,
+        status: {
+            let bucket_config = exp.bucket_config.clone();
+            match available_randomization_units
+                .get_value(&nimbus_id.to_string(), &bucket_config.randomization_unit)
+            {
+                Some(id) => {
+                    if sampling::bucket_sample(
+                        vec![id.to_owned(), bucket_config.namespace],
+                        bucket_config.start,
+                        bucket_config.count,
+                        bucket_config.total,
+                    )? {
+                        EnrollmentStatus::new_enrolled(
+                            EnrolledReason::Qualified,
+                            &choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
+                        )
+                    } else {
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::NotSelected,
+                        }
+                    }
+                }
+                None => {
+                    // XXX: When we link in glean, it would be nice if we could emit
+                    // a failure telemetry event here.
+                    log::info!(
+                        "Could not find a suitable randomization unit for {}. Skipping experiment.",
+                        &exp.slug
+                    );
+                    EnrollmentStatus::Error {
+                        reason: "No randomization unit".into(),
+                    }
+                }
+            }
+        },
     })
 }
 
@@ -150,7 +150,7 @@ fn choose_branch<'a>(slug: &str, branches: &'a [Branch], id: &str) -> Result<&'a
 /// why. Returns None if we should continue to evaluate the enrollment status.
 ///
 /// In practice, if this returns an EnrollmentStatus, it will be either
-/// EnrollmentStatus::NotTargeted, or EnrollmentStatus::Error in the following
+/// EnrollmentStatus::NotEnrolled, or EnrollmentStatus::Error in the following
 /// cases (But not limited to):
 /// - The `expression_statement` is not a valid JEXL statement
 /// - The `expression_statement` expects fields that do not exist in the AppContext definition
@@ -160,7 +160,9 @@ fn targeting(expression_statement: &str, ctx: &AppContext) -> Option<EnrollmentS
     match Evaluator::new().eval_in_context(expression_statement, ctx.clone()) {
         Ok(res) => match res.as_bool() {
             Some(true) => None,
-            Some(false) => Some(EnrollmentStatus::NotTargeted),
+            Some(false) => Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted,
+            }),
             None => Some(EnrollmentStatus::Error {
                 reason: Error::InvalidExpression.to_string(),
             }),
@@ -228,10 +230,12 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
         };
-        assert_eq!(
+        assert!(matches!(
             targeting(expression_statement, &non_matching_ctx),
-            Some(EnrollmentStatus::NotTargeted)
-        );
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        ));
 
         // A non-matching context testing the logical OR of the expression
         let non_matching_ctx = AppContext {
@@ -247,10 +251,12 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
         };
-        assert_eq!(
+        assert!(matches!(
             targeting(expression_statement, &non_matching_ctx),
-            Some(EnrollmentStatus::NotTargeted)
-        );
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        ));
     }
 
     #[test]
@@ -377,7 +383,12 @@ mod tests {
             evaluate_enrollment(&id, &available_randomization_units, &context, &experiment3)
                 .unwrap();
         // Doesn't match because it's not the correct application
-        assert!(matches!(enrollment.status, EnrollmentStatus::NotTargeted));
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            }
+        ));
 
         // Fits because of the client_id.
         let available_randomization_units = AvailableRandomizationUnits::with_client_id("bobo");

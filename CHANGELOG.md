@@ -8,6 +8,10 @@ Removed implicit fetch of experiments on first use of the database. Consumers no
 call update_experiments explicitly in order to fetch experiments from the Remote Settings
 server.
 
+Removed `NimbusClient.resetEnrollment`.
+
+`NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}` now return a list of telemetry events.
+
 # 0.5.1 (_2020-11-10)
 
 - Fix the version number in `Cargo.lock`.
