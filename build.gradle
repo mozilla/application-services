@@ -42,7 +42,7 @@ buildscript {
         // Downloading libs/ archives from Taskcluster.
         classpath 'de.undercouch:gradle-download-task:3.4.3'
 
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.12'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.14'
 
         // Since the Glean version depends on the Android components version,
         // it is very important to use a modern version of Glean and, ideally,
