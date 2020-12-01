@@ -33,6 +33,7 @@ pub fn add_credit_card(
                 {common_cols}
             ) VALUES (
                 :guid,
+                :billing_address_guid,
                 :cc_name,
                 :cc_number,
                 :cc_exp_month,
@@ -48,6 +49,7 @@ pub fn add_credit_card(
         ),
         rusqlite::named_params! {
             ":guid": credit_card.guid,
+            ":billing_address_guid": credit_card.fields.billing_address_guid,
             ":cc_name": credit_card.fields.cc_name,
             ":cc_number": credit_card.fields.cc_number,
             ":cc_exp_month": credit_card.fields.cc_exp_month,
@@ -106,7 +108,8 @@ pub fn update_credit_card(conn: &Connection, credit_card: &CreditCard) -> Result
     let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE credit_cards_data
-        SET cc_name                     = :cc_name,
+        SET billing_address_guid        = :billing_address_guid,
+            cc_name                     = :cc_name,
             cc_number                   = :cc_number,
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
@@ -115,6 +118,7 @@ pub fn update_credit_card(conn: &Connection, credit_card: &CreditCard) -> Result
             sync_change_counter         = sync_change_counter + 1
         WHERE guid                      = :guid",
         rusqlite::named_params! {
+            ":billing_address_guid": credit_card.billing_address_guid,
             ":cc_name": credit_card.cc_name,
             ":cc_number": credit_card.cc_number,
             ":cc_exp_month": credit_card.cc_exp_month,
@@ -212,15 +216,29 @@ pub fn touch(conn: &Connection, guid: String) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::test::new_mem_db;
+    use crate::db::{addresses::add_address, models::address::NewAddressFields, test::new_mem_db};
 
     #[test]
     fn test_credit_card_create_and_read() -> Result<()> {
         let db = new_mem_db();
 
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "jane".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "1300 Broadway".to_string(),
+                address_level2: "New York, NY".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         let saved_credit_card = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "jane doe".to_string(),
                 cc_number: "2222333344445555".to_string(),
                 cc_exp_month: 3,
@@ -239,6 +257,10 @@ mod tests {
         let retrieved_credit_card = get_credit_card(&db, saved_credit_card.guid.to_string())?;
 
         assert_eq!(saved_credit_card.guid, retrieved_credit_card.guid);
+        assert_eq!(
+            saved_credit_card.fields.billing_address_guid,
+            retrieved_credit_card.fields.billing_address_guid
+        );
         assert_eq!(
             saved_credit_card.fields.cc_name,
             retrieved_credit_card.fields.cc_name
@@ -274,9 +296,23 @@ mod tests {
     fn test_credit_card_read_all() -> Result<()> {
         let db = new_mem_db();
 
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "jane".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "1300 Broadway".to_string(),
+                address_level2: "New York, NY".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         let saved_credit_card = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "jane doe".to_string(),
                 cc_number: "2222333344445555".to_string(),
                 cc_exp_month: 3,
@@ -285,9 +321,23 @@ mod tests {
             },
         )?;
 
+        let saved_address2 = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "john".to_string(),
+                family_name: "deer".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         let saved_credit_card2 = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address2.guid.to_string(),
                 cc_name: "john deer".to_string(),
                 cc_number: "1111222233334444".to_string(),
                 cc_exp_month: 10,
@@ -296,10 +346,24 @@ mod tests {
             },
         )?;
 
+        let saved_address3 = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "abraham".to_string(),
+                family_name: "lincoln".to_string(),
+                street_address: "1300 Broadway".to_string(),
+                address_level2: "New York, NY".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         // creating a third credit card with a tombstone to ensure it's not retunred
         let saved_credit_card3 = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address3.guid.to_string(),
                 cc_name: "abraham lincoln".to_string(),
                 cc_number: "1111222233334444".to_string(),
                 cc_exp_month: 1,
@@ -335,9 +399,23 @@ mod tests {
     fn test_credit_card_update() -> Result<()> {
         let db = new_mem_db();
 
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "john".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         let saved_credit_card = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "john deer".to_string(),
                 cc_number: "1111222233334444".to_string(),
                 cc_exp_month: 10,
@@ -351,6 +429,7 @@ mod tests {
             &db,
             &CreditCard {
                 guid: saved_credit_card.guid.to_string(),
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: expected_cc_name.clone(),
                 cc_number: "1111222233334444".to_string(),
                 cc_type: "mastercard".to_string(),
@@ -375,9 +454,23 @@ mod tests {
     fn test_credit_card_delete() -> Result<()> {
         let db = new_mem_db();
 
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "john".to_string(),
+                family_name: "deer".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         let saved_credit_card = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "john deer".to_string(),
                 cc_number: "1111222233334444".to_string(),
                 cc_exp_month: 10,
@@ -390,9 +483,23 @@ mod tests {
         assert!(delete_result.is_ok());
         assert!(delete_result?);
 
+        let saved_address2 = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "john".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )?;
+
         let saved_credit_card2 = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address2.guid.to_string(),
                 cc_name: "john doe".to_string(),
                 cc_number: "5555666677778888".to_string(),
                 cc_exp_month: 5,
@@ -405,6 +512,7 @@ mod tests {
         db.execute_named(
             "INSERT OR IGNORE INTO credit_cards_mirror (
                 guid,
+                billing_address_guid,
                 cc_name,
                 cc_number,
                 cc_exp_month,
@@ -416,6 +524,7 @@ mod tests {
                 times_used
             ) VALUES (
                 :guid,
+                :billing_address_guid,
                 :cc_name,
                 :cc_number,
                 :cc_exp_month,
@@ -428,6 +537,7 @@ mod tests {
             )",
             rusqlite::named_params! {
                 ":guid": saved_credit_card2.guid,
+                ":billing_address_guid": saved_credit_card2.fields.billing_address_guid,
                 ":cc_name": saved_credit_card2.fields.cc_name,
                 ":cc_number": saved_credit_card2.fields.cc_number,
                 ":cc_exp_month": saved_credit_card2.fields.cc_exp_month,
@@ -489,10 +599,25 @@ mod tests {
         );
         assert!(tombstone_result.is_ok());
 
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "john".to_string(),
+                family_name: "deer".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )
+        .expect("saved address for trigger on create test");
+
         // create a new credit card with the tombstone's guid
         let credit_card = InternalCreditCard {
             guid,
             fields: NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "john deer".to_string(),
                 cc_number: "1111222233334444".to_string(),
                 cc_exp_month: 10,
@@ -509,6 +634,7 @@ mod tests {
                     {common_cols}
                 ) VALUES (
                     :guid,
+                    :billing_address_guid,
                     :cc_name,
                     :cc_number,
                     :cc_exp_month,
@@ -524,6 +650,7 @@ mod tests {
             ),
             rusqlite::named_params! {
                 ":guid": credit_card.guid,
+                ":billing_address_guid": credit_card.fields.billing_address_guid,
                 ":cc_name": credit_card.fields.cc_name,
                 ":cc_number": credit_card.fields.cc_number,
                 ":cc_exp_month": credit_card.fields.cc_exp_month,
@@ -550,10 +677,25 @@ mod tests {
         let db = new_mem_db();
         let guid = Guid::random();
 
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "jane".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )
+        .expect("saved address for trigger on delete test");
+
         // create an credit card
         let credit_card = InternalCreditCard {
             guid,
             fields: NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "jane doe".to_string(),
                 cc_number: "2222333344445555".to_string(),
                 cc_exp_month: 3,
@@ -570,6 +712,7 @@ mod tests {
                     {common_cols}
                 ) VALUES (
                     :guid,
+                    :billing_address_guid,
                     :cc_name,
                     :cc_number,
                     :cc_exp_month,
@@ -584,6 +727,7 @@ mod tests {
                 common_cols = CREDIT_CARD_COMMON_COLS
             ),
             rusqlite::named_params! {
+                ":billing_address_guid": credit_card.fields.billing_address_guid,
                 ":guid": credit_card.guid,
                 ":cc_name": credit_card.fields.cc_name,
                 ":cc_number": credit_card.fields.cc_number,
@@ -625,9 +769,25 @@ mod tests {
     #[test]
     fn test_credit_card_touch() -> Result<()> {
         let db = new_mem_db();
+
+        let saved_address = add_address(
+            &db,
+            NewAddressFields {
+                given_name: "john".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+
+                ..NewAddressFields::default()
+            },
+        )
+        .expect("saved address for touch test");
+
         let saved_credit_card = add_credit_card(
             &db,
             NewCreditCardFields {
+                billing_address_guid: saved_address.guid.to_string(),
                 cc_name: "john doe".to_string(),
                 cc_number: "5555666677778888".to_string(),
                 cc_exp_month: 5,

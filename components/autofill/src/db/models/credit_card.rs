@@ -12,6 +12,8 @@ use types::Timestamp;
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct NewCreditCardFields {
+    pub billing_address_guid: String,
+
     pub cc_name: String,
 
     pub cc_number: String,
@@ -55,6 +57,7 @@ pub struct InternalCreditCard {
 impl InternalCreditCard {
     pub fn from_row(row: &Row<'_>) -> Result<InternalCreditCard, rusqlite::Error> {
         let credit_card_fields = NewCreditCardFields {
+            billing_address_guid: row.get("billing_address_guid")?,
             cc_name: row.get("cc_name")?,
             cc_number: row.get("cc_number")?,
             cc_exp_month: row.get("cc_exp_month")?,
@@ -78,6 +81,7 @@ impl InternalCreditCard {
 #[serde(rename_all = "kebab-case")]
 pub struct CreditCard {
     pub guid: String,
+    pub billing_address_guid: String,
     pub cc_name: String,
     pub cc_number: String,
     pub cc_exp_month: i64,
@@ -96,6 +100,7 @@ impl ExternalizeCreditCard for InternalCreditCard {
     fn to_external(&self) -> CreditCard {
         CreditCard {
             guid: self.guid.to_string(),
+            billing_address_guid: self.clone().fields.billing_address_guid,
             cc_name: self.clone().fields.cc_name,
             cc_number: self.clone().fields.cc_number,
             cc_exp_month: self.fields.cc_exp_month,

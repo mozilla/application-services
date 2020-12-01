@@ -27,6 +27,7 @@ pub const ADDRESS_COMMON_COLS: &str = "
 
 pub const CREDIT_CARD_COMMON_COLS: &str = "
     guid,
+    billing_address_guid,
     cc_name,
     cc_number,
     cc_exp_month,

@@ -1,6 +1,7 @@
 namespace autofill {};
 
 dictionary NewCreditCardFields {
+    string billing_address_guid;
     string cc_name;
     string cc_number;
     i64 cc_exp_month;
@@ -10,6 +11,7 @@ dictionary NewCreditCardFields {
 
 dictionary CreditCard {
     string guid;
+    string billing_address_guid;
     string cc_name;
     string cc_number;
     i64 cc_exp_month;

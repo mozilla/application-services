@@ -3,7 +3,7 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 CREATE TABLE IF NOT EXISTS addresses_data (
-    guid          TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY,
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS addresses_data (
 );
 
 CREATE TABLE IF NOT EXISTS addresses_mirror (
-   guid          TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY,
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
@@ -55,36 +55,38 @@ CREATE TABLE IF NOT EXISTS addresses_tombstones (
 -- whether the `cc_number` and/or other details should be encrypted or stored as plain text. Currently, we are storing
 -- them as plain text.
 CREATE TABLE IF NOT EXISTS credit_cards_data (
-    guid                TEXT NOT NULL PRIMARY KEY,
-    cc_name             TEXT NOT NULL, -- full name
-    cc_number           TEXT NOT NULL, -- TODO: consider storing this field as a hash
-    cc_exp_month        INTEGER,
-    cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-    -- cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
+    guid                    TEXT NOT NULL PRIMARY KEY,
+    billing_address_guid    TEXT NOT NULL,
+    cc_name                 TEXT NOT NULL, -- full name
+    cc_number               TEXT NOT NULL, -- TODO: consider storing this field as a hash
+    cc_exp_month            INTEGER,
+    cc_exp_year             INTEGER,
+    cc_type                 TEXT NOT NULL,
 
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL DEFAULT 0,
+    time_created            INTEGER NOT NULL,
+    time_last_used          INTEGER,
+    time_last_modified      INTEGER NOT NULL,
+    times_used              INTEGER NOT NULL DEFAULT 0,
 
     /* Same "sync change counter" strategy used by other components. */
-    sync_change_counter INTEGER NOT NULL DEFAULT 1
+    sync_change_counter INTEGER NOT NULL DEFAULT 1,
+
+    FOREIGN KEY(billing_address_guid) REFERENCES addresses_data(guid) ON DELETE SET DEFAULT
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_mirror (
-    guid                TEXT NOT NULL PRIMARY KEY,
-    cc_name             TEXT NOT NULL, -- full name
-    cc_number           TEXT NOT NULL,
-    cc_exp_month        INTEGER,
-    cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-    -- cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
+    guid                    TEXT NOT NULL PRIMARY KEY,
+    billing_address_guid    TEXT NOT NULL,
+    cc_name                 TEXT NOT NULL, -- full name
+    cc_number               TEXT NOT NULL,
+    cc_exp_month            INTEGER,
+    cc_exp_year             INTEGER,
+    cc_type                 TEXT NOT NULL,
 
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL DEFAULT 0
+    time_created            INTEGER NOT NULL,
+    time_last_used          INTEGER,
+    time_last_modified      INTEGER NOT NULL,
+    times_used              INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
