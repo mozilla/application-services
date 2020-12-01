@@ -351,6 +351,19 @@ mod tests {
         let exp = &get_test_experiments()[0];
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
+        let app_context = AppContext {
+            app_id: "fenix".to_string(),
+            app_version: None,
+            app_build: None,
+            architecture: None,
+            device_manufacturer: None,
+            device_model: None,
+            locale: None,
+            os: None,
+            os_version: None,
+            android_sdk_version: None,
+            debug_tag: None,
+        };
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let mut writer = db.write()?;
         db.get_store(StoreId::Experiments).put(
@@ -359,7 +372,7 @@ mod tests {
             exp,
         )?;
 
-        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &Default::default())?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
         writer.commit()?;
 
         let enrollments = get_enrollments(&db)?;
@@ -407,11 +420,15 @@ mod tests {
         let db = Database::new(&tmp_dir)?;
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
+        let app_context = AppContext {
+            app_id: "fenix".to_string(),
+            ..Default::default()
+        };
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let exps = get_test_experiments();
         let mut writer = db.write()?;
         insert_experiments(&db, &mut writer, exps)?;
-        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &Default::default())?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
         writer.commit()?;
         let enrollments = get_enrollments(&db)?;
         assert_eq!(enrollments.len(), 2);
@@ -420,7 +437,7 @@ mod tests {
         let store = db.get_store(StoreId::Experiments);
         // pretend we just updated from the server and one of the 2 is missing.
         store.delete(&mut writer, "secure-gold")?;
-        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &Default::default())?;
+        update_enrollments(&db, &mut writer, &nimbus_id, &aru, &app_context)?;
         writer.commit()?;
 
         // should only have 1 now.
@@ -437,7 +454,10 @@ mod tests {
         let mut writer = db.write()?;
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
-        let app_context = Default::default();
+        let app_context = AppContext {
+            app_id: "fenix".to_string(),
+            ..Default::default()
+        };
         assert_eq!(get_enrollments(&db)?.len(), 0);
         let exps = get_test_experiments();
         insert_experiments(&db, &mut writer, exps)?;

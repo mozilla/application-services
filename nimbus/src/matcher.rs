@@ -12,7 +12,7 @@ use serde_derive::*;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct Matcher {
-    pub app_id: Option<String>,
+    pub app_id: String,
     pub app_display_version: Option<String>,
     pub app_min_version: Option<String>,
     pub app_max_version: Option<String>,
@@ -31,7 +31,7 @@ pub struct Matcher {
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct AppContext {
-    pub app_id: Option<String>,
+    pub app_id: String,
     pub app_version: Option<String>,
     pub app_build: Option<String>,
     pub architecture: Option<String>,

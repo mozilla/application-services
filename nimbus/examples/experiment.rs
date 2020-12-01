@@ -210,6 +210,9 @@ fn main() -> Result<()> {
     // Here we initialize our main `NimbusClient` struct
     let nimbus_client = NimbusClient::new(context, "", Some(config), aru)?;
 
+    // Explicitly update experiments at least once for init purposes
+    nimbus_client.update_experiments()?;
+
     // We match against the subcommands
     match matches.subcommand() {
         // show_enrolled shows only the enrolled experiments and the chosen branches
