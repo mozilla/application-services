@@ -262,6 +262,7 @@ impl Default for RandomizationUnit {
 #[derive(Default)]
 pub struct AvailableRandomizationUnits {
     pub client_id: Option<String>,
+    #[allow(dead_code)]
     dummy: i8, // See comments in nimbus.idl for why this hacky item exists.
 }
 
@@ -287,4 +288,5 @@ impl AvailableRandomizationUnits {
     }
 }
 
+#[cfg(feature = "uniffi-bindings")]
 include!(concat!(env!("OUT_DIR"), "/nimbus.uniffi.rs"));
