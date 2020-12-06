@@ -937,7 +937,7 @@ class WorkspaceMetadata(object):
         licenseUrl = pkgInfo.get("license_url")
         if licenseUrl is not None:
             return licenseUrl
-        # Try to infer a sutiable URL from the local license file
+        # Try to infer a suitable URL from the local license file
         # and github repo metadata.
         if urlparse(licenseFile).scheme:
             licenseUrl = licenseFile
@@ -948,11 +948,11 @@ class WorkspaceMetadata(object):
                     repo = repo.replace("http://", "https://")
                 if repo.startswith("https://github.com/"):
                     # Some projects include extra context in their repo URL; strip it off.
-                    for strip_suffix in [".git", "/tree/master/{}".format(pkgInfo["name"]), "/tree/main/{}".format(pkgInfo["name"]),]:
+                    for strip_suffix in [".git", "/tree/main/{}".format(pkgInfo["name"]), "/tree/master/{}".format(pkgInfo["name"]),]:
                         if repo.endswith(strip_suffix):
                             repo = repo[:-len(strip_suffix)]
                     # Try a couple of common locations for the license file.
-                    for path in ["/master/", "/main/", "/master/{}/".format(pkgInfo["name"]), "/main/{}/".format(pkgInfo["name"]),]:
+                    for path in ["/main/", "/master/", "/main/{}/".format(pkgInfo["name"]), "/master/{}/".format(pkgInfo["name"]),]:
                         licenseUrl = repo.replace("github.com", "raw.githubusercontent.com")
                         licenseUrl += path + licenseFile
                         r = requests.get(licenseUrl)
