@@ -1,25 +1,35 @@
 # Unreleased changes
 
-## General
+# 0.6.0 (_2020-12-08)
 
-Addition of schema version to the schema, and validation of supported versions by the SDK.
+## ⚠️ Breaking changes ⚠️
 
-Removed implicit fetch of experiments on first use of the database. Consumers now must
-call update_experiments explicitly in order to fetch experiments from the Remote Settings
-server.
+- Removed `NimbusClient.resetEnrollment`.
+- `NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}` now return a list of telemetry events.
+  Consumers should forward these events to their telemetry system (e.g. via Glean).
+- Removed implicit fetch of experiments on first use of the database. Consumers now must
+  call update_experiments explicitly in order to fetch experiments from the Remote Settings
+  server.
 
-Removed `NimbusClient.resetEnrollment`.
+## What's Changed
 
-`NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}` now return a list of telemetry events.
+- Addition of schema version to the schema, and validation of supported versions by the SDK.
 
 # 0.5.1 (_2020-11-10)
+
+## What's Changed
 
 - Fix the version number in `Cargo.lock`.
 
 # 0.5.0 (_2020-11-10)
 
+## What's New
+
 - Added support for global opt-out via new method
   `NimbusClient.set_global_user_participation(bool)`
+
+## What's Changed
+
 - Updated uniffi and rkv dependencies to their latest
   release versions.
 - Switched to using the "safe mode" backend for rkv;
@@ -29,9 +39,7 @@ Removed `NimbusClient.resetEnrollment`.
 
 # 0.4.0 (_2020-11-06)
 
-## General
-
-### What's Fixed
+## What's Changed
 
 - Removed use of unsigned types from the Kotlin API, since these
   are experimental and require opt-in from consuming apps.
@@ -40,9 +48,7 @@ Removed `NimbusClient.resetEnrollment`.
 
 # 0.3.0 (_2020-10-27_)
 
-## General
-
-### What's New
+## What's New
 
 Addition of CHANGELOG.md
 

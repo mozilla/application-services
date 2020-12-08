@@ -12,7 +12,9 @@ Before issuing a new release, the `Unreleased Changes` section should be renamed
 We use [cargo-release](https://crates.io/crates/cargo-release) to simplify the release process.
 Steps:
 
-1. Start a new branch for the release, e.g. `git checkout -b release-vX.Y.Z`.
+1. Start a new branch for the release:
+    * `git checkout -b release-vX.Y.Z`
+    * `git push -u origin release-vX.Y.Z`
 2. Update `CHANGELOG.md` as noted above, and commit your changes.
 3. Run `cargo release --dry-run -vv [major|minor|patch]` and check that the things
    it is proposing to do seem reasonable.
