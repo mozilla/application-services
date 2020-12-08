@@ -4,7 +4,7 @@
 
 ## What's Fixed
 
-- Removed unused `enrollment_id()` method, to slience dead-code warning when compiling in release mode.
+- Removed unused `enrollment_id()` method, to silence dead-code warning when compiling in release mode.
 
 # 0.6.1 (_2020-12-08)
 
