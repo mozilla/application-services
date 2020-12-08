@@ -1,5 +1,11 @@
 # Unreleased changes
 
+# 0.6.3 (_2020-12-09)
+
+## What's Fixed
+
+- The uniffi-generated Kotlin bindings now compile correctly, thanks to an update to uniffi.
+
 # 0.6.2 (_2020-12-08)
 
 ## What's Fixed
