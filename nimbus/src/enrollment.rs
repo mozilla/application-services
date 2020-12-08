@@ -429,14 +429,6 @@ impl EnrollmentStatus {
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
     }
-    pub fn enrollment_id(&self) -> Option<&Uuid> {
-        Some(match self {
-            EnrollmentStatus::Enrolled { enrollment_id, .. } => enrollment_id,
-            EnrollmentStatus::Disqualified { enrollment_id, .. } => enrollment_id,
-            EnrollmentStatus::WasEnrolled { enrollment_id, .. } => enrollment_id,
-            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => return None,
-        })
-    }
 }
 
 /// Return information about all enrolled experiments.
