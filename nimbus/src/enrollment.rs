@@ -423,6 +423,9 @@ impl EnrollmentStatus {
             enrollment_id: Uuid::new_v4(),
         }
     }
+    // This is used in examples, but not in the main dylib, and
+    // triggers a dead code warning when building with `--release`.
+    #[allow(dead_code)]
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
     }
