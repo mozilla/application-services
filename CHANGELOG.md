@@ -1,3 +1,13 @@
+# v67.2.0 (_2020-12-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v67.1.0...v67.2.0)
+
+## Nimbus SDK
+
+### What's Changed
+
+- The bundled version of Nimbus SDK has been updated to v0.5.2.
+
 # v67.1.0 (_2020-11-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v67.0.0...v67.1.0)
