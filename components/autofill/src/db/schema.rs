@@ -41,6 +41,7 @@ pub const CREDIT_CARD_COMMON_COLS: &str = "
 #[allow(dead_code)]
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
 const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
+const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
 
 #[allow(dead_code)]
 pub fn init(db: &Connection) -> Result<()> {
@@ -53,8 +54,8 @@ fn create(db: &Connection) -> Result<()> {
     log::debug!("Creating schema");
     db.execute_batch(
         format!(
-            "{}\n{}",
-            CREATE_SHARED_SCHEMA_SQL, CREATE_SHARED_TRIGGERS_SQL
+            "{}\n{}\n{}",
+            CREATE_SHARED_SCHEMA_SQL, CREATE_SHARED_TRIGGERS_SQL, CREATE_SYNC_TEMP_TABLES_SQL
         )
         .as_str(),
     )?;
