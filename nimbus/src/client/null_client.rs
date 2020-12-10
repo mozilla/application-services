@@ -20,7 +20,7 @@ impl SettingsClient for NullClient {
     fn get_experiments_metadata(&self) -> Result<String> {
         unimplemented!();
     }
-    fn get_experiments(&self) -> Result<Vec<Experiment>> {
+    fn get_experiments(&mut self) -> Result<Vec<Experiment>> {
         Ok(vec![])
     }
 }

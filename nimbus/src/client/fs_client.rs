@@ -31,7 +31,7 @@ impl SettingsClient for FileSystemClient {
         unimplemented!();
     }
 
-    fn get_experiments(&self) -> Result<Vec<Experiment>> {
+    fn get_experiments(&mut self) -> Result<Vec<Experiment>> {
         log::info!("reading experiments in {}", self.path.display());
         let mut res = Vec::new();
         // Skip directories and non .json files (eg, READMEs)

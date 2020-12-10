@@ -50,11 +50,11 @@ enum EnrollmentChangeEventType {
 
 [Error]
 enum Error {
-   "InvalidPersistedData", "RkvError", "IOError",
-   "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
+    "InvalidPersistedData", "RkvError", "IOError",
+    "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
     "RequestError", "ResponseError", "UuidError", "InvalidExperimentResponse",
-    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch"
+    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError"
 };
 
 interface NimbusClient {

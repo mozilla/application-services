@@ -47,6 +47,8 @@ pub enum Error {
     NoSuchExperiment(String),
     #[error("The branch {0} does not exist for the experiment {1}")]
     NoSuchBranch(String, String),
+    #[error("Server asked the client to back off ({0} seconds remaining)")]
+    BackoffError(u64),
 }
 
 // This can be replaced with #[from] in the enum definition

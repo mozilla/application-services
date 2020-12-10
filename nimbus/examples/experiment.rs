@@ -196,7 +196,7 @@ fn main() -> Result<()> {
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
-    let nimbus_client = NimbusClient::new(context, "", Some(config), aru)?;
+    let mut nimbus_client = NimbusClient::new(context, "", Some(config), aru)?;
 
     // Explicitly update experiments at least once for init purposes
     nimbus_client.update_experiments()?;

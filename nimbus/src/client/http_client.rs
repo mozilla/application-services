@@ -13,16 +13,31 @@
 //!
 //! But the simple subset implemented here meets our needs for now.
 
+use std::time::{Duration, Instant};
+
 use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
 use crate::{Experiment, SettingsClient, SCHEMA_VERSION};
 use url::Url;
 use viaduct::{status_codes, Request, Response};
 
+const HEADER_BACKOFF: &str = "Backoff";
+const HEADER_RETRY_AFTER: &str = "Retry-After";
+
 pub struct Client {
     base_url: Url,
     collection_name: String,
     bucket_name: String,
+    remote_state: RemoteState,
+}
+
+#[derive(Debug)]
+enum RemoteState {
+    Ok,
+    Backoff {
+        observed_at: Instant,
+        duration: Duration,
+    },
 }
 
 impl Client {
@@ -33,16 +48,59 @@ impl Client {
             base_url,
             bucket_name: config.bucket_name,
             collection_name: config.collection_name,
+            remote_state: RemoteState::Ok,
         })
     }
 
-    fn make_request(&self, request: Request) -> Result<Response> {
+    fn make_request(&mut self, request: Request) -> Result<Response> {
+        self.ensure_no_backoff()?;
         let resp = request.send()?;
+        self.handle_backoff_hint(&resp)?;
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
         } else {
             Err(Error::ResponseError(resp.text().to_string()))
         }
+    }
+
+    fn ensure_no_backoff(&mut self) -> Result<()> {
+        if let RemoteState::Backoff {
+            observed_at,
+            duration,
+        } = self.remote_state
+        {
+            let elapsed_time = observed_at.elapsed();
+            if elapsed_time >= duration {
+                self.remote_state = RemoteState::Ok;
+            } else {
+                let remaining = duration - elapsed_time;
+                return Err(Error::BackoffError(remaining.as_secs()));
+            }
+        }
+        Ok(())
+    }
+
+    fn handle_backoff_hint(&mut self, response: &Response) -> Result<()> {
+        let extract_backoff_header = |header| -> Result<u64> {
+            Ok(response
+                .headers
+                .get_as::<u64, _>(header)
+                .transpose()
+                .unwrap_or_default() // Ignore number parsing errors.
+                .unwrap_or(0))
+        };
+        // In practice these two headers are mutually exclusive.
+        let backoff = extract_backoff_header(HEADER_BACKOFF)?;
+        let retry_after = extract_backoff_header(HEADER_RETRY_AFTER)?;
+        let max_backoff = backoff.max(retry_after);
+
+        if max_backoff > 0 {
+            self.remote_state = RemoteState::Backoff {
+                observed_at: Instant::now(),
+                duration: Duration::from_secs(max_backoff),
+            };
+        }
+        Ok(())
     }
 }
 
@@ -51,7 +109,7 @@ impl SettingsClient for Client {
         unimplemented!();
     }
 
-    fn get_experiments(&self) -> Result<Vec<Experiment>> {
+    fn get_experiments(&mut self) -> Result<Vec<Experiment>> {
         let path = format!(
             "buckets/{}/collections/{}/records",
             &self.bucket_name, &self.collection_name
@@ -109,12 +167,8 @@ mod tests {
     use crate::{Branch, BucketConfig, RandomizationUnit};
     use mockito::mock;
 
-    #[test]
-    fn test_get_experiments_from_schema() {
-        viaduct_reqwest::use_reqwest_backend();
-        // There are two experiments defined here, one has a "newer" schema version
-        // in order to test filtering of unsupported schema versions.
-        let body = format!(
+    fn response_body() -> String {
+        format!(
             r#"
         {{ "data": [
             {{
@@ -180,12 +234,19 @@ mod tests {
         ]}}"#,
             current_version = SCHEMA_VERSION,
             newer_version = SCHEMA_VERSION + 1
-        );
+        )
+    }
+
+    #[test]
+    fn test_get_experiments_from_schema() {
+        viaduct_reqwest::use_reqwest_backend();
+        // There are two experiments defined here, one has a "newer" schema version
+        // in order to test filtering of unsupported schema versions.
         let m = mock(
             "GET",
             "/buckets/main/collections/messaging-experiments/records",
         )
-        .with_body(body)
+        .with_body(response_body())
         .with_status(200)
         .with_header("content-type", "application/json")
         .create();
@@ -194,7 +255,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let http_client = Client::new(config).unwrap();
+        let mut http_client = Client::new(config).unwrap();
         let resp = http_client.get_experiments().unwrap();
         m.expect(1).assert();
         assert_eq!(resp.len(), 1);
@@ -236,5 +297,87 @@ mod tests {
                 targeting: None,
             }
         )
+    }
+
+    #[test]
+    fn test_backoff() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/buckets/main/collections/messaging-experiments/records",
+        )
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .with_header("Backoff", "60")
+        .create();
+        let config = RemoteSettingsConfig {
+            server_url: mockito::server_url(),
+            bucket_name: "main".to_string(),
+            collection_name: "messaging-experiments".to_string(),
+        };
+        let mut http_client = Client::new(config).unwrap();
+        assert!(http_client.get_experiments().is_ok());
+        let second_request = http_client.get_experiments();
+        assert!(matches!(second_request, Err(Error::BackoffError(_))));
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_500_retry_after() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/buckets/main/collections/messaging-experiments/records",
+        )
+        .with_body("Boom!")
+        .with_status(500)
+        .with_header("Retry-After", "60")
+        .create();
+        let config = RemoteSettingsConfig {
+            server_url: mockito::server_url(),
+            bucket_name: "main".to_string(),
+            collection_name: "messaging-experiments".to_string(),
+        };
+        let mut http_client = Client::new(config).unwrap();
+        assert!(http_client.get_experiments().is_err());
+        let second_request = http_client.get_experiments();
+        assert!(matches!(second_request, Err(Error::BackoffError(_))));
+        m.expect(1).assert();
+    }
+
+    #[test]
+    fn test_backoff_recovery() {
+        viaduct_reqwest::use_reqwest_backend();
+        let m = mock(
+            "GET",
+            "/buckets/main/collections/messaging-experiments/records",
+        )
+        .with_body(response_body())
+        .with_status(200)
+        .with_header("content-type", "application/json")
+        .create();
+        let config = RemoteSettingsConfig {
+            server_url: mockito::server_url(),
+            bucket_name: "main".to_string(),
+            collection_name: "messaging-experiments".to_string(),
+        };
+        let mut http_client = Client::new(config).unwrap();
+        // First, sanity check that manipulating the remote state does something.
+        http_client.remote_state = RemoteState::Backoff {
+            observed_at: Instant::now(),
+            duration: Duration::from_secs(30),
+        };
+        assert!(matches!(
+            http_client.get_experiments(),
+            Err(Error::BackoffError(_))
+        ));
+        // Then do the actual test.
+        http_client.remote_state = RemoteState::Backoff {
+            observed_at: Instant::now() - Duration::from_secs(31),
+            duration: Duration::from_secs(30),
+        };
+        assert!(http_client.get_experiments().is_ok());
+        m.expect(1).assert();
     }
 }

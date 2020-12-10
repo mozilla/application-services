@@ -122,11 +122,11 @@ impl NimbusClient {
         opt_out(self.db()?, &experiment_slug)
     }
 
-    pub fn update_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
+    pub fn update_experiments(&mut self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
+        let new_experiments = self.settings_client.get_experiments()?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        let new_experiments = self.settings_client.get_experiments()?;
         let nimbus_id = self.nimbus_id()?;
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,

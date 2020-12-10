@@ -33,7 +33,7 @@ fn test_simple() -> Result<()> {
     let tmp_dir = TempDir::new("test_fs_client-test_simple")?;
 
     let aru = Default::default();
-    let client = NimbusClient::new(Default::default(), tmp_dir.path(), Some(config), aru)?;
+    let mut client = NimbusClient::new(Default::default(), tmp_dir.path(), Some(config), aru)?;
     client.update_experiments()?;
 
     let experiments = client.get_all_experiments()?;
