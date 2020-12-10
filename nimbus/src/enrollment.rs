@@ -18,6 +18,7 @@ const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
 const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
 
 // These are types we use internally for managing enrollments.
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
     Qualified, // A normal enrollment as per the experiment's rules.
@@ -25,6 +26,7 @@ pub enum EnrolledReason {
 }
 
 // These are types we use internally for managing non-enrollments.
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum NotEnrolledReason {
     OptOut,      // The user opted-out of experiments before we ever got enrolled to this one.
@@ -34,6 +36,7 @@ pub enum NotEnrolledReason {
 }
 
 // These are types we use internally for managing disqualifications.
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DisqualifiedReason {
     Error,       // There was an error.
@@ -42,6 +45,7 @@ pub enum DisqualifiedReason {
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct ExperimentEnrollment {
     pub slug: String,
@@ -386,7 +390,7 @@ impl ExperimentEnrollment {
         }
     }
 }
-
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrollmentStatus {
     Enrolled {

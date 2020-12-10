@@ -184,6 +184,7 @@ pub const SCHEMA_VERSION: u32 = 1;
 // the schema could be decoupled from the sdk so that it can be iterated on while the
 // sdk depends on a particular version of the schema through the cargo.toml.
 
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Experiment {
@@ -224,6 +225,7 @@ pub struct FeatureConfig {
     // it yet and the details are still being finalized, so we ignore it for now.
 }
 
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 pub struct Branch {
     pub slug: String,
@@ -235,6 +237,7 @@ fn default_buckets() -> u32 {
     DEFAULT_TOTAL_BUCKETS
 }
 
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BucketConfig {
@@ -246,6 +249,7 @@ pub struct BucketConfig {
     pub total: u32,
 }
 
+// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum RandomizationUnit {

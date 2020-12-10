@@ -15,6 +15,9 @@ use rkv::StoreOptions;
 use std::fs;
 use std::path::Path;
 
+const DB_KEY_DB_VERSION: &str = "db_version";
+const DB_VERSION: u16 = 1; // Increment and implement a DB migration in `maybe_upgrade` when necessary.
+
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
 #[cfg(not(feature = "rkv-safe-mode"))]
@@ -147,16 +150,42 @@ impl Database {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let rkv = Self::open_rkv(path)?;
         let meta_store = rkv.open_single("meta", StoreOptions::create())?;
-        // TODO: we probably want a simple "version" key that we insist matches,
-        // and if it doesn't we discard the DB and start again?
         let experiment_store = rkv.open_single("experiments", StoreOptions::create())?;
         let enrollment_store = rkv.open_single("enrollments", StoreOptions::create())?;
-        Ok(Self {
+        let db = Self {
             rkv,
             meta_store: SingleStore::new(meta_store),
             experiment_store: SingleStore::new(experiment_store),
             enrollment_store: SingleStore::new(enrollment_store),
-        })
+        };
+        db.maybe_upgrade()?;
+        Ok(db)
+    }
+
+    fn maybe_upgrade(&self) -> Result<()> {
+        let mut writer = self.rkv.write()?;
+        let db_version = self.meta_store.get::<u16>(&writer, DB_KEY_DB_VERSION)?;
+        match db_version {
+            Some(DB_VERSION) => return Ok(()),
+            None => {
+                // The "first" version of the database (= no version number) had un-migratable data
+                // for experiments and enrollments, start anew.
+                // XXX: We can most likely remove this behaviour once enough time has passed,
+                // since nimbus wasn't really shipped to production at the time anyway.
+                self.experiment_store.clear(&mut writer)?;
+                self.enrollment_store.clear(&mut writer)?;
+            }
+            _ => {
+                log::error!("Unknown database version. Wiping everything.");
+                self.meta_store.clear(&mut writer)?;
+                self.experiment_store.clear(&mut writer)?;
+                self.enrollment_store.clear(&mut writer)?;
+            }
+        }
+        self.meta_store
+            .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
+        writer.commit()?;
+        Ok(())
     }
 
     /// Gets a Store object, which used with the writer returned by
@@ -225,6 +254,62 @@ impl Database {
             }
         }
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tempdir::TempDir;
+
+    use super::*;
+
+    #[test]
+    fn test_db_upgrade_no_version() -> Result<()> {
+        let path = "test_upgrade_1";
+        let tmp_dir = TempDir::new(path)?;
+
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let _meta_store = rkv.open_single("meta", StoreOptions::create())?;
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
+        enrollment_store.put(&mut writer, "foo", &"bar".to_owned())?;
+        experiment_store.put(&mut writer, "bobo", &"tron".to_owned())?;
+        writer.commit()?;
+
+        let db = Database::new(&tmp_dir)?;
+        assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
+        assert!(db.collect_all::<String>(StoreId::Enrollments)?.is_empty());
+        assert!(db.collect_all::<String>(StoreId::Experiments)?.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_db_upgrade_unknown_version() -> Result<()> {
+        let path = "test_upgrade_unknown";
+        let tmp_dir = TempDir::new(path)?;
+
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
+        meta_store.put(&mut writer, DB_KEY_DB_VERSION, &u16::MAX)?;
+        enrollment_store.put(&mut writer, "foo", &"bar".to_owned())?;
+        experiment_store.put(&mut writer, "bobo", &"tron".to_owned())?;
+        writer.commit()?;
+
+        let db = Database::new(&tmp_dir)?;
+        assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
+        assert!(db.collect_all::<String>(StoreId::Enrollments)?.is_empty());
+        assert!(db.collect_all::<String>(StoreId::Experiments)?.is_empty());
+
+        Ok(())
     }
 }
 
