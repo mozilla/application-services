@@ -74,6 +74,7 @@ pub const CREDIT_CARD_COMMON_VALS: &str = "
 #[allow(dead_code)]
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
 const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
+const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
 
 #[allow(dead_code)]
 pub fn init(db: &Connection) -> Result<()> {
@@ -92,5 +93,11 @@ fn create(db: &Connection) -> Result<()> {
         .as_str(),
     )?;
 
+    Ok(())
+}
+
+pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
+    log::debug!("Initializing sync temp tables");
+    db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
     Ok(())
 }

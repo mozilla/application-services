@@ -8,6 +8,7 @@
 
 pub mod db;
 pub mod error;
+pub mod sync;
 
 // Expose stuff needed by the uniffi generated code.
 use crate::db::models::address::*;

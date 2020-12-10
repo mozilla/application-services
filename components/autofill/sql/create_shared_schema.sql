@@ -61,7 +61,6 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
     cc_exp_month        INTEGER,
     cc_exp_year         INTEGER,
     cc_type             TEXT NOT NULL,
-    -- cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
 
     time_created        INTEGER NOT NULL,
     time_last_used      INTEGER,
@@ -79,7 +78,6 @@ CREATE TABLE IF NOT EXISTS credit_cards_mirror (
     cc_exp_month        INTEGER,
     cc_exp_year         INTEGER,
     cc_type             TEXT NOT NULL,
-    -- cc_exp              TEXT NOT NULL, -- text format of the expiration date e.g. "[cc_exp_year]-[cc_exp_month]"
 
     time_created        INTEGER NOT NULL,
     time_last_used      INTEGER,
