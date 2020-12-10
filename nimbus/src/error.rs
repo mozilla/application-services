@@ -41,6 +41,12 @@ pub enum Error {
     InvalidExperimentResponse,
     #[error("Invalid path: {0}")]
     InvalidPath(String),
+    #[error("Internal error: {0}")]
+    InternalError(&'static str),
+    #[error("The experiment {0} does not exist")]
+    NoSuchExperiment(String),
+    #[error("The branch {0} does not exist for the experiment {1}")]
+    NoSuchBranch(String, String),
 }
 
 // This can be replaced with #[from] in the enum definition

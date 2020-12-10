@@ -7,6 +7,20 @@ New and significant features should be listed in the [CHANGELOG.md](./CHANGELOG.
 
 Before issuing a new release, the `Unreleased Changes` section should be renamed to the version that is being released and match with the tagged version, and a new `Unreleased Changes` section added to the top of the document.
 
+## Cutting a release
+
+We use [cargo-release](https://crates.io/crates/cargo-release) to simplify the release process.
+Steps:
+
+1. Start a new branch for the release:
+    * `git checkout -b release-vX.Y.Z`
+    * `git push -u origin release-vX.Y.Z`
+2. Update `CHANGELOG.md` as noted above, and commit your changes.
+3. Run `cargo release --dry-run -vv [major|minor|patch]` and check that the things
+   it is proposing to do seem reasonable.
+4. Run `cargo release [major|minor|patch]` to publish the release to github.
+5. Make a PR from your branch to request it be merged to the main branch.
+
 ## Useful Resources
 
 * **[Issue Tracker / Epic](https://jira.mozilla.com/browse/SYNC-1528)**

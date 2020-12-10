@@ -1,25 +1,58 @@
 # Unreleased changes
 
+# 0.6.3 (_2020-12-09)
+
+## What's Fixed
+
+- The uniffi-generated Kotlin bindings now compile correctly, thanks to an update to uniffi.
+
+# 0.6.2 (_2020-12-08)
+
+## What's Fixed
+
+- Removed unused `enrollment_id()` method, to silence dead-code warning when compiling in release mode.
+
+# 0.6.1 (_2020-12-08)
+
+## What's Fixed
+
+- Fixed spurious dead-code warning when compiling in release mode.
+
+
+# 0.6.0 (_2020-12-08)
+
+## ⚠️ Breaking changes ⚠️
+
+- Removed `NimbusClient.resetEnrollment`.
+- `NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}`
+  now return a list of telemetry events. Consumers should forward these events to their
+  telemetry system (e.g. via Glean).
+
 # 0.5.2 (_2020-12-10)
 
-## General
+## What's Changed
 
 - Add filtering on application id.
-
 - Addition of schema version to the schema, and validation of supported versions by the SDK.
-
 - Removed implicit fetch of experiments on first use of the database. Consumers now must
   call update_experiments explicitly in order to fetch experiments from the Remote Settings
   server.
 
 # 0.5.1 (_2020-11-10)
 
+## What's Changed
+
 - Fix the version number in `Cargo.lock`.
 
 # 0.5.0 (_2020-11-10)
 
+## What's New
+
 - Added support for global opt-out via new method
   `NimbusClient.set_global_user_participation(bool)`
+
+## What's Changed
+
 - Updated uniffi and rkv dependencies to their latest
   release versions.
 - Switched to using the "safe mode" backend for rkv;
@@ -29,9 +62,7 @@
 
 # 0.4.0 (_2020-11-06)
 
-## General
-
-### What's Fixed
+## What's Changed
 
 - Removed use of unsigned types from the Kotlin API, since these
   are experimental and require opt-in from consuming apps.
@@ -40,9 +71,7 @@
 
 # 0.3.0 (_2020-10-27_)
 
-## General
-
-### What's New
+## What's New
 
 Addition of CHANGELOG.md
 

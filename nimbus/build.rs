@@ -3,5 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub fn main() {
+    #[cfg(feature = "uniffi-bindings")]
     uniffi_build::generate_scaffolding("./src/nimbus.idl").unwrap();
 }

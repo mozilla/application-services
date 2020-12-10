@@ -80,6 +80,7 @@ impl SingleStore {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn delete(&self, mut writer: &mut Writer, key: &str) -> Result<()> {
         self.store.delete(&mut writer, key)?;
         Ok(())

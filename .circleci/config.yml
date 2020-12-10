@@ -1,7 +1,7 @@
 version: 2
 
 jobs:
-  build:
+  test:
     docker:
       - image: rust:1
     steps:
@@ -39,3 +39,26 @@ jobs:
             else
               echo Skipping rustfmt
             fi
+  coverage:
+    machine: true
+    steps:
+      - checkout
+      - run:
+          name: Pull tarpaulin Docker image
+          command: docker pull xd009642/tarpaulin:latest
+      - run:
+          name: Generate coverage report
+          # We use --no-default-features so we don't have to compile uniffi (very slow).
+          command: >
+            docker run --security-opt seccomp=unconfined -v $PWD:/volume xd009642/tarpaulin
+            cargo tarpaulin --manifest-path nimbus/Cargo.toml --no-default-features -v --ciserver circle-ci --out Xml
+      - run:
+          name: Upload report to Codecov
+          command: bash <(curl -s https://codecov.io/bash)
+
+workflows:
+  version: 2
+  test_and_coverage:
+    jobs:
+      - test
+      - coverage
