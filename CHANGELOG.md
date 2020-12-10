@@ -1,12 +1,16 @@
 # Unreleased changes
 
+# 0.5.2 (_2020-12-10)
+
 ## General
 
-Addition of schema version to the schema, and validation of supported versions by the SDK.
+- Add filtering on application id.
 
-Removed implicit fetch of experiments on first use of the database. Consumers now must
-call update_experiments explicitly in order to fetch experiments from the Remote Settings
-server.
+- Addition of schema version to the schema, and validation of supported versions by the SDK.
+
+- Removed implicit fetch of experiments on first use of the database. Consumers now must
+  call update_experiments explicitly in order to fetch experiments from the Remote Settings
+  server.
 
 # 0.5.1 (_2020-11-10)
 
