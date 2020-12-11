@@ -10,13 +10,14 @@ be shared - eg, we only need a single token from the token-server and can share
 it across all components, if the server is under load and wants clients to
 back off, that state should be shared.
 
-This crate very heavily on `sync15`, so you should read the documentation in
-that crate. Indeed, you can almost see this as a wrapper around that crate, but
-there's other "global functionality" managed by this crate that doesn't fit
-well in any other place. For example, each application should have a single
-"device record" which describes the app and not individual stores. There's also
-the concept of "commands" which are sent to a device, and then delgated to the
-correct store - those concepts are implemented in this crate.
+This crate relies very heavily on `sync15`, so you should read the
+documentation in that crate. Indeed, you can almost see this as a wrapper
+around that crate, but there's other "global functionality" managed by this
+crate that doesn't fit well in any other place. For example, each application
+should have a single "device record" which describes the app and not individual
+stores. There's also the concept of "commands" which are sent to a device, and
+then delgated to the correct store - those concepts are implemented in this
+crate.
 
 ## Other notes:
 
