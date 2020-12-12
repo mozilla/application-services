@@ -54,11 +54,17 @@ fn create(db: &Connection) -> Result<()> {
     log::debug!("Creating schema");
     db.execute_batch(
         format!(
-            "{}\n{}\n{}",
-            CREATE_SHARED_SCHEMA_SQL, CREATE_SHARED_TRIGGERS_SQL, CREATE_SYNC_TEMP_TABLES_SQL
+            "{}\n{}",
+            CREATE_SHARED_SCHEMA_SQL, CREATE_SHARED_TRIGGERS_SQL
         )
         .as_str(),
     )?;
 
+    Ok(())
+}
+
+pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
+    log::debug!("Initializing sync temp tables");
+    db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;
     Ok(())
 }

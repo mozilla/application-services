@@ -15,12 +15,11 @@ CREATE TEMP TABLE addresses_staging (
     postal_code         TEXT NOT NULL,
     country             TEXT NOT NULL,
     tel                 TEXT NOT NULL,
-    email               TEXT NOT NULL,
+    email               TEXT NOT NULL
+);
 
-    -- time_created        INTEGER NOT NULL,
-    -- time_last_used      INTEGER,
-    -- time_last_modified  INTEGER NOT NULL,
-    -- times_used          INTEGER NOT NULL DEFAULT 0
+CREATE TEMP TABLE addresses_tombstone_staging (
+    guid                TEXT NOT NULL PRIMARY KEY
 );
 
 CREATE TEMP TABLE credit_cards_staging (
@@ -29,10 +28,5 @@ CREATE TEMP TABLE credit_cards_staging (
     cc_number           TEXT NOT NULL,
     cc_exp_month        INTEGER,
     cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-
-    -- time_created        INTEGER NOT NULL,
-    -- time_last_used      INTEGER,
-    -- time_last_modified  INTEGER NOT NULL,
-    -- times_used          INTEGER NOT NULL DEFAULT 0
+    cc_type             TEXT NOT NULL
 );
