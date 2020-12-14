@@ -5,8 +5,8 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use places::bookmark_sync::store::BookmarksStore;
-use places::history_sync::store::HistoryStore;
+use places::bookmark_sync::engine::BookmarksEngine;
+use places::history_sync::engine::HistoryEngine;
 use places::storage::bookmarks::{
     fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
     FolderNode, SeparatorNode,
@@ -18,8 +18,8 @@ use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
-    sync_multiple, MemoryCachedState, SetupStorageClient, Store, StoreSyncAssociation,
-    Sync15StorageClient,
+    sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
+    Sync15StorageClient, SyncEngine,
 };
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -193,31 +193,31 @@ fn sync(
     // global state at all (however, we do reuse the in-memory state).
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
-    let stores: Vec<Box<dyn Store>> = if engine_names.is_empty() {
+    let engines: Vec<Box<dyn SyncEngine>> = if engine_names.is_empty() {
         vec![
-            Box::new(BookmarksStore::new(&conn, &interruptee)),
-            Box::new(HistoryStore::new(&conn, &interruptee)),
+            Box::new(BookmarksEngine::new(&conn, &interruptee)),
+            Box::new(HistoryEngine::new(&conn, &interruptee)),
         ]
     } else {
         engine_names.sort();
         engine_names.dedup();
         engine_names
             .into_iter()
-            .map(|name| -> Box<dyn Store> {
+            .map(|name| -> Box<dyn SyncEngine> {
                 match name.as_str() {
-                    "bookmarks" => Box::new(BookmarksStore::new(&conn, &interruptee)),
-                    "history" => Box::new(HistoryStore::new(&conn, &interruptee)),
+                    "bookmarks" => Box::new(BookmarksEngine::new(&conn, &interruptee)),
+                    "history" => Box::new(HistoryEngine::new(&conn, &interruptee)),
                     _ => unimplemented!("Can't sync unsupported engine {}", name),
                 }
             })
             .collect()
     };
-    for store in &stores {
+    for engine in &engines {
         if wipe {
-            store.wipe()?;
+            engine.wipe()?;
         }
         if reset {
-            store.reset(&StoreSyncAssociation::Disconnected)?;
+            engine.reset(&EngineSyncAssociation::Disconnected)?;
         }
     }
 
@@ -228,14 +228,14 @@ fn sync(
     // will be in places_api, which will give us this for free.
 
     // Migrate state, which we must do before we sync *any* engine.
-    HistoryStore::migrate_v1_global_state(&conn)?;
+    HistoryEngine::migrate_v1_global_state(&conn)?;
 
     let mut error_to_report = None;
-    let stores_to_sync: Vec<&dyn Store> = stores.iter().map(AsRef::as_ref).collect();
+    let engines_to_sync: Vec<&dyn SyncEngine> = engines.iter().map(AsRef::as_ref).collect();
 
     for n in 0..nsyncs {
         let mut result = sync_multiple(
-            &stores_to_sync,
+            &engines_to_sync,
             &mut global_state,
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
@@ -325,7 +325,7 @@ enum Command {
         #[structopt(name = "wipe-remote", long)]
         wipe: bool,
 
-        /// Reset the store before syncing
+        /// Reset the engine before syncing
         #[structopt(name = "reset", long)]
         reset: bool,
 

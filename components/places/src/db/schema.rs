@@ -8,7 +8,7 @@
 // db.rs.
 
 use crate::api::places_api::ConnectionType;
-use crate::bookmark_sync::store::LAST_SYNC_META_KEY;
+use crate::bookmark_sync::engine::LAST_SYNC_META_KEY;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::bookmarks::{

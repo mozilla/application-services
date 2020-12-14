@@ -7,7 +7,7 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::prompt_char;
 use clipboard::{ClipboardContext, ClipboardProvider};
-use tabs::{RemoteTab, TabsEngine};
+use tabs::{RemoteTab, TabsStore};
 
 use anyhow::Result;
 
@@ -15,7 +15,7 @@ fn main() -> Result<()> {
     viaduct_reqwest::use_reqwest_backend();
     cli_support::init_logging();
     let matches = clap::App::new("tabs_sync")
-        .about("CLI for Sync tabs engine")
+        .about("CLI for Sync tabs store")
         .arg(
             clap::Arg::with_name("credential_file")
                 .short("c")
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
-    let mut engine = TabsEngine::new();
+    let mut store = TabsStore::new();
 
     loop {
         match prompt_char("[U]pdate local state, [L]ist remote tabs, [S]ync or [Q]uit")
@@ -44,11 +44,11 @@ fn main() -> Result<()> {
                 log::info!("Updating the local state.");
                 let local_state = read_local_state();
                 dbg!(&local_state);
-                engine.update_local_state(local_state);
+                store.update_local_state(local_state);
             }
             'L' | 'l' => {
                 log::info!("Listing remote tabs.");
-                let tabs_and_clients = match engine.remote_tabs() {
+                let tabs_and_clients = match store.remote_tabs() {
                     Some(tc) => tc,
                     None => {
                         println!("No remote tabs! Did you try syncing first?");
@@ -70,7 +70,7 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &device_id) {
+                match store.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &device_id) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                     }

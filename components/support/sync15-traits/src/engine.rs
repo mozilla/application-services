@@ -14,24 +14,33 @@ pub struct CollSyncIds {
     pub coll: Guid,
 }
 
-/// Defines how a store is associated with Sync.
+/// Defines how an engine is associated with a particular set of records
+/// on a sync storage server. It's either disconnected, or believes it is
+/// connected with a specific set of GUIDs. If the server and the engine don't
+/// agree on the exact GUIDs, the engine will assume something radical happened
+/// so it can't believe anything it thinks it knows about the state of the
+/// server (ie, it will "reset" then do a full reconcile)
 #[derive(Debug, Clone, PartialEq)]
-pub enum StoreSyncAssociation {
+pub enum EngineSyncAssociation {
     /// This store is disconnected (although it may be connected in the future).
     Disconnected,
     /// Sync is connected, and has the following sync IDs.
     Connected(CollSyncIds),
 }
 
-/// Low-level store functionality. Stores that need custom reconciliation logic
-/// should use this.
+/// A "sync engine" is a thing that knows how to sync. It's often implemented
+/// by a "store" (which is the generic term responsible for all storage
+/// associated with a component, including storage required for sync.)
 ///
-/// Different stores will produce errors of different types.  To accommodate
-/// this, we force them all to return failure::Error.
-pub trait Store {
+/// Low-level engine functionality. Engines that need custom reconciliation
+/// logic should use this.
+///
+/// Different engines will produce errors of different types.  To accommodate
+/// this, we force them all to return anyhow::Error.
+pub trait SyncEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str>;
 
-    /// Prepares the store for syncing. The tabs store currently uses this to
+    /// Prepares the engine for syncing. The tabs engine currently uses this to
     /// store the current list of clients, which it uses to look up device names
     /// and types.
     ///
@@ -66,20 +75,24 @@ pub trait Store {
         records_synced: Vec<Guid>,
     ) -> Result<()>;
 
-    /// The store is responsible for building the collection request. Engines
+    /// The engine is responsible for building the collection request. Engines
     /// typically will store a lastModified timestamp and use that to build a
     /// request saying "give me full records since that date" - however, other
     /// engines might do something fancier. This could even later be extended to
     /// handle "backfills" etc
     ///
-    /// To support more advanced use cases (e.g. remerge), multiple requests can
-    /// be returned here. The vast majority of engines will just want to return
-    /// zero or one item in their vector (zero is a valid optimization when the
-    /// server timestamp is the same as the engine last saw, one when it is not)
+    /// To support more advanced use cases,  multiple requests can be returned
+    /// here - either from the same or different collections. The vast majority
+    /// of engines will just want to return zero or one item in their vector
+    /// (zero is a valid optimization when the server timestamp is the same as
+    /// the engine last saw, one when it is not)
     ///
     /// Important: In the case when more than one collection is requested, it's
     /// assumed the last one is the "canonical" one. (That is, it must be for
     /// "this" collection, its timestamp is used to represent the sync, etc).
+    /// (Note that multiple collection request support is currently unused, so
+    /// it might make sense to delete it - if we need it later, we may find a
+    /// better shape for our use-case)
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
@@ -87,11 +100,12 @@ pub trait Store {
 
     /// Get persisted sync IDs. If they don't match the global state we'll be
     /// `reset()` with the new IDs.
-    fn get_sync_assoc(&self) -> Result<StoreSyncAssociation>;
+    fn get_sync_assoc(&self) -> Result<EngineSyncAssociation>;
 
-    /// Reset the store without wiping local data, ready for a "first sync".
+    /// Reset the engine (and associated store) without wiping local data,
+    /// ready for a "first sync".
     /// `assoc` defines how this store is to be associated with sync.
-    fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()>;
+    fn reset(&self, assoc: &EngineSyncAssociation) -> Result<()>;
 
     fn wipe(&self) -> Result<()>;
 }

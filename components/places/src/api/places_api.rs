@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bookmark_sync::store::BookmarksStore;
+use crate::bookmark_sync::engine::BookmarksEngine;
 use crate::db::db::PlacesDb;
 use crate::error::*;
-use crate::history_sync::store::HistoryStore;
+use crate::history_sync::engine::HistoryEngine;
 use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
 };
@@ -236,7 +236,7 @@ impl PlacesApi {
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let store = HistoryStore::new(&conn, &interruptee);
+                let store = HistoryEngine::new(&conn, &interruptee);
                 sync_multiple(
                     &[&store],
                     disk_cached_state,
@@ -259,7 +259,7 @@ impl PlacesApi {
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let store = BookmarksStore::new(&conn, &interruptee);
+                let store = BookmarksEngine::new(&conn, &interruptee);
                 sync_multiple(
                     &[&store],
                     disk_cached_state,
@@ -293,7 +293,7 @@ impl PlacesApi {
         let sync_state = guard.as_ref().unwrap();
         // Note that this *must* be called before either history or bookmarks are
         // synced, to ensure the shared global state is correct.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
@@ -339,11 +339,11 @@ impl PlacesApi {
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         let interruptee = conn.begin_interrupt_scope();
-        let bm_store = BookmarksStore::new(&conn, &interruptee);
-        let history_store = HistoryStore::new(&conn, &interruptee);
+        let bm_store = BookmarksEngine::new(&conn, &interruptee);
+        let history_store = HistoryEngine::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
@@ -376,7 +376,7 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         storage::bookmarks::delete_everything(&conn)?;
         Ok(())
@@ -390,9 +390,9 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
-        bookmark_sync::reset(&conn, &sync15::StoreSyncAssociation::Disconnected)?;
+        bookmark_sync::reset(&conn, &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -404,7 +404,7 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         storage::history::delete_everything(&conn)?;
         Ok(())
@@ -418,9 +418,9 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
-        history_sync::reset(&conn, &sync15::StoreSyncAssociation::Disconnected)?;
+        history_sync::reset(&conn, &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 

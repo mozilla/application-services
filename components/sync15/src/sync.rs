@@ -12,13 +12,13 @@ use crate::state::GlobalState;
 use crate::telemetry;
 use interrupt_support::Interruptee;
 
-pub use sync15_traits::{IncomingChangeset, Store};
+pub use sync15_traits::{IncomingChangeset, SyncEngine};
 
 pub fn synchronize(
     client: &Sync15StorageClient,
     global_state: &GlobalState,
     root_sync_key: &KeyBundle,
-    store: &dyn Store,
+    engine: &dyn SyncEngine,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
     interruptee: &dyn Interruptee,
@@ -28,7 +28,7 @@ pub fn synchronize(
         global_state,
         root_sync_key,
         None,
-        store,
+        engine,
         fully_atomic,
         telem_engine,
         interruptee,
@@ -41,33 +41,33 @@ pub fn synchronize_with_clients_engine(
     global_state: &GlobalState,
     root_sync_key: &KeyBundle,
     clients: Option<&clients::Engine<'_>>,
-    store: &dyn Store,
+    engine: &dyn SyncEngine,
     fully_atomic: bool,
     telem_engine: &mut telemetry::Engine,
     interruptee: &dyn Interruptee,
 ) -> Result<(), Error> {
-    let collection = store.collection_name();
+    let collection = engine.collection_name();
     log::info!("Syncing collection {}", collection);
 
     // our global state machine is ready - get the collection machine going.
-    let mut coll_state = match LocalCollStateMachine::get_state(store, global_state, root_sync_key)?
-    {
-        Some(coll_state) => coll_state,
-        None => {
-            // XXX - this is either "error" or "declined".
-            log::warn!(
-                "can't setup for the {} collection - hopefully it works later",
-                collection
-            );
-            return Ok(());
-        }
-    };
+    let mut coll_state =
+        match LocalCollStateMachine::get_state(engine, global_state, root_sync_key)? {
+            Some(coll_state) => coll_state,
+            None => {
+                // XXX - this is either "error" or "declined".
+                log::warn!(
+                    "can't setup for the {} collection - hopefully it works later",
+                    collection
+                );
+                return Ok(());
+            }
+        };
 
     if let Some(clients) = clients {
-        store.prepare_for_sync(&|| clients.get_client_data())?;
+        engine.prepare_for_sync(&|| clients.get_client_data())?;
     }
 
-    let collection_requests = store.get_collection_requests(coll_state.last_modified)?;
+    let collection_requests = engine.get_collection_requests(coll_state.last_modified)?;
     let incoming = if collection_requests.is_empty() {
         log::info!("skipping incoming for {} - not needed.", collection);
         vec![IncomingChangeset::new(collection, coll_state.last_modified)]
@@ -95,7 +95,7 @@ pub fn synchronize_with_clients_engine(
     };
 
     let new_timestamp = incoming.last().expect("must have >= 1").timestamp;
-    let mut outgoing = store.apply_incoming(incoming, telem_engine)?;
+    let mut outgoing = engine.apply_incoming(incoming, telem_engine)?;
 
     interruptee.err_if_interrupted()?;
     // Bump the timestamps now just incase the upload fails.
@@ -120,7 +120,7 @@ pub fn synchronize_with_clients_engine(
     telem_outgoing.failed(upload_info.failed_ids.len());
     telem_engine.outgoing(telem_outgoing);
 
-    store.sync_finished(upload_info.modified_timestamp, upload_info.successful_ids)?;
+    engine.sync_finished(upload_info.modified_timestamp, upload_info.successful_ids)?;
 
     log::info!("Sync finished!");
     Ok(())

@@ -7,7 +7,7 @@ use crate::db::PlacesDb;
 use crate::error::Result;
 use crate::frecency;
 use crate::hash;
-use crate::history_sync::store::{
+use crate::history_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
 use crate::msg_types::{
@@ -21,7 +21,7 @@ use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt};
-use sync15::StoreSyncAssociation;
+use sync15::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
@@ -429,7 +429,7 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     wipe_local_in_tx(db)?;
 
     // Remove Sync metadata, too.
-    reset_in_tx(&db, &StoreSyncAssociation::Disconnected)?;
+    reset_in_tx(&db, &EngineSyncAssociation::Disconnected)?;
 
     tx.commit()?;
 
@@ -645,7 +645,7 @@ fn cleanup_pages(db: &PlacesDb, pages: &[PageToClean]) -> Result<()> {
     Ok(())
 }
 
-fn reset_in_tx(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
+fn reset_in_tx(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
     // Reset change counters and sync statuses for all URLs.
     db.execute_cached(
         &format!(
@@ -665,11 +665,11 @@ fn reset_in_tx(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
     // Clear the sync ID if we're signing out, or set it to whatever the
     // server gave us if we're signing in.
     match assoc {
-        StoreSyncAssociation::Disconnected => {
+        EngineSyncAssociation::Disconnected => {
             delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
             delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
         }
-        StoreSyncAssociation::Connected(ids) => {
+        EngineSyncAssociation::Connected(ids) => {
             put_meta(db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
             put_meta(db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
         }
@@ -1105,7 +1105,7 @@ pub mod history_sync {
     /// Resets all sync metadata, including change counters, sync statuses,
     /// the last sync time, and sync ID. This should be called when the user
     /// signs out of Sync.
-    pub(crate) fn reset(db: &PlacesDb, assoc: &StoreSyncAssociation) -> Result<()> {
+    pub(crate) fn reset(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
         let tx = db.begin_transaction()?;
         reset_in_tx(db, assoc)?;
         tx.commit()?;
@@ -2171,7 +2171,7 @@ mod tests {
             global: SyncGuid::random(),
             coll: SyncGuid::random(),
         };
-        history_sync::reset(&conn, &StoreSyncAssociation::Connected(sync_ids.clone()))?;
+        history_sync::reset(&conn, &EngineSyncAssociation::Connected(sync_ids.clone()))?;
 
         assert_eq!(
             get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?,
@@ -2199,7 +2199,7 @@ mod tests {
 
         // Now simulate a reset on disconnect, and verify we've removed all Sync
         // metadata again.
-        history_sync::reset(&conn, &StoreSyncAssociation::Disconnected)?;
+        history_sync::reset(&conn, &EngineSyncAssociation::Disconnected)?;
 
         assert_eq!(get_meta::<SyncGuid>(&conn, GLOBAL_SYNCID_META_KEY)?, None);
         assert_eq!(
