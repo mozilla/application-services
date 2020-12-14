@@ -33,7 +33,7 @@ The key points:
   [a-s-ci-failures@mozilla.com](https://groups.google.com/a/mozilla.com/forum/#!forum/a-s-ci-failures)
 * Our Taskcluster implementation is almost entirely maintained by the Release Engineering team.
   The proper way to contact them in case of emergency or for new developments is to ask on the `#releaseduty-mobile` Slack channel.
-  Our main points of contact are @mihai and @jlorenzo.
+  Our main point of contact is @mihai.
 
 For Android consumers these are the steps by which Application Services code becomes available,
 and the integrity-protection mechanisms that apply at each step:
