@@ -3610,9 +3610,9 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uniffi"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "132d23babe7b144ff163c5e31a2eea6cba6448869ad9437ac86a0f76a9d9a43b"
+checksum = "60bd4038c821fae973a6556f969336343ba17120c7d8977d5860630fb66c48c7"
 dependencies = [
  "anyhow",
  "bytes",
