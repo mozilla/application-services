@@ -236,9 +236,9 @@ impl PlacesApi {
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let store = HistoryEngine::new(&conn, &interruptee);
+                let engine = HistoryEngine::new(&conn, &interruptee);
                 sync_multiple(
-                    &[&store],
+                    &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
@@ -259,9 +259,9 @@ impl PlacesApi {
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let store = BookmarksEngine::new(&conn, &interruptee);
+                let engine = BookmarksEngine::new(&conn, &interruptee);
                 sync_multiple(
-                    &[&store],
+                    &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
@@ -342,14 +342,14 @@ impl PlacesApi {
         HistoryEngine::migrate_v1_global_state(&conn)?;
 
         let interruptee = conn.begin_interrupt_scope();
-        let bm_store = BookmarksEngine::new(&conn, &interruptee);
-        let history_store = HistoryEngine::new(&conn, &interruptee);
+        let bm_engine = BookmarksEngine::new(&conn, &interruptee);
+        let history_engine = HistoryEngine::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
         // NOTE: After here we must never return Err()!
         let result = sync15::sync_multiple(
-            &[&history_store, &bm_store],
+            &[&history_engine, &bm_engine],
             &mut disk_cached_state,
             &mut mem_cached_state,
             client_init,
