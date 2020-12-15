@@ -22,8 +22,8 @@ use std::path::Path;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::{Duration, Instant, SystemTime};
 use sync15::{
-    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
+    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation,
+    IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
 };
 use sync_guid::Guid;
 use url::{Host, Url};
@@ -983,8 +983,8 @@ impl LoginDb {
             .execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
-    pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        log::info!("Executing reset on password store!");
+    pub fn reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
+        log::info!("Executing reset on password engine!");
         let tx = self.db.unchecked_transaction()?;
         self.execute_all(&[
             &*CLONE_ENTIRE_MIRROR_SQL,
@@ -993,11 +993,11 @@ impl LoginDb {
         ])?;
         self.set_last_sync(ServerTimestamp(0))?;
         match assoc {
-            StoreSyncAssociation::Disconnected => {
+            EngineSyncAssociation::Disconnected => {
                 self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
                 self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
             }
-            StoreSyncAssociation::Connected(ids) => {
+            EngineSyncAssociation::Connected(ids) => {
                 self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }
@@ -1009,7 +1009,7 @@ impl LoginDb {
 
     pub fn wipe(&self, scope: &SqlInterruptScope) -> Result<()> {
         let tx = self.unchecked_transaction()?;
-        log::info!("Executing wipe on password store!");
+        log::info!("Executing wipe on password engine!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         scope.err_if_interrupted()?;
         self.execute_named(
@@ -1046,7 +1046,7 @@ impl LoginDb {
     }
 
     pub fn wipe_local(&self) -> Result<()> {
-        log::info!("Executing wipe_local on password store!");
+        log::info!("Executing wipe_local on password engine!");
         let tx = self.unchecked_transaction()?;
         self.execute_all(&[
             "DELETE FROM loginsL",
@@ -1252,7 +1252,7 @@ impl<'a> LoginStore<'a> {
     }
 }
 
-impl<'a> Store for LoginStore<'a> {
+impl<'a> SyncEngine for LoginStore<'a> {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "passwords".into()
     }
@@ -1292,17 +1292,17 @@ impl<'a> Store for LoginStore<'a> {
         })
     }
 
-    fn get_sync_assoc(&self) -> anyhow::Result<StoreSyncAssociation> {
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
         let global = self.db.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
         let coll = self.db.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
-            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+            EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
-            StoreSyncAssociation::Disconnected
+            EngineSyncAssociation::Disconnected
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
         self.db.reset(assoc)?;
         Ok(())
     }

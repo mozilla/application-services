@@ -12,8 +12,8 @@ use sql_support::SqlInterruptScope;
 use std::ops::Deref;
 use sync15::telemetry;
 use sync15::{
-    extract_v1_state, CollSyncIds, CollectionRequest, IncomingChangeset, OutgoingChangeset,
-    ServerTimestamp, Store, StoreSyncAssociation,
+    extract_v1_state, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
+    OutgoingChangeset, ServerTimestamp, SyncEngine,
 };
 use sync_guid::Guid;
 
@@ -26,14 +26,14 @@ pub const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
 pub const GLOBAL_SYNCID_META_KEY: &str = "history_global_sync_id";
 pub const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 
-// A HistoryStore is short-lived and constructed each sync by something which
+// A HistoryEngine is short-lived and constructed each sync by something which
 // owns the connection and ClientInfo.
-pub struct HistoryStore<'a> {
+pub struct HistoryEngine<'a> {
     pub db: &'a PlacesDb,
     interruptee: &'a SqlInterruptScope,
 }
 
-impl<'a> HistoryStore<'a> {
+impl<'a> HistoryEngine<'a> {
     pub fn new(db: &'a PlacesDb, interruptee: &'a SqlInterruptScope) -> Self {
         assert_eq!(db.conn_type(), ConnectionType::Sync);
         Self { db, interruptee }
@@ -114,7 +114,7 @@ impl<'a> HistoryStore<'a> {
     }
 }
 
-impl<'a> Deref for HistoryStore<'a> {
+impl<'a> Deref for HistoryEngine<'a> {
     type Target = Connection;
     #[inline]
     fn deref(&self) -> &Connection {
@@ -122,7 +122,7 @@ impl<'a> Deref for HistoryStore<'a> {
     }
 }
 
-impl<'a> Store for HistoryStore<'a> {
+impl<'a> SyncEngine for HistoryEngine<'a> {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "history".into()
     }
@@ -164,17 +164,17 @@ impl<'a> Store for HistoryStore<'a> {
         })
     }
 
-    fn get_sync_assoc(&self) -> anyhow::Result<StoreSyncAssociation> {
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
         let global = self.get_meta(GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
-            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+            EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
-            StoreSyncAssociation::Disconnected
+            EngineSyncAssociation::Disconnected
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
         reset(&self.db, assoc)?;
         Ok(())
     }

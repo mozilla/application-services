@@ -7,19 +7,18 @@ use crate::login::Login;
 use std::cell::Cell;
 use std::path::Path;
 use sync15::{
-    sync_multiple, telemetry, KeyBundle, MemoryCachedState, StoreSyncAssociation,
+    sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
     Sync15StorageClientInit,
 };
 
-// This isn't really an engine in the firefox sync15 desktop sense -- it's
-// really a bundle of state that contains the sync storage client, the sync
-// state, and the login DB.
-pub struct PasswordEngine {
+// This store is a bundle of state to manage the login DB and to help the
+// SyncEngine.
+pub struct PasswordStore {
     pub db: LoginDb,
     pub mem_cached_state: Cell<MemoryCachedState>,
 }
 
-impl PasswordEngine {
+impl PasswordStore {
     pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         let db = LoginDb::open(path, encryption_key)?;
         Ok(Self {
@@ -80,7 +79,7 @@ impl PasswordEngine {
     }
 
     pub fn reset(&self) -> Result<()> {
-        self.db.reset(&StoreSyncAssociation::Disconnected)?;
+        self.db.reset(&EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -180,8 +179,8 @@ mod test {
 
     #[test]
     fn test_general() {
-        let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
-        let list = engine.list().expect("Grabbing Empty list to work");
+        let store = PasswordStore::new_in_memory(Some("secret")).unwrap();
+        let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
@@ -205,14 +204,14 @@ mod test {
             ..Login::default()
         };
 
-        let a_id = engine.add(a.clone()).expect("added a");
-        let b_id = engine.add(b.clone()).expect("added b");
+        let a_id = store.add(a.clone()).expect("added a");
+        let b_id = store.add(b.clone()).expect("added b");
 
         assert_eq!(a_id, a.guid);
 
         assert_ne!(b_id, b.guid, "Should generate guid when none provided");
 
-        let a_from_db = engine
+        let a_from_db = store
             .get(&a_id)
             .expect("Not to error getting a")
             .expect("a to exist");
@@ -223,7 +222,7 @@ mod test {
         assert_ge!(a_from_db.time_last_used, start_us);
         assert_eq!(a_from_db.times_used, 1);
 
-        let b_from_db = engine
+        let b_from_db = store
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
@@ -240,7 +239,7 @@ mod test {
         assert_ge!(b_from_db.time_last_used, start_us);
         assert_eq!(b_from_db.times_used, 1);
 
-        let mut list = engine.list().expect("Grabbing list to work");
+        let mut list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
 
         let mut expect = vec![a_from_db, b_from_db.clone()];
@@ -249,23 +248,23 @@ mod test {
         expect.sort_by(|a, b| b.guid.cmp(&a.guid));
         assert_eq!(list, expect);
 
-        engine.delete(&a_id).expect("Successful delete");
-        assert!(engine
+        store.delete(&a_id).expect("Successful delete");
+        assert!(store
             .get(&a_id)
             .expect("get after delete should still work")
             .is_none());
 
-        let list = engine.list().expect("Grabbing list to work");
+        let list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
-        let list = engine
+        let list = store
             .get_by_base_domain("example2.com")
             .expect("Expect a list for this hostname");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
-        let list = engine
+        let list = store
             .get_by_base_domain("www.example.com")
             .expect("Expect an empty list");
         assert_eq!(list.len(), 0);
@@ -277,9 +276,9 @@ mod test {
             ..b
         };
 
-        engine.update(b2.clone()).expect("update b should work");
+        store.update(b2.clone()).expect("update b should work");
 
-        let b_after_update = engine
+        let b_after_update = store
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
@@ -295,9 +294,9 @@ mod test {
 
     #[test]
     fn test_rekey() {
-        let engine = PasswordEngine::new_in_memory(Some("secret")).unwrap();
-        engine.rekey_database("new_encryption_key").unwrap();
-        let list = engine.list().expect("Grabbing Empty list to work");
+        let store = PasswordStore::new_in_memory(Some("secret")).unwrap();
+        store.rekey_database("new_encryption_key").unwrap();
+        let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
     }
 }
@@ -305,5 +304,5 @@ mod test {
 #[test]
 fn test_send() {
     fn ensure_send<T: Send>() {}
-    ensure_send::<PasswordEngine>();
+    ensure_send::<PasswordStore>();
 }

@@ -16,8 +16,8 @@ use std::cell::{Cell, RefCell};
 use std::mem;
 use sync15::{telemetry, MemoryCachedState};
 use sync15_traits::{
-    CollectionRequest, IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, Store,
-    StoreSyncAssociation,
+    CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset, Payload,
+    ServerTimestamp, SyncEngine,
 };
 use sync_guid::Guid;
 
@@ -39,18 +39,18 @@ pub struct TestRecord {
     pub message: String,
 }
 
-pub struct TestStore {
+pub struct TestEngine {
     pub name: &'static str,
     pub test_records: RefCell<Vec<TestRecord>>,
-    pub store_sync_assoc: RefCell<StoreSyncAssociation>,
+    pub engine_sync_assoc: RefCell<EngineSyncAssociation>,
     pub was_reset_called: Cell<bool>,
 
     pub global_id: Option<Guid>,
     pub coll_id: Option<Guid>,
 }
 
-// Lotsa boilerplate to implement `Store`... 😅
-impl Store for TestStore {
+// Lotsa boilerplate to implement `SyncEngine`... 😅
+impl SyncEngine for TestEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         // HACK: We have to use a "well-known" collection name in `meta/global`
         // (you can see the list in `DEFAULT_ENGINES`, inside
@@ -94,7 +94,7 @@ impl Store for TestStore {
     ) -> anyhow::Result<()> {
         // This should print something like:
         // `[... INFO sync_test::sync15] Uploaded records: [Guid("ai5xy_LtNAuN")]`
-        // If we were a real store, this is where we'd mark our outgoing records
+        // If we were a real engine, this is where we'd mark our outgoing records
         // as uploaded. In a test, we can just assert that the records we uploaded
         info!("Uploaded records: {:?}", records_synced);
         Ok(())
@@ -112,8 +112,8 @@ impl Store for TestStore {
 
     /// This is where we return our test collection's sync ID (and global sync
     /// ID).
-    fn get_sync_assoc(&self) -> anyhow::Result<StoreSyncAssociation> {
-        let our_assoc = self.store_sync_assoc.borrow();
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
+        let our_assoc = self.engine_sync_assoc.borrow();
         println!(
             "TEST {}: get_sync_assoc called with {:?}",
             self.name, *our_assoc
@@ -121,25 +121,25 @@ impl Store for TestStore {
         Ok(our_assoc.clone())
     }
 
-    /// Reset the store without wiping local data, ready for a "first sync".
-    /// `assoc` defines how this store is to be associated with sync.
-    fn reset(&self, assoc: &StoreSyncAssociation) -> anyhow::Result<()> {
+    /// Reset the engine without wiping local data, ready for a "first sync".
+    /// `assoc` defines how this engine is to be associated with sync.
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
         println!("TEST {}: Reset called", self.name);
         self.was_reset_called.set(true);
-        *self.store_sync_assoc.borrow_mut() = assoc.clone();
+        *self.engine_sync_assoc.borrow_mut() = assoc.clone();
         Ok(())
     }
 
     // Won't really be used anywhere.
     fn wipe(&self) -> anyhow::Result<()> {
         // This is where we'd erase all data and Sync state. Since we're
-        // just an in-memory store, and `sync_multiple` doesn't exercise
+        // just an in-memory engine, and `sync_multiple` doesn't exercise
         // this, we do nothing.
         Ok(())
     }
 }
 
-fn sync_first_client(c0: &mut TestClient, store: &dyn Store) {
+fn sync_first_client(c0: &mut TestClient, engine: &dyn SyncEngine) {
     let (init, key, _device_id) = c0
         .data_for_sync()
         .expect("Should have data for syncing first client");
@@ -148,7 +148,7 @@ fn sync_first_client(c0: &mut TestClient, store: &dyn Store) {
     let mut mem_cached_state = MemoryCachedState::default();
 
     let result = sync15::sync_multiple(
-        &[store],
+        &[engine],
         &mut persisted_global_state,
         &mut mem_cached_state,
         &init,
@@ -160,7 +160,7 @@ fn sync_first_client(c0: &mut TestClient, store: &dyn Store) {
     println!("Finished syncing first client: {:?}", result);
 }
 
-fn sync_second_client(c1: &mut TestClient, store: &dyn Store) {
+fn sync_second_client(c1: &mut TestClient, engine: &dyn SyncEngine) {
     let (init, key, _device_id) = c1
         .data_for_sync()
         .expect("Should have data for syncing second client");
@@ -169,7 +169,7 @@ fn sync_second_client(c1: &mut TestClient, store: &dyn Store) {
     let mut mem_cached_state = MemoryCachedState::default();
 
     let result = sync15::sync_multiple(
-        &[store],
+        &[engine],
         &mut persisted_global_state,
         &mut mem_cached_state,
         &init,
@@ -193,40 +193,40 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
         message: "<3".to_string(),
     }];
 
-    let first_client_store = TestStore {
+    let first_client_engine = TestEngine {
         name: "c0",
         test_records: RefCell::new(test_vec.clone()),
-        store_sync_assoc: RefCell::new(StoreSyncAssociation::Disconnected), // should also test Connected
+        engine_sync_assoc: RefCell::new(EngineSyncAssociation::Disconnected), // should also test Connected
         was_reset_called: Cell::new(false),
 
         global_id: Option::from(Guid::random()),
         coll_id: Option::from(Guid::random()),
     };
-    sync_first_client(c0, &first_client_store);
+    sync_first_client(c0, &first_client_engine);
     assert_eq!(
-        first_client_store.was_reset_called.get(),
+        first_client_engine.was_reset_called.get(),
         true,
         "Should have called first reset."
     );
 
-    let second_client_store = TestStore {
+    let second_client_engine = TestEngine {
         name: "c1",
         test_records: RefCell::default(),
-        store_sync_assoc: first_client_store.store_sync_assoc, // unlike c0, will not call reset()
+        engine_sync_assoc: first_client_engine.engine_sync_assoc, // unlike c0, will not call reset()
         was_reset_called: Cell::new(false),
 
         global_id: Option::from(Guid::random()),
         coll_id: Option::from(Guid::random()),
     };
-    sync_second_client(c1, &second_client_store);
+    sync_second_client(c1, &second_client_engine);
     assert_eq!(
-        second_client_store.was_reset_called.get(),
+        second_client_engine.was_reset_called.get(),
         false,
         "Second client shouldn't have called reset."
     );
 
-    let vector1 = first_client_store.test_records.into_inner();
-    let vector2 = second_client_store.test_records.into_inner();
+    let vector1 = first_client_engine.test_records.into_inner();
+    let vector2 = second_client_engine.test_records.into_inner();
 
     assert!(vector1.is_empty(), "The vector should be empty.");
 
@@ -236,11 +236,11 @@ fn test_sync_multiple(c0: &mut TestClient, c1: &mut TestClient) {
     );
     info!(
         "Client {:?}'s test_records: {:?}",
-        first_client_store.name, vector1
+        first_client_engine.name, vector1
     );
     info!(
         "Client {:?}'s test_records: {:?}",
-        second_client_store.name, vector2
+        second_client_engine.name, vector2
     );
 }
 

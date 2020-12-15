@@ -7,10 +7,10 @@ use crate::error;
 use crate::key_bundle::KeyBundle;
 use crate::request::InfoConfiguration;
 use crate::state::GlobalState;
-use crate::sync::Store;
+use crate::sync::SyncEngine;
 use crate::util::ServerTimestamp;
 
-pub use sync15_traits::{CollSyncIds, StoreSyncAssociation};
+pub use sync15_traits::{CollSyncIds, EngineSyncAssociation};
 
 /// Holds state for a collection. In general, only the CollState is
 /// needed to sync a collection (but a valid GlobalState is needed to obtain
@@ -25,9 +25,9 @@ pub struct CollState {
 
 #[derive(Debug)]
 pub enum LocalCollState {
-    /// The state is unknown, with the StoreSyncAssociation the collection
+    /// The state is unknown, with the EngineSyncAssociation the collection
     /// reports.
-    Unknown { assoc: StoreSyncAssociation },
+    Unknown { assoc: EngineSyncAssociation },
 
     /// The engine has been declined. This is a "terminal" state.
     Declined,
@@ -50,8 +50,12 @@ pub struct LocalCollStateMachine<'state> {
 }
 
 impl<'state> LocalCollStateMachine<'state> {
-    fn advance(&self, from: LocalCollState, store: &dyn Store) -> error::Result<LocalCollState> {
-        let name = &store.collection_name().to_string();
+    fn advance(
+        &self,
+        from: LocalCollState,
+        engine: &dyn SyncEngine,
+    ) -> error::Result<LocalCollState> {
+        let name = &engine.collection_name().to_string();
         let meta_global = &self.global_state.global;
         match from {
             LocalCollState::Unknown { assoc } => {
@@ -60,13 +64,13 @@ impl<'state> LocalCollStateMachine<'state> {
                 }
                 match meta_global.engines.get(name) {
                     Some(engine_meta) => match assoc {
-                        StoreSyncAssociation::Disconnected => Ok(LocalCollState::SyncIdChanged {
+                        EngineSyncAssociation::Disconnected => Ok(LocalCollState::SyncIdChanged {
                             ids: CollSyncIds {
                                 global: meta_global.sync_id.clone(),
                                 coll: engine_meta.sync_id.clone(),
                             },
                         }),
-                        StoreSyncAssociation::Connected(ref ids)
+                        EngineSyncAssociation::Connected(ref ids)
                             if ids.global == meta_global.sync_id
                                 && ids.coll == engine_meta.sync_id =>
                         {
@@ -94,9 +98,9 @@ impl<'state> LocalCollStateMachine<'state> {
             LocalCollState::NoSuchCollection => unreachable!("the collection is unknown"),
 
             LocalCollState::SyncIdChanged { ids } => {
-                let assoc = StoreSyncAssociation::Connected(ids);
-                log::info!("Resetting {} store", store.collection_name());
-                store.reset(&assoc)?;
+                let assoc = EngineSyncAssociation::Connected(ids);
+                log::info!("Resetting {} engine", engine.collection_name());
+                engine.reset(&assoc)?;
                 Ok(LocalCollState::Unknown { assoc })
             }
 
@@ -107,10 +111,10 @@ impl<'state> LocalCollStateMachine<'state> {
     // A little whimsy - a portmanteau of far and fast
     fn run_and_run_as_farst_as_you_can(
         &mut self,
-        store: &dyn Store,
+        engine: &dyn SyncEngine,
     ) -> error::Result<Option<CollState>> {
         let mut s = LocalCollState::Unknown {
-            assoc: store.get_sync_assoc()?,
+            assoc: engine.get_sync_assoc()?,
         };
         // This is a simple state machine and should never take more than
         // 10 goes around.
@@ -119,7 +123,7 @@ impl<'state> LocalCollStateMachine<'state> {
             log::trace!("LocalCollState in {:?}", s);
             match s {
                 LocalCollState::Ready { key } => {
-                    let name = store.collection_name();
+                    let name = engine.collection_name();
                     let config = self.global_state.config.clone();
                     let last_modified = self
                         .global_state
@@ -143,14 +147,14 @@ impl<'state> LocalCollStateMachine<'state> {
                     }
                     // should we have better loop detection? Our limit of 10
                     // goes is probably OK for now, but not really ideal.
-                    s = self.advance(s, store)?;
+                    s = self.advance(s, engine)?;
                 }
             };
         }
     }
 
     pub fn get_state(
-        store: &dyn Store,
+        engine: &dyn SyncEngine,
         global_state: &'state GlobalState,
         root_key: &'state KeyBundle,
     ) -> error::Result<Option<CollState>> {
@@ -158,7 +162,7 @@ impl<'state> LocalCollStateMachine<'state> {
             global_state,
             root_key,
         };
-        gingerbread_man.run_and_run_as_farst_as_you_can(store)
+        gingerbread_man.run_and_run_as_farst_as_you_can(engine)
     }
 }
 
@@ -203,14 +207,14 @@ mod tests {
         }
     }
 
-    struct TestStore {
+    struct TestSyncEngine {
         collection_name: &'static str,
-        assoc: Cell<StoreSyncAssociation>,
+        assoc: Cell<EngineSyncAssociation>,
         num_resets: RefCell<usize>,
     }
 
-    impl TestStore {
-        fn new(collection_name: &'static str, assoc: StoreSyncAssociation) -> Self {
+    impl TestSyncEngine {
+        fn new(collection_name: &'static str, assoc: EngineSyncAssociation) -> Self {
             Self {
                 collection_name,
                 assoc: Cell::new(assoc),
@@ -222,7 +226,7 @@ mod tests {
         }
     }
 
-    impl Store for TestStore {
+    impl SyncEngine for TestSyncEngine {
         fn collection_name(&self) -> std::borrow::Cow<'static, str> {
             self.collection_name.into()
         }
@@ -250,11 +254,11 @@ mod tests {
             unreachable!("these tests shouldn't call these");
         }
 
-        fn get_sync_assoc(&self) -> Result<StoreSyncAssociation> {
-            Ok(self.assoc.replace(StoreSyncAssociation::Disconnected))
+        fn get_sync_assoc(&self) -> Result<EngineSyncAssociation> {
+            Ok(self.assoc.replace(EngineSyncAssociation::Disconnected))
         }
 
-        fn reset(&self, new_assoc: &StoreSyncAssociation) -> Result<()> {
+        fn reset(&self, new_assoc: &EngineSyncAssociation) -> Result<()> {
             self.assoc.replace(new_assoc.clone());
             *self.num_resets.borrow_mut() += 1;
             Ok(())
@@ -269,66 +273,66 @@ mod tests {
     fn test_unknown() {
         let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
-        let store = TestStore::new("unknown", StoreSyncAssociation::Disconnected);
-        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
+        let engine = TestSyncEngine::new("unknown", EngineSyncAssociation::Disconnected);
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "unknown collection name can't sync");
-        assert_eq!(store.get_num_resets(), 0);
+        assert_eq!(engine.get_num_resets(), 0);
     }
 
     #[test]
     fn test_known_no_state() {
         let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
-        let store = TestStore::new("bookmarks", StoreSyncAssociation::Disconnected);
-        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
+        let engine = TestSyncEngine::new("bookmarks", EngineSyncAssociation::Disconnected);
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
-            store.assoc.replace(StoreSyncAssociation::Disconnected),
-            StoreSyncAssociation::Connected(CollSyncIds {
+            engine.assoc.replace(EngineSyncAssociation::Disconnected),
+            EngineSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".into(),
                 coll: "syncIDBBBBBB".into(),
             })
         );
-        assert_eq!(store.get_num_resets(), 1);
+        assert_eq!(engine.get_num_resets(), 1);
     }
 
     #[test]
     fn test_known_wrong_state() {
         let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
-        let store = TestStore::new(
+        let engine = TestSyncEngine::new(
             "bookmarks",
-            StoreSyncAssociation::Connected(CollSyncIds {
+            EngineSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDXXXXXX".into(),
                 coll: "syncIDYYYYYY".into(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
         assert_eq!(
-            store.assoc.replace(StoreSyncAssociation::Disconnected),
-            StoreSyncAssociation::Connected(CollSyncIds {
+            engine.assoc.replace(EngineSyncAssociation::Disconnected),
+            EngineSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".into(),
                 coll: "syncIDBBBBBB".into(),
             })
         );
-        assert_eq!(store.get_num_resets(), 1);
+        assert_eq!(engine.get_num_resets(), 1);
     }
 
     #[test]
     fn test_known_good_state() {
         let root_key = KeyBundle::new_random().expect("should work");
         let gs = get_global_state(&root_key);
-        let store = TestStore::new(
+        let engine = TestSyncEngine::new(
             "bookmarks",
-            StoreSyncAssociation::Connected(CollSyncIds {
+            EngineSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".into(),
                 coll: "syncIDBBBBBB".into(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_some(), "collection can sync");
-        assert_eq!(store.get_num_resets(), 0);
+        assert_eq!(engine.get_num_resets(), 0);
     }
 
     #[test]
@@ -336,15 +340,15 @@ mod tests {
         let root_key = KeyBundle::new_random().expect("should work");
         let mut gs = get_global_state(&root_key);
         gs.global.declined.push("bookmarks".to_string());
-        let store = TestStore::new(
+        let engine = TestSyncEngine::new(
             "bookmarks",
-            StoreSyncAssociation::Connected(CollSyncIds {
+            EngineSyncAssociation::Connected(CollSyncIds {
                 global: "syncIDAAAAAA".into(),
                 coll: "syncIDBBBBBB".into(),
             }),
         );
-        let cs = LocalCollStateMachine::get_state(&store, &gs, &root_key).expect("should work");
+        let cs = LocalCollStateMachine::get_state(&engine, &gs, &root_key).expect("should work");
         assert!(cs.is_none(), "declined collection can sync");
-        assert_eq!(store.get_num_resets(), 0);
+        assert_eq!(engine.get_num_resets(), 0);
     }
 }

@@ -734,13 +734,13 @@ enum TimestampTestType {
 
 fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     use places::api::places_api::ConnectionType;
-    use places::bookmark_sync::store::BookmarksStore;
+    use places::bookmark_sync::engine::BookmarksEngine;
     use places::storage::bookmarks::bookmarks_get_url_for_keyword;
     use places::storage::tags;
     use serde_json::json;
     use std::collections::HashSet;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
-    use sync15::{telemetry, IncomingChangeset, Payload, ServerTimestamp, Store};
+    use sync15::{telemetry, IncomingChangeset, Payload, ServerTimestamp, SyncEngine};
     use url::Url;
 
     let _ = env_logger::try_init();
@@ -846,16 +846,16 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     ];
 
     let interrupt_scope = syncer.begin_interrupt_scope();
-    let store = BookmarksStore::new(&syncer, &interrupt_scope);
+    let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
 
     let mut incoming =
-        IncomingChangeset::new(store.collection_name().to_string(), server_timestamp);
+        IncomingChangeset::new(engine.collection_name().to_string(), server_timestamp);
     for record in records {
         let payload = Payload::from_json(record).unwrap();
         incoming.changes.push((payload, item_server_timestamp));
     }
 
-    let outgoing = store
+    let outgoing = engine
         .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
         .expect("Should apply incoming records");
     let outgoing_ids: HashSet<_> = outgoing

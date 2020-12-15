@@ -4,13 +4,13 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::Opts;
 use anyhow::Result;
 use fxa_client::{self, auth, Config as FxaConfig, FirefoxAccount};
-use logins::PasswordEngine;
+use logins::PasswordStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::sync::Arc;
 use sync15::{KeyBundle, Sync15StorageClientInit};
-use tabs::TabsEngine;
+use tabs::TabsStore;
 use url::Url;
 use viaduct::Request;
 
@@ -223,8 +223,8 @@ pub struct TestClient {
     pub fxa: fxa_client::FirefoxAccount,
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
-    pub logins_engine: PasswordEngine,
-    pub tabs_engine: TabsEngine,
+    pub logins_store: PasswordStore,
+    pub tabs_store: TabsStore,
 }
 
 impl TestClient {
@@ -262,8 +262,8 @@ impl TestClient {
         Ok(Self {
             fxa,
             test_acct: acct,
-            logins_engine: PasswordEngine::new_in_memory(None)?,
-            tabs_engine: TabsEngine::new(),
+            logins_store: PasswordStore::new_in_memory(None)?,
+            tabs_store: TabsStore::new(),
         })
     }
 
@@ -303,8 +303,8 @@ impl TestClient {
 
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
-        self.logins_engine = PasswordEngine::new_in_memory(None)?;
-        self.tabs_engine = TabsEngine::new();
+        self.logins_store = PasswordStore::new_in_memory(None)?;
+        self.tabs_store = TabsStore::new();
         Ok(())
     }
 }

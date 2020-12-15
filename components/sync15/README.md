@@ -9,53 +9,17 @@ There are 2 key concepts to understand here - the implementation itself, and
 a rust trait for a "syncable store" where component-specific logic lives - but
 before we dive into them, some preamble might help put things into context.
 
-## We are bad at names!
+## Nomenclature
 
-Before we start, a quick note on names.
+* The term "store" is generally used as the interface to the database - ie, the
+  thing that gets and saves items. It can also be seen as supplying the API
+  used by most consumers of the component. Note that the "places" component
+  is alone in using the term "api" for this object.
 
-In Desktop Firefox, we have 2 main concepts for syncing - there's a "store"
-(which is an interface to the underlying storage) and an "engine" (the thing
-that interfaces between the "store" and the storage server to do the actual
-syncing). Note that the "store" is an interface to the store, not the store
-itself - eg, the "passwords" store exists in the "sync" directory and is an
-interface to the actual password storage code that exists externally in the
-browser. In other words, the sync functionality and how the data was actually
-stored were completely separate.
-
-The main problem with this is that the real store (ie, the passwords store in
-the browser itself) was typically unaware of sync - sync was bolted on to the
-side, which was undesirable in many ways (eg, knowing when an item was modified
-and thus should be uploaded to the server was problematic)
-
-For the rust components we avoided this mistake - the underlying store was not
-only sync aware, but also took responsibility for syncing that store, as it
-knew best how to manage the data. In other words, each component can be
-considered a "syncable store".
-
-However, we sadly chose to use the name "store" for the part of the component
-that does the syncing. This is OK when only thinking about Sync, but once you
-take a wider view, it becomes problematic - if you talk to (say) Android
-Components about the "password store", they are likely to think about the
-passwords DB and the API Android uses to get or save passwords, and not
-specifically about the thing that *syncs* passwords.
-
-In 2020, we bit the bullet and decided that new components should avoid this
-confusion. Moving forward:
-
-* The term "store" should be used as the interface to the database - ie, the
-  thing that gets and saves items - the thing that an Android Developer using
-  the component is likely to consider the "store". The newer webext-storage and
-  autofill components have used this convention.
-
-* We should reuse the term "engine" (or ideally, "sync engine") to talk about
-  the thing that actually syncs - it's not a great name, but at least it's
-  consistent with desktop.
-
-* We should rename things that are named "Store" in the old components (ie,
-  logins, places, tabs)
-
-So in this document, I'm going to use the term "engine", even though some of
-the code refers to the term "store".
+* The term "engine" (or ideally, "sync engine") is used for the thing that
+  actually does the syncing for a store. Sync engines implement the SyncEngine
+  trait - the trait is either implemented directly by a store, or a new object
+  that has a reference to a store.
 
 ## Introduction and History
 
@@ -119,35 +83,33 @@ does all network interaction (ie, individual engines don't need to interact with
 the network at all), tracks things like whether the server is asking us to
 "backoff" due to operational concerns, manages encryption keys and the
 encryption itself, etc. The general flow of a sync - which interacts with the
-`Store` trait - is:
+`SyncEngine` trait - is:
 
 * Does all pre-sync setup, such as checking `meta/global`, and whether the
   sync IDs on the server match the sync IDs we last saw (ie, to check whether
   something drastic has happened since we last synced)
-* Asks the store about how to formulate the URL query params to obtain the
-  records the store cares about. In most cases, this will simply be "records
+* Asks the engine about how to formulate the URL query params to obtain the
+  records the engine cares about. In most cases, this will simply be "records
   since the last modified timestamp of the last sync".
 * Downloads and decrypts these records.
-* Passes these records to the store for processing, and obtains records that
+* Passes these records to the engine for processing, and obtains records that
   should be uploaded to the server.
 * Encrypts these outgoing records and uploads them.
-* Tells the store about the result of the upload (ie, the last-modified
-  timestamp of the POST so it can be saved as store metadata)
+* Tells the engine about the result of the upload (ie, the last-modified
+  timestamp of the POST so it can be saved as engine metadata)
 
-As above, the sync15 component really only deals with a single store at a time.
-See the "sync manager" for how multiple stores are managed (but the tl;dr is
+As above, the sync15 component really only deals with a single engine at a time.
+See the "sync manager" for how multiple engine are managed (but the tl;dr is
 that the "sync manager" leans on this very heavily, but knows about multiple
-stores and manages shared state)
+engine and manages shared state)
 
-## The `Store` trait
+## The `SyncEngine` trait
 
-The store trait is where all logic specific to a collection lives. A "sync
-engine" implements this "Store" trait to implement actual syncing. As mentioned
-above, to avoid future confusion, this `Store` trait should be renamed to
-`Engine` and this document updated to reflect this.
+The SyncEngine trait is where all logic specific to a collection lives. A "sync
+engine" implements (or provides) this trait to implement actual syncing.
 
 For <handwave> reasons, it actually lives in the
-[sync-traits helper](https://github.com/mozilla/application-services/blob/main/components/support/sync15-traits/src/store.rs)
+[sync-traits helper](https://github.com/mozilla/application-services/blob/main/components/support/sync15-traits/src/engine.rs)
 but for the purposes of this document, you should consider it as owned by sync15.
 
 This is actually quite a simple trait - at a high level, it's really just
