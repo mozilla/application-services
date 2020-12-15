@@ -1,11 +1,20 @@
 # Unreleased changes
+
 ## What's New
- - Split up `NimbusClient.update_experiments()` into a slow `NimbusClient.fetch_experiments()` and a fast `NimbusClient.apply_pending_experiments()` to help apps manage concurrency and mutable state.
- - Add `set_local_experiments(string)`, to help apps, build tooling for tests, and help during startup on first time run.
+
+- Split up `NimbusClient.update_experiments()` into a slow `NimbusClient.fetch_experiments()`
+  and a fast `NimbusClient.apply_pending_experiments()` to help apps manage concurrency and
+  mutable state.
+- Add `set_local_experiments(string)`, to help apps, build tooling for tests, and help during
+  startup on first time run.
+- A new `reset_telemetry_identifiers` method has been added; consumers should arrange to call
+  this method if the user opts out of telemetry at the application level, in order to avoid
+  accidental tracking of users who disable then re-enable telemetry.
 
 ## ⚠️ Breaking changes ⚠️
- - `NimbusClient.updateExperiments()` is removed.
- - Renamed `InvalidExperimentResponse` error to `InvalidExperimentFormat`.
+- `NimbusClient.updateExperiments()` is removed.
+- Renamed `InvalidExperimentResponse` error to `InvalidExperimentFormat`.
+
 # 0.6.4 (_2020-12-16_)
 
 ## What's New
