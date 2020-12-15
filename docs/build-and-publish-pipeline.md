@@ -78,7 +78,7 @@ For iOS consumers the corresponding steps are:
 4. CircleCI runs Carthage to assemble a zipfile of built frameworks.
     * TODO: could a malicious dev dependency from step (3) influence the build environment here?
 5. CircleCI uses [dpl](https://github.com/travis-ci/dpl) to publish to GitHub as a release artifact.
-    * CircleCI config contains a github token with appropriate permissions to add release artifacts.
+    * CircleCI config contains a github token (owned by the @appsvc-moz GitHub account) with appropriate permissions to add release artifacts.
 6. Consumers fetch the published artifacts from GitHub during their build process,
    using Carthage.
 
