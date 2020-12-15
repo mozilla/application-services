@@ -24,15 +24,19 @@
 ## ⚠️ Breaking changes ⚠️
 
 - Removed `NimbusClient.resetEnrollment`.
-- `NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}` now return a list of telemetry events.
-  Consumers should forward these events to their telemetry system (e.g. via Glean).
-- Removed implicit fetch of experiments on first use of the database. Consumers now must
-  call update_experiments explicitly in order to fetch experiments from the Remote Settings
-  server.
+- `NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}`
+  now return a list of telemetry events. Consumers should forward these events to their
+  telemetry system (e.g. via Glean).
+
+# 0.5.2 (_2020-12-10)
 
 ## What's Changed
 
+- Add filtering on application id.
 - Addition of schema version to the schema, and validation of supported versions by the SDK.
+- Removed implicit fetch of experiments on first use of the database. Consumers now must
+  call update_experiments explicitly in order to fetch experiments from the Remote Settings
+  server.
 
 # 0.5.1 (_2020-11-10)
 
