@@ -39,6 +39,15 @@ jobs:
             else
               echo Skipping rustfmt
             fi
+      - run:
+          name: Check clippy lints
+          command: |
+            if rustup component add clippy; then
+              cd nimbus && cargo clippy --all --all-targets --all-features -- -D warnings
+            else
+              echo Skipping clippy lints
+            fi
+
   coverage:
     machine: true
     steps:

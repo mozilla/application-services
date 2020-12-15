@@ -158,7 +158,7 @@ fn main() -> Result<()> {
     let client_id = config
         .get("client_id")
         .map(|v| v.to_string())
-        .unwrap_or("no-client-id-specified".to_string());
+        .unwrap_or_else(|| "no-client-id-specified".to_string());
     log::info!("Client ID is {}", client_id);
 
     let bucket_name = match config.get("bucket_name") {
