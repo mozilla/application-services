@@ -1838,7 +1838,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-sdk"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "anyhow",
  "hex",
@@ -3610,9 +3610,9 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uniffi"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "132d23babe7b144ff163c5e31a2eea6cba6448869ad9437ac86a0f76a9d9a43b"
+checksum = "60bd4038c821fae973a6556f969336343ba17120c7d8977d5860630fb66c48c7"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3625,9 +3625,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "461d2f583e03ef11f3c40b9c0e335f7dbdce489a551077e8d4979a1f67981d80"
+checksum = "c4a1ab88d8779722b4c9575dda4dd7f1174dbcafa08a8b528b7334c84b250114"
 dependencies = [
  "anyhow",
  "askama",
@@ -3641,9 +3641,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f43d7eb2adf2bbe3d7334042e33ac596cd56c412afe520d27892387f247a944"
+checksum = "38d7c5eec61b0c0a45644e0e616fb7987fff873636d9b77ce4cf7f8db2c50137"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
