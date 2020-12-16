@@ -3,7 +3,6 @@
 [Full Changelog](https://github.com/mozilla/application-services/compare/v68.0.0...v68.1.0)
 
 ## General
-[Full Changelog](https://github.com/mozilla/application-services/compare/v68.1.0...main)
 
 ### What's Changed
 
