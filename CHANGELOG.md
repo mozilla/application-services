@@ -1,3 +1,16 @@
+# v68.1.0 (_2020-12-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v68.0.0...v68.1.0)
+
+## General
+[Full Changelog](https://github.com/mozilla/application-services/compare/v68.1.0...main)
+
+### What's Changed
+
+- The bundled version of Nimbus SDK has been updated to v0.6.4.
+- The internal traits used by `sync15` have been renamed for consistency and clarity
+  (and the README has been updated with docs to help explain them).
+
 # v68.0.0 (_2020-12-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v67.1.0...v68.0.0)
