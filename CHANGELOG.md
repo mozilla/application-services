@@ -1,25 +1,34 @@
 # Unreleased changes
 
-# 0.6.3 (_2020-12-09)
+# 0.6.4 (_2020-12-16_)
+
+## What's New
+
+- Added backoff and retry support.
+
+## What's Fixed
+
+- Added db upgrade mechanism.
+
+# 0.6.3 (_2020-12-09_)
 
 ## What's Fixed
 
 - The uniffi-generated Kotlin bindings now compile correctly, thanks to an update to uniffi.
 
-# 0.6.2 (_2020-12-08)
+# 0.6.2 (_2020-12-08_)
 
 ## What's Fixed
 
 - Removed unused `enrollment_id()` method, to silence dead-code warning when compiling in release mode.
 
-# 0.6.1 (_2020-12-08)
+# 0.6.1 (_2020-12-08_)
 
 ## What's Fixed
 
 - Fixed spurious dead-code warning when compiling in release mode.
 
-
-# 0.6.0 (_2020-12-08)
+# 0.6.0 (_2020-12-08_)
 
 ## ⚠️ Breaking changes ⚠️
 
@@ -28,7 +37,7 @@
   now return a list of telemetry events. Consumers should forward these events to their
   telemetry system (e.g. via Glean).
 
-# 0.5.2 (_2020-12-10)
+# 0.5.2 (_2020-12-10_)
 
 ## What's Changed
 
@@ -38,13 +47,13 @@
   call update_experiments explicitly in order to fetch experiments from the Remote Settings
   server.
 
-# 0.5.1 (_2020-11-10)
+# 0.5.1 (_2020-11-10_)
 
 ## What's Changed
 
 - Fix the version number in `Cargo.lock`.
 
-# 0.5.0 (_2020-11-10)
+# 0.5.0 (_2020-11-10_)
 
 ## What's New
 
@@ -59,15 +68,13 @@
   this can be disabled at build time by disabling the
   `rkv-safe-mode` feature.
 
-
-# 0.4.0 (_2020-11-06)
+# 0.4.0 (_2020-11-06_)
 
 ## What's Changed
 
 - Removed use of unsigned types from the Kotlin API, since these
   are experimental and require opt-in from consuming apps.
 - Fixed various warnings when compiling the Rust code.
-
 
 # 0.3.0 (_2020-10-27_)
 
