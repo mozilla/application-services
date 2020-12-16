@@ -17,7 +17,7 @@ Steps:
     * `git push -u origin release-vX.Y.Z`
 2. Update `CHANGELOG.md` as noted above, and commit your changes.
 3. Run `cargo release --dry-run -vv [major|minor|patch]` and check that the things
-   it is proposing to do seem reasonable.
+   it is proposing to do seem reasonable. (note that this requires [cargo-release](https://lib.rs/crates/cargo-release))
 4. Run `cargo release [major|minor|patch]` to publish the release to github.
 5. Make a PR from your branch to request it be merged to the main branch.
 
