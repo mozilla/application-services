@@ -29,6 +29,13 @@ Ensure this section works for you before jumping to the Android/iOS specific sec
 
 Note that we have a guide if you happen to use [WSL](howtos/wsl-build-guide.md).
 
+Ensure you have fetched the submodules first:
+
+```
+git submodule init
+git submodule update --recursive
+```
+
 The following command will ensure your environment variables are set properly and build the dependencies needed by the project:
 
 ```
