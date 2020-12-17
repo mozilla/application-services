@@ -77,9 +77,6 @@ char *_Nullable fxa_get_session_token(FirefoxAccountHandle handle,
 void fxa_clear_access_token_cache(FirefoxAccountHandle handle,
                                   FxAError *_Nonnull out);
 
-char *_Nullable fxa_get_ecosystem_anon_id(FirefoxAccountHandle handle,
-                                          FxAError *_Nonnull out);
-
 void fxa_handle_session_token_change(FirefoxAccountHandle handle,
                                      const char *_Nonnull new_session_token,
                                      FxAError *_Nonnull out);

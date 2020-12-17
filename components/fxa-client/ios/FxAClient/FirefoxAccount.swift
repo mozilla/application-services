@@ -126,16 +126,4 @@ open class FirefoxAccount: RustFxAccount {
             }
         }
     }
-
-    /// Fetch the AET (Account Ecosystem Telemetry) anonymized user ID.
-    open func getEcosystemAnonId(completionHandler: @escaping (String?, Error?) -> Void) {
-        DispatchQueue.global().async {
-            do {
-                let ecosystemAnonId = try super.getEcosystemAnonId()
-                DispatchQueue.main.async { completionHandler(ecosystemAnonId, nil) }
-            } catch {
-                DispatchQueue.main.async { completionHandler(nil, error) }
-            }
-        }
-    }
 }

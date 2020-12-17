@@ -102,7 +102,6 @@ impl FirefoxAccount {
             last_seen_profile: None,
             access_token_cache: HashMap::new(),
             in_flight_migration: None,
-            ecosystem_user_id: None,
         })
     }
 

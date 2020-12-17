@@ -99,7 +99,6 @@ mod tests {
                     display_name: None,
                     avatar: "".into(),
                     avatar_default: true,
-                    ecosystem_anon_id: None,
                 },
                 cached_at: util::now(),
                 etag: "fake etag".into(),
@@ -137,7 +136,6 @@ mod tests {
                     display_name: None,
                     avatar: "https://foo.avatar".to_string(),
                     avatar_default: true,
-                    ecosystem_anon_id: None,
                 },
                 etag: None,
             })));
@@ -216,7 +214,6 @@ mod tests {
                     display_name: None,
                     avatar: "https://foo.avatar".to_string(),
                     avatar_default: true,
-                    ecosystem_anon_id: None,
                 },
                 etag: None,
             })));
