@@ -20,7 +20,9 @@ use viaduct::{header_names, status_codes, Headers, Request};
 use crate::config::PushConfiguration;
 use crate::error::{
     self,
-    ErrorKind::{AlreadyRegisteredError, CommunicationError, CommunicationServerError},
+    ErrorKind::{
+        AlreadyRegisteredError, CommunicationError, CommunicationServerError, EndpointRegistrationError,
+    },
 };
 use crate::storage::Store;
 
@@ -200,9 +202,7 @@ impl Connection for ConnectHttp {
         {
             Ok(v) => v,
             Err(e) => {
-                return Err(
-                    CommunicationServerError(format!("Could not fetch endpoint: {}", e)).into(),
-                );
+                return Err(EndpointRegistrationError(format!("Could not fetch endpoint: {}", e)).into());
             }
         };
         if requested.is_server_error() {

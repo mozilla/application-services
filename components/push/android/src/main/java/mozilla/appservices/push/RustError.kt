@@ -27,6 +27,7 @@ open class TranscodingError(msg: String) : PushError(msg)
 open class RecordNotFoundError(msg: String) : PushError(msg)
 open class UrlParseError(msg: String) : PushError(msg)
 open class GeneralError(msg: String) : PushError(msg)
+open class EndpointRegistrationError(msg: String) : PushError(msg)
 
 /**
  * This should be considered private, but it needs to be public for JNA.
@@ -73,6 +74,7 @@ open class RustError : Structure() {
             31 -> return TranscodingError(message)
             32 -> return RecordNotFoundError(message)
             33 -> return UrlParseError(message)
+            34 -> return EndpointRegistrationError(message)
             -1 -> return InternalPanic(message)
             // Note: `1` is used as a generic catch all, but we
             // might as well handle the others the same way.

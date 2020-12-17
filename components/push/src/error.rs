@@ -56,6 +56,10 @@ pub enum ErrorKind {
     /// A failure to parse a URL.
     #[error("URL parse error: {0:?}")]
     UrlParseError(#[from] url::ParseError),
+
+    /// An error if the endpoint could not be fetched
+    #[error("Endpoint Error: {0:?}")]
+    EndpointRegistrationError(String),
 }
 
 // Note, be sure to duplicate errors in the Kotlin side
@@ -74,6 +78,7 @@ impl ErrorKind {
             ErrorKind::TranscodingError(_) => 31,
             ErrorKind::RecordNotFoundError(_, _) => 32,
             ErrorKind::UrlParseError(_) => 33,
+            ErrorKind::EndpointRegistrationError(_) => 34,
         };
         ffi_support::ErrorCode::new(code)
     }
