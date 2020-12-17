@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, error::*};
-use jwcrypto::Jwk;
 use rc_crypto::{
     digest,
     hawk::{Credentials, Key, PayloadHasher, RequestBuilder, SHA256},
@@ -74,12 +73,6 @@ pub(crate) trait FxAClient {
         profile_access_token: &str,
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>>;
-    fn set_ecosystem_anon_id(
-        &self,
-        config: &Config,
-        access_token: &str,
-        ecosystem_anon_id: &str,
-    ) -> Result<()>;
     fn pending_commands(
         &self,
         config: &Config,
@@ -165,25 +158,6 @@ impl FxAClient for Client {
             etag,
             response: resp.json()?,
         }))
-    }
-
-    fn set_ecosystem_anon_id(
-        &self,
-        config: &Config,
-        access_token: &str,
-        ecosystem_anon_id: &str,
-    ) -> Result<()> {
-        let url = config.profile_url_path("v1/ecosystem_anon_id")?;
-        let body = json!({
-            "ecosystemAnonId": ecosystem_anon_id,
-        });
-        let request = Request::post(url)
-            .header(header_names::AUTHORIZATION, bearer_token(access_token))?
-            // If-none-match prevents us from overwriting an already set value.
-            .header(header_names::IF_NONE_MATCH, "*")?
-            .body(body.to_string());
-        self.make_request(request)?;
-        Ok(())
     }
 
     // For the one-off generation of a `refresh_token` and associated meta from transient credentials.
@@ -685,8 +659,6 @@ pub(crate) struct ClientConfigurationResponse {
     pub(crate) oauth_server_base_url: String,
     pub(crate) profile_server_base_url: String,
     pub(crate) sync_tokenserver_base_url: String,
-    // XXX: Remove Option once all prod servers have this field.
-    pub(crate) ecosystem_anon_id_keys: Option<Vec<Jwk>>,
 }
 
 #[derive(Deserialize)]
@@ -954,7 +926,6 @@ pub struct ProfileResponse {
     pub display_name: Option<String>,
     pub avatar: String,
     pub avatar_default: bool,
-    pub ecosystem_anon_id: Option<String>,
 }
 
 #[derive(Deserialize)]

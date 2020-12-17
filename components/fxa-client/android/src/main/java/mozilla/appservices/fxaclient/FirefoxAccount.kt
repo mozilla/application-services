@@ -210,15 +210,6 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         return getProfile(false)
     }
 
-    fun getEcosystemAnonId(): String {
-        return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_get_ecosystem_anon_id(
-                this.handle.get(),
-                e
-            )
-        }.getAndConsumeRustString()
-    }
-
     /**
      * Fetches the token server endpoint, for authenticating to Firefox Sync via OAuth.
      *
