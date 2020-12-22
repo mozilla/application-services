@@ -4,11 +4,11 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use tabs::{ClientRemoteTabs, DeviceType, RemoteTab, TabsEngine};
+use tabs::{ClientRemoteTabs, DeviceType, RemoteTab, TabsStore};
 // helpers...
 
-pub fn verify_tabs(tabs_engine: &TabsEngine, expected: &ClientRemoteTabs) {
-    let remote_tabs = tabs_engine
+pub fn verify_tabs(tabs_store: &TabsStore, expected: &ClientRemoteTabs) {
+    let remote_tabs = tabs_store
         .remote_tabs()
         .expect("should have synced already");
     let equivalent = remote_tabs
@@ -35,7 +35,7 @@ pub fn assert_remote_tabs_equiv(l: &ClientRemoteTabs, r: &ClientRemoteTabs) {
 
 pub fn sync_tabs(client: &mut TestClient) -> Result<()> {
     let (init, key, device_id) = client.data_for_sync()?;
-    client.tabs_engine.sync(&init, &key, &device_id)?;
+    client.tabs_store.sync(&init, &key, &device_id)?;
     Ok(())
 }
 
@@ -50,13 +50,13 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
         title: "Welcome to Bobo".to_owned(),
         url_history: vec!["https://bobo.moz".to_owned()],
     };
-    c0.tabs_engine.update_local_state(vec![t0.clone()]);
+    c0.tabs_store.update_local_state(vec![t0.clone()]);
 
     sync_tabs(c0).expect("c0 sync to work");
     sync_tabs(c1).expect("c1 sync to work");
 
     verify_tabs(
-        &c1.tabs_engine,
+        &c1.tabs_store,
         &ClientRemoteTabs {
             client_id: c0.fxa.get_current_device_id().unwrap(),
             client_name: String::new(),
@@ -78,14 +78,14 @@ fn test_tabs(c0: &mut TestClient, c1: &mut TestClient) {
         url_history: vec!["https://bar.org".to_owned()],
     };
 
-    c1.tabs_engine
+    c1.tabs_store
         .update_local_state(vec![t1.clone(), t2.clone()]);
 
     sync_tabs(c1).expect("c1 sync to work");
     sync_tabs(c0).expect("c0 sync to work");
 
     verify_tabs(
-        &c0.tabs_engine,
+        &c0.tabs_store,
         &ClientRemoteTabs {
             client_id: c1.fxa.get_current_device_id().unwrap(),
             client_name: String::new(),

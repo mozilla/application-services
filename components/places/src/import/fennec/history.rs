@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::api::places_api::PlacesApi;
-use crate::bookmark_sync::store::BookmarksStore;
+use crate::bookmark_sync::engine::BookmarksEngine;
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::attached_database;
@@ -83,8 +83,8 @@ fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<History
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    let store = BookmarksStore::new(&conn, &scope);
-    store.update_frecencies()?;
+    let engine = BookmarksEngine::new(&conn, &scope);
+    engine.update_frecencies()?;
 
     log::info!("Successfully imported history visits!");
 

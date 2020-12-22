@@ -8,10 +8,10 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 
-use logins::{Login, PasswordEngine};
+use logins::{Login, PasswordStore};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
-use sync15::StoreSyncAssociation;
+use sync15::EngineSyncAssociation;
 use sync_guid::Guid;
 
 // I'm completely punting on good error handling here.
@@ -117,9 +117,9 @@ fn timestamp_to_string(milliseconds: i64) -> String {
     dtl.format("%l:%M:%S %p%n%h %e, %Y").to_string()
 }
 
-fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
+fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
     use rusqlite::types::Value;
-    let conn = e.conn();
+    let conn = s.conn();
     let mut stmt = conn.prepare(sql)?;
     let cols: Vec<String> = stmt
         .column_names()
@@ -155,8 +155,8 @@ fn show_sql(e: &PasswordEngine, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(engine: &PasswordEngine) -> Result<Vec<Guid>> {
-    let records = engine.list()?;
+fn show_all(store: &PasswordStore) -> Result<Vec<Guid>> {
+    let records = store.list()?;
 
     let mut table = prettytable::Table::new();
 
@@ -211,8 +211,8 @@ fn show_all(engine: &PasswordEngine) -> Result<Vec<Guid>> {
     Ok(v)
 }
 
-fn prompt_record_id(e: &PasswordEngine, action: &str) -> Result<Option<String>> {
-    let index_to_id = show_all(e)?;
+fn prompt_record_id(s: &PasswordStore, action: &str) -> Result<Option<String>> {
+    let index_to_id = show_all(s)?;
     let input = if let Some(input) = prompt_usize(&format!("Enter (idx) of record to {}", action)) {
         input
     } else {
@@ -280,11 +280,11 @@ fn main() -> Result<()> {
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
-    let engine = PasswordEngine::new(db_path, Some(encryption_key))?;
+    let store = PasswordStore::new(db_path, Some(encryption_key))?;
 
-    log::info!("Engine has {} passwords", engine.list()?.len());
+    log::info!("Store has {} passwords", store.list()?.len());
 
-    if let Err(e) = show_all(&engine) {
+    if let Err(e) = show_all(&store) {
         log::warn!("Failed to show initial login data! {}", e);
     }
 
@@ -293,15 +293,15 @@ fn main() -> Result<()> {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
-                if let Err(e) = engine.add(record) {
+                if let Err(e) = store.add(record) {
                     log::warn!("Failed to create record! {}", e);
                 }
             }
             'D' | 'd' => {
                 log::info!("Deleting record");
-                match prompt_record_id(&engine, "delete") {
+                match prompt_record_id(&store, "delete") {
                     Ok(Some(id)) => {
-                        if let Err(e) = engine.delete(&id) {
+                        if let Err(e) = store.delete(&id) {
                             log::warn!("Failed to delete record! {}", e);
                         }
                     }
@@ -313,12 +313,12 @@ fn main() -> Result<()> {
             }
             'U' | 'u' => {
                 log::info!("Updating record fields");
-                match prompt_record_id(&engine, "update") {
+                match prompt_record_id(&store, "update") {
                     Err(e) => {
                         log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
-                        let mut login = match engine.get(&id) {
+                        let mut login = match store.get(&id) {
                             Ok(Some(login)) => login,
                             Ok(None) => {
                                 log::warn!("No such login!");
@@ -330,7 +330,7 @@ fn main() -> Result<()> {
                             }
                         };
                         update_login(&mut login);
-                        if let Err(e) = engine.update(login) {
+                        if let Err(e) = store.update(login) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }
@@ -339,19 +339,19 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                if let Err(e) = engine.db.reset(&StoreSyncAssociation::Disconnected) {
+                if let Err(e) = store.db.reset(&EngineSyncAssociation::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }
             }
             'W' | 'w' => {
                 log::info!("Wiping all data from client!");
-                if let Err(e) = engine.wipe() {
+                if let Err(e) = store.wipe() {
                     log::warn!("Failed to wipe! {}", e);
                 }
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match engine.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key) {
+                match store.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                         log::warn!("BT: {:?}", e.backtrace());
@@ -363,14 +363,14 @@ fn main() -> Result<()> {
                 }
             }
             'V' | 'v' => {
-                if let Err(e) = show_all(&engine) {
+                if let Err(e) = show_all(&store) {
                     log::warn!("Failed to dump passwords? This is probably bad! {}", e);
                 }
             }
             'B' | 'b' => {
                 log::info!("Base Domain search");
                 if let Some(basedomain) = prompt_string("Base domain (one line only, press enter when done):\n") {
-                    match engine.get_by_base_domain(&basedomain) {
+                    match store.get_by_base_domain(&basedomain) {
                         Err(e) => {
                             log::warn!("Base domain lookup failed! {}", e);
                             log::warn!("BT: {:?}", e.backtrace());
@@ -383,12 +383,12 @@ fn main() -> Result<()> {
             }
             'T' | 't' => {
                 log::info!("Touching (bumping use count) for a record");
-                match prompt_record_id(&engine, "update") {
+                match prompt_record_id(&store, "update") {
                     Err(e) => {
                         log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
-                        if let Err(e) = engine.touch(&id) {
+                        if let Err(e) = store.touch(&id) {
                             log::warn!("Failed to touch record! {}", e);
                         }
                     }
@@ -398,7 +398,7 @@ fn main() -> Result<()> {
             'x' | 'X' => {
                 log::info!("Running arbitrary SQL, there's no way this could go wrong!");
                 if let Some(sql) = prompt_string("SQL (one line only, press enter when done):\n") {
-                    if let Err(e) = show_sql(&engine, &sql) {
+                    if let Err(e) = show_sql(&store, &sql) {
                         log::warn!("Failed to run sql query: {}", e);
                     }
                 }

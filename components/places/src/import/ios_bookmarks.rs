@@ -4,7 +4,7 @@
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::{
-    store::{BookmarksStore, Merger},
+    engine::{BookmarksEngine, Merger},
     SyncedBookmarkKind,
 };
 use crate::error::*;
@@ -140,8 +140,8 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // drop(auto_detach);
     // scope.err_if_interrupted()?;
 
-    let store = BookmarksStore::new(&conn, &scope);
-    let mut merger = Merger::new(&store, Default::default());
+    let engine = BookmarksEngine::new(&conn, &scope);
+    let mut merger = Merger::new(&engine, Default::default());
     // We're already in a transaction.
     merger.set_external_transaction(true);
     log::debug!("Merging with local records");
@@ -160,7 +160,7 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    store.update_frecencies()?;
+    engine.update_frecencies()?;
 
     log::info!("Successfully imported bookmarks!");
 

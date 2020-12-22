@@ -5,8 +5,10 @@
 use crate::error::*;
 use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe, wipe_all};
-use logins::PasswordEngine;
-use places::{bookmark_sync::store::BookmarksStore, history_sync::store::HistoryStore, PlacesApi};
+use logins::PasswordStore;
+use places::{
+    bookmark_sync::engine::BookmarksEngine, history_sync::engine::HistoryEngine, PlacesApi,
+};
 use std::collections::{HashMap, HashSet};
 use std::sync::{atomic::AtomicUsize, Arc, Mutex, Weak};
 use std::time::SystemTime;
@@ -15,7 +17,7 @@ use sync15::{
     clients::{self, Command, CommandProcessor, CommandStatus, Settings},
     MemoryCachedState,
 };
-use tabs::TabsEngine;
+use tabs::TabsStore;
 
 const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
@@ -36,8 +38,8 @@ const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
     places: Weak<PlacesApi>,
-    logins: Weak<Mutex<PasswordEngine>>,
-    tabs: Weak<Mutex<TabsEngine>>,
+    logins: Weak<Mutex<PasswordStore>>,
+    tabs: Weak<Mutex<TabsStore>>,
 }
 
 impl SyncManager {
@@ -54,11 +56,11 @@ impl SyncManager {
         self.places = Arc::downgrade(&places);
     }
 
-    pub fn set_logins(&mut self, logins: Arc<Mutex<PasswordEngine>>) {
+    pub fn set_logins(&mut self, logins: Arc<Mutex<PasswordStore>>) {
         self.logins = Arc::downgrade(&logins);
     }
 
-    pub fn set_tabs(&mut self, tabs: Arc<Mutex<TabsEngine>>) {
+    pub fn set_tabs(&mut self, tabs: Arc<Mutex<TabsStore>>) {
         self.tabs = Arc::downgrade(&tabs);
     }
 
@@ -268,9 +270,9 @@ impl SyncManager {
 
         let mut mem_cached_state = self.mem_cached_state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
-        // `sync_multiple` takes a &[&dyn Store], but we need something to hold
-        // ownership of our stores.
-        let mut stores: Vec<Box<dyn sync15::Store>> = vec![];
+        // `sync_multiple` takes a &[&dyn Engine], but we need something to hold
+        // ownership of our engines.
+        let mut engines: Vec<Box<dyn sync15::SyncEngine>> = vec![];
 
         if let Some(pc) = places_conn.as_ref() {
             assert!(
@@ -278,24 +280,24 @@ impl SyncManager {
                 "Should have already checked"
             );
             if history_sync {
-                stores.push(Box::new(HistoryStore::new(pc, &interruptee)))
+                engines.push(Box::new(HistoryEngine::new(pc, &interruptee)))
             }
             if bookmarks_sync {
-                stores.push(Box::new(BookmarksStore::new(pc, &interruptee)))
+                engines.push(Box::new(BookmarksEngine::new(pc, &interruptee)))
             }
         }
 
         if let Some(le) = l.as_ref() {
             assert!(logins_sync, "Should have already checked");
-            stores.push(Box::new(logins::LoginStore::new(&le.db)));
+            engines.push(Box::new(logins::LoginStore::new(&le.db)));
         }
 
         if let Some(tbs) = t.as_ref() {
             assert!(tabs_sync, "Should have already checked");
-            stores.push(Box::new(tabs::TabsStore::new(&tbs.storage)));
+            engines.push(Box::new(tabs::TabsEngine::new(&tbs.storage)));
         }
 
-        let store_refs: Vec<&dyn sync15::Store> = stores.iter().map(|s| &**s).collect();
+        let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
 
         let client_init = sync15::Sync15StorageClientInit {
             key_id: params.acct_key_id.clone(),
@@ -329,7 +331,7 @@ impl SyncManager {
         let c = SyncClient::new(settings);
         let result = sync15::sync_multiple_with_command_processor(
             Some(&c),
-            &store_refs,
+            &engine_refs,
             &mut disk_cached_state,
             &mut mem_cached_state,
             &client_init,

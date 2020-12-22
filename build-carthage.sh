@@ -15,6 +15,9 @@ esac; done
 
 set -vx
 
+XCODE_XCCONFIG_FILE=$(pwd)/xcconfig/xcode-12-fix-carthage-lipo.xcconfig
+export XCODE_XCCONFIG_FILE
+
 carthage bootstrap --platform iOS --cache-builds
 
 set -o pipefail && \

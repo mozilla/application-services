@@ -2,17 +2,17 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// This helps you perform a sync of multiple stores and helps you manage
+// This helps you perform a sync of multiple engines and helps you manage
 // global and local state between syncs.
 
 use crate::client::{BackoffListener, Sync15StorageClient, Sync15StorageClientInit};
 use crate::clients::{self, CommandProcessor, CLIENTS_TTL_REFRESH};
-use crate::coll_state::StoreSyncAssociation;
+use crate::coll_state::EngineSyncAssociation;
 use crate::error::Error;
 use crate::key_bundle::KeyBundle;
 use crate::state::{EngineChangesNeeded, GlobalState, PersistedGlobalState, SetupStateMachine};
 use crate::status::{ServiceStatus, SyncResult};
-use crate::sync::{self, Store};
+use crate::sync::{self, SyncEngine};
 use crate::telemetry;
 use interrupt_support::Interruptee;
 use std::collections::HashMap;
@@ -39,14 +39,14 @@ impl ClientInfo {
     }
 }
 
-/// Info we want callers to store *in memory* for us so that subsequent
+/// Info we want callers to engine *in memory* for us so that subsequent
 /// syncs are faster. This should never be persisted to storage as it holds
 /// sensitive information, such as the sync decryption keys.
 #[derive(Debug, Default)]
 pub struct MemoryCachedState {
     last_client_info: Option<ClientInfo>,
     last_global_state: Option<GlobalState>,
-    // These are just stored in memory, as persisting an invalid value far in the
+    // These are just engined in memory, as persisting an invalid value far in the
     // future has the potential to break sync for good.
     next_sync_after: Option<SystemTime>,
     next_client_refresh_after: Option<SystemTime>,
@@ -75,8 +75,8 @@ impl MemoryCachedState {
     }
 }
 
-/// Sync multiple stores
-/// * `stores` - The stores to sync
+/// Sync multiple engines
+/// * `engines` - The engines to sync
 /// * `persisted_global_state` - The global state to use, or None if never
 ///   before provided. At the end of the sync, and even when the sync fails,
 ///   the value in this cell should be persisted to permanent storage and
@@ -88,12 +88,12 @@ impl MemoryCachedState {
 ///   configured.
 /// * `root_sync_key` - The KeyBundle used for encryption.
 ///
-/// Returns a map, keyed by name and holding an error value - if any store
-/// fails, the sync will continue on to other stores, but the error will be
-/// places in this map. The absence of a name in the map implies the store
+/// Returns a map, keyed by name and holding an error value - if any engine
+/// fails, the sync will continue on to other engines, but the error will be
+/// places in this map. The absence of a name in the map implies the engine
 /// succeeded.
 pub fn sync_multiple(
-    stores: &[&dyn Store],
+    engines: &[&dyn SyncEngine],
     persisted_global_state: &mut Option<String>,
     mem_cached_state: &mut MemoryCachedState,
     storage_init: &Sync15StorageClientInit,
@@ -103,7 +103,7 @@ pub fn sync_multiple(
 ) -> SyncResult {
     sync_multiple_with_command_processor(
         None,
-        stores,
+        engines,
         persisted_global_state,
         mem_cached_state,
         storage_init,
@@ -119,7 +119,7 @@ pub fn sync_multiple(
 #[allow(clippy::too_many_arguments)]
 pub fn sync_multiple_with_command_processor(
     command_processor: Option<&dyn CommandProcessor>,
-    stores: &[&dyn Store],
+    engines: &[&dyn SyncEngine],
     persisted_global_state: &mut Option<String>,
     mem_cached_state: &mut MemoryCachedState,
     storage_init: &Sync15StorageClientInit,
@@ -127,20 +127,20 @@ pub fn sync_multiple_with_command_processor(
     interruptee: &dyn Interruptee,
     req_info: Option<SyncRequestInfo<'_>>,
 ) -> SyncResult {
-    log::info!("Syncing {} stores", stores.len());
+    log::info!("Syncing {} engines", engines.len());
     let mut sync_result = SyncResult {
         service_status: ServiceStatus::OtherError,
         result: Ok(()),
         declined: None,
         next_sync_after: None,
-        engine_results: HashMap::with_capacity(stores.len()),
+        engine_results: HashMap::with_capacity(engines.len()),
         telemetry: telemetry::SyncTelemetryPing::new(),
     };
     let backoff = crate::client::new_backoff_listener();
     let req_info = req_info.unwrap_or_default();
     let driver = SyncMultipleDriver {
         command_processor,
-        stores,
+        engines,
         storage_init,
         interruptee,
         engines_to_state_change: req_info.engines_to_state_change,
@@ -189,7 +189,7 @@ pub struct SyncRequestInfo<'a> {
 // The sync multiple driver
 struct SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
     command_processor: Option<&'info dyn CommandProcessor>,
-    stores: &'info [&'info dyn Store],
+    engines: &'info [&'info dyn SyncEngine],
     storage_init: &'info Sync15StorageClientInit,
     root_sync_key: &'info KeyBundle,
     interruptee: &'info dyn Interruptee,
@@ -225,7 +225,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         }
 
         // Set the service status to OK here - we may adjust it based on an individual
-        // store failing.
+        // engine failing.
         self.result.service_status = ServiceStatus::Ok;
 
         let clients_engine = if let Some(command_processor) = self.command_processor {
@@ -261,12 +261,13 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             None
         };
 
-        log::info!("Synchronizing stores");
+        log::info!("Synchronizing engines");
 
-        let telem_sync = self.sync_stores(&client_info, &mut global_state, clients_engine.as_ref());
+        let telem_sync =
+            self.sync_engines(&client_info, &mut global_state, clients_engine.as_ref());
         self.result.telemetry.sync(telem_sync);
 
-        log::info!("Finished syncing stores.");
+        log::info!("Finished syncing engines.");
 
         if !self.saw_auth_error {
             log::trace!("Updating persisted global state");
@@ -287,15 +288,15 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         }
     }
 
-    fn sync_stores(
+    fn sync_engines(
         &mut self,
         client_info: &ClientInfo,
         global_state: &mut GlobalState,
         clients: Option<&clients::Engine<'_>>,
     ) -> telemetry::SyncTelemetry {
         let mut telem_sync = telemetry::SyncTelemetry::new();
-        for store in self.stores {
-            let name = store.collection_name();
+        for engine in self.engines {
+            let name = engine.collection_name();
             if self
                 .backoff
                 .get_required_wait(self.ignore_soft_backoff)
@@ -316,7 +317,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
                 &global_state,
                 self.root_sync_key,
                 clients,
-                *store,
+                *engine,
                 true,
                 &mut telem_engine,
                 self.interruptee,
@@ -332,8 +333,8 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
                     self.saw_auth_error =
                         self.saw_auth_error || this_status == ServiceStatus::AuthenticationError;
                     telem_engine.failure(e);
-                    // If the failure from the store looks like anything other than
-                    // a "store error" we don't bother trying the others.
+                    // If the failure from the engine looks like anything other than
+                    // a "engine error" we don't bother trying the others.
                     if this_status != ServiceStatus::OtherError {
                         telem_sync.engine(telem_engine);
                         self.result.engine_results.insert(name.into(), result);
@@ -375,7 +376,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         // update the caller's repr of it.
         *self.persisted_global_state = Some(serde_json::to_string(&pgs)?);
 
-        // Now that we've gone through the state machine, store the declined list in
+        // Now that we've gone through the state machine, engine the declined list in
         // the sync_result
         self.result.declined = Some(pgs.get_declined().to_vec());
         log::debug!(
@@ -412,11 +413,11 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             client.wipe_remote_engine(&e)?;
         }
 
-        for s in self.stores {
+        for s in self.engines {
             let name = s.collection_name();
             if changes.local_resets.contains(&*name) {
                 log::info!("Resetting engine {}, as it was declined remotely", name);
-                s.reset(&StoreSyncAssociation::Disconnected)?;
+                s.reset(&EngineSyncAssociation::Disconnected)?;
             }
         }
 

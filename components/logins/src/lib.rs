@@ -10,8 +10,8 @@ mod error;
 mod login;
 
 mod db;
-mod engine;
 pub mod schema;
+mod store;
 mod update_plan;
 mod util;
 
@@ -20,9 +20,9 @@ mod ffi;
 // Mostly exposed for the sync manager.
 pub use crate::db::LoginDb;
 pub use crate::db::LoginStore;
-pub use crate::engine::*;
 pub use crate::error::*;
 pub use crate::login::*;
+pub use crate::store::*;
 
 pub mod msg_types {
     include!("mozilla.appservices.logins.protobuf.rs");

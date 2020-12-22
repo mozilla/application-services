@@ -15,12 +15,12 @@ pub mod msg_types {
     include!("mozilla.appservices.syncmanager.protobuf.rs");
 }
 
-use logins::PasswordEngine;
+use logins::PasswordStore;
 use manager::SyncManager;
 use places::PlacesApi;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tabs::TabsEngine;
+use tabs::TabsStore;
 
 lazy_static::lazy_static! {
     static ref MANAGER: Mutex<SyncManager> = Mutex::new(SyncManager::new());
@@ -31,12 +31,12 @@ pub fn set_places(places: Arc<PlacesApi>) {
     manager.set_places(places);
 }
 
-pub fn set_logins(places: Arc<Mutex<PasswordEngine>>) {
+pub fn set_logins(places: Arc<Mutex<PasswordStore>>) {
     let mut manager = MANAGER.lock().unwrap();
     manager.set_logins(places);
 }
 
-pub fn set_tabs(tabs: Arc<Mutex<TabsEngine>>) {
+pub fn set_tabs(tabs: Arc<Mutex<TabsStore>>) {
     let mut manager = MANAGER.lock().unwrap();
     manager.set_tabs(tabs);
 }
