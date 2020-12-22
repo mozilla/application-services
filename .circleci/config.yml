@@ -417,9 +417,9 @@ jobs:
               # XCode tests build in Debug configuration, save us a full
               # Rust rebuild in Release mode by forcing Debug mode on
               # non-release builds.
-              XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
+              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
             else
-              XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig bash build-carthage.sh --out MozillaAppServices.framework.zip
+              bash build-carthage.sh --out MozillaAppServices.framework.zip
             fi
       - store_artifacts:
           path: raw_xcodebuild.log
