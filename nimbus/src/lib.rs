@@ -176,6 +176,7 @@ pub struct EnrolledExperiment {
     pub user_facing_name: String,
     pub user_facing_description: String,
     pub branch_slug: String,
+    pub enrollment_id: String,
 }
 
 /// This is the currently supported major schema version.

@@ -441,7 +441,12 @@ pub fn get_enrollments(db: &Database) -> Result<Vec<EnrolledExperiment>> {
     let mut result = Vec::with_capacity(enrollments.len());
     for enrollment in enrollments {
         log::debug!("Have enrollment: {:?}", enrollment);
-        if let EnrollmentStatus::Enrolled { branch, .. } = &enrollment.status {
+        if let EnrollmentStatus::Enrolled {
+            branch,
+            enrollment_id,
+            ..
+        } = &enrollment.status
+        {
             if let Some(experiment) =
                 db.get::<Experiment>(StoreId::Experiments, &enrollment.slug)?
             {
@@ -450,6 +455,7 @@ pub fn get_enrollments(db: &Database) -> Result<Vec<EnrolledExperiment>> {
                     user_facing_name: experiment.user_facing_name,
                     user_facing_description: experiment.user_facing_description,
                     branch_slug: branch.to_string(),
+                    enrollment_id: enrollment_id.to_string(),
                 });
             } else {
                 log::warn!(
