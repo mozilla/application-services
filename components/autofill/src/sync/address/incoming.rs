@@ -7,7 +7,7 @@ use super::{AddressChanges, Record, RecordData};
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, types::ToSql, Connection};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 use sql_support::ConnExt;
 use sync15::Payload;
 use sync_guid::Guid as SyncGuid;
@@ -124,18 +124,18 @@ fn save_incoming_tombstones(
 pub enum IncomingState {
     IncomingOnly {
         guid: String,
-        incoming: RecordData,
+        incoming: Value,
     },
     IncomingTombstone {
         guid: String,
-        local: RecordData,
-        mirror: RecordData,
+        local: Value,
+        mirror: Value,
     },
     HasLocal {
         guid: String,
-        incoming: RecordData,
-        local: RecordData,
-        mirror: Option<RecordData>,
+        incoming: Value,
+        local: Value,
+        mirror: Option<Value>,
     },
     // In desktop, if a local record with the remote's guid doesn't exist, an attempt is made
     // to find a local dupe of the remote record
@@ -145,14 +145,14 @@ pub enum IncomingState {
     // parity with desktop.
     HasLocalDupe {
         guid: String,
-        incoming: RecordData,
+        incoming: Value,
         dupe_guid: String,
-        dupe: RecordData,
-        mirror: Option<RecordData>,
+        dupe: Value,
+        mirror: Option<Value>,
     },
     LocalTombstone {
         guid: String,
-        incoming: RecordData,
+        incoming: Value,
     },
 }
 
@@ -198,50 +198,50 @@ fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<(SyncGuid, Inc
         JOIN addresses_data l ON s.guid = l.guid",
         &[],
         |row| -> Result<(SyncGuid, IncomingState)> {
-            let guid: SyncGuid = row.get("s_guid")?;
+            let guid: SyncGuid = row.get_unwrap("s_guid");
             let guid_str = guid.to_string();
             Ok((
                 guid,
                 IncomingState::IncomingTombstone {
                     guid: guid_str,
-                    local: RecordData {
-                        given_name: row.get("l_given_name")?,
-                        additional_name: row.get("l_additional_name")?,
-                        family_name: row.get("l_family_name")?,
-                        organization: row.get("l_organization")?,
-                        street_address: row.get("l_street_address")?,
-                        address_level3: row.get("l_address_level3")?,
-                        address_level2: row.get("l_address_level2")?,
-                        address_level1: row.get("l_address_level1")?,
-                        postal_code: row.get("l_postal_code")?,
-                        country: row.get("l_country")?,
-                        tel: row.get("l_tel")?,
-                        email: row.get("l_email")?,
-                        time_created: None,
-                        time_last_used: None,
-                        time_last_modified: None,
-                        times_used: None,
-                        sync_change_counter: None,
-                    },
-                    mirror: RecordData {
-                        given_name: row.get("m_given_name")?,
-                        additional_name: row.get("m_additional_name")?,
-                        family_name: row.get("m_family_name")?,
-                        organization: row.get("m_organization")?,
-                        street_address: row.get("m_street_address")?,
-                        address_level3: row.get("m_address_level3")?,
-                        address_level2: row.get("m_address_level2")?,
-                        address_level1: row.get("m_address_level1")?,
-                        postal_code: row.get("m_postal_code")?,
-                        country: row.get("m_country")?,
-                        tel: row.get("m_tel")?,
-                        email: row.get("m_email")?,
-                        time_created: None,
-                        time_last_used: None,
-                        time_last_modified: None,
-                        times_used: None,
-                        sync_change_counter: None,
-                    },
+                    local: json!({
+                        "givenName": row.get_unwrap::<_, String>("l_given_name"),
+                        "additionalName": row.get_unwrap::<_, String>("l_additional_name"),
+                        "familyName": row.get_unwrap::<_, String>("l_family_name"),
+                        "organization": row.get_unwrap::<_, String>("l_organization"),
+                        "street_address": row.get_unwrap::<_, String>("l_street_address"),
+                        "addressLevel3": row.get_unwrap::<_, String>("l_address_level3"),
+                        "addressLevel2": row.get_unwrap::<_, String>("l_address_level2"),
+                        "addressLevel1": row.get_unwrap::<_, String>("l_address_level1"),
+                        "postalCode": row.get_unwrap::<_, String>("l_postal_code"),
+                        "country": row.get_unwrap::<_, String>("l_country"),
+                        "tel": row.get_unwrap::<_, String>("l_tel"),
+                        "email": row.get_unwrap::<_, String>("l_email"),
+                        "timeCreated": "",
+                        "timeLastUsed": "",
+                        "timeLastModified": "",
+                        "timesUsed": "",
+                        "syncChangeCounter": "",
+                    }),
+                    mirror: json!({
+                        "givenName": row.get_unwrap::<_, String>("m_given_name"),
+                        "additionalName": row.get_unwrap::<_, String>("m_additional_name"),
+                        "familyName": row.get_unwrap::<_, String>("m_family_name"),
+                        "organization": row.get_unwrap::<_, String>("m_organization"),
+                        "street_address": row.get_unwrap::<_, String>("m_street_address"),
+                        "addressLevel3": row.get_unwrap::<_, String>("m_address_level3"),
+                        "addressLevel2": row.get_unwrap::<_, String>("m_address_level2"),
+                        "addressLevel1": row.get_unwrap::<_, String>("m_address_level1"),
+                        "postalCode": row.get_unwrap::<_, String>("m_postal_code"),
+                        "country": row.get_unwrap::<_, String>("m_country"),
+                        "tel": row.get_unwrap::<_, String>("m_tel"),
+                        "email": row.get_unwrap::<_, String>("m_email"),
+                        "timeCreated": "",
+                        "timeLastUsed": "",
+                        "timeLastModified": "",
+                        "timesUsed": "",
+                        "syncChangeCounter": "",
+                    }),
                 },
             ))
         },
@@ -304,50 +304,50 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
         sql_query,
         &[],
         |row| -> Result<(SyncGuid, IncomingState)> {
-            let guid: String = row.get("s_guid")?;
-            let mirror_guid: Option<String> = row.get("m_guid")?;
-            let local_guid: Option<String> = row.get("l_guid")?;
+            let guid: String = row.get_unwrap("s_guid");
+            let mirror_guid: Option<String> = row.get_unwrap("m_guid");
+            let local_guid: Option<String> = row.get_unwrap("l_guid");
 
-            let incoming = RecordData {
-                given_name: row.get("s_given_name")?,
-                additional_name: row.get("s_additional_name")?,
-                family_name: row.get("s_family_name")?,
-                organization: row.get("s_organization")?,
-                street_address: row.get("s_street_address")?,
-                address_level3: row.get("s_address_level3")?,
-                address_level2: row.get("s_address_level2")?,
-                address_level1: row.get("s_address_level1")?,
-                postal_code: row.get("s_postal_code")?,
-                country: row.get("s_country")?,
-                tel: row.get("s_tel")?,
-                email: row.get("s_email")?,
-                time_created: None,
-                time_last_used: None,
-                time_last_modified: None,
-                times_used: None,
-                sync_change_counter: None,
-            };
+            let incoming = json!({
+                "givenName": row.get_unwrap::<_, String>("s_given_name"),
+                "additionalName": row.get_unwrap::<_, String>("s_additional_name"),
+                "familyName": row.get_unwrap::<_, String>("s_family_name"),
+                "organization": row.get_unwrap::<_, String>("s_organization"),
+                "street_address": row.get_unwrap::<_, String>("s_street_address"),
+                "addressLevel3": row.get_unwrap::<_, String>("s_address_level3"),
+                "addressLevel2": row.get_unwrap::<_, String>("s_address_level2"),
+                "addressLevel1": row.get_unwrap::<_, String>("s_address_level1"),
+                "postalCode": row.get_unwrap::<_, String>("s_postal_code"),
+                "country": row.get_unwrap::<_, String>("s_country"),
+                "tel": row.get_unwrap::<_, String>("s_tel"),
+                "email": row.get_unwrap::<_, String>("s_email"),
+                "timeCreated": "",
+                "timeLastUsed": "",
+                "timeLastModified": "",
+                "timesUsed": "",
+                "syncChangeCounter": "",
+            });
 
             let mirror = match mirror_guid {
-                Some(_) => Some(RecordData {
-                    given_name: row.get("m_given_name")?,
-                    additional_name: row.get("m_additional_name")?,
-                    family_name: row.get("m_family_name")?,
-                    organization: row.get("m_organization")?,
-                    street_address: row.get("m_street_address")?,
-                    address_level3: row.get("m_address_level3")?,
-                    address_level2: row.get("m_address_level2")?,
-                    address_level1: row.get("m_address_level1")?,
-                    postal_code: row.get("m_postal_code")?,
-                    country: row.get("m_country")?,
-                    tel: row.get("m_tel")?,
-                    email: row.get("m_email")?,
-                    time_created: None,
-                    time_last_used: None,
-                    time_last_modified: None,
-                    times_used: None,
-                    sync_change_counter: None,
-                }),
+                Some(_) => Some(json!({
+                    "givenName": row.get_unwrap::<_, String>("m_given_name"),
+                    "additionalName": row.get_unwrap::<_, String>("m_additional_name"),
+                    "familyName": row.get_unwrap::<_, String>("m_family_name"),
+                    "organization": row.get_unwrap::<_, String>("m_organization"),
+                    "street_address": row.get_unwrap::<_, String>("m_street_address"),
+                    "addressLevel3": row.get_unwrap::<_, String>("m_address_level3"),
+                    "addressLevel2": row.get_unwrap::<_, String>("m_address_level2"),
+                    "addressLevel1": row.get_unwrap::<_, String>("m_address_level1"),
+                    "postalCode": row.get_unwrap::<_, String>("m_postal_code"),
+                    "country": row.get_unwrap::<_, String>("m_country"),
+                    "tel": row.get_unwrap::<_, String>("m_tel"),
+                    "email": row.get_unwrap::<_, String>("m_email"),
+                    "timeCreated": "",
+                    "timeLastUsed": "",
+                    "timeLastModified": "",
+                    "timesUsed": "",
+                    "syncChangeCounter": "",
+                })),
                 None => None,
             };
 
@@ -355,25 +355,25 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                 Some(_) => IncomingState::HasLocal {
                     guid: guid.clone(),
                     incoming,
-                    local: RecordData {
-                        given_name: row.get("l_given_name")?,
-                        additional_name: row.get("l_additional_name")?,
-                        family_name: row.get("l_family_name")?,
-                        organization: row.get("l_organization")?,
-                        street_address: row.get("l_street_address")?,
-                        address_level3: row.get("l_address_level3")?,
-                        address_level2: row.get("l_address_level2")?,
-                        address_level1: row.get("l_address_level1")?,
-                        postal_code: row.get("l_postal_code")?,
-                        country: row.get("l_country")?,
-                        tel: row.get("l_tel")?,
-                        email: row.get("l_email")?,
-                        time_created: Some(row.get("time_created")?),
-                        time_last_used: Some(row.get("time_last_used")?),
-                        time_last_modified: Some(row.get("time_last_modified")?),
-                        times_used: Some(row.get("times_used")?),
-                        sync_change_counter: Some(row.get("sync_change_counter")?),
-                    },
+                    local: json!({
+                        "givenName": row.get_unwrap::<_, String>("l_given_name"),
+                        "additionalName": row.get_unwrap::<_, String>("l_additional_name"),
+                        "familyName": row.get_unwrap::<_, String>("l_family_name"),
+                        "organization": row.get_unwrap::<_, String>("l_organization"),
+                        "street_address": row.get_unwrap::<_, String>("l_street_address"),
+                        "addressLevel3": row.get_unwrap::<_, String>("l_address_level3"),
+                        "addressLevel2": row.get_unwrap::<_, String>("l_address_level2"),
+                        "addressLevel1": row.get_unwrap::<_, String>("l_address_level1"),
+                        "postalCode": row.get_unwrap::<_, String>("l_postal_code"),
+                        "country": row.get_unwrap::<_, String>("l_country"),
+                        "tel": row.get_unwrap::<_, String>("l_tel"),
+                        "email": row.get_unwrap::<_, String>("l_email"),
+                        "timeCreated": Some(row.get_unwrap::<_, i64>("time_created")),
+                        "timeLastUsed": Some(row.get_unwrap::<_, i64>("time_last_used")),
+                        "timeLastModified": Some(row.get_unwrap::<_, i64>("time_last_modified")),
+                        "timesUsed": Some(row.get_unwrap::<_, i64>("times_used")),
+                        "syncChangeCounter": Some(row.get_unwrap::<_, i64>("sync_change_counter")),
+                    }),
                     mirror,
                 },
                 None => {
@@ -381,7 +381,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                         conn,
                         Record {
                             guid: SyncGuid::from_string(guid.clone()),
-                            data: incoming.clone(),
+                            data: serde_json::from_value(incoming.clone()).unwrap(),
                         },
                     )?;
 
@@ -390,7 +390,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                             guid: guid.clone(),
                             incoming,
                             dupe_guid: d.guid.to_string(),
-                            dupe: d.data,
+                            dupe: serde_json::to_value(&d.data).unwrap(),
                             mirror,
                         },
                         None => match has_local_tombstone(conn, &guid)? {
@@ -477,26 +477,8 @@ fn get_local_dupe(conn: &Connection, incoming: Record) -> Result<Option<Record>>
 
     let result = conn.conn().query_row_named(&sql, params, |row| {
         Ok(Record {
-            guid: row.get("guid")?,
-            data: RecordData {
-                given_name: row.get("given_name")?,
-                additional_name: row.get("additional_name")?,
-                family_name: row.get("family_name")?,
-                organization: row.get("organization")?,
-                street_address: row.get("street_address")?,
-                address_level3: row.get("address_level3")?,
-                address_level2: row.get("address_level2")?,
-                address_level1: row.get("address_level1")?,
-                postal_code: row.get("postal_code")?,
-                country: row.get("country")?,
-                tel: row.get("tel")?,
-                email: row.get("email")?,
-                time_created: row.get("time_created")?,
-                time_last_used: row.get("time_last_used")?,
-                time_last_modified: row.get("time_last_modified")?,
-                times_used: row.get("times_used")?,
-                sync_change_counter: row.get("sync_change_counter")?,
-            },
+            guid: row.get_unwrap("guid"),
+            data: RecordData::from_row(&row)?,
         })
     });
 
@@ -526,24 +508,24 @@ fn has_local_tombstone(conn: &Connection, guid: &str) -> Result<bool> {
 pub enum IncomingAction {
     DeleteLocally {
         guid: SyncGuid,
-        mirror: RecordData,
-        changes: AddressChanges,
+        mirror: Value,
+        changes: Value,
     },
     ReplaceLocal {
         old_guid: SyncGuid,
         new_guid: SyncGuid,
-        changes: AddressChanges,
-        data: RecordData,
+        changes: Value,
+        data: Value,
     },
     TakeRemote {
         guid: SyncGuid,
-        changes: AddressChanges,
-        data: RecordData,
+        changes: Value,
+        data: Value,
     },
     DeleteLocalTombstone {
         guid: SyncGuid,
-        changes: AddressChanges,
-        data: RecordData,
+        changes: Value,
+        data: Value,
     },
     // Same { guid }, ?
     Nothing,
@@ -551,34 +533,62 @@ pub enum IncomingAction {
 
 pub fn plan_incoming(s: IncomingState) -> IncomingAction {
     match s {
-        IncomingState::IncomingOnly { guid, incoming } => IncomingAction::TakeRemote {
-            guid: SyncGuid::new(&guid),
-            changes: AddressChanges {
+        IncomingState::IncomingOnly { guid, incoming } => {
+            let changes = AddressChanges {
                 guid: SyncGuid::new(&guid),
                 old_value: RecordData {
                     ..Default::default()
                 },
                 new_value: Record {
                     guid: SyncGuid::new(&guid),
-                    data: incoming.clone(),
+                    data: RecordData {
+                        given_name: incoming["givenName"].to_string(),
+                        additional_name: incoming["additionalName"].to_string(),
+                        family_name: incoming["familyName"].to_string(),
+                        organization: incoming["organization"].to_string(),
+                        street_address: incoming["streetAddress"].to_string(),
+                        address_level3: incoming["addressLevel3"].to_string(),
+                        address_level2: incoming["addressLevel2"].to_string(),
+                        address_level1: incoming["addressLevel1"].to_string(),
+                        postal_code: incoming["postalCode"].to_string(),
+                        country: incoming["country"].to_string(),
+                        tel: incoming["tel"].to_string(),
+                        email: incoming["email"].to_string(),
+                        time_created: Some(Timestamp(incoming["timeCreated"].as_u64().unwrap())),
+                        time_last_used: Some(Timestamp(incoming["timeLastUsed"].as_u64().unwrap())),
+                        time_last_modified: Some(Timestamp(
+                            incoming["timeLastModified"].as_u64().unwrap(),
+                        )),
+                        times_used: Some(incoming["timesUsed"].as_i64().unwrap()),
+                        sync_change_counter: Some(incoming["syncChangeCounter"].as_i64().unwrap()),
+                    },
                 },
-            },
-            data: incoming,
-        },
+            };
+
+            IncomingAction::TakeRemote {
+                guid: SyncGuid::new(&guid),
+                changes: serde_json::to_value(&changes).unwrap(),
+                data: incoming,
+            }
+        }
         IncomingState::IncomingTombstone {
             guid,
-            local,
+            local: _,
             mirror,
         } => IncomingAction::DeleteLocally {
             guid: SyncGuid::new(&guid),
             mirror,
-            changes: AddressChanges {
+            changes: serde_json::to_value(&AddressChanges {
                 guid: SyncGuid::new(&guid),
-                old_value: local,
+                // old_value: local,
+                old_value: RecordData {
+                    ..Default::default()
+                },
                 new_value: Record {
                     ..Default::default()
                 },
-            },
+            })
+            .unwrap(),
         },
         IncomingState::HasLocal {
             guid,
@@ -586,18 +596,22 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
             local,
             mirror,
         } => {
-            match local.sync_change_counter {
+            let old_value: RecordData = serde_json::from_value(local.clone()).unwrap();
+            let new_value_data: RecordData = serde_json::from_value(incoming.clone()).unwrap();
+
+            match old_value.sync_change_counter {
                 Some(s) => match s == 0 {
                     true => IncomingAction::TakeRemote {
                         guid: SyncGuid::new(&guid),
-                        changes: AddressChanges {
+                        changes: serde_json::to_value(&AddressChanges {
                             guid: SyncGuid::new(&guid),
-                            old_value: local,
+                            old_value,
                             new_value: Record {
                                 guid: SyncGuid::new(&guid),
-                                data: incoming.clone(),
+                                data: new_value_data,
                             },
-                        },
+                        })
+                        .unwrap(),
                         data: incoming,
                     },
                     false => merge(guid, incoming, local, mirror),
@@ -620,29 +634,23 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
 
         IncomingState::LocalTombstone { guid, incoming } => IncomingAction::DeleteLocalTombstone {
             guid: SyncGuid::new(&guid),
-            changes: AddressChanges {
+            changes: serde_json::to_value(&AddressChanges {
                 guid: SyncGuid::new(&guid),
                 new_value: Record {
                     guid: SyncGuid::new(&guid),
-                    data: incoming.clone(),
+                    data: serde_json::from_value(incoming.clone()).unwrap(),
                 },
                 old_value: RecordData {
                     ..Default::default()
                 },
-            },
+            })
+            .unwrap(),
             data: incoming,
         },
     }
 }
 
-fn merge(
-    guid: String,
-    incoming: RecordData,
-    local: RecordData,
-    mirror: Option<RecordData>,
-) -> IncomingAction {
-    let incoming_record = serde_json::to_value(&incoming).unwrap();
-    let local_record = serde_json::to_value(&local).unwrap();
+fn merge(guid: String, incoming: Value, local: Value, mirror: Option<Value>) -> IncomingAction {
     let mut merged_value: RecordData;
     let mut merged_record = Map::new();
 
@@ -662,8 +670,8 @@ fn merge(
     ];
 
     for field_name in field_names {
-        let incoming_field = incoming_record.get(field_name).unwrap().to_string();
-        let local_field = local_record.get(field_name).unwrap().to_string();
+        let incoming_field = incoming.get(field_name).unwrap().to_string();
+        let local_field = local.get(field_name).unwrap().to_string();
         let is_local_same;
         let is_incoming_same;
 
@@ -691,75 +699,69 @@ fn merge(
             merged_record.insert(String::from(field_name), Value::String(local_field));
         } else {
             //local and remote are different
+            let data: RecordData = serde_json::from_value(local).unwrap();
             return get_forked_action(Record {
                 guid: SyncGuid::new(&guid),
-                data: local,
+                data,
             });
         }
     }
 
     merged_value = serde_json::from_str(Value::Object(merged_record).as_str().unwrap()).unwrap();
-    merged_value.time_created = incoming.time_created;
-    merged_value.time_last_used = incoming.time_last_used;
-    merged_value.time_last_modified = incoming.time_last_modified;
-    merged_value.times_used = incoming.times_used;
+    merged_value.time_created = Some(Timestamp(incoming["time_created"].as_u64().unwrap()));
+    merged_value.time_last_used = Some(Timestamp(incoming["time_last_used"].as_u64().unwrap()));
+    merged_value.time_last_modified =
+        Some(Timestamp(incoming["time_last_modified"].as_u64().unwrap()));
+    merged_value.times_used = Some(incoming["times_used"].as_i64().unwrap());
 
     IncomingAction::ReplaceLocal {
         old_guid: SyncGuid::new(&guid),
         new_guid: SyncGuid::new(&guid),
-        changes: AddressChanges {
+        changes: serde_json::to_value(&AddressChanges {
             guid: SyncGuid::new(&guid),
             new_value: Record {
                 guid: SyncGuid::new(&guid),
                 data: merged_value.clone(),
             },
-            old_value: local,
-        },
-        data: merged_value,
+            old_value: serde_json::from_value(local).unwrap(),
+        })
+        .unwrap(),
+        data: serde_json::to_value(&merged_value).unwrap(),
     }
 }
 
 fn get_forked_action(local_record: Record) -> IncomingAction {
-    let local_record_data = local_record.clone().data;
+    let mut local_record_data = local_record.clone().data;
+    local_record_data.time_created = Some(Timestamp::now());
+    local_record_data.time_last_used = Some(Timestamp::now());
+    local_record_data.time_last_modified = Some(Timestamp::now());
+    local_record_data.times_used = Some(0);
+    local_record_data.sync_change_counter = Some(1);
+
     let forked_record = Record {
         guid: SyncGuid::random(),
-        data: RecordData {
-            given_name: local_record_data.given_name,
-            additional_name: local_record_data.additional_name,
-            family_name: local_record_data.family_name,
-            organization: local_record_data.organization,
-            street_address: local_record_data.street_address,
-            address_level3: local_record_data.address_level3,
-            address_level2: local_record_data.address_level2,
-            address_level1: local_record_data.address_level1,
-            postal_code: local_record_data.postal_code,
-            country: local_record_data.country,
-            tel: local_record_data.tel,
-            email: local_record_data.email,
-            time_created: Some(Timestamp::now()),
-            time_last_used: Some(Timestamp::now()),
-            time_last_modified: Some(Timestamp::now()),
-            times_used: Some(0),
-            sync_change_counter: Some(1),
-        },
+        data: local_record_data,
     };
 
     IncomingAction::ReplaceLocal {
         old_guid: local_record.guid.clone(),
         new_guid: forked_record.guid.clone(),
-        changes: AddressChanges {
+        changes: serde_json::to_value(&AddressChanges {
             guid: local_record.guid,
             new_value: Record {
                 guid: forked_record.guid,
                 data: forked_record.data.clone(),
             },
             old_value: local_record.data,
-        },
-        data: forked_record.data,
+        })
+        .unwrap(),
+        data: serde_json::to_value(forked_record.data).unwrap(),
     }
 }
 
-fn insert_changes(conn: &Connection, changes: &AddressChanges) -> Result<()> {
+fn insert_changes(conn: &Connection, changes: Value) -> Result<()> {
+    let c: AddressChanges = serde_json::from_value(changes).unwrap();
+
     conn.execute_named(
         "INSERT OR IGNORE INTO addresses_data (
             guid,
@@ -817,32 +819,32 @@ fn insert_changes(conn: &Connection, changes: &AddressChanges) -> Result<()> {
             :new_email
         )",
         rusqlite::named_params! {
-            ":guid": changes.guid.to_string(),
-            ":old_given_name": changes.old_value.given_name,
-            ":old_additional_name": changes.old_value.additional_name,
-            ":old_family_name": changes.old_value.family_name,
-            ":old_organization": changes.old_value.organization,
-            ":old_street_address": changes.old_value.street_address,
-            ":old_address_level3": changes.old_value.address_level3,
-            ":old_address_level2": changes.old_value.address_level2,
-            ":old_address_level1": changes.old_value.address_level1,
-            ":old_postal_code": changes.old_value.postal_code,
-            ":old_country": changes.old_value.country,
-            ":old_tel": changes.old_value.tel,
-            ":old_email": changes.old_value.email,
-            ":new_guid": changes.new_value.guid,
-            ":new_given_name": changes.new_value.data.given_name,
-            ":new_additional_name": changes.new_value.data.additional_name,
-            ":new_family_name": changes.new_value.data.family_name,
-            ":new_organization": changes.new_value.data.organization,
-            ":new_street_address": changes.new_value.data.street_address,
-            ":new_address_level3": changes.new_value.data.address_level3,
-            ":new_address_level2": changes.new_value.data.address_level2,
-            ":new_address_level1": changes.new_value.data.address_level1,
-            ":new_postal_code": changes.new_value.data.postal_code,
-            ":new_country": changes.new_value.data.country,
-            ":new_tel": changes.new_value.data.tel,
-            ":new_email": changes.new_value.data.email,
+            ":guid": c.guid.to_string(),
+            ":old_given_name": c.old_value.given_name,
+            ":old_additional_name": c.old_value.additional_name,
+            ":old_family_name": c.old_value.family_name,
+            ":old_organization": c.old_value.organization,
+            ":old_street_address": c.old_value.street_address,
+            ":old_address_level3": c.old_value.address_level3,
+            ":old_address_level2": c.old_value.address_level2,
+            ":old_address_level1": c.old_value.address_level1,
+            ":old_postal_code": c.old_value.postal_code,
+            ":old_country": c.old_value.country,
+            ":old_tel": c.old_value.tel,
+            ":old_email": c.old_value.email,
+            ":new_guid": c.new_value.guid,
+            ":new_given_name": c.new_value.data.given_name,
+            ":new_additional_name": c.new_value.data.additional_name,
+            ":new_family_name": c.new_value.data.family_name,
+            ":new_organization": c.new_value.data.organization,
+            ":new_street_address": c.new_value.data.street_address,
+            ":new_address_level3": c.new_value.data.address_level3,
+            ":new_address_level2": c.new_value.data.address_level2,
+            ":new_address_level1": c.new_value.data.address_level1,
+            ":new_postal_code": c.new_value.data.postal_code,
+            ":new_country": c.new_value.data.country,
+            ":new_tel": c.new_value.data.tel,
+            ":new_email": c.new_value.data.email,
         },
     )?;
 
@@ -864,7 +866,7 @@ pub fn apply_actions(
                 mirror: _,
                 changes,
             } => {
-                insert_changes(conn, &changes)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::ReplaceLocal {
                 old_guid: _,
@@ -872,21 +874,21 @@ pub fn apply_actions(
                 changes,
                 data: _,
             } => {
-                insert_changes(conn, &changes)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::TakeRemote {
                 guid: _,
                 changes,
                 data: _,
             } => {
-                insert_changes(conn, &changes)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::DeleteLocalTombstone {
                 guid: _,
                 changes,
                 data: _,
             } => {
-                insert_changes(conn, &changes)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::Nothing => {}
         }
@@ -1178,7 +1180,8 @@ mod tests {
             "DELETE FROM addresses_data;",
             "DELETE FROM temp.addresses_sync_staging;",
         ])?;
-        // // assert!(false);
+
+        // assert!(false);
 
         Ok(())
     }
