@@ -34,7 +34,8 @@ fn test_simple() -> Result<()> {
 
     let aru = Default::default();
     let mut client = NimbusClient::new(Default::default(), tmp_dir.path(), Some(config), aru)?;
-    client.update_experiments()?;
+    client.fetch_experiments()?;
+    client.apply_pending_experiments()?;
 
     let experiments = client.get_all_experiments()?;
     assert_eq!(experiments.len(), 1);

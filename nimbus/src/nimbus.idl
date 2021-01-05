@@ -54,7 +54,7 @@ enum Error {
     "InvalidPersistedData", "RkvError", "IOError",
     "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
-    "RequestError", "ResponseError", "UuidError", "InvalidExperimentResponse",
+    "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
     "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError"
 };
 
@@ -88,11 +88,30 @@ interface NimbusClient {
     [Throws=Error]
     sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
 
-    // Updates the list of experiments from the server. After calling this, the
-    // list of active experiments might change (there might be new experiments,
-    // or old experiments might have expired)
+    // Updates the list of experiments from the server.
+    // This method is deprecated, in favour of calling `fetch_experiments()` and then
+    // `apply_pending_updates()`.
     [Throws=Error]
     sequence<EnrollmentChangeEvent> update_experiments();
+
+    // Fetches the list of experiments from the server. This does not affect the list
+    // of active experiments or experiment enrolment.
+    // Fetched experiments are not applied until `apply_pending_updates()` is called.
+    [Throws=Error]
+    void fetch_experiments();
+
+    // Apply the updated experiments from the last fetch.
+    // After calling this, the list of active experiments might change
+    // (there might be new experiments, or old experiments might have expired).
+    [Throws=Error]
+    sequence<EnrollmentChangeEvent> apply_pending_experiments();
+
+    // A convenience method for apps to set the experiments from a local source
+    // for either testing, or before the first fetch has finished.
+    // 
+    // Experiments set with this method are not applied until `apply_pending_updates()` is called.
+    [Throws=Error]
+    void set_experiments_locally(string experiments_json);
 
     // These are test-only functions and should never be exposed to production
     // users, as they mess with the "statistical requirements" of the SDK.

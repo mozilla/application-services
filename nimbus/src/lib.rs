@@ -11,10 +11,11 @@ mod config;
 mod matcher;
 mod persistence;
 mod sampling;
+mod updating;
 #[cfg(debug_assertions)]
 pub use evaluator::evaluate_enrollment;
 
-use client::{create_client, SettingsClient};
+use client::{create_client, parse_experiments, SettingsClient};
 pub use config::RemoteSettingsConfig;
 use enrollment::{
     get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
@@ -26,6 +27,7 @@ use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId};
 use serde_derive::*;
 use std::path::PathBuf;
+use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
 const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
@@ -123,19 +125,43 @@ impl NimbusClient {
     }
 
     pub fn update_experiments(&mut self) -> Result<Vec<EnrollmentChangeEvent>> {
+        self.fetch_experiments()?;
+        self.apply_pending_experiments()
+    }
+
+    pub fn fetch_experiments(&mut self) -> Result<()> {
+        log::info!("fetching experiments");
+        let new_experiments = self.settings_client.fetch_experiments()?;
+        write_pending_experiments(self.db()?, new_experiments)?;
+        Ok(())
+    }
+
+    pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
-        let new_experiments = self.settings_client.get_experiments()?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        let nimbus_id = self.nimbus_id()?;
-        let evolver = EnrollmentsEvolver::new(
-            &nimbus_id,
-            &self.available_randomization_units,
-            &self.app_context,
-        );
-        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
-        writer.commit()?;
-        Ok(events)
+        let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
+        Ok(match pending_updates {
+            Some(new_experiments) => {
+                let nimbus_id = self.nimbus_id()?;
+                let evolver = EnrollmentsEvolver::new(
+                    &nimbus_id,
+                    &self.available_randomization_units,
+                    &self.app_context,
+                );
+                let events = evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
+                writer.commit()?;
+                events
+            }
+            // We don't need to writer.commit() here because we haven't done anything.
+            None => vec![],
+        })
+    }
+
+    pub fn set_experiments_locally(&self, experiments_json: String) -> Result<()> {
+        let new_experiments = parse_experiments(&experiments_json)?;
+        write_pending_experiments(self.db()?, new_experiments)?;
+        Ok(())
     }
 
     pub fn nimbus_id(&self) -> Result<Uuid> {

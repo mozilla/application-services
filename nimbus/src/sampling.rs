@@ -143,7 +143,7 @@ fn is_hash_in_bucket(
 /// # Errors
 /// returns an error if the fraction not within the 0-1 range
 fn fraction_to_key(fraction: f64) -> Result<String> {
-    if fraction < 0.0 || fraction > 1.0 {
+    if !(0.0..=1.0).contains(&fraction) {
         return Err(Error::InvalidFraction);
     }
     let multiplied = (fraction * (2u64.pow(HASH_BITS) - 1) as f64).floor();

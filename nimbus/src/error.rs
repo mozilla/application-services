@@ -38,7 +38,7 @@ pub enum Error {
     #[error("Error in network response: {0}")]
     ResponseError(String),
     #[error("Invalid experiments response received")]
-    InvalidExperimentResponse,
+    InvalidExperimentFormat,
     #[error("Invalid path: {0}")]
     InvalidPath(String),
     #[error("Internal error: {0}")]

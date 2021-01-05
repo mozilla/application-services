@@ -13,6 +13,8 @@ use http_client::Client;
 use null_client::NullClient;
 use url::Url;
 
+pub use http_client::parse_experiments;
+
 pub(crate) fn create_client(
     config: Option<RemoteSettingsConfig>,
 ) -> Result<Box<dyn SettingsClient + Send>> {
@@ -43,5 +45,5 @@ pub(crate) fn create_client(
 // The trait used to fetch experiments.
 pub(crate) trait SettingsClient {
     fn get_experiments_metadata(&self) -> Result<String>;
-    fn get_experiments(&mut self) -> Result<Vec<Experiment>>;
+    fn fetch_experiments(&mut self) -> Result<Vec<Experiment>>;
 }
