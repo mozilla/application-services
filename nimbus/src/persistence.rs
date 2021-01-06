@@ -11,7 +11,7 @@ use crate::error::{Error, Result};
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
 use core::iter::Iterator;
-use rkv::StoreOptions;
+use rkv::{StoreError, StoreOptions};
 use std::fs;
 use std::path::Path;
 
@@ -212,7 +212,31 @@ impl Database {
         let path = std::path::Path::new(path.as_ref()).join("db");
         log::debug!("Database path: {:?}", path.display());
         fs::create_dir_all(&path)?;
-        let rkv = rkv_new(&path)?;
+        let rkv = match rkv_new(&path) {
+            Ok(rkv) => Ok(rkv),
+            Err(rkv_error) => {
+                match rkv_error {
+                    // For some errors we just delete the DB and start again.
+                    StoreError::DatabaseCorrupted | StoreError::FileInvalid => {
+                        // On one hand this seems a little dangerous, but on
+                        // the other hand avoids us knowing about the
+                        // underlying implementation (ie, how do we know what
+                        // files might exist in all cases?)
+                        log::warn!(
+                            "Database at '{}' appears corrupt - removing and recreating",
+                            path.display()
+                        );
+                        fs::remove_dir_all(&path)?;
+                        fs::create_dir_all(&path)?;
+                        // TODO: Once we have glean integration we want to
+                        // record telemetry here.
+                        rkv_new(&path)
+                    }
+                    // All other errors are fatal.
+                    _ => Err(rkv_error),
+                }
+            }
+        }?;
         log::debug!("Database initialized");
         Ok(rkv)
     }
@@ -319,6 +343,31 @@ mod tests {
         assert!(db.collect_all::<String>(StoreId::Enrollments)?.is_empty());
         assert!(db.collect_all::<String>(StoreId::Experiments)?.is_empty());
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_corrupt_db() -> Result<()> {
+        let path = "test_corrupt_db";
+        let tmp_dir = TempDir::new(path)?;
+
+        let db_dir = tmp_dir.path().join("db");
+        fs::create_dir(db_dir.clone())?;
+
+        // The database filename differs depending on the rkv mode.
+        #[cfg(feature = "rkv-safe-mode")]
+        let db_file = db_dir.join("data.safe.bin");
+        #[cfg(not(feature = "rkv-safe-mode"))]
+        let db_file = db_dir.join("data.mdb");
+
+        let garbage = b"Not a database!";
+        let garbage_len = garbage.len() as u64;
+        fs::write(&db_file, garbage)?;
+        assert_eq!(fs::metadata(&db_file)?.len(), garbage_len);
+        // Opening the DB should delete the corrupt file and replace it.
+        Database::new(&tmp_dir)?;
+        // Old contents should be removed and replaced with actual data.
+        assert_ne!(fs::metadata(&db_file)?.len(), garbage_len);
         Ok(())
     }
 }
