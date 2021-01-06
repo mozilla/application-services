@@ -1193,7 +1193,7 @@ checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
 
 [[package]]
 name = "glean-core"
-version = "33.5.0"
+version = "33.10.1"
 dependencies = [
  "bincode",
  "chrono",
@@ -1201,7 +1201,7 @@ dependencies = [
  "flate2",
  "log 0.4.11",
  "once_cell",
- "rkv",
+ "rkv 0.16.1",
  "serde",
  "serde_json",
  "uuid",
@@ -1209,7 +1209,7 @@ dependencies = [
 
 [[package]]
 name = "glean-ffi"
-version = "33.5.0"
+version = "33.10.1"
 dependencies = [
  "android_logger",
  "env_logger",
@@ -1845,7 +1845,7 @@ dependencies = [
  "jexl-eval",
  "log 0.4.11",
  "once_cell",
- "rkv",
+ "rkv 0.15.0",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2789,6 +2789,29 @@ name = "rkv"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e97d1b6321740ce36d77d67d22ff84ac8a996cf69dbd0727b8bcae52f1c98aaa"
+dependencies = [
+ "arrayref",
+ "bincode",
+ "bitflags 1.2.1",
+ "byteorder",
+ "failure",
+ "id-arena",
+ "lazy_static",
+ "lmdb-rkv",
+ "log 0.4.11",
+ "ordered-float",
+ "paste 0.1.18",
+ "serde",
+ "serde_derive",
+ "url",
+ "uuid",
+]
+
+[[package]]
+name = "rkv"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "917d7a01f8c1ae46226e9d8dd24314279be7b04dfd0b24340d420e6927c2e687"
 dependencies = [
  "arrayref",
  "bincode",
