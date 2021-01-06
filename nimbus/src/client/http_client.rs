@@ -236,6 +236,13 @@ mod tests {
                     "ratio": 1
                     }}
                 ]
+            }},
+            {{
+                "slug": "schema-version-missing",
+                "application": "reference-browser",
+                "userFacingName": "Schema Version Missing",
+                "userFacingDescription": "This should be completely ignored",
+                "isEnrollmentPaused": false
             }}
         ]}}"#,
             current_version = SCHEMA_VERSION,
