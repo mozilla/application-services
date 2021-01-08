@@ -18,9 +18,9 @@ fi
 EXTRA_ARGS=( "$@" )
 
 # Later rust versions downgraded some warning to pedantic, so we allow them here.
-ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool")
+ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool" "-Aunknown-lints")
 
-cargo clippy --all --all-targets --all-features -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
+cargo clippy --all --all-targets --all-features "${EXCLUDES[@]}" -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
 # Instead we pull the list of individual package manifest files which have default features
