@@ -23,7 +23,7 @@ uniffi = "0.6"
 url = { version = "2.1", features = ["serde"] }
 
 [dependencies.rusqlite]
-version = "0.24.1"
+version = "0.24.2"
 features = ["functions", "bundled", "serde_json", "unlock_notify"]
 
 [dev-dependencies]
