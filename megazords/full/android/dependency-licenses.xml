@@ -146,7 +146,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: hex</name>
-    <url>https://github.com/KokaKiwi/rust-hex/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/KokaKiwi/rust-hex/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: id-arena</name>
