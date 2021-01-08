@@ -29,7 +29,7 @@ thiserror = "1.0"
 anyhow = "1.0"
 
 [dependencies.rusqlite]
-version = "0.24.1"
+version = "0.24.2"
 features = ["sqlcipher", "limits", "unlock_notify"]
 
 [dev-dependencies]

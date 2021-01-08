@@ -23,7 +23,7 @@ rand = "0.7"
 find-places-db = "0.2"
 
 [dev-dependencies.rusqlite]
-version = "0.24.1"
+version = "0.24.2"
 features = ["functions", "bundled"]
 
 # While we don't have a replacement for termion on Windows yet (and thus
