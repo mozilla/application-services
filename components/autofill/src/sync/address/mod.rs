@@ -104,10 +104,9 @@ pub struct Record {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressChanges {
-    #[serde(rename = "id")]
-    pub guid: SyncGuid,
+    // #[serde(rename = "id")]
+    // pub guid: SyncGuid,
+    pub old_value: Option<Record>,
 
-    pub old_value: RecordData,
-
-    pub new_value: Record,
+    pub new_value: Option<Record>,
 }
