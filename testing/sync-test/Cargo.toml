@@ -17,7 +17,7 @@ fxa-client = { path = "../../components/fxa-client", features = ["integration_te
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"]}
 interrupt-support = { path = "../../components/support/interrupt" }
 url = "2.1"
-env_logger = "0.7"
+env_logger = "0.8"
 log = "0.4"
 anyhow = "1.0"
 rand = "0.7"

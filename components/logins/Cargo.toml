@@ -35,4 +35,4 @@ features = ["sqlcipher", "limits", "unlock_notify"]
 [dev-dependencies]
 more-asserts = "0.2"
 tempdir = "0.3"
-env_logger = { version = "0.7", default-features = false }
+env_logger = { version = "0.8", default-features = false }
