@@ -179,23 +179,19 @@ impl PlacesApi {
     }
 
     pub fn open_sync_connection(&self) -> Result<SyncConn<'_>> {
-        let prev_value = self
-            .sync_conn_active
-            .compare_and_swap(false, true, Ordering::SeqCst);
-        if prev_value {
-            Err(ErrorKind::ConnectionAlreadyOpen.into())
-        } else {
-            let db = PlacesDb::open(
-                self.db_name.clone(),
-                ConnectionType::Sync,
-                self.id,
-                self.coop_tx_lock.clone(),
-            )?;
-            Ok(SyncConn {
-                db,
-                flag: &self.sync_conn_active,
-            })
-        }
+        self.sync_conn_active
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| ErrorKind::ConnectionAlreadyOpen)?;
+        let db = PlacesDb::open(
+            self.db_name.clone(),
+            ConnectionType::Sync,
+            self.id,
+            self.coop_tx_lock.clone(),
+        )?;
+        Ok(SyncConn {
+            db,
+            flag: &self.sync_conn_active,
+        })
     }
 
     /// Close a connection to the database. If the connection is the write
