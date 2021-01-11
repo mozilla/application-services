@@ -11,7 +11,7 @@ base64 = "0.12"
 hex = "0.4"
 lazy_static = "1.4"
 log = "0.4"
-prost = "0.6"
+prost = "0.7"
 prost-derive = "0.6"
 rate-limiter = { path = "../support/rate-limiter" }
 rand_rccrypto = { path = "../support/rand_rccrypto" }

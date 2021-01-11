@@ -15,7 +15,7 @@ log = "0.4"
 url = "2.1"
 base16 = "0.2"
 lazy_static = "1.4"
-prost = "0.6"
+prost = "0.7"
 viaduct = { path = "../../viaduct" }
 ffi-support = "0.4"
 

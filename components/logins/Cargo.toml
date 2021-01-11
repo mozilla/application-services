@@ -23,7 +23,7 @@ ffi-support = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-prost = "0.6"
+prost = "0.7"
 prost-derive = "0.6"
 thiserror = "1.0"
 anyhow = "1.0"
