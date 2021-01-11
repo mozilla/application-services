@@ -728,8 +728,7 @@ fn get_forked_action(local_record: Record) -> Record {
     }
 }
 
-fn insert_changes(conn: &Connection, changes: Value) -> Result<()> {
-    let c: AddressChanges = serde_json::from_value(changes).unwrap();
+fn insert_changes(conn: &Connection, changes: AddressChanges) -> Result<()> {
     let sql = "INSERT OR IGNORE INTO addresses_data (
         guid,
         old_given_name,
@@ -788,7 +787,7 @@ fn insert_changes(conn: &Connection, changes: Value) -> Result<()> {
 
     let mut params: Vec<(&str, &dyn ToSql)> = Vec::new();
 
-    if let Some(old_value) = c.old_value.as_ref() {
+    if let Some(old_value) = changes.old_value.as_ref() {
         let old_guid = &old_value.guid;
         params.push(("old_guid", old_guid));
         params.push((":old_given_name", &old_value.data.given_name));
@@ -805,7 +804,7 @@ fn insert_changes(conn: &Connection, changes: Value) -> Result<()> {
         params.push((":old_email", &old_value.data.email));
     }
 
-    if let Some(new_value) = c.new_value.as_ref() {
+    if let Some(new_value) = changes.new_value.as_ref() {
         let new_guid = &new_value.guid;
         params.push(("new_guid", new_guid));
         params.push(("new_given_name", &new_value.data.given_name));
@@ -827,7 +826,6 @@ fn insert_changes(conn: &Connection, changes: Value) -> Result<()> {
 }
 
 fn change_local_guid(conn: &Connection, old_guid: String, new_guid: String) -> Result<()> {
-    //TODO: https://searchfox.org/mozilla-central/source/browser/extensions/formautofill/FormAutofillStorage.jsm#1141
     conn.conn().execute_named(
         "UPDATE addresses_data
         SET guid = :new_guid
@@ -851,6 +849,123 @@ fn change_local_guid(conn: &Connection, old_guid: String, new_guid: String) -> R
     Ok(())
 }
 
+fn update_local_record(conn: &Connection, new_record: Record) -> Result<()> {
+    conn.execute_named(
+        "UPDATE addresses_data
+        SET given_name         = :given_name,
+            additional_name     = :additional_name,
+            family_name         = :family_name,
+            organization        = :organization,
+            street_address      = :street_address,
+            address_level3      = :address_level3,
+            address_level2      = :address_level2,
+            address_level1      = :address_level1,
+            postal_code         = :postal_code,
+            country             = :country,
+            tel                 = :tel,
+            email               = :email,
+            sync_change_counter = 0
+        WHERE guid              = :guid",
+        rusqlite::named_params! {
+            ":given_name": new_record.data.given_name,
+            ":additional_name": new_record.data.additional_name,
+            ":family_name": new_record.data.family_name,
+            ":organization": new_record.data.organization,
+            ":street_address": new_record.data.street_address,
+            ":address_level3": new_record.data.address_level3,
+            ":address_level2": new_record.data.address_level2,
+            ":address_level1": new_record.data.address_level1,
+            ":postal_code": new_record.data.postal_code,
+            ":country": new_record.data.country,
+            ":tel": new_record.data.tel,
+            ":email": new_record.data.email,
+            ":guid": new_record.guid,
+        },
+    )?;
+
+    Ok(())
+}
+
+fn upsert_local_record(conn: &Connection, new_record: Record) -> Result<()> {
+    let exists = conn.query_row(
+        "SELECT EXISTS (
+            SELECT 1
+            FROM addresses_data d
+            WHERE guid = :guid
+        )",
+        &[new_record.clone().guid],
+        |row| row.get(0),
+    )?;
+
+    if exists {
+        update_local_record(conn, new_record)?;
+    } else {
+        conn.execute_named(
+            "INSERT OR IGNORE INTO addresses_data (
+                guid,
+                given_name,
+                additional_name,
+                family_name,
+                organization,
+                street_address,
+                address_level3,
+                address_level2,
+                address_level1,
+                postal_code,
+                country,
+                tel,
+                email,
+                time_created,
+                time_last_used,
+                time_last_modified,
+                times_used,
+                sync_change_counter
+            ) VALUES (
+                :guid,
+                :given_name,
+                :additional_name,
+                :family_name,
+                :organization,
+                :street_address,
+                :address_level3,
+                :address_level2,
+                :address_level1,
+                :postal_code,
+                :country,
+                :tel,
+                :email,
+                :time_created,
+                :time_last_used,
+                :time_last_modified,
+                :times_used,
+                :sync_change_counter
+            )",
+            rusqlite::named_params! {
+                ":guid": SyncGuid::random(),
+                ":given_name": new_record.data.given_name,
+                ":additional_name": new_record.data.additional_name,
+                ":family_name": new_record.data.family_name,
+                ":organization": new_record.data.organization,
+                ":street_address": new_record.data.street_address,
+                ":address_level3": new_record.data.address_level3,
+                ":address_level2": new_record.data.address_level2,
+                ":address_level1": new_record.data.address_level1,
+                ":postal_code": new_record.data.postal_code,
+                ":country": new_record.data.country,
+                ":tel": new_record.data.tel,
+                ":email": new_record.data.email,
+                ":time_created": Timestamp::now(),
+                ":time_last_used": Some(Timestamp::now()),
+                ":time_last_modified": Timestamp::now(),
+                ":times_used": 0,
+                ":sync_change_counter": 0,
+            },
+        )?;
+    }
+
+    Ok(())
+}
+
 pub fn apply_actions(
     conn: &Connection,
     actions: Vec<(SyncGuid, IncomingAction)>,
@@ -862,28 +977,77 @@ pub fn apply_actions(
         log::trace!("action for '{:?}': {:?}", item, action);
         match action {
             IncomingAction::DeleteLocally { changes } => {
-                insert_changes(conn, changes)?;
+                let c: AddressChanges = serde_json::from_value(changes).unwrap();
+                conn.execute_named(
+                    "DELETE FROM addresses_data WHERE guid = :guid",
+                    rusqlite::named_params! {
+                        ":guid": c.clone().old_value.unwrap().guid,
+                    },
+                )?;
+
+                insert_changes(conn, c)?;
             }
             IncomingAction::TakeMergedRecord { changes } => {
-                insert_changes(conn, changes)?;
+                let c: AddressChanges = serde_json::from_value(changes).unwrap();
+                let new_record = c.clone().new_value.unwrap();
+                update_local_record(conn, new_record)?;
+                insert_changes(conn, c)?;
             }
             IncomingAction::UpdateLocalGuid { dupe_guid, changes } => {
-                let c: AddressChanges = serde_json::from_value(changes.clone()).unwrap();
-                let old_guid = c.old_value.unwrap().guid.to_string();
+                let c: AddressChanges = serde_json::from_value(changes).unwrap();
+                let old_guid = c.clone().old_value.unwrap().guid.to_string();
                 change_local_guid(conn, old_guid, dupe_guid)?;
-                insert_changes(conn, changes)?;
+
+                let new_record = c.clone().new_value.unwrap();
+                update_local_record(conn, new_record)?;
+                insert_changes(conn, c)?;
             }
             IncomingAction::TakeRemote { changes } => {
-                insert_changes(conn, changes)?;
+                let c: AddressChanges = serde_json::from_value(changes).unwrap();
+                let new_record = c.clone().new_value.unwrap();
+                upsert_local_record(conn, new_record)?;
+                insert_changes(conn, c)?;
             }
             IncomingAction::DeleteLocalTombstone { changes } => {
-                insert_changes(conn, changes)?;
+                let c: AddressChanges = serde_json::from_value(changes).unwrap();
+                conn.execute_named(
+                    "DELETE FROM addresses_tombstones WHERE guid = :guid",
+                    rusqlite::named_params! {
+                        ":guid": c.clone().old_value.unwrap().guid,
+                    },
+                )?;
+                insert_changes(conn, c)?;
             }
             IncomingAction::CreateLocalTombstone {
                 changes,
-                tombstone_is_synced: _,
+                tombstone_is_synced,
             } => {
-                insert_changes(conn, changes)?;
+                let c: AddressChanges = serde_json::from_value(changes).unwrap();
+                let old_record = c.clone().old_value.unwrap();
+                if tombstone_is_synced {
+                    conn.execute_named(
+                        "DELETE FROM addresses_data
+                        WHERE guid = :guid",
+                        rusqlite::named_params! {
+                            ":guid": old_record.guid,
+                        },
+                    )?;
+                }
+
+                conn.execute_named(
+                    "INSERT OR IGNORE INTO addresses_tombstones (
+                        guid,
+                        time_deleted
+                    ) VALUES (
+                        :guid,
+                        :time_deleted
+                    )",
+                    rusqlite::named_params! {
+                        ":guid": old_record.guid,
+                        ":time_deleted": Timestamp::now(),
+                    },
+                )?;
+                insert_changes(conn, c)?;
             }
             IncomingAction::DoNothing => {}
         }
