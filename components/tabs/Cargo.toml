@@ -17,7 +17,7 @@ serde_json = "1"
 log = "0.4"
 url = "2.1"
 prost = "0.6"
-prost-derive = "0.6"
+prost-derive = "0.7"
 ffi-support = "0.4"
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }

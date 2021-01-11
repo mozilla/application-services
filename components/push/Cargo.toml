@@ -25,7 +25,7 @@ sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
 prost = "0.6"
-prost-derive = "0.6"
+prost-derive = "0.7"
 thiserror = "1.0"
 
 [dev-dependencies]
