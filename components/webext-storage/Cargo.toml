@@ -22,7 +22,7 @@ serde_derive = "1"
 sql-support = { path = "../support/sql" }
 sync15-traits = {path = "../support/sync15-traits"}
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"] }
-url = { version = "2.1", features = ["serde"] }
+url = { version = "2.2", features = ["serde"] }
 
 [dependencies.rusqlite]
 version = "0.24.2"
