@@ -1,5 +1,5 @@
 {
-    "context": {"app_id": "fenix", "locale": "en-US"},
+    "context": {"app_id": "org.mozilla.fenix", "locale": "en-US"},
     "collection_name": "nimbus-mobile-experiments",
     "client_id": "{2204ac0e-1428-11eb-adc1-0242ac120002}"
 }

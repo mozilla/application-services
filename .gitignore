@@ -18,3 +18,5 @@ captures
 
 *.jar
 !android/gradle/wrapper/gradle-wrapper.jar
+
+nimbus/db/

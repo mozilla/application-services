@@ -5,12 +5,13 @@
 use clap::{App, Arg, SubCommand};
 use env_logger::Env;
 use nimbus::{
-    error::Result, AppContext, AvailableRandomizationUnits, NimbusClient, RemoteSettingsConfig,
+    error::Result, AppContext, AvailableRandomizationUnits, EnrollmentStatus, NimbusClient,
+    RemoteSettingsConfig,
 };
 use std::collections::HashMap;
 use std::io::prelude::*;
 
-const DEFAULT_BASE_URL: &str = "https://settings.stage.mozaws.net"; // TODO: Replace this with prod
+const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
 const DEFAULT_BUCKET_NAME: &str = "main";
 const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 fn main() -> Result<()> {
@@ -204,7 +205,7 @@ fn main() -> Result<()> {
     let aru = AvailableRandomizationUnits::with_client_id(&client_id);
 
     // Here we initialize our main `NimbusClient` struct
-    let mut nimbus_client = NimbusClient::new(context, "", Some(config), aru)?;
+    let mut nimbus_client = NimbusClient::new(context.clone(), "", Some(config), aru)?;
 
     // Explicitly update experiments at least once for init purposes
     nimbus_client.fetch_experiments()?;
@@ -290,7 +291,7 @@ fn main() -> Result<()> {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
                 for exp in &all_experiments {
-                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &Default::default(), &exp)?;
+                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &context.clone(), &exp)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
                         if num_of_experiments_enrolled >= num {
@@ -344,12 +345,15 @@ fn main() -> Result<()> {
                 // options.
                 let uuid = uuid::Uuid::new_v4();
                 let aru = AvailableRandomizationUnits::with_client_id(&client_id);
-                let enrollment =
-                    nimbus::evaluate_enrollment(&uuid, &aru, &Default::default(), &exp)?;
-                results.insert(
-                    enrollment.status.clone(),
-                    results.get(&enrollment.status).unwrap_or(&0) + 1,
-                );
+                let enrollment = nimbus::evaluate_enrollment(&uuid, &aru, &context.clone(), &exp)?;
+                let key = match enrollment.status.clone() {
+                    EnrollmentStatus::Enrolled { .. } => "Enrolled",
+                    EnrollmentStatus::NotEnrolled { .. } => "NotEnrolled",
+                    EnrollmentStatus::Disqualified { .. } => "Disqualified",
+                    EnrollmentStatus::WasEnrolled { .. } => "WasEnrolled",
+                    EnrollmentStatus::Error { .. } => "Error",
+                };
+                results.insert(key, results.get(&key).unwrap_or(&0) + 1);
             }
             println!("Results: {:#?}", results);
         }
