@@ -7,7 +7,7 @@ use super::{AddressChanges, Record, RecordData};
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, types::ToSql, Connection};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value};
 use sql_support::ConnExt;
 use sync15::Payload;
 use sync_guid::Guid as SyncGuid;
@@ -121,21 +121,22 @@ fn save_incoming_tombstones(
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum IncomingState {
     IncomingOnly {
         guid: String,
-        incoming: Value,
+        incoming: RecordData,
     },
     IncomingTombstone {
         guid: String,
-        local: Option<Value>,
+        local: Option<RecordData>,
         has_local_tombstone: bool,
     },
     HasLocal {
         guid: String,
-        incoming: Value,
-        local: Value,
-        mirror: Option<Value>,
+        incoming: RecordData,
+        local: RecordData,
+        mirror: Option<RecordData>,
     },
     // In desktop, if a local record with the remote's guid doesn't exist, an attempt is made
     // to find a local dupe of the remote record
@@ -145,14 +146,14 @@ pub enum IncomingState {
     // parity with desktop.
     HasLocalDupe {
         guid: String,
-        incoming: Value,
+        incoming: RecordData,
         dupe_guid: String,
-        dupe: Value,
-        mirror: Option<Value>,
+        dupe: RecordData,
+        mirror: Option<RecordData>,
     },
     LocalTombstone {
         guid: String,
-        incoming: Value,
+        incoming: RecordData,
     },
 }
 
@@ -199,25 +200,25 @@ fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<(SyncGuid, Inc
                 IncomingState::IncomingTombstone {
                     guid: incoming_guid,
                     local: match local_guid {
-                        Some(_) => Some(json!({
-                            "givenName": row.get_unwrap::<_, String>("l_given_name"),
-                            "additionalName": row.get_unwrap::<_, String>("l_additional_name"),
-                            "familyName": row.get_unwrap::<_, String>("l_family_name"),
-                            "organization": row.get_unwrap::<_, String>("l_organization"),
-                            "street_address": row.get_unwrap::<_, String>("l_street_address"),
-                            "addressLevel3": row.get_unwrap::<_, String>("l_address_level3"),
-                            "addressLevel2": row.get_unwrap::<_, String>("l_address_level2"),
-                            "addressLevel1": row.get_unwrap::<_, String>("l_address_level1"),
-                            "postalCode": row.get_unwrap::<_, String>("l_postal_code"),
-                            "country": row.get_unwrap::<_, String>("l_country"),
-                            "tel": row.get_unwrap::<_, String>("l_tel"),
-                            "email": row.get_unwrap::<_, String>("l_email"),
-                            "timeCreated": "",
-                            "timeLastUsed": "",
-                            "timeLastModified": "",
-                            "timesUsed": "",
-                            "syncChangeCounter": row.get_unwrap::<_, String>("l_sync_change_counter"),
-                        })),
+                        Some(_) => Some(RecordData {
+                            given_name: row.get_unwrap("l_given_name"),
+                            additional_name: row.get_unwrap("l_additional_name"),
+                            family_name: row.get_unwrap("l_family_name"),
+                            organization: row.get_unwrap("l_organization"),
+                            street_address: row.get_unwrap("l_street_address"),
+                            address_level3: row.get_unwrap("l_address_level3"),
+                            address_level2: row.get_unwrap("l_address_level2"),
+                            address_level1: row.get_unwrap("l_address_level1"),
+                            postal_code: row.get_unwrap("l_postal_code"),
+                            country: row.get_unwrap("l_country"),
+                            tel: row.get_unwrap("l_tel"),
+                            email: row.get_unwrap("l_email"),
+                            time_created: None,
+                            time_last_used: None,
+                            time_last_modified: None,
+                            times_used: None,
+                            sync_change_counter: row.get_unwrap("l_sync_change_counter"),
+                        }),
                         None => None,
                     },
                     has_local_tombstone: tombstone_guid.is_some(),
@@ -287,46 +288,46 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
             let mirror_guid: Option<String> = row.get_unwrap("m_guid");
             let local_guid: Option<String> = row.get_unwrap("l_guid");
 
-            let incoming = json!({
-                "givenName": row.get_unwrap::<_, String>("s_given_name"),
-                "additionalName": row.get_unwrap::<_, String>("s_additional_name"),
-                "familyName": row.get_unwrap::<_, String>("s_family_name"),
-                "organization": row.get_unwrap::<_, String>("s_organization"),
-                "street_address": row.get_unwrap::<_, String>("s_street_address"),
-                "addressLevel3": row.get_unwrap::<_, String>("s_address_level3"),
-                "addressLevel2": row.get_unwrap::<_, String>("s_address_level2"),
-                "addressLevel1": row.get_unwrap::<_, String>("s_address_level1"),
-                "postalCode": row.get_unwrap::<_, String>("s_postal_code"),
-                "country": row.get_unwrap::<_, String>("s_country"),
-                "tel": row.get_unwrap::<_, String>("s_tel"),
-                "email": row.get_unwrap::<_, String>("s_email"),
-                "timeCreated": "",
-                "timeLastUsed": "",
-                "timeLastModified": "",
-                "timesUsed": "",
-                "syncChangeCounter": "",
-            });
+            let incoming = RecordData {
+                given_name: row.get_unwrap("s_given_name"),
+                additional_name: row.get_unwrap("s_additional_name"),
+                family_name: row.get_unwrap("s_family_name"),
+                organization: row.get_unwrap("s_organization"),
+                street_address: row.get_unwrap("s_street_address"),
+                address_level3: row.get_unwrap("s_address_level3"),
+                address_level2: row.get_unwrap("s_address_level2"),
+                address_level1: row.get_unwrap("s_address_level1"),
+                postal_code: row.get_unwrap("s_postal_code"),
+                country: row.get_unwrap("s_country"),
+                tel: row.get_unwrap("s_tel"),
+                email: row.get_unwrap("s_email"),
+                time_created: None,
+                time_last_used: None,
+                time_last_modified: None,
+                times_used: None,
+                sync_change_counter: None,
+            };
 
             let mirror = match mirror_guid {
-                Some(_) => Some(json!({
-                    "givenName": row.get_unwrap::<_, String>("m_given_name"),
-                    "additionalName": row.get_unwrap::<_, String>("m_additional_name"),
-                    "familyName": row.get_unwrap::<_, String>("m_family_name"),
-                    "organization": row.get_unwrap::<_, String>("m_organization"),
-                    "street_address": row.get_unwrap::<_, String>("m_street_address"),
-                    "addressLevel3": row.get_unwrap::<_, String>("m_address_level3"),
-                    "addressLevel2": row.get_unwrap::<_, String>("m_address_level2"),
-                    "addressLevel1": row.get_unwrap::<_, String>("m_address_level1"),
-                    "postalCode": row.get_unwrap::<_, String>("m_postal_code"),
-                    "country": row.get_unwrap::<_, String>("m_country"),
-                    "tel": row.get_unwrap::<_, String>("m_tel"),
-                    "email": row.get_unwrap::<_, String>("m_email"),
-                    "timeCreated": "",
-                    "timeLastUsed": "",
-                    "timeLastModified": "",
-                    "timesUsed": "",
-                    "syncChangeCounter": "",
-                })),
+                Some(_) => Some(RecordData {
+                    given_name: row.get_unwrap("m_given_name"),
+                    additional_name: row.get_unwrap("m_additional_name"),
+                    family_name: row.get_unwrap("m_family_name"),
+                    organization: row.get_unwrap("m_organization"),
+                    street_address: row.get_unwrap("m_street_address"),
+                    address_level3: row.get_unwrap("m_address_level3"),
+                    address_level2: row.get_unwrap("m_address_level2"),
+                    address_level1: row.get_unwrap("m_address_level1"),
+                    postal_code: row.get_unwrap("m_postal_code"),
+                    country: row.get_unwrap("m_country"),
+                    tel: row.get_unwrap("m_tel"),
+                    email: row.get_unwrap("m_email"),
+                    time_created: None,
+                    time_last_used: None,
+                    time_last_modified: None,
+                    times_used: None,
+                    sync_change_counter: None,
+                }),
                 None => None,
             };
 
@@ -334,25 +335,25 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                 Some(_) => IncomingState::HasLocal {
                     guid: guid.clone(),
                     incoming,
-                    local: json!({
-                        "givenName": row.get_unwrap::<_, String>("l_given_name"),
-                        "additionalName": row.get_unwrap::<_, String>("l_additional_name"),
-                        "familyName": row.get_unwrap::<_, String>("l_family_name"),
-                        "organization": row.get_unwrap::<_, String>("l_organization"),
-                        "street_address": row.get_unwrap::<_, String>("l_street_address"),
-                        "addressLevel3": row.get_unwrap::<_, String>("l_address_level3"),
-                        "addressLevel2": row.get_unwrap::<_, String>("l_address_level2"),
-                        "addressLevel1": row.get_unwrap::<_, String>("l_address_level1"),
-                        "postalCode": row.get_unwrap::<_, String>("l_postal_code"),
-                        "country": row.get_unwrap::<_, String>("l_country"),
-                        "tel": row.get_unwrap::<_, String>("l_tel"),
-                        "email": row.get_unwrap::<_, String>("l_email"),
-                        "timeCreated": Some(row.get_unwrap::<_, i64>("time_created")),
-                        "timeLastUsed": Some(row.get_unwrap::<_, i64>("time_last_used")),
-                        "timeLastModified": Some(row.get_unwrap::<_, i64>("time_last_modified")),
-                        "timesUsed": Some(row.get_unwrap::<_, i64>("times_used")),
-                        "syncChangeCounter": Some(row.get_unwrap::<_, i64>("sync_change_counter")),
-                    }),
+                    local: RecordData {
+                        given_name: row.get_unwrap("l_given_name"),
+                        additional_name: row.get_unwrap("l_additional_name"),
+                        family_name: row.get_unwrap("l_family_name"),
+                        organization: row.get_unwrap("l_organization"),
+                        street_address: row.get_unwrap("l_street_address"),
+                        address_level3: row.get_unwrap("l_address_level3"),
+                        address_level2: row.get_unwrap("l_address_level2"),
+                        address_level1: row.get_unwrap("l_address_level1"),
+                        postal_code: row.get_unwrap("l_postal_code"),
+                        country: row.get_unwrap("l_country"),
+                        tel: row.get_unwrap("l_tel"),
+                        email: row.get_unwrap("l_email"),
+                        time_created: Some(row.get_unwrap("time_created")),
+                        time_last_used: Some(row.get_unwrap("time_last_used")),
+                        time_last_modified: Some(row.get_unwrap("time_last_modified")),
+                        times_used: Some(row.get_unwrap("times_used")),
+                        sync_change_counter: Some(row.get_unwrap("sync_change_counter")),
+                    },
                     mirror,
                 },
                 None => {
@@ -360,7 +361,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                         conn,
                         Record {
                             guid: SyncGuid::from_string(guid.clone()),
-                            data: serde_json::from_value(incoming.clone()).unwrap(),
+                            data: incoming.clone(),
                         },
                     )?;
 
@@ -369,7 +370,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                             guid: guid.clone(),
                             incoming,
                             dupe_guid: d.guid.to_string(),
-                            dupe: serde_json::to_value(&d.data).unwrap(),
+                            dupe: d.data,
                             mirror,
                         },
                         None => match has_local_tombstone(conn, &guid)? {
@@ -484,26 +485,27 @@ fn has_local_tombstone(conn: &Connection, guid: &str) -> Result<bool> {
 }
 
 #[derive(Debug, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum IncomingAction {
     DeleteLocally {
-        changes: Value,
+        changes: AddressChanges,
     },
     CreateLocalTombstone {
-        changes: Value,
+        changes: AddressChanges,
         tombstone_is_synced: bool,
     },
     TakeMergedRecord {
-        changes: Value,
+        changes: AddressChanges,
     },
     UpdateLocalGuid {
         dupe_guid: String,
-        changes: Value,
+        changes: AddressChanges,
     },
     TakeRemote {
-        changes: Value,
+        changes: AddressChanges,
     },
     DeleteLocalTombstone {
-        changes: Value,
+        changes: AddressChanges,
     },
     DoNothing,
 }
@@ -511,34 +513,31 @@ pub enum IncomingAction {
 pub fn plan_incoming(s: IncomingState) -> IncomingAction {
     match s {
         IncomingState::IncomingOnly { guid, incoming } => IncomingAction::TakeRemote {
-            changes: serde_json::to_value(&AddressChanges {
+            changes: AddressChanges {
                 old_value: None,
                 new_value: Some(Record {
                     guid: SyncGuid::new(&guid),
                     data: RecordData {
-                        given_name: incoming["givenName"].to_string(),
-                        additional_name: incoming["additionalName"].to_string(),
-                        family_name: incoming["familyName"].to_string(),
-                        organization: incoming["organization"].to_string(),
-                        street_address: incoming["streetAddress"].to_string(),
-                        address_level3: incoming["addressLevel3"].to_string(),
-                        address_level2: incoming["addressLevel2"].to_string(),
-                        address_level1: incoming["addressLevel1"].to_string(),
-                        postal_code: incoming["postalCode"].to_string(),
-                        country: incoming["country"].to_string(),
-                        tel: incoming["tel"].to_string(),
-                        email: incoming["email"].to_string(),
-                        time_created: Some(Timestamp(incoming["timeCreated"].as_u64().unwrap())),
-                        time_last_used: Some(Timestamp(incoming["timeLastUsed"].as_u64().unwrap())),
-                        time_last_modified: Some(Timestamp(
-                            incoming["timeLastModified"].as_u64().unwrap(),
-                        )),
-                        times_used: Some(incoming["timesUsed"].as_i64().unwrap()),
-                        sync_change_counter: Some(incoming["syncChangeCounter"].as_i64().unwrap()),
+                        given_name: incoming.given_name,
+                        additional_name: incoming.additional_name,
+                        family_name: incoming.family_name,
+                        organization: incoming.organization,
+                        street_address: incoming.street_address,
+                        address_level3: incoming.address_level3,
+                        address_level2: incoming.address_level2,
+                        address_level1: incoming.address_level1,
+                        postal_code: incoming.postal_code,
+                        country: incoming.country,
+                        tel: incoming.tel,
+                        email: incoming.email,
+                        time_created: incoming.time_created,
+                        time_last_used: incoming.time_last_used,
+                        time_last_modified: incoming.time_last_modified,
+                        times_used: incoming.times_used,
+                        sync_change_counter: incoming.sync_change_counter,
                     },
                 }),
-            })
-            .unwrap(),
+            },
         },
         IncomingState::IncomingTombstone {
             guid,
@@ -546,32 +545,29 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
             has_local_tombstone,
         } => match local {
             Some(l) => {
-                let local_record: RecordData = serde_json::from_value(l).unwrap();
-                let has_local_changes = local_record.sync_change_counter.is_some()
-                    && local_record.sync_change_counter.unwrap() != 0;
+                let has_local_changes =
+                    l.sync_change_counter.is_some() && l.sync_change_counter.unwrap() != 0;
 
                 if has_local_changes || has_local_tombstone {
                     IncomingAction::DoNothing
                 } else {
                     IncomingAction::CreateLocalTombstone {
-                        changes: serde_json::to_value(&AddressChanges {
+                        changes: AddressChanges {
                             old_value: Some(Record {
                                 guid: SyncGuid::new(&guid),
-                                data: local_record,
+                                data: l,
                             }),
                             new_value: None,
-                        })
-                        .unwrap(),
+                        },
                         tombstone_is_synced: true,
                     }
                 }
             }
             None => IncomingAction::CreateLocalTombstone {
-                changes: serde_json::to_value(&AddressChanges {
+                changes: AddressChanges {
                     old_value: None,
                     new_value: None,
-                })
-                .unwrap(),
+                },
                 tombstone_is_synced: false,
             },
         },
@@ -581,32 +577,29 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
             local,
             mirror,
         } => {
-            let old_record_data: RecordData = serde_json::from_value(local.clone()).unwrap();
             let old_value: Option<Record> = Some(Record {
                 guid: SyncGuid::from_string(guid.clone()),
-                data: old_record_data.clone(),
+                data: local.clone(),
             });
 
-            let sync_change_counter = old_record_data.sync_change_counter.unwrap();
+            let sync_change_counter = local.sync_change_counter.unwrap();
             match sync_change_counter == 0 {
                 true => IncomingAction::TakeRemote {
-                    changes: serde_json::to_value(&AddressChanges {
+                    changes: AddressChanges {
                         old_value,
                         new_value: Some(Record {
                             guid: SyncGuid::new(&guid),
-                            data: serde_json::from_value(incoming).unwrap(),
+                            data: incoming,
                         }),
-                    })
-                    .unwrap(),
+                    },
                 },
                 false => {
                     let new_value = Some(merge(guid, incoming, local, mirror));
                     IncomingAction::TakeMergedRecord {
-                        changes: serde_json::to_value(&AddressChanges {
+                        changes: AddressChanges {
                             new_value,
                             old_value,
-                        })
-                        .unwrap(),
+                        },
                     }
                 }
             }
@@ -621,30 +614,35 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
             let new_value = Some(merge(guid.clone(), incoming, dupe.clone(), mirror));
             IncomingAction::UpdateLocalGuid {
                 dupe_guid,
-                changes: serde_json::to_value(&AddressChanges {
+                changes: AddressChanges {
                     new_value,
                     old_value: Some(Record {
                         guid: SyncGuid::new(&guid),
-                        data: serde_json::from_value(dupe).unwrap(),
+                        data: dupe,
                     }),
-                })
-                .unwrap(),
+                },
             }
         }
         IncomingState::LocalTombstone { guid, incoming } => IncomingAction::DeleteLocalTombstone {
-            changes: serde_json::to_value(&AddressChanges {
+            changes: AddressChanges {
                 old_value: None,
                 new_value: Some(Record {
                     guid: SyncGuid::new(&guid),
-                    data: serde_json::from_value(incoming).unwrap(),
+                    data: incoming,
                 }),
-            })
-            .unwrap(),
+            },
         },
     }
 }
 
-fn merge(guid: String, incoming: Value, local: Value, mirror: Option<Value>) -> Record {
+fn merge(
+    guid: String,
+    incoming: RecordData,
+    local: RecordData,
+    mirror: Option<RecordData>,
+) -> Record {
+    let i = serde_json::to_value(&incoming).unwrap();
+    let l = serde_json::to_value(&local).unwrap();
     let mut merged_value: RecordData;
     let mut merged_record = Map::new();
 
@@ -664,8 +662,8 @@ fn merge(guid: String, incoming: Value, local: Value, mirror: Option<Value>) -> 
     ];
 
     for field_name in field_names {
-        let incoming_field = incoming.get(field_name).unwrap().to_string();
-        let local_field = local.get(field_name).unwrap().to_string();
+        let incoming_field = i.get(field_name).unwrap().to_string();
+        let local_field = l.get(field_name).unwrap().to_string();
         let is_local_same;
         let is_incoming_same;
 
@@ -693,20 +691,18 @@ fn merge(guid: String, incoming: Value, local: Value, mirror: Option<Value>) -> 
             merged_record.insert(String::from(field_name), Value::String(local_field));
         } else {
             //local and remote are different
-            let data: RecordData = serde_json::from_value(local).unwrap();
             return get_forked_action(Record {
                 guid: SyncGuid::new(&guid),
-                data,
+                data: local,
             });
         }
     }
 
     merged_value = serde_json::from_str(Value::Object(merged_record).as_str().unwrap()).unwrap();
-    merged_value.time_created = Some(Timestamp(incoming["time_created"].as_u64().unwrap()));
-    merged_value.time_last_used = Some(Timestamp(incoming["time_last_used"].as_u64().unwrap()));
-    merged_value.time_last_modified =
-        Some(Timestamp(incoming["time_last_modified"].as_u64().unwrap()));
-    merged_value.times_used = Some(incoming["times_used"].as_i64().unwrap());
+    merged_value.time_created = incoming.time_created;
+    merged_value.time_last_used = incoming.time_last_used;
+    merged_value.time_last_modified = incoming.time_last_modified;
+    merged_value.times_used = incoming.times_used;
 
     Record {
         guid: SyncGuid::new(&guid),
@@ -977,53 +973,47 @@ pub fn apply_actions(
         log::trace!("action for '{:?}': {:?}", item, action);
         match action {
             IncomingAction::DeleteLocally { changes } => {
-                let c: AddressChanges = serde_json::from_value(changes).unwrap();
                 conn.execute_named(
                     "DELETE FROM addresses_data WHERE guid = :guid",
                     rusqlite::named_params! {
-                        ":guid": c.clone().old_value.unwrap().guid,
+                        ":guid": changes.clone().old_value.unwrap().guid,
                     },
                 )?;
 
-                insert_changes(conn, c)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::TakeMergedRecord { changes } => {
-                let c: AddressChanges = serde_json::from_value(changes).unwrap();
-                let new_record = c.clone().new_value.unwrap();
+                let new_record = changes.clone().new_value.unwrap();
                 update_local_record(conn, new_record)?;
-                insert_changes(conn, c)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::UpdateLocalGuid { dupe_guid, changes } => {
-                let c: AddressChanges = serde_json::from_value(changes).unwrap();
-                let old_guid = c.clone().old_value.unwrap().guid.to_string();
+                let old_guid = changes.clone().old_value.unwrap().guid.to_string();
                 change_local_guid(conn, old_guid, dupe_guid)?;
 
-                let new_record = c.clone().new_value.unwrap();
+                let new_record = changes.clone().new_value.unwrap();
                 update_local_record(conn, new_record)?;
-                insert_changes(conn, c)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::TakeRemote { changes } => {
-                let c: AddressChanges = serde_json::from_value(changes).unwrap();
-                let new_record = c.clone().new_value.unwrap();
+                let new_record = changes.clone().new_value.unwrap();
                 upsert_local_record(conn, new_record)?;
-                insert_changes(conn, c)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::DeleteLocalTombstone { changes } => {
-                let c: AddressChanges = serde_json::from_value(changes).unwrap();
                 conn.execute_named(
                     "DELETE FROM addresses_tombstones WHERE guid = :guid",
                     rusqlite::named_params! {
-                        ":guid": c.clone().old_value.unwrap().guid,
+                        ":guid": changes.clone().old_value.unwrap().guid,
                     },
                 )?;
-                insert_changes(conn, c)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::CreateLocalTombstone {
                 changes,
                 tombstone_is_synced,
             } => {
-                let c: AddressChanges = serde_json::from_value(changes).unwrap();
-                let old_record = c.clone().old_value.unwrap();
+                let old_record = changes.clone().old_value.unwrap();
                 if tombstone_is_synced {
                     conn.execute_named(
                         "DELETE FROM addresses_data
@@ -1047,7 +1037,7 @@ pub fn apply_actions(
                         ":time_deleted": Timestamp::now(),
                     },
                 )?;
-                insert_changes(conn, c)?;
+                insert_changes(conn, changes)?;
             }
             IncomingAction::DoNothing => {}
         }
