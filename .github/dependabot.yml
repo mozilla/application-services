@@ -1,0 +1,26 @@
+# Our dependency management is a little complicated, because anything we take 
+# as a dependency in this repo will eventually need to be vendored into mozilla-central.
+# We're still working on the policy details of how to manage that, and in the meantime
+# we can't just take version bumps arbitrarily. So, disable dependabot pending a more
+# nuanced policy here.
+#
+# See https://github.com/mozilla/application-services/issues/3809 for some discussion.
+#
+# Note that we have a separate CI task that runs `cargo audit` to warn us about
+# dependencies that have security vulnerabilities.
+
+version: 2
+updates:
+
+  # Disable cargo dependency updates, pending decision about mozilla-central.
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 0
+
+  # It's fine to keep tooling-related python dependencies updated though.
+  - package-ecosystem: "pip"
+    directory: "/tools"
+    schedule:
+      interval: "weekly"
