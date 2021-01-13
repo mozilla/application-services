@@ -25,9 +25,10 @@ use enrollment::{
 };
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
-use persistence::{Database, StoreId};
+use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -38,10 +39,10 @@ const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 /// It should hold all the information needed to communicate a specific user's
 /// experimentation status
 pub struct NimbusClient {
-    settings_client: Box<dyn SettingsClient + Send>,
+    settings_client: Mutex<Box<dyn SettingsClient + Send>>,
     available_randomization_units: AvailableRandomizationUnits,
     app_context: AppContext,
-    db: OnceCell<Database>,
+    db: OnceCell<Mutex<Database>>,
     db_path: PathBuf,
 }
 
@@ -54,7 +55,7 @@ impl NimbusClient {
         config: Option<RemoteSettingsConfig>,
         available_randomization_units: AvailableRandomizationUnits,
     ) -> Result<Self> {
-        let settings_client = create_client(config)?;
+        let settings_client = Mutex::new(create_client(config)?);
         Ok(Self {
             settings_client,
             available_randomization_units,
@@ -85,41 +86,43 @@ impl NimbusClient {
         // This is a bit smelly, but get_global_user_participation() needs a
         // writer so that the implementation of update_enrollments can pass one
         // and see the correct value.
-        let db = self.db()?;
+        let db = self.db()?.lock().unwrap();
         let writer = db.write()?;
-        get_global_user_participation(db, &writer)
+        get_global_user_participation(&db, &writer)
     }
 
     pub fn set_global_user_participation(
         &self,
         user_participating: bool,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        let db = self.db()?;
+        let db = self.db()?.lock().unwrap();
         let mut writer = db.write()?;
-        set_global_user_participation(db, &mut writer, user_participating)?;
+        set_global_user_participation(&db, &mut writer, user_participating)?;
 
         let existing_experiments = db
             .get_store(StoreId::Experiments)
             .collect_all::<Experiment>(&writer)?;
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
-        let nimbus_id = self.nimbus_id()?;
+        let nimbus_id = self.read_or_create_nimbus_id(&db, &mut writer)?;
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &self.available_randomization_units,
             &self.app_context,
         );
-        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
+        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &existing_experiments)?;
         writer.commit()?;
         Ok(events)
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
-        get_enrollments(self.db()?)
+        let db = self.db()?.lock().unwrap();
+        get_enrollments(&db)
     }
 
     pub fn get_all_experiments(&self) -> Result<Vec<Experiment>> {
-        self.db()?.collect_all(StoreId::Experiments)
+        let db = self.db()?.lock().unwrap();
+        db.collect_all(StoreId::Experiments)
     }
 
     pub fn opt_in_with_branch(
@@ -127,39 +130,44 @@ impl NimbusClient {
         experiment_slug: String,
         branch: String,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
-        opt_in_with_branch(self.db()?, &experiment_slug, &branch)
+        let db = self.db()?.lock().unwrap();
+        opt_in_with_branch(&db, &experiment_slug, &branch)
     }
 
     pub fn opt_out(&self, experiment_slug: String) -> Result<Vec<EnrollmentChangeEvent>> {
-        opt_out(self.db()?, &experiment_slug)
+        let db = self.db()?.lock().unwrap();
+        opt_out(&db, &experiment_slug)
     }
 
-    pub fn update_experiments(&mut self) -> Result<Vec<EnrollmentChangeEvent>> {
+    pub fn update_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         self.fetch_experiments()?;
         self.apply_pending_experiments()
     }
 
-    pub fn fetch_experiments(&mut self) -> Result<()> {
+    pub fn fetch_experiments(&self) -> Result<()> {
         log::info!("fetching experiments");
-        let new_experiments = self.settings_client.fetch_experiments()?;
-        write_pending_experiments(self.db()?, new_experiments)?;
+        let settings_client = self.settings_client.lock().unwrap();
+        let new_experiments = settings_client.fetch_experiments()?;
+        let db = self.db()?.lock().unwrap();
+        write_pending_experiments(&db, new_experiments)?;
         Ok(())
     }
 
     pub fn apply_pending_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
         log::info!("updating experiment list");
-        let db = self.db()?;
+        let db = self.db()?.lock().unwrap();
         let mut writer = db.write()?;
-        let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
+        let pending_updates = read_and_remove_pending_experiments(&db, &mut writer)?;
         Ok(match pending_updates {
             Some(new_experiments) => {
-                let nimbus_id = self.nimbus_id()?;
+                let nimbus_id = self.read_or_create_nimbus_id(&db, &mut writer)?;
                 let evolver = EnrollmentsEvolver::new(
                     &nimbus_id,
                     &self.available_randomization_units,
                     &self.app_context,
                 );
-                let events = evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
+                let events =
+                    evolver.evolve_enrollments_in_db(&db, &mut writer, &new_experiments)?;
                 writer.commit()?;
                 events
             }
@@ -170,20 +178,29 @@ impl NimbusClient {
 
     pub fn set_experiments_locally(&self, experiments_json: String) -> Result<()> {
         let new_experiments = parse_experiments(&experiments_json)?;
-        write_pending_experiments(self.db()?, new_experiments)?;
+        let db = self.db()?.lock().unwrap();
+        write_pending_experiments(&db, new_experiments)?;
         Ok(())
     }
 
     pub fn nimbus_id(&self) -> Result<Uuid> {
-        let db = self.db()?;
+        let db = self.db()?.lock().unwrap();
         let mut writer = db.write()?;
+        let uuid = self.read_or_create_nimbus_id(&db, &mut writer)?;
+        // We don't know whether we needed to generate and save the uuid, so
+        // we commit just in case - this is hopefully close to a noop in that
+        // case!
+        writer.commit()?;
+        Ok(uuid)
+    }
+
+    fn read_or_create_nimbus_id(&self, db: &Database, writer: &mut Writer) -> Result<Uuid> {
         let store = db.get_store(StoreId::Meta);
-        Ok(match store.get(&writer, DB_KEY_NIMBUS_ID)? {
+        Ok(match store.get(writer, DB_KEY_NIMBUS_ID)? {
             Some(nimbus_id) => nimbus_id,
             None => {
                 let nimbus_id = Uuid::new_v4();
-                store.put(&mut writer, DB_KEY_NIMBUS_ID, &nimbus_id)?;
-                writer.commit()?;
+                store.put(writer, DB_KEY_NIMBUS_ID, &nimbus_id)?;
                 nimbus_id
             }
         })
@@ -193,7 +210,7 @@ impl NimbusClient {
     // (Useful for testing so you can have some control over what experiments
     // are enrolled)
     pub fn set_nimbus_id(&self, uuid: &Uuid) -> Result<()> {
-        let db = self.db()?;
+        let db = self.db()?.lock().unwrap();
         let mut writer = db.write()?;
         db.get_store(StoreId::Meta)
             .put(&mut writer, DB_KEY_NIMBUS_ID, uuid)?;
@@ -201,8 +218,9 @@ impl NimbusClient {
         Ok(())
     }
 
-    fn db(&self) -> Result<&Database> {
-        self.db.get_or_try_init(|| Database::new(&self.db_path))
+    fn db(&self) -> Result<&Mutex<Database>> {
+        self.db
+            .get_or_try_init(|| Ok(Mutex::new(Database::new(&self.db_path)?)))
     }
 }
 

@@ -105,7 +105,7 @@ mod test {
         NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
     }
 
-    fn startup(client: &mut NimbusClient, first_run: bool) -> Result<()> {
+    fn startup(client: &NimbusClient, first_run: bool) -> Result<()> {
         if first_run {
             client.set_experiments_locally(initial_experiments())?;
         }
@@ -116,7 +116,7 @@ mod test {
 
     #[test]
     fn test_two_phase_update() -> Result<()> {
-        let mut client = new_client("test_two_phase_update")?;
+        let client = new_client("test_two_phase_update")?;
         client.fetch_experiments()?;
 
         // We have fetched the experiments from the server, but not put them into use yet.
@@ -176,8 +176,8 @@ mod test {
     #[cfg(feature = "rkv-safe-mode")]
     #[test]
     fn test_startup_behavior() -> Result<()> {
-        let mut client = new_client("test_startup_behavior")?;
-        startup(&mut client, true)?;
+        let client = new_client("test_startup_behavior")?;
+        startup(&client, true)?;
 
         let experiments = client.get_all_experiments()?;
         assert_eq!(experiments.len(), 2);
@@ -191,7 +191,7 @@ mod test {
         assert_eq!(experiments[0].slug, "secure-gold");
 
         // Next time we start the app.
-        startup(&mut client, false)?;
+        startup(&client, false)?;
         let experiments = client.get_all_experiments()?;
         assert_eq!(experiments.len(), 1);
         assert_eq!(experiments[0].slug, "secure-gold");

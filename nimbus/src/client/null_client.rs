@@ -20,7 +20,7 @@ impl SettingsClient for NullClient {
     fn get_experiments_metadata(&self) -> Result<String> {
         unimplemented!();
     }
-    fn fetch_experiments(&mut self) -> Result<Vec<Experiment>> {
+    fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
         Ok(Default::default())
     }
 }
@@ -36,7 +36,7 @@ fn test_null_client() -> Result<()> {
     let tmp_dir = TempDir::new("test_null_client-test_null")?;
 
     let aru = Default::default();
-    let mut client = NimbusClient::new(Default::default(), tmp_dir.path(), None, aru)?;
+    let client = NimbusClient::new(Default::default(), tmp_dir.path(), None, aru)?;
     client.fetch_experiments()?;
     client.apply_pending_experiments()?;
 

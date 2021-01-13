@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use crate::config::RemoteSettingsConfig;
 use crate::error::{Error, Result};
 use crate::{Experiment, SettingsClient, SCHEMA_VERSION};
+use std::cell::Cell;
 use url::Url;
 use viaduct::{status_codes, Request, Response};
 
@@ -28,10 +29,10 @@ pub struct Client {
     base_url: Url,
     collection_name: String,
     bucket_name: String,
-    remote_state: RemoteState,
+    remote_state: Cell<RemoteState>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 enum RemoteState {
     Ok,
     Backoff {
@@ -48,11 +49,11 @@ impl Client {
             base_url,
             bucket_name: config.bucket_name,
             collection_name: config.collection_name,
-            remote_state: RemoteState::Ok,
+            remote_state: Cell::new(RemoteState::Ok),
         })
     }
 
-    fn make_request(&mut self, request: Request) -> Result<Response> {
+    fn make_request(&self, request: Request) -> Result<Response> {
         self.ensure_no_backoff()?;
         let resp = request.send()?;
         self.handle_backoff_hint(&resp)?;
@@ -63,15 +64,15 @@ impl Client {
         }
     }
 
-    fn ensure_no_backoff(&mut self) -> Result<()> {
+    fn ensure_no_backoff(&self) -> Result<()> {
         if let RemoteState::Backoff {
             observed_at,
             duration,
-        } = self.remote_state
+        } = self.remote_state.get()
         {
             let elapsed_time = observed_at.elapsed();
             if elapsed_time >= duration {
-                self.remote_state = RemoteState::Ok;
+                self.remote_state.replace(RemoteState::Ok);
             } else {
                 let remaining = duration - elapsed_time;
                 return Err(Error::BackoffError(remaining.as_secs()));
@@ -80,7 +81,7 @@ impl Client {
         Ok(())
     }
 
-    fn handle_backoff_hint(&mut self, response: &Response) -> Result<()> {
+    fn handle_backoff_hint(&self, response: &Response) -> Result<()> {
         let extract_backoff_header = |header| -> Result<u64> {
             Ok(response
                 .headers
@@ -95,10 +96,10 @@ impl Client {
         let max_backoff = backoff.max(retry_after);
 
         if max_backoff > 0 {
-            self.remote_state = RemoteState::Backoff {
+            self.remote_state.replace(RemoteState::Backoff {
                 observed_at: Instant::now(),
                 duration: Duration::from_secs(max_backoff),
-            };
+            });
         }
         Ok(())
     }
@@ -109,7 +110,7 @@ impl SettingsClient for Client {
         unimplemented!();
     }
 
-    fn fetch_experiments(&mut self) -> Result<Vec<Experiment>> {
+    fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
         let path = format!(
             "buckets/{}/collections/{}/records",
             &self.bucket_name, &self.collection_name
@@ -268,7 +269,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let mut http_client = Client::new(config).unwrap();
+        let http_client = Client::new(config).unwrap();
         let resp = http_client.fetch_experiments().unwrap();
 
         m.expect(1).assert();
@@ -330,7 +331,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let mut http_client = Client::new(config).unwrap();
+        let http_client = Client::new(config).unwrap();
         assert!(http_client.fetch_experiments().is_ok());
         let second_request = http_client.fetch_experiments();
         assert!(matches!(second_request, Err(Error::BackoffError(_))));
@@ -353,7 +354,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let mut http_client = Client::new(config).unwrap();
+        let http_client = Client::new(config).unwrap();
         assert!(http_client.fetch_experiments().is_err());
         let second_request = http_client.fetch_experiments();
         assert!(matches!(second_request, Err(Error::BackoffError(_))));
@@ -378,19 +379,19 @@ mod tests {
         };
         let mut http_client = Client::new(config).unwrap();
         // First, sanity check that manipulating the remote state does something.
-        http_client.remote_state = RemoteState::Backoff {
+        http_client.remote_state.replace(RemoteState::Backoff {
             observed_at: Instant::now(),
             duration: Duration::from_secs(30),
-        };
+        });
         assert!(matches!(
             http_client.fetch_experiments(),
             Err(Error::BackoffError(_))
         ));
         // Then do the actual test.
-        http_client.remote_state = RemoteState::Backoff {
+        http_client.remote_state = Cell::new(RemoteState::Backoff {
             observed_at: Instant::now() - Duration::from_secs(31),
             duration: Duration::from_secs(30),
-        };
+        });
         assert!(http_client.fetch_experiments().is_ok());
         m.expect(1).assert();
     }
