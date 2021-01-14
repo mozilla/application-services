@@ -466,7 +466,7 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
         IncomingState::IncomingOnly { guid, incoming } => IncomingAction::TakeRemote {
             new_record: Record {
                 guid: SyncGuid::new(&guid),
-                data: incoming.clone(),
+                data: incoming,
             },
         },
         IncomingState::IncomingTombstone {
@@ -513,7 +513,7 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
             dupe,
             mirror,
         } => {
-            let new_record = merge(guid.clone(), incoming, dupe.clone(), mirror);
+            let new_record = merge(guid.clone(), incoming, dupe, mirror);
             IncomingAction::UpdateLocalGuid {
                 old_guid: guid,
                 dupe_guid,
@@ -624,6 +624,8 @@ fn get_forked_record(local_record: Record) -> Record {
     }
 }
 
+/// Changes the guid of the local record for the given `old_guid` to the given `new_guid` used
+/// for the `HasLocalDupe` incoming state.
 fn change_local_guid(conn: &Connection, old_guid: String, new_guid: String) -> Result<()> {
     conn.conn().execute_named(
         "UPDATE addresses_data
@@ -770,6 +772,7 @@ fn upsert_local_record(conn: &Connection, new_record: Record) -> Result<()> {
     Ok(())
 }
 
+/// Apply the actions necessary to fully process the incoming items
 pub fn apply_actions(
     conn: &Connection,
     actions: Vec<(SyncGuid, IncomingAction)>,
