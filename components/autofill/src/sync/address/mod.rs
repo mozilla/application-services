@@ -5,7 +5,7 @@
 
 pub mod incoming;
 
-use rusqlite::{types::FromSql, Row};
+use rusqlite::Row;
 use serde::Serialize;
 use serde_derive::*;
 use sync_guid::Guid as SyncGuid;
@@ -13,79 +13,74 @@ use types::Timestamp;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct RecordData {
-    #[serde(default)]
     pub given_name: String,
 
-    #[serde(default)]
     pub additional_name: String,
 
-    #[serde(default)]
     pub family_name: String,
 
-    #[serde(default)]
     pub organization: String,
 
-    #[serde(default)]
     pub street_address: String,
 
-    #[serde(default)]
     pub address_level3: String,
 
-    #[serde(default)]
     pub address_level2: String,
 
-    #[serde(default)]
     pub address_level1: String,
 
-    #[serde(default)]
     pub postal_code: String,
 
-    #[serde(default)]
     pub country: String,
 
-    #[serde(default)]
     pub tel: String,
 
-    #[serde(default)]
     pub email: String,
 
-    #[serde(default)]
-    pub time_created: Option<Timestamp>,
+    pub time_created: Timestamp,
 
-    #[serde(default)]
-    pub time_last_used: Option<Timestamp>,
+    pub time_last_used: Timestamp,
 
-    #[serde(default)]
-    pub time_last_modified: Option<Timestamp>,
+    pub time_last_modified: Timestamp,
 
-    #[serde(default)]
-    pub times_used: Option<i64>,
+    pub times_used: i64,
 
-    #[serde(default)]
     pub sync_change_counter: Option<i64>,
 }
 
 impl RecordData {
-    pub fn from_row(row: &Row<'_>) -> Result<RecordData, rusqlite::Error> {
+    pub fn from_row(row: &Row<'_>, column_prefix: &str) -> Result<RecordData, rusqlite::Error> {
         Ok(RecordData {
-            given_name: row.get::<_, String>("given_name")?,
-            additional_name: row.get::<_, String>("additional_name")?,
-            family_name: row.get::<_, String>("family_name")?,
-            organization: row.get::<_, String>("organization")?,
-            street_address: row.get::<_, String>("street_address")?,
-            address_level3: row.get::<_, String>("address_level3")?,
-            address_level2: row.get::<_, String>("address_level2")?,
-            address_level1: row.get::<_, String>("address_level1")?,
-            postal_code: row.get::<_, String>("postal_code")?,
-            country: row.get::<_, String>("country")?,
-            tel: row.get::<_, String>("tel")?,
-            email: row.get::<_, String>("email")?,
-            time_created: FromSql::column_result(row.get_raw::<_>("time_created")).ok(),
-            time_last_used: FromSql::column_result(row.get_raw::<_>("time_last_used")).ok(),
-            time_last_modified: FromSql::column_result(row.get_raw::<_>("time_last_modified")).ok(),
-            times_used: FromSql::column_result(row.get_raw::<_>("times_used")).ok(),
-            sync_change_counter: FromSql::column_result(row.get_raw::<_>("sync_change_counter"))
+            given_name: row
+                .get::<_, String>(format!("{}{}", column_prefix, "given_name").as_str())?,
+            additional_name: row
+                .get::<_, String>(format!("{}{}", column_prefix, "additional_name").as_str())?,
+            family_name: row
+                .get::<_, String>(format!("{}{}", column_prefix, "family_name").as_str())?,
+            organization: row
+                .get::<_, String>(format!("{}{}", column_prefix, "organization").as_str())?,
+            street_address: row
+                .get::<_, String>(format!("{}{}", column_prefix, "street_address").as_str())?,
+            address_level3: row
+                .get::<_, String>(format!("{}{}", column_prefix, "address_level3").as_str())?,
+            address_level2: row
+                .get::<_, String>(format!("{}{}", column_prefix, "address_level2").as_str())?,
+            address_level1: row
+                .get::<_, String>(format!("{}{}", column_prefix, "address_level1").as_str())?,
+            postal_code: row
+                .get::<_, String>(format!("{}{}", column_prefix, "postal_code").as_str())?,
+            country: row.get::<_, String>(format!("{}{}", column_prefix, "country").as_str())?,
+            tel: row.get::<_, String>(format!("{}{}", column_prefix, "tel").as_str())?,
+            email: row.get::<_, String>(format!("{}{}", column_prefix, "email").as_str())?,
+            time_created: row.get(format!("{}{}", column_prefix, "time_created").as_str())?,
+            time_last_used: row.get(format!("{}{}", column_prefix, "time_last_used").as_str())?,
+            time_last_modified: row
+                .get(format!("{}{}", column_prefix, "time_last_modified").as_str())?,
+            times_used: row.get(format!("{}{}", column_prefix, "times_used").as_str())?,
+            sync_change_counter: row
+                .get(format!("{}{}", column_prefix, "sync_change_counter").as_str())
                 .ok(),
         })
     }
@@ -99,14 +94,4 @@ pub struct Record {
 
     #[serde(flatten)]
     data: RecordData,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AddressChanges {
-    // #[serde(rename = "id")]
-    // pub guid: SyncGuid,
-    pub old_value: Option<Record>,
-
-    pub new_value: Option<Record>,
 }

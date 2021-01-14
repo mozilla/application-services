@@ -15,39 +15,13 @@ CREATE TEMP TABLE addresses_sync_staging (
     postal_code         TEXT NOT NULL,
     country             TEXT NOT NULL,
     tel                 TEXT NOT NULL,
-    email               TEXT NOT NULL
+    email               TEXT NOT NULL,
+    time_created        INTEGER NOT NULL,
+    time_last_used      INTEGER,
+    time_last_modified  INTEGER NOT NULL,
+    times_used          INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TEMP TABLE addresses_tombstone_sync_staging (
     guid                TEXT NOT NULL PRIMARY KEY
-);
-
-CREATE TEMP TABLE addresses_sync_applied (
-    guid                    TEXT NOT NULL PRIMARY KEY,
-    old_given_name          TEXT NULL,
-    old_additional_name     TEXT NULL,
-    old_family_name         TEXT NULL,
-    old_organization        TEXT NULL,
-    old_street_address      TEXT NULL,
-    old_address_level3      TEXT NULL,
-    old_address_level2      TEXT NULL,
-    old_address_level1      TEXT NULL,
-    old_postal_code         TEXT NULL,
-    old_country             TEXT NULL,
-    old_tel                 TEXT NULL,
-    old_email               TEXT NULL,
-
-    new_guid                TEXT NULL,
-    new_given_name          TEXT NULL,
-    new_additional_name     TEXT NULL,
-    new_family_name         TEXT NULL,
-    new_organization        TEXT NULL,
-    new_street_address      TEXT NULL,
-    new_address_level3      TEXT NULL,
-    new_address_level2      TEXT NULL,
-    new_address_level1      TEXT NULL,
-    new_postal_code         TEXT NULL,
-    new_country             TEXT NULL,
-    new_tel                 TEXT NULL,
-    new_email               TEXT NULL
 );
