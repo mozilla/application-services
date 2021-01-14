@@ -72,6 +72,15 @@ impl NimbusClient {
             .map(|e| e.branch_slug.clone()))
     }
 
+    pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<Branch>> {
+        Ok(self
+            .get_all_experiments()?
+            .iter()
+            .find(|e| e.slug == slug)
+            .map(|e| e.branches.clone())
+            .ok_or(Error::NoSuchExperiment(slug))?)
+    }
+
     pub fn get_global_user_participation(&self) -> Result<bool> {
         // This is a bit smelly, but get_global_user_participation() needs a
         // writer so that the implementation of update_enrollments can pass one

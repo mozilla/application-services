@@ -21,6 +21,17 @@ dictionary EnrolledExperiment {
     string enrollment_id;
 };
 
+dictionary Branch {
+    string slug;
+    u32 ratio;
+    FeatureConfig? feature;
+};
+
+dictionary FeatureConfig {
+    string feature_id;
+    boolean enabled;
+};
+
 dictionary RemoteSettingsConfig {
     string server_url;
     string bucket_name;
@@ -73,6 +84,10 @@ interface NimbusClient {
     // specified experiment does not exist.
     [Throws=Error]
     string? get_experiment_branch(string experiment_slug);
+
+    // Returns a list of experiment branches for a given experiment ID.
+    [Throws=Error]
+    sequence<Branch> get_experiment_branches(string experiment_slug);
 
     // Returns a list of experiments this user is enrolled in.
     [Throws=Error]
