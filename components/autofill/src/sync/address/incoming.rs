@@ -7,7 +7,6 @@ use super::{Record, RecordData};
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, types::ToSql, Connection};
-use serde_json::{Map, Value};
 use sql_support::ConnExt;
 use sync15::Payload;
 use sync_guid::Guid as SyncGuid;
@@ -131,18 +130,18 @@ fn save_incoming_tombstones(
 pub enum IncomingState {
     // Only the incoming record exists. An associated local or mirror record doesn't exist.
     IncomingOnly {
-        guid: String,
+        guid: SyncGuid,
         incoming: RecordData,
     },
     // The incoming record is a tombstone.
     IncomingTombstone {
-        guid: String,
+        guid: SyncGuid,
         local: Option<RecordData>,
         has_local_tombstone: bool,
     },
     // The incoming record has an associated local record.
     HasLocal {
-        guid: String,
+        guid: SyncGuid,
         incoming: RecordData,
         local: RecordData,
         mirror: Option<RecordData>,
@@ -150,16 +149,16 @@ pub enum IncomingState {
     // The incoming record doesn't have an associated local record with the same GUID.
     // A local record with the same data but a different GUID has been located.
     HasLocalDupe {
-        guid: String,
+        guid: SyncGuid,
         incoming: RecordData,
-        dupe_guid: String,
+        dupe_guid: SyncGuid,
         dupe: RecordData,
         mirror: Option<RecordData>,
     },
     // The incoming record doesn't have an associated local or local duplicate record but does
     // have a local tombstone.
     NonDeletedIncoming {
-        guid: String,
+        guid: SyncGuid,
         incoming: RecordData,
     },
 }
@@ -206,13 +205,12 @@ fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<(SyncGuid, Inc
         LEFT JOIN addresses_tombstones t ON s.guid = t.guid",
         &[],
         |row| -> Result<(SyncGuid, IncomingState)> {
-            let incoming_guid: String = row.get_unwrap("s_guid");
-            let guid: SyncGuid = SyncGuid::from_string(incoming_guid.clone());
-            let local_guid: Option<String> = row.get("l_guid")?;
-            let tombstone_guid: Option<String> = row.get("t_guid")?;
+            let incoming_guid: SyncGuid = row.get_unwrap("s_guid");
+            let local_guid: Option<SyncGuid> = row.get("l_guid")?;
+            let tombstone_guid: Option<SyncGuid> = row.get("t_guid")?;
 
             Ok((
-                guid,
+                incoming_guid.clone(),
                 IncomingState::IncomingTombstone {
                     guid: incoming_guid,
                     local: match local_guid {
@@ -237,15 +235,15 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
             l.guid as l_guid,
             s.given_name as s_given_name,
             m.given_name as m_given_name,
-			l.given_name as l_given_name,
+            l.given_name as l_given_name,
             s.additional_name as s_additional_name,
-			m.additional_name as m_additional_name,
-			l.additional_name as l_additional_name,
+            m.additional_name as m_additional_name,
+            l.additional_name as l_additional_name,
             s.family_name as s_family_name,
-			m.family_name as m_family_name,
-			l.family_name as l_family_name,
+            m.family_name as m_family_name,
+            l.family_name as l_family_name,
             s.organization as s_organization,
-			m.organization as m_organization,
+            m.organization as m_organization,
             l.organization as l_organization,
             s.street_address as s_street_address,
             m.street_address as m_street_address,
@@ -292,9 +290,9 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
         sql_query,
         &[],
         |row| -> Result<(SyncGuid, IncomingState)> {
-            let guid: String = row.get_unwrap("s_guid");
-            let mirror_guid: Option<String> = row.get_unwrap("m_guid");
-            let local_guid: Option<String> = row.get_unwrap("l_guid");
+            let guid: SyncGuid = row.get_unwrap("s_guid");
+            let mirror_guid: Option<SyncGuid> = row.get_unwrap("m_guid");
+            let local_guid: Option<SyncGuid> = row.get_unwrap("l_guid");
 
             let incoming = RecordData::from_row(row, "s_")?;
 
@@ -314,7 +312,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                     let local_dupe = get_local_dupe(
                         conn,
                         Record {
-                            guid: SyncGuid::from_string(guid.clone()),
+                            guid: guid.clone(),
                             data: incoming.clone(),
                         },
                     )?;
@@ -323,7 +321,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                         Some(d) => IncomingState::HasLocalDupe {
                             guid: guid.clone(),
                             incoming,
-                            dupe_guid: d.guid.to_string(),
+                            dupe_guid: d.guid,
                             dupe: d.data,
                             mirror,
                         },
@@ -341,7 +339,7 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                 }
             };
 
-            Ok((SyncGuid::from_string(guid), incoming_state))
+            Ok((guid, incoming_state))
         },
     )?)
 }
@@ -447,8 +445,8 @@ pub enum IncomingAction {
         merged_record: Record,
     },
     UpdateLocalGuid {
-        old_guid: String,
-        dupe_guid: String,
+        old_guid: SyncGuid,
+        dupe_guid: SyncGuid,
         new_record: Record,
     },
     TakeRemote {
@@ -523,7 +521,7 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
         IncomingState::NonDeletedIncoming { guid, incoming } => {
             IncomingAction::DeleteLocalTombstone {
                 remote_record: Record {
-                    guid: SyncGuid::from_string(guid),
+                    guid,
                     data: incoming,
                 },
             }
@@ -531,48 +529,24 @@ pub fn plan_incoming(s: IncomingState) -> IncomingAction {
     }
 }
 
-/// Performs a three-way merge between an incoming, local, and mirror record. If a merge
-/// cannot be successfully completed, the local record data is returned with a new guid
-/// and sync metadata.
-fn merge(
-    guid: String,
-    incoming: RecordData,
-    local: RecordData,
-    mirror: Option<RecordData>,
-) -> Record {
-    let i = serde_json::to_value(&incoming).unwrap();
-    let l = serde_json::to_value(&local).unwrap();
-    let mut merged_value: RecordData;
-    let mut merged_record = Map::new();
-
-    let field_names = vec![
-        "given-name",
-        "additional-name",
-        "family-name",
-        "organization",
-        "street-address",
-        "address-level3",
-        "address-level2",
-        "address-level1",
-        "postal-code",
-        "country",
-        "tel",
-        "email",
-    ];
-
-    for field_name in field_names {
-        let incoming_field = i.get(field_name).unwrap().to_string();
-        let local_field = l.get(field_name).unwrap().to_string();
+// We allow all "common" fields from the sub-types to be getters on the
+// InsertableItem type.
+macro_rules! field_check {
+    ($field_name:ident,
+    $guid:ident,
+    $incoming:ident,
+    $local:ident,
+    $mirror:ident,
+    $merged_record:ident
+    ) => {
+        let incoming_field = &$incoming.$field_name;
+        let local_field = &$local.$field_name;
         let is_local_same;
         let is_incoming_same;
 
-        match &mirror {
+        match &$mirror {
             Some(m) => {
-                let mirror_field = serde_json::to_value(&m)
-                    .unwrap()
-                    .get(field_name)
-                    .unwrap()
-                    .to_string();
+                let mirror_field = &m.$field_name;
                 is_local_same = mirror_field == local_field;
                 is_incoming_same = mirror_field == incoming_field;
             }
@@ -582,29 +556,90 @@ fn merge(
             }
         };
 
-        let should_use_local = is_incoming_same || local == incoming.clone();
+        let should_use_local = is_incoming_same || local_field == incoming_field;
 
         if is_local_same && !is_incoming_same {
-            merged_record.insert(String::from(field_name), Value::String(incoming_field));
+            $merged_record.$field_name = incoming_field.clone();
         } else if should_use_local {
-            merged_record.insert(String::from(field_name), Value::String(local_field));
+            $merged_record.$field_name = local_field.clone();
         } else {
             return get_forked_record(Record {
-                guid: SyncGuid::new(&guid),
-                data: local,
+                guid: $guid,
+                data: $local,
             });
+        }
+    };
+}
+
+fn get_latest_time(times: &mut [Timestamp]) -> Timestamp {
+    times.sort();
+    times[times.len() - 1]
+}
+
+/// Performs a three-way merge between an incoming, local, and mirror record. If a merge
+/// cannot be successfully completed, the local record data is returned with a new guid
+/// and sync metadata.
+fn merge(
+    guid: SyncGuid,
+    incoming: RecordData,
+    local: RecordData,
+    mirror: Option<RecordData>,
+) -> Record {
+    let mut merged_record: RecordData = Default::default();
+
+    field_check!(given_name, guid, incoming, local, mirror, merged_record);
+    field_check!(
+        additional_name,
+        guid,
+        incoming,
+        local,
+        mirror,
+        merged_record
+    );
+    field_check!(family_name, guid, incoming, local, mirror, merged_record);
+    field_check!(organization, guid, incoming, local, mirror, merged_record);
+    field_check!(street_address, guid, incoming, local, mirror, merged_record);
+    field_check!(address_level3, guid, incoming, local, mirror, merged_record);
+    field_check!(address_level2, guid, incoming, local, mirror, merged_record);
+    field_check!(address_level1, guid, incoming, local, mirror, merged_record);
+    field_check!(postal_code, guid, incoming, local, mirror, merged_record);
+    field_check!(country, guid, incoming, local, mirror, merged_record);
+    field_check!(tel, guid, incoming, local, mirror, merged_record);
+    field_check!(email, guid, incoming, local, mirror, merged_record);
+
+    match mirror {
+        Some(m) => {
+            merged_record.time_created =
+                get_latest_time(&mut [incoming.time_created, local.time_created, m.time_created]);
+            merged_record.time_last_used = get_latest_time(&mut [
+                incoming.time_last_used,
+                local.time_last_used,
+                m.time_last_used,
+            ]);
+            merged_record.time_last_modified = get_latest_time(&mut [
+                incoming.time_last_modified,
+                local.time_last_modified,
+                m.time_last_modified,
+            ]);
+
+            merged_record.times_used = m.times_used
+                + (local.times_used - m.times_used)
+                + (incoming.times_used - m.times_used);
+        }
+        None => {
+            merged_record.time_created =
+                get_latest_time(&mut [incoming.time_created, local.time_created]);
+            merged_record.time_last_used =
+                get_latest_time(&mut [incoming.time_last_used, local.time_last_used]);
+            merged_record.time_last_modified =
+                get_latest_time(&mut [incoming.time_last_modified, local.time_last_modified]);
+            merged_record.times_used = local.times_used + incoming.times_used;
         }
     }
 
-    merged_value = serde_json::from_str(Value::Object(merged_record).as_str().unwrap()).unwrap();
-    merged_value.time_created = incoming.time_created;
-    merged_value.time_last_used = incoming.time_last_used;
-    merged_value.time_last_modified = incoming.time_last_modified;
-    merged_value.times_used = incoming.times_used;
-
     Record {
-        guid: SyncGuid::new(&guid),
-        data: merged_value.clone(),
+        guid,
+        data: merged_record.clone(),
     }
 }
 
@@ -626,7 +661,7 @@ fn get_forked_record(local_record: Record) -> Record {
 
 /// Changes the guid of the local record for the given `old_guid` to the given `new_guid` used
 /// for the `HasLocalDupe` incoming state.
-fn change_local_guid(conn: &Connection, old_guid: String, new_guid: String) -> Result<()> {
+fn change_local_guid(conn: &Connection, old_guid: SyncGuid, new_guid: SyncGuid) -> Result<()> {
     conn.conn().execute_named(
         "UPDATE addresses_data
         SET guid = :new_guid
