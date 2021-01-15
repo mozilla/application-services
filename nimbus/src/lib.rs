@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+mod dbcache;
 mod enrollment;
 pub mod error;
 mod evaluator;
@@ -17,6 +18,7 @@ pub use evaluator::evaluate_enrollment;
 
 use client::{create_client, parse_experiments, SettingsClient};
 pub use config::RemoteSettingsConfig;
+use dbcache::DatabaseCache;
 pub use enrollment::EnrollmentStatus;
 use enrollment::{
     get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
@@ -43,6 +45,9 @@ pub struct NimbusClient {
     available_randomization_units: AvailableRandomizationUnits,
     app_context: AppContext,
     db: OnceCell<Mutex<Database>>,
+    // Manages an in-memory cache so that we can answer certain requests
+    // without doing (or waiting for) IO.
+    database_cache: DatabaseCache,
     db_path: PathBuf,
 }
 
@@ -60,17 +65,21 @@ impl NimbusClient {
             settings_client,
             available_randomization_units,
             app_context,
+            database_cache: Default::default(),
             db_path: db_path.into(),
             db: OnceCell::default(),
         })
     }
 
+    pub fn initialize(&self) -> Result<()> {
+        let db = self.db()?.lock().unwrap();
+        self.database_cache.update(&db)?;
+        Ok(())
+    }
+
+    // Note: the contract for this function is that it never blocks on IO.
     pub fn get_experiment_branch(&self, slug: String) -> Result<Option<String>> {
-        Ok(self
-            .get_active_experiments()?
-            .iter()
-            .find(|e| e.slug == slug)
-            .map(|e| e.branch_slug.clone()))
+        self.database_cache.get_experiment_branch(&slug)
     }
 
     pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<Branch>> {
@@ -112,6 +121,7 @@ impl NimbusClient {
         );
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &existing_experiments)?;
         writer.commit()?;
+        self.database_cache.update(&db)?;
         Ok(events)
     }
 
@@ -131,12 +141,16 @@ impl NimbusClient {
         branch: String,
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?.lock().unwrap();
-        opt_in_with_branch(&db, &experiment_slug, &branch)
+        let result = opt_in_with_branch(&db, &experiment_slug, &branch)?;
+        self.database_cache.update(&db)?;
+        Ok(result)
     }
 
     pub fn opt_out(&self, experiment_slug: String) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?.lock().unwrap();
-        opt_out(&db, &experiment_slug)
+        let result = opt_out(&db, &experiment_slug)?;
+        self.database_cache.update(&db)?;
+        Ok(result)
     }
 
     pub fn update_experiments(&self) -> Result<Vec<EnrollmentChangeEvent>> {
@@ -169,6 +183,7 @@ impl NimbusClient {
                 let events =
                     evolver.evolve_enrollments_in_db(&db, &mut writer, &new_experiments)?;
                 writer.commit()?;
+                self.database_cache.update(&db)?;
                 events
             }
             // We don't need to writer.commit() here because we haven't done anything.

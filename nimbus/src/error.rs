@@ -49,6 +49,8 @@ pub enum Error {
     NoSuchBranch(String, String),
     #[error("Server asked the client to back off ({0} seconds remaining)")]
     BackoffError(u64),
+    #[error("Initialization of the database is not yet complete")]
+    DatabaseNotReady,
 }
 
 // This can be replaced with #[from] in the enum definition

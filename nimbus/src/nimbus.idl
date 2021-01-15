@@ -66,7 +66,8 @@ enum Error {
     "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
     "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
     "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
-    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError"
+    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError",
+    "DatabaseNotReady",
 };
 
 interface NimbusClient {
@@ -78,6 +79,16 @@ interface NimbusClient {
         AvailableRandomizationUnits available_randomization_units
     );
 
+    // Initializes the database and caches enough information so that the
+    // non-blocking API functions (eg, `get_experiment_branch()`) can
+    // return accurate results rather than throwing a "not initialized" error.
+    // It's not strictly necessary to call this function - any function that
+    // wants to use the database will implicitly initialize too - this exists
+    // so that the consuming application can have confidence the non-blocking
+    // functions will return data instead of returning an error, and will do
+    // the minimum amount of work to achieve that.
+    [Throws=Error]
+    void initialize();
 
     // Returns the branch allocated for a given experiment ID. Returns null
     // if the user is not enrolled in the specified experiment or if the
