@@ -5,11 +5,13 @@
 
 pub mod incoming;
 
+use crate::error::*;
 use rusqlite::Row;
 use serde::Serialize;
 use serde_derive::*;
-use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
+
+type Record = crate::sync::Record<RecordData>;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(rename_all = "camelCase")]
@@ -51,7 +53,7 @@ pub struct RecordData {
 }
 
 impl RecordData {
-    pub fn from_row(row: &Row<'_>, column_prefix: &str) -> Result<RecordData, rusqlite::Error> {
+    pub fn from_row(row: &Row<'_>, column_prefix: &str) -> Result<RecordData> {
         Ok(RecordData {
             given_name: row
                 .get::<_, String>(format!("{}{}", column_prefix, "given_name").as_str())?,
@@ -84,14 +86,4 @@ impl RecordData {
                 .ok(),
         })
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct Record {
-    #[serde(rename = "id", default)]
-    pub guid: SyncGuid,
-
-    #[serde(flatten)]
-    data: RecordData,
 }

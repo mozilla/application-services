@@ -12,6 +12,9 @@ use sync15::Payload;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 
+type IncomingState = crate::sync::IncomingState<RecordData>;
+type IncomingAction = crate::sync::IncomingAction<RecordData>;
+
 /// The first step in the "apply incoming" process for syncing autofill address records.
 /// Incoming tombstones will saved in the `temp.addresses_tombstone_sync_staging` table
 /// and incoming records will be saved to the `temp.addresses_sync_staging` table.
@@ -124,45 +127,6 @@ fn save_incoming_tombstones(
     )
 }
 
-/// The distinct states of records to be synced which determine the `IncomingAction` to be taken.
-#[derive(Debug, PartialEq)]
-#[allow(clippy::large_enum_variant)]
-pub enum IncomingState {
-    // Only the incoming record exists. An associated local or mirror record doesn't exist.
-    IncomingOnly {
-        guid: SyncGuid,
-        incoming: RecordData,
-    },
-    // The incoming record is a tombstone.
-    IncomingTombstone {
-        guid: SyncGuid,
-        local: Option<RecordData>,
-        has_local_tombstone: bool,
-    },
-    // The incoming record has an associated local record.
-    HasLocal {
-        guid: SyncGuid,
-        incoming: RecordData,
-        local: RecordData,
-        mirror: Option<RecordData>,
-    },
-    // The incoming record doesn't have an associated local record with the same GUID.
-    // A local record with the same data but a different GUID has been located.
-    HasLocalDupe {
-        guid: SyncGuid,
-        incoming: RecordData,
-        dupe_guid: SyncGuid,
-        dupe: RecordData,
-        mirror: Option<RecordData>,
-    },
-    // The incoming record doesn't have an associated local or local duplicate record but does
-    // have a local tombstone.
-    NonDeletedIncoming {
-        guid: SyncGuid,
-        incoming: RecordData,
-    },
-}
-
 /// The second step in the "apply incoming" process for syncing autofill address records.
 /// Incoming tombstones and records are retrieved from the temp tables and assigned
 /// `IncomingState` values.
@@ -216,6 +180,15 @@ fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<(SyncGuid, Inc
                     local: match local_guid {
                         Some(_) => Some(RecordData::from_row(row, "")?),
                         None => None,
+                    },
+                    has_local_changes: match local_guid {
+                        Some(_) => {
+                            RecordData::from_row(row, "")?
+                                .sync_change_counter
+                                .unwrap_or(0)
+                                != 0
+                        }
+                        None => false,
                     },
                     has_local_tombstone: tombstone_guid.is_some(),
                 },
@@ -302,12 +275,15 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
             };
 
             let incoming_state = match local_guid {
-                Some(_) => IncomingState::HasLocal {
-                    guid: guid.clone(),
-                    incoming,
-                    local: RecordData::from_row(row, "l_")?,
-                    mirror,
-                },
+                Some(_) => {
+                    let local = RecordData::from_row(row, "l_")?;
+                    IncomingState::HasLocal {
+                        guid: guid.clone(),
+                        incoming: incoming.clone(),
+                        merged: merge(guid.clone(), incoming.clone(), local.clone(), mirror),
+                        has_local_changes: local.sync_change_counter.unwrap_or(0) != 0,
+                    }
+                }
                 None => {
                     let local_dupe = get_local_dupe(
                         conn,
@@ -320,10 +296,8 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
                     match local_dupe {
                         Some(d) => IncomingState::HasLocalDupe {
                             guid: guid.clone(),
-                            incoming,
                             dupe_guid: d.guid,
-                            dupe: d.data,
-                            mirror,
+                            merged: merge(guid.clone(), incoming.clone(), d.data, mirror),
                         },
                         None => match has_local_tombstone(conn, &guid)? {
                             true => IncomingState::NonDeletedIncoming {
@@ -407,7 +381,7 @@ fn get_local_dupe(conn: &Connection, incoming: Record) -> Result<Option<Record>>
     let result = conn.conn().query_row_named(&sql, params, |row| {
         Ok(Record {
             guid: row.get_unwrap("guid"),
-            data: RecordData::from_row(&row, "")?,
+            data: RecordData::from_row(&row, "").unwrap(),
         })
     });
 
@@ -432,101 +406,6 @@ fn has_local_tombstone(conn: &Connection, guid: &str) -> Result<bool> {
         &[guid],
         |row| row.get(0),
     )?)
-}
-
-/// The distinct incoming sync actions to be preformed for incoming records.
-#[derive(Debug, PartialEq)]
-#[allow(clippy::large_enum_variant)]
-pub enum IncomingAction {
-    DeleteLocalRecord {
-        guid: SyncGuid,
-    },
-    TakeMergedRecord {
-        merged_record: Record,
-    },
-    UpdateLocalGuid {
-        old_guid: SyncGuid,
-        dupe_guid: SyncGuid,
-        new_record: Record,
-    },
-    TakeRemote {
-        new_record: Record,
-    },
-    DeleteLocalTombstone {
-        remote_record: Record,
-    },
-    DoNothing,
-}
-
-/// Given an `IncomingState` returns the `IncomingAction` that should be performed.
-pub fn plan_incoming(s: IncomingState) -> IncomingAction {
-    match s {
-        IncomingState::IncomingOnly { guid, incoming } => IncomingAction::TakeRemote {
-            new_record: Record {
-                guid: SyncGuid::new(&guid),
-                data: incoming,
-            },
-        },
-        IncomingState::IncomingTombstone {
-            guid,
-            local,
-            has_local_tombstone,
-        } => match local {
-            Some(l) => {
-                // Note: On desktop, when there's a local record for an incoming tombstone, a local tombstone
-                // would created. But we don't actually need to create a local tombstone here. If we did it would
-                // immediately be deleted after being uploaded to the server.
-                let has_local_changes = l.sync_change_counter.unwrap_or(0) != 0;
-
-                if has_local_changes || has_local_tombstone {
-                    IncomingAction::DoNothing
-                } else {
-                    IncomingAction::DeleteLocalRecord {
-                        guid: SyncGuid::new(&guid),
-                    }
-                }
-            }
-            None => IncomingAction::DoNothing,
-        },
-        IncomingState::HasLocal {
-            guid,
-            incoming,
-            local,
-            mirror,
-        } => match local.sync_change_counter.unwrap_or(0) == 0 {
-            true => IncomingAction::TakeRemote {
-                new_record: Record {
-                    guid: SyncGuid::new(&guid),
-                    data: incoming,
-                },
-            },
-            false => IncomingAction::TakeMergedRecord {
-                merged_record: merge(guid, incoming, local, mirror),
-            },
-        },
-        IncomingState::HasLocalDupe {
-            guid,
-            incoming,
-            dupe_guid,
-            dupe,
-            mirror,
-        } => {
-            let new_record = merge(guid.clone(), incoming, dupe, mirror);
-            IncomingAction::UpdateLocalGuid {
-                old_guid: guid,
-                dupe_guid,
-                new_record,
-            }
-        }
-        IncomingState::NonDeletedIncoming { guid, incoming } => {
-            IncomingAction::DeleteLocalTombstone {
-                remote_record: Record {
-                    guid,
-                    data: incoming,
-                },
-            }
-        }
-    }
 }
 
 // We allow all "common" fields from the sub-types to be getters on the
@@ -571,11 +450,6 @@ macro_rules! field_check {
     };
 }
 
-fn get_latest_time(times: &mut [Timestamp]) -> Timestamp {
-    times.sort();
-    times[times.len() - 1]
-}
-
 /// Performs a three-way merge between an incoming, local, and mirror record. If a merge
 /// cannot be successfully completed, the local record data is returned with a new guid
 /// and sync metadata.
@@ -607,6 +481,25 @@ fn merge(
     field_check!(tel, guid, incoming, local, mirror, merged_record);
     field_check!(email, guid, incoming, local, mirror, merged_record);
 
+    set_sync_times(&mut merged_record, incoming, local, mirror);
+
+    Record {
+        guid,
+        data: merged_record.clone(),
+    }
+}
+
+fn set_sync_times(
+    merged_record: &mut RecordData,
+    incoming: RecordData,
+    local: RecordData,
+    mirror: Option<RecordData>,
+) {
+    fn get_latest_time(times: &mut [Timestamp]) -> Timestamp {
+        times.sort();
+        times[times.len() - 1]
+    }
+
     match mirror {
         Some(m) => {
             merged_record.time_created =
@@ -635,11 +528,6 @@ fn merge(
                 get_latest_time(&mut [incoming.time_last_modified, local.time_last_modified]);
             merged_record.times_used = local.times_used + incoming.times_used;
         }
-    }
-
-    Record {
-        guid,
-        data: merged_record.clone(),
     }
 }
 
@@ -818,8 +706,8 @@ pub fn apply_actions(
 
         log::trace!("action for '{:?}': {:?}", item, action);
         match action {
-            IncomingAction::TakeMergedRecord { merged_record } => {
-                update_local_record(conn, merged_record)?;
+            IncomingAction::TakeMergedRecord { new_record } => {
+                update_local_record(conn, new_record)?;
             }
             IncomingAction::UpdateLocalGuid {
                 dupe_guid,
