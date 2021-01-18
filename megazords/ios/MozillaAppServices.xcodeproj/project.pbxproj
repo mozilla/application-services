@@ -850,7 +850,7 @@
 		CE9D202920914D0D00F1C8FA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				MACH_O_TYPE = staticlib;
+				MACH_O_TYPE = mh_dylib;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
 			};
 			name = Debug;
@@ -858,7 +858,7 @@
 		CE9D202A20914D0D00F1C8FA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				MACH_O_TYPE = staticlib;
+				MACH_O_TYPE = mh_dylib;
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
 			};
 			name = Release;
