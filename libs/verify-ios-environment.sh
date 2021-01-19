@@ -34,14 +34,10 @@ if ! [[ -x "$(command -v xcpretty)" ]]; then
   exit 1
 fi
 
-set -euo pipefail
-
-xcconfig=$(mktemp /tmp/static.xcconfig.XXXXXX)
-trap 'rm -f "$xcconfig"' INT TERM HUP EXIT
-
 # For Xcode 12 make sure EXCLUDED_ARCHS is set to arm architectures otherwise
 # the build will fail on lipo due to duplicate architectures.
-export XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig
+XCODE_XCCONFIG_FILE=$(pwd)/xcconfig/xcode-12-fix-carthage-lipo.xcconfig
+export XCODE_XCCONFIG_FILE
 
 echo "Running carthage boostrap..."
 carthage bootstrap --platform iOS --cache-builds
