@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS addresses_data (
     sync_change_counter INTEGER NOT NULL DEFAULT 1
 );
 
+-- Note that we don't store tombstones in the mirror - maybe we should? That
+-- would mean we need to change the schema here significantly - maybe we should
+-- just store the JSON payload?
 CREATE TABLE IF NOT EXISTS addresses_mirror (
    guid                 TEXT NOT NULL PRIMARY KEY,
     given_name          TEXT NOT NULL,
