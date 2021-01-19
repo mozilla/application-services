@@ -29,6 +29,11 @@ impl Store {
         })
     }
 
+    #[cfg(test)] // XXX - maybe this should just be `impl ConnExt`?
+    pub fn db(&self) -> &AutofillDb {
+        &self.db
+    }
+
     #[allow(dead_code)]
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
         let credit_card = credit_cards::add_credit_card(&self.db.writer, fields)?;

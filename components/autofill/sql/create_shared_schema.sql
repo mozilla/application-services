@@ -3,7 +3,7 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 CREATE TABLE IF NOT EXISTS addresses_data (
-    guid                TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
@@ -25,8 +25,11 @@ CREATE TABLE IF NOT EXISTS addresses_data (
     sync_change_counter INTEGER NOT NULL DEFAULT 1
 );
 
+-- Note that we don't store tombstones in the mirror - maybe we should? That
+-- would mean we need to change the schema here significantly - maybe we should
+-- just store the JSON payload?
 CREATE TABLE IF NOT EXISTS addresses_mirror (
-    guid                TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
@@ -47,7 +50,7 @@ CREATE TABLE IF NOT EXISTS addresses_mirror (
 );
 
 CREATE TABLE IF NOT EXISTS addresses_tombstones (
-    guid            TEXT PRIMARY KEY,
+    guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
     time_deleted    INTEGER NOT NULL
 ) WITHOUT ROWID;
 
@@ -55,7 +58,7 @@ CREATE TABLE IF NOT EXISTS addresses_tombstones (
 -- whether the `cc_number` and/or other details should be encrypted or stored as plain text. Currently, we are storing
 -- them as plain text.
 CREATE TABLE IF NOT EXISTS credit_cards_data (
-    guid                TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     cc_name             TEXT NOT NULL, -- full name
     cc_number           TEXT NOT NULL, -- TODO: consider storing this field as a hash
     cc_exp_month        INTEGER,
@@ -72,7 +75,7 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_mirror (
-    guid                TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     cc_name             TEXT NOT NULL, -- full name
     cc_number           TEXT NOT NULL,
     cc_exp_month        INTEGER,
@@ -86,6 +89,6 @@ CREATE TABLE IF NOT EXISTS credit_cards_mirror (
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
-    guid            TEXT PRIMARY KEY,
+    guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
     time_deleted    INTEGER NOT NULL
 ) WITHOUT ROWID;

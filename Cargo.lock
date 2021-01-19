@@ -169,6 +169,7 @@ dependencies = [
  "env_logger",
  "error-support",
  "interrupt-support",
+ "lazy_static",
  "libsqlite3-sys",
  "log 0.4.11",
  "nss_build_common",
