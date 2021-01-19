@@ -3,7 +3,7 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 CREATE TEMP TABLE addresses_sync_staging (
-    guid                TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
@@ -23,5 +23,5 @@ CREATE TEMP TABLE addresses_sync_staging (
 );
 
 CREATE TEMP TABLE addresses_tombstone_sync_staging (
-    guid                TEXT NOT NULL PRIMARY KEY
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0)
 );

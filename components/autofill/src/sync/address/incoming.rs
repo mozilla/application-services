@@ -3,8 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use super::{Record, RecordData};
+use super::AddressRecord;
 use crate::error::*;
+use crate::sync::{MergeResult, RecordImpl};
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, types::ToSql, Connection};
 use sql_support::ConnExt;
@@ -12,12 +13,15 @@ use sync15::Payload;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 
-type IncomingState = crate::sync::IncomingState<RecordData>;
-type IncomingAction = crate::sync::IncomingAction<RecordData>;
+type IncomingState = crate::sync::IncomingState<AddressRecord>;
+type IncomingRecordInfo = crate::sync::IncomingRecordInfo<AddressRecord>;
+type LocalRecordInfo = crate::sync::LocalRecordInfo<AddressRecord>;
+type IncomingAction = crate::sync::IncomingAction<AddressRecord>;
 
 /// The first step in the "apply incoming" process for syncing autofill address records.
 /// Incoming tombstones will saved in the `temp.addresses_tombstone_sync_staging` table
 /// and incoming records will be saved to the `temp.addresses_sync_staging` table.
+// XXX - will end up moving to the Impl trait??
 pub fn stage_incoming(
     conn: &Connection,
     incoming_payloads: Vec<Payload>,
@@ -27,9 +31,16 @@ pub fn stage_incoming(
     let mut incoming_tombstones = Vec::with_capacity(incoming_payloads.len());
 
     for payload in incoming_payloads {
+        log::trace!(
+            "incoming payload {} (deleted={})",
+            payload.id,
+            payload.deleted
+        );
         match payload.deleted {
-            true => incoming_tombstones.push(payload.into_record::<Record>().unwrap()),
-            false => incoming_records.push(payload.into_record::<Record>().unwrap()),
+            // XXX - unwraps below should be removed. We probably want to handle
+            // the error and log then ignore the error.
+            true => incoming_tombstones.push(payload.into_record::<AddressRecord>().unwrap()),
+            false => incoming_records.push(payload.into_record::<AddressRecord>().unwrap()),
         };
     }
     save_incoming_records(conn, incoming_records, signal)?;
@@ -41,9 +52,10 @@ pub fn stage_incoming(
 /// incoming changes for the syncing autofill address records.
 fn save_incoming_records(
     conn: &Connection,
-    incoming_records: Vec<Record>,
+    incoming_records: Vec<AddressRecord>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
+    log::info!("staging {} incoming records", incoming_records.len());
     let chunk_size = 17;
     sql_support::each_sized_chunk(
         &incoming_records,
@@ -75,22 +87,22 @@ fn save_incoming_records(
             for record in chunk {
                 signal.err_if_interrupted()?;
                 params.push(&record.guid as &dyn ToSql);
-                params.push(&record.data.given_name);
-                params.push(&record.data.additional_name);
-                params.push(&record.data.family_name);
-                params.push(&record.data.organization);
-                params.push(&record.data.street_address);
-                params.push(&record.data.address_level3);
-                params.push(&record.data.address_level2);
-                params.push(&record.data.address_level1);
-                params.push(&record.data.postal_code);
-                params.push(&record.data.country);
-                params.push(&record.data.tel);
-                params.push(&record.data.email);
-                params.push(&record.data.time_created);
-                params.push(&record.data.time_last_used);
-                params.push(&record.data.time_last_modified);
-                params.push(&record.data.times_used);
+                params.push(&record.given_name);
+                params.push(&record.additional_name);
+                params.push(&record.family_name);
+                params.push(&record.organization);
+                params.push(&record.street_address);
+                params.push(&record.address_level3);
+                params.push(&record.address_level2);
+                params.push(&record.address_level1);
+                params.push(&record.postal_code);
+                params.push(&record.country);
+                params.push(&record.tel);
+                params.push(&record.email);
+                params.push(&record.time_created);
+                params.push(&record.time_last_used);
+                params.push(&record.time_last_modified);
+                params.push(&record.times_used);
             }
             conn.execute(&sql, &params)?;
             Ok(())
@@ -102,10 +114,11 @@ fn save_incoming_records(
 /// incoming changes for the syncing autofill address records.
 fn save_incoming_tombstones(
     conn: &Connection,
-    incoming_tombstones: Vec<Record>,
+    incoming_tombstones: Vec<AddressRecord>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
-    let chunk_size = 1;
+    log::info!("staging {} incoming tombstones", incoming_tombstones.len());
+    let chunk_size = 1; // XXX - chunk_size of 1 seems wrong?
     sql_support::each_sized_chunk(
         &incoming_tombstones,
         sql_support::default_max_variable_number() / chunk_size,
@@ -127,21 +140,9 @@ fn save_incoming_tombstones(
     )
 }
 
-/// The second step in the "apply incoming" process for syncing autofill address records.
-/// Incoming tombstones and records are retrieved from the temp tables and assigned
-/// `IncomingState` values.
-pub fn get_incoming(conn: &Connection) -> Result<Vec<(SyncGuid, IncomingState)>> {
-    let mut incoming_states = get_incoming_tombstone_states(conn)?;
-    let mut incoming_record_states = get_incoming_record_states(conn)?;
-    incoming_states.append(&mut incoming_record_states);
-
-    Ok(incoming_states)
-}
-
 /// Incoming tombstones are retrieved from the `addresses_tombstone_sync_staging` table
 /// and assigned `IncomingState` values.
-#[allow(dead_code)]
-fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<(SyncGuid, IncomingState)>> {
+fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<IncomingState>> {
     Ok(conn.conn().query_rows_and_then_named(
         "SELECT
             s.guid as s_guid,
@@ -168,39 +169,40 @@ fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<(SyncGuid, Inc
         LEFT JOIN addresses_data l ON s.guid = l.guid
         LEFT JOIN addresses_tombstones t ON s.guid = t.guid",
         &[],
-        |row| -> Result<(SyncGuid, IncomingState)> {
+        |row| -> Result<IncomingState> {
             let incoming_guid: SyncGuid = row.get_unwrap("s_guid");
-            let local_guid: Option<SyncGuid> = row.get("l_guid")?;
-            let tombstone_guid: Option<SyncGuid> = row.get("t_guid")?;
+            let have_local_record = row.get::<_, Option<SyncGuid>>("l_guid")?.is_some();
+            let have_local_tombstone = row.get::<_, Option<SyncGuid>>("t_guid")?.is_some();
 
-            Ok((
-                incoming_guid.clone(),
-                IncomingState::IncomingTombstone {
+            let local = if have_local_record {
+                let record = AddressRecord::from_row(row, "")?;
+                let has_local_changes = record.sync_change_counter.unwrap_or(0) != 0;
+                if has_local_changes {
+                    LocalRecordInfo::Modified { record }
+                } else {
+                    LocalRecordInfo::Unmodified { record }
+                }
+            } else if have_local_tombstone {
+                LocalRecordInfo::Tombstone {
+                    guid: incoming_guid.clone(),
+                }
+            } else {
+                LocalRecordInfo::Missing
+            };
+            Ok(IncomingState {
+                incoming: IncomingRecordInfo::Tombstone {
                     guid: incoming_guid,
-                    local: match local_guid {
-                        Some(_) => Some(RecordData::from_row(row, "")?),
-                        None => None,
-                    },
-                    has_local_changes: match local_guid {
-                        Some(_) => {
-                            RecordData::from_row(row, "")?
-                                .sync_change_counter
-                                .unwrap_or(0)
-                                != 0
-                        }
-                        None => false,
-                    },
-                    has_local_tombstone: tombstone_guid.is_some(),
                 },
-            ))
+                local,
+                mirror: None, // XXX - we *might* have a mirror record, but don't really care.
+            })
         },
     )?)
 }
 
 /// Incoming records (excluding tombstones) are retrieved from the `addresses_sync_staging` table
 /// and assigned `IncomingState` values.
-#[allow(dead_code)]
-fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, IncomingState)>> {
+fn get_incoming_record_states(conn: &Connection) -> Result<Vec<IncomingState>> {
     let sql_query = "
         SELECT
             s.guid as s_guid,
@@ -254,165 +256,56 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<(SyncGuid, Incomi
             s.times_used as s_times_used,
             m.times_used as m_times_used,
             l.times_used as l_times_used,
-            l.sync_change_counter as l_sync_change_counter
+            l.sync_change_counter as l_sync_change_counter,
+            t.guid as t_guid
         FROM temp.addresses_sync_staging s
         LEFT JOIN addresses_mirror m ON s.guid = m.guid
-        LEFT JOIN addresses_data l ON s.guid = l.guid";
+        LEFT JOIN addresses_data l ON s.guid = l.guid
+        LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
 
-    Ok(conn.conn().query_rows_and_then_named(
-        sql_query,
-        &[],
-        |row| -> Result<(SyncGuid, IncomingState)> {
-            let guid: SyncGuid = row.get_unwrap("s_guid");
+    Ok(conn
+        .conn()
+        .query_rows_and_then_named(sql_query, &[], |row| -> Result<IncomingState> {
+            // XXX - change these to something like `mirror_exists` - that's how they are used.
             let mirror_guid: Option<SyncGuid> = row.get_unwrap("m_guid");
             let local_guid: Option<SyncGuid> = row.get_unwrap("l_guid");
+            let tombstone_guid: Option<SyncGuid> = row.get_unwrap("t_guid");
 
-            let incoming = RecordData::from_row(row, "s_")?;
+            let incoming = AddressRecord::from_row(row, "s_")?;
 
             let mirror = match mirror_guid {
-                Some(_) => Some(RecordData::from_row(row, "m_")?),
+                Some(_) => Some(AddressRecord::from_row(row, "m_")?),
                 None => None,
             };
-
-            let incoming_state = match local_guid {
+            let local = match local_guid {
                 Some(_) => {
-                    let local = RecordData::from_row(row, "l_")?;
-                    IncomingState::HasLocal {
-                        guid: guid.clone(),
-                        incoming: incoming.clone(),
-                        merged: merge(guid.clone(), incoming.clone(), local.clone(), mirror),
-                        has_local_changes: local.sync_change_counter.unwrap_or(0) != 0,
+                    let record = AddressRecord::from_row(row, "l_")?;
+                    let has_changes = record.sync_change_counter.unwrap_or(0) != 0;
+                    if has_changes {
+                        LocalRecordInfo::Modified { record }
+                    } else {
+                        LocalRecordInfo::Unmodified { record }
                     }
                 }
-                None => {
-                    let local_dupe = get_local_dupe(
-                        conn,
-                        Record {
-                            guid: guid.clone(),
-                            data: incoming.clone(),
-                        },
-                    )?;
-
-                    match local_dupe {
-                        Some(d) => IncomingState::HasLocalDupe {
-                            guid: guid.clone(),
-                            dupe_guid: d.guid,
-                            merged: merge(guid.clone(), incoming.clone(), d.data, mirror),
-                        },
-                        None => match has_local_tombstone(conn, &guid)? {
-                            true => IncomingState::NonDeletedIncoming {
-                                guid: guid.clone(),
-                                incoming,
-                            },
-                            false => IncomingState::IncomingOnly {
-                                guid: guid.clone(),
-                                incoming,
-                            },
-                        },
-                    }
-                }
+                None => match tombstone_guid {
+                    None => LocalRecordInfo::Missing,
+                    Some(guid) => LocalRecordInfo::Tombstone { guid },
+                },
             };
-
-            Ok((guid, incoming_state))
-        },
-    )?)
+            Ok(IncomingState {
+                incoming: IncomingRecordInfo::Record { record: incoming },
+                local,
+                mirror,
+            })
+        })?)
 }
 
-/// Returns a local record that has the same values as the given incoming record (with the exception
-/// of the `guid` values which should differ) that will be used as a local duplicate record for
-/// syncing.
-#[allow(dead_code)]
-fn get_local_dupe(conn: &Connection, incoming: Record) -> Result<Option<Record>> {
-    let sql = "
-        SELECT
-            guid,
-            given_name,
-            additional_name,
-            family_name,
-            organization,
-            street_address,
-            address_level3,
-            address_level2,
-            address_level1,
-            postal_code,
-            country,
-            tel,
-            email,
-            time_created,
-            time_last_used,
-            time_last_modified,
-            times_used,
-            sync_change_counter
-        FROM addresses_data
-        WHERE guid <> :guid
-            AND guid NOT IN (
-                SELECT guid
-                FROM addresses_mirror
-            )
-            AND given_name == :given_name
-            AND additional_name == :additional_name
-            AND family_name == :family_name
-            AND organization == :organization
-            AND street_address == :street_address
-            AND address_level3 == :address_level3
-            AND address_level2 == :address_level2
-            AND address_level1 == :address_level1
-            AND postal_code == :postal_code
-            AND country == :country
-            AND tel == :tel
-            AND email == :email";
-
-    let params = named_params! {
-        ":guid": incoming.guid.as_str(),
-        ":given_name": incoming.data.given_name,
-        ":additional_name": incoming.data.additional_name,
-        ":family_name": incoming.data.family_name,
-        ":organization": incoming.data.organization,
-        ":street_address": incoming.data.street_address,
-        ":address_level3": incoming.data.address_level3,
-        ":address_level2": incoming.data.address_level2,
-        ":address_level1": incoming.data.address_level1,
-        ":postal_code": incoming.data.postal_code,
-        ":country": incoming.data.country,
-        ":tel": incoming.data.tel,
-        ":email": incoming.data.email,
-    };
-
-    let result = conn.conn().query_row_named(&sql, params, |row| {
-        Ok(Record {
-            guid: row.get_unwrap("guid"),
-            data: RecordData::from_row(&row, "").unwrap(),
-        })
-    });
-
-    match result {
-        Ok(r) => Ok(Some(r)),
-        Err(e) => match e {
-            rusqlite::Error::QueryReturnedNoRows => Ok(None),
-            _ => Err(Error::SqlError(e)),
-        },
-    }
-}
-
-/// Determines if a local tombstone exists for a given GUID.
-#[allow(dead_code)]
-fn has_local_tombstone(conn: &Connection, guid: &str) -> Result<bool> {
-    Ok(conn.conn().query_row(
-        "SELECT EXISTS (
-                SELECT 1
-                FROM addresses_tombstones
-                WHERE guid = :guid
-            )",
-        &[guid],
-        |row| row.get(0),
-    )?)
-}
-
+// A macro for our merge implementation.
 // We allow all "common" fields from the sub-types to be getters on the
 // InsertableItem type.
+// This will probably move to the parent module?
 macro_rules! field_check {
     ($field_name:ident,
-    $guid:ident,
     $incoming:ident,
     $local:ident,
     $mirror:ident,
@@ -442,139 +335,307 @@ macro_rules! field_check {
         } else if should_use_local {
             $merged_record.$field_name = local_field.clone();
         } else {
-            return get_forked_record(Record {
-                guid: $guid,
-                data: $local,
-            });
+            // There are conflicting differences, so we "fork" the record - we
+            // will end up giving the local one a new guid and save the remote
+            // one with its incoming ID.
+            return MergeResult::Forked {
+                forked: get_forked_record($local.clone()),
+            };
         }
     };
 }
 
-/// Performs a three-way merge between an incoming, local, and mirror record. If a merge
-/// cannot be successfully completed, the local record data is returned with a new guid
-/// and sync metadata.
-fn merge(
-    guid: SyncGuid,
-    incoming: RecordData,
-    local: RecordData,
-    mirror: Option<RecordData>,
-) -> Record {
-    let mut merged_record: RecordData = Default::default();
+pub struct AddressesImpl {}
 
-    field_check!(given_name, guid, incoming, local, mirror, merged_record);
-    field_check!(
-        additional_name,
-        guid,
-        incoming,
-        local,
-        mirror,
-        merged_record
-    );
-    field_check!(family_name, guid, incoming, local, mirror, merged_record);
-    field_check!(organization, guid, incoming, local, mirror, merged_record);
-    field_check!(street_address, guid, incoming, local, mirror, merged_record);
-    field_check!(address_level3, guid, incoming, local, mirror, merged_record);
-    field_check!(address_level2, guid, incoming, local, mirror, merged_record);
-    field_check!(address_level1, guid, incoming, local, mirror, merged_record);
-    field_check!(postal_code, guid, incoming, local, mirror, merged_record);
-    field_check!(country, guid, incoming, local, mirror, merged_record);
-    field_check!(tel, guid, incoming, local, mirror, merged_record);
-    field_check!(email, guid, incoming, local, mirror, merged_record);
+impl RecordImpl for AddressesImpl {
+    type Record = AddressRecord;
 
-    set_sync_times(&mut merged_record, incoming, local, mirror);
-
-    Record {
-        guid,
-        data: merged_record.clone(),
-    }
-}
-
-fn set_sync_times(
-    merged_record: &mut RecordData,
-    incoming: RecordData,
-    local: RecordData,
-    mirror: Option<RecordData>,
-) {
-    fn get_latest_time(times: &mut [Timestamp]) -> Timestamp {
-        times.sort();
-        times[times.len() - 1]
+    /// The second step in the "apply incoming" process for syncing autofill address records.
+    /// Incoming tombstones and records are retrieved from the temp tables and assigned
+    /// `IncomingState` values.
+    fn fetch_incoming_states(&self, conn: &Connection) -> Result<Vec<IncomingState>> {
+        let mut incoming_infos = get_incoming_tombstone_states(conn)?;
+        let mut incoming_record_infos = get_incoming_record_states(conn)?;
+        incoming_infos.append(&mut incoming_record_infos);
+        Ok(incoming_infos)
     }
 
-    match mirror {
-        Some(m) => {
-            merged_record.time_created =
-                get_latest_time(&mut [incoming.time_created, local.time_created, m.time_created]);
-            merged_record.time_last_used = get_latest_time(&mut [
-                incoming.time_last_used,
-                local.time_last_used,
-                m.time_last_used,
-            ]);
-            merged_record.time_last_modified = get_latest_time(&mut [
-                incoming.time_last_modified,
-                local.time_last_modified,
-                m.time_last_modified,
-            ]);
+    /// Performs a three-way merge between an incoming, local, and mirror record.
+    /// If a merge cannot be successfully completed (ie, if we find the same
+    /// field has changed both locally and remotely since the last sync), the
+    /// local record data is returned with a new guid and updated sync metadata.
+    /// Note that mirror being None is an edge-case and typically means first
+    /// sync since a "reset" (eg, disconnecting and reconnecting.
+    #[allow(clippy::cognitive_complexity)] // Looks like clippy considers this after macro-expansion...
+    fn merge(
+        &self,
+        incoming: &Self::Record,
+        local: &Self::Record,
+        mirror: &Option<Self::Record>,
+    ) -> MergeResult<Self::Record> {
+        let mut merged_record: Self::Record = Default::default();
+        // guids must be identical
+        assert_eq!(incoming.guid, local.guid); // check mirror too?
+        merged_record.guid = incoming.guid.clone();
 
-            merged_record.times_used = m.times_used
-                + (local.times_used - m.times_used)
-                + (incoming.times_used - m.times_used);
+        field_check!(given_name, incoming, local, mirror, merged_record);
+        field_check!(additional_name, incoming, local, mirror, merged_record);
+        field_check!(family_name, incoming, local, mirror, merged_record);
+        field_check!(organization, incoming, local, mirror, merged_record);
+        field_check!(street_address, incoming, local, mirror, merged_record);
+        field_check!(address_level3, incoming, local, mirror, merged_record);
+        field_check!(address_level2, incoming, local, mirror, merged_record);
+        field_check!(address_level1, incoming, local, mirror, merged_record);
+        field_check!(postal_code, incoming, local, mirror, merged_record);
+        field_check!(country, incoming, local, mirror, merged_record);
+        field_check!(tel, incoming, local, mirror, merged_record);
+        field_check!(email, incoming, local, mirror, merged_record);
+
+        merged_record.time_created = incoming.time_created;
+        merged_record.time_last_used = incoming.time_last_used;
+        merged_record.time_last_modified = incoming.time_last_modified;
+        merged_record.times_used = incoming.times_used;
+
+        self.merge_metadata(&mut merged_record, &local, &mirror);
+
+        MergeResult::Merged {
+            merged: merged_record,
         }
-        None => {
-            merged_record.time_created =
-                get_latest_time(&mut [incoming.time_created, local.time_created]);
-            merged_record.time_last_used =
-                get_latest_time(&mut [incoming.time_last_used, local.time_last_used]);
-            merged_record.time_last_modified =
-                get_latest_time(&mut [incoming.time_last_modified, local.time_last_modified]);
-            merged_record.times_used = local.times_used + incoming.times_used;
+    }
+
+    /// Merge the metadata from 2 or 3 records. `result` is one of the 2 or
+    /// 3, so must already have valid metadata. It doesn't matter whether this
+    /// is the local or incoming records, so long as it's different from `result`.
+    /// Note that mirror being None is an edge-case and typically means first
+    /// sync since a "reset" (eg, disconnecting and reconnecting.
+
+    fn merge_metadata(
+        &self,
+        result: &mut AddressRecord,
+        other: &AddressRecord,
+        mirror: &Option<AddressRecord>,
+    ) {
+        match mirror {
+            Some(m) => {
+                fn get_latest_time(t1: Timestamp, t2: Timestamp, t3: Timestamp) -> Timestamp {
+                    std::cmp::max(t1, std::cmp::max(t2, t3))
+                }
+                fn get_earliest_time(t1: Timestamp, t2: Timestamp, t3: Timestamp) -> Timestamp {
+                    std::cmp::min(t1, std::cmp::min(t2, t3))
+                }
+                result.time_created =
+                    get_earliest_time(result.time_created, other.time_created, m.time_created);
+                result.time_last_used = get_latest_time(
+                    result.time_last_used,
+                    other.time_last_used,
+                    m.time_last_used,
+                );
+                result.time_last_modified = get_latest_time(
+                    result.time_last_modified,
+                    other.time_last_modified,
+                    m.time_last_modified,
+                );
+
+                result.times_used = m.times_used
+                    + std::cmp::max(other.times_used - m.times_used, 0)
+                    + std::cmp::max(result.times_used - m.times_used, 0);
+            }
+            None => {
+                fn get_latest_time(t1: Timestamp, t2: Timestamp) -> Timestamp {
+                    std::cmp::max(t1, t2)
+                }
+                fn get_earliest_time(t1: Timestamp, t2: Timestamp) -> Timestamp {
+                    std::cmp::min(t1, t2)
+                }
+                result.time_created = get_earliest_time(result.time_created, other.time_created);
+                result.time_last_used =
+                    get_latest_time(result.time_last_used, other.time_last_used);
+                result.time_last_modified =
+                    get_latest_time(result.time_last_modified, other.time_last_modified);
+                // No mirror is an edge-case that almost certainly means the
+                // client was disconnected and this is the first sync after
+                // reconnection. So we can't really do a simple sum() of the
+                // times_used values as if the disconnection was recent, it will
+                // be double the expected value.
+                // So we just take the largest.
+                result.times_used = std::cmp::max(other.times_used, result.times_used);
+            }
         }
+    }
+
+    /// Returns a local record that has the same values as the given incoming record (with the exception
+    /// of the `guid` values which should differ) that will be used as a local duplicate record for
+    /// syncing.
+    fn get_local_dupe(
+        &self,
+        conn: &Connection,
+        incoming: &Self::Record,
+    ) -> Result<Option<(SyncGuid, Self::Record)>> {
+        let sql = "
+            SELECT
+                guid,
+                given_name,
+                additional_name,
+                family_name,
+                organization,
+                street_address,
+                address_level3,
+                address_level2,
+                address_level1,
+                postal_code,
+                country,
+                tel,
+                email,
+                time_created,
+                time_last_used,
+                time_last_modified,
+                times_used,
+                sync_change_counter
+            FROM addresses_data
+            WHERE
+                -- `guid <> :guid` is a pre-condition for this being called, but...
+                guid <> :guid
+                -- only non-synced records are candidates, which means can't already be in the mirror.
+                AND guid NOT IN (
+                    SELECT guid
+                    FROM addresses_mirror
+                )
+                -- and sql can check the field values.
+                AND given_name == :given_name
+                AND additional_name == :additional_name
+                AND family_name == :family_name
+                AND organization == :organization
+                AND street_address == :street_address
+                AND address_level3 == :address_level3
+                AND address_level2 == :address_level2
+                AND address_level1 == :address_level1
+                AND postal_code == :postal_code
+                AND country == :country
+                AND tel == :tel
+                AND email == :email";
+
+        let params = named_params! {
+            ":guid": incoming.guid,
+            ":given_name": incoming.given_name,
+            ":additional_name": incoming.additional_name,
+            ":family_name": incoming.family_name,
+            ":organization": incoming.organization,
+            ":street_address": incoming.street_address,
+            ":address_level3": incoming.address_level3,
+            ":address_level2": incoming.address_level2,
+            ":address_level1": incoming.address_level1,
+            ":postal_code": incoming.postal_code,
+            ":country": incoming.country,
+            ":tel": incoming.tel,
+            ":email": incoming.email,
+        };
+
+        let result = conn.conn().query_row_named(&sql, params, |row| {
+            Ok(AddressRecord::from_row(&row, "").expect("wtf? '?' doesn't work :("))
+        });
+
+        match result {
+            Ok(r) => Ok(Some((incoming.guid.clone(), r))),
+            Err(e) => match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                _ => Err(Error::SqlError(e)),
+            },
+        }
+    }
+
+    fn apply_action(&self, conn: &Connection, action: IncomingAction) -> Result<()> {
+        log::trace!("applying action: {:?}", action);
+        match action {
+            IncomingAction::Update { record, was_merged } => {
+                update_local_record(conn, record, was_merged)?;
+            }
+            IncomingAction::Fork { forked, incoming } => {
+                // `forked` exists in the DB with the same guid as `incoming`, so fix that.
+                change_local_guid(conn, &incoming.guid, &forked.guid)?;
+                // `incoming` has the correct new guid.
+                insert_local_record(conn, incoming)?;
+            }
+            IncomingAction::Insert { record } => {
+                insert_local_record(conn, record)?;
+            }
+            IncomingAction::UpdateLocalGuid { old_guid, record } => {
+                // expect record to have the new guid.
+                assert_ne!(old_guid, record.guid);
+                change_local_guid(conn, &old_guid, &record.guid)?;
+                // the item is identical with the item with the new guid
+                // *except* for the metadata - so we still need to update, but
+                // don't need to treat the item as dirty.
+                update_local_record(conn, record, false)?;
+            }
+            IncomingAction::ResurrectLocalTombstone { record } => {
+                conn.execute_named(
+                    "DELETE FROM addresses_tombstones WHERE guid = :guid",
+                    rusqlite::named_params! {
+                        ":guid": record.guid,
+                    },
+                )?;
+                insert_local_record(conn, record)?;
+            }
+            IncomingAction::ResurrectRemoteTombstone { record } => {
+                // This is just "ensure local record dirty", which
+                // update_local_record conveniently does.
+                update_local_record(conn, record, true)?;
+            }
+            IncomingAction::DeleteLocalRecord { guid } => {
+                conn.execute_named(
+                    "DELETE FROM addresses_data
+                    WHERE guid = :guid",
+                    rusqlite::named_params! {
+                        ":guid": guid,
+                    },
+                )?;
+            }
+            IncomingAction::DoNothing => {}
+        }
+        Ok(())
     }
 }
 
 /// Returns a with the given local record's data but with a new guid and
 /// fresh sync metadata.
-fn get_forked_record(local_record: Record) -> Record {
-    let mut local_record_data = local_record.data;
+fn get_forked_record(local_record: AddressRecord) -> AddressRecord {
+    let mut local_record_data = local_record;
+    local_record_data.guid = SyncGuid::random();
     local_record_data.time_created = Timestamp::now();
     local_record_data.time_last_used = Timestamp::now();
     local_record_data.time_last_modified = Timestamp::now();
     local_record_data.times_used = 0;
     local_record_data.sync_change_counter = Some(1);
 
-    Record {
-        guid: SyncGuid::random(),
-        data: local_record_data,
-    }
+    local_record_data
 }
 
 /// Changes the guid of the local record for the given `old_guid` to the given `new_guid` used
-/// for the `HasLocalDupe` incoming state.
-fn change_local_guid(conn: &Connection, old_guid: SyncGuid, new_guid: SyncGuid) -> Result<()> {
-    conn.conn().execute_named(
+/// for the `HasLocalDupe` incoming state, and mark the item as dirty.
+fn change_local_guid(conn: &Connection, old_guid: &SyncGuid, new_guid: &SyncGuid) -> Result<()> {
+    assert_ne!(old_guid, new_guid);
+    let nrows = conn.conn().execute_named(
         "UPDATE addresses_data
-        SET guid = :new_guid
+        SET guid = :new_guid,
+            sync_change_counter = sync_change_counter + 1
         WHERE guid = :old_guid
-        AND guid NOT IN (
-            SELECT guid
-            FROM addressess_mirror m
-            WHERE m.guid = :old_guid
-        )
-        AND NOT EXISTS (
-            SELECT 1
-            FROM addresses_data d
-            WHERE d.guid = :new_guid
-        )",
+        ",
         rusqlite::named_params! {
             ":old_guid": old_guid,
             ":new_guid": new_guid,
         },
     )?;
-
+    // something's gone badly wrong if this didn't affect exactly 1 row.
+    assert_eq!(nrows, 1);
     Ok(())
 }
 
-fn update_local_record(conn: &Connection, new_record: Record) -> Result<()> {
-    conn.execute_named(
+fn update_local_record(
+    conn: &Connection,
+    new_record: AddressRecord,
+    flag_as_changed: bool,
+) -> Result<()> {
+    let rows_changed = conn.execute_named(
         "UPDATE addresses_data
         SET given_name         = :given_name,
             additional_name     = :additional_name,
@@ -588,29 +649,39 @@ fn update_local_record(conn: &Connection, new_record: Record) -> Result<()> {
             country             = :country,
             tel                 = :tel,
             email               = :email,
-            sync_change_counter = 0
+            time_created        = :time_created,
+            time_last_used      = :time_last_used,
+            time_last_modified  = :time_last_modified,
+            times_used          = :times_used,
+            sync_change_counter = sync_change_counter + :change_counter_incr
         WHERE guid              = :guid",
         rusqlite::named_params! {
-            ":given_name": new_record.data.given_name,
-            ":additional_name": new_record.data.additional_name,
-            ":family_name": new_record.data.family_name,
-            ":organization": new_record.data.organization,
-            ":street_address": new_record.data.street_address,
-            ":address_level3": new_record.data.address_level3,
-            ":address_level2": new_record.data.address_level2,
-            ":address_level1": new_record.data.address_level1,
-            ":postal_code": new_record.data.postal_code,
-            ":country": new_record.data.country,
-            ":tel": new_record.data.tel,
-            ":email": new_record.data.email,
+            ":given_name": new_record.given_name,
+            ":additional_name": new_record.additional_name,
+            ":family_name": new_record.family_name,
+            ":organization": new_record.organization,
+            ":street_address": new_record.street_address,
+            ":address_level3": new_record.address_level3,
+            ":address_level2": new_record.address_level2,
+            ":address_level1": new_record.address_level1,
+            ":postal_code": new_record.postal_code,
+            ":country": new_record.country,
+            ":tel": new_record.tel,
+            ":email": new_record.email,
+            ":time_created": new_record.time_created,
+            ":time_last_used": new_record.time_last_used,
+            ":time_last_modified": new_record.time_last_modified,
+            ":times_used": new_record.times_used,
             ":guid": new_record.guid,
+            ":change_counter_incr": flag_as_changed as u32,
         },
     )?;
-
+    // if we didn't actually update a row them something has gone very wrong...
+    assert_eq!(rows_changed, 1);
     Ok(())
 }
 
-fn insert_local_record(conn: &Connection, new_record: Record) -> Result<()> {
+fn insert_local_record(conn: &Connection, new_record: AddressRecord) -> Result<()> {
     conn.execute_named(
         "INSERT OR IGNORE INTO addresses_data (
             guid,
@@ -652,96 +723,27 @@ fn insert_local_record(conn: &Connection, new_record: Record) -> Result<()> {
             :sync_change_counter
         )",
         rusqlite::named_params! {
-            ":guid": SyncGuid::random(),
-            ":given_name": new_record.data.given_name,
-            ":additional_name": new_record.data.additional_name,
-            ":family_name": new_record.data.family_name,
-            ":organization": new_record.data.organization,
-            ":street_address": new_record.data.street_address,
-            ":address_level3": new_record.data.address_level3,
-            ":address_level2": new_record.data.address_level2,
-            ":address_level1": new_record.data.address_level1,
-            ":postal_code": new_record.data.postal_code,
-            ":country": new_record.data.country,
-            ":tel": new_record.data.tel,
-            ":email": new_record.data.email,
-            ":time_created": Timestamp::now(),
-            ":time_last_used": Some(Timestamp::now()),
-            ":time_last_modified": Timestamp::now(),
-            ":times_used": 0,
+            ":guid": new_record.guid,
+            ":given_name": new_record.given_name,
+            ":additional_name": new_record.additional_name,
+            ":family_name": new_record.family_name,
+            ":organization": new_record.organization,
+            ":street_address": new_record.street_address,
+            ":address_level3": new_record.address_level3,
+            ":address_level2": new_record.address_level2,
+            ":address_level1": new_record.address_level1,
+            ":postal_code": new_record.postal_code,
+            ":country": new_record.country,
+            ":tel": new_record.tel,
+            ":email": new_record.email,
+            ":time_created": new_record.time_created,
+            ":time_last_used": new_record.time_last_used,
+            ":time_last_modified": new_record.time_last_modified,
+            ":times_used": new_record.times_used,
             ":sync_change_counter": 0,
         },
     )?;
 
-    Ok(())
-}
-
-fn upsert_local_record(conn: &Connection, new_record: Record) -> Result<()> {
-    let exists = conn.query_row(
-        "SELECT EXISTS (
-            SELECT 1
-            FROM addresses_data d
-            WHERE guid = :guid
-        )",
-        &[new_record.clone().guid],
-        |row| row.get(0),
-    )?;
-
-    if exists {
-        update_local_record(conn, new_record)?;
-    } else {
-        insert_local_record(conn, new_record)?;
-    }
-    Ok(())
-}
-
-/// Apply the actions necessary to fully process the incoming items
-pub fn apply_actions(
-    conn: &Connection,
-    actions: Vec<(SyncGuid, IncomingAction)>,
-    signal: &dyn Interruptee,
-) -> Result<()> {
-    for (item, action) in actions {
-        signal.err_if_interrupted()?;
-
-        log::trace!("action for '{:?}': {:?}", item, action);
-        match action {
-            IncomingAction::TakeMergedRecord { new_record } => {
-                update_local_record(conn, new_record)?;
-            }
-            IncomingAction::UpdateLocalGuid {
-                dupe_guid,
-                old_guid,
-                new_record,
-            } => {
-                change_local_guid(conn, old_guid, dupe_guid)?;
-                update_local_record(conn, new_record)?;
-            }
-            IncomingAction::TakeRemote { new_record } => {
-                upsert_local_record(conn, new_record)?;
-            }
-            IncomingAction::DeleteLocalTombstone { remote_record } => {
-                conn.execute_named(
-                    "DELETE FROM addresses_tombstones WHERE guid = :guid",
-                    rusqlite::named_params! {
-                        ":guid": remote_record.guid,
-                    },
-                )?;
-
-                insert_local_record(conn, remote_record)?;
-            }
-            IncomingAction::DeleteLocalRecord { guid } => {
-                conn.execute_named(
-                    "DELETE FROM addresses_data
-                    WHERE guid = :guid",
-                    rusqlite::named_params! {
-                        ":guid": guid,
-                    },
-                )?;
-            }
-            IncomingAction::DoNothing => {}
-        }
-    }
     Ok(())
 }
 
@@ -751,149 +753,105 @@ mod tests {
     use super::*;
 
     use interrupt_support::NeverInterrupts;
-    use serde_json::{json, Value};
+    use serde_json::{json, Map, Value};
 
-    fn array_to_incoming(mut array: Value) -> Vec<Payload> {
-        let jv = array.as_array_mut().expect("you must pass a json array");
-        let mut result = Vec::with_capacity(jv.len());
-        for elt in jv {
-            result.push(Payload::from_json(elt.take()).expect("must be valid"));
+    lazy_static::lazy_static! {
+        static ref TEST_JSON_RECORDS: Map<String, Value> = {
+            let val = json! {{
+                "A" : {
+                    "id": expand_test_guid('A'),
+                    "givenName": "john",
+                    "familyName": "doe",
+                    "streetAddress": "1300 Broadway",
+                    "addressLevel2": "New York, NY",
+                    "country": "United States",
+                },
+                "C" : {
+                    "id": expand_test_guid('C'),
+                    "givenName": "jane",
+                    "familyName": "doe",
+                    "streetAddress": "3050 South La Brea Ave",
+                    "addressLevel2": "Los Angeles, CA",
+                    "country": "United States",
+                    "timeCreated": 0,
+                    "timeLastUsed": 0,
+                    "timeLastModified": 0,
+                    "timesUsed": 0,
+                }
+            }};
+            val.as_object().expect("literal is an object").clone()
+        };
+    }
+
+    fn array_to_incoming(vals: Vec<Value>) -> Vec<Payload> {
+        let mut result = Vec::with_capacity(vals.len());
+        for elt in vals {
+            result.push(Payload::from_json(elt.clone()).expect("must be valid"));
         }
         result
     }
 
+    fn expand_test_guid(c: char) -> String {
+        c.to_string().repeat(12)
+    }
+
+    fn test_json_record(guid_prefix: char) -> Value {
+        TEST_JSON_RECORDS
+            .get(&guid_prefix.to_string())
+            .expect("should exist")
+            .clone()
+    }
+
+    fn test_record(guid_prefix: char) -> AddressRecord {
+        let json = test_json_record(guid_prefix);
+        serde_json::from_value(json).expect("should be a valid record")
+    }
+
+    fn test_json_tombstone(guid_prefix: char) -> Value {
+        let t = json! {
+            {
+                "id": expand_test_guid(guid_prefix),
+                "deleted": true,
+            }
+        };
+        t
+    }
+
     #[test]
     fn test_stage_incoming() -> Result<()> {
+        let _ = env_logger::try_init();
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
         struct TestCase {
-            incoming_records: Value,
+            incoming_records: Vec<Value>,
             expected_record_count: u32,
             expected_tombstone_count: u32,
         }
 
         let test_cases = vec![
             TestCase {
-                incoming_records: json! {[
-                    {
-                        "id": "AAAAAAAAAAAAAAAAA",
-                        "deleted": false,
-                        "givenName": "john",
-                        "additionalName": "",
-                        "familyName": "doe",
-                        "organization": "",
-                        "streetAddress": "1300 Broadway",
-                        "addressLevel3": "",
-                        "addressLevel2": "New York, NY",
-                        "addressLevel1": "",
-                        "postalCode": "",
-                        "country": "United States",
-                        "tel": "",
-                        "email": "",
-                        "timeCreated": 0,
-                        "timeLastUsed": 0,
-                        "timeLastModified": 0,
-                        "timesUsed": 0,
-                    }
-                ]},
+                incoming_records: vec![test_json_record('A')],
                 expected_record_count: 1,
                 expected_tombstone_count: 0,
             },
             TestCase {
-                incoming_records: json! {[
-                    {
-                        "id": "AAAAAAAAAAAAAA",
-                        "deleted": true,
-                        "givenName": "",
-                        "additionalName": "",
-                        "familyName": "",
-                        "organization": "",
-                        "streetAddress": "",
-                        "addressLevel3": "",
-                        "addressLevel2": "",
-                        "addressLevel1": "",
-                        "postalCode": "",
-                        "country": "",
-                        "tel": "",
-                        "email": "",
-                        "timeCreated": 0,
-                        "timeLastUsed": 0,
-                        "timeLastModified": 0,
-                        "timesUsed": 0,
-                    }
-                ]},
+                incoming_records: vec![test_json_tombstone('A')],
                 expected_record_count: 0,
                 expected_tombstone_count: 1,
             },
             TestCase {
-                incoming_records: json! {[
-                    {
-                        "id": "AAAAAAAAAAAAAAAAA",
-                        "deleted": false,
-                        "givenName": "john",
-                        "additionalName": "",
-                        "familyName": "doe",
-                        "organization": "",
-                        "streetAddress": "1300 Broadway",
-                        "addressLevel3": "",
-                        "addressLevel2": "New York, NY",
-                        "addressLevel1": "",
-                        "postalCode": "",
-                        "country": "United States",
-                        "tel": "",
-                        "email": "",
-                        "timeCreated": 0,
-                        "timeLastUsed": 0,
-                        "timeLastModified": 0,
-                        "timesUsed": 0,
-                    },
-                    {
-                        "id": "CCCCCCCCCCCCCCCCCC",
-                        "deleted": false,
-                        "givenName": "jane",
-                        "additionalName": "",
-                        "familyName": "doe",
-                        "organization": "",
-                        "streetAddress": "3050 South La Brea Ave",
-                        "addressLevel3": "",
-                        "addressLevel2": "Los Angeles, CA",
-                        "addressLevel1": "",
-                        "postalCode": "",
-                        "country": "United States",
-                        "tel": "",
-                        "email": "",
-                        "timeCreated": 0,
-                        "timeLastUsed": 0,
-                        "timeLastModified": 0,
-                        "timesUsed": 0,
-                    },
-                    {
-                        "id": "BBBBBBBBBBBBBBBBB",
-                        "deleted": true,
-                        "givenName": "",
-                        "additionalName": "",
-                        "familyName": "",
-                        "organization": "",
-                        "streetAddress": "",
-                        "addressLevel3": "",
-                        "addressLevel2": "",
-                        "addressLevel1": "",
-                        "postalCode": "",
-                        "country": "",
-                        "tel": "",
-                        "email": "",
-                        "timeCreated": 0,
-                        "timeLastUsed": 0,
-                        "timeLastModified": 0,
-                        "timesUsed": 0,
-                    }
-                ]},
+                incoming_records: vec![
+                    test_json_record('A'),
+                    test_json_record('C'),
+                    test_json_tombstone('B'),
+                ],
                 expected_record_count: 2,
                 expected_tombstone_count: 1,
             },
         ];
 
         for tc in test_cases {
+            log::info!("starting new testcase");
             stage_incoming(
                 &tx,
                 array_to_incoming(tc.incoming_records),
@@ -930,139 +888,33 @@ mod tests {
     }
 
     #[test]
+    fn test_change_local_guid() -> Result<()> {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction()?;
+
+        insert_local_record(&tx, test_record('C'))?;
+
+        change_local_guid(
+            &tx,
+            &SyncGuid::new(&expand_test_guid('C')),
+            &SyncGuid::new(&expand_test_guid('B')),
+        )?;
+        // XXX - TODO - check it's actually changed!
+        Ok(())
+    }
+
+    #[test]
     fn test_get_incoming() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
 
-        tx.execute_named(
-            "INSERT OR IGNORE INTO addresses_data (
-                guid,
-                given_name,
-                additional_name,
-                family_name,
-                organization,
-                street_address,
-                address_level3,
-                address_level2,
-                address_level1,
-                postal_code,
-                country,
-                tel,
-                email,
-                time_created,
-                time_last_used,
-                time_last_modified,
-                times_used,
-                sync_change_counter
-            ) VALUES (
-                :guid,
-                :given_name,
-                :additional_name,
-                :family_name,
-                :organization,
-                :street_address,
-                :address_level3,
-                :address_level2,
-                :address_level1,
-                :postal_code,
-                :country,
-                :tel,
-                :email,
-                :time_created,
-                :time_last_used,
-                :time_last_modified,
-                :times_used,
-                :sync_change_counter
-            )",
-            rusqlite::named_params! {
-                ":guid": "CCCCCCCCCCCCCCCCCC",
-                ":given_name": "jane",
-                ":additional_name": "",
-                ":family_name": "doe",
-                ":organization": "",
-                ":street_address": "3050 South La Brea Ave",
-                ":address_level3": "",
-                ":address_level2": "Los Angeles, CA",
-                ":address_level1": "",
-                ":postal_code": "",
-                ":country": "United States",
-                ":tel": "",
-                ":email": "",
-                ":time_created": Timestamp::now(),
-                ":time_last_used": Some(Timestamp::now()),
-                ":time_last_modified": Timestamp::now(),
-                ":times_used": 0,
-                ":sync_change_counter": 1,
-            },
-        )?;
+        insert_local_record(&tx, test_record('C'))?;
+        save_incoming_records(&tx, vec![test_record('C')], &NeverInterrupts)?;
 
-        tx.execute_named(
-            "INSERT OR IGNORE INTO temp.addresses_sync_staging (
-                guid,
-                given_name,
-                additional_name,
-                family_name,
-                organization,
-                street_address,
-                address_level3,
-                address_level2,
-                address_level1,
-                postal_code,
-                country,
-                tel,
-                email,
-                time_created,
-                time_last_used,
-                time_last_modified,
-                times_used
-            ) VALUES (
-                :guid,
-                :given_name,
-                :additional_name,
-                :family_name,
-                :organization,
-                :street_address,
-                :address_level3,
-                :address_level2,
-                :address_level1,
-                :postal_code,
-                :country,
-                :tel,
-                :email,
-                :time_created,
-                :time_last_used,
-                :time_last_modified,
-                :times_used
-            )",
-            rusqlite::named_params! {
-                ":guid": "CCCCCCCCCCCCCCCCCC",
-                ":given_name": "jane",
-                ":additional_name": "",
-                ":family_name": "doe",
-                ":organization": "",
-                ":street_address": "3050 South La Brea Ave",
-                ":address_level3": "",
-                ":address_level2": "Los Angeles, CA",
-                ":address_level1": "",
-                ":postal_code": "",
-                ":country": "United States",
-                ":tel": "",
-                ":email": "",
-                ":time_created": 0,
-                ":time_last_used": 0,
-                ":time_last_modified": 0,
-                ":times_used": 0,
+        let t = AddressesImpl {};
+        t.fetch_incoming_states(&tx)?;
 
-            },
-        )?;
-
-        get_incoming(&tx)?;
-
-        tx.execute_all(&[
-            "DELETE FROM addresses_data;",
-            "DELETE FROM temp.addresses_sync_staging;",
-        ])?;
-
+        // XXX - check we got what we expected!
         Ok(())
     }
 }
