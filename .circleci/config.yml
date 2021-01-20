@@ -259,7 +259,7 @@ commands:
 jobs:
   Check Swift formatting:
     macos:
-      xcode: "12.0.0"
+      xcode: "12.3.0"
     steps:
       - full-checkout
       - run: brew install swiftlint swiftformat
@@ -320,7 +320,7 @@ jobs:
   Check Rust dependencies:
     # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
     macos:
-      xcode: "12.0.0"
+      xcode: "12.3.0"
     steps:
       - install-rust
       - setup-rust-toolchain
@@ -368,7 +368,7 @@ jobs:
       - save-sccache-cache
   iOS build and test:
     macos:
-      xcode: "12.0.0"
+      xcode: "12.3.0"
     steps:
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
@@ -453,7 +453,7 @@ jobs:
             - MozillaAppServices.framework.zip
   Carthage release:
     macos:
-      xcode: "12.0.0"
+      xcode: "12.3.0"
     steps:
       - full-checkout
       - attach_workspace:
