@@ -24,12 +24,6 @@ if [[ -z "${ANDROID_HOME}" ]]; then
   exit 1
 fi
 
-# NDK ez-install.
-"$ANDROID_HOME/tools/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
-
-# NDK ez-install
-"$ANDROID_HOME/tools/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
-
 rustup target add "${RUST_TARGETS[@]}"
 
 # Determine the Java command to use to start the JVM.
@@ -58,8 +52,12 @@ fi
 JAVA_VERSION=$("$JAVACMD" -version 2>&1 | grep -i version | cut -d'"' -f2 | cut -d'.' -f1-2)
 if [[ "${JAVA_VERSION}" != "1.8" ]]; then
   echo "Incompatible java version: ${JAVA_VERSION}. JDK 8 must be installed."
+  echo "Try switching versions and re-running. Using sdkman: sdk install java 8.0.282+8.hs-adpt || sdk use java 8.0.282+8.hs-adpt"
   exit 1
 fi
+
+# NDK ez-install
+"$ANDROID_HOME/tools/bin/sdkmanager" "ndk;$(./gradlew -q printNdkVersion | tail -1)"
 
 # CI just downloads these libs anyway.
 if [[ -z "${CI}" ]]; then
