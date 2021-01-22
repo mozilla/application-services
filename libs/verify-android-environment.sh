@@ -68,4 +68,7 @@ if [[ -z "${CI}" ]]; then
   fi
 fi
 
+echo "Installing uniffi_bindgen if missing; it's necessary for binding generation during the builds."
+cargo install uniffi_bindgen --version 0.6.1
+
 echo "Looks good! Try building with ./gradlew assembleDebug"
