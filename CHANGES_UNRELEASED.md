@@ -2,4 +2,8 @@
 
 # Unreleased Changes
 
+## General
+
+ - Updated Android Components to 71.0.0
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v67.2.0...main)
