@@ -1,3 +1,11 @@
+# v0.59.1 (_2021-01-26_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.59.0...v0.59.1)
+
+## General
+
+- Our iOS framework binaries are now built using XCode 11.7. ([#3833](https://github.com/mozilla/application-services/issues/3833))
+
 # v0.59.0 (_2020-05-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.58.2...v0.59.0)
