@@ -1768,9 +1768,9 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uniffi"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60bd4038c821fae973a6556f969336343ba17120c7d8977d5860630fb66c48c7"
+checksum = "898d32df6c100782f22bd379d20e7ae6a9cb394773b45874c19023ef8b6cd427"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1783,9 +1783,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4a1ab88d8779722b4c9575dda4dd7f1174dbcafa08a8b528b7334c84b250114"
+checksum = "e386b641d5d4943cf9a6b0a0d834d19b462505e506c3dfe89bc97f596c700fea"
 dependencies = [
  "anyhow",
  "askama",
@@ -1799,9 +1799,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.6.1"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38d7c5eec61b0c0a45644e0e616fb7987fff873636d9b77ce4cf7f8db2c50137"
+checksum = "eb93ed9cb0057e211d15e15d5107697a59050211aba5b589ed7c11dcff62718e"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
