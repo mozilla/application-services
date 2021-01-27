@@ -149,20 +149,36 @@ impl ExperimentEnrollment {
                     updated_enrollment
                 }
             }
-            EnrollmentStatus::Enrolled { ref branch, .. } => {
+            EnrollmentStatus::Enrolled {
+                ref branch,
+                enrollment_id,
+                ..
+            } => {
                 if !is_user_participating {
                     log::debug!(
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
                         &self.slug
                     );
-                    let updated_enrollment =
-                        self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
+                    let updated_enrollment = Self {
+                        slug: self.slug.clone(),
+                        status: EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::OptOut,
+                            enrollment_id,
+                            branch: branch.clone(),
+                        },
+                    };
                     out_enrollment_events.push(updated_enrollment.get_change_event());
                     updated_enrollment
                 } else if !updated_experiment.has_branch(branch) {
                     // The branch we were in disappeared!
-                    let updated_enrollment =
-                        self.disqualify_from_enrolled(DisqualifiedReason::Error);
+                    let updated_enrollment = Self {
+                        slug: self.slug.clone(),
+                        status: EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::Error,
+                            enrollment_id,
+                            branch: branch.clone(),
+                        },
+                    };
                     out_enrollment_events.push(updated_enrollment.get_change_event());
                     updated_enrollment
                 } else {
@@ -174,8 +190,14 @@ impl ExperimentEnrollment {
                     )?;
                     match evaluated_enrollment.status {
                         EnrollmentStatus::Error { .. } => {
-                            let updated_enrollment =
-                                self.disqualify_from_enrolled(DisqualifiedReason::Error);
+                            let updated_enrollment = Self {
+                                slug: self.slug.clone(),
+                                status: EnrollmentStatus::Disqualified {
+                                    reason: DisqualifiedReason::Error,
+                                    enrollment_id,
+                                    branch: branch.clone(),
+                                },
+                            };
                             out_enrollment_events.push(updated_enrollment.get_change_event());
                             updated_enrollment
                         }
@@ -183,8 +205,14 @@ impl ExperimentEnrollment {
                             reason: NotEnrolledReason::NotTargeted,
                         } => {
                             log::debug!("Existing experiment enrollment '{}' is now disqualified (targeting change)", &self.slug);
-                            let updated_enrollment =
-                                self.disqualify_from_enrolled(DisqualifiedReason::NotTargeted);
+                            let updated_enrollment = Self {
+                                slug: self.slug.clone(),
+                                status: EnrollmentStatus::Disqualified {
+                                    reason: DisqualifiedReason::NotTargeted,
+                                    enrollment_id,
+                                    branch: branch.clone(),
+                                },
+                            };
                             out_enrollment_events.push(updated_enrollment.get_change_event());
                             updated_enrollment
                         }
@@ -268,8 +296,19 @@ impl ExperimentEnrollment {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
-            EnrollmentStatus::Enrolled { .. } => {
-                let enrollment = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
+            EnrollmentStatus::Enrolled {
+                enrollment_id,
+                ref branch,
+                ..
+            } => {
+                let enrollment = Self {
+                    slug: self.slug.to_string(),
+                    status: EnrollmentStatus::Disqualified {
+                        reason: DisqualifiedReason::OptOut,
+                        branch: branch.to_owned(),
+                        enrollment_id,
+                    },
+                };
                 out_enrollment_events.push(enrollment.get_change_event());
                 enrollment
             }
@@ -286,37 +325,6 @@ impl ExperimentEnrollment {
                 self.clone()
             }
         })
-    }
-
-    /// Reset identifiers in response to application-level telemetry reset.
-    ///
-    /// Each experiment enrollment record contains a unique `enrollment_id`. When the user
-    /// resets their application-level telemetry, we reset each such id to a special nil value,
-    /// creating a clean break between data sent before the reset and any data that might be
-    /// submitted about these enrollments in future.
-    ///
-    /// We also move any enrolled experiments to the "disqualified" state, since their further
-    /// partipation would submit partial data that could skew analysis.
-    ///
-    fn reset_telemetry_identifiers(
-        &self,
-        out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
-    ) -> Self {
-        let updated = match self.status {
-            EnrollmentStatus::Enrolled { .. } => {
-                let disqualified = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
-                out_enrollment_events.push(disqualified.get_change_event());
-                disqualified
-            }
-            EnrollmentStatus::NotEnrolled { .. }
-            | EnrollmentStatus::Disqualified { .. }
-            | EnrollmentStatus::WasEnrolled { .. }
-            | EnrollmentStatus::Error { .. } => self.clone(),
-        };
-        ExperimentEnrollment {
-            status: updated.status.clone_with_nil_enrollment_id(),
-            ..updated
-        }
     }
 
     /// Garbage collect old experiments we've kept a WasEnrolled enrollment from.
@@ -381,30 +389,7 @@ impl ExperimentEnrollment {
             EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => unreachable!(),
         }
     }
-
-    /// If the current state is `Enrolled`, move to `Disqualified` with the given reason.
-    fn disqualify_from_enrolled(&self, reason: DisqualifiedReason) -> Self {
-        match self.status {
-            EnrollmentStatus::Enrolled {
-                ref enrollment_id,
-                ref branch,
-                ..
-            } => ExperimentEnrollment {
-                status: EnrollmentStatus::Disqualified {
-                    reason,
-                    enrollment_id: enrollment_id.to_owned(),
-                    branch: branch.to_owned(),
-                },
-                ..self.clone()
-            },
-            EnrollmentStatus::NotEnrolled { .. }
-            | EnrollmentStatus::Disqualified { .. }
-            | EnrollmentStatus::WasEnrolled { .. }
-            | EnrollmentStatus::Error { .. } => self.clone(),
-        }
-    }
 }
-
 // ⚠️ Warning : Altering this type might require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrollmentStatus {
@@ -442,33 +427,11 @@ impl EnrollmentStatus {
             enrollment_id: Uuid::new_v4(),
         }
     }
-
     // This is used in examples, but not in the main dylib, and
     // triggers a dead code warning when building with `--release`.
     #[allow(dead_code)]
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
-    }
-
-    /// Make a clone of this status, but with the special nil enrollment_id.
-    fn clone_with_nil_enrollment_id(&self) -> Self {
-        let mut updated = self.clone();
-        match updated {
-            EnrollmentStatus::Enrolled {
-                ref mut enrollment_id,
-                ..
-            }
-            | EnrollmentStatus::Disqualified {
-                ref mut enrollment_id,
-                ..
-            }
-            | EnrollmentStatus::WasEnrolled {
-                ref mut enrollment_id,
-                ..
-            } => *enrollment_id = Uuid::nil(),
-            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => (),
-        };
-        updated
     }
 }
 
@@ -750,25 +713,6 @@ pub fn set_global_user_participation(
 ) -> Result<()> {
     let store = db.get_store(StoreId::Meta);
     store.put(writer, DB_KEY_GLOBAL_USER_PARTICIPATION, &opt_in)
-}
-
-/// Reset unique identifiers in response to application-level telemetry reset.
-///
-pub fn reset_telemetry_identifiers(
-    db: &Database,
-    writer: &mut Writer,
-) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut events = vec![];
-    let store = db.get_store(StoreId::Enrollments);
-    let enrollments = store.collect_all::<ExperimentEnrollment>(&writer)?;
-    let updated_enrollments = enrollments
-        .iter()
-        .map(|enrollment| enrollment.reset_telemetry_identifiers(&mut events));
-    store.clear(writer)?;
-    for enrollment in updated_enrollments {
-        store.put(writer, &enrollment.slug, &enrollment)?;
-    }
-    Ok(events)
 }
 
 fn now_secs() -> u64 {
@@ -1938,111 +1882,6 @@ mod tests {
             })
             .collect();
         assert_eq!(disqualified_enrollments.len(), 2);
-        Ok(())
-    }
-
-    #[test]
-    fn test_telemetry_reset() -> Result<()> {
-        let _ = env_logger::try_init();
-        let tmp_dir = TempDir::new("test_telemetry_reset")?;
-        let db = Database::new(&tmp_dir)?;
-        let mut writer = db.write()?;
-
-        let mock_exp1_slug = "exp-1".to_string();
-        let mock_exp1_branch = "branch-1".to_string();
-        let mock_exp2_slug = "exp-2".to_string();
-        let mock_exp2_branch = "branch-2".to_string();
-        let mock_exp3_slug = "exp-3".to_string();
-
-        // Three currently-known experiments, in different states.
-        let store = db.get_store(StoreId::Enrollments);
-        store.put(
-            &mut writer,
-            &mock_exp1_slug,
-            &ExperimentEnrollment {
-                slug: mock_exp1_slug.clone(),
-                status: EnrollmentStatus::new_enrolled(
-                    EnrolledReason::Qualified,
-                    &mock_exp1_branch,
-                ),
-            },
-        )?;
-        store.put(
-            &mut writer,
-            &mock_exp2_slug,
-            &ExperimentEnrollment {
-                slug: mock_exp2_slug.clone(),
-                status: EnrollmentStatus::Disqualified {
-                    reason: DisqualifiedReason::Error,
-                    branch: mock_exp2_branch.clone(),
-                    enrollment_id: Uuid::new_v4(),
-                },
-            },
-        )?;
-        store.put(
-            &mut writer,
-            &mock_exp3_slug,
-            &ExperimentEnrollment {
-                slug: mock_exp3_slug.clone(),
-                status: EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::NotTargeted,
-                },
-            },
-        )?;
-        writer.commit()?;
-
-        let mut writer = db.write()?;
-        let events = reset_telemetry_identifiers(&db, &mut writer)?;
-        writer.commit()?;
-
-        let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
-        assert_eq!(enrollments.len(), 3);
-
-        // The enrolled experiment should have moved to disqualified with nil enrollment_id.
-        assert_eq!(enrollments[0].slug, mock_exp1_slug);
-        assert!(
-            matches!(&enrollments[0].status, EnrollmentStatus::Disqualified {
-                reason: DisqualifiedReason::OptOut,
-                branch,
-                enrollment_id,
-                ..
-            } if *branch == mock_exp1_branch && enrollment_id.is_nil())
-        );
-
-        // The disqualified experiment should have stayed disqualified, with nil enrollment_id.
-        assert_eq!(enrollments[1].slug, mock_exp2_slug);
-        assert!(
-            matches!(&enrollments[1].status, EnrollmentStatus::Disqualified {
-                reason: DisqualifiedReason::Error,
-                branch,
-                enrollment_id,
-                ..
-            } if *branch == mock_exp2_branch && enrollment_id.is_nil())
-        );
-
-        // The not-enrolled experiment should have been unchanged.
-        assert_eq!(enrollments[2].slug, mock_exp3_slug);
-        assert!(
-            matches!(&enrollments[2].status, EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted,
-                ..
-            })
-        );
-
-        // We should have returned a single disqualification event.
-        assert_eq!(events.len(), 1);
-        assert!(matches!(&events[0], EnrollmentChangeEvent {
-            change: EnrollmentChangeEventType::Disqualification,
-            reason: Some(reason),
-            experiment_slug,
-            branch_slug,
-            enrollment_id,
-        } if reason == "optout"
-            && *experiment_slug == mock_exp1_slug
-            && *branch_slug == mock_exp1_branch
-            && ! Uuid::parse_str(&enrollment_id)?.is_nil()
-        ));
-
         Ok(())
     }
 }
