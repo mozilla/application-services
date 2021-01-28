@@ -2,9 +2,4 @@
 
 # Unreleased Changes
 
-## General
-
- - Updated numbus to 0.7.1
- - Updated Android Components to 71.0.0
-
-[Full Changelog](https://github.com/mozilla/application-services/compare/v68.1.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v69.0.0...main)
