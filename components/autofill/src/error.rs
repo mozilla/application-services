@@ -24,6 +24,9 @@ pub enum Error {
 
     #[error("UTF8 Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
+
+    #[error("JSON Error: {0}")]
+    JsonError(#[from] serde_json::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

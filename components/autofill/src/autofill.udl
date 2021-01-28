@@ -50,7 +50,7 @@ dictionary Address {
 
 [Error]
 enum Error {
-   "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath", "Utf8Error"
+   "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath", "Utf8Error", "JsonError"
 };
 
 interface Store {

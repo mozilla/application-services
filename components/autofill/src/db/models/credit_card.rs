@@ -10,7 +10,7 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", default)]
 pub struct NewCreditCardFields {
     pub cc_name: String,
 
