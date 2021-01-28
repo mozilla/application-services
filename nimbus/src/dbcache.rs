@@ -5,9 +5,8 @@
 use crate::enrollment::get_enrollments;
 use crate::error::{Error, Result};
 use crate::persistence::Database;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 // This module manages an in-memory cache of the database, so that some
 // functions exposed by nimbus can return results without blocking on any
@@ -21,27 +20,11 @@ struct CachedData {
 }
 
 // This is the public cache API. Each NimbusClient can create one of these and
-// it lives as long as the client - it encapsulates the cells and locking
-// needed to allow the cache to work correctly.
-// WARNING: because this manages locking, the callers of this need to be
-// careful regarding deadlocks - if the callers take their own locks (which
-// they will!), there's always a risk of locks being taken in an inconsistent
-// order. However, there's nothing this code specifically can do about that.
+// it lives as long as the client - it encapsulates the synchronization needed
+// to allow the cache to work correctly.
 #[derive(Default)]
 pub struct DatabaseCache {
-    // Notes about the types here:
-    // * We use a `Mutex` because a `RwLock` doesn't make the inner object
-    //   `Sync`, which we require. An alternative would be
-    //   `RwLock<AtomicRefCell<...>>` but we don't have an existing dependency
-    //   on AtomicRefCell and it seems wierd to add one just to micro-optimize
-    //   away from `Mutex` when our uses-cases, in practice, fine with a mutex.
-    //   However, it is worth noting that mozilla-central does depend on
-    //   `AtomicRefCell` so it wouldn't be *that* difficult to argue for the
-    //   new dependency, it's just that no one has yet :)
-    // * We use a `RefCell` even though we don't mutate it in place,
-    //   because `Cell::get()` requires the data to be copied, which a HashMap
-    //   doesn't offer.
-    data: Mutex<RefCell<Option<CachedData>>>,
+    data: RwLock<Option<CachedData>>,
 }
 
 impl DatabaseCache {
@@ -59,27 +42,28 @@ impl DatabaseCache {
             experiment_branches: eb,
         };
         // then swap it in.
-        let cell = self.data.lock().unwrap();
-        cell.replace(Some(data));
+        self.data.write().unwrap().replace(data);
         Ok(())
     }
 
     // Abstracts safely referencing our cached data.
+    //
+    // WARNING: because this manages locking, the callers of this need to be
+    // careful regarding deadlocks - if the callback takes other own locks then
+    // there's a risk of locks being taken in an inconsistent order. However,
+    // there's nothing this code specifically can do about that.
     fn get_data<T, F>(&self, func: F) -> Result<T>
     where
         F: FnOnce(&CachedData) -> T,
     {
-        let guard = self.data.lock().unwrap();
-        let r = guard.borrow();
-        let data = r.as_ref();
-        match data {
+        match *self.data.read().unwrap() {
             None => {
                 log::warn!(
                     "DatabaseCache attempting to read data before initialization is completed"
                 );
                 Err(Error::DatabaseNotReady)
             }
-            Some(data) => Ok(func(data)),
+            Some(ref data) => Ok(func(data)),
         }
     }
 
