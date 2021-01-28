@@ -299,7 +299,7 @@ pub struct FeatureConfig {
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 pub struct Branch {
     pub slug: String,
-    pub ratio: u32,
+    pub ratio: i32,
     pub feature: Option<FeatureConfig>,
 }
 
