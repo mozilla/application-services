@@ -100,7 +100,7 @@ commands:
             rustc --version
       - run:
           name: Install UniFFI
-          command: cargo install --version 0.6.1 uniffi_bindgen
+          command: cargo install --version 0.7.0 uniffi_bindgen
   build-libs:
     parameters:
       platform:
