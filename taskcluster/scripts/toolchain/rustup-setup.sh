@@ -35,7 +35,7 @@ rustup toolchain install "$RUST_STABLE_VERSION"
 rustup default "$RUST_STABLE_VERSION"
 rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
 
-cargo install --version 0.6.1 uniffi_bindgen
+cargo install --version 0.7.0 uniffi_bindgen
 
 # This is not the right place for it, but also it's as good a place as any.
 # Make sure git submodules are initialized.
