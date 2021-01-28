@@ -23,7 +23,7 @@ dictionary EnrolledExperiment {
 
 dictionary Branch {
     string slug;
-    u32 ratio;
+    i32 ratio; // ideally would be u32, but kotlin considers unsigned experimental - see SDK-175.
     FeatureConfig? feature;
 };
 
