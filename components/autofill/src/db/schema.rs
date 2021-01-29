@@ -25,6 +25,26 @@ pub const ADDRESS_COMMON_COLS: &str = "
     times_used,
     sync_change_counter";
 
+pub const ADDRESS_COMMON_VALS: &str = "
+    :guid,
+    :given_name,
+    :additional_name,
+    :family_name,
+    :organization,
+    :street_address,
+    :address_level3,
+    :address_level2,
+    :address_level1,
+    :postal_code,
+    :country,
+    :tel,
+    :email,
+    :time_created,
+    :time_last_used,
+    :time_last_modified,
+    :times_used,
+    :sync_change_counter";
+
 pub const CREDIT_CARD_COMMON_COLS: &str = "
     guid,
     cc_name,
@@ -37,6 +57,19 @@ pub const CREDIT_CARD_COMMON_COLS: &str = "
     time_last_modified,
     times_used,
     sync_change_counter";
+
+pub const CREDIT_CARD_COMMON_VALS: &str = "
+    :guid,
+    :cc_name,
+    :cc_number,
+    :cc_exp_month,
+    :cc_exp_year,
+    :cc_type,
+    :time_created,
+    :time_last_used,
+    :time_last_modified,
+    :times_used,
+    :sync_change_counter";
 
 #[allow(dead_code)]
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");

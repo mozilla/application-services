@@ -1,6 +1,7 @@
 namespace autofill {};
 
-dictionary NewCreditCardFields {
+// What you pass to create or update a credit-card.
+dictionary UpdatableCreditCardFields {
     string cc_name;
     string cc_number;
     i64 cc_exp_month;
@@ -8,6 +9,7 @@ dictionary NewCreditCardFields {
     string cc_type;
 };
 
+// What you get back as a credit-card.
 dictionary CreditCard {
     string guid;
     string cc_name;
@@ -15,9 +17,15 @@ dictionary CreditCard {
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
 };
 
-dictionary NewAddressFields {
+// What you pass to create or update an address.
+dictionary UpdatableAddressFields {
     string given_name;
     string additional_name;
     string family_name;
@@ -32,6 +40,7 @@ dictionary NewAddressFields {
     string email;
 };
 
+// What you get back as an address.
 dictionary Address {
     string guid;
     string given_name;
@@ -46,6 +55,11 @@ dictionary Address {
     string country;
     string tel;
     string email;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
 };
 
 [Error]
@@ -58,7 +72,7 @@ interface Store {
     constructor(string dbpath);
 
     [Throws=Error]
-    CreditCard add_credit_card(NewCreditCardFields a);
+    CreditCard add_credit_card(UpdatableCreditCardFields cc);
 
     [Throws=Error]
     CreditCard get_credit_card(string guid);
@@ -67,7 +81,7 @@ interface Store {
     sequence<CreditCard> get_all_credit_cards();
 
     [Throws=Error]
-    void update_credit_card(CreditCard a);
+    void update_credit_card(string guid, UpdatableCreditCardFields cc);
 
     [Throws=Error]
     boolean delete_credit_card(string guid);
@@ -76,7 +90,7 @@ interface Store {
     void touch_credit_card(string guid);
 
     [Throws=Error]
-    Address add_address(NewAddressFields a);
+    Address add_address(UpdatableAddressFields a);
 
     [Throws=Error]
     Address get_address(string guid);
@@ -85,7 +99,7 @@ interface Store {
     sequence<Address> get_all_addresses();
 
     [Throws=Error]
-    void update_address(Address a);
+    void update_address(string guid, UpdatableAddressFields a);
 
     [Throws=Error]
     boolean delete_address(string guid);

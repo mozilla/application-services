@@ -3,7 +3,7 @@
 -- file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 CREATE TABLE IF NOT EXISTS addresses_data (
-    guid          TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY,
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS addresses_data (
 );
 
 CREATE TABLE IF NOT EXISTS addresses_mirror (
-   guid          TEXT NOT NULL PRIMARY KEY,
+    guid                TEXT NOT NULL PRIMARY KEY,
     given_name          TEXT NOT NULL,
     additional_name     TEXT NOT NULL,
     family_name         TEXT NOT NULL,
