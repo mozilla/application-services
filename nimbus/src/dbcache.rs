@@ -4,7 +4,7 @@
 
 use crate::enrollment::get_enrollments;
 use crate::error::{Error, Result};
-use crate::persistence::Database;
+use crate::persistence::{Database, Writer};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -29,10 +29,20 @@ pub struct DatabaseCache {
 
 impl DatabaseCache {
     // Call this function whenever it's possible that anything cached by this
-    // struct (eg, our enrollments) might have changed. It is passed a
-    // &Database, which implies some mutex guarding that Database is held.
-    pub fn update(&self, db: &Database) -> Result<()> {
-        let experiments = get_enrollments(&db)?;
+    // struct (eg, our enrollments) might have changed.
+    //
+    // This function must be passed a `&Database` and a `Writer`, which it
+    // will commit before updating the in-memory cache. This is a slightly weird
+    // API but it helps encorce two important properties:
+    //
+    //  * By requiring a `Writer`, we ensure mutual exclusion of other db writers
+    //    and thus prevent the possibility of caching stale data.
+    //  * By taking ownership of the `Writer`, we ensure that the calling code
+    //    updates the cache after all of its writes have been performed.
+    pub fn commit_and_update(&self, db: &Database, writer: Writer) -> Result<()> {
+        // By passing in the active `writer` we read the state of enrollments
+        // as written by the calling code, before it's committed to the db.
+        let experiments = get_enrollments(&db, &writer)?;
         // Build the new hashmap.
         let mut eb = HashMap::with_capacity(experiments.len());
         for e in experiments {
@@ -41,8 +51,15 @@ impl DatabaseCache {
         let data = CachedData {
             experiment_branches: eb,
         };
-        // then swap it in.
-        self.data.write().unwrap().replace(data);
+        // Try to commit the change to disk and update the cache as close
+        // together in time as possible. This leaves a small window where another
+        // thread could read new data from disk but see old data in the cache,
+        // but that seems benign in practice given the way we use the cache.
+        // The alternative would be to lock the cache while we commit to disk,
+        // and we don't want to risk blocking the main thread.
+        writer.commit()?;
+        let mut cached = self.data.write().unwrap();
+        cached.replace(data);
         Ok(())
     }
 

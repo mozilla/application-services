@@ -1,9 +1,9 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-use crate::evaluator::evaluate_enrollment;
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{error::Result, Error};
+use crate::{evaluator::evaluate_enrollment, persistence::Readable};
 use crate::{AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment};
 
 use ::uuid::Uuid;
@@ -473,8 +473,12 @@ impl EnrollmentStatus {
 }
 
 /// Return information about all enrolled experiments.
-pub fn get_enrollments(db: &Database) -> Result<Vec<EnrolledExperiment>> {
-    let enrollments: Vec<ExperimentEnrollment> = db.collect_all(StoreId::Enrollments)?;
+pub fn get_enrollments<'r>(
+    db: &Database,
+    reader: &'r impl Readable<'r>,
+) -> Result<Vec<EnrolledExperiment>> {
+    let enrollments: Vec<ExperimentEnrollment> =
+        db.get_store(StoreId::Enrollments).collect_all(reader)?;
     let mut result = Vec::with_capacity(enrollments.len());
     for enrollment in enrollments {
         log::debug!("Have enrollment: {:?}", enrollment);
@@ -484,8 +488,9 @@ pub fn get_enrollments(db: &Database) -> Result<Vec<EnrolledExperiment>> {
             ..
         } = &enrollment.status
         {
-            if let Some(experiment) =
-                db.get::<Experiment>(StoreId::Experiments, &enrollment.slug)?
+            if let Some(experiment) = db
+                .get_store(StoreId::Experiments)
+                .get::<Experiment, _>(reader, &enrollment.slug)?
             {
                 result.push(EnrolledExperiment {
                     slug: experiment.slug,
@@ -536,9 +541,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         let is_user_participating = get_global_user_participation(db, writer)?;
         let experiments_store = db.get_store(StoreId::Experiments);
         let enrollments_store = db.get_store(StoreId::Enrollments);
-        let existing_experiments = experiments_store.collect_all::<Experiment>(writer)?;
-        let existing_enrollments =
-            enrollments_store.collect_all::<ExperimentEnrollment>(&writer)?;
+        let existing_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
+        let existing_enrollments: Vec<ExperimentEnrollment> =
+            enrollments_store.collect_all(writer)?;
         // Calculate the changes.
         let (updated_enrollments, enrollments_change_events) = self.evolve_enrollments(
             is_user_participating,
@@ -704,38 +709,42 @@ pub enum EnrollmentChangeEventType {
 
 pub fn opt_in_with_branch(
     db: &Database,
+    writer: &mut Writer,
     experiment_slug: &str,
     branch: &str,
 ) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut writer = db.write()?;
     let mut events = vec![];
-    let exp = db
+    let exp: Experiment = db
         .get_store(StoreId::Experiments)
-        .get::<Experiment>(&writer, experiment_slug)?
+        .get(writer, experiment_slug)?
         .ok_or_else(|| Error::NoSuchExperiment(experiment_slug.to_owned()))?;
     let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, branch, &mut events)?;
     db.get_store(StoreId::Enrollments)
-        .put(&mut writer, experiment_slug, &enrollment)?;
-    writer.commit()?;
+        .put(writer, experiment_slug, &enrollment)?;
     Ok(events)
 }
 
-pub fn opt_out(db: &Database, experiment_slug: &str) -> Result<Vec<EnrollmentChangeEvent>> {
-    let mut writer = db.write()?;
+pub fn opt_out(
+    db: &Database,
+    writer: &mut Writer,
+    experiment_slug: &str,
+) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
     let enr_store = db.get_store(StoreId::Enrollments);
-    let existing_enrollment = enr_store
-        .get::<ExperimentEnrollment>(&writer, experiment_slug)?
+    let existing_enrollment: ExperimentEnrollment = enr_store
+        .get(writer, experiment_slug)?
         .ok_or_else(|| Error::NoSuchExperiment(experiment_slug.to_owned()))?;
     let updated_enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
-    enr_store.put(&mut writer, experiment_slug, &updated_enrollment)?;
-    writer.commit()?;
+    enr_store.put(writer, experiment_slug, &updated_enrollment)?;
     Ok(events)
 }
 
-pub fn get_global_user_participation(db: &Database, writer: &Writer) -> Result<bool> {
+pub fn get_global_user_participation<'r>(
+    db: &Database,
+    reader: &'r impl Readable<'r>,
+) -> Result<bool> {
     let store = db.get_store(StoreId::Meta);
-    let opted_in = store.get(writer, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+    let opted_in = store.get(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
     if let Some(opted_in) = opted_in {
         Ok(opted_in)
     } else {
@@ -760,7 +769,7 @@ pub fn reset_telemetry_identifiers(
 ) -> Result<Vec<EnrollmentChangeEvent>> {
     let mut events = vec![];
     let store = db.get_store(StoreId::Enrollments);
-    let enrollments = store.collect_all::<ExperimentEnrollment>(&writer)?;
+    let enrollments: Vec<ExperimentEnrollment> = store.collect_all(writer)?;
     let updated_enrollments = enrollments
         .iter()
         .map(|enrollment| enrollment.reset_telemetry_identifiers(&mut events));
@@ -846,8 +855,11 @@ mod tests {
         ]
     }
 
-    fn get_experiment_enrollments(db: &Database) -> Result<Vec<ExperimentEnrollment>> {
-        db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+    fn get_experiment_enrollments<'r>(
+        db: &Database,
+        reader: &'r impl Readable<'r>,
+    ) -> Result<Vec<ExperimentEnrollment>> {
+        db.get_store(StoreId::Enrollments).collect_all(reader)
     }
 
     fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
@@ -1723,6 +1735,7 @@ mod tests {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("test_enrollments")?;
         let db = Database::new(&tmp_dir)?;
+        let mut writer = db.write()?;
         let exp1 = get_test_experiments()[0].clone();
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
@@ -1730,14 +1743,12 @@ mod tests {
             app_id: "fenix".to_string(),
             ..Default::default()
         };
-        assert_eq!(get_enrollments(&db)?.len(), 0);
-        let mut writer = db.write()?;
+        assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1])?;
-        writer.commit()?;
 
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 1);
         let enrollment = &enrollments[0];
         assert_eq!(enrollment.slug, "secure-gold");
@@ -1758,31 +1769,35 @@ mod tests {
         ));
 
         // Get the ExperimentEnrollment from the DB.
-        let ee = db
-            .get::<ExperimentEnrollment>(StoreId::Enrollments, "secure-gold")?
+        let ee: ExperimentEnrollment = db
+            .get_store(StoreId::Enrollments)
+            .get(&writer, "secure-gold")?
             .expect("should exist");
         assert!(
             matches!(ee.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
         );
 
         // Now opt-out.
-        opt_out(&db, "secure-gold")?;
-        assert_eq!(get_enrollments(&db)?.len(), 0);
+        opt_out(&db, &mut writer, "secure-gold")?;
+        assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         // check we recorded the "why" correctly.
-        let ee = db
-            .get::<ExperimentEnrollment>(StoreId::Enrollments, "secure-gold")?
+        let ee: ExperimentEnrollment = db
+            .get_store(StoreId::Enrollments)
+            .get(&writer, "secure-gold")?
             .expect("should exist");
         assert!(
             matches!(ee.status, EnrollmentStatus::Disqualified { reason: DisqualifiedReason::OptOut,.. })
         );
 
         // Opt in to a specific branch.
-        opt_in_with_branch(&db, "secure-gold", "treatment")?;
-        let enrollments = get_enrollments(&db)?;
+        opt_in_with_branch(&db, &mut writer, "secure-gold", "treatment")?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 1);
         let enrollment = &enrollments[0];
         assert_eq!(enrollment.slug, "secure-gold");
         assert!(enrollment.branch_slug == "treatment");
+
+        writer.commit()?;
         Ok(())
     }
 
@@ -1791,33 +1806,30 @@ mod tests {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("test_updates")?;
         let db = Database::new(&tmp_dir)?;
+        let mut writer = db.write()?;
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
         let app_ctx = AppContext {
             app_id: "fenix".to_string(),
             ..Default::default()
         };
-        assert_eq!(get_enrollments(&db)?.len(), 0);
+        assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         let exps = get_test_experiments();
-        let mut writer = db.write()?;
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
-        writer.commit()?;
 
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 2);
         assert_eq!(events.len(), 2);
 
-        let mut writer = db.write()?;
         // pretend we just updated from the server and one of the 2 is missing.
         let exps = &[exps[1].clone()];
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps)?;
-        writer.commit()?;
 
         // should only have 1 now.
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 1);
         // Check that the un-enrolled event was emitted.
         assert_eq!(events.len(), 1);
@@ -1827,6 +1839,8 @@ mod tests {
             event.change,
             EnrollmentChangeEventType::Unenrollment
         ));
+
+        writer.commit()?;
         Ok(())
     }
 
@@ -1842,7 +1856,7 @@ mod tests {
             ..Default::default()
         };
         let aru = Default::default();
-        assert_eq!(get_enrollments(&db)?.len(), 0);
+        assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         let exps = get_test_experiments();
 
         // User has opted out of new experiments.
@@ -1850,94 +1864,93 @@ mod tests {
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
-        writer.commit()?;
 
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
         // We should see the experiment non-enrollments.
-        assert_eq!(get_experiment_enrollments(&db)?.len(), 2);
-        let not_enrolled_enrollments: Vec<ExperimentEnrollment> = get_experiment_enrollments(&db)?
-            .into_iter()
-            .filter(|enr| {
-                matches!(
-                    enr.status,
-                    EnrollmentStatus::NotEnrolled {
-                        reason: NotEnrolledReason::OptOut
-                    }
-                )
-            })
-            .collect();
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+        let not_enrolled_enrollments: Vec<ExperimentEnrollment> =
+            get_experiment_enrollments(&db, &writer)?
+                .into_iter()
+                .filter(|enr| {
+                    matches!(
+                        enr.status,
+                        EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::OptOut
+                        }
+                    )
+                })
+                .collect();
         assert_eq!(not_enrolled_enrollments.len(), 2);
 
         // User opts in, and updating should enroll us in 2 experiments.
-        let mut writer = db.write()?;
         set_global_user_participation(&db, &mut writer, true)?;
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
-        writer.commit()?;
 
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 2);
         assert_eq!(events.len(), 2);
         // We should see 2 experiment enrollments.
-        assert_eq!(get_experiment_enrollments(&db)?.len(), 2);
-        let enrolled_enrollments: Vec<ExperimentEnrollment> = get_experiment_enrollments(&db)?
-            .into_iter()
-            .filter(|enr| matches!(enr.status, EnrollmentStatus::Enrolled { .. }))
-            .collect();
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+        let enrolled_enrollments: Vec<ExperimentEnrollment> =
+            get_experiment_enrollments(&db, &writer)?
+                .into_iter()
+                .filter(|enr| matches!(enr.status, EnrollmentStatus::Enrolled { .. }))
+                .collect();
         assert_eq!(enrolled_enrollments.len(), 2);
 
         // Opting out and updating should give us two disqualified enrollments
-        let mut writer = db.write()?;
         set_global_user_participation(&db, &mut writer, false)?;
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
-        writer.commit()?;
 
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert_eq!(events.len(), 2);
         // We should see 2 experiment enrolments, this time they're both opt outs
-        assert_eq!(get_experiment_enrollments(&db)?.len(), 2);
-        let disqualified_enrollments: Vec<ExperimentEnrollment> = get_experiment_enrollments(&db)?
-            .into_iter()
-            .filter(|enr| {
-                matches!(
-                    enr.status,
-                    EnrollmentStatus::Disqualified {
-                        reason: DisqualifiedReason::OptOut, ..
-                    }
-                )
-            })
-            .collect();
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+        let disqualified_enrollments: Vec<ExperimentEnrollment> =
+            get_experiment_enrollments(&db, &writer)?
+                .into_iter()
+                .filter(|enr| {
+                    matches!(
+                        enr.status,
+                        EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::OptOut, ..
+                        }
+                    )
+                })
+                .collect();
         assert_eq!(disqualified_enrollments.len(), 2);
 
         // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
-        let mut writer = db.write()?;
         set_global_user_participation(&db, &mut writer, true)?;
 
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
-        writer.commit()?;
 
-        let enrollments = get_enrollments(&db)?;
+        let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
-        let disqualified_enrollments: Vec<ExperimentEnrollment> = get_experiment_enrollments(&db)?
-            .into_iter()
-            .filter(|enr| {
-                matches!(
-                    enr.status,
-                    EnrollmentStatus::Disqualified {
-                        reason: DisqualifiedReason::OptOut, ..
-                    }
-                )
-            })
-            .collect();
+        let disqualified_enrollments: Vec<ExperimentEnrollment> =
+            get_experiment_enrollments(&db, &writer)?
+                .into_iter()
+                .filter(|enr| {
+                    matches!(
+                        enr.status,
+                        EnrollmentStatus::Disqualified {
+                            reason: DisqualifiedReason::OptOut, ..
+                        }
+                    )
+                })
+                .collect();
         assert_eq!(disqualified_enrollments.len(), 2);
+
+        writer.commit()?;
         Ok(())
     }
 
