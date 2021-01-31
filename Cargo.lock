@@ -1193,7 +1193,7 @@ checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
 
 [[package]]
 name = "glean-core"
-version = "33.10.3"
+version = "34.0.0"
 dependencies = [
  "bincode",
  "chrono",
@@ -1209,12 +1209,13 @@ dependencies = [
 
 [[package]]
 name = "glean-ffi"
-version = "33.10.3"
+version = "34.0.0"
 dependencies = [
  "android_logger",
  "env_logger",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "glean-core",
+ "libc",
  "log 0.4.11",
  "once_cell",
  "oslog",
@@ -1525,9 +1526,9 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "libc"
-version = "0.2.80"
+version = "0.2.84"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d58d1b70b004888f764dfbf6a26a3b0342a1632d33968e4a179d8011c760614"
+checksum = "1cca32fa0182e8c0989459524dc356b8f2b5c10f1b9eb521b7d182c03cf8c5ff"
 
 [[package]]
 name = "libsqlite3-sys"
