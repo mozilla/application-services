@@ -3,8 +3,8 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::db::models::address::{Address, InternalAddress, NewAddressFields};
-use crate::db::schema::ADDRESS_COMMON_COLS;
+use crate::db::models::address::{InternalAddress, UpdatableAddressFields};
+use crate::db::schema::{ADDRESS_COMMON_COLS, ADDRESS_COMMON_VALS};
 use crate::error::*;
 
 use rusqlite::{Connection, NO_PARAMS};
@@ -12,12 +12,25 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 #[allow(dead_code)]
-pub fn add_address(conn: &Connection, new_address: NewAddressFields) -> Result<InternalAddress> {
+pub fn add_address(conn: &Connection, new: UpdatableAddressFields) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
 
+    // We return an InternalAddress, so set it up first, including the missing
+    // fields, before we insert it.
     let address = InternalAddress {
         guid: Guid::random(),
-        fields: new_address,
+        given_name: new.given_name,
+        additional_name: new.additional_name,
+        family_name: new.family_name,
+        organization: new.organization,
+        street_address: new.street_address,
+        address_level3: new.address_level3,
+        address_level2: new.address_level2,
+        address_level1: new.address_level1,
+        postal_code: new.postal_code,
+        country: new.country,
+        tel: new.tel,
+        email: new.email,
         time_created: Timestamp::now(),
         time_last_used: Some(Timestamp::now()),
         time_last_modified: Timestamp::now(),
@@ -30,41 +43,25 @@ pub fn add_address(conn: &Connection, new_address: NewAddressFields) -> Result<I
             "INSERT OR IGNORE INTO addresses_data (
                 {common_cols}
             ) VALUES (
-                :guid,
-                :given_name,
-                :additional_name,
-                :family_name,
-                :organization,
-                :street_address,
-                :address_level3,
-                :address_level2,
-                :address_level1,
-                :postal_code,
-                :country,
-                :tel,
-                :email,
-                :time_created,
-                :time_last_used,
-                :time_last_modified,
-                :times_used,
-                :sync_change_counter
+                {common_vals}
             )",
-            common_cols = ADDRESS_COMMON_COLS
+            common_cols = ADDRESS_COMMON_COLS,
+            common_vals = ADDRESS_COMMON_VALS
         ),
         rusqlite::named_params! {
             ":guid": address.guid,
-            ":given_name": address.fields.given_name,
-            ":additional_name": address.fields.additional_name,
-            ":family_name": address.fields.family_name,
-            ":organization": address.fields.organization,
-            ":street_address": address.fields.street_address,
-            ":address_level3": address.fields.address_level3,
-            ":address_level2": address.fields.address_level2,
-            ":address_level1": address.fields.address_level1,
-            ":postal_code": address.fields.postal_code,
-            ":country": address.fields.country,
-            ":tel": address.fields.tel,
-            ":email": address.fields.email,
+            ":given_name": address.given_name,
+            ":additional_name": address.additional_name,
+            ":family_name": address.family_name,
+            ":organization": address.organization,
+            ":street_address": address.street_address,
+            ":address_level3": address.address_level3,
+            ":address_level2": address.address_level2,
+            ":address_level1": address.address_level1,
+            ":postal_code": address.postal_code,
+            ":country": address.country,
+            ":tel": address.tel,
+            ":email": address.email,
             ":time_created": address.time_created,
             ":time_last_used": address.time_last_used,
             ":time_last_modified": address.time_last_modified,
@@ -78,7 +75,7 @@ pub fn add_address(conn: &Connection, new_address: NewAddressFields) -> Result<I
 }
 
 #[allow(dead_code)]
-pub fn get_address(conn: &Connection, guid: String) -> Result<InternalAddress> {
+pub fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
@@ -88,9 +85,7 @@ pub fn get_address(conn: &Connection, guid: String) -> Result<InternalAddress> {
         common_cols = ADDRESS_COMMON_COLS
     );
 
-    let address = tx.query_row(&sql, &[guid.as_str()], |row| {
-        Ok(InternalAddress::from_row(row)?)
-    })?;
+    let address = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?))?;
 
     tx.commit()?;
     Ok(address)
@@ -98,8 +93,6 @@ pub fn get_address(conn: &Connection, guid: String) -> Result<InternalAddress> {
 
 #[allow(dead_code)]
 pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
-    let tx = conn.unchecked_transaction()?;
-    let mut addresses = Vec::new();
     let sql = format!(
         "SELECT
             {common_cols}
@@ -107,22 +100,19 @@ pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
         common_cols = ADDRESS_COMMON_COLS
     );
 
-    {
-        let mut stmt = tx.prepare(&sql)?;
-        let addresses_iter =
-            stmt.query_map(NO_PARAMS, |row| Ok(InternalAddress::from_row(row)?))?;
-
-        for address_result in addresses_iter {
-            addresses.push(address_result.expect("Should unwrap address"));
-        }
-    }
-
-    tx.commit()?;
+    let mut stmt = conn.prepare(&sql)?;
+    let addresses = stmt
+        .query_map(NO_PARAMS, InternalAddress::from_row)?
+        .collect::<std::result::Result<Vec<InternalAddress>, _>>()?;
     Ok(addresses)
 }
 
 #[allow(dead_code)]
-pub fn update_address(conn: &Connection, address: &Address) -> Result<()> {
+pub fn update_address(
+    conn: &Connection,
+    guid: &Guid,
+    address: &UpdatableAddressFields,
+) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     tx.execute_named(
         "UPDATE addresses_data
@@ -153,7 +143,7 @@ pub fn update_address(conn: &Connection, address: &Address) -> Result<()> {
             ":country": address.country,
             ":tel": address.tel,
             ":email": address.email,
-            ":guid": address.guid,
+            ":guid": guid,
         },
     )?;
 
@@ -161,34 +151,21 @@ pub fn update_address(conn: &Connection, address: &Address) -> Result<()> {
     Ok(())
 }
 
-pub fn delete_address(conn: &Connection, guid: String) -> Result<bool> {
+pub fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
-    // check that guid exists
-    let exists = tx.query_row(
-        "SELECT EXISTS (
-            SELECT 1
-            FROM addresses_data d
-            WHERE guid = :guid
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM   addresses_tombstones t
-                    WHERE  d.guid = t.guid
-                )
-        )",
-        &[guid.as_str()],
-        |row| row.get(0),
-    )?;
-
-    if exists {
-        tx.execute_named(
-            "DELETE FROM addresses_data
+    // execute_named returns how many rows were affected.
+    let exists = tx.execute_named(
+        "DELETE FROM addresses_data
             WHERE guid = :guid",
-            rusqlite::named_params! {
-                ":guid": guid.as_str(),
-            },
-        )?;
-
+        rusqlite::named_params! {
+            ":guid": guid,
+        },
+    )? != 0;
+    if exists {
+        // if we deleted something we must add a tombstone.
+        // XXX - only if it's in the mirror - but we should do this via
+        // triggers - see #3846
         tx.execute_named(
             "INSERT OR IGNORE INTO addresses_tombstones (
                 guid,
@@ -198,17 +175,16 @@ pub fn delete_address(conn: &Connection, guid: String) -> Result<bool> {
                 :time_deleted
             )",
             rusqlite::named_params! {
-                ":guid": guid.as_str(),
+                ":guid": guid,
                 ":time_deleted": Timestamp::now(),
             },
         )?;
     }
-
     tx.commit()?;
     Ok(exists)
 }
 
-pub fn touch(conn: &Connection, guid: String) -> Result<()> {
+pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
 
@@ -220,7 +196,7 @@ pub fn touch(conn: &Connection, guid: String) -> Result<()> {
         WHERE guid                      = :guid",
         rusqlite::named_params! {
             ":time_last_used": now_ms,
-            ":guid": guid.as_str(),
+            ":guid": guid,
         },
     )?;
 
@@ -232,6 +208,7 @@ pub fn touch(conn: &Connection, guid: String) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
+    use sync_guid::Guid;
 
     #[test]
     fn test_address_create_and_read() {
@@ -239,14 +216,14 @@ mod tests {
 
         let saved_address = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "jane".to_string(),
                 family_name: "doe".to_string(),
                 street_address: "123 Main Street".to_string(),
                 address_level2: "Seattle, WA".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )
         .expect("should contain saved address");
@@ -258,36 +235,27 @@ mod tests {
         assert_eq!(1, saved_address.sync_change_counter);
 
         // get created address
-        let retrieved_address = get_address(&db, saved_address.guid.to_string())
+        let retrieved_address = get_address(&db, &saved_address.guid)
             .expect("should contain optional retrieved address");
         assert_eq!(saved_address.guid, retrieved_address.guid);
+        assert_eq!(saved_address.given_name, retrieved_address.given_name);
+        assert_eq!(saved_address.family_name, retrieved_address.family_name);
         assert_eq!(
-            saved_address.fields.given_name,
-            retrieved_address.fields.given_name
+            saved_address.street_address,
+            retrieved_address.street_address
         );
         assert_eq!(
-            saved_address.fields.family_name,
-            retrieved_address.fields.family_name
+            saved_address.address_level2,
+            retrieved_address.address_level2
         );
-        assert_eq!(
-            saved_address.fields.street_address,
-            retrieved_address.fields.street_address
-        );
-        assert_eq!(
-            saved_address.fields.address_level2,
-            retrieved_address.fields.address_level2
-        );
-        assert_eq!(
-            saved_address.fields.country,
-            retrieved_address.fields.country
-        );
+        assert_eq!(saved_address.country, retrieved_address.country);
 
         // converting the created record into a tombstone to check that it's not returned on a second `get_address` call
-        let delete_result = delete_address(&db, saved_address.guid.to_string());
+        let delete_result = delete_address(&db, &saved_address.guid);
         assert!(delete_result.is_ok());
         assert!(delete_result.unwrap());
 
-        assert!(get_address(&db, saved_address.guid.to_string()).is_err());
+        assert!(get_address(&db, &saved_address.guid).is_err());
     }
 
     #[test]
@@ -296,28 +264,28 @@ mod tests {
 
         let saved_address = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "jane".to_string(),
                 family_name: "doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )
         .expect("should contain saved address");
 
         let saved_address2 = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "john".to_string(),
                 family_name: "deer".to_string(),
                 street_address: "123 First Avenue".to_string(),
                 address_level2: "Los Angeles, CA".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )
         .expect("should contain saved address");
@@ -325,19 +293,19 @@ mod tests {
         // creating a third address with a tombstone to ensure it's not retunred
         let saved_address3 = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "abraham".to_string(),
                 family_name: "lincoln".to_string(),
                 street_address: "1600 Pennsylvania Ave NW".to_string(),
                 address_level2: "Washington, DC".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )
         .expect("should contain saved address");
 
-        let delete_result = delete_address(&db, saved_address3.guid.to_string());
+        let delete_result = delete_address(&db, &saved_address3.guid);
         assert!(delete_result.is_ok());
         assert!(delete_result.unwrap());
 
@@ -362,14 +330,14 @@ mod tests {
 
         let saved_address = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "john".to_string(),
                 family_name: "doe".to_string(),
                 street_address: "1300 Broadway".to_string(),
                 address_level2: "New York, NY".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )
         .expect("should contain saved address");
@@ -377,8 +345,8 @@ mod tests {
         let expected_additional_name = "paul".to_string();
         let update_result = update_address(
             &db,
-            &Address {
-                guid: saved_address.guid.to_string(),
+            &saved_address.guid,
+            &UpdatableAddressFields {
                 given_name: "john".to_string(),
                 additional_name: expected_additional_name.clone(),
                 family_name: "deer".to_string(),
@@ -395,14 +363,11 @@ mod tests {
         );
         assert!(update_result.is_ok());
 
-        let updated_address = get_address(&db, saved_address.guid.to_string())
-            .expect("should contain optional updated address");
+        let updated_address =
+            get_address(&db, &saved_address.guid).expect("should contain optional updated address");
 
         assert_eq!(saved_address.guid, updated_address.guid);
-        assert_eq!(
-            expected_additional_name,
-            updated_address.fields.additional_name
-        );
+        assert_eq!(expected_additional_name, updated_address.additional_name);
 
         //check that the sync_change_counter was incremented
         assert_eq!(2, updated_address.sync_change_counter);
@@ -414,19 +379,19 @@ mod tests {
 
         let saved_address = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "jane".to_string(),
                 family_name: "doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )
         .expect("should contain saved address");
 
-        let delete_result = delete_address(&db, saved_address.guid.to_string());
+        let delete_result = delete_address(&db, &saved_address.guid);
         assert!(delete_result.is_ok());
         assert!(delete_result.unwrap());
     }
@@ -455,17 +420,12 @@ mod tests {
         // create a new address with the tombstone's guid
         let address = InternalAddress {
             guid,
-            fields: NewAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
-                street_address: "123 Second Avenue".to_string(),
-                address_level2: "Chicago, IL".to_string(),
-                country: "United States".to_string(),
-
-                ..NewAddressFields::default()
-            },
-
-            ..InternalAddress::default()
+            given_name: "jane".to_string(),
+            family_name: "doe".to_string(),
+            street_address: "123 Second Avenue".to_string(),
+            address_level2: "Chicago, IL".to_string(),
+            country: "United States".to_string(),
+            ..Default::default()
         };
 
         let add_address_result = db.execute_named(
@@ -496,18 +456,18 @@ mod tests {
             ),
             rusqlite::named_params! {
                 ":guid": address.guid,
-                ":given_name": address.fields.given_name,
-                ":additional_name": address.fields.additional_name,
-                ":family_name": address.fields.family_name,
-                ":organization": address.fields.organization,
-                ":street_address": address.fields.street_address,
-                ":address_level3": address.fields.address_level3,
-                ":address_level2": address.fields.address_level2,
-                ":address_level1": address.fields.address_level1,
-                ":postal_code": address.fields.postal_code,
-                ":country": address.fields.country,
-                ":tel": address.fields.tel,
-                ":email": address.fields.email,
+                ":given_name": address.given_name,
+                ":additional_name": address.additional_name,
+                ":family_name": address.family_name,
+                ":organization": address.organization,
+                ":street_address": address.street_address,
+                ":address_level3": address.address_level3,
+                ":address_level2": address.address_level2,
+                ":address_level1": address.address_level1,
+                ":postal_code": address.postal_code,
+                ":country": address.country,
+                ":tel": address.tel,
+                ":email": address.email,
                 ":time_created": address.time_created,
                 ":time_last_used": address.time_last_used,
                 ":time_last_modified": address.time_last_modified,
@@ -532,17 +492,12 @@ mod tests {
         // create an address
         let address = InternalAddress {
             guid,
-            fields: NewAddressFields {
-                given_name: "jane".to_string(),
-                family_name: "doe".to_string(),
-                street_address: "123 Second Avenue".to_string(),
-                address_level2: "Chicago, IL".to_string(),
-                country: "United States".to_string(),
-
-                ..NewAddressFields::default()
-            },
-
-            ..InternalAddress::default()
+            given_name: "jane".to_string(),
+            family_name: "doe".to_string(),
+            street_address: "123 Second Avenue".to_string(),
+            address_level2: "Chicago, IL".to_string(),
+            country: "United States".to_string(),
+            ..Default::default()
         };
 
         let add_address_result = db.execute_named(
@@ -573,18 +528,18 @@ mod tests {
             ),
             rusqlite::named_params! {
                 ":guid": address.guid,
-                ":given_name": address.fields.given_name,
-                ":additional_name": address.fields.additional_name,
-                ":family_name": address.fields.family_name,
-                ":organization": address.fields.organization,
-                ":street_address": address.fields.street_address,
-                ":address_level3": address.fields.address_level3,
-                ":address_level2": address.fields.address_level2,
-                ":address_level1": address.fields.address_level1,
-                ":postal_code": address.fields.postal_code,
-                ":country": address.fields.country,
-                ":tel": address.fields.tel,
-                ":email": address.fields.email,
+                ":given_name": address.given_name,
+                ":additional_name": address.additional_name,
+                ":family_name": address.family_name,
+                ":organization": address.organization,
+                ":street_address": address.street_address,
+                ":address_level3": address.address_level3,
+                ":address_level2": address.address_level2,
+                ":address_level1": address.address_level1,
+                ":postal_code": address.postal_code,
+                ":country": address.country,
+                ":tel": address.tel,
+                ":email": address.email,
                 ":time_created": address.time_created,
                 ":time_last_used": address.time_last_used,
                 ":time_last_modified": address.time_last_modified,
@@ -604,7 +559,7 @@ mod tests {
                 :time_deleted
             )",
             rusqlite::named_params! {
-                ":guid": address.guid.as_str(),
+                ":guid": address.guid,
                 ":time_deleted": Timestamp::now(),
             },
         );
@@ -622,23 +577,23 @@ mod tests {
         let db = new_mem_db();
         let saved_address = add_address(
             &db,
-            NewAddressFields {
+            UpdatableAddressFields {
                 given_name: "jane".to_string(),
                 family_name: "doe".to_string(),
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
 
-                ..NewAddressFields::default()
+                ..UpdatableAddressFields::default()
             },
         )?;
 
         assert_eq!(saved_address.sync_change_counter, 1);
         assert_eq!(saved_address.times_used, 0);
 
-        touch(&db, saved_address.guid.to_string())?;
+        touch(&db, &saved_address.guid)?;
 
-        let touched_address = get_address(&db, saved_address.guid.to_string())?;
+        let touched_address = get_address(&db, &saved_address.guid)?;
 
         assert_eq!(touched_address.sync_change_counter, 2);
         assert_eq!(touched_address.times_used, 1);

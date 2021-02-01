@@ -58,6 +58,9 @@ enum Command {
     /// Update address with given JSON address data
     #[structopt(name = "update-address")]
     UpdateAddress {
+        #[structopt(name = "guid", long)]
+        /// The guid of the item to update
+        guid: String,
         #[structopt(name = "input-file", long, short = "i")]
         /// The input file containing the address data
         input_file: String,
@@ -94,6 +97,9 @@ enum Command {
     /// Update credit card with given JSON credit card data
     #[structopt(name = "update-credit-card")]
     UpdateCreditCard {
+        #[structopt(name = "guid", long)]
+        /// The guid of the item to update
+        guid: String,
         #[structopt(name = "input-file", long, short = "i")]
         /// The input file containing the credit card data
         input_file: String,
@@ -113,7 +119,7 @@ fn run_add_address(store: &Store, filename: String) -> Result<()> {
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let address_fields: address::NewAddressFields = serde_json::from_reader(reader)?;
+    let address_fields: address::UpdatableAddressFields = serde_json::from_reader(reader)?;
 
     println!("Making `add_address` api call");
     let address = Store::add_address(store, address_fields)?;
@@ -141,16 +147,15 @@ fn run_get_all_addresses(store: &Store) -> Result<()> {
     Ok(())
 }
 
-fn run_update_address(store: &Store, filename: String) -> Result<()> {
+fn run_update_address(store: &Store, guid: String, filename: String) -> Result<()> {
     println!("Updating address data from {}", filename);
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let address_fields: address::Address = serde_json::from_reader(reader)?;
-    let guid = address_fields.guid.clone();
+    let address_fields: address::UpdatableAddressFields = serde_json::from_reader(reader)?;
 
     println!("Making `update_address` api call for guid {}", guid);
-    Store::update_address(store, address_fields)?;
+    Store::update_address(store, guid.clone(), address_fields)?;
 
     let address = Store::get_address(store, guid)?;
     println!("Updated address: {:#?}", address);
@@ -172,7 +177,8 @@ fn run_add_credit_card(store: &Store, filename: String) -> Result<()> {
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let credit_card_fields: credit_card::NewCreditCardFields = serde_json::from_reader(reader)?;
+    let credit_card_fields: credit_card::UpdatableCreditCardFields =
+        serde_json::from_reader(reader)?;
 
     println!("Making `add_credit_card` api call");
     let credit_card = Store::add_credit_card(store, credit_card_fields)?;
@@ -200,16 +206,16 @@ fn run_get_all_credit_cards(store: &Store) -> Result<()> {
     Ok(())
 }
 
-fn run_update_credit_card(store: &Store, filename: String) -> Result<()> {
+fn run_update_credit_card(store: &Store, guid: String, filename: String) -> Result<()> {
     println!("Updating credit card data from {}", filename);
 
     let file = File::open(filename)?;
     let reader = BufReader::new(file);
-    let credit_card_fields: credit_card::CreditCard = serde_json::from_reader(reader)?;
-    let guid = credit_card_fields.guid.clone();
+    let credit_card_fields: credit_card::UpdatableCreditCardFields =
+        serde_json::from_reader(reader)?;
 
     println!("Making `update_credit_card` api call for guid {}", guid);
-    Store::update_credit_card(store, credit_card_fields)?;
+    Store::update_credit_card(store, guid.clone(), credit_card_fields)?;
 
     let credit_card = Store::get_credit_card(store, guid)?;
     println!("Updated credit card: {:#?}", credit_card);
@@ -239,13 +245,15 @@ fn main() -> Result<()> {
         Command::AddAddress { input_file } => run_add_address(&store, input_file),
         Command::GetAddress { guid } => run_get_address(&store, guid),
         Command::GetAllAddresses => run_get_all_addresses(&store),
-        Command::UpdateAddress { input_file } => run_update_address(&store, input_file),
+        Command::UpdateAddress { guid, input_file } => run_update_address(&store, guid, input_file),
         Command::DeleteAddress { guid } => run_delete_address(&store, guid),
 
         Command::AddCreditCard { input_file } => run_add_credit_card(&store, input_file),
         Command::GetCreditCard { guid } => run_get_credit_card(&store, guid),
         Command::GetAllCreditCards => run_get_all_credit_cards(&store),
-        Command::UpdateCreditCard { input_file } => run_update_credit_card(&store, input_file),
+        Command::UpdateCreditCard { guid, input_file } => {
+            run_update_credit_card(&store, guid, input_file)
+        }
         Command::DeleteCreditCard { guid } => run_delete_credit_card(&store, guid),
     }
 }
