@@ -1,4 +1,5 @@
-The iOS 'megazord' builds all the components into a single library. This is built as a static framework.
+The iOS 'megazord' builds all the components into a single library.
+This is published as a `.framework` containing a dynamic library.
 
 ### Adding new components
 
