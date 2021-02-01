@@ -10,39 +10,30 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", default)]
 pub struct NewAddressFields {
     pub given_name: String,
 
-    #[serde(default)]
     pub additional_name: String,
 
     pub family_name: String,
 
-    #[serde(default)]
     pub organization: String,
 
     pub street_address: String,
 
-    #[serde(default)]
     pub address_level3: String,
 
-    #[serde(default)]
     pub address_level2: String,
 
-    #[serde(default)]
     pub address_level1: String,
 
-    #[serde(default)]
     pub postal_code: String,
 
-    #[serde(default)]
     pub country: String,
 
-    #[serde(default)]
     pub tel: String,
 
-    #[serde(default)]
     pub email: String,
 }
 
