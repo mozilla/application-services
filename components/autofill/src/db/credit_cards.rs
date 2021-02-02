@@ -130,59 +130,14 @@ pub fn update_credit_card(
 pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
-    // XXX - see #3846 - we should move this complexity into a trigger.
-    // check that guid exists
-    let exists = tx.query_row(
-        "SELECT EXISTS (
-            SELECT 1
-            FROM credit_cards_data d
-            WHERE guid = :guid
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM   credit_cards_tombstones t
-                    WHERE  d.guid = t.guid
-                )
-        )",
-        &[guid.as_str()],
-        |row| row.get(0),
-    )?;
-
-    // check that guid exists in the mirror
-    let exists_in_mirror: bool = tx.query_row(
-        "SELECT EXISTS (
-            SELECT 1
-            FROM credit_cards_mirror
-            WHERE guid = :guid
-        )",
-        &[guid.as_str()],
-        |row| row.get(0),
-    )?;
-
-    if exists {
-        tx.execute_named(
-            "DELETE FROM credit_cards_data
-            WHERE guid = :guid",
-            rusqlite::named_params! {
-                ":guid": guid.as_str(),
-            },
-        )?;
-
-        if exists_in_mirror {
-            tx.execute_named(
-                "INSERT OR IGNORE INTO credit_cards_tombstones (
-                    guid,
-                    time_deleted
-                ) VALUES (
-                    :guid,
-                    :time_deleted
-                )",
-                rusqlite::named_params! {
-                    ":guid": guid.as_str(),
-                    ":time_deleted": Timestamp::now(),
-                },
-            )?;
-        }
-    }
+    // execute_named returns how many rows were affected.
+    let exists = tx.execute_named(
+        "DELETE FROM credit_cards_data
+        WHERE guid = :guid",
+        rusqlite::named_params! {
+            ":guid": guid.as_str(),
+        },
+    )? != 0;
 
     tx.commit()?;
     Ok(exists)
@@ -496,19 +451,10 @@ mod tests {
                 "INSERT OR IGNORE INTO credit_cards_data (
                     {common_cols}
                 ) VALUES (
-                    :guid,
-                    :cc_name,
-                    :cc_number,
-                    :cc_exp_month,
-                    :cc_exp_year,
-                    :cc_type,
-                    :time_created,
-                    :time_last_used,
-                    :time_last_modified,
-                    :times_used,
-                    :sync_change_counter
+                    {common_vals}
                 )",
-                common_cols = CREDIT_CARD_COMMON_COLS
+                common_cols = CREDIT_CARD_COMMON_COLS,
+                common_vals = CREDIT_CARD_COMMON_VALS,
             ),
             rusqlite::named_params! {
                 ":guid": credit_card.guid,
@@ -554,19 +500,10 @@ mod tests {
                 "INSERT OR IGNORE INTO credit_cards_data (
                     {common_cols}
                 ) VALUES (
-                    :guid,
-                    :cc_name,
-                    :cc_number,
-                    :cc_exp_month,
-                    :cc_exp_year,
-                    :cc_type,
-                    :time_created,
-                    :time_last_used,
-                    :time_last_modified,
-                    :times_used,
-                    :sync_change_counter
+                    {common_vals}
                 )",
-                common_cols = CREDIT_CARD_COMMON_COLS
+                common_cols = CREDIT_CARD_COMMON_COLS,
+                common_vals = CREDIT_CARD_COMMON_VALS,
             ),
             rusqlite::named_params! {
                 ":guid": credit_card.guid,
