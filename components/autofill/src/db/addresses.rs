@@ -162,24 +162,6 @@ pub fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
             ":guid": guid,
         },
     )? != 0;
-    if exists {
-        // if we deleted something we must add a tombstone.
-        // XXX - only if it's in the mirror - but we should do this via
-        // triggers - see #3846
-        tx.execute_named(
-            "INSERT OR IGNORE INTO addresses_tombstones (
-                guid,
-                time_deleted
-            ) VALUES (
-                :guid,
-                :time_deleted
-            )",
-            rusqlite::named_params! {
-                ":guid": guid,
-                ":time_deleted": Timestamp::now(),
-            },
-        )?;
-    }
     tx.commit()?;
     Ok(exists)
 }
@@ -207,8 +189,10 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::schema::create_empty_sync_temp_tables;
     use crate::db::test::new_mem_db;
     use sync_guid::Guid;
+    use types::Timestamp;
 
     #[test]
     fn test_address_create_and_read() {
@@ -375,7 +359,14 @@ mod tests {
 
     #[test]
     fn test_address_delete() {
+        fn num_tombstones(conn: &Connection) -> u32 {
+            let stmt = "SELECT COUNT(*) from addresses_tombstones";
+            conn.query_row(stmt, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+                .unwrap()
+        }
+
         let db = new_mem_db();
+        create_empty_sync_temp_tables(&db).expect("should create temp tables");
 
         let saved_address = add_address(
             &db,
@@ -385,15 +376,45 @@ mod tests {
                 street_address: "123 Second Avenue".to_string(),
                 address_level2: "Chicago, IL".to_string(),
                 country: "United States".to_string(),
-
                 ..UpdatableAddressFields::default()
             },
         )
-        .expect("should contain saved address");
+        .expect("first create should work");
 
-        let delete_result = delete_address(&db, &saved_address.guid);
-        assert!(delete_result.is_ok());
-        assert!(delete_result.unwrap());
+        delete_address(&db, &saved_address.guid).expect("delete should work");
+        // should be no tombstone as it wasn't in the mirror.
+        assert_eq!(num_tombstones(&db), 0);
+
+        // do it again, but with it in the mirror.
+        let saved_address = add_address(
+            &db,
+            UpdatableAddressFields {
+                given_name: "jane".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+                ..UpdatableAddressFields::default()
+            },
+        )
+        .expect("create 2nd address should work");
+        // Can't use ADDRESS_COMMON_COLS as it includes sync_change_counter :(
+        let cols = "guid, given_name, additional_name, family_name,
+                    organization, street_address, address_level3,
+                    address_level2, address_level1, postal_code, country,
+                    tel, email, time_created, time_last_used,
+                    time_last_modified, times_used";
+        db.execute(
+            &format!(
+                "INSERT INTO addresses_mirror ({cols})
+                 SELECT {cols} FROM addresses_data;",
+                cols = cols
+            ),
+            NO_PARAMS,
+        )
+        .expect("manual insert into mirror");
+        delete_address(&db, &saved_address.guid).expect("2nd delete");
+        assert_eq!(num_tombstones(&db), 1);
     }
 
     #[test]
@@ -433,26 +454,10 @@ mod tests {
                 "INSERT OR IGNORE INTO addresses_data (
                     {common_cols}
                 ) VALUES (
-                    :guid,
-                    :given_name,
-                    :additional_name,
-                    :family_name,
-                    :organization,
-                    :street_address,
-                    :address_level3,
-                    :address_level2,
-                    :address_level1,
-                    :postal_code,
-                    :country,
-                    :tel,
-                    :email,
-                    :time_created,
-                    :time_last_used,
-                    :time_last_modified,
-                    :times_used,
-                    :sync_change_counter
+                    {common_vals}
                 )",
-                common_cols = ADDRESS_COMMON_COLS
+                common_cols = ADDRESS_COMMON_COLS,
+                common_vals = ADDRESS_COMMON_VALS,
             ),
             rusqlite::named_params! {
                 ":guid": address.guid,
@@ -505,26 +510,10 @@ mod tests {
                 "INSERT OR IGNORE INTO addresses_data (
                     {common_cols}
                 ) VALUES (
-                    :guid,
-                    :given_name,
-                    :additional_name,
-                    :family_name,
-                    :organization,
-                    :street_address,
-                    :address_level3,
-                    :address_level2,
-                    :address_level1,
-                    :postal_code,
-                    :country,
-                    :tel,
-                    :email,
-                    :time_created,
-                    :time_last_used,
-                    :time_last_modified,
-                    :times_used,
-                    :sync_change_counter
+                    {common_vals}
                 )",
-                common_cols = ADDRESS_COMMON_COLS
+                common_cols = ADDRESS_COMMON_COLS,
+                common_vals = ADDRESS_COMMON_VALS,
             ),
             rusqlite::named_params! {
                 ":guid": address.guid,

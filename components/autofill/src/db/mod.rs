@@ -125,17 +125,25 @@ fn define_functions(c: &Connection) -> Result<()> {
         FunctionFlags::SQLITE_UTF8,
         sql_fns::generate_guid,
     )?;
+    c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
+
     Ok(())
 }
 
 pub(crate) mod sql_fns {
     use rusqlite::{functions::Context, Result};
     use sync_guid::Guid as SyncGuid;
+    use types::Timestamp;
 
     #[inline(never)]
     #[allow(dead_code)]
     pub fn generate_guid(_ctx: &Context<'_>) -> Result<SyncGuid> {
         Ok(SyncGuid::random())
+    }
+
+    #[inline(never)]
+    pub fn now(_ctx: &Context<'_>) -> Result<Timestamp> {
+        Ok(Timestamp::now())
     }
 }
 
