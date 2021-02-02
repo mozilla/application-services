@@ -10,15 +10,16 @@ const ATTACHED_CLIENTS_FRESHNESS_THRESHOLD: u64 = 60_000; // 1 minute
 
 impl FirefoxAccount {
     /// Fetches the list of attached clients connected to the current account.
-    pub fn get_attached_clients(&mut self, session_token: &str) -> Result<Vec<AttachedClient>> {
+    pub fn get_attached_clients(&mut self) -> Result<Vec<AttachedClient>> {
         if let Some(a) = &self.attached_clients_cache {
             if util::now() < a.cached_at + ATTACHED_CLIENTS_FRESHNESS_THRESHOLD {
                 return Ok(a.response.clone());
             }
         }
+        let session_token = self.get_session_token()?;
         let response = self
             .client
-            .attached_clients(&self.state.config, session_token)?;
+            .attached_clients(&self.state.config, &session_token)?;
 
         self.attached_clients_cache = Some(CachedResponse {
             response: response.clone(),
@@ -43,6 +44,7 @@ mod tests {
     fn test_get_attached_clients() {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
+        fxa.set_session_token("session");
 
         let mut client = FxAClientMock::new();
         client
@@ -66,7 +68,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
         assert!(fxa.attached_clients_cache.is_none());
 
-        let res = fxa.get_attached_clients("session");
+        let res = fxa.get_attached_clients();
 
         assert!(res.is_ok());
         assert!(fxa.attached_clients_cache.is_some());
@@ -86,6 +88,7 @@ mod tests {
     fn test_get_attached_clients_network_errors() {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
+        fxa.set_session_token("session");
 
         let mut client = FxAClientMock::new();
         client
@@ -103,7 +106,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
         assert!(fxa.attached_clients_cache.is_none());
 
-        let res = fxa.get_attached_clients("session");
+        let res = fxa.get_attached_clients();
         assert!(res.is_err());
         assert!(fxa.attached_clients_cache.is_none());
     }

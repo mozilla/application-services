@@ -17,13 +17,15 @@ fi
 
 EXTRA_ARGS=( "$@" )
 
-cargo clippy --all --all-targets --all-features -- -D warnings ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
+# Later rust versions downgraded some warning to pedantic, so we allow them here.
+ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool" "-Aunknown-lints")
+
+cargo clippy --all --all-targets --all-features "${EXCLUDES[@]}" -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
-# Instead we pull the list of individual package manifest files out of `cargo metadata` and
-# test using --manifest-path for each individual package.
-# This is a really gross way to parse JSON, but works with no external depdenencies...
-for manifest in $(cargo metadata --format-version 1 --no-deps | tr -s '"' '\n' | grep 'Cargo.toml'); do
+# Instead we pull the list of individual package manifest files which have default features
+# out of `cargo metadata` and test using --manifest-path for each individual package.
+for manifest in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select((.features | .default | length) > 0) | .manifest_path'); do
     package=$(dirname "$manifest")
     package=$(basename "$package")
     echo "## no-default-features clippy for package $package (manifest @ $manifest)"

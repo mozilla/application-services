@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Purpose: Run cargo update and make a pull-request against master.
+# Purpose: Run cargo update and make a pull-request against main.
 # Dependencies: None
 # Usage: ./automation/cargo-update-pr.py
 

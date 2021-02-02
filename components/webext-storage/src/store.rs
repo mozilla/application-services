@@ -5,6 +5,7 @@
 use crate::api::{self, StorageChanges};
 use crate::db::StorageDb;
 use crate::error::*;
+use crate::migration::{migrate, MigrationInfo};
 use crate::sync;
 use std::path::Path;
 use std::result;
@@ -56,6 +57,11 @@ impl Store {
         let result = api::set(&tx, ext_id, val)?;
         tx.commit()?;
         Ok(result)
+    }
+
+    /// Returns information about per-extension usage
+    pub fn usage(&self) -> Result<Vec<crate::UsageInfo>> {
+        api::usage(&self.db)
     }
 
     /// Returns the values for one or more keys `keys` can be:
@@ -116,15 +122,56 @@ impl Store {
     pub fn close(self) -> result::Result<(), (Store, Error)> {
         self.db.close().map_err(|(db, err)| (Store { db }, err))
     }
+
+    /// Gets the changes which the current sync applied. Should be used
+    /// immediately after the bridged engine is told to apply incoming changes,
+    /// and can be used to notify observers of the StorageArea of the changes
+    /// that were applied.
+    /// The result is a Vec of already JSON stringified changes.
+    pub fn get_synced_changes(&self) -> Result<Vec<sync::SyncedExtensionChange>> {
+        sync::get_synced_changes(&self.db)
+    }
+
+    /// Migrates data from a database in the format of the "old" kinto
+    /// implementation. Information about how the migration went is stored in
+    /// the database, and can be read using `Self::take_migration_info`.
+    ///
+    /// Note that `filename` isn't normalized or canonicalized.
+    pub fn migrate(&self, filename: impl AsRef<Path>) -> Result<()> {
+        let tx = self.db.unchecked_transaction()?;
+        let result = migrate(&tx, filename.as_ref())?;
+        tx.commit()?;
+        // Failing to store this information should not cause migration failure.
+        if let Err(e) = result.store(&self.db) {
+            debug_assert!(false, "Migration error: {:?}", e);
+            log::warn!("Failed to record migration telmetry: {}", e);
+        }
+        Ok(())
+    }
+
+    /// Read-and-delete (e.g. `take` in rust parlance, see Option::take)
+    /// operation for any MigrationInfo stored in this database.
+    pub fn take_migration_info(&self) -> Result<Option<MigrationInfo>> {
+        let tx = self.db.unchecked_transaction()?;
+        let result = MigrationInfo::take(&tx)?;
+        tx.commit()?;
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
     #[test]
     fn test_send() {
         fn ensure_send<T: Send>() {}
         // Compile will fail if not send.
         ensure_send::<Store>();
+    }
+
+    pub fn new_mem_store() -> Store {
+        Store {
+            db: crate::db::test::new_mem_db(),
+        }
     }
 }

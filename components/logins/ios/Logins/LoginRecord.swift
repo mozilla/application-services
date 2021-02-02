@@ -156,7 +156,8 @@ open class LoginRecord {
          timeCreated: Int64?,
          timePasswordChanged: Int64?,
          usernameField: String,
-         passwordField: String) {
+         passwordField: String)
+    {
         self.id = id
         self.password = password
         self.hostname = hostname
@@ -179,7 +180,8 @@ open class LoginRecord {
 
     public static func fromJSONArray(_ jsonArray: String) throws -> [LoginRecord] {
         if let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!,
-                                                      options: []) as? [[String: Any]] {
+                                                      options: []) as? [[String: Any]]
+        {
             return arr.map { (dict) -> LoginRecord in
                 LoginRecord(fromJSONDict: dict)
             }

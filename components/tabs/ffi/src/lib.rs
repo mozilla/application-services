@@ -13,13 +13,13 @@ use std::{
     os::raw::c_char,
     sync::{Arc, Mutex},
 };
-use tabs::{Result, TabsEngine};
+use tabs::{Result, TabsStore};
 
 lazy_static::lazy_static! {
     // TODO: this is basically a RwLock<HandleMap<Mutex<Arc<Mutex<...>>>>.
     // but could just be a `RwLock<HandleMap<Arc<Mutex<...>>>>`.
     // Find a way to express this cleanly in ffi_support?
-    pub static ref ENGINES: ConcurrentHandleMap<Arc<Mutex<TabsEngine>>> = ConcurrentHandleMap::new();
+    pub static ref STORES: ConcurrentHandleMap<Arc<Mutex<TabsStore>>> = ConcurrentHandleMap::new();
 }
 
 fn parse_url(url: &str) -> Result<url::Url> {
@@ -29,8 +29,8 @@ fn parse_url(url: &str) -> Result<url::Url> {
 #[no_mangle]
 pub extern "C" fn remote_tabs_new(error: &mut ExternError) -> u64 {
     log::debug!("remote_tabs_new");
-    ENGINES.insert_with_result(error, || -> Result<_> {
-        Ok(Arc::new(Mutex::new(TabsEngine::new())))
+    STORES.insert_with_result(error, || -> Result<_> {
+        Ok(Arc::new(Mutex::new(TabsStore::new())))
     })
 }
 
@@ -45,8 +45,8 @@ pub extern "C" fn remote_tabs_sync(
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("remote_tabs_sync");
-    ENGINES.call_with_result(error, handle, |engine| -> Result<_> {
-        let ping = engine.lock().unwrap().sync(
+    STORES.call_with_result(error, handle, |store| -> Result<_> {
+        let ping = store.lock().unwrap().sync(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
                 access_token: access_token.into_string(),
@@ -64,19 +64,13 @@ pub extern "C" fn remote_tabs_sync(
 #[no_mangle]
 pub unsafe extern "C" fn remote_tabs_update_local(
     handle: u64,
-    local_state_data: *const u8,
-    local_state_len: i32,
+    local_state: FfiStr<'_>,
     error: &mut ExternError,
 ) {
     log::debug!("remote_tabs_update_local");
-    use tabs::msg_types::RemoteTabs;
-    ENGINES.call_with_result(error, handle, |engine| -> Result<_> {
-        let buffer = get_buffer(local_state_data, local_state_len);
-        let remote_tabs: RemoteTabs = prost::Message::decode(buffer)?;
-        engine
-            .lock()
-            .unwrap()
-            .update_local_state(remote_tabs.into());
+    STORES.call_with_result(error, handle, |store| -> Result<_> {
+        let remote_tabs = serde_json::from_str(local_state.as_str())?;
+        store.lock().unwrap().update_local_state(remote_tabs);
         Ok(())
     })
 }
@@ -85,8 +79,8 @@ pub unsafe extern "C" fn remote_tabs_update_local(
 pub extern "C" fn remote_tabs_get_all(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("remote_tabs_get_all");
     use tabs::msg_types::ClientsTabs;
-    ENGINES.call_with_result(error, handle, |engine| -> Result<_> {
-        Ok(engine
+    STORES.call_with_result(error, handle, |store| -> Result<_> {
+        Ok(store
             .lock()
             .unwrap()
             .remote_tabs()
@@ -94,17 +88,6 @@ pub extern "C" fn remote_tabs_get_all(handle: u64, error: &mut ExternError) -> B
     })
 }
 
-unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
-    assert!(len >= 0, "Bad buffer len: {}", len);
-    if len == 0 {
-        // This will still fail, but as a bad protobuf format.
-        &[]
-    } else {
-        assert!(!data.is_null(), "Unexpected null data pointer");
-        std::slice::from_raw_parts(data, len as usize)
-    }
-}
-
 define_string_destructor!(remote_tabs_destroy_string);
 define_bytebuffer_destructor!(remote_tabs_destroy_bytebuffer);
-define_handle_map_deleter!(ENGINES, remote_tabs_destroy);
+define_handle_map_deleter!(STORES, remote_tabs_destroy);

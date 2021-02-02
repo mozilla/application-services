@@ -32,6 +32,9 @@ internal interface LibFxAFFI : Library {
     fun fxa_begin_oauth_flow(
         fxa: FxaHandle,
         scopes: String,
+        entrypoint: String,
+        metrics_params: Pointer,
+        metrics_params_len: Int,
         e: RustError.ByReference
     ): Pointer?
 
@@ -39,6 +42,9 @@ internal interface LibFxAFFI : Library {
         fxa: FxaHandle,
         pairingUrl: String,
         scopes: String,
+        entrypoint: String,
+        metrics_params: Pointer,
+        metrics_params_len: Int,
         e: RustError.ByReference
     ): Pointer?
 
@@ -54,7 +60,7 @@ internal interface LibFxAFFI : Library {
     fun fxa_get_access_token(fxa: FxaHandle, scope: String, ttl: Long, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_get_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
     fun fxa_get_current_device_id(fxa: FxaHandle, e: RustError.ByReference): Pointer?
-    fun fxa_authorize_auth_code(fxa: FxaHandle, clientId: String, scope: String, state: String, accessType: String, e: RustError.ByReference): Pointer?
+    fun fxa_authorize_auth_code(fxa: FxaHandle, auth_params: Pointer, auth_params_len: Int, e: RustError.ByReference): Pointer?
     fun fxa_check_authorization_status(fxa: FxaHandle, e: RustError.ByReference): RustBuffer.ByValue
     fun fxa_clear_access_token_cache(fxa: FxaHandle, e: RustError.ByReference)
 
@@ -102,6 +108,8 @@ internal interface LibFxAFFI : Library {
     ): Byte
 
     fun fxa_retry_migrate_from_session_token(fxa: FxaHandle, e: RustError.ByReference): Pointer?
+
+    fun fxa_gather_telemetry(fxa: FxaHandle, e: RustError.ByReference): Pointer?
 
     fun fxa_str_free(string: Pointer)
     fun fxa_bytebuffer_free(buffer: RustBuffer.ByValue)

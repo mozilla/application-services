@@ -1,6 +1,13 @@
-libraryVersion: 0.59.1
+libraryVersion: 69.0.0
 groupId: org.mozilla.appservices
 projects:
+  autofill:
+    path: components/autofill/android
+    artifactId: autofill
+    publications:
+    - name: autofill
+      type: aar
+    description: Addresses and Credit Cards autofill.
   fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient
@@ -71,16 +78,13 @@ projects:
     - name: tabs
       type: aar
     description: Sync 1.5 remote tabs implementation.
-  lockbox-megazord:
-    uploadSymbols: true
-    path: megazords/lockbox/android
-    artifactId: lockbox-megazord
+  nimbus:
+    path: components/nimbus
+    artifactId: nimbus
     publications:
-    - name: lockbox-megazord
+    - name: nimbus
       type: aar
-    - name: lockbox-megazord-forUnitTests
-      type: jar
-    description: Megazord of [fxaclient, logins, logging].
+    description: The Nimbus SDK, compiled to work with the Application Services full-megazord.
   full-megazord:
     uploadSymbols: true
     path: megazords/full/android

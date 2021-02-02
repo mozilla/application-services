@@ -1,35 +1,34 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use failure::Fail;
-use interrupt_support::Interrupted;
 
-#[derive(Debug, Fail)]
+use interrupt_support::Interrupted;
+#[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
-    #[fail(display = "Unknown engine: {}", _0)]
+    #[error("Unknown engine: {0}")]
     UnknownEngine(String),
-    #[fail(display = "Manager was compiled without support for {:?}", _0)]
+    #[error("Manager was compiled without support for {0:?}")]
     UnsupportedFeature(String),
-    #[fail(display = "Database connection for '{}' is not open", _0)]
+    #[error("Database connection for '{0}' is not open")]
     ConnectionClosed(String),
-    #[fail(display = "Handle is invalid: {}", _0)]
-    InvalidHandle(#[fail(cause)] ffi_support::HandleError),
-    #[fail(display = "Protobuf decode error: {}", _0)]
-    ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
+    #[error("Handle is invalid: {0}")]
+    InvalidHandle(#[from] ffi_support::HandleError),
+    #[error("Protobuf decode error: {0}")]
+    ProtobufDecodeError(#[from] prost::DecodeError),
     // Used for things like 'failed to decode the provided sync key because it's
     // completely the wrong format', etc.
-    #[fail(display = "Sync error: {}", _0)]
-    Sync15Error(#[fail(cause)] sync15::Error),
-    #[fail(display = "URL parse error: {}", _0)]
-    UrlParseError(#[fail(cause)] url::ParseError),
-    #[fail(display = "Operation interrupted")]
-    InterruptedError(#[fail(cause)] Interrupted),
-    #[fail(display = "Error parsing JSON data: {}", _0)]
-    JsonError(#[fail(cause)] serde_json::Error),
-    #[fail(display = "Logins error: {}", _0)]
-    LoginsError(#[fail(cause)] logins::Error),
-    #[fail(display = "Places error: {}", _0)]
-    PlacesError(#[fail(cause)] places::Error),
+    #[error("Sync error: {0}")]
+    Sync15Error(#[from] sync15::Error),
+    #[error("URL parse error: {0}")]
+    UrlParseError(#[from] url::ParseError),
+    #[error("Operation interrupted")]
+    InterruptedError(#[from] Interrupted),
+    #[error("Error parsing JSON data: {0}")]
+    JsonError(#[from] serde_json::Error),
+    #[error("Logins error: {0}")]
+    LoginsError(#[from] logins::Error),
+    #[error("Places error: {0}")]
+    PlacesError(#[from] places::Error),
 }
 
 error_support::define_error! {

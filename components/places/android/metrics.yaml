@@ -2,15 +2,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-# This file defines the metrics that will be gathered for the "places" storage component.
-# These are emitted for all users of the component.  Additional metrics specific to the
-# *syncing* of places are defined in a separate "sync_ping" package.
+# This file defines the metrics that will be gathered for the "places"
+# storage component.
+# These are emitted for all users of the component.  Additional metrics
+# specific to the *syncing* of places are defined in a separate "sync_ping"
+# package.
 #
-# Changes to these metrics require data review, which should take into consideration
+# Changes to these metrics require data review, which should take into
+# consideration
 # the following known consumers of the places component Android bindings:
 #
 #  * Fenix for Andriod
 
+---
 $schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
 
 places_manager:
@@ -19,24 +23,29 @@ places_manager:
     type: counter
     description: >
       The total number of read operations performed on the places store.
-      The count only includes operations triggered by the application, not e.g. incidental reads performed
-      as part of a sync. It is intended to be used together with `read_query_error_count` to measure the
-      overall error rate of read operations on the places store.
+      The count only includes operations triggered by the application, not
+      e.g. incidental reads performed as part of a sync. It is intended to
+      be used together with `read_query_error_count` to measure the overall
+      error rate of read operations on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_error_count:
     type: labeled_counter
     description: >
-      The total number of errors encountered during read operations on the places store, labeled by type.
-      It is intended to be used together with `read_query_count` to measure the overall error rate
-      of read operations on the places store.
+      The total number of errors encountered during read operations on the
+      places store, labeled by type.
+      It is intended to be used together with `read_query_count` to measure
+      the overall error rate of read operations on the places store.
     labels:
       - url_parse_failed
       - operation_interrupted
@@ -45,32 +54,40 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_count:
     type: counter
     description: >
       The total number of write operations performed on the places store.
-      The count only includes operations triggered by the application, not e.g. incidental writes performed
-      as part of a sync. It is intended to be used together with `write_query_error_count` to measure the
-      overall error rate of write operations on the places store.
+      The count only includes operations triggered by the application, not
+      e.g. incidental writes performed as part of a sync. It is intended to
+      be used together with `write_query_error_count` to measure the overall
+      error rate of write operations on the places store.
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_error_count:
     type: labeled_counter
     description: >
-      The total number of errors encountered during write operations on the places store, labeled by type.
-      It is intended to be used together with `write_query_count` to measure the overall error rate
-      of write operations on the places store.
+      The total number of errors encountered during write operations on the
+      places store, labeled by type.
+      It is intended to be used together with `write_query_count` to measure
+      the overall error rate of write operations on the places store.
     labels:
       - url_parse_failed
       - invalid_bookmark_update
@@ -83,9 +100,12 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   read_query_time:
     type: timing_distribution
@@ -96,23 +116,30 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   scan_query_time:
     type: timing_distribution
     description: >
-      The time taken to execute a scan query on the places store. This metric is for queries that we
-      expect to be costly e.g. getBookmarksTree(guid, recursive=True).
+      The time taken to execute a scan query on the places store. This metric
+      is for queries that we expect to be costly
+      e.g. getBookmarksTree(guid, recursive=True).
     bugs:
       - https://github.com/mozilla/application-services/issues/2300
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"
 
   write_query_time:
     type: timing_distribution
@@ -123,6 +150,9 @@ places_manager:
       - https://github.com/mozilla/application-services/issues/2299
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+    data_sensitivity:
+      - interaction
     notification_emails:
       - synced-client-integrations@mozilla.com
-    expires: "2020-07-01"
+    expires: "2021-03-01"

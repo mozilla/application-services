@@ -629,7 +629,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
     @discardableResult
     open func createFolder(parentGUID: String,
                            title: String,
-                           position: UInt32? = nil) throws -> String {
+                           position: UInt32? = nil) throws -> String
+    {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .folder, parentGUID: parentGUID, position: position)
@@ -707,7 +708,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func createBookmark(parentGUID: String,
                              url: String,
                              title: String?,
-                             position: UInt32? = nil) throws -> String {
+                             position: UInt32? = nil) throws -> String
+    {
         return try queue.sync {
             try self.checkApi()
             var msg = insertionMsg(type: .bookmark, parentGUID: parentGUID, position: position)
@@ -774,7 +776,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
                                  parentGUID: String? = nil,
                                  position: UInt32? = nil,
                                  title: String? = nil,
-                                 url: String? = nil) throws {
+                                 url: String? = nil) throws
+    {
         try queue.sync {
             try self.checkApi()
             var msg = MsgTypes_BookmarkNode()
@@ -818,7 +821,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
     // Remove the boilerplate common for all insertion messages
     private func insertionMsg(type: BookmarkNodeType,
                               parentGUID: String,
-                              position: UInt32?) -> MsgTypes_BookmarkNode {
+                              position: UInt32?) -> MsgTypes_BookmarkNode
+    {
         var msg = MsgTypes_BookmarkNode()
         msg.nodeType = type.rawValue
         msg.parentGuid = parentGUID

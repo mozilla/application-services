@@ -1,5 +1,7 @@
 [workspace]
+# Note: Any additions here should be repeated in default-members below.
 members = [
+    "components/autofill",
     "components/fxa-client",
     "components/fxa-client/ffi",
     "components/logins",
@@ -9,11 +11,14 @@ members = [
     "components/push",
     "components/push/ffi",
     "components/rc_log",
-    "components/support/cli",
     "components/support/error",
     "components/support/ffi",
     "components/support/guid",
     "components/support/interrupt",
+    "components/support/jwcrypto",
+    "components/support/rand_rccrypto",
+    "components/support/rate-limiter",
+    "components/support/restmail-client",
     "components/support/rc_crypto",
     "components/support/rc_crypto/nss",
     "components/support/rc_crypto/nss/nss_build_common",
@@ -21,6 +26,7 @@ members = [
     "components/support/rc_crypto/nss/systest",
     "components/support/sql",
     "components/support/sync15-traits",
+    "components/support/types",
     "components/support/viaduct-reqwest",
     "components/sync_manager",
     "components/sync_manager/ffi",
@@ -29,14 +35,90 @@ members = [
     "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
+    "components/webext-storage/ffi",
     "megazords/full",
     "megazords/ios/rust",
-    "megazords/lockbox",
     "testing/sync-test",
     "tools/protobuf-gen",
+
+    "examples/*/",
+    "testing/separated/*/",
+]
+
+# Don't include git submodules in our workspace, since those packages haven't
+# been written with that in mind. They might work, but they might not.
+exclude = [
+    "components/external/glean/",
+    "components/external/nimbus-sdk/",
+]
+
+# The `default-members` are the things that are built/tested when you run `cargo
+# build`, `cargo test` (or most of the cargo commands not provided by a
+# third-party `cargo-foo` binary) from a workspace root *without* doing one of:
+#
+# - Specifying a specific package (e.g. via `-p <package>`, `--manifest-dir
+#   <path>` ...)
+#
+# - Passing `--workspace` or `--all`.
+#
+# - Running the command from within that package (e.g. running `cargo build`
+#   inside `megazords/full` will build the full megazord, default or not).
+#
+# We use this to exclude a couple that have a disproportional compile time
+# impact to how likely they are to get broken by average changes:
+#
+# - `nss_sys`'s companion test crate `systest` adds `syntex_syntax2` which is
+#   (surprisingly) by far the slowest crate to build in our dep graph, and very
+#   very rarely needs changing
+#
+# - The megazords just re-export ffi crates, which we aren't excluding, and get
+#   built freqently enough as part of gradle/xcode's build process.
+#
+# To be clear: passing the `--all` or `--workspace` arg to cargo will make it
+# use the full member set.
+default-members = [
+    "components/autofill",
+    "components/fxa-client",
+    "components/fxa-client/ffi",
+    "components/logins",
+    "components/logins/ffi",
+    "components/places",
+    "components/places/ffi",
+    "components/push",
+    "components/push/ffi",
+    "components/rc_log",
+    "components/support/error",
+    "components/support/ffi",
+    "components/support/guid",
+    "components/support/interrupt",
+    "components/support/restmail-client",
+    "components/support/rc_crypto",
+    "components/support/rc_crypto/nss",
+    "components/support/rc_crypto/nss/nss_build_common",
+    "components/support/rc_crypto/nss/nss_sys",
+    "components/support/sql",
+    "components/support/sync15-traits",
+    "components/support/types",
+    "components/support/viaduct-reqwest",
+    "components/sync_manager",
+    "components/sync_manager/ffi",
+    "components/sync15",
+    "components/tabs",
+    "components/tabs/ffi",
+    "components/viaduct",
+    "components/webext-storage",
+    "testing/sync-test",
+    "tools/protobuf-gen",
+    "examples/*/",
+    "testing/separated/*/",
 ]
 
 [profile.release]
 opt-level = "s"
 debug = true
 lto = "thin"
+
+# We import some git submodules which in turn may depend on appservices crates.
+# We always want to use the local version of our own crates in that case.
+[patch."https://github.com/mozilla/application-services"]
+viaduct = { path = "components/viaduct" }

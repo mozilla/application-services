@@ -16,15 +16,14 @@ job-defaults:
     docker-image: { in-tree: linux }
     max-run-time: 1800
   run:
-    using: run-task
-    cwd: "{checkout}"
+    using: gradlew
 
 jobs:
   detekt:
-    description: "detekt"
+    description: "Running detekt over all modules"
     run:
-      command: ./gradlew --no-daemon clean detekt
+      gradlew: [detekt]
   ktlint:
-    description: "ktlint"
+    description: "Running ktlint over all modules"
     run:
-      command: ./gradlew --no-daemon clean ktlint
+      gradlew: [ktlint]

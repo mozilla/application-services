@@ -5,12 +5,12 @@
 use super::RowId;
 use super::{delete_meta, put_meta};
 use super::{fetch_page_info, new_page_info};
-use crate::bookmark_sync::store::{
+use crate::bookmark_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
 use crate::db::PlacesDb;
 use crate::error::*;
-use crate::types::{BookmarkType, SyncStatus, Timestamp};
+use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::types::ToSql;
 use rusqlite::{Connection, Row};
 use serde::{
@@ -23,7 +23,9 @@ use serde_json::{self, json};
 use sql_support::{self, ConnExt};
 use std::cmp::{max, min};
 use std::collections::HashMap;
+use sync15::EngineSyncAssociation;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 pub use public_node::PublicNode;
@@ -918,7 +920,14 @@ pub fn bookmarks_get_url_for_keyword(db: &PlacesDb, keyword: &str) -> Result<Opt
     )?;
 
     match bookmark_url {
-        Some(b) => Ok(Some(Url::parse(&b)?)),
+        Some(b) => match Url::parse(&b) {
+            Ok(u) => Ok(Some(u)),
+            Err(e) => {
+                // We don't have the guid to log and the keyword is PII...
+                log::warn!("ignoring invalid url: {:?}", e);
+                Ok(None)
+            }
+        },
         None => Ok(None),
     }
 }
@@ -1076,34 +1085,17 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
 /// Erases all bookmarks and resets all Sync metadata.
 pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     let tx = db.begin_transaction()?;
-    delete_everything_in_tx(db)?;
-    tx.commit()?;
-    Ok(())
-}
-
-fn delete_everything_in_tx(db: &PlacesDb) -> Result<()> {
     db.execute_batch(&format!(
-        "DELETE FROM moz_bookmarks_synced;
-
-         DELETE FROM moz_bookmarks_deleted;
-
-         DELETE FROM moz_bookmarks
-         WHERE guid NOT IN ('{}', '{}', '{}', '{}', '{}');
-
-         UPDATE moz_bookmarks
-         SET syncChangeCounter = 1,
-             syncStatus = {}",
+        "DELETE FROM moz_bookmarks
+         WHERE guid NOT IN ('{}', '{}', '{}', '{}', '{}');",
         BookmarkRootGuid::Root.as_str(),
         BookmarkRootGuid::Menu.as_str(),
         BookmarkRootGuid::Mobile.as_str(),
         BookmarkRootGuid::Toolbar.as_str(),
         BookmarkRootGuid::Unfiled.as_str(),
-        (SyncStatus::New as u8)
     ))?;
-    bookmark_sync::create_synced_bookmark_roots(db)?;
-    put_meta(db, LAST_SYNC_META_KEY, &0)?;
-    delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
-    delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+    reset_in_tx(db, &EngineSyncAssociation::Disconnected)?;
+    tx.commit()?;
     Ok(())
 }
 
@@ -1257,14 +1249,33 @@ pub fn fetch_tree(
                     children: Vec::new(),
                 }
                 .into(),
-                BookmarkType::Bookmark => BookmarkNode {
-                    guid: Some(row.guid.clone()),
-                    date_added: Some(row.date_added),
-                    last_modified: Some(row.last_modified),
-                    title: row.title,
-                    url: Url::parse(row.url.unwrap().as_str())?,
+                BookmarkType::Bookmark => {
+                    // pretend invalid or missing URLs don't exist.
+                    match row.url {
+                        Some(str_val) => match Url::parse(str_val.as_str()) {
+                            // an invalid URL presumably means a logic error
+                            // somewhere far away from here...
+                            Err(_) => return Ok(None),
+                            Ok(url) => BookmarkNode {
+                                guid: Some(row.guid.clone()),
+                                date_added: Some(row.date_added),
+                                last_modified: Some(row.last_modified),
+                                title: row.title,
+                                url,
+                            }
+                            .into(),
+                        },
+                        // This is double-extra-invalid because various
+                        // constaints in the schema should prevent it (but we
+                        // know from desktop's experience that on-disk
+                        // corruption can cause it, so it's possible) - but
+                        // we treat it as an `error` rather than just a `warn`
+                        None => {
+                            log::error!("bookmark {:#} has missing url", row.guid);
+                            return Ok(None);
+                        }
+                    }
                 }
-                .into(),
                 BookmarkType::Separator => SeparatorNode {
                     guid: Some(row.guid.clone()),
                     date_added: Some(row.date_added),
@@ -1445,6 +1456,44 @@ fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark
     )?)
 }
 
+fn reset_in_tx(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
+    // Remove all synced bookmarks and pending tombstones, and mark all
+    // local bookmarks as new.
+    db.execute_batch(&format!(
+        "DELETE FROM moz_bookmarks_synced;
+
+         DELETE FROM moz_bookmarks_deleted;
+
+         UPDATE moz_bookmarks
+         SET syncChangeCounter = 1,
+             syncStatus = {}",
+        (SyncStatus::New as u8)
+    ))?;
+
+    // Recreate the set of synced roots, since we just removed all synced
+    // bookmarks.
+    bookmark_sync::create_synced_bookmark_roots(db)?;
+
+    // Reset the last sync time, so that the next sync fetches fresh records
+    // from the server.
+    put_meta(db, LAST_SYNC_META_KEY, &0)?;
+
+    // Clear the sync ID if we're signing out, or set it to whatever the
+    // server gave us if we're signing in.
+    match assoc {
+        EngineSyncAssociation::Disconnected => {
+            delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
+            delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        }
+        EngineSyncAssociation::Connected(ids) => {
+            put_meta(db, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+            put_meta(db, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        }
+    }
+
+    Ok(())
+}
+
 pub mod bookmark_sync {
     use super::*;
     use crate::bookmark_sync::SyncedBookmarkKind;
@@ -1452,32 +1501,10 @@ pub mod bookmark_sync {
     /// Removes all sync metadata, including synced bookmarks, pending tombstones,
     /// change counters, sync statuses, the last sync time, and sync ID. This
     /// should be called when the user signs out of Sync.
-    pub(crate) fn reset(db: &PlacesDb) -> Result<()> {
+    pub(crate) fn reset(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
         let tx = db.begin_transaction()?;
-        reset_meta(db)?;
-        delete_meta(db, GLOBAL_SYNCID_META_KEY)?;
-        delete_meta(db, COLLECTION_SYNCID_META_KEY)?;
+        reset_in_tx(db, assoc)?;
         tx.commit()?;
-        Ok(())
-    }
-
-    /// Removes all synced bookmarks and pending tombstones, and forgets the
-    /// last sync time, without resetting the sync ID. This means the next
-    /// sync will be treated as a first sync with all new local data. This
-    /// function should be called from within an open transaction.
-    pub(crate) fn reset_meta(db: &PlacesDb) -> Result<()> {
-        db.execute_batch(&format!(
-            "DELETE FROM moz_bookmarks_synced;
-
-             DELETE FROM moz_bookmarks_deleted;
-
-             UPDATE moz_bookmarks
-             SET syncChangeCounter = 1,
-                 syncStatus = {}",
-            (SyncStatus::New as u8)
-        ))?;
-        create_synced_bookmark_roots(db)?;
-        put_meta(db, LAST_SYNC_META_KEY, &0)?;
         Ok(())
     }
 
@@ -1532,7 +1559,9 @@ mod tests {
     use crate::api::places_api::test::new_mem_connection;
     use crate::db::PlacesDb;
     use crate::storage::get_meta;
-    use crate::tests::{assert_json_tree, assert_json_tree_with_depth, insert_json_tree};
+    use crate::tests::{
+        append_invalid_bookmark, assert_json_tree, assert_json_tree_with_depth, insert_json_tree,
+    };
     use pretty_assertions::assert_eq;
     use rusqlite::NO_PARAMS;
     use serde_json::Value;
@@ -1597,6 +1626,33 @@ mod tests {
     }
 
     #[test]
+    fn test_bookmark_invalid_url_for_keyword() -> Result<()> {
+        let conn = new_mem_connection();
+
+        let place_id = append_invalid_bookmark(
+            &conn,
+            &BookmarkRootGuid::Unfiled.guid(),
+            "invalid",
+            "badurl",
+        )
+        .place_id;
+
+        // create a bookmark with keyword 'donut' pointing at it.
+        conn.execute_named_cached(
+            "INSERT INTO moz_keywords
+                (keyword, place_id)
+            VALUES
+                ('donut', :place_id)",
+            &[(":place_id", &place_id)],
+        )
+        .expect("should work");
+
+        assert_eq!(bookmarks_get_url_for_keyword(&conn, "donut")?, None);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_insert() -> Result<()> {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
@@ -1605,6 +1661,8 @@ mod tests {
         conn.execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
             .expect("should work");
 
+        let global_change_tracker = conn.global_bookmark_change_tracker();
+        assert!(!global_change_tracker.changed(), "can't start as changed!");
         let bm = InsertableItem::Bookmark(InsertableBookmark {
             parent_guid: BookmarkRootGuid::Unfiled.into(),
             position: BookmarkPosition::Append,
@@ -1627,6 +1685,7 @@ mod tests {
         assert_eq!(rb.url, Some(url));
         assert_eq!(rb.sync_status, SyncStatus::New);
         assert_eq!(rb.sync_change_counter, 1);
+        assert!(global_change_tracker.changed());
         assert_eq!(rb.child_count, 0);
 
         let unfiled = get_raw_bookmark(&conn, &BookmarkRootGuid::Unfiled.as_guid())?
@@ -1709,10 +1768,21 @@ mod tests {
 
         insert_json_tree(&conn, jtree);
 
+        conn.execute(
+            &format!(
+                "UPDATE moz_bookmarks SET syncChangeCounter = 1, syncStatus = {}",
+                SyncStatus::Normal as u8
+            ),
+            NO_PARAMS,
+        )
+        .expect("should work");
+
         // Make sure the positions are correct now.
         assert_eq!(get_pos(&conn, &guid1), 0);
         assert_eq!(get_pos(&conn, &guid2), 1);
         assert_eq!(get_pos(&conn, &guid3), 2);
+
+        let global_change_tracker = conn.global_bookmark_change_tracker();
 
         // Delete the middle folder.
         delete_bookmark(&conn, &guid2)?;
@@ -1723,6 +1793,7 @@ mod tests {
         // Positions of the remaining should be correct.
         assert_eq!(get_pos(&conn, &guid1), 0);
         assert_eq!(get_pos(&conn, &guid3), 1);
+        assert!(global_change_tracker.changed());
 
         Ok(())
     }
@@ -1770,6 +1841,7 @@ mod tests {
 
         // A helper to make the moves below more concise.
         let do_move = |guid: &str, pos: BookmarkPosition| {
+            let global_change_tracker = conn.global_bookmark_change_tracker();
             update_bookmark(
                 &conn,
                 &guid.into(),
@@ -1780,6 +1852,7 @@ mod tests {
                 .into(),
             )
             .expect("update should work");
+            assert!(global_change_tracker.changed(), "should be tracked");
         };
 
         // A helper to make the checks below more concise.
@@ -2525,7 +2598,7 @@ mod tests {
         assert_eq!(bmk.sync_change_counter, 0);
         assert_eq!(bmk.sync_status, SyncStatus::Normal);
 
-        bookmark_sync::reset(&conn)?;
+        bookmark_sync::reset(&conn, &EngineSyncAssociation::Disconnected)?;
 
         let bmk = get_raw_bookmark(&conn, &"bookmarkAAAA".into())?
             .expect("Should fetch A after resetting");

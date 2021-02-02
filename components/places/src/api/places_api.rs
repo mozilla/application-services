@@ -2,11 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bookmark_sync::store::BookmarksStore;
+use crate::bookmark_sync::engine::BookmarksEngine;
 use crate::db::db::PlacesDb;
 use crate::error::*;
-use crate::history_sync::store::HistoryStore;
-use crate::storage::{self, delete_meta, get_meta, put_meta};
+use crate::history_sync::engine::HistoryEngine;
+use crate::storage::{
+    self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
+};
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
@@ -177,23 +179,19 @@ impl PlacesApi {
     }
 
     pub fn open_sync_connection(&self) -> Result<SyncConn<'_>> {
-        let prev_value = self
-            .sync_conn_active
-            .compare_and_swap(false, true, Ordering::SeqCst);
-        if prev_value {
-            Err(ErrorKind::ConnectionAlreadyOpen.into())
-        } else {
-            let db = PlacesDb::open(
-                self.db_name.clone(),
-                ConnectionType::Sync,
-                self.id,
-                self.coop_tx_lock.clone(),
-            )?;
-            Ok(SyncConn {
-                db,
-                flag: &self.sync_conn_active,
-            })
-        }
+        self.sync_conn_active
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| ErrorKind::ConnectionAlreadyOpen)?;
+        let db = PlacesDb::open(
+            self.db_name.clone(),
+            ConnectionType::Sync,
+            self.id,
+            self.coop_tx_lock.clone(),
+        )?;
+        Ok(SyncConn {
+            db,
+            flag: &self.sync_conn_active,
+        })
     }
 
     /// Close a connection to the database. If the connection is the write
@@ -234,9 +232,9 @@ impl PlacesApi {
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let store = HistoryStore::new(&conn, &interruptee);
+                let engine = HistoryEngine::new(&conn, &interruptee);
                 sync_multiple(
-                    &[&store],
+                    &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
@@ -257,9 +255,9 @@ impl PlacesApi {
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let store = BookmarksStore::new(&conn, &interruptee);
+                let engine = BookmarksEngine::new(&conn, &interruptee);
                 sync_multiple(
-                    &[&store],
+                    &[&engine],
                     disk_cached_state,
                     mem_cached_state,
                     client_init,
@@ -291,7 +289,7 @@ impl PlacesApi {
         let sync_state = guard.as_ref().unwrap();
         // Note that this *must* be called before either history or bookmarks are
         // synced, to ensure the shared global state is correct.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
@@ -337,17 +335,17 @@ impl PlacesApi {
         let sync_state = guard.as_ref().unwrap();
         // Note that counter-intuitively, this must be called before we do a
         // bookmark sync too, to ensure the shared global state is correct.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         let interruptee = conn.begin_interrupt_scope();
-        let bm_store = BookmarksStore::new(&conn, &interruptee);
-        let history_store = HistoryStore::new(&conn, &interruptee);
+        let bm_engine = BookmarksEngine::new(&conn, &interruptee);
+        let history_engine = HistoryEngine::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
         let mut disk_cached_state = sync_state.disk_cached_state.take();
 
         // NOTE: After here we must never return Err()!
         let result = sync15::sync_multiple(
-            &[&history_store, &bm_store],
+            &[&history_engine, &bm_engine],
             &mut disk_cached_state,
             &mut mem_cached_state,
             client_init,
@@ -374,7 +372,7 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         storage::bookmarks::delete_everything(&conn)?;
         Ok(())
@@ -388,14 +386,9 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
-        // We'd rather you didn't interrupt this, but it's a required arg for
-        // BookmarksStore.
-        let scope = conn.begin_interrupt_scope();
-        let store = BookmarksStore::new(&conn, &scope);
-        store.reset(&sync15::StoreSyncAssociation::Disconnected)?;
-
+        bookmark_sync::reset(&conn, &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -407,7 +400,7 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
         storage::history::delete_everything(&conn)?;
         Ok(())
@@ -421,13 +414,10 @@ impl PlacesApi {
         // Somewhat ironically, we start by migrating from the legacy storage
         // format. We *are* just going to delete it anyway, but the code is
         // simpler if we can just reuse the existing path.
-        HistoryStore::migrate_v1_global_state(&conn)?;
+        HistoryEngine::migrate_v1_global_state(&conn)?;
 
-        // We'd rather you didn't interrupt this, but it's a required arg for
-        // HistoryStore
-        let scope = conn.begin_interrupt_scope();
-        let store = HistoryStore::new(&conn, &scope);
-        store.do_reset(&sync15::StoreSyncAssociation::Disconnected)
+        history_sync::reset(&conn, &sync15::EngineSyncAssociation::Disconnected)?;
+        Ok(())
     }
 
     /// Get a new interrupt handle for the sync connection.

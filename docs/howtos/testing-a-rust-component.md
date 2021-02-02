@@ -141,4 +141,4 @@ For code coverage to be useful to us, we need to either:
 * We could consider making a mocking backend for viaduct, which would also be mockable from Kotlin/Swift.
 * Add more end-to-end integration tests!
 * Live device tests, e.g. actual Fenixes running in an emulator and syncing to each other.
-* Run consumer integration tests in CI against master.
+* Run consumer integration tests in CI against main.

@@ -99,12 +99,27 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * This performs network requests, and should not be used on the main thread.
      *
      * @param scopes List of OAuth scopes for which the client wants access
+     * @param entrypoint to be used for metrics
+     * @param metricsParams optional parameters used for metrics
      * @return String that resolves to the flow URL when complete
      */
-    fun beginOAuthFlow(scopes: Array<String>): String {
+    fun beginOAuthFlow(
+        scopes: Array<String>,
+        entrypoint: String,
+        metricsParams: MetricsParams = MetricsParams()
+    ): String {
         val scope = scopes.joinToString(" ")
+        val (nioBuf, len) = metricsParams.intoMessage().toNioDirectBuffer()
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(this.handle.get(), scope, e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_begin_oauth_flow(
+                    this.handle.get(),
+                    scope,
+                    entrypoint,
+                    ptr,
+                    len,
+                    e
+            )
         }.getAndConsumeRustString()
     }
 
@@ -112,11 +127,32 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      * Begins the pairing flow.
      *
      * This performs network requests, and should not be used on the main thread.
+     *
+     * @param pairingUrl the url to initilaize the paring flow with
+     * @param scopes List of OAuth scopes for which the client wants access
+     * @param entrypoint to be used for metrics
+     * @param metricsParams optional parameters used for metrics
+     * @return String that resoles to the flow URL when complete
      */
-    fun beginPairingFlow(pairingUrl: String, scopes: Array<String>): String {
+    fun beginPairingFlow(
+        pairingUrl: String,
+        scopes: Array<String>,
+        entrypoint: String,
+        metricsParams: MetricsParams = MetricsParams()
+    ): String {
         val scope = scopes.joinToString(" ")
+        val (nioBuf, len) = metricsParams.intoMessage().toNioDirectBuffer()
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_begin_pairing_flow(this.handle.get(), pairingUrl, scope, e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_begin_pairing_flow(
+                    this.handle.get(),
+                    pairingUrl,
+                    scope,
+                    entrypoint,
+                    ptr,
+                    len,
+                    e
+            )
         }.getAndConsumeRustString()
     }
 
@@ -250,6 +286,7 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
      */
     fun getAccessToken(scope: String, ttl: Long? = null): AccessTokenInfo {
         val buffer = rustCallWithLock { e ->
+            // A zero ttl here means to use the server-controlled default.
             LibFxAFFI.INSTANCE.fxa_get_access_token(this.handle.get(), scope, ttl ?: 0L, e)
         }
         this.tryPersistState()
@@ -298,21 +335,21 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
     /**
      * Provisions an OAuth code using the session token from state
      *
-     * @param clientId OAuth client id.
-     * @param scopes Array of scopes for the OAuth code.
-     * @param state OAuth flow state.
-     * @param accessType Type of access, "offline" or "online".
+     * @param authParams Parameters needed for the authorization request
      * This performs network requests, and should not be used on the main thread.
      */
     fun authorizeOAuthCode(
-        clientId: String,
-        scopes: Array<String>,
-        state: String,
-        accessType: String = "online"
+        authParams: AuthorizationParams
     ): String {
-        val scope = scopes.joinToString(" ")
+        val (nioBuf, len) = authParams.intoMessage().toNioDirectBuffer()
         return rustCallWithLock { e ->
-            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(this.handle.get(), clientId, scope, state, accessType, e)
+            val ptr = Native.getDirectBufferPointer(nioBuf)
+            LibFxAFFI.INSTANCE.fxa_authorize_auth_code(
+                this.handle.get(),
+                ptr,
+                len,
+                e
+            )
         }.getAndConsumeRustString()
     }
 
@@ -585,6 +622,18 @@ class FirefoxAccount(handle: FxaHandle, persistCallback: PersistCallback?) : Aut
         rustCall { e ->
             LibFxAFFI.INSTANCE.fxa_send_tab(this.handle.get(), targetDeviceId, title, url, e)
         }
+    }
+
+    /**
+     * Gather any telemetry which has been collected internally and return
+     * the result as a JSON string.
+     *
+     * This does not make network requests, and can be used on the main thread.
+     */
+    fun gatherTelemetry(): String {
+        return rustCallWithLock { e ->
+            LibFxAFFI.INSTANCE.fxa_gather_telemetry(this.handle.get(), e)
+        }.getAndConsumeRustString()
     }
 
     @Synchronized

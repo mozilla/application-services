@@ -4,12 +4,11 @@
 
 package mozilla.appservices.remotetabs
 
-import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.remotetabs.rust.LibRemoteTabsFFI
-import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.remotetabs.rust.RustError
 import mozilla.appservices.sync15.SyncTelemetryPing
+import org.json.JSONArray
 import java.util.concurrent.atomic.AtomicLong
 
 class RemoteTabsProvider : AutoCloseable {
@@ -25,13 +24,14 @@ class RemoteTabsProvider : AutoCloseable {
      * Update our local tabs state.
      */
     fun setLocalTabs(localTabs: List<RemoteTab>) {
-        val remoteTabs = localTabs.map { it.toProtobuf() }
-        val remoteTabsCollection = MsgTypes.RemoteTabs.newBuilder().addAllRemoteTabs(remoteTabs).build()
-
-        val (nioBuf, len) = remoteTabsCollection.toNioDirectBuffer()
+        val remoteTabs = JSONArray().apply {
+            localTabs.forEach {
+                put(it.toJSON())
+            }
+        }
+        val remoteTabsJson = remoteTabs.toString()
         rustCallWithLock { err ->
-            val ptr = Native.getDirectBufferPointer(nioBuf)
-            LibRemoteTabsFFI.INSTANCE.remote_tabs_update_local(this.handle.get(), ptr, len, err)
+            LibRemoteTabsFFI.INSTANCE.remote_tabs_update_local(this.handle.get(), remoteTabsJson, err)
         }
     }
 

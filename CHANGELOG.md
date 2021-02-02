@@ -1,3 +1,509 @@
+# v69.0.0 (_2021-01-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v68.1.0...v69.0.0)
+
+## General
+
+### What's Changed
+ - Updated nimbus-sdk to 0.7.1
+ - Updated Android Components to 71.0.0
+
+# v68.1.0 (_2020-12-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v68.0.0...v68.1.0)
+
+## General
+
+### What's Changed
+
+- The bundled version of Nimbus SDK has been updated to v0.6.4.
+- The internal traits used by `sync15` have been renamed for consistency and clarity
+  (and the README has been updated with docs to help explain them).
+- The bundled version of Glean has been updated to v33.10.3.
+
+# v68.0.0 (_2020-12-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v67.2.0...v68.0.0)
+
+## General
+
+### ⚠️ Breaking changes ⚠️
+
+- The bundled version of Nimbus SDK has been updated to v0.6.3, which includes
+  the following breaking changes:
+  - Removed `NimbusClient.resetEnrollment`.
+  - `NimbusClient.{updateExperiments, optInWithBranch, optOut, setGlobalUserParticipation}` now return a list of telemetry events.
+    Consumers should forward these events to their telemetry system (e.g. via Glean).
+  - Removed implicit fetch of experiments on first use of the database. Consumers now must
+    call update_experiments explicitly in order to fetch experiments from the Remote Settings
+    server.
+
+
+### What's Changed
+
+- The bundled version of Glean has been updated to v33.5.0.
+- Various third-party dependencies have been updated to their latest versions.
+
+# v67.2.0 (_2020-12-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v67.1.0...v67.2.0)
+
+## Nimbus SDK
+
+### What's Changed
+
+- The bundled version of Nimbus SDK has been updated to v0.5.2.
+
+# v67.1.0 (_2020-11-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v67.0.0...v67.1.0)
+
+### What's Changed
+
+- The bundled version of Glean has been updated to v33.4.0.
+  (as part of [#3724](https://github.com/mozilla/application-services/pull/3724))
+
+## Autofill
+
+### What's New
+
+The autofill component has a first cut at Kotlin bindings and is now bundled in
+the full megazord.
+
+# v67.0.0 (_2020-11-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v66.0.0...v67.0.0)
+
+## General
+
+### ⚠️ Breaking changes ⚠️
+
+- The custom "Lockbox Megazord" package (`org.mozilla.appservices:lockbox-megazord`) has been removed.
+  Existing consumers of this package who wish to update to the latest release of application-services
+  should migrate to using the default `appservices:full-megazord` package, or contact the development
+  team to discuss an alternate approach.
+  ([#3700](https://github.com/mozilla/application-services/pull/3700))
+
+### What's Changed
+
+- The version of Rust used to compile our components has been pinned to v1.43.0 in order to match
+  the version of Rust used in mozilla-central. Changes that do not compile under this version of
+  Rust will not be accepted.
+  ([#3702](https://github.com/mozilla/application-services/pull/3702))
+
+## iOS
+
+### What's Changed
+
+- The bundled version of Glean has been updated to v33.1.2.
+  (as part of [#3701](https://github.com/mozilla/application-services/pull/3701))
+
+## Android
+
+### What's Changed
+
+- This release comes with a nontrivial increase in the compiled code size of the
+  `org.mozilla.appservices:full-megazord` package, adding approximately 1M per platform
+  thanks to the addition of the Nimbus SDK component.
+  ([#3701](https://github.com/mozilla/application-services/pull/3701))
+- Several core gradle dependencies have been updated, including gradle itself (now v6.5)
+  and the android gradle plugin (now v4.0.1).
+  ([#3701](https://github.com/mozilla/application-services/pull/3701))
+
+## Nimbus SDK
+
+### What's New
+
+- The first version of the Nimbus Experimentation SDK is now available, via the
+  `org.mozilla.appservices:nimbus` package. More details can be found in the
+  [nimbus-sdk repo](https://github.com/mozilla/nimbus-sdk).
+  ([#3701](https://github.com/mozilla/application-services/pull/3701))
+
+## FxA Client
+
+### What's Fixed
+
+- We no longer discard the final path component from self-hosted sync tokenserver URLs.
+  ([#3694](https://github.com/mozilla/application-services/pull/3694))
+
+## Autofill
+
+### What's Changed
+
+- We added the `touch_address` and `touch_credit_card` store functions and refactored the component.
+  ([#3691](https://github.com/mozilla/application-services/pull/3691))
+
+## Push
+
+### What's Changed
+
+- Attempts to update the device push token are now rate-limited.
+  ([#3673](https://github.com/mozilla/application-services/pull/3673))
+
+## WebExtension Storage
+
+### What's Fixed
+
+- Syncing of incoming tombstone records has been fixed; previously the presence
+  of an incoming tombstone could cause the sync to fail.
+  ([#3668](https://github.com/mozilla/application-services/pull/3668))
+
+# v66.0.0 (_2020-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v65.0.0...v66.0.0)
+
+### Breaking changes
+
+- Android: Updated the `getTopFrecentSiteInfos` API to specify a frecency threshold parameter for the
+  fetched top frecent sites in `PlacesReaderConnection`. ([#3635](https://github.com/mozilla/application-services/issues/3635))
+
+# v65.0.0 (_2020-10-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v64.0.0...v65.0.0)
+
+## Android
+
+### What's changed ###
+
+- Upgraded the JNA dependency version to 5.6.0. ([#3647](https://github.com/mozilla/application-services/pull/3647))
+
+## Autofill
+
+### What's changed ###
+- Updated the autofill-utils example app to include API calls for addresses. ([#3605](https://github.com/mozilla/application-services/pull/3605))
+- Added API calls for credit cards. ([#3615](https://github.com/mozilla/application-services/pull/3615))
+
+# v64.0.0 (_2020-09-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v63.0.0...v64.0.0)
+
+## iOS
+
+### ⚠️ Breaking changes ⚠️
+
+- The `MozillaAppServices.framework` is now built using Xcode 12, so consumers will need
+  update their own build accordingly.
+  ([#3586](https://github.com/mozilla/application-services/pull/3586))
+
+### What's changed
+
+- The bundled version of glean has been updated to v32.4.0.
+  ([#3590](https://github.com/mozilla/application-services/pull/3590))
+  ()
+
+## FxA Client
+
+### What's changed
+
+- Added a circuit-breaker to the `check_authorization_status` method.
+  In specific circumstances, it was in possible to trigger a failure-recovery infinite loop,
+  which will now error out after a certain now of retries.
+  ([#3585](https://github.com/mozilla/application-services/pull/3585))
+
+## Autofill
+
+### What's changed ###
+- Added a basic API and database layer for the autofill component. ([#3582](https://github.com/mozilla/application-services/pull/3582))
+
+## Places
+
+### What's changed
+- Removed the duplicate Timestamp logic from Places, which now exists in Support, and updated the references.
+  ([#3593](https://github.com/mozilla/application-services/pull/3593))
+- Fixed a bug in bookmarks reconciliation that could lead to deleted items being resurrected
+  in some circumstances.
+  ([#3510](https://github.com/mozilla/application-services/pull/3510),
+  [Bug 1635859](https://bugzilla.mozilla.org/show_bug.cgi?id=1635859))
+
+
+## Support Code
+
+### What's new
+
+- The `rc_crypto` crate now supports ECDSA P384-SHA384 signature verification.
+  ([#3557](https://github.com/mozilla/application-services/pull/3557))
+
+# v63.0.0 (_2020-09-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v62.1.0...v63.0.0)
+
+## iOS
+
+### ⚠️ Breaking changes ⚠️
+
+- The `MozillaAppServices.framework` build now includes Glean. Applications that were previously consuming Glean via
+  its standalone framework and using `import Glean` will instead need to `import MozillaAppServices`.
+  ([#3554](https://github.com/mozilla/application-services/pull/3554))
+
+### What's changed ###
+
+- The version of xcode used to build `MozillaAppServices.framework` has been updated to v11.7.
+  ([#3556](https://github.com/mozilla/application-services/pull/3556))
+- When using a custom sync tokenserver URL, the `/1.0/sync/1.5` suffix will be stripped if present.
+  This should simplify setup for self-hosters who are accustomed to supplying the tokenserver URL
+  in this form on other platforms.
+  ([#3555](https://github.com/mozilla/application-services/pull/3555))
+
+## Android
+
+### What's changed ###
+
+- `android-components` has been updated to 56.0.0 (previously 47.0.0) ([#3538](https://github.com/mozilla/application-services/pull/3538))
+
+## Places
+
+### What's fixed ###
+
+- Fixed a bug where sync could ask places to recalculate the frecency of iitems that are not bookmarks,
+  which would fail and prevent the sync from completing.
+  ([#3567](https://github.com/mozilla/application-services/pull/3567))
+
+### What's changed ###
+
+- If the database somehow contains bookmarks with an invalid URL, they will now be ignored
+  on read; previously invalid URLs would trigger an error and crash.
+  ([#3537](https://github.com/mozilla/application-services/pull/3537))
+
+## Push
+
+### What's fixed ###
+
+- Messages using the legacy `aesgcm` encryption method will how have padding bytes correctly stripped;
+  previously the padding bytes would be returned as part of the message and could cause message-parsing
+  errors in consuming code.
+  ([#3569](https://github.com/mozilla/application-services/pull/3569))
+
+# v62.1.0 (_2020-08-21_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v62.0.0...v62.1.0)
+
+## Extension Storage
+
+### What's fixed ###
+
+- Do not check total bytes quota on storage.sync.remote operations ([Bug 1656947](https://bugzilla.mozilla.org/1656947))
+
+## FxA Client
+
+### What's new ###
+
+- Send-tab metrics are recorded. A new function, `fxa_gather_telemetry` on the
+  account object (exposed as `account.gatherTelemetry()` to Kotlin) which
+  returns a string of JSON.
+
+  This JSON might grow to support non-sendtab telemetry in the future, but in
+  this change it has:
+  - `commands_sent`, an array of objects, each with `flow_id` and `stream_id`
+    string values.
+  - `commands_received`, an array of objects, each with `flow_id`, `stream_id`
+    and `reason` string values.
+
+  [#3308](https://github.com/mozilla/application-services/pull/3308/)
+
+## Places
+
+### What's new ###
+
+- Exclude download, redirects, reload, embed and framed link visit type from the
+  `get_top_frecent_site_infos` query.
+  ([#3505](https://github.com/mozilla/application-services/pull/3505))
+
+# v62.0.0 (_2020-07-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...v62.0.0)
+
+## FxA Client
+
+### ⚠️ Breaking changes ⚠️
+
+- Adds support for `entrypoint` in oauth flow APIs: consumers of `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios) are now ***required*** to pass an `entrypoint` argument that would be used for metrics. This puts the `beginOAuthFlow` and `beginPairingFlow` APIs inline with other existing APIs, like `getManageAccountUrl`.  ([#3265](https://github.com/mozilla/application-services/pull/3265))
+- Changes the `authorizeOAuthCode` API to now accept an `AuthorizationParams` object instead of the individual parameters. The `AuthorizationParams` also includes optional `AuthorizationPKCEParams` that contain the `codeChallenge`, `codeChallengeMethod`. `AuthorizationParams` also includes an optional `keysJwk` for requesting keys ([#3264](https://github.com/mozilla/application-services/pull/3264))
+
+### What's new ###
+- Consumers can now optionally include parameters for metrics in `beginOAuthFlow` and `beginPairingFlow` (`beginAuthentication` and `beginPairingAuthentication` in ios). Those parameters can be passed in using a `MetricsParams` struct/class. `MetricsParams` is defined in both the Kotlin and Swift bindings. The parameters are the following ([#3328](https://github.com/mozilla/application-services/pull/3328)):
+  - flow_id
+  - flow_begin_time
+  - device_id
+  - utm_source
+  - utm_content
+  - utm_medium
+  - utm_term
+  - utm_campaign
+  - entrypoint_experiment
+  - entrypoint_variation
+
+## Logins
+
+### What's fixed ###
+
+- Fixed a bug where attempting to edit a login with an empty `form_submit_url` would incorrectly
+  reject the entry as invalid ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+
+## Tabs
+
+### What's new ###
+
+- Tab records now have an explicit TTL set when storing on the server, to match the behaviour
+  of Firefox Desktop clients ([#3322](https://github.com/mozilla/application-services/pull/3322)).
+
+# v61.0.12 (_2020-08-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.11...v61.0.12)
+
+## General
+
+- This release only exists to correct issues that occured when publishing a v61.0.11, which failed to produce an artifact because of a warning which occured during the build process. (It contains a small number of additional cherry-picked patches which correct these warnings).
+
+# v61.0.11 (_2020-08-07_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.10...v61.0.11)
+
+## FxA Client
+
+### What's new ###
+- Send-tab metrics are recorded. A new function, `fxa_gather_telemetry` on the
+  account object (exposed as `account.gatherTelemetry()` to Kotlin) which
+  returns a string of JSON.
+
+  This JSON might grow to support non-sendtab telemetry in the future, but in
+  this change it has:
+  - `commands_sent`, an array of objects, each with `flow_id` and `stream_id`
+    string values.
+  - `commands_received`, an array of objects, each with `flow_id`, `stream_id`
+    and `reason` string values.
+
+  [#3308](https://github.com/mozilla/application-services/pull/3308/)
+
+# v61.0.10 (_2020-07-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.8...v61.0.10)
+
+# General
+
+- This release exists to correct an error with the publishing process that happened for v61.0.9. As a result, it's changelog is repeated below and is present in the link above.
+
+## Logins
+
+- Empty strings are now correctly handled in login validation. ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+
+# v61.0.9 (_2020-07-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.8...v61.0.9)
+
+## Logins
+
+- Empty strings are now correctly handled in login validation. ([#3331](https://github.com/mozilla/application-services/pull/3331)).
+
+# v61.0.8 (_2020-07-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.7...v61.0.8)
+
+## General
+
+- The logins and places metrics have been renewed until early 2021. ([#3290](https://github.com/mozilla/application-services/pull/3290)).
+
+# v61.0.7 (_2020-06-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.6...v61.0.7)
+
+## General
+
+- The default branch has been renamed from `master` to `main`
+
+# v61.0.6 (_2020-06-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.5...v61.0.6)
+
+## General
+
+- Adds cargo aliases to download and use `asdev` ([#3218](https://github.com/mozilla/application-services/pull/3218))
+
+## RustLog
+
+- Network errors should come through as warnings and not errors. ([#3254](https://github.com/mozilla/application-services/issues/3254)).
+
+# v61.0.5 (_2020-06-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.4...v61.0.5)
+
+- No content release: we have switched to Taskgraph. ([#3168](https://github.com/mozilla/application-services/issues/3168))
+
+# v61.0.4 (_2020-06-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.3...v61.0.4)
+
+* Fix an issue where a node reassignment or signing out and signing back in
+  wouldn't clear the locally stored last sync time for engines
+  ([#3150](https://github.com/mozilla/application-services/issues/3150),
+  PR [#3241](https://github.com/mozilla/application-services/pull/3241)).
+
+# v61.0.3 (_2020-06-17_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.2...v61.0.3)
+
+## Tabs
+
+- Fix an issue which we believe is causing numerous failures deserializing protobufs ([#3214](https://github.com/mozilla/application-services/issues/3214))
+
+# v61.0.2 (_2020-06-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.1...v61.0.2)
+
+## FxA Client
+
+- Short circuit requests if server requested a backoff and time period has not passed. ([#3219](https://github.com/mozilla/application-services/pull/3195))
+
+# v61.0.1 (_2020-06-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v61.0.0...v61.0.1)
+
+## General
+
+- Attempt to fix some build tooling issues with the previous release; no user-visible changes. ([#3245](https://github.com/mozilla/application-services/pull/3245))
+
+
+# v61.0.0 (_2020-06-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v60.0.0...v61.0.0)
+
+## General
+
+- Remove the node.js integration tests helper and removes node from the circleci environment. ([#3187](https://github.com/mozilla/application-services/pull/3187))
+- Put `backtrace` behind a cargo feature. ([#3213](https://github.com/mozilla/application-services/pull/3213))
+- Move sqlite dependency down from rc_cryto to nss_sys. ([#3198](https://github.com/mozilla/application-services/pull/3198))
+- Adds jwe encryption in scoped_keys. ([#3195](https://github.com/mozilla/application-services/pull/3195))
+- Adds an implementation for [pbkdf2](https://www.ietf.org/rfc/rfc2898.txt). ([#3193](https://github.com/mozilla/application-services/pull/3193))
+- Fix bug to correctly return the given defaults when the storageArea's `get()` method is used with an empty store ([bug 1645598](https://bugzilla.mozilla.org/show_bug.cgi?id=1645598)). ([#3236](https://github.com/mozilla/application-services/pull/3236))
+- Fixed a sync bug where the application not providing the "persisted state" would mean the declined list was handled incorrectly ([#3205](https://github.com/mozilla/application-services/issues/3205))
+
+## Android
+
+- From now on the project uses the Android SDK manager side-by-side NDK. ([#3222](https://github.com/mozilla/application-services/pull/3222))
+  - Download the new NDK by running `./verify-android-environment.sh` in the `libs` directory.
+    - Alternatively, you can download the NDK in Android Studio by going in Tools > SDK Manager > SDK Tools > NDK (check Show Package Details) and check `21.3.6528147`.
+  - The `ANDROID_NDK_ROOT`, `ANDROID_NDK_HOME` environment variables (and the directory they point to) can be removed.
+
+# v60.0.0 (_2020-06-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v0.59.0...v60.0.0)
+
+## General
+
+- Remove `failure` from the sync_tests and replace it with `anyhow`. ([#3188](https://github.com/mozilla/application-services/pull/3188))
+
+- Adds an alias for generating protobuf files, you can now use `cargo regen-protobufs` to generate them. ([#3178](https://github.com/mozilla/application-services/pull/3178))
+
+- Replaced `failure` with `anyhow` and `thiserror`. ([#3132](https://github.com/mozilla/application-services/pull/3132))
+
+- Android: Added `getTopFrecentSiteInfos` API to retrieve a list of the top frecent sites in `PlacesReaderConnection`. ([#2163](https://github.com/mozilla/application-services/issues/2163))
+
+## FxA Client
+
+### What's new
+
+- Additional special case for China FxA in `getPairingAuthorityURL`. ([#3160](https://github.com/mozilla/application-services/pull/3160))
+- Silently ignore push messages for unrecognized commands, rather than reporting an error. ([#3177](https://github.com/mozilla/application-services/pull/3177))
+
 # v0.59.1 (_2021-01-26_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v0.59.0...v0.59.1)
@@ -1320,7 +1826,7 @@ This release exists only to rectify a publishing error that occurred with v0.33.
 ### Features
 
 * Added `migrateFromSessionToken` to allow creating a refreshToken from an existing sessionToken.
-Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to 
+Useful for Fennec to Fenix bootstrap flow, where the user can just reuse the existing sessionToken to
 create a new session with a refreshToken.
 
 # v0.29.0 (_2019-05-23_)
@@ -2151,3 +2657,4 @@ N/A
 
 - Clarified which exceptions are thrown in documentation in cases where it was unclear. ([#495](https://github.com/mozilla/application-services/pull/495))
 - Added `@Throws` annotations to all methods which can throw. ([#495](https://github.com/mozilla/application-services/pull/495))
+

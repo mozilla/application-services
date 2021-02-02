@@ -14,7 +14,7 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ExternError, FfiStr,
 };
 use logins::msg_types::{PasswordInfo, PasswordInfos};
-use logins::{Login, LoginDb, PasswordEngine, Result};
+use logins::{Login, LoginDb, PasswordStore, Result};
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 
@@ -22,7 +22,7 @@ lazy_static::lazy_static! {
     // TODO: this is basically a RwLock<HandleMap<Mutex<Arc<Mutex<...>>>>.
     // but could just be a `RwLock<HandleMap<Arc<Mutex<...>>>>`.
     // Find a way to express this cleanly in ffi_support?
-    pub static ref ENGINES: ConcurrentHandleMap<Arc<Mutex<PasswordEngine>>> = ConcurrentHandleMap::new();
+    pub static ref STORES: ConcurrentHandleMap<Arc<Mutex<PasswordStore>>> = ConcurrentHandleMap::new();
 }
 
 #[no_mangle]
@@ -32,10 +32,10 @@ pub extern "C" fn sync15_passwords_state_new(
     error: &mut ExternError,
 ) -> u64 {
     log::debug!("sync15_passwords_state_new");
-    ENGINES.insert_with_result(error, || -> logins::Result<_> {
+    STORES.insert_with_result(error, || -> logins::Result<_> {
         let path = db_path.as_str();
         let key = encryption_key.as_str();
-        Ok(Arc::new(Mutex::new(PasswordEngine::new(path, Some(key))?)))
+        Ok(Arc::new(Mutex::new(PasswordStore::new(path, Some(key))?)))
     })
 }
 
@@ -47,11 +47,11 @@ pub extern "C" fn sync15_passwords_state_new_with_salt(
     error: &mut ExternError,
 ) -> u64 {
     log::debug!("sync15_passwords_state_new_with_salt");
-    ENGINES.insert_with_result(error, || -> logins::Result<_> {
+    STORES.insert_with_result(error, || -> logins::Result<_> {
         let path = db_path.as_str();
         let key = encryption_key.as_str();
         let salt = salt.as_str();
-        Ok(Arc::new(Mutex::new(PasswordEngine::new_with_salt(
+        Ok(Arc::new(Mutex::new(PasswordStore::new_with_salt(
             path, key, salt,
         )?)))
     })
@@ -59,7 +59,7 @@ pub extern "C" fn sync15_passwords_state_new_with_salt(
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_num_open_connections(error: &mut ExternError) -> u64 {
-    ffi_support::call_with_output(error, || ENGINES.len() as u64)
+    ffi_support::call_with_output(error, || STORES.len() as u64)
 }
 
 unsafe fn bytes_to_key_string(key_bytes: *const u8, len: usize) -> Option<String> {
@@ -93,15 +93,12 @@ pub unsafe extern "C" fn sync15_passwords_state_new_with_hex_key(
     error: &mut ExternError,
 ) -> u64 {
     log::debug!("sync15_passwords_state_new_with_hex_key");
-    ENGINES.insert_with_result(error, || -> logins::Result<_> {
+    STORES.insert_with_result(error, || -> logins::Result<_> {
         let path = db_path.as_str();
         let key = bytes_to_key_string(encryption_key, encryption_key_len as usize);
         // We have a Option<String>, but need an Option<&str>...
         let opt_key_ref = key.as_deref();
-        Ok(Arc::new(Mutex::new(PasswordEngine::new(
-            path,
-            opt_key_ref,
-        )?)))
+        Ok(Arc::new(Mutex::new(PasswordStore::new(path, opt_key_ref)?)))
     })
 }
 
@@ -152,7 +149,7 @@ fn parse_url(url: &str) -> sync15::Result<url::Url> {
 #[no_mangle]
 pub extern "C" fn sync15_passwords_disable_mem_security(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_disable_mem_security");
-    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
+    STORES.call_with_result(error, handle, |state| -> Result<()> {
         state.lock().unwrap().disable_mem_security()
     })
 }
@@ -165,7 +162,7 @@ pub extern "C" fn sync15_passwords_rekey_database(
 ) {
     log::debug!("sync15_passwords_rekey_database");
     let new_key = new_encryption_key.as_str();
-    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
+    STORES.call_with_result(error, handle, |state| -> Result<()> {
         state.lock().unwrap().rekey_database(new_key)
     })
 }
@@ -187,7 +184,7 @@ pub unsafe extern "C" fn sync15_passwords_rekey_database_with_hex_key(
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_rekey_database_with_hex_key");
-    ENGINES.call_with_result(error, handle, |state| -> Result<()> {
+    STORES.call_with_result(error, handle, |state| -> Result<()> {
         let new_key =
             bytes_to_key_string(new_encryption_key, new_encryption_key_len as usize).unwrap();
         state.lock().unwrap().rekey_database(&new_key)
@@ -204,7 +201,7 @@ pub extern "C" fn sync15_passwords_sync(
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_sync");
-    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+    STORES.call_with_result(error, handle, |state| -> Result<_> {
         let ping = state.lock().unwrap().sync(
             &sync15::Sync15StorageClientInit {
                 key_id: key_id.into_string(),
@@ -220,7 +217,7 @@ pub extern "C" fn sync15_passwords_sync(
 #[no_mangle]
 pub extern "C" fn sync15_passwords_touch(handle: u64, id: FfiStr<'_>, error: &mut ExternError) {
     log::debug!("sync15_passwords_touch");
-    ENGINES.call_with_result(error, handle, |state| {
+    STORES.call_with_result(error, handle, |state| {
         state.lock().unwrap().touch(id.as_str())
     })
 }
@@ -247,7 +244,7 @@ pub unsafe extern "C" fn sync15_passwords_check_valid(
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_check_valid");
-    ENGINES.call_with_result(error, handle, |state| {
+    STORES.call_with_result(error, handle, |state| {
         let buffer = get_buffer(data, len);
         let login: PasswordInfo = prost::Message::decode(buffer)?;
         state
@@ -264,7 +261,7 @@ pub extern "C" fn sync15_passwords_delete(
     error: &mut ExternError,
 ) -> u8 {
     log::debug!("sync15_passwords_delete");
-    ENGINES.call_with_result(error, handle, |state| {
+    STORES.call_with_result(error, handle, |state| {
         state.lock().unwrap().delete(id.as_str())
     })
 }
@@ -272,19 +269,19 @@ pub extern "C" fn sync15_passwords_delete(
 #[no_mangle]
 pub extern "C" fn sync15_passwords_wipe(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_wipe");
-    ENGINES.call_with_result(error, handle, |state| state.lock().unwrap().wipe())
+    STORES.call_with_result(error, handle, |state| state.lock().unwrap().wipe())
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_wipe_local(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_wipe_local");
-    ENGINES.call_with_result(error, handle, |state| state.lock().unwrap().wipe_local())
+    STORES.call_with_result(error, handle, |state| state.lock().unwrap().wipe_local())
 }
 
 #[no_mangle]
 pub extern "C" fn sync15_passwords_reset(handle: u64, error: &mut ExternError) {
     log::debug!("sync15_passwords_reset");
-    ENGINES.call_with_result(error, handle, |state| state.lock().unwrap().reset())
+    STORES.call_with_result(error, handle, |state| state.lock().unwrap().reset())
 }
 
 #[no_mangle]
@@ -293,7 +290,7 @@ pub extern "C" fn sync15_passwords_new_interrupt_handle(
     error: &mut ExternError,
 ) -> *mut sql_support::SqlInterruptHandle {
     log::debug!("sync15_passwords_new_interrupt_handle");
-    ENGINES.call_with_output(error, handle, |state| {
+    STORES.call_with_output(error, handle, |state| {
         state.lock().unwrap().new_interrupt_handle()
     })
 }
@@ -310,7 +307,7 @@ pub extern "C" fn sync15_passwords_interrupt(
 #[no_mangle]
 pub extern "C" fn sync15_passwords_get_all(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("sync15_passwords_get_all");
-    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+    STORES.call_with_result(error, handle, |state| -> Result<_> {
         let infos = state
             .lock()
             .unwrap()
@@ -329,7 +326,7 @@ pub extern "C" fn sync15_passwords_get_by_base_domain(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("sync15_passwords_get_by_base_domain");
-    ENGINES.call_with_result(error, handle, |state| -> Result<_> {
+    STORES.call_with_result(error, handle, |state| -> Result<_> {
         let infos = state
             .lock()
             .unwrap()
@@ -351,7 +348,7 @@ pub unsafe extern "C" fn sync15_passwords_potential_dupes_ignoring_username(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("sync15_passwords_potential_dupes_ignoring_username");
-    ENGINES.call_with_result(error, handle, |state| -> Result<PasswordInfos> {
+    STORES.call_with_result(error, handle, |state| -> Result<PasswordInfos> {
         let buffer = get_buffer(data, len);
         let login: PasswordInfo = prost::Message::decode(buffer)?;
         let infos = state
@@ -372,7 +369,7 @@ pub extern "C" fn sync15_passwords_get_by_id(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("sync15_passwords_get_by_id");
-    ENGINES.call_with_result(error, handle, |state| -> Result<Option<PasswordInfo>> {
+    STORES.call_with_result(error, handle, |state| -> Result<Option<PasswordInfo>> {
         Ok(state.lock().unwrap().get(id.as_str())?.map(Login::into))
     })
 }
@@ -387,7 +384,7 @@ pub unsafe extern "C" fn sync15_passwords_add(
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_add");
-    ENGINES.call_with_result(error, handle, |state| {
+    STORES.call_with_result(error, handle, |state| {
         let buffer = get_buffer(data, len);
         let login: PasswordInfo = prost::Message::decode(buffer)?;
         state.lock().unwrap().add(login.into())
@@ -404,7 +401,7 @@ pub unsafe extern "C" fn sync15_passwords_import(
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("sync15_passwords_import");
-    ENGINES.call_with_result(error, handle, |state| -> Result<String> {
+    STORES.call_with_result(error, handle, |state| -> Result<String> {
         let buffer = get_buffer(data, len);
         let messages: PasswordInfos = prost::Message::decode(buffer)?;
         let logins: Vec<Login> = messages.infos.into_iter().map(PasswordInfo::into).collect();
@@ -424,7 +421,7 @@ pub unsafe extern "C" fn sync15_passwords_update(
     error: &mut ExternError,
 ) {
     log::debug!("sync15_passwords_update");
-    ENGINES.call_with_result(error, handle, |state| {
+    STORES.call_with_result(error, handle, |state| {
         let buffer = get_buffer(data, len);
         let login: PasswordInfo = prost::Message::decode(buffer)?;
         state.lock().unwrap().update(login.into())
@@ -433,7 +430,7 @@ pub unsafe extern "C" fn sync15_passwords_update(
 
 define_string_destructor!(sync15_passwords_destroy_string);
 define_bytebuffer_destructor!(sync15_passwords_destroy_buffer);
-define_handle_map_deleter!(ENGINES, sync15_passwords_state_destroy);
+define_handle_map_deleter!(STORES, sync15_passwords_state_destroy);
 define_box_destructor!(
     sql_support::SqlInterruptHandle,
     sync15_passwords_interrupt_handle_destroy

@@ -53,15 +53,15 @@ impl log::Log for Logger {
             .and_then(|mp| CString::new(mp.as_bytes()).ok());
 
         // TODO: use SmallVec<[u8; 4096]> or something?
-        let msg_str = crate::string_to_cstring_lossy(format!("{}", record.args()));
+        let msg_string = format!("{}", record.args());
+        let level = LogLevel::from_level_and_message(record.level(), &msg_string);
+        let msg_cstring = crate::string_to_cstring_lossy(msg_string);
 
         let tag_ptr = tag
             .as_ref()
             .map(|s| s.as_ptr())
             .unwrap_or_else(std::ptr::null);
-        let msg_ptr = msg_str.as_ptr() as *const c_char;
-
-        let level: LogLevel = record.level().into();
+        let msg_ptr = msg_cstring.as_ptr() as *const c_char;
 
         unsafe { (self.callback)(level as i32, tag_ptr, msg_ptr) };
     }

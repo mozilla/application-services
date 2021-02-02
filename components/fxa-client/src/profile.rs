@@ -27,6 +27,7 @@ impl FirefoxAccount {
                         "Access token rejected, clearing the tokens cache and trying again."
                     );
                     self.clear_access_token_cache();
+                    self.clear_devices_and_attached_clients_cache();
                     self.get_profile_helper(ignore_cache)
                 }
                 _ => Err(e),
@@ -95,12 +96,9 @@ mod tests {
                 response: Profile {
                     uid: uid.into(),
                     email: email.into(),
-                    locale: "en-US".into(),
                     display_name: None,
                     avatar: "".into(),
                     avatar_default: true,
-                    amr_values: vec![],
-                    two_factor_authentication: false,
                 },
                 cached_at: util::now(),
                 etag: "fake etag".into(),
@@ -135,12 +133,9 @@ mod tests {
                 response: ProfileResponse {
                     uid: "12345ab".to_string(),
                     email: "foo@bar.com".to_string(),
-                    locale: "fr-FR".to_string(),
                     display_name: None,
                     avatar: "https://foo.avatar".to_string(),
                     avatar_default: true,
-                    amr_values: vec![],
-                    two_factor_authentication: false,
                 },
                 etag: None,
             })));
@@ -216,12 +211,9 @@ mod tests {
                 response: ProfileResponse {
                     uid: "12345ab".to_string(),
                     email: "foo@bar.com".to_string(),
-                    locale: "fr-FR".to_string(),
                     display_name: None,
                     avatar: "https://foo.avatar".to_string(),
                     avatar_default: true,
-                    amr_values: vec![],
-                    two_factor_authentication: false,
                 },
                 etag: None,
             })));

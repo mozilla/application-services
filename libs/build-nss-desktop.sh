@@ -50,23 +50,19 @@ fi
 # TODO We do not know how to cross compile these, so we cheat by downloading them and the how is pretty disgusting.
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
-  # Generated from nss-try@11e799981c28df3b4c36be1b5aabcca6f91ce798.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/nss/nss_nspr_static_3.52_darwin.bz2"
-  SHA256="c6ae59b3cd0dd8bd1e28c3dd7b26f720d220599e2ce7802cba81b884989e9a89"
-  echo "${SHA256}  nss_nspr_static_3.52_darwin.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf nss_nspr_static_3.52_darwin.bz2 && rm -rf nss_nspr_static_3.52_darwin.bz2
+  # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.53_darwin.bz2"
+  SHA256="bf6fdf0242f3a34778b9ae33907997161c63c2b9f2461374baa99a38058bc0ae"
+  echo "${SHA256}  nss_nspr_static_3.53_darwin.bz2" | shasum -a 256 -c - || exit 2
+  tar xvjf nss_nspr_static_3.53_darwin.bz2 && rm -rf nss_nspr_static_3.53_darwin.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  # Generated from nss-try@11e799981c28df3b4c36be1b5aabcca6f91ce798.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/nss/nss_nspr_static_3.52_mingw.7z"
-  SHA256="07fe3d0b0bc1b2cf51552fe0a7c8e6103b0a6b1baef5d4412dbfdcd0e1b834de"
-  echo "${SHA256}  nss_nspr_static_3.52_mingw.7z" | shasum -a 256 -c - || exit 2
-  7z x nss_nspr_static_3.52_mingw.7z -aoa && rm -rf nss_nspr_static_3.52_mingw.7z
+  # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.53_mingw.7z"
+  SHA256="b4f728e95d18c4f3d1f4abfb2cdcbe598b96f596a89544980e9c24533e36f6e6"
+  echo "${SHA256}  nss_nspr_static_3.53_mingw.7z" | shasum -a 256 -c - || exit 2
+  7z x nss_nspr_static_3.53_mingw.7z -aoa && rm -rf nss_nspr_static_3.53_mingw.7z
   NSS_DIST_DIR=$(abspath "dist")
-  # NSPR outputs .a files when cross-compiling.
-  mv "${NSS_DIST_DIR}/Release/lib/libplc4.a" "${NSS_DIST_DIR}/Release/lib/libplc4.lib"
-  mv "${NSS_DIST_DIR}/Release/lib/libplds4.a" "${NSS_DIST_DIR}/Release/lib/libplds4.lib"
-  mv "${NSS_DIST_DIR}/Release/lib/libnspr4.a" "${NSS_DIST_DIR}/Release/lib/libnspr4.lib"
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \
     -v \
@@ -79,51 +75,43 @@ elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   NSS_DIST_DIR="${NSS_SRC_DIR}/dist"
 fi
 
-if [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
-  EXT="lib"
-  PREFIX=""
-elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
-  EXT="a"
-  PREFIX="lib"
-fi
-
 mkdir -p "${DIST_DIR}/include/nss"
 mkdir -p "${DIST_DIR}/lib"
 NSS_DIST_OBJ_DIR="${NSS_DIST_DIR}/Release"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}certdb.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}certhi.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}cryptohi.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}freebl_static.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}nss_static.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}nssb.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}nssdev.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}nsspki.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}nssutil.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}pk11wrap_static.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}pkcs12.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}pkcs7.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}smime.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}softokn_static.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}ssl.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto-avx.${EXT}" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}hw-acc-crypto-avx2.${EXT}" "${DIST_DIR}/lib"
+# NSPR
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libplc4.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libplds4.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnspr4.a" "${DIST_DIR}/lib"
+# NSS
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcertdb.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcerthi.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libcryptohi.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libfreebl_static.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnss_static.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnssb.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnssdev.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnsspki.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnssutil.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpk11wrap_static.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkcs12.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkcs7.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
 
 # HW specific.
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}gcm-aes-x86_c_lib.${EXT}" "${DIST_DIR}/lib"
+cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#224-233
 if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
-  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}intel-gcm-wrap_c_lib.${EXT}" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-wrap_c_lib.a" "${DIST_DIR}/lib"
   # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#43-47
   if [[ "${TARGET_OS}" == "linux" ]]; then
-    cp -p -L "${NSS_DIST_OBJ_DIR}/lib/${PREFIX}intel-gcm-s_lib.${EXT}" "${DIST_DIR}/lib"
+    cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-s_lib.a" "${DIST_DIR}/lib"
   fi
 fi
-
-# For some reason the NSPR libs always have the "lib" prefix even on Windows.
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libplc4.${EXT}" "${DIST_DIR}/lib/${PREFIX}plc4.${EXT}"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libplds4.${EXT}" "${DIST_DIR}/lib/${PREFIX}plds4.${EXT}"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libnspr4.${EXT}" "${DIST_DIR}/lib/${PREFIX}nspr4.${EXT}"
 
 cp -p -L -R "${NSS_DIST_DIR}/public/nss/"* "${DIST_DIR}/include/nss"
 cp -p -L -R "${NSS_DIST_OBJ_DIR}/include/nspr/"* "${DIST_DIR}/include/nss"

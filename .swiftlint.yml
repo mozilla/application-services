@@ -20,6 +20,8 @@ disabled_rules:
   - todo
   # It disagrees with swiftformat on this, and thinks trailing commas are bad...
   - trailing_comma
+  # It disagrees with swiftformat on this, and wants the opening braces to be on the same line in multiline declarations
+  - opening_brace
 
 identifier_name:
   # Turn off it complaining about `id` or `let t = title`, etc, but keep

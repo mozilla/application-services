@@ -23,7 +23,6 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
  * on version updates.
  */
 import mozilla.components.service.glean.private.CounterMetricType
-import mozilla.components.service.glean.private.TimingDistributionMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
@@ -90,10 +89,10 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun unlock(encryptionKey: ByteArray) {
         return unlockCounters.measure {
             rustCall {
-                if (!isLocked()) {
-                    throw MismatchedLockException("Unlock called when we are already unlocked")
-                }
                 LoginsStoreMetrics.unlockTime.measure {
+                    if (!isLocked()) {
+                        throw MismatchedLockException("Unlock called when we are already unlocked")
+                    }
                     raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
                             dbPath,
                             encryptionKey,
@@ -302,7 +301,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
 
     @Throws(InvalidRecordException::class)
     override fun ensureValid(login: ServerPassword) {
-        readQueryCounters.measure {
+        readQueryCounters.measureIgnoring({ e -> e is InvalidRecordException }) {
             val buf = login.toProtobuf()
             val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
@@ -420,22 +419,6 @@ internal fun Pointer.getRustString(): String {
 }
 
 /**
- * A helper extension method for conveniently measuring execution time of a closure.
- *
- * N.B. since we're measuring calls to Rust code here, the provided callback may be doing
- * unsafe things. It's very imporant that we always call the function exactly once here
- * and don't try to do anything tricky like stashing it for later or calling it multiple times.
- */
-inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
-    val timerId = this.start()
-    try {
-        return funcToMeasure()
-    } finally {
-        this.stopAndAccumulate(timerId)
-    }
-}
-
-/**
  * A helper class for gathering basic count metrics on different kinds of LoginsStore operation.
  *
  * For each type of operation, we want to measure:
@@ -448,13 +431,26 @@ class LoginsStoreCounterMetrics(
     val count: CounterMetricType,
     val errCount: LabeledMetricType<CounterMetricType>
 ) {
-    @Suppress("ComplexMethod", "TooGenericExceptionCaught")
     inline fun <U> measure(callback: () -> U): U {
+        return measureIgnoring({ false }, callback)
+    }
+
+    @Suppress("ComplexMethod", "TooGenericExceptionCaught")
+    inline fun <U> measureIgnoring(
+        shouldIgnore: (Exception) -> Boolean,
+        callback: () -> U
+    ): U {
         count.add()
         try {
             return callback()
         } catch (e: Exception) {
+            if (shouldIgnore(e)) {
+                throw e
+            }
             when (e) {
+                is MismatchedLockException -> {
+                    errCount["mismatched_lock"].add()
+                }
                 is NoSuchRecordException -> {
                     errCount["no_such_record"].add()
                 }

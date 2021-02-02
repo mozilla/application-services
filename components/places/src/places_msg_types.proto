@@ -196,3 +196,12 @@ message SearchResultMessage {
 message SearchResultList {
     repeated SearchResultMessage results = 1;
 }
+
+message TopFrecentSiteInfo {
+    required string url = 1;
+    optional string title = 2;
+}
+
+message TopFrecentSiteInfos {
+    repeated TopFrecentSiteInfo infos = 1;
+}

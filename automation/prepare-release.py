@@ -19,8 +19,8 @@ parser.add_argument("release_type",
                     choices=["major", "minor", "patch"],
                     help="The release type to be done. See https://semver.org/ for guidance.")
 parser.add_argument("--base-branch",
-                    default="master",
-                    help="The branch to make a release from. Default is master.")
+                    default="main",
+                    help="The branch to make a release from. Default is main.")
 parser.add_argument("--remote",
                     default="origin",
                     help="The remote name that corresponds to the Application Services main repository.")
@@ -107,7 +107,7 @@ new_changes_unreleased = f"""**See [the release process docs](docs/howtos/cut-a-
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/{next_version_full}...master)
+[Full Changelog](https://github.com/mozilla/application-services/compare/{next_version_full}...main)
 """
 
 with open(CHANGELOG_FILE, "w") as stream:

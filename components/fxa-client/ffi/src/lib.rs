@@ -12,7 +12,8 @@ use ffi_support::{
     ConcurrentHandleMap, ExternError, FfiStr,
 };
 use fxa_client::{
-    device::{Capability as DeviceCapability, PushSubscription},
+    device::{Capability as DeviceCapability, CommandFetchReason, PushSubscription},
+    ffi::{from_protobuf_ptr, AuthorizationParameters, MetricsParams},
     migrator::MigrationState,
     msg_types, FirefoxAccount,
 };
@@ -198,10 +199,13 @@ pub extern "C" fn fxa_get_manage_devices_url(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_begin_pairing_flow(
+pub unsafe extern "C" fn fxa_begin_pairing_flow(
     handle: u64,
     pairing_url: FfiStr<'_>,
     scope: FfiStr<'_>,
+    entrypoint: FfiStr<'_>,
+    metrics_params: *const u8,
+    metrics_params_len: i32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_pairing_flow");
@@ -209,7 +213,16 @@ pub extern "C" fn fxa_begin_pairing_flow(
         let pairing_url = pairing_url.as_str();
         let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(' ').collect();
-        fxa.begin_pairing_flow(&pairing_url, &scopes)
+        let metrics_params = from_protobuf_ptr::<MetricsParams, msg_types::MetricsParams>(
+            metrics_params,
+            metrics_params_len,
+        )?;
+        fxa.begin_pairing_flow(
+            &pairing_url,
+            &scopes,
+            entrypoint.as_str(),
+            Some(metrics_params),
+        )
     })
 }
 
@@ -226,16 +239,23 @@ pub extern "C" fn fxa_begin_pairing_flow(
 /// A destructor [fxa_str_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_begin_oauth_flow(
+pub unsafe extern "C" fn fxa_begin_oauth_flow(
     handle: u64,
     scope: FfiStr<'_>,
+    entrypoint: FfiStr<'_>,
+    metrics_params: *const u8,
+    metrics_params_len: i32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_begin_oauth_flow");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let scope = scope.as_str();
         let scopes: Vec<&str> = scope.split(' ').collect();
-        fxa.begin_oauth_flow(&scopes)
+        let metrics_params = from_protobuf_ptr::<MetricsParams, msg_types::MetricsParams>(
+            metrics_params,
+            metrics_params_len,
+        )?;
+        fxa.begin_oauth_flow(&scopes, entrypoint.as_str(), Some(metrics_params))
     })
 }
 
@@ -306,6 +326,11 @@ pub extern "C" fn fxa_retry_migrate_from_session_token(
 /// it will generate a new one on the go.
 ///
 /// If not, the caller must start an OAuth flow with [fxa_begin_oauth_flow].
+///
+/// Arguments:
+///   * scope: space-separated list of scopes that the token should have
+///   * ttl: the time in seconds for which the token should be valid
+///          (or zero to use the server-controlled default ttl)
 ///
 /// # Safety
 ///
@@ -445,21 +470,19 @@ pub extern "C" fn fxa_get_devices(
 /// A destructor [fxa_bytebuffer_free] is provided for releasing the memory for this
 /// pointer type.
 #[no_mangle]
-pub extern "C" fn fxa_authorize_auth_code(
+pub unsafe extern "C" fn fxa_authorize_auth_code(
     handle: u64,
-    client_id: FfiStr<'_>,
-    scope: FfiStr<'_>,
-    state: FfiStr<'_>,
-    access_type: FfiStr<'_>,
+    auth_params: *const u8,
+    auth_params_len: i32,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("fxa_authorize_auth_code");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        let client_id = client_id.as_str();
-        let scope = scope.as_str();
-        let state = state.as_str();
-        let access_type = access_type.as_str();
-        fxa.authorize_code_using_session_token(client_id, scope, state, access_type)
+        let auth_params = from_protobuf_ptr::<
+            AuthorizationParameters,
+            msg_types::AuthorizationParams,
+        >(auth_params, auth_params_len)?;
+        fxa.authorize_code_using_session_token(auth_params)
     })
 }
 
@@ -488,10 +511,11 @@ pub extern "C" fn fxa_handle_session_token_change(
 pub extern "C" fn fxa_poll_device_commands(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("fxa_poll_device_commands");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
-        fxa.poll_device_commands().map(|cmds| {
-            let commands = cmds.into_iter().map(|e| e.into()).collect();
-            fxa_client::msg_types::IncomingDeviceCommands { commands }
-        })
+        fxa.poll_device_commands(CommandFetchReason::Poll)
+            .map(|cmds| {
+                let commands = cmds.into_iter().map(|e| e.into()).collect();
+                fxa_client::msg_types::IncomingDeviceCommands { commands }
+            })
     })
 }
 
@@ -544,7 +568,7 @@ pub unsafe extern "C" fn fxa_initialize_device(
     log::debug!("fxa_initialize_device");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let capabilities =
-            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len);
+            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len)?;
         // This should not fail as device_type i32 representation is derived from our .proto schema.
         let device_type =
             msg_types::device::Type::from_i32(device_type).expect("Unknown device type code");
@@ -567,7 +591,7 @@ pub unsafe extern "C" fn fxa_ensure_capabilities(
     log::debug!("fxa_ensure_capabilities");
     ACCOUNTS.call_with_result_mut(error, handle, |fxa| {
         let capabilities =
-            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len);
+            DeviceCapability::from_protobuf_array_ptr(capabilities_data, capabilities_len)?;
         fxa.ensure_capabilities(&capabilities)
     })
 }
@@ -591,3 +615,10 @@ pub extern "C" fn fxa_send_tab(
 define_handle_map_deleter!(ACCOUNTS, fxa_free);
 define_string_destructor!(fxa_str_free);
 define_bytebuffer_destructor!(fxa_bytebuffer_free);
+
+/// Gather telemetry collected by FxA.
+#[no_mangle]
+pub extern "C" fn fxa_gather_telemetry(handle: u64, error: &mut ExternError) -> *mut c_char {
+    log::debug!("fxa_gather_telemetry");
+    ACCOUNTS.call_with_result_mut(error, handle, |fxa| fxa.gather_telemetry())
+}

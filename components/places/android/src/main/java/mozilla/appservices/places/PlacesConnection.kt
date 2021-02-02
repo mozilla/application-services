@@ -27,7 +27,6 @@ import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManage
  * on version updates.
  */
 import mozilla.components.service.glean.private.CounterMetricType
-import mozilla.components.service.glean.private.TimingDistributionMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
@@ -278,6 +277,18 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     override fun matchUrl(query: String): String? {
         return rustCallForOptString { error ->
             LibPlacesFFI.INSTANCE.places_match_url(this.handle.get(), query, error)
+        }
+    }
+
+    override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {
+        val infoBuffer = rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_get_top_frecent_site_infos(this.handle.get(), numItems, frecencyThreshold.value, error)
+        }
+        try {
+            val infos = MsgTypes.TopFrecentSiteInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
+            return TopFrecentSiteInfo.fromMessage(infos)
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
         }
     }
 
@@ -824,7 +835,19 @@ interface ReadableHistoryConnection : InterruptibleConnection {
     fun matchUrl(query: String): String?
 
     /**
+     * Returns a list of the top frecent site infos limited by the given number of items
+     * and frecency threshold sorted by most to least frecent.
+     *
+     * @param numItems the number of top frecent sites to return in the list.
+     * @param frecencyThreshold frecency threshold options for filtering visited sites based on
+     * their frecency score.
+     * @return a list of the top frecent site infos sorted by most to least frecent.
+     */
+    fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo>
+
+    /**
      * Maps a list of page URLs to a list of booleans indicating if each URL was visited.
+     *
      * @param urls a list of page URLs about which "visited" information is being requested.
      * @return a list of booleans indicating visited status of each
      * corresponding page URI from [urls].
@@ -1161,6 +1184,41 @@ data class SearchResult(
 }
 
 /**
+ * Information about a top frecent site. Returned by `PlacesAPI.getTopFrecentSiteInfos`.
+ */
+data class TopFrecentSiteInfo(
+    /**
+     * The URL of the page that was visited.
+     */
+    val url: String,
+
+    /**
+     * The title of the page that was visited, if known.
+     */
+    val title: String?
+) {
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.TopFrecentSiteInfos): List<TopFrecentSiteInfo> {
+            return msg.infosList.map {
+                TopFrecentSiteInfo(url = it.url, title = it.title)
+            }
+        }
+    }
+}
+
+/**
+ * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
+ * with a frecency score greater or equal to the [value].
+ */
+enum class FrecencyThresholdOption(val value: Long) {
+    /** Returns all visited pages. */
+    NONE(0),
+
+    /** Skip visited pages that were only visited once. */
+    SKIP_ONE_TIME_PAGES(101)
+}
+
+/**
  * Information about a history visit. Returned by `PlacesAPI.getVisitInfos`.
  */
 data class VisitInfo(
@@ -1225,22 +1283,6 @@ data class VisitInfosWithBound(
                 offset = msg.offset
             )
         }
-    }
-}
-
-/**
- * A helper extension method for conveniently measuring execution time of a closure.
- *
- * N.B. since we're measuring calls to Rust code here, the provided callback may be doing
- * unsafe things. It's very imporant that we always call the function exactly once here
- * and don't try to do anything tricky like stashing it for later or calling it multiple times.
- */
-inline fun <U> TimingDistributionMetricType.measure(funcToMeasure: () -> U): U {
-    val timerId = this.start()
-    try {
-        return funcToMeasure()
-    } finally {
-        this.stopAndAccumulate(timerId)
     }
 }
 

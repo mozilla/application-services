@@ -52,10 +52,11 @@ to replace the "full-megazord" AAR with a custom-built megazord AAR containing o
 Such an AAR can be built in the same way as the "full-megazord", and simply avoid depending on the rust
 crates for components that are not required.
 
-To help ensure this replacement is done safely at runtime, the `mozilla.appservices.support.native` provides
-helper functions for loading the correct megazord `.so` file.  The Kotlin wrapper for each component should
-load its shared library by calling `mozilla.appservices.support.native.loadIndirect`, specifying both the
-name of the component and the expected version number of the shared library.
+To help ensure this replacement is done safely at runtime, the `mozilla.appservices.support.native` package
+provides helper functions for loading the correct megazord `.so` file.  The Kotlin wrapper for each component
+should load its shared library by calling `mozilla.appservices.support.native.loadIndirect`, specifying both
+the name of the component and the expected version number of the shared library.
+
 
 ## Unit Tests
 

@@ -34,6 +34,11 @@ if ! [[ -x "$(command -v xcpretty)" ]]; then
   exit 1
 fi
 
+# For Xcode 12 make sure EXCLUDED_ARCHS is set to arm architectures otherwise
+# the build will fail on lipo due to duplicate architectures.
+XCODE_XCCONFIG_FILE=$(pwd)/xcconfig/xcode-12-fix-carthage-lipo.xcconfig
+export XCODE_XCCONFIG_FILE
+
 echo "Running carthage boostrap..."
 carthage bootstrap --platform iOS --cache-builds
 

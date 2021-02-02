@@ -94,3 +94,6 @@ if [[ ! -e "${HEADER_DIST_DIR}" ]]; then
   HEADER_SRC_DIR=$(abspath "ios/arm64/nss/include/nss")
   cp -L "${HEADER_SRC_DIR}"/*.h "${HEADER_DIST_DIR}"
 fi
+
+echo "# Ensure Glean checkout"
+git submodule update --init

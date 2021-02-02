@@ -1,0 +1,6 @@
+// Carthage has an issue with XCode 12 architecture changes which doesn't allow
+// it to compile dependencies for proper architecture. This works around it.
+// Ref https://github.com/Carthage/Carthage/issues/3019
+EXCLUDED_ARCHS__EFFECTIVE_PLATFORM_SUFFIX_simulator__NATIVE_ARCH_64_BIT_x86_64=arm64 arm64e armv7 armv7s armv6 armv8
+EXCLUDED_ARCHS=$(inherited) $(EXCLUDED_ARCHS__EFFECTIVE_PLATFORM_SUFFIX_$(EFFECTIVE_PLATFORM_SUFFIX)__NATIVE_ARCH_64_BIT_$(NATIVE_ARCH_64_BIT))
+IPHONEOS_DEPLOYMENT_TARGET=11.4

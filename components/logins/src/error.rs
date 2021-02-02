@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use failure::Fail;
-
 // TODO: this is (IMO) useful and was dropped from `failure`, consider moving it
 // into `error_support`.
 macro_rules! throw {
@@ -12,50 +10,44 @@ macro_rules! throw {
     };
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
-    #[fail(display = "Invalid login: {}", _0)]
+    #[error("Invalid login: {0}")]
     InvalidLogin(InvalidLogin),
 
-    #[fail(
-        display = "The `sync_status` column in DB has an illegal value: {}",
-        _0
-    )]
+    #[error("The `sync_status` column in DB has an illegal value: {0}")]
     BadSyncStatus(u8),
 
-    #[fail(display = "A duplicate GUID is present: {:?}", _0)]
+    #[error("A duplicate GUID is present: {0:?}")]
     DuplicateGuid(String),
 
-    #[fail(
-        display = "No record with guid exists (when one was required): {:?}",
-        _0
-    )]
+    #[error("No record with guid exists (when one was required): {0:?}")]
     NoSuchRecord(String),
 
     // Fennec import only works on empty logins tables.
-    #[fail(display = "The logins tables are not empty")]
+    #[error("The logins tables are not empty")]
     NonEmptyTable,
 
-    #[fail(display = "The provided salt is invalid")]
+    #[error("The provided salt is invalid")]
     InvalidSalt,
 
-    #[fail(display = "Error synchronizing: {}", _0)]
-    SyncAdapterError(#[fail(cause)] sync15::Error),
+    #[error("Error synchronizing: {0}")]
+    SyncAdapterError(#[from] sync15::Error),
 
-    #[fail(display = "Error parsing JSON data: {}", _0)]
-    JsonError(#[fail(cause)] serde_json::Error),
+    #[error("Error parsing JSON data: {0}")]
+    JsonError(#[from] serde_json::Error),
 
-    #[fail(display = "Error executing SQL: {}", _0)]
-    SqlError(#[fail(cause)] rusqlite::Error),
+    #[error("Error executing SQL: {0}")]
+    SqlError(#[from] rusqlite::Error),
 
-    #[fail(display = "Error parsing URL: {}", _0)]
-    UrlParseError(#[fail(cause)] url::ParseError),
+    #[error("Error parsing URL: {0}")]
+    UrlParseError(#[from] url::ParseError),
 
-    #[fail(display = "{}", _0)]
-    Interrupted(#[fail(cause)] interrupt_support::Interrupted),
+    #[error("{0}")]
+    Interrupted(#[from] interrupt_support::Interrupted),
 
-    #[fail(display = "Protobuf decode error: {}", _0)]
-    ProtobufDecodeError(#[fail(cause)] prost::DecodeError),
+    #[error("Protobuf decode error: {0}")]
+    ProtobufDecodeError(#[from] prost::DecodeError),
 }
 
 error_support::define_error! {
@@ -70,20 +62,20 @@ error_support::define_error! {
     }
 }
 
-#[derive(Debug, Fail)]
+#[derive(Debug, thiserror::Error)]
 pub enum InvalidLogin {
     // EmptyOrigin error occurs when the login's hostname field is empty.
-    #[fail(display = "Origin is empty")]
+    #[error("Origin is empty")]
     EmptyOrigin,
-    #[fail(display = "Password is empty")]
+    #[error("Password is empty")]
     EmptyPassword,
-    #[fail(display = "Login already exists")]
+    #[error("Login already exists")]
     DuplicateLogin,
-    #[fail(display = "Both `formSubmitUrl` and `httpRealm` are present")]
+    #[error("Both `formSubmitUrl` and `httpRealm` are present")]
     BothTargets,
-    #[fail(display = "Neither `formSubmitUrl` or `httpRealm` are present")]
+    #[error("Neither `formSubmitUrl` or `httpRealm` are present")]
     NoTarget,
-    #[fail(display = "Login has illegal field: {}", _0)]
+    #[error("Login has illegal field: {field_info}")]
     IllegalFieldValue { field_info: String },
 }
 

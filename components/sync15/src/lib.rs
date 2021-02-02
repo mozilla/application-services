@@ -30,7 +30,7 @@ pub use crate::changeset::{IncomingChangeset, OutgoingChangeset, RecordChangeset
 pub use crate::client::{
     SetupStorageClient, Sync15ClientResponse, Sync15StorageClient, Sync15StorageClientInit,
 };
-pub use crate::coll_state::{CollState, CollSyncIds, StoreSyncAssociation};
+pub use crate::coll_state::{CollState, CollSyncIds, EngineSyncAssociation};
 pub use crate::collection_keys::CollectionKeys;
 pub use crate::error::{Error, ErrorKind, Result};
 pub use crate::key_bundle::KeyBundle;
@@ -38,7 +38,7 @@ pub use crate::migrate_state::extract_v1_state;
 pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::status::{ServiceStatus, SyncResult};
-pub use crate::sync::{synchronize, Store};
+pub use crate::sync::{synchronize, SyncEngine};
 pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };

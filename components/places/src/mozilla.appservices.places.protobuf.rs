@@ -177,6 +177,18 @@ pub struct SearchResultList {
     #[prost(message, repeated, tag="1")]
     pub results: ::std::vec::Vec<SearchResultMessage>,
 }
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TopFrecentSiteInfo {
+    #[prost(string, required, tag="1")]
+    pub url: std::string::String,
+    #[prost(string, optional, tag="2")]
+    pub title: ::std::option::Option<std::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TopFrecentSiteInfos {
+    #[prost(message, repeated, tag="1")]
+    pub infos: ::std::vec::Vec<TopFrecentSiteInfo>,
+}
 /// Protobuf allows nesting these, but prost behaves weirdly if we do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

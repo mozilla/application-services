@@ -2,17 +2,18 @@
 
 buildscript {
     ext.kotlin_version = '1.3.71'
-    ext.jna_version = '5.2.0'
-    ext.android_gradle_plugin_version = '3.6.0'
-
-    // N.B. try to keep these two in sync
-    ext.android_components_version = '24.0.0'
-    ext.glean_version = '21.3.0'
+    ext.jna_version = '5.6.0'
+    ext.android_gradle_plugin_version = '4.0.1'
+    ext.android_components_version = '71.0.0'
 
     ext.build = [
+        ndkVersion: "21.3.6528147", // Keep it in sync in TC Dockerfile.
         compileSdkVersion: 29,
         targetSdkVersion: 28,
         minSdkVersion: 21, // So that we can publish for aarch64.
+        // This is required to support new AndroidX support libraries.
+        // See mozilla-mobile/android-components#842
+        jvmTargetCompatibility: "1.8",
     ]
 
     repositories {
@@ -41,7 +42,12 @@ buildscript {
         // Downloading libs/ archives from Taskcluster.
         classpath 'de.undercouch:gradle-download-task:3.4.3'
 
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.12'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.14'
+
+        // Since the Glean version depends on the Android components version,
+        // it is very important to use a modern version of Glean and, ideally,
+        // let this come from the embedding product itself.
+        classpath "org.mozilla.components:tooling-glean-gradle:$android_components_version"
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
@@ -73,12 +79,12 @@ task clean(type: Delete) {
 import com.sun.jna.Platform as DefaultPlatform
 
 // If this is `null`, we use libs from the source directory.
-// Check if there are any changes to `libs` since `master`, and if not,
+// Check if there are any changes to `libs` since `main`, and if not,
 // use the sha to download the artifacts from taskcluster.
 //
 // Note we pass the path to the git-dir so that this still works when
 // used as a dependency substitution from e.g. android-components.
-ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only master -- :/libs".execute().text.allWhitespace ?
+ext.libsGitSha = "git --git-dir=${rootProject.rootDir}/.git diff --name-only main -- :/libs".execute().text.allWhitespace ?
                  "git --git-dir=${rootProject.rootDir}/.git rev-parse HEAD:libs".execute().text.trim() : null
 
 // Use in-tree libs from the source directory in CI or if the git SHA is unset; otherwise use
@@ -87,7 +93,7 @@ def useDownloadedLibs = !System.getenv('CI') && ext.libsGitSha != null
 
 if (useDownloadedLibs) {
     task downloadAndroidLibs(type: Download) {
-        src "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.android.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+        src "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.android.${rootProject.ext.libsGitSha}/artifacts/public/build/android.tar.gz"
         dest new File(buildDir, "libs.android.${rootProject.ext.libsGitSha}.tar.gz")
 
         doFirst {
@@ -107,11 +113,11 @@ if (useDownloadedLibs) {
         src {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
                 case 'darwin':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/build/macos.tar.gz"
                 case 'linux-x86-64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/build/linux.tar.gz"
                 case 'win32-x86-64':
-                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}/artifacts/public/target.tar.gz"
+                    return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.win32-x86-64.${rootProject.ext.libsGitSha}/artifacts/public/build/win.tar.gz"
                 default:
                     throw new GradleException("Unknown host platform '${DefaultPlatform.RESOURCE_PREFIX}'.  " +
                                               "Set `ext.libsGitSha = null` in ${rootProject.rootDir}/build.gradle and build your own libs.  " +
@@ -246,7 +252,11 @@ ext.cargoExecWithSQLCipher = { spec, toolchain ->
 
 detekt {
     toolVersion = "1.7.4"
-    input = files("${projectDir}/components", "${projectDir}/gradle-plugin", "buildSrc")
+    input = files(
+        fileTree(dir: "${projectDir}/components", excludes: ["external"]),
+        "${projectDir}/gradle-plugin",
+        "buildSrc"
+    )
     buildUponDefaultConfig = true
     config = files("${projectDir}/.detekt.yml")
     failFast = false
@@ -292,4 +302,10 @@ task ktlintFormat(type: JavaExec, group: "formatting") {
 // interface  for consumers.
 task autoPublishForLocalDevelopment(type: Exec) {
   commandLine "./automation/publish_to_maven_local_if_modified.py"
+}
+
+task printNdkVersion {
+    doLast {
+        println project.ext.build.ndkVersion
+    }
 }

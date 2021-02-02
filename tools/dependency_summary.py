@@ -17,6 +17,7 @@ import subprocess
 import hashlib
 import json
 import textwrap
+import difflib
 import itertools
 import collections
 from urllib.parse import urlparse, urlunparse
@@ -213,6 +214,20 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/remram44/adler32-rs/master/LICENSE",
         }
     },
+    # These packages are a part of a workspace, the workspace has the licensing file,
+    # but the crates themselves do not; we link to the workspace's LICENSE
+    "tracing": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
+        }
+    },
+    "tracing-futures": {
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/tracing/master/LICENSE"
+        }
+    },
     # These packages do not unambiguously delcare their licensing file.
     "publicsuffix": {
         "license": {
@@ -289,7 +304,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/taskcluster/rust-hawk/main/LICENSE",
         }
     },
     "kernel32-sys": {
@@ -300,7 +315,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         }
     },
     "libsqlite3-sys": {
@@ -310,6 +325,16 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rusqlite/rusqlite/master/LICENSE",
+        }
+    },
+    "miniz_oxide": {
+        "license": {
+            "check": "MIT OR Zlib OR Apache-2.0",
+            "fixup": "MIT"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/Frommi/miniz_oxide/master/miniz_oxide/LICENSE-MIT.md",
         }
     },
     "phf": {
@@ -419,7 +444,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         },
     },
     "winapi-x86_64-pc-windows-gnu": {
@@ -428,7 +453,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-APACHE",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-APACHE",
         },
     },
     "ws2_32-sys": {
@@ -439,7 +464,7 @@ PACKAGE_METADATA_FIXUPS = {
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/master/LICENSE-MIT",
+            "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
         },
     },
     # These packages do not make it easy to infer a URL at which their license can be read,
@@ -462,7 +487,7 @@ PACKAGE_METADATA_FIXUPS = {
     "ffi-support": {
         "license_url": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/mozilla/application-services/master/components/support/ffi/LICENSE-APACHE"
+            "fixup": "https://raw.githubusercontent.com/mozilla/application-services/main/components/support/ffi/LICENSE-APACHE"
         },
     },
     "humantime": {
@@ -511,6 +536,125 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://github.com/retep998/winapi-rs/blob/master/LICENSE-MIT",
         },
     },
+    "tinyvec": {
+        "repository": {
+            "check": "https://github.com/Lokathor/tinyvec"
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/Lokathor/tinyvec/main/LICENSE-ZLIB.md"
+        }
+    },
+    "glean-core": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/glean/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
+        }
+    },
+    "glean-ffi": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/glean/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/glean/main/LICENSE",
+        }
+    },
+    "lmdb-rkv-sys": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/lmdb-rs/blob/master/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/lmdb-rs/master/LICENSE",
+        }
+    },
+    "uniffi_bindgen": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi_build": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "uniffi": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/uniffi-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/uniffi-rs/main/LICENSE",
+        }
+    },
+    "jexl-eval": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/jexl-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/jexl-rs/main/LICENSE",
+        }
+    },
+    "jexl-parser": {
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/mozilla/jexl-rs/blob/main/LICENSE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/mozilla/jexl-rs/main/LICENSE",
+        }
+    },
+    "lalrpop-util": {
+        "license": {
+            "check": "Apache-2.0/MIT",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/lalrpop/lalrpop/blob/master/LICENSE-APACHE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/lalrpop/lalrpop/master/LICENSE-APACHE",
+        }
+    },
+    "humansize": {
+        "license": {
+            "check": "MIT/Apache-2.0",
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://github.com/LeopoldArkham/humansize/blob/master/LICENSE-APACHE",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
+        }
+    },
 }
 
 # Sets of common licence file names, by license type.
@@ -521,7 +665,7 @@ COMMON_LICENSE_FILE_NAME_ROOTS = {
     "Apache-2.0": ["license-apache", "licence-apache"],
     "MIT": ["license-mit", "licence-mit"],
     "CC0": ["license-cc0", "licence-cc0"],
-
+    "Zlib": ["license-zlib", "license-zlib"],
 }
 COMMON_LICENSE_FILE_NAME_SUFFIXES = ["", ".md", ".txt"]
 COMMON_LICENSE_FILE_NAMES = {}
@@ -793,7 +937,7 @@ class WorkspaceMetadata(object):
         licenseUrl = pkgInfo.get("license_url")
         if licenseUrl is not None:
             return licenseUrl
-        # Try to infer a sutiable URL from the local license file
+        # Try to infer a suitable URL from the local license file
         # and github repo metadata.
         if urlparse(licenseFile).scheme:
             licenseUrl = licenseFile
@@ -804,11 +948,11 @@ class WorkspaceMetadata(object):
                     repo = repo.replace("http://", "https://")
                 if repo.startswith("https://github.com/"):
                     # Some projects include extra context in their repo URL; strip it off.
-                    for strip_suffix in [".git", "/tree/master/{}".format(pkgInfo["name"])]:
+                    for strip_suffix in [".git", "/tree/main/{}".format(pkgInfo["name"]), "/tree/master/{}".format(pkgInfo["name"]),]:
                         if repo.endswith(strip_suffix):
                             repo = repo[:-len(strip_suffix)]
                     # Try a couple of common locations for the license file.
-                    for path in ["/master/", "/master/{}/".format(pkgInfo["name"])]:
+                    for path in ["/main/", "/master/", "/main/{}/".format(pkgInfo["name"]), "/master/{}/".format(pkgInfo["name"]),]:
                         licenseUrl = repo.replace("github.com", "raw.githubusercontent.com")
                         licenseUrl += path + licenseFile
                         r = requests.get(licenseUrl)
@@ -1035,7 +1179,13 @@ if __name__ == "__main__":
         print_dependency_summary_markdown(deps, file=output)
 
     if args.check:
+        output.seek(0)
+        outlines = output.readlines()
         with open(args.check, 'r') as f:
-            if f.read() != output.getvalue():
+            checklines = f.readlines()
+            if outlines != checklines:
                 raise RuntimeError(
-                    "Dependency details have changed from those in {}".format(args.check))
+                    "Dependency details have changed from those in {}:\n{}".format(
+                        args.check,
+                        "".join(difflib.unified_diff(checklines, outlines))
+                    ))

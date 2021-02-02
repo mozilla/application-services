@@ -1,0 +1,13 @@
+[package]
+name = "restmail-client"
+version = "0.1.0"
+authors = ["Edouard Oger <eoger@fastmail.com>"]
+edition = "2018"
+license = "MPL-2.0"
+
+[dependencies]
+thiserror = "1.0"
+viaduct = { path = "../../viaduct" }
+log = "0.4"
+serde_json = "1"
+url = "2.1"

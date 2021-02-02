@@ -14,23 +14,21 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 bincode = "1.2"
-lazy_static = "1.4.0"
-base64 = "0.12.0"
-failure = "0.1"
-failure_derive = "0.1"
-log = "0.4.8"
-rusqlite = { version = "0.23.1", features = ["bundled"] }
+lazy_static = "1.4"
+base64 = "0.12"
+log = "0.4"
+rusqlite = { version = "0.24.2", features = ["bundled", "unlock_notify"] }
 url = "2.1"
 viaduct = { path = "../viaduct" }
 ffi-support = "0.4"
 sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
-prost = "0.6.1"
-prost-derive = "0.6.1"
+prost = "0.6"
+prost-derive = "0.6"
+thiserror = "1.0"
 
 [dev-dependencies]
-viaduct-reqwest = { path = "../support/viaduct-reqwest" }
-env_logger = "0.7"
-mockito = "0.25.1"
+mockito = "0.27"
 hex = "0.4"
+viaduct-reqwest = { path = "../support/viaduct-reqwest" }

@@ -46,8 +46,27 @@ ENV \
 
 RUN apt-get update -qq \
     && apt-get install -qy --no-install-recommends \
-        # To compile Android stuff.
+        ####################
+        # Build dependencies
+        # If you add anything below, please update building.md.
+        ####################
+        # Android builds
         openjdk-8-jdk \
+        # Required by gyp but also CI scripts.
+        python3 \
+        # libs/ source patching.
+        patch \
+        # NSS build system.
+        gyp ninja-build \
+        # NSS dependency.
+        zlib1g-dev \
+        # SQLCipher build system.
+        make \
+        # SQLCipher dependency.
+        tclsh \
+        ##########################
+        # CI-specific dependencies
+        ##########################
         git \
         curl \
         # Required by symbolstore.py.
@@ -59,7 +78,6 @@ RUN apt-get update -qq \
         # For `cc` crates; see https://github.com/jwilm/alacritty/issues/1440.
         # <TODO: Is this still true?>.
         g++ \
-        python3 \
         python3-pip \
         # taskcluster > mohawk > setuptools.
         python3-setuptools \
@@ -67,29 +85,20 @@ RUN apt-get update -qq \
         unzip \
         # Required by tooltool to extract tar.xz archives.
         xz-utils \
-        # Required to build libs/.
-        make \
-        # Required to build sqlcipher.
-        tclsh \
-        # Required in libs/ by some scripts patching the source they download.
-        patch \
         # For windows cross-compilation.
         mingw-w64 \
-        ## NSS build dependencies
-        gyp \
-        ninja-build \
-        zlib1g-dev \
         # <TODO: Delete p7zip once NSS windows is actually compiled instead of downloaded>.
         p7zip-full \
-        ## End of NSS build dependencies
         # Required to rsync the `libs` folder after fetch (see taskcluster/ci/android-build/kind.yml)
         rsync \
     && apt-get clean
 
 RUN pip3 install --upgrade pip
 RUN pip3 install \
-    'taskcluster>=4,<5' \
-    pyyaml
+    pyyaml \
+    taskcluster \
+    # Required to manipulate archiving operations for upcoming monitoring work
+    zstandard
 
 # Compile the UTF-8 english locale files (required by Python).
 RUN locale-gen en_US.UTF-8
@@ -113,23 +122,10 @@ RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/reposito
         "platforms;android-${ANDROID_PLATFORM_VERSION}" \
         "build-tools;${ANDROID_BUILD_TOOLS}" \
         "extras;android;m2repository" \
-        "extras;google;m2repository"
+        "extras;google;m2repository" \
+        "ndk;21.3.6528147"
 
 RUN chown -R worker:worker /builds/worker/android-sdk
-
-# Android NDK
-
-ENV ANDROID_NDK_VERSION "r21"
-
-# $ANDROID_NDK_ROOT is the preferred name, but the android gradle plugin uses $ANDROID_NDK_HOME.
-ENV ANDROID_NDK_ROOT /builds/worker/android-ndk
-ENV ANDROID_NDK_HOME /builds/worker/android-ndk
-ENV ANDROID_NDK_API_VERSION 21
-
-RUN curl -sfSL --retry 5 --retry-delay 10 https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux-x86_64.zip > ndk.zip \
-    && unzip -q ndk.zip -d /builds/worker \
-    && rm ndk.zip \
-    && mv /builds/worker/android-ndk-${ANDROID_NDK_VERSION} ${ANDROID_NDK_ROOT}
 
 # sccache
 RUN \

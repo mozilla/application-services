@@ -13,18 +13,14 @@ crate-type = ["lib"]
 serde_json = "1"
 log = "0.4"
 url = "2.1"
-base16 = "0.2.1"
-lazy_static = "1.4.0"
-prost = "0.6.1"
+base16 = "0.2"
+lazy_static = "1.4"
+prost = "0.6"
 viaduct = { path = "../../viaduct" }
 # For SqlInterruptHandle
 sql-support = { path = "../../support/sql" }
 
 ffi-support = "0.4"
-
-[dependencies.rusqlite]
-version = "0.23.1"
-features = ["sqlcipher"]
 
 [dependencies.logins]
 path = ".."

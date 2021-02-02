@@ -17,8 +17,10 @@ fi
 
 PROJECT_PATH=${1}
 
+pushd libs
 # shellcheck disable=SC1091
-source "libs/android_defaults.sh"
+source "android_defaults.sh"
+popd
 
 OUTPUT_FOLDER="crashreporter-symbols"
 DUMP_SYMS_DIR="automation/symbols-generation/bin"
@@ -49,4 +51,4 @@ done
 
 # 2. Upload them.
 pip3 install --user -r automation/symbols-generation/requirements.txt
-python3 automation/symbols-generation/upload_symbols.py "${OUTPUT_FOLDER}"
+python3 automation/symbols-generation/upload_symbols.py "${OUTPUT_FOLDER}" -t "$PWD/.symbols_upload_token"

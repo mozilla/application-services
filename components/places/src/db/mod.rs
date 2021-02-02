@@ -9,4 +9,4 @@ mod schema;
 mod tx;
 pub use self::tx::PlacesTransaction;
 
-pub use crate::db::db::PlacesDb;
+pub use crate::db::db::{GlobalChangeCounterTracker, PlacesDb};

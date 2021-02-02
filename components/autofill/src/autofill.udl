@@ -1,0 +1,109 @@
+namespace autofill {};
+
+// What you pass to create or update a credit-card.
+dictionary UpdatableCreditCardFields {
+    string cc_name;
+    string cc_number;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
+};
+
+// What you get back as a credit-card.
+dictionary CreditCard {
+    string guid;
+    string cc_name;
+    string cc_number;
+    i64 cc_exp_month;
+    i64 cc_exp_year;
+    string cc_type;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
+// What you pass to create or update an address.
+dictionary UpdatableAddressFields {
+    string given_name;
+    string additional_name;
+    string family_name;
+    string organization;
+    string street_address;
+    string address_level3;
+    string address_level2;
+    string address_level1;
+    string postal_code;
+    string country;
+    string tel;
+    string email;
+};
+
+// What you get back as an address.
+dictionary Address {
+    string guid;
+    string given_name;
+    string additional_name;
+    string family_name;
+    string organization;
+    string street_address;
+    string address_level3;
+    string address_level2;
+    string address_level1;
+    string postal_code;
+    string country;
+    string tel;
+    string email;
+
+    i64 time_created;
+    i64? time_last_used;
+    i64 time_last_modified;
+    i64 times_used;
+};
+
+[Error]
+enum Error {
+   "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath", "Utf8Error", "JsonError"
+};
+
+interface Store {
+    [Throws=Error]
+    constructor(string dbpath);
+
+    [Throws=Error]
+    CreditCard add_credit_card(UpdatableCreditCardFields cc);
+
+    [Throws=Error]
+    CreditCard get_credit_card(string guid);
+
+    [Throws=Error]
+    sequence<CreditCard> get_all_credit_cards();
+
+    [Throws=Error]
+    void update_credit_card(string guid, UpdatableCreditCardFields cc);
+
+    [Throws=Error]
+    boolean delete_credit_card(string guid);
+
+    [Throws=Error]
+    void touch_credit_card(string guid);
+
+    [Throws=Error]
+    Address add_address(UpdatableAddressFields a);
+
+    [Throws=Error]
+    Address get_address(string guid);
+
+    [Throws=Error]
+    sequence<Address> get_all_addresses();
+
+    [Throws=Error]
+    void update_address(string guid, UpdatableAddressFields a);
+
+    [Throws=Error]
+    boolean delete_address(string guid);
+
+    [Throws=Error]
+    void touch_address(string guid);
+};

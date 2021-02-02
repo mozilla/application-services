@@ -7,10 +7,10 @@ use crate::{
     db::PlacesDb,
     error::*,
     storage::RowId,
-    types::Timestamp,
 };
 use rusqlite::Row;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 
 use sql_support::{self, ConnExt};
 use sync15::ServerTimestamp;

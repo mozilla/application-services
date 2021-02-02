@@ -5,7 +5,7 @@
 import Foundation
 
 extension String {
-    public init(freeingFxaString fxaString: UnsafeMutablePointer<CChar>) {
+    init(freeingFxaString fxaString: UnsafeMutablePointer<CChar>) {
         defer { fxa_str_free(fxaString) }
         self.init(cString: fxaString)
     }

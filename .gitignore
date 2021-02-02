@@ -2,7 +2,6 @@ website/build
 target
 credentials.json
 *-engine.json
-.cargo
 *.db
 .*.swp
 
@@ -23,6 +22,10 @@ xcuserdata
 # Protobuf Swift
 *.pb.swift
 
+# Glean generated artifacts
+megazords/ios/MozillaAppServices/Generated/Metrics.swift
+megazords/ios/.venv
+
 # Carthage generated artifacts
 Carthage
 MozillaAppServices.framework.zip
@@ -35,3 +38,5 @@ automation/symbols-generation/bin/
 
 # Python
 __pycache__
+*.py[cod]
+.Python

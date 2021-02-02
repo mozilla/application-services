@@ -48,3 +48,29 @@ BEGIN
         syncChangeCounter = syncChangeCounter + 1
     WHERE fk = OLD.place_id;
 END;
+
+-- Our "global" sync change counter.
+-- It's "global" in the sense that it applies to all bookmarks across all
+-- connections to the same DB.
+CREATE TEMP TRIGGER moz_bookmarks_gscc_after_insert
+AFTER INSERT ON moz_bookmarks FOR EACH ROW
+BEGIN
+    SELECT note_bookmarks_sync_change() WHERE NEW.syncChangeCounter > 0;
+END;
+
+CREATE TEMP TRIGGER moz_bookmarks_gscc_after_update
+AFTER UPDATE OF fk, syncChangeCounter ON moz_bookmarks FOR EACH ROW
+BEGIN
+    SELECT note_bookmarks_sync_change()
+    WHERE NEW.syncChangeCounter <> OLD.syncChangeCounter;
+END;
+
+-- Note that this will not capture deletions of bookmarks with a sync status of
+-- "New" (because we don't tombstone them) whereas the other triggers above do,
+-- but that's fine for this use-case, and we want the trigger on
+-- moz_bookmarks_deleted to stay as close as possible to desktop.
+CREATE TEMP TRIGGER moz_bookmarks_gscc_after_delete
+AFTER INSERT ON moz_bookmarks_deleted FOR EACH ROW
+BEGIN
+    SELECT note_bookmarks_sync_change();
+END;

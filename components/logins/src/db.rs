@@ -19,12 +19,11 @@ use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
-use std::result;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::{Duration, Instant, SystemTime};
 use sync15::{
-    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, IncomingChangeset,
-    OutgoingChangeset, Payload, ServerTimestamp, Store, StoreSyncAssociation,
+    extract_v1_state, telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation,
+    IncomingChangeset, OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
 };
 use sync_guid::Guid;
 use url::{Host, Url};
@@ -984,8 +983,8 @@ impl LoginDb {
             .execute_named_cached(&*CLONE_SINGLE_MIRROR_SQL, &[(":guid", &guid as &dyn ToSql)])?)
     }
 
-    pub fn reset(&self, assoc: &StoreSyncAssociation) -> Result<()> {
-        log::info!("Executing reset on password store!");
+    pub fn reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
+        log::info!("Executing reset on password engine!");
         let tx = self.db.unchecked_transaction()?;
         self.execute_all(&[
             &*CLONE_ENTIRE_MIRROR_SQL,
@@ -994,11 +993,11 @@ impl LoginDb {
         ])?;
         self.set_last_sync(ServerTimestamp(0))?;
         match assoc {
-            StoreSyncAssociation::Disconnected => {
+            EngineSyncAssociation::Disconnected => {
                 self.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
                 self.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
             }
-            StoreSyncAssociation::Connected(ids) => {
+            EngineSyncAssociation::Connected(ids) => {
                 self.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
                 self.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
             }
@@ -1010,7 +1009,7 @@ impl LoginDb {
 
     pub fn wipe(&self, scope: &SqlInterruptScope) -> Result<()> {
         let tx = self.unchecked_transaction()?;
-        log::info!("Executing wipe on password store!");
+        log::info!("Executing wipe on password engine!");
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         scope.err_if_interrupted()?;
         self.execute_named(
@@ -1047,7 +1046,7 @@ impl LoginDb {
     }
 
     pub fn wipe_local(&self) -> Result<()> {
-        log::info!("Executing wipe_local on password store!");
+        log::info!("Executing wipe_local on password engine!");
         let tx = self.unchecked_transaction()?;
         self.execute_all(&[
             "DELETE FROM loginsL",
@@ -1253,7 +1252,7 @@ impl<'a> LoginStore<'a> {
     }
 }
 
-impl<'a> Store for LoginStore<'a> {
+impl<'a> SyncEngine for LoginStore<'a> {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "passwords".into()
     }
@@ -1262,7 +1261,7 @@ impl<'a> Store for LoginStore<'a> {
         &self,
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
-    ) -> result::Result<OutgoingChangeset, failure::Error> {
+    ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "logins only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         Ok(self.db.do_apply_incoming(inbound, telem, &self.scope)?)
@@ -1272,7 +1271,7 @@ impl<'a> Store for LoginStore<'a> {
         &self,
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
-    ) -> result::Result<(), failure::Error> {
+    ) -> anyhow::Result<()> {
         self.db.mark_as_synchronized(
             &records_synced.iter().map(Guid::as_str).collect::<Vec<_>>(),
             new_timestamp,
@@ -1284,7 +1283,7 @@ impl<'a> Store for LoginStore<'a> {
     fn get_collection_requests(
         &self,
         server_timestamp: ServerTimestamp,
-    ) -> result::Result<Vec<CollectionRequest>, failure::Error> {
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
         let since = self.db.get_last_sync()?.unwrap_or_default();
         Ok(if since == server_timestamp {
             vec![]
@@ -1293,22 +1292,22 @@ impl<'a> Store for LoginStore<'a> {
         })
     }
 
-    fn get_sync_assoc(&self) -> result::Result<StoreSyncAssociation, failure::Error> {
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
         let global = self.db.get_meta(schema::GLOBAL_SYNCID_META_KEY)?;
         let coll = self.db.get_meta(schema::COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
-            StoreSyncAssociation::Connected(CollSyncIds { global, coll })
+            EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
-            StoreSyncAssociation::Disconnected
+            EngineSyncAssociation::Disconnected
         })
     }
 
-    fn reset(&self, assoc: &StoreSyncAssociation) -> result::Result<(), failure::Error> {
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
         self.db.reset(assoc)?;
         Ok(())
     }
 
-    fn wipe(&self) -> result::Result<(), failure::Error> {
+    fn wipe(&self) -> anyhow::Result<()> {
         self.db.wipe(&self.scope)?;
         Ok(())
     }
@@ -1541,9 +1540,9 @@ mod tests {
             .into_iter()
             .map(|l| l.hostname)
             .collect::<Vec<String>>();
-        results.sort();
+        results.sort_unstable();
         let mut sorted = expected.to_owned();
-        sorted.sort();
+        sorted.sort_unstable();
         assert_eq!(sorted, results);
     }
 

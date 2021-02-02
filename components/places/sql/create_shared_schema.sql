@@ -77,6 +77,8 @@ CREATE INDEX IF NOT EXISTS fromindex ON moz_historyvisits(from_visit);
 CREATE INDEX IF NOT EXISTS dateindex ON moz_historyvisits(visit_date);
 CREATE INDEX IF NOT EXISTS islocalindex ON moz_historyvisits(is_local);
 
+-- Greatly helps the multi-join query in frecency.
+CREATE INDEX IF NOT EXISTS visits_from_type_idx ON moz_historyvisits(from_visit, visit_type);
 
 CREATE TABLE IF NOT EXISTS moz_historyvisit_tombstones (
     place_id INTEGER NOT NULL,

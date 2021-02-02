@@ -44,10 +44,10 @@ The list of metrics being collected is available in the [metrics documentation](
 To use this component for local storage of logins data, you will need to know how to integrate appservices components
 into an application on your target platform:
 * **Android**: integrate via the
-  [sync-logins](https://github.com/mozilla-mobile/android-components/blob/master/components/service/sync-logins/README.md)
+  [sync-logins](https://github.com/mozilla-mobile/android-components/blob/main/components/service/sync-logins/README.md)
   component from android-components.
 * **iOS**: start with the [guide to consuming rust components on
-  iOS](https://github.com/mozilla/application-services/blob/master/docs/howtos/consuming-rust-components-on-ios.md).
+  iOS](https://github.com/mozilla/application-services/blob/main/docs/howtos/consuming-rust-components-on-ios.md).
 * **Other Platforms**: we don't know yet; please reach out on slack to discuss!
 
 To sync logins data between devices, you will additionally need to integrate the
@@ -67,7 +67,7 @@ mechanism). It can then create, read, update and delete login records from the d
     from the server, automatically reconciling records in the case of conflict.
 
 ### Examples
-- [Android integration](https://github.com/mozilla-mobile/android-components/blob/master/components/service/sync-logins/README.md)
+- [Android integration](https://github.com/mozilla-mobile/android-components/blob/main/components/service/sync-logins/README.md)
 
 
 ### API Documentation
@@ -144,9 +144,9 @@ Deduplication logic is based on age, the username and hostname:
 ![status-img](https://img.shields.io/static/v1?label=test%20status&message=acceptable&color=darkgreen)
 
 Our goal is to seek an _acceptable_ level of test coverage. When making changes in an area, make an effort to improve (or minimally not reduce) coverage. Test coverage assessment includes:
-* [rust tests](https://github.com/mozilla/application-services/blob/master/testing/sync-test/src/logins.rs)
-* [android tests](https://github.com/mozilla/application-services/tree/master/components/logins/android/src/test/java/mozilla/appservices/logins)
-* [ios tests](https://github.com/mozilla/application-services/blob/master/megazords/ios/MozillaAppServicesTests/LoginsTests.swift)
+* [rust tests](https://github.com/mozilla/application-services/blob/main/testing/sync-test/src/logins.rs)
+* [android tests](https://github.com/mozilla/application-services/tree/main/components/logins/android/src/test/java/mozilla/appservices/logins)
+* [ios tests](https://github.com/mozilla/application-services/blob/main/megazords/ios/MozillaAppServicesTests/LoginsTests.swift)
 * TODO [measure and report test coverage of logins component](https://github.com/mozilla/application-services/issues/1745)
 
 ### Telemetry

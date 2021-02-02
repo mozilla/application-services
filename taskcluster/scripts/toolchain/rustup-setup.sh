@@ -1,6 +1,12 @@
 #!/bin/bash
+
+TASK_FOR="${1}"
+
 export RUST_BACKTRACE='1'
-export RUSTFLAGS='-Dwarnings'
+# Don't block releases on compilation warnings.
+if [ "$TASK_FOR" != "github-release" ]; then
+    export RUSTFLAGS='-Dwarnings'
+fi
 export CARGO_INCREMENTAL='0'
 export CI='1'
 export CCACHE='sccache'
@@ -9,6 +15,8 @@ export SCCACHE_IDLE_TIMEOUT='1200'
 export SCCACHE_CACHE_SIZE='40G'
 export SCCACHE_ERROR_LOG='/builds/worker/sccache.log'
 export RUST_LOG='sccache=info'
+# We are pinned at this rust stable version (see also ../.circleci/config.yml)
+export RUST_STABLE_VERSION='1.43.0'
 
 # Rust
 set -eux; \
@@ -23,6 +31,12 @@ set -eux; \
 export PATH=$HOME/.cargo/bin:$PATH
 
 
-rustup toolchain install stable
-rustup default stable
+rustup toolchain install "$RUST_STABLE_VERSION"
+rustup default "$RUST_STABLE_VERSION"
 rustup target add x86_64-linux-android i686-linux-android armv7-linux-androideabi aarch64-linux-android
+
+cargo install --version 0.7.0 uniffi_bindgen
+
+# This is not the right place for it, but also it's as good a place as any.
+# Make sure git submodules are initialized.
+git submodule update --init

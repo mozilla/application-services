@@ -11,8 +11,8 @@ pub mod tags;
 
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
-use crate::msg_types::HistoryVisitInfo;
-use crate::types::{SyncStatus, Timestamp, VisitTransition};
+use crate::msg_types::{HistoryVisitInfo, TopFrecentSiteInfo};
+use crate::types::{SyncStatus, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -20,6 +20,7 @@ use serde_derive::*;
 use sql_support::{self, ConnExt};
 use std::fmt;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 use url::Url;
 
 /// From https://searchfox.org/mozilla-central/rev/93905b660f/toolkit/components/places/PlacesUtils.jsm#189
@@ -192,6 +193,15 @@ impl HistoryVisitInfo {
     }
 }
 
+impl TopFrecentSiteInfo {
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        Ok(Self {
+            url: row.get("url")?,
+            title: row.get("title")?,
+        })
+    }
+}
+
 pub fn run_maintenance(conn: &PlacesDb) -> Result<()> {
     conn.execute_all(&[
         "VACUUM",
@@ -224,7 +234,7 @@ pub(crate) fn delete_meta(db: &PlacesDb, key: &str) -> Result<()> {
 }
 
 /// Delete all items in the temp tables we use for staging changes.
-pub(crate) fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
+pub fn delete_pending_temp_tables(conn: &PlacesDb) -> Result<()> {
     conn.execute_batch(
         "DELETE FROM moz_updateoriginsupdate_temp;
          DELETE FROM moz_updateoriginsdelete_temp;

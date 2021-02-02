@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Purpose: Run cargo update and make a pull-request against master.
+# Purpose: Run cargo update and make a pull-request against main.
 # Dependencies: None
 # Usage: ./automation/cargo-update-pr.py
 
@@ -11,7 +11,7 @@ import webbrowser
 
 from shared import step_msg, fatal_err, run_cmd_checked, ensure_working_tree_clean
 
-parser = argparse.ArgumentParser(description="Run cargo update and make a pull-request against master")
+parser = argparse.ArgumentParser(description="Run cargo update and make a pull-request against main")
 parser.add_argument("--remote",
                     default="origin",
                     help="The remote name that corresponds to the Application Services main repository.")
@@ -35,7 +35,7 @@ step_msg(f"Updating remote {remote}")
 run_cmd_checked(["git", "remote", "update", remote])
 
 step_msg(f"Creating branch {branch_name}")
-run_cmd_checked(["git", "checkout", "-b", branch_name, "--no-track", f"{remote}/master"])
+run_cmd_checked(["git", "checkout", "-b", branch_name, "--no-track", f"{remote}/main"])
 
 step_msg("Running cargo update")
 run_cmd_checked(["cargo", "update"])

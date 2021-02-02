@@ -492,7 +492,7 @@ impl Login {
                 }
             }
             Some(href) => {
-                // "." and "javascript:" are special cases documented at the top of this file.
+                // "", ".", and "javascript:" are special cases documented at the top of this file.
                 if href == "." {
                     // A bit of a special case - if we are being asked to fixup, we replace
                     // "." with an empty string - but if not fixing up we don't complain.
@@ -501,7 +501,7 @@ impl Login {
                             .get_or_insert_with(|| self.clone())
                             .form_submit_url = Some("".into());
                     }
-                } else if href != "javascript:" {
+                } else if href != "" && href != "javascript:" {
                     if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "formActionOrigin is not normalized".into()
@@ -1025,6 +1025,7 @@ mod tests {
 
     #[test]
     fn test_check_valid() {
+        #[derive(Debug, Clone)]
         struct TestCase {
             login: Login,
             should_err: bool,
@@ -1300,17 +1301,27 @@ mod tests {
             let actual = tc.login.check_valid();
 
             if tc.should_err {
-                assert!(actual.is_err());
-                assert_eq!(tc.expected_err, actual.unwrap_err().to_string());
+                assert!(actual.is_err(), "{:#?}", tc);
+                assert_eq!(
+                    tc.expected_err,
+                    actual.unwrap_err().to_string(),
+                    "{:#?}",
+                    tc,
+                );
             } else {
-                assert!(actual.is_ok());
+                assert!(actual.is_ok(), "{:#?}", tc);
+                assert!(
+                    tc.login.clone().fixup().is_ok(),
+                    "Fixup failed after check_valid passed: {:#?}",
+                    &tc,
+                );
             }
         }
     }
 
     #[test]
     fn test_fixup() {
-        #[derive(Default)]
+        #[derive(Debug, Default)]
         struct TestCase {
             login: Login,
             fixedup_host: Option<&'static str>,
@@ -1337,6 +1348,13 @@ mod tests {
         let login_with_period_fsu = Login {
             hostname: "https://example.com".into(),
             form_submit_url: Some(".".into()),
+            username: "test".into(),
+            password: "test".into(),
+            ..Login::default()
+        };
+        let login_with_empty_fsu = Login {
+            hostname: "https://example.com".into(),
+            form_submit_url: Some("".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
@@ -1375,14 +1393,33 @@ mod tests {
                 fixedup_form_submit_url: Some("https://www.example.com".into()),
                 ..TestCase::default()
             },
+            TestCase {
+                login: login_with_empty_fsu,
+                // Should still be empty.
+                fixedup_form_submit_url: Some("".into()),
+                ..TestCase::default()
+            },
         ];
 
         for tc in &test_cases {
             let login = tc.login.clone().fixup().expect("should work");
             if let Some(expected) = tc.fixedup_host {
-                assert_eq!(login.hostname, expected);
+                assert_eq!(login.hostname, expected, "hostname not fixed in {:#?}", tc);
             }
-            assert_eq!(login.form_submit_url, tc.fixedup_form_submit_url);
+            assert_eq!(
+                login.form_submit_url, tc.fixedup_form_submit_url,
+                "form_submit_url not fixed in {:#?}",
+                tc,
+            );
+            login.check_valid().unwrap_or_else(|e| {
+                panic!("Fixup produces invalid record: {:#?}", (e, &tc, &login));
+            });
+            assert_eq!(
+                login.clone().fixup().unwrap(),
+                login,
+                "fixup did not reach fixed point for testcase: {:#?}",
+                tc,
+            );
         }
     }
 

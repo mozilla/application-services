@@ -4,7 +4,7 @@
 
 use crate::api::places_api::PlacesApi;
 use crate::bookmark_sync::{
-    store::{BookmarksStore, Merger},
+    engine::{BookmarksEngine, Merger},
     SyncedBookmarkKind,
 };
 use crate::db::db::PlacesDb;
@@ -115,8 +115,8 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
-    let store = BookmarksStore::new(&conn, &scope);
-    let mut merger = Merger::new(&store, Default::default());
+    let engine = BookmarksEngine::new(&conn, &scope);
+    let mut merger = Merger::new(&engine, Default::default());
     // We're already in a transaction.
     merger.set_external_transaction(true);
     log::debug!("Merging with local records");
@@ -135,7 +135,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     // Note: update_frecencies manages its own transaction, which is fine,
     // since nothing that bad will happen if it is aborted.
     log::debug!("Updating frecencies");
-    store.update_frecencies()?;
+    engine.update_frecencies()?;
 
     log::debug!("Counting Fenix bookmarks");
     let num_succeeded = select_count(&conn, &COUNT_FENIX_BOOKMARKS);

@@ -1,0 +1,19 @@
+[package]
+name = "example-autofill-utils"
+version = "0.1.0"
+authors = ["sync-team@mozilla.com"]
+license = "MPL-2.0"
+edition = "2018"
+publish = false
+
+[[example]]
+name = "autofill-utils"
+path = "src/autofill-utils.rs"
+
+[dev-dependencies]
+anyhow = "1.0"
+autofill = { path = "../../components/autofill" }
+cli-support = { path = "../cli-support" }
+serde_json = "1"
+structopt = "0.3"
+sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"] }

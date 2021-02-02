@@ -162,22 +162,6 @@ sed -i s/'if test "$TARGET_EXEEXT" = ".exe"'/'if test ".exe" = ".exe"'/g configu
 # this is a bit of a sledgehammer but does the job.
 sed -i s/'BEXE = @BUILD_EXEEXT@'/'BEXE = ""'/g Makefile.in
 
-> Makefile.in-patch cat << "EOF"
---- Makefile.in        2017-12-21 19:31:28.000000000 +0000
-+++ Makefile.in        2018-11-06 23:58:45.576548000 +0000
-@@ -1092,9 +1092,9 @@
-    $(TOP)/ext/fts5/fts5_unicode2.c \
-    $(TOP)/ext/fts5/fts5_varint.c \
-    $(TOP)/ext/fts5/fts5_vocab.c  \
-
--fts5parse.c:  $(TOP)/ext/fts5/fts5parse.y lemon
-+fts5parse.c:  $(TOP)/ext/fts5/fts5parse.y lemon$(BEXE)
-       cp $(TOP)/ext/fts5/fts5parse.y .
-       rm -f fts5parse.h
-       ./lemon$(BEXE) $(OPTS) fts5parse.y
-EOF
-
-patch --forward --ignore-whitespace < Makefile.in-patch
 popd
 
   "${SQLCIPHER_SRC_DIR}/configure" \

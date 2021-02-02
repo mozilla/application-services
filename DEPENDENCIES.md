@@ -7,10 +7,15 @@ the details of which are reproduced below.
 * [Mozilla Public License 2.0](#mozilla-public-license-20)
 * [Apache License 2.0](#apache-license-20)
 * [MIT License: SwiftKeychainWrapper](#mit-license-swiftkeychainwrapper)
-* [MIT License: aho-corasick, byteorder, memchr](#mit-license-aho-corasick-byteorder-memchr)
+* [MIT License: aho-corasick, byteorder, memchr, termcolor](#mit-license-aho-corasick-byteorder-memchr-termcolor)
+* [MIT License: atty](#mit-license-atty)
 * [MIT License: bincode](#mit-license-bincode)
 * [MIT License: bytes](#mit-license-bytes)
+* [MIT License: cargo_metadata](#mit-license-cargo_metadata)
 * [MIT License: caseless](#mit-license-caseless)
+* [MIT License: clap](#mit-license-clap)
+* [MIT License: dashmap](#mit-license-dashmap)
+* [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
@@ -18,19 +23,27 @@ the details of which are reproduced below.
 * [MIT License: libsqlite3-sys, rusqlite](#mit-license-libsqlite3-sys-rusqlite)
 * [MIT License: matches](#mit-license-matches)
 * [MIT License: mime_guess](#mit-license-mime_guess)
+* [MIT License: miniz_oxide](#mit-license-miniz_oxide)
 * [MIT License: mio](#mit-license-mio)
+* [MIT License: nom](#mit-license-nom)
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
+* [MIT License: ordered-float](#mit-license-ordered-float)
+* [MIT License: oslog](#mit-license-oslog)
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: synstructure](#mit-license-synstructure)
-* [MIT License: tokio, tokio-tls, tokio-util](#mit-license-tokio-tokio-tls-tokio-util)
+* [MIT License: textwrap](#mit-license-textwrap)
+* [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core-tracing-futures)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
+* [MIT License: weedle](#mit-license-weedle)
 * [MIT License: winapi](#mit-license-winapi)
+* [MIT License: winapi-util](#mit-license-winapi-util)
 * [MIT License: winreg](#mit-license-winreg)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
 * [ISC License: ring](#isc-license-ring)
+* [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
 * [BSD-3-Clause License: protobuf](#bsd-3-clause-license-protobuf)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
 * [OpenSSL License](#openssl-license)
@@ -42,7 +55,12 @@ The following text applies to code linked from these dependencies:
 [NSPR](https://hg.mozilla.org/projects/nspr),
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
-[hawk](https://github.com/taskcluster/rust-hawk)
+[hawk](https://github.com/taskcluster/rust-hawk),
+[jexl-eval](https://github.com/mozilla/jexl-rs),
+[jexl-parser](https://github.com/mozilla/jexl-rs),
+[uniffi](https://github.com/mozilla/uniffi-rs),
+[uniffi_bindgen](https://github.com/mozilla/uniffi-rs),
+[uniffi_build](https://github.com/mozilla/uniffi-rs)
 
 ```
 Mozilla Public License Version 2.0
@@ -424,25 +442,40 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
+[adler](https://github.com/jonas-schievink/adler.git),
+[ahash](https://github.com/tkaitchuck/ahash),
+[android_log-sys](https://github.com/nercury/android_log-sys-rs),
+[android_logger](https://github.com/Nercury/android_logger-rs),
 [anyhow](https://github.com/dtolnay/anyhow),
+[askama](https://github.com/djc/askama),
+[askama_derive](https://github.com/djc/askama),
+[askama_escape](https://github.com/djc/askama),
+[askama_shared](https://github.com/djc/askama),
 [autocfg](https://github.com/cuviper/autocfg),
-[backtrace-sys](https://github.com/alexcrichton/backtrace-rs),
-[backtrace](https://github.com/rust-lang/backtrace-rs),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
+[block-buffer](https://github.com/RustCrypto/utils),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
+[chrono](https://github.com/chronotope/chrono),
+[const-random-macro](https://github.com/tkaitchuck/constrandom),
+[const-random](https://github.com/tkaitchuck/constrandom),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
+[cpuid-bool](https://github.com/RustCrypto/utils),
+[crc32fast](https://github.com/srijs/rust-crc32fast),
+[digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [dtoa](https://github.com/dtolnay/dtoa),
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
+[env_logger](https://github.com/sebasmagri/env_logger/),
 [failure](https://github.com/rust-lang-nursery/failure),
 [failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
+[flate2](https://github.com/rust-lang/flate2-rs),
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),
 [foreign-types](https://github.com/sfackler/foreign-types),
@@ -453,30 +486,43 @@ The following text applies to code linked from these dependencies:
 [futures-task](https://github.com/rust-lang/futures-rs),
 [futures-util](https://github.com/rust-lang/futures-rs),
 [getrandom](https://github.com/rust-random/getrandom),
+[hashbrown](https://github.com/rust-lang/hashbrown),
+[hashlink](https://github.com/kyren/hashlink),
+[heck](https://github.com/withoutboats/heck),
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
 [httparse](https://github.com/seanmonstar/httparse),
+[httpdate](https://github.com/pyfisch/httpdate),
+[humantime](https://github.com/tailhook/humantime),
 [hyper-tls](https://github.com/hyperium/hyper-tls),
+[id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
 [iovec](https://github.com/carllerche/iovec),
+[ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [jna](https://github.com/java-native-access/jna),
+[lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
-[linked-hash-map](https://github.com/contain-rs/linked-hash-map),
+[lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
+[lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
 [log](https://github.com/rust-lang/log),
-[lru-cache](https://github.com/contain-rs/lru-cache),
 [mime](https://github.com/hyperium/mime),
 [miow](https://github.com/alexcrichton/miow),
 [native-tls](https://github.com/sfackler/rust-native-tls),
 [net2](https://github.com/deprecrated/net2-rs),
+[num-integer](https://github.com/rust-num/num-integer),
+[num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
+[opaque-debug](https://github.com/RustCrypto/utils),
 [openssl-probe](https://github.com/alexcrichton/openssl-probe),
 [openssl-src](https://github.com/alexcrichton/openssl-src-rs),
 [openssl](https://github.com/sfackler/rust-openssl),
+[paste-impl](https://github.com/dtolnay/paste),
+[paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
 [pin-project-internal](https://github.com/taiki-e/pin-project),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
@@ -484,9 +530,11 @@ The following text applies to code linked from these dependencies:
 [pin-utils](https://github.com/rust-lang-nursery/pin-utils),
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
+[proc-macro-hack](https://github.com/dtolnay/proc-macro-hack),
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
 [prost-derive](https://github.com/danburkert/prost),
 [prost](https://github.com/danburkert/prost),
+[quick-error](http://github.com/tailhook/quick-error),
 [quote](https://github.com/dtolnay/quote),
 [rand](https://github.com/rust-random/rand),
 [rand_chacha](https://github.com/rust-random/rand),
@@ -495,26 +543,38 @@ The following text applies to code linked from these dependencies:
 [regex](https://github.com/rust-lang/regex),
 [remove_dir_all](https://github.com/XAMPPRocky/remove_dir_all.git),
 [reqwest](https://github.com/seanmonstar/reqwest),
-[rustc-demangle](https://github.com/alexcrichton/rustc-demangle),
+[rkv](https://github.com/mozilla/rkv),
 [ryu](https://github.com/dtolnay/ryu),
 [security-framework-sys](https://github.com/kornelski/rust-security-framework),
 [security-framework](https://github.com/kornelski/rust-security-framework),
+[semver-parser](https://github.com/steveklabnik/semver-parser),
+[semver](https://github.com/steveklabnik/semver),
 [serde](https://github.com/serde-rs/serde),
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
+[sha2](https://github.com/RustCrypto/hashes),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
+[socket2](https://github.com/alexcrichton/socket2-rs),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
+[thiserror-impl](https://github.com/dtolnay/thiserror),
+[thiserror](https://github.com/dtolnay/thiserror),
 [thread_local](https://github.com/Amanieu/thread_local-rs),
 [time](https://github.com/time-rs/time),
+[tinyvec](https://github.com/Lokathor/tinyvec),
+[toml](https://github.com/alexcrichton/toml-rs),
+[typenum](https://github.com/paholg/typenum),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
+[unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
+[unicode-width](https://github.com/unicode-rs/unicode-width),
 [unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
+[uuid](https://github.com/uuid-rs/uuid),
 [version_check](https://github.com/SergioBenitez/version_check),
 [winapi-x86_64-pc-windows-gnu](https://github.com/retep998/winapi-rs),
 [winapi](https://github.com/retep998/winapi-rs)
@@ -522,7 +582,7 @@ The following text applies to code linked from these dependencies:
 ```
                               Apache License
                         Version 2.0, January 2004
-                     http://www.apache.org/licenses/
+                     https://www.apache.org/licenses/LICENSE-2.0
 
 TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
 
@@ -714,7 +774,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+	https://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -755,12 +815,13 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: aho-corasick, byteorder, memchr
+## MIT License: aho-corasick, byteorder, memchr, termcolor
 
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
-[memchr](https://github.com/BurntSushi/rust-memchr)
+[memchr](https://github.com/BurntSushi/rust-memchr),
+[termcolor](https://github.com/BurntSushi/termcolor)
 
 ```
 The MIT License (MIT)
@@ -784,6 +845,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+```
+-------------
+## MIT License: atty
+
+The following text applies to code linked from these dependencies:
+[atty](https://github.com/softprops/atty)
+
+```
+Copyright (c) 2015-2019 Doug Tangren
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
@@ -851,6 +941,38 @@ DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
+## MIT License: cargo_metadata
+
+The following text applies to code linked from these dependencies:
+[cargo_metadata](https://github.com/oli-obk/cargo_metadata)
+
+```
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
 ## MIT License: caseless
 
 The following text applies to code linked from these dependencies:
@@ -880,6 +1002,95 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+```
+-------------
+## MIT License: clap
+
+The following text applies to code linked from these dependencies:
+[clap](https://github.com/clap-rs/clap)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015-2016 Kevin B. Knapp
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: dashmap
+
+The following text applies to code linked from these dependencies:
+[dashmap](https://github.com/xacrimon/dashmap)
+
+```
+MIT License
+
+Copyright (c) 2019 Acrimon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: generic-array
+
+The following text applies to code linked from these dependencies:
+[generic-array](https://github.com/fizyk20/generic-array.git)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Bartłomiej Kamiński
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 -------------
 ## MIT License: h2
@@ -987,7 +1198,7 @@ The following text applies to code linked from these dependencies:
 [ws2_32-sys](https://github.com/retep998/winapi-rs)
 
 ```
-Copyright (c) 2015 The winapi-rs Developers
+Copyright (c) 2015-2018 The winapi-rs Developers
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1103,6 +1314,36 @@ SOFTWARE.
 
 ```
 -------------
+## MIT License: miniz_oxide
+
+The following text applies to code linked from these dependencies:
+[miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide)
+
+```
+MIT License
+
+Copyright (c) 2017 Frommi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
 ## MIT License: mio
 
 The following text applies to code linked from these dependencies:
@@ -1128,6 +1369,35 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+```
+-------------
+## MIT License: nom
+
+The following text applies to code linked from these dependencies:
+[nom](https://github.com/Geal/nom)
+
+```
+Copyright (c) 2014-2019 Geoffroy Couprie
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
@@ -1162,6 +1432,70 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: ordered-float
+
+The following text applies to code linked from these dependencies:
+[ordered-float](https://github.com/reem/rust-ordered-float)
+
+```
+Copyright (c) 2015 Jonathan Reem
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: oslog
+
+The following text applies to code linked from these dependencies:
+[oslog](https://github.com/steven-joruk/oslog)
+
+```
+MIT License
+
+Copyright (c) 2020 Steven Joruk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------
@@ -1231,12 +1565,45 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ```
 -------------
-## MIT License: tokio, tokio-tls, tokio-util
+## MIT License: textwrap
+
+The following text applies to code linked from these dependencies:
+[textwrap](https://github.com/mgeisler/textwrap)
+
+```
+MIT License
+
+Copyright (c) 2016 Martin Geisler
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures
 
 The following text applies to code linked from these dependencies:
 [tokio-tls](https://github.com/tokio-rs/tokio),
 [tokio-util](https://github.com/tokio-rs/tokio),
-[tokio](https://github.com/tokio-rs/tokio)
+[tokio](https://github.com/tokio-rs/tokio),
+[tracing-core](https://github.com/tokio-rs/tracing),
+[tracing-futures](https://github.com/tokio-rs/tracing),
+[tracing](https://github.com/tokio-rs/tracing)
 
 ```
 Copyright (c) 2019 Tokio Contributors
@@ -1360,6 +1727,29 @@ THE SOFTWARE.
 
 ```
 -------------
+## MIT License: weedle
+
+The following text applies to code linked from these dependencies:
+[weedle](https://github.com/rustwasm/weedle)
+
+```
+Copyright 2018-Present Sharad Chand
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+-------------
 ## MIT License: winapi
 
 The following text applies to code linked from these dependencies:
@@ -1369,6 +1759,36 @@ The following text applies to code linked from these dependencies:
 The MIT License (MIT)
 
 Copyright (c) 2015 Peter Atashian
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+```
+-------------
+## MIT License: winapi-util
+
+The following text applies to code linked from these dependencies:
+[winapi-util](https://github.com/BurntSushi/winapi-util)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2017 Andrew Gallant
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1568,6 +1988,41 @@ SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
 OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+```
+-------------
+## BSD-2-Clause License: arrayref
+
+The following text applies to code linked from these dependencies:
+[arrayref](https://github.com/droundy/arrayref)
+
+```
+Copyright (c) 2015 David Roundy <roundyd@physics.oregonstate.edu>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in the
+   documentation and/or other materials provided with the
+   distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ```
 -------------

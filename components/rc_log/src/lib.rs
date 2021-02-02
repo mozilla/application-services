@@ -52,7 +52,7 @@ pub(crate) fn string_to_cstring_lossy(s: String) -> CString {
     CString::new(bytes).expect("Bug in string_to_cstring_lossy!")
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(i32)]
 pub enum LogLevel {
     // Android logger levels
@@ -61,6 +61,17 @@ pub enum LogLevel {
     INFO = 4,
     WARN = 5,
     ERROR = 6,
+}
+
+impl LogLevel {
+    /// Equivalent to the `into()` conversion but avoids reporting network
+    /// errors as errors, and downgrades them into warnings.
+    pub(crate) fn from_level_and_message(mut level: log::Level, msg: &str) -> Self {
+        if level == log::Level::Error && msg.contains("[no-sentry]") {
+            level = log::Level::Warn;
+        }
+        level.into()
+    }
 }
 
 impl From<log::Level> for LogLevel {
@@ -105,11 +116,13 @@ pub extern "C" fn rc_log_adapter_set_max_level(level: i32, out_err: &mut ffi_sup
 // Can't use define_box_destructor because this can panic. TODO: Maybe we should
 // keep this around globally (as lazy_static or something) and basically just
 // turn it on/off in create/destroy... Might be more reliable?
+/// # Safety
+/// Unsafe because it frees it's argument.
 #[no_mangle]
-pub extern "C" fn rc_log_adapter_destroy(to_destroy: Option<Box<imp::LogAdapterState>>) {
+pub unsafe extern "C" fn rc_log_adapter_destroy(to_destroy: *mut imp::LogAdapterState) {
     ffi_support::abort_on_panic::call_with_output(move || {
         log::set_max_level(log::LevelFilter::Off);
-        drop(to_destroy);
+        drop(Box::from_raw(to_destroy));
         settable_log::unset_logger();
     })
 }
@@ -123,3 +136,34 @@ pub extern "C" fn rc_log_adapter_test__log_msg(msg: ffi_support::FfiStr<'_>) {
 }
 
 ffi_support::define_string_destructor!(rc_log_adapter_destroy_string);
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_level_msg() {
+        assert_eq!(
+            LogLevel::ERROR,
+            LogLevel::from_level_and_message(
+                log::Level::Error,
+                "Rusqlite Error: The database is wrong and bad.",
+            ),
+            "Normal errors should come through as errors",
+        );
+
+        assert_eq!(
+            LogLevel::WARN,
+            LogLevel::from_level_and_message(
+                log::Level::Error,
+                "Network Error: [no-sentry] Network error: the server is furious at you.",
+            ),
+            "[no-sentry] errors should come through as warnings",
+        );
+
+        assert_eq!(
+            LogLevel::INFO,
+            LogLevel::from_level_and_message(log::Level::Info, "[no-sentry] 🙀"),
+            "Everything else should be unchanged, even if it has a [no-sentry] tag",
+        );
+    }
+}

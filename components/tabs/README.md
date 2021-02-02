@@ -46,7 +46,7 @@ Currently for platforms using the sync-manager provided in this repo, the `clien
 
 **Platform-specific details**:
 - <TODO-ST> Android
-- iOS: start with the [guide to consuming rust components on iOS](https://github.com/mozilla/application-services/blob/master/docs/howtos/consuming-rust-components-on-ios.md)
+- iOS: start with the [guide to consuming rust components on iOS](https://github.com/mozilla/application-services/blob/main/docs/howtos/consuming-rust-components-on-ios.md)
 
 ## API Documentation
 - TODO

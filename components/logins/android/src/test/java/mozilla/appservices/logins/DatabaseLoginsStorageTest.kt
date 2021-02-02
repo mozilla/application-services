@@ -178,6 +178,16 @@ class DatabaseLoginsStorageTest {
         assert(LoginsStoreMetrics.unlockErrorCount["invalid_key"].testHasValue())
         assertEquals(LoginsStoreMetrics.unlockErrorCount["invalid_key"].testGetValue(), 1)
 
+        try {
+            store.unlock(key)
+            fail("Should have thrown")
+        } catch (e: MismatchedLockException) {
+            // All good.
+        }
+        assertEquals(LoginsStoreMetrics.unlockCount.testGetValue(), 4)
+        assert(LoginsStoreMetrics.unlockErrorCount["mismatched_lock"].testHasValue())
+        assertEquals(LoginsStoreMetrics.unlockErrorCount["mismatched_lock"].testGetValue(), 1)
+
         assert(!LoginsStoreMetrics.writeQueryTime.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
@@ -196,17 +206,19 @@ class DatabaseLoginsStorageTest {
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
+        // N.B. this is invalid due to `formSubmitURL` being an invalid url.
+        val invalid = ServerPassword(
+            id = "bbbbbbbbbbbb",
+            hostname = "https://test.example.com",
+            formSubmitURL = "not a url",
+            username = "Foobar2000",
+            password = "hunter2",
+            usernameField = "users_name",
+            passwordField = "users_password"
+        )
+
         try {
-            // N.B. this is invalid due to `formSubmitURL` being an invalid url.
-            store.add(ServerPassword(
-                    id = "bbbbbbbbbbbb",
-                    hostname = "https://test.example.com",
-                    formSubmitURL = "not a url",
-                    username = "Foobar2000",
-                    password = "hunter2",
-                    usernameField = "users_name",
-                    passwordField = "users_password"
-            ))
+            store.add(invalid)
             fail("Should have thrown")
         } catch (e: InvalidRecordException) {
             // All good.
@@ -226,6 +238,18 @@ class DatabaseLoginsStorageTest {
         assert(LoginsStoreMetrics.readQueryTime.testHasValue())
         assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
+
+        // Ensure that ensureValid doesn't cause us to record invalid_record errors.
+        try {
+            store.ensureValid(invalid)
+            fail("Should have thrown")
+        } catch (e: InvalidRecordException) {
+            // All good.
+        }
+
+        assert(LoginsStoreMetrics.readQueryTime.testHasValue())
+        assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 2)
+        assert(!LoginsStoreMetrics.readQueryErrorCount["invalid_record"].testHasValue())
 
         finishAndClose(store)
     }

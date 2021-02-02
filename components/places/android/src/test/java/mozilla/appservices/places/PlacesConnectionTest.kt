@@ -174,6 +174,67 @@ class PlacesConnectionTest {
         assertEquals("https://news.ycombinator.com/", db.matchUrl("news"))
     }
 
+    @Test
+    fun testGetTopFrecentSiteInfos() {
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.DOWNLOAD))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.EMBED))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_PERMANENT))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.REDIRECT_TEMPORARY))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.FRAMED_LINK))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.RELOAD))
+
+        val toAdd = listOf(
+                "https://www.example.com/123",
+                "https://www.example.com/123",
+                "https://www.example.com/12345",
+                "https://www.mozilla.com/foo/bar/baz",
+                "https://www.mozilla.com/foo/bar/baz",
+                "https://mozilla.com/a1/b2/c3",
+                "https://news.ycombinator.com/",
+                "https://www.mozilla.com/foo/bar/baz"
+        )
+
+        for (url in toAdd) {
+            db.noteObservation(VisitObservation(url = url, visitType = VisitType.LINK))
+        }
+
+        var infos = db.getTopFrecentSiteInfos(numItems = 0, frecencyThreshold = FrecencyThresholdOption.NONE)
+
+        assertEquals(0, infos.size)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 0, frecencyThreshold = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES)
+
+        assertEquals(0, infos.size)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 3, frecencyThreshold = FrecencyThresholdOption.NONE)
+
+        assertEquals(3, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+        assertEquals("https://news.ycombinator.com/", infos[2].url)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 3, frecencyThreshold = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES)
+
+        assertEquals(2, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 5, frecencyThreshold = FrecencyThresholdOption.NONE)
+
+        assertEquals(5, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+        assertEquals("https://news.ycombinator.com/", infos[2].url)
+        assertEquals("https://mozilla.com/a1/b2/c3", infos[3].url)
+        assertEquals("https://www.example.com/12345", infos[4].url)
+
+        infos = db.getTopFrecentSiteInfos(numItems = 5, frecencyThreshold = FrecencyThresholdOption.SKIP_ONE_TIME_PAGES)
+
+        assertEquals(2, infos.size)
+        assertEquals("https://www.mozilla.com/foo/bar/baz", infos[0].url)
+        assertEquals("https://www.example.com/123", infos[1].url)
+    }
+
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
     // as well as the handling of invalid urls.
     @Test

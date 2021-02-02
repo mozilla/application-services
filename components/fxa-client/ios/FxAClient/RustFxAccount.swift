@@ -104,18 +104,48 @@ open class RustFxAccount {
     /// Once the user has confirmed the authorization grant, they will get redirected to `redirect_url`:
     /// the caller must intercept that redirection, extract the `code` and `state` query parameters and call
     /// `completeOAuthFlow(...)` to complete the flow.
-    open func beginOAuthFlow(scopes: [String]) throws -> URL {
+    open func beginOAuthFlow(
+        scopes: [String],
+        entrypoint: String,
+        metricsParams: MetricsParams
+    ) throws -> URL {
         let scope = scopes.joined(separator: " ")
-        let ptr = try rustCall { err in
-            fxa_begin_oauth_flow(self.raw, scope, err)
+        let (metricsParamsData, metricsParamsLen) = msgToBuffer(msg: metricsParams.toMsg())
+        let ptr = try metricsParamsData.withUnsafeBytes { bytes in
+            try rustCall { err in
+                fxa_begin_oauth_flow(
+                    self.raw,
+                    scope,
+                    entrypoint,
+                    bytes.bindMemory(to: UInt8.self).baseAddress!,
+                    metricsParamsLen,
+                    err
+                )
+            }
         }
         return URL(string: String(freeingFxaString: ptr))!
     }
 
-    open func beginPairingFlow(pairingUrl: String, scopes: [String]) throws -> URL {
+    open func beginPairingFlow(
+        pairingUrl: String,
+        scopes: [String],
+        entrypoint: String,
+        metricsParams: MetricsParams
+    ) throws -> URL {
         let scope = scopes.joined(separator: " ")
-        let ptr = try rustCall { err in
-            fxa_begin_pairing_flow(self.raw, pairingUrl, scope, err)
+        let (metricsParamsData, metricsParamsLen) = msgToBuffer(msg: metricsParams.toMsg())
+        let ptr = try metricsParamsData.withUnsafeBytes { bytes in
+            try rustCall { err in
+                fxa_begin_pairing_flow(
+                    self.raw,
+                    pairingUrl,
+                    scope,
+                    entrypoint,
+                    bytes.bindMemory(to: UInt8.self).baseAddress!,
+                    metricsParamsLen,
+                    err
+                )
+            }
         }
         return URL(string: String(freeingFxaString: ptr))!
     }
@@ -138,6 +168,7 @@ open class RustFxAccount {
     /// the desired scope.
     open func getAccessToken(scope: String, ttl: UInt64? = nil) throws -> AccessTokenInfo {
         let ptr = try rustCall { err in
+            // A zero ttl here means to use the server-controlled default.
             fxa_get_access_token(self.raw, scope, ttl ?? .zero, err)
         }
         defer { fxa_bytebuffer_free(ptr) }
@@ -303,6 +334,14 @@ open class RustFxAccount {
         try rustCall { err in
             fxa_handle_session_token_change(self.raw, sessionToken, err)
         }
+    }
+
+    open func gatherTelemetry() throws -> String? {
+        let maybeEvents = try nullableRustCall { err in fxa_gather_telemetry(self.raw, err) }
+        guard let events = maybeEvents else {
+            return nil
+        }
+        return String(freeingFxaString: events)
     }
 
     private func msgToBuffer(msg: SwiftProtobuf.Message) -> (Data, Int32) {

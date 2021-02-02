@@ -51,7 +51,7 @@ impl Backend for FfiBackend {
         let response = unsafe { fetch(buf) };
         // This way we'll Drop it if we panic, unlike if we just got a slice into
         // it. Besides, we already own it.
-        let response_bytes = response.into_vec();
+        let response_bytes = response.destroy_into_vec();
 
         let response: msg_types::Response = match Message::decode(response_bytes.as_slice()) {
             Ok(v) => v,
@@ -64,11 +64,6 @@ impl Backend for FfiBackend {
         };
 
         if let Some(exn) = response.exception_message {
-            log::error!(
-                // Well, we caught *something* java wanted to tell us about, anyway.
-                "Caught network error (presumably). Message: {:?}",
-                exn
-            );
             return Err(Error::NetworkError(format!("Java error: {:?}", exn)));
         }
         let status = response
@@ -159,15 +154,17 @@ mod callback_holder {
     /// Set the function pointer to the FetchCallback. Returns false if we did nothing because the callback had already been initialized
     pub(super) fn set_callback(h: FetchCallback) -> bool {
         let as_usize = h as usize;
-        let old_ptr = CALLBACK_PTR.compare_and_swap(0, as_usize, Ordering::SeqCst);
-        if old_ptr != 0 {
-            // This is an internal bug, the other side of the FFI should ensure
-            // it sets this only once. Note that this is actually going to be
-            // before logging is initialized in practice, so there's not a lot
-            // we can actually do here.
-            log::error!("Bug: Initialized CALLBACK_PTR multiple times");
+        match CALLBACK_PTR.compare_exchange(0, as_usize, Ordering::SeqCst, Ordering::SeqCst) {
+            Ok(_) => true,
+            Err(_) => {
+                // This is an internal bug, the other side of the FFI should ensure
+                // it sets this only once. Note that this is actually going to be
+                // before logging is initialized in practice, so there's not a lot
+                // we can actually do here.
+                log::error!("Bug: Initialized CALLBACK_PTR multiple times");
+                false
+            }
         }
-        old_ptr == 0
     }
 }
 
