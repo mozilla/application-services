@@ -51,7 +51,7 @@ and the integrity-protection mechanisms that apply at each step:
     * The ability to create new releases is managed entirely via github's permission model.
     * TODO: the [github org security guidelines](https://wiki.mozilla.org/GitHub/Repository_Security)
       recommend signing tags, and auditing all included commits as part of the release process.
-      We should conider some tooling to support this. I don't think there's any way to force 
+      We should consider some tooling to support this. I don't think there's any way to force
       githib to only accept signed releases in the same way it can enforce signed commits.
 3. TaskCluster checks out the release tag, builds it for all target platforms, and runs automated tests.
     * These tasks run in a pre-built docker image, helping assure integrity of the build environment.
@@ -85,3 +85,9 @@ For iOS consumers the corresponding steps are:
 It's worth noting that Carthage will *prefer* to use the built binary artifacts,
 but will happily check out the tag and compile from source itself if such artifacts
 are not available.
+
+This is a diagram of the pipeline as it exists (and is planned) for the Nimbus SDK, one of the
+libraries in Application Services:
+(Source: https://miro.com/app/board/o9J_lWx3jhY=/)
+
+![Nimbus SDK Build and Publish Pipeline](./diagrams/Nimbus-SDK-Build-and-Publish-Pipeline.jpg)
