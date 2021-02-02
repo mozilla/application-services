@@ -3,3 +3,5 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v69.0.0...main)
+
+- The bundled version of Glean has been updated to v34.0.0.

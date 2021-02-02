@@ -1,8 +1,7 @@
 # Guide to Consuming Rust Components on iOS
 
-The application services libraries are published as a single zip file containing all the individual component frameworks (such as *Logins.framework*, *FxAClient.framework*) and also a single composite (megazord) framework called *MozillaAppServices.framework* containing all the components.
-
-The client-side can choose to use a single component framework, or the composite.
+The application services libraries are published as a zip file containing a single composite (megazord) framework called *MozillaAppServices.framework*,
+which contains the compiled code for all components.
 
 The package is published as a release on github: https://github.com/mozilla/application-services/releases
 
@@ -14,8 +13,8 @@ The package is published as a release on github: https://github.com/mozilla/appl
 - Add additional dependencies, see [below](#additional-dependencies).
 
 ### Adding a carthage provided framework to Xcode
-- In general, to do this, add *XXX.framework* from *Carthage/Build/iOS* to *Link binary with Libraries* for the Xcode target
-- `MozillaAppServices.framework` is being built as a static lib; therefore, do _not_ follow the standard Carthage procedure of adding it to your `carthage copy-frameworks` script.
+- In general, to do this, add *XXX.framework* from *Carthage/Build/iOS* to *Link binary with Libraries* for the Xcode target.
+- Update the list of additional dependencies below, so that consumers know to include the framework in their final build.
 
 ### Using a Circle-CI built framework
 

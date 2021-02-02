@@ -11,16 +11,13 @@ has a number of advantages:
 
 This process is affectionately known as "megazording" and the resulting artifact as a ***megazord library***.
 
-On iOS, this process is quite straightforward: we build all the rust code into a single statically-linked
-framework, and the consuming application can import the corresponding Swift wrappers and link in just the
-parts of the framework that it needs at compile time.
-
-On Android, the situation is more complex due to the way packages and dependencies are managed.
+On Android, the situation is quite complex due to the way packages and dependencies are managed.
 We need to distribute each component as a separate Android ARchive (AAR) that can be managed as a dependency
 via gradle, we need to provide a way for the application to avoid shipping rust code for components that it
 isn't using, and we need to do it in a way that maintanins the advantages listed above.
 
-This document describes our current approach to meeting all those requirements on Android.
+This document describes our current approach to meeting all those requirements on Android. Other platforms
+such as iOS are not considered.
 
 ## AAR Dependency Graph
 

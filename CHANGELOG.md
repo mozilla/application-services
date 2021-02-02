@@ -8,6 +8,12 @@
  - Updated nimbus-sdk to 0.7.1
  - Updated Android Components to 71.0.0
 
+## iOS
+
+### What's Changed
+ - The `MozillaAppServices.framework` artifact now contains a dynamically-linked library
+   rather than a static library.
+
 # v68.1.0 (_2020-12-17_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v68.0.0...v68.1.0)

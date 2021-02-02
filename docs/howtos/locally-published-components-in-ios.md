@@ -10,7 +10,7 @@ consumer project. Here are our current best-practices for approaching this on iO
 
    ```
    rm -rf Carthage/Build/iOS/MozillaAppServices.framework
-   ln -s path/to/application-services/Carthage/Build/iOS/Static/MozillaAppServices.framework Carthage/Build/iOS
+   ln -s path/to/application-services/Carthage/Build/iOS/MozillaAppServices.framework Carthage/Build/iOS
    ```
 1. Open the consuming app project in XCode and build it from there.
 
