@@ -19,7 +19,7 @@
 ### What's Changed
 
 - The `CreditCard` and `Address` records now exposes additional metadata around timestampes.
-- The ability to sync incoming address records has been added.
+- Infrastructure for syncing incoming address records has been added.
 
 # v69.0.0 (_2021-01-28_)
 
