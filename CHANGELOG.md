@@ -1,3 +1,26 @@
+# v70.0.0 (_2021-02-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v69.0.0...v70.0.0)
+
+## General
+
+### What's Changed
+
+- The bundled version of Glean has been updated to v34.0.0.
+- The bundled version of the Nimbus SDK has been updated to v0.7.2.
+
+## Autofill
+
+### ⚠️ Breaking changes ⚠️
+
+- The `NewCreditCardFields` record is now called `UpdatableCreditCardFields`.
+- The `NewAddressFields` record is now called `UpdatableAddressFields`.
+
+### What's Changed
+
+- The `CreditCard` and `Address` records now exposes additional metadata around timestampes.
+- Infrastructure for syncing incoming address records has been added.
+
 # v69.0.0 (_2021-01-28_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v68.1.0...v69.0.0)
