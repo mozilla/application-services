@@ -151,4 +151,21 @@ interface NimbusClient {
     // Opt out of a specific experiment.
     [Throws=Error]
     sequence<EnrollmentChangeEvent> opt_out(string experiment_slug);
+
+    // Reset internal state in response to application-level telemetry reset.
+    //
+    // Consumers should call this method when the user resets the telemetry state of the
+    // consuming application, such as by opting out of submitting telemetry. It resets the
+    // internal state of the Nimbus client to create a clean break between data collected
+    // before and after the reset, including:
+    //
+    //    * clearing any unique identifiers used internally, so they will reset to
+    //      new random values on next use.
+    //    * accepting new randomization units, based on application-level ids that
+    //      may have also changed.
+    //    * disqualifying this client out of any active experiments, to avoid submitting
+    //      misleading incomplete data.
+    //
+    [Throws=Error]
+    sequence<EnrollmentChangeEvent> reset_telemetry_identifiers(AvailableRandomizationUnits new_randomization_units);
 };

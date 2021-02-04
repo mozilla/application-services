@@ -22,13 +22,23 @@ const DB_VERSION: u16 = 1; // Increment and implement a DB migration in `maybe_u
 // Select the LMDB-powered storage backend when the feature is not activated.
 #[cfg(not(feature = "rkv-safe-mode"))]
 mod backend {
+    use rkv::backend::{
+        Lmdb, LmdbDatabase, LmdbEnvironment, LmdbRoCursor, LmdbRoTransaction, LmdbRwTransaction,
+    };
     use std::path::Path;
-    //use rkv::Readable;
-    use rkv::backend::{Lmdb, LmdbDatabase, LmdbEnvironment, LmdbRwTransaction};
 
     pub type Rkv = rkv::Rkv<LmdbEnvironment>;
     pub type RkvSingleStore = rkv::SingleStore<LmdbDatabase>;
+    pub type Reader<'t> = rkv::Reader<LmdbRoTransaction<'t>>;
     pub type Writer<'t> = rkv::Writer<LmdbRwTransaction<'t>>;
+    pub trait Readable<'r>:
+        rkv::Readable<'r, Database = LmdbDatabase, RoCursor = LmdbRoCursor<'r>>
+    {
+    }
+    impl<'r, T: rkv::Readable<'r, Database = LmdbDatabase, RoCursor = LmdbRoCursor<'r>>>
+        Readable<'r> for T
+    {
+    }
 
     pub fn rkv_new(path: &Path) -> Result<Rkv, rkv::StoreError> {
         Rkv::new::<Lmdb>(path)
@@ -38,20 +48,34 @@ mod backend {
 // Select the "safe mode" storage backend when the feature is activated.
 #[cfg(feature = "rkv-safe-mode")]
 mod backend {
-    use rkv::backend::{SafeMode, SafeModeDatabase, SafeModeEnvironment, SafeModeRwTransaction};
+    use rkv::backend::{
+        SafeMode, SafeModeDatabase, SafeModeEnvironment, SafeModeRoCursor, SafeModeRoTransaction,
+        SafeModeRwTransaction,
+    };
     use std::path::Path;
 
     pub type Rkv = rkv::Rkv<SafeModeEnvironment>;
     pub type RkvSingleStore = rkv::SingleStore<SafeModeDatabase>;
+    pub type Reader<'t> = rkv::Reader<SafeModeRoTransaction<'t>>;
     pub type Writer<'t> = rkv::Writer<SafeModeRwTransaction<'t>>;
+    pub trait Readable<'r>:
+        rkv::Readable<'r, Database = SafeModeDatabase, RoCursor = SafeModeRoCursor<'r>>
+    {
+    }
+    impl<
+            'r,
+            T: rkv::Readable<'r, Database = SafeModeDatabase, RoCursor = SafeModeRoCursor<'r>>,
+        > Readable<'r> for T
+    {
+    }
 
     pub fn rkv_new(path: &Path) -> Result<Rkv, rkv::StoreError> {
         Rkv::new::<SafeMode>(path)
     }
 }
 
-pub use backend::Writer;
 use backend::*;
+pub use backend::{Readable, Writer};
 
 //#[derive(Copy, Clone)]
 pub enum StoreId {
@@ -99,12 +123,12 @@ impl SingleStore {
     // get what we've written to the transaction before it's committed).
     // It's unfortunate that these are duplicated with the DB itself, but the
     // traits used by rkv make this tricky.
-    pub fn get<T: serde::Serialize + for<'de> serde::Deserialize<'de>>(
-        &self,
-        writer: &Writer,
-        key: &str,
-    ) -> Result<Option<T>> {
-        let persisted_data = self.store.get(writer, key)?;
+    pub fn get<'r, T, R>(&self, reader: &'r R, key: &str) -> Result<Option<T>>
+    where
+        R: Readable<'r>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de>,
+    {
+        let persisted_data = self.store.get(reader, key)?;
         match persisted_data {
             Some(data) => {
                 if let rkv::Value::Json(data) = data {
@@ -117,12 +141,13 @@ impl SingleStore {
         }
     }
 
-    pub fn collect_all<T: serde::Serialize + for<'de> serde::Deserialize<'de>>(
-        &self,
-        writer: &Writer,
-    ) -> Result<Vec<T>> {
+    pub fn collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
+    where
+        R: Readable<'r>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de>,
+    {
         let mut result = Vec::new();
-        let mut iter = self.store.iter_start(writer)?;
+        let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
                 result.push(serde_json::from_str::<T>(&data)?);
@@ -168,7 +193,7 @@ impl Database {
 
     fn maybe_upgrade(&self) -> Result<()> {
         let mut writer = self.rkv.write()?;
-        let db_version = self.meta_store.get::<u16>(&writer, DB_KEY_DB_VERSION)?;
+        let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
         match db_version {
             Some(DB_VERSION) => return Ok(()),
             None => {
@@ -241,6 +266,11 @@ impl Database {
         Ok(rkv)
     }
 
+    /// Function used to obtain a "reader" which is used for read-only transactions.
+    pub fn read(&self) -> Result<Reader> {
+        Ok(self.rkv.read()?)
+    }
+
     /// Function used to obtain a "writer" which is used for transactions.
     /// The `writer.commit();` must be called to commit data added via the
     /// writer.
@@ -251,9 +281,11 @@ impl Database {
     /// Function used to retrieve persisted data outside of a transaction.
     /// It allows retrieval of any serializable and deserializable data
     /// Currently only supports JSON data
+    // Only available for tests; product code should always be using transactions.
     ///
     /// # Arguments
     /// - `key`: A key for the data stored in the underlying database
+    #[cfg(test)]
     pub fn get<T: serde::Serialize + for<'de> serde::Deserialize<'de>>(
         &self,
         store_id: StoreId,
@@ -273,8 +305,11 @@ impl Database {
         }
     }
 
+    // Function for collecting all items in a store outside of a transaction.
+    // Only available for tests; product code should always be using transactions.
     // Iters are a bit tricky - would be nice to make them generic, but this will
     // do for our use-case.
+    #[cfg(test)]
     pub fn collect_all<T: serde::Serialize + for<'de> serde::Deserialize<'de>>(
         &self,
         store_id: StoreId,
