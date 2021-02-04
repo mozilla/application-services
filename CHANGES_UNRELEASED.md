@@ -9,6 +9,7 @@
 ### What's Changed
 
 - The bundled version of Glean has been updated to v34.0.0.
+- The bundled version of the Nimbus SDK has been updated to v0.7.2.
 
 ## Autofill
 
