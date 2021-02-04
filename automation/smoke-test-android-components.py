@@ -71,7 +71,12 @@ elif action == "run-tests" or action is None:
     with Path(repo_path, ".buildconfig.yml").open() as f:
         buildconfig = yaml.safe_load(f.read())
     for (project, details) in buildconfig["projects"].items():
-        with Path(repo_path, details["path"], "build.gradle").open() as f:
+        build_dot_gradle = Path(repo_path, details["path"], "build.gradle")
+        if not build_dot_gradle.exists():
+            build_dot_gradle = Path(repo_path, details["path"], "build.gradle.kts")
+            if not build_dot_gradle.exists():
+                continue
+        with build_dot_gradle.open() as f:
             for ln in f:
                 for dep_name in dep_names:
                     if dep_name in ln:
