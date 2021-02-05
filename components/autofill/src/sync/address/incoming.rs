@@ -31,16 +31,27 @@ pub fn stage_incoming(
     let mut incoming_tombstones = Vec::with_capacity(incoming_payloads.len());
 
     for payload in incoming_payloads {
+        let payload_id = payload.id.clone();
+        let payload_is_tombstone = payload.deleted;
         log::trace!(
             "incoming payload {} (deleted={})",
-            payload.id,
-            payload.deleted
+            payload_id,
+            payload_is_tombstone,
         );
-        match payload.deleted {
-            // XXX - unwraps below should be removed. We probably want to handle
-            // the error and log then ignore the error.
-            true => incoming_tombstones.push(payload.into_record::<AddressRecord>().unwrap()),
-            false => incoming_records.push(payload.into_record::<AddressRecord>().unwrap()),
+
+        match payload.into_record::<AddressRecord>() {
+            Ok(address) => {
+                if payload_is_tombstone {
+                    incoming_tombstones.push(address);
+                } else {
+                    incoming_records.push(address);
+                }
+            }
+            Err(e) => log::error!(
+                "failed to deserialize incoming payload {} into `AddressRecord`, {}",
+                payload_id,
+                e,
+            ),
         };
     }
     save_incoming_records(conn, incoming_records, signal)?;
@@ -118,26 +129,19 @@ fn save_incoming_tombstones(
     signal: &dyn Interruptee,
 ) -> Result<()> {
     log::info!("staging {} incoming tombstones", incoming_tombstones.len());
-    let chunk_size = 1; // XXX - chunk_size of 1 seems wrong?
-    sql_support::each_sized_chunk(
-        &incoming_tombstones,
-        sql_support::default_max_variable_number() / chunk_size,
-        |chunk, _| -> Result<()> {
-            let sql = format!(
-                "INSERT OR REPLACE INTO temp.addresses_tombstone_sync_staging (
+    sql_support::each_chunk(&incoming_tombstones, |chunk, _| -> Result<()> {
+        let sql = format!(
+            "INSERT OR REPLACE INTO temp.addresses_tombstone_sync_staging (
                     guid
                 ) VALUES {}",
-                sql_support::repeat_multi_values(chunk.len(), chunk_size)
-            );
-            let mut params = Vec::with_capacity(chunk.len() * chunk_size);
-            for record in chunk {
-                signal.err_if_interrupted()?;
-                params.push(&record.guid as &dyn ToSql);
-            }
-            conn.execute(&sql, &params)?;
-            Ok(())
-        },
-    )
+            sql_support::repeat_sql_values(chunk.len())
+        );
+        signal.err_if_interrupted()?;
+
+        let params: Vec<&dyn ToSql> = chunk.iter().map(|r| &r.guid as &dyn ToSql).collect();
+        conn.execute(&sql, &params)?;
+        Ok(())
+    })
 }
 
 /// Incoming tombstones are retrieved from the `addresses_tombstone_sync_staging` table
@@ -266,32 +270,31 @@ fn get_incoming_record_states(conn: &Connection) -> Result<Vec<IncomingState>> {
     Ok(conn
         .conn()
         .query_rows_and_then_named(sql_query, &[], |row| -> Result<IncomingState> {
-            // XXX - change these to something like `mirror_exists` - that's how they are used.
-            let mirror_guid: Option<SyncGuid> = row.get_unwrap("m_guid");
-            let local_guid: Option<SyncGuid> = row.get_unwrap("l_guid");
+            let mirror_exists: bool = row.get::<_, SyncGuid>("m_guid").is_ok();
+            let local_exists: bool = row.get::<_, SyncGuid>("l_guid").is_ok();
             let tombstone_guid: Option<SyncGuid> = row.get_unwrap("t_guid");
 
             let incoming = AddressRecord::from_row(row, "s_")?;
-
-            let mirror = match mirror_guid {
-                Some(_) => Some(AddressRecord::from_row(row, "m_")?),
-                None => None,
+            let mirror = if mirror_exists {
+                Some(AddressRecord::from_row(row, "m_")?)
+            } else {
+                None
             };
-            let local = match local_guid {
-                Some(_) => {
-                    let record = AddressRecord::from_row(row, "l_")?;
-                    let has_changes = record.sync_change_counter.unwrap_or(0) != 0;
-                    if has_changes {
-                        LocalRecordInfo::Modified { record }
-                    } else {
-                        LocalRecordInfo::Unmodified { record }
-                    }
+            let local = if local_exists {
+                let record = AddressRecord::from_row(row, "l_")?;
+                let has_changes = record.sync_change_counter.unwrap_or(0) != 0;
+                if has_changes {
+                    LocalRecordInfo::Modified { record }
+                } else {
+                    LocalRecordInfo::Unmodified { record }
                 }
-                None => match tombstone_guid {
+            } else {
+                match tombstone_guid {
                     None => LocalRecordInfo::Missing,
                     Some(guid) => LocalRecordInfo::Tombstone { guid },
-                },
+                }
             };
+
             Ok(IncomingState {
                 incoming: IncomingRecordInfo::Record { record: incoming },
                 local,
@@ -375,7 +378,13 @@ impl RecordImpl for AddressesImpl {
     ) -> MergeResult<Self::Record> {
         let mut merged_record: Self::Record = Default::default();
         // guids must be identical
-        assert_eq!(incoming.guid, local.guid); // check mirror too?
+        assert_eq!(incoming.guid, local.guid);
+
+        match mirror {
+            Some(m) => assert_eq!(incoming.guid, m.guid),
+            None => {}
+        };
+
         merged_record.guid = incoming.guid.clone();
 
         field_check!(given_name, incoming, local, mirror, merged_record);
