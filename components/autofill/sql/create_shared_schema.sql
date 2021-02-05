@@ -92,3 +92,9 @@ CREATE TABLE IF NOT EXISTS credit_cards_tombstones (
     guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
     time_deleted    INTEGER NOT NULL
 ) WITHOUT ROWID;
+
+-- This table holds key-value metadata for the Autofill component and its consumers.
+CREATE TABLE IF NOT EXISTS moz_meta (
+    key TEXT PRIMARY KEY,
+    value NOT NULL
+) WITHOUT ROWID;

@@ -4,7 +4,7 @@
 */
 
 pub mod address;
-// pub mod credit_card;
+pub mod credit_card;
 
 use crate::error::Result;
 use interrupt_support::Interruptee;
@@ -217,7 +217,7 @@ trait RecordImpl {
     // Apply a specific action
     fn apply_action(&self, conn: &Connection, action: IncomingAction<Self::Record>) -> Result<()>;
 
-    // Will need new stuff for, "finish incoming" and all outgoing.
+    // TODO: Will need new stuff for, "finish incoming" and all outgoing.
 }
 
 // needs a better name :) But this is how all the above ties together.
@@ -248,6 +248,3 @@ pub mod test {
         db
     }
 }
-
-#[cfg(test)]
-mod tests;

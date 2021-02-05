@@ -6,6 +6,11 @@ use crate::db::models::address::{Address, UpdatableAddressFields};
 use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
 use crate::db::{addresses, credit_cards, AutofillDb};
 use crate::error::*;
+use rusqlite::{
+    types::{FromSql, ToSql},
+    Connection,
+};
+use sql_support::{self, ConnExt};
 use std::path::Path;
 use sync_guid::Guid;
 
@@ -105,5 +110,69 @@ impl Store {
     #[allow(dead_code)]
     pub fn touch_address(&self, guid: String) -> Result<()> {
         addresses::touch(&self.db.writer, &Guid::new(&guid))
+    }
+}
+
+pub(crate) fn put_meta(conn: &Connection, key: &str, value: &dyn ToSql) -> Result<()> {
+    conn.execute_named_cached(
+        "REPLACE INTO moz_meta (key, value) VALUES (:key, :value)",
+        &[(":key", &key), (":value", value)],
+    )?;
+    Ok(())
+}
+
+pub(crate) fn get_meta<T: FromSql>(conn: &Connection, key: &str) -> Result<Option<T>> {
+    let res = conn.try_query_one(
+        "SELECT value FROM moz_meta WHERE key = :key",
+        &[(":key", &key)],
+        true,
+    )?;
+    Ok(res)
+}
+
+pub(crate) fn delete_meta(conn: &Connection, key: &str) -> Result<()> {
+    conn.execute_named_cached("DELETE FROM moz_meta WHERE key = :key", &[(":key", &key)])?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::test::new_mem_db;
+    use rusqlite::NO_PARAMS;
+
+    #[test]
+    fn test_autofill_meta() -> Result<()> {
+        let db = new_mem_db();
+        let test_key = "TEST KEY A";
+        let test_value = "TEST VALUE A";
+        let test_key2 = "TEST KEY B";
+        let test_value2 = "TEST VALUE B";
+
+        put_meta(&db, test_key, &test_value)?;
+        put_meta(&db, test_key2, &test_value2)?;
+
+        let retrieved_value: String = get_meta(&db, test_key)?.expect("test value");
+        let retrieved_value2: String = get_meta(&db, test_key2)?.expect("test value 2");
+
+        assert_eq!(retrieved_value, test_value);
+        assert_eq!(retrieved_value2, test_value2);
+
+        // check that the value of an existing key can be updated
+        let test_value3 = "TEST VALUE C";
+        put_meta(&db, test_key, &test_value3)?;
+
+        let retrieved_value3: String = get_meta(&db, test_key)?.expect("test value 3");
+
+        assert_eq!(retrieved_value3, test_value3);
+
+        // check that a deleted key is not retrieved
+        delete_meta(&db, test_key)?;
+        let retrieved_value4: Option<String> = get_meta(&db, test_key)?;
+        assert!(retrieved_value4.is_none());
+
+        db.writer.execute("DELETE FROM moz_meta", NO_PARAMS)?;
+
+        Ok(())
     }
 }

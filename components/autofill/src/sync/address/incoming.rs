@@ -9,7 +9,7 @@ use crate::sync::{MergeResult, RecordImpl};
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, types::ToSql, Connection};
 use sql_support::ConnExt;
-use sync15::Payload;
+use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 
@@ -24,15 +24,16 @@ type IncomingAction = crate::sync::IncomingAction<AddressRecord>;
 // XXX - will end up moving to the Impl trait??
 pub fn stage_incoming(
     conn: &Connection,
-    incoming_payloads: Vec<Payload>,
+    inbound: Vec<(Payload, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
-    let mut incoming_records = Vec::with_capacity(incoming_payloads.len());
-    let mut incoming_tombstones = Vec::with_capacity(incoming_payloads.len());
+    let mut incoming_records = Vec::with_capacity(inbound.len());
+    let mut incoming_tombstones = Vec::with_capacity(inbound.len());
 
-    for payload in incoming_payloads {
+    for (payload, _) in inbound {
         let payload_id = payload.id.clone();
         let payload_is_tombstone = payload.deleted;
+
         log::trace!(
             "incoming payload {} (deleted={})",
             payload_id,
@@ -792,10 +793,13 @@ mod tests {
         };
     }
 
-    fn array_to_incoming(vals: Vec<Value>) -> Vec<Payload> {
+    fn array_to_incoming(vals: Vec<Value>) -> Vec<(Payload, ServerTimestamp)> {
         let mut result = Vec::with_capacity(vals.len());
         for elt in vals {
-            result.push(Payload::from_json(elt.clone()).expect("must be valid"));
+            result.push((
+                Payload::from_json(elt.clone()).expect("must be valid"),
+                ServerTimestamp::from_millis(0),
+            ));
         }
         result
     }
