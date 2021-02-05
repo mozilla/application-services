@@ -1,5 +1,7 @@
 # Unreleased changes
 
+# 0.7.2 (_2021-02-04_)
+
 ## What's New
 
 - A new `reset_telemetry_identifiers` method has been added; consumers should arrange to call
@@ -9,6 +11,7 @@
 # 0.7.1 (_2021-01-28_)
 
 ## What's New
+
 - Avoid the use of unsigned "experimental" kotlin types.
 
 # 0.7.0 (_2021-01-28_)
