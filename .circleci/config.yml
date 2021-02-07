@@ -200,7 +200,10 @@ commands:
             rustup install nightly
             rustup default nightly
             cargo install cargo-audit
-            cargo audit
+            # Explanation for ignored issues:
+            #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
+            #                        There is currently no fixed version available.
+            cargo audit --ignore RUSTSEC-2021-0019
       - run:
           name: Check for any unrecorded changes in our dependency trees
           command: |
