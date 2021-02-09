@@ -45,9 +45,11 @@ pub fn add_credit_card(
     tx.execute_named(
         &format!(
             "INSERT OR IGNORE INTO credit_cards_data (
-                {common_cols}
+                {common_cols},
+                sync_change_counter
             ) VALUES (
-                {common_vals}
+                {common_vals},
+                :sync_change_counter
             )",
             common_cols = CREDIT_CARD_COMMON_COLS,
             common_vals = CREDIT_CARD_COMMON_VALS,
@@ -75,7 +77,8 @@ pub fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<InternalCreditC
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
-            {common_cols}
+            {common_cols},
+            sync_change_counter
         FROM credit_cards_data
         WHERE guid = :guid",
         common_cols = CREDIT_CARD_COMMON_COLS
@@ -91,7 +94,8 @@ pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>
     let credit_cards;
     let sql = format!(
         "SELECT
-            {common_cols}
+            {common_cols},
+            sync_change_counter
         FROM credit_cards_data",
         common_cols = CREDIT_CARD_COMMON_COLS
     );
@@ -260,29 +264,15 @@ mod tests {
         credit_card: &InternalCreditCard,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
         conn.execute_named(
-            "INSERT OR IGNORE INTO credit_cards_mirror (
-                guid,
-                cc_name,
-                cc_number,
-                cc_exp_month,
-                cc_exp_year,
-                cc_type,
-                time_created,
-                time_last_used,
-                time_last_modified,
-                times_used
+            &format!(
+                "INSERT OR IGNORE INTO credit_cards_mirror (
+                {common_cols}
             ) VALUES (
-                :guid,
-                :cc_name,
-                :cc_number,
-                :cc_exp_month,
-                :cc_exp_year,
-                :cc_type,
-                :time_created,
-                :time_last_used,
-                :time_last_modified,
-                :times_used
+                {common_vals}
             )",
+                common_cols = CREDIT_CARD_COMMON_COLS,
+                common_vals = CREDIT_CARD_COMMON_VALS
+            ),
             rusqlite::named_params! {
                 ":guid": credit_card.guid,
                 ":cc_name": credit_card.cc_name,
@@ -305,9 +295,11 @@ mod tests {
         conn.execute_named(
             &format!(
                 "INSERT OR IGNORE INTO credit_cards_data (
-                    {common_cols}
+                    {common_cols},
+                    sync_change_counter
                 ) VALUES (
-                    {common_vals}
+                    {common_vals},
+                    :sync_change_counter
                 )",
                 common_cols = CREDIT_CARD_COMMON_COLS,
                 common_vals = CREDIT_CARD_COMMON_VALS,
