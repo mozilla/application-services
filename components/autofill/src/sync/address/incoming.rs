@@ -4,6 +4,7 @@
 */
 
 use super::AddressRecord;
+use crate::db::schema::{ADDRESS_COMMON_COLS, ADDRESS_COMMON_VALS};
 use crate::error::*;
 use crate::sync::{MergeResult, RecordImpl};
 use interrupt_support::Interruptee;
@@ -75,25 +76,10 @@ fn save_incoming_records(
         |chunk, _| -> Result<()> {
             let sql = format!(
                 "INSERT OR REPLACE INTO temp.addresses_sync_staging (
-                    guid,
-                    given_name,
-                    additional_name,
-                    family_name,
-                    organization,
-                    street_address,
-                    address_level3,
-                    address_level2,
-                    address_level1,
-                    postal_code,
-                    country,
-                    tel,
-                    email,
-                    time_created,
-                    time_last_used,
-                    time_last_modified,
-                    times_used
-                ) VALUES {}",
-                sql_support::repeat_multi_values(chunk.len(), chunk_size)
+                    {common_cols}
+                ) VALUES {values}",
+                common_cols = ADDRESS_COMMON_COLS,
+                values = sql_support::repeat_multi_values(chunk.len(), chunk_size)
             );
             let mut params = Vec::with_capacity(chunk.len() * chunk_size);
             for record in chunk {
@@ -481,25 +467,9 @@ impl RecordImpl for AddressesImpl {
         conn: &Connection,
         incoming: &Self::Record,
     ) -> Result<Option<(SyncGuid, Self::Record)>> {
-        let sql = "
+        let sql = format!("
             SELECT
-                guid,
-                given_name,
-                additional_name,
-                family_name,
-                organization,
-                street_address,
-                address_level3,
-                address_level2,
-                address_level1,
-                postal_code,
-                country,
-                tel,
-                email,
-                time_created,
-                time_last_used,
-                time_last_modified,
-                times_used,
+                {common_cols},
                 sync_change_counter
             FROM addresses_data
             WHERE
@@ -522,7 +492,7 @@ impl RecordImpl for AddressesImpl {
                 AND postal_code == :postal_code
                 AND country == :country
                 AND tel == :tel
-                AND email == :email";
+                AND email == :email", common_cols = ADDRESS_COMMON_COLS);
 
         let params = named_params! {
             ":guid": incoming.guid,
@@ -693,45 +663,17 @@ fn update_local_record(
 
 fn insert_local_record(conn: &Connection, new_record: AddressRecord) -> Result<()> {
     conn.execute_named(
-        "INSERT OR IGNORE INTO addresses_data (
-            guid,
-            given_name,
-            additional_name,
-            family_name,
-            organization,
-            street_address,
-            address_level3,
-            address_level2,
-            address_level1,
-            postal_code,
-            country,
-            tel,
-            email,
-            time_created,
-            time_last_used,
-            time_last_modified,
-            times_used,
+        &format!(
+            "INSERT OR IGNORE INTO addresses_data (
+            {common_cols},
             sync_change_counter
         ) VALUES (
-            :guid,
-            :given_name,
-            :additional_name,
-            :family_name,
-            :organization,
-            :street_address,
-            :address_level3,
-            :address_level2,
-            :address_level1,
-            :postal_code,
-            :country,
-            :tel,
-            :email,
-            :time_created,
-            :time_last_used,
-            :time_last_modified,
-            :times_used,
+            {common_vals},
             :sync_change_counter
         )",
+            common_cols = ADDRESS_COMMON_COLS,
+            common_vals = ADDRESS_COMMON_VALS
+        ),
         rusqlite::named_params! {
             ":guid": new_record.guid,
             ":given_name": new_record.given_name,

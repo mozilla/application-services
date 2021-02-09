@@ -48,9 +48,11 @@ pub fn add_address(conn: &Connection, new: UpdatableAddressFields) -> Result<Int
     tx.execute_named(
         &format!(
             "INSERT OR IGNORE INTO addresses_data (
-                {common_cols}
+                {common_cols},
+                sync_change_counter
             ) VALUES (
-                {common_vals}
+                {common_vals},
+                :sync_change_counter
             )",
             common_cols = ADDRESS_COMMON_COLS,
             common_vals = ADDRESS_COMMON_VALS,
@@ -86,7 +88,8 @@ pub fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
-            {common_cols}
+            {common_cols},
+            sync_change_counter
         FROM addresses_data
         WHERE guid = :guid",
         common_cols = ADDRESS_COMMON_COLS
@@ -102,7 +105,8 @@ pub fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
 pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
     let sql = format!(
         "SELECT
-            {common_cols}
+            {common_cols},
+            sync_change_counter
         FROM addresses_data",
         common_cols = ADDRESS_COMMON_COLS
     );
@@ -285,43 +289,15 @@ mod tests {
         address: &InternalAddress,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
         conn.execute_named(
-            "INSERT OR IGNORE INTO addresses_mirror (
-                guid,
-                given_name,
-                additional_name,
-                family_name,
-                organization,
-                street_address,
-                address_level3,
-                address_level2,
-                address_level1,
-                postal_code,
-                country,
-                tel,
-                email,
-                time_created,
-                time_last_used,
-                time_last_modified,
-                times_used
+            &format!(
+                "INSERT OR IGNORE INTO addresses_mirror (
+                {common_cols}
             ) VALUES (
-                :guid,
-                :given_name,
-                :additional_name,
-                :family_name,
-                :organization,
-                :street_address,
-                :address_level3,
-                :address_level2,
-                :address_level1,
-                :postal_code,
-                :country,
-                :tel,
-                :email,
-                :time_created,
-                :time_last_used,
-                :time_last_modified,
-                :times_used
+                {common_vals}
             )",
+                common_cols = ADDRESS_COMMON_COLS,
+                common_vals = ADDRESS_COMMON_VALS
+            ),
             rusqlite::named_params! {
                 ":guid": address.guid,
                 ":given_name": address.given_name,
@@ -351,9 +327,11 @@ mod tests {
         conn.execute_named(
             &format!(
                 "INSERT OR IGNORE INTO addresses_data (
-                    {common_cols}
+                    {common_cols},
+                    sync_change_counter
                 ) VALUES (
-                    {common_vals}
+                    {common_vals},
+                    :sync_change_counter
                 )",
                 common_cols = ADDRESS_COMMON_COLS,
                 common_vals = ADDRESS_COMMON_VALS,
@@ -585,17 +563,11 @@ mod tests {
             },
         )
         .expect("create 2nd address should work");
-        // Can't use ADDRESS_COMMON_COLS as it includes sync_change_counter :(
-        let cols = "guid, given_name, additional_name, family_name,
-                    organization, street_address, address_level3,
-                    address_level2, address_level1, postal_code, country,
-                    tel, email, time_created, time_last_used,
-                    time_last_modified, times_used";
         db.execute(
             &format!(
                 "INSERT INTO addresses_mirror ({cols})
                  SELECT {cols} FROM addresses_data;",
-                cols = cols
+                cols = ADDRESS_COMMON_COLS
             ),
             NO_PARAMS,
         )
