@@ -173,7 +173,7 @@ class FxAccountManagerTests: XCTestCase {
     func testAccountRestorationEnsureCapabilitiesNonAuthError() {
         class MockAccount: MockFxAccount {
             override func ensureCapabilities(supportedCapabilities _: [DeviceCapability]) throws {
-                throw FirefoxAccountError.network(message: "The WiFi cable is detached.")
+                throw FxaError.Network(message: "The WiFi cable is detached.")
             }
         }
         let mgr = mockFxAManager()
@@ -203,12 +203,12 @@ class FxAccountManagerTests: XCTestCase {
         class MockAccount: MockFxAccount {
             override func ensureCapabilities(supportedCapabilities _: [DeviceCapability]) throws {
                 notifyAuthError()
-                throw FirefoxAccountError.unauthorized(message: "Your token is expired yo.")
+                throw FxaError.Authentication(message: "Your token is expired yo.")
             }
 
-            override func checkAuthorizationStatus() throws -> IntrospectInfo {
+            override func checkAuthorizationStatus() throws -> AuthorizationInfo {
                 _ = try super.checkAuthorizationStatus()
-                return IntrospectInfo(active: false)
+                return AuthorizationInfo(active: false)
             }
         }
         let mgr = mockFxAManager()
@@ -301,7 +301,7 @@ class FxAccountManagerTests: XCTestCase {
                 profileCallCount += 1
                 if profileCallCount == 1 {
                     notifyAuthError()
-                    throw FirefoxAccountError.unauthorized(message: "Uh oh.")
+                    throw FxaError.Authentication(message: "Uh oh.")
                 } else {
                     return profile
                 }

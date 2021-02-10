@@ -2,19 +2,24 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-// Utilities for command-line utilities which want to use fxa credentials.
-
-use crate::prompt::prompt_string;
-use fxa_client::{error, AccessTokenInfo, Config, FirefoxAccount};
-use std::collections::HashMap;
+/// Utilities for command-line utilities which want to use fxa credentials.
 use std::{
+    collections::HashMap,
+    convert::TryInto,
     fs,
     io::{Read, Write},
 };
-use sync15::{KeyBundle, Sync15StorageClientInit};
-use url::Url;
 
 use anyhow::Result;
+use url::Url;
+
+// This crate awkardly uses some internal implementation details of the fxa-client crate,
+// because we haven't worked on exposing those test-only features via UniFFI.
+use fxa_client::internal::{config::Config, error, FirefoxAccount};
+use fxa_client::AccessTokenInfo;
+use sync15::{KeyBundle, Sync15StorageClientInit};
+
+use crate::prompt::prompt_string;
 
 // Defaults - not clear they are the best option, but they are a currently
 // working option.
@@ -60,7 +65,11 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
 
     acct.complete_oauth_flow(&query_params["code"], &query_params["state"])?;
     // Device registration.
-    acct.initialize_device("CLI Device", fxa_client::device::Type::Desktop, &[])?;
+    acct.initialize_device(
+        "CLI Device",
+        fxa_client::internal::device::Type::Desktop,
+        &[],
+    )?;
     let mut file = fs::File::create(path)?;
     write!(file, "{}", acct.to_json()?)?;
     file.flush()?;
@@ -82,7 +91,7 @@ fn get_account_and_token(
     let mut acct = load_or_create_fxa_creds(cred_file, config.clone())?;
     // `scope` could be a param, but I can't see it changing.
     match acct.get_access_token(SYNC_SCOPE, None) {
-        Ok(t) => Ok((acct, t)),
+        Ok(t) => Ok((acct, t.try_into()?)),
         Err(e) => {
             match e.kind() {
                 // We can retry an auth error.
@@ -90,7 +99,7 @@ fn get_account_and_token(
                     println!("Saw an auth error using stored credentials - recreating them...");
                     acct = create_fxa_creds(cred_file, config)?;
                     let token = acct.get_access_token(SYNC_SCOPE, None)?;
-                    Ok((acct, token))
+                    Ok((acct, token.try_into()?))
                 }
                 _ => Err(e.into()),
             }

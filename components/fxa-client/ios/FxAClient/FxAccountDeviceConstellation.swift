@@ -15,9 +15,9 @@ public struct ConstellationState {
 
 public class DeviceConstellation {
     var constellationState: ConstellationState?
-    let account: FxAccount
+    let account: PersistedFirefoxAccount
 
-    init(account: FxAccount) {
+    init(account: PersistedFirefoxAccount) {
         self.account = account
     }
 
@@ -36,7 +36,7 @@ public class DeviceConstellation {
             do {
                 let devices = try self.account.getDevices(ignoreCache: true)
                 let localDevice = devices.first { $0.isCurrentDevice }
-                if localDevice?.subscriptionExpired ?? false {
+                if localDevice?.pushEndpointExpired ?? false {
                     FxALog.debug("Current device needs push endpoint registration.")
                 }
                 let remoteDevices = devices.filter { !$0.isCurrentDevice }
@@ -64,7 +64,7 @@ public class DeviceConstellation {
     public func setLocalDeviceName(name: String) {
         DispatchQueue.global().async {
             do {
-                try self.account.setDeviceDisplayName(name)
+                try self.account.setDeviceName(name)
                 // Update our list of devices in the background to reflect the change.
                 self.refreshState()
             } catch {
@@ -92,7 +92,7 @@ public class DeviceConstellation {
             do {
                 switch e {
                 case let .sendTab(title, url): do {
-                        try self.account.sendSingleTab(targetId: targetDeviceId, title: title, url: url)
+                        try self.account.sendSingleTab(targetDeviceId: targetDeviceId, title: title, url: url)
                     }
                 }
             } catch {
@@ -105,11 +105,7 @@ public class DeviceConstellation {
     public func setDevicePushSubscription(sub: DevicePushSubscription) {
         DispatchQueue.global().async {
             do {
-                try self.account.setDevicePushSubscription(
-                    endpoint: sub.endpoint,
-                    publicKey: sub.publicKey,
-                    authKey: sub.authKey
-                )
+                try self.account.setDevicePushSubscription(sub: sub)
             } catch {
                 FxALog.error("Failure setting push subscription: \(error).")
             }

@@ -4,21 +4,6 @@
 
 import Foundation
 
-enum MigrationState {
-    case none
-    case copySessionToken
-    case reuseSessionToken
-
-    internal static func fromNumber(_ number: UInt8) -> MigrationState {
-        switch number {
-        case 0: return .none
-        case 1: return .copySessionToken
-        case 2: return .reuseSessionToken
-        default: fatalError("Unreachable")
-        }
-    }
-}
-
 public enum MigrationResult {
     // Sign-in failed due to an intermittent problem (such as a network failure). A retry attempt will
     // be performed automatically during account manager initialization.

@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#![allow(unknown_lints)]
-#![warn(rust_2018_idioms)]
-
-pub use fxa_client;
-pub use glean_ffi;
-pub use logins_ffi;
-pub use places_ffi;
-pub use rc_log_ffi;
-pub use viaduct_reqwest;
+fn main() {
+    uniffi_build::generate_scaffolding("./src/fxa_client.udl").unwrap();
+}

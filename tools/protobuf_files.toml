@@ -2,9 +2,6 @@
 # `dir` refers to the directory where the protobuf file can be found, relative to this file location.
 # (Optional) `out_dir` refers to where the compiled rust file should be saved. If not present `dir` is used.
 
-["fxa_msg_types.proto"]
-dir = "../components/fxa-client/src/"
-
 ["logins_msg_types.proto"]
 dir = "../components/logins/src/"
 

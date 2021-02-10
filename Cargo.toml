@@ -3,7 +3,6 @@
 members = [
     "components/autofill",
     "components/fxa-client",
-    "components/fxa-client/ffi",
     "components/logins",
     "components/logins/ffi",
     "components/places",
@@ -80,7 +79,6 @@ exclude = [
 default-members = [
     "components/autofill",
     "components/fxa-client",
-    "components/fxa-client/ffi",
     "components/logins",
     "components/logins/ffi",
     "components/places",
