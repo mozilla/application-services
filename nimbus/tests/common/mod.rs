@@ -38,9 +38,25 @@ pub fn initial_test_experiments() -> String {
                 "schemaVersion": "1.0.0",
                 "slug": "startup-gold",
                 "endDate": null,
+                "featureIds": ["aboutmonkeys"],
                 "branches":[
-                    {"slug": "control", "ratio": 1},
-                    {"slug": "treatment","ratio":1}
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "aboutmonkeys",
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aboutmonkeys",
+                            "enabled": true
+                        },
+
+                    }
                 ],
                 "probeSets":[],
                 "startDate":null,
@@ -58,16 +74,31 @@ pub fn initial_test_experiments() -> String {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"secure-gold",
+                "id":"startup-gold",
                 "last_modified":1_602_197_324_372i64
             },
             {
                 "schemaVersion": "1.0.0",
                 "slug": "secure-gold",
                 "endDate": null,
+                "featureIds": ["aboutwelcome"],
                 "branches":[
-                    {"slug": "control", "ratio": 1},
-                    {"slug": "treatment","ratio":1}
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "aboutwelcome",
+                            "enabled": false
+                        },
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aboutwelcome",
+                            "enabled": true
+                        },
+                    }
                 ],
                 "probeSets":[],
                 "startDate":null,

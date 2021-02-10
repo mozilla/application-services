@@ -110,7 +110,11 @@ impl ExperimentEnrollment {
         }
         let enrollment = Self {
             slug: experiment.slug.clone(),
-            status: EnrollmentStatus::new_enrolled(EnrolledReason::OptIn, branch_slug),
+            status: EnrollmentStatus::new_enrolled(
+                EnrolledReason::OptIn,
+                branch_slug,
+                &experiment.feature_ids[0],
+            ),
         };
         out_enrollment_events.push(enrollment.get_change_event());
         Ok(enrollment)
@@ -412,6 +416,7 @@ pub enum EnrollmentStatus {
         enrollment_id: Uuid, // Random ID used for telemetry events correlation.
         reason: EnrolledReason,
         branch: String,
+        feature_id: String,
     },
     NotEnrolled {
         reason: NotEnrolledReason,
@@ -435,8 +440,11 @@ pub enum EnrollmentStatus {
 }
 
 impl EnrollmentStatus {
-    pub fn new_enrolled(reason: EnrolledReason, branch: &str) -> Self {
+    // Note that for now, we only support a single feature_id per experiment,
+    // so this code is expected to shift once we start supporting multiple.
+    pub fn new_enrolled(reason: EnrolledReason, branch: &str, feature_id: &str) -> Self {
         EnrollmentStatus::Enrolled {
+            feature_id: feature_id.to_owned(),
             reason,
             branch: branch.to_owned(),
             enrollment_id: Uuid::new_v4(),
@@ -485,6 +493,7 @@ pub fn get_enrollments<'r>(
         if let EnrollmentStatus::Enrolled {
             branch,
             enrollment_id,
+            feature_id,
             ..
         } = &enrollment.status
         {
@@ -493,6 +502,7 @@ pub fn get_enrollments<'r>(
                 .get::<Experiment, _>(reader, &enrollment.slug)?
             {
                 result.push(EnrolledExperiment {
+                    feature_ids: vec![feature_id.to_string()],
                     slug: experiment.slug,
                     user_facing_name: experiment.user_facing_name,
                     user_facing_description: experiment.user_facing_description,
@@ -800,9 +810,24 @@ mod tests {
                 "schemaVersion": "1.0.0",
                 "slug": "secure-gold",
                 "endDate": null,
+                "featureIds": ["some_control"],
                 "branches":[
-                    {"slug": "control", "ratio": 1},
-                    {"slug": "treatment","ratio":1}
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "some_control",
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "some_control",
+                            "enabled": true
+                        }
+                    }
                 ],
                 "probeSets":[],
                 "startDate":null,
@@ -829,9 +854,10 @@ mod tests {
                 "slug": "secure-silver",
                 "endDate": null,
                 "branches":[
-                    {"slug": "control", "ratio": 1},
-                    {"slug": "treatment","ratio":1}
+                    {"slug": "control", "ratio": 1}, // XXX add feature
+                    {"slug": "treatment","ratio":1}, // XXX add feature
                 ],
+                "featureIds": ["monkey"],
                 "probeSets":[],
                 "startDate":null,
                 "application":"fenix",
@@ -1084,6 +1110,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1124,6 +1151,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1166,6 +1194,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1215,6 +1244,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1256,6 +1286,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1290,6 +1321,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1451,6 +1483,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1669,6 +1702,7 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
+                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
@@ -1977,6 +2011,7 @@ mod tests {
                 status: EnrollmentStatus::new_enrolled(
                     EnrolledReason::Qualified,
                     &mock_exp1_branch,
+                    "some_switch",
                 ),
             },
         )?;

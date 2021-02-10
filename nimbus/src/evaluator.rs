@@ -85,6 +85,7 @@ pub fn evaluate_enrollment(
                         EnrollmentStatus::new_enrolled(
                             EnrolledReason::Qualified,
                             &choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
+                            &exp.feature_ids[0],
                         )
                     } else {
                         EnrollmentStatus::NotEnrolled {
@@ -316,6 +317,7 @@ mod tests {
             schema_version: "1.0.0".to_string(),
             slug: "TEST_EXP1".to_string(),
             is_enrollment_paused: false,
+            feature_ids: vec!["monkey".to_string()],
             bucket_config: BucketConfig {
                 randomization_unit: RandomizationUnit::NimbusId,
                 namespace: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),

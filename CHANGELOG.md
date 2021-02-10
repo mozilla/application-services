@@ -1,5 +1,10 @@
 # Unreleased changes
 
+- `get_experiment_branch` will now search both by experiment slug and feature id.  Because this
+allows the client to (mostly?) not care what the experiment slug is, it means that it is now
+possible to restart some experiments that had problems without having to configure a whole new
+experiment.
+
 # 0.7.2 (_2021-02-04_)
 
 ## What's New

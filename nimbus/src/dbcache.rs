@@ -16,7 +16,8 @@ use std::sync::RwLock;
 // This struct is the cached data. This is never mutated, but instead
 // recreated every time the cache is updated.
 struct CachedData {
-    pub experiment_branches: HashMap<String, String>,
+    pub branches_by_experiment: HashMap<String, String>,
+    pub branches_by_feature: HashMap<String, String>,
 }
 
 // This is the public cache API. Each NimbusClient can create one of these and
@@ -43,14 +44,26 @@ impl DatabaseCache {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
         let experiments = get_enrollments(&db, &writer)?;
-        // Build the new hashmap.
-        let mut eb = HashMap::with_capacity(experiments.len());
+
+        // Build the new hashmaps.  Note that this is somewhat temporary, is
+        // likely to change when the full FeatureConfig stuff is implemented.
+        // Further, note that, for the moment, we only (currently) support
+        // one feature_id per experiment, meaning that we ignore everything
+        // except the first feature_id in the array.  Some of the multi-feature
+        // code may want to live in the EnrollmentEvolver.
+        let mut branches_by_experiment = HashMap::with_capacity(experiments.len());
+        let mut branches_by_feature = HashMap::with_capacity(experiments.len());
+
         for e in experiments {
-            eb.insert(e.slug, e.branch_slug);
+            branches_by_experiment.insert(e.slug, e.branch_slug.clone());
+            branches_by_feature.insert(e.feature_ids[0].clone(), e.branch_slug);
         }
+
         let data = CachedData {
-            experiment_branches: eb,
+            branches_by_experiment,
+            branches_by_feature,
         };
+
         // Try to commit the change to disk and update the cache as close
         // together in time as possible. This leaves a small window where another
         // thread could read new data from disk but see old data in the cache,
@@ -84,7 +97,10 @@ impl DatabaseCache {
         }
     }
 
-    pub fn get_experiment_branch(&self, slug: &str) -> Result<Option<String>> {
-        self.get_data(|data| data.experiment_branches.get(slug).cloned())
+    pub fn get_experiment_branch(&self, id: &str) -> Result<Option<String>> {
+        self.get_data(|data| match data.branches_by_feature.get(id) {
+            None => data.branches_by_experiment.get(id).cloned(),
+            Some(branch_slug) => Some(branch_slug.to_owned()),
+        })
     }
 }

@@ -292,6 +292,7 @@ impl NimbusClient {
 
 #[derive(Debug, Clone)]
 pub struct EnrolledExperiment {
+    pub feature_ids: Vec<String>,
     pub slug: String,
     pub user_facing_name: String,
     pub user_facing_description: String,
@@ -318,6 +319,7 @@ pub struct Experiment {
     pub bucket_config: BucketConfig,
     pub probe_sets: Vec<String>,
     pub branches: Vec<Branch>,
+    pub feature_ids: Vec<String>,
     pub targeting: Option<String>,
     pub start_date: Option<String>, // TODO: Use a date format here
     pub end_date: Option<String>,   // TODO: Use a date format here
@@ -427,6 +429,7 @@ mod tests {
         let mock_client_id = "client-1".to_string();
         let mock_exp_slug = "exp-1".to_string();
         let mock_exp_branch = "branch-1".to_string();
+        let mock_feature_id = "feature-1".to_string();
 
         let tmp_dir = TempDir::new("test_telemetry_reset")?;
         let client = NimbusClient::new(
@@ -465,7 +468,11 @@ mod tests {
             &mock_exp_slug,
             &ExperimentEnrollment {
                 slug: mock_exp_slug.clone(),
-                status: EnrollmentStatus::new_enrolled(EnrolledReason::Qualified, &mock_exp_branch),
+                status: EnrollmentStatus::new_enrolled(
+                    EnrolledReason::Qualified,
+                    &mock_exp_branch,
+                    &mock_feature_id,
+                ),
             },
         )?;
         writer.commit()?;

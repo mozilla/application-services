@@ -171,7 +171,7 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Branch, BucketConfig, RandomizationUnit};
+    use crate::{Branch, BucketConfig, FeatureConfig, RandomizationUnit};
     use mockito::mock;
 
     fn response_body() -> String {
@@ -197,14 +197,23 @@ mod tests {
                 "proposedEnrollment": 7,
                 "referenceBranch": "control",
                 "probeSets": [],
+                "featureIds": ["first_switch"],
                 "branches": [
                     {{
                     "slug": "control",
-                    "ratio": 1
+                    "ratio": 1,
+                    "feature": {{
+                        "featureId": "first_switch",
+                        "enabled": false
+                        }}
                     }},
                     {{
                     "slug": "treatment-variation-b",
-                    "ratio": 1
+                    "ratio": 1,
+                    "feature": {{
+                        "featureId": "first_switch",
+                        "enabled": true
+                        }}
                     }}
                 ]
             }},
@@ -227,6 +236,7 @@ mod tests {
                 "proposedEnrollment": 7,
                 "referenceBranch": "control",
                 "probeSets": [],
+                "featureIds": ["some_switch"],
                 "branches": [
                     {{
                     "slug": "control",
@@ -297,16 +307,23 @@ mod tests {
                 proposed_enrollment: 7,
                 reference_branch: Some("control".to_string()),
                 probe_sets: vec![],
+                feature_ids: vec!["first_switch".to_string()],
                 branches: vec![
                     Branch {
                         slug: "control".to_string(),
                         ratio: 1,
-                        feature: None
+                        feature: Some(FeatureConfig {
+                            feature_id: "first_switch".to_string(),
+                            enabled: false,
+                        }),
                     },
                     Branch {
                         slug: "treatment-variation-b".to_string(),
                         ratio: 1,
-                        feature: None
+                        feature: Some(FeatureConfig {
+                            feature_id: "first_switch".to_string(),
+                            enabled: true,
+                        }),
                     },
                 ],
                 targeting: None,

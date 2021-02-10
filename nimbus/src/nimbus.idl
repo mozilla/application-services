@@ -14,6 +14,7 @@ dictionary AppContext {
 };
 
 dictionary EnrolledExperiment {
+    sequence<string> feature_ids;
     string slug;
     string user_facing_name;
     string user_facing_description;
@@ -91,11 +92,13 @@ interface NimbusClient {
     [Throws=Error]
     void initialize();
 
-    // Returns the branch allocated for a given experiment ID. Returns null
-    // if the user is not enrolled in the specified experiment or if the
-    // specified experiment does not exist.
+    // Returns the branch allocated for a given feature_id or experiment_slug.
+    // Search first by feature_id, then by experiment_slug, returning the
+    // the first hit. If the user is enrolled neither in an experiment with id
+    // as the feature_id nor with id as the experiment_slug for the feature,
+    // null is returned.
     [Throws=Error]
-    string? get_experiment_branch(string experiment_slug);
+    string? get_experiment_branch(string id);
 
     // Returns a list of experiment branches for a given experiment ID.
     [Throws=Error]

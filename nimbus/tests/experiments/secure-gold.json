@@ -2,6 +2,7 @@
   "schemaVersion": "1.0.0",
   "slug": "secure-gold",
   "endDate": null,
+  "featureIds": ["some-feature"],
   "branches": [
     {
       "slug": "control",
