@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use cli_support::prompt::prompt_string;
-use fxa_client::{Config, FirefoxAccount};
+use fxa_client::internal::{Config, FirefoxAccount};
 use std::collections::HashMap;
 use url::Url;
 

@@ -8,7 +8,7 @@ import Foundation
 // Arrays are not thread-safe in Swift.
 let queue = DispatchQueue(label: "InvocationsArrayQueue")
 
-class MockFxAccount: FxAccount {
+class MockFxAccount: PersistedFirefoxAccount {
     var invocations: [MethodInvocation] = []
     enum MethodInvocation {
         case checkAuthorizationStatus
@@ -22,14 +22,14 @@ class MockFxAccount: FxAccount {
     }
 
     init() {
-        super.init(raw: 0)
+        super.init(inner: FirefoxAccount(contentUrl: "", clientId: "", redirectUri: "", tokenServerUrlOverride: nil))
     }
 
     required convenience init(fromJsonState _: String) throws {
         fatalError("init(fromJsonState:) has not been implemented")
     }
 
-    required convenience init(config _: FxAConfig) throws {
+    required convenience init(config _: FxAConfig) {
         fatalError("init(config:) has not been implemented")
     }
 
@@ -54,46 +54,46 @@ class MockFxAccount: FxAccount {
         queue.sync { invocations.append(.ensureCapabilities) }
     }
 
-    override func checkAuthorizationStatus() throws -> IntrospectInfo {
+    override func checkAuthorizationStatus() throws -> AuthorizationInfo {
         queue.sync { invocations.append(.checkAuthorizationStatus) }
-        return IntrospectInfo(active: true)
+        return AuthorizationInfo(active: true)
     }
 
-    override func clearAccessTokenCache() throws {
+    override func clearAccessTokenCache() {
         queue.sync { invocations.append(.clearAccessTokenCache) }
     }
 
     override func getAccessToken(scope _: String, ttl _: UInt64? = nil) throws -> AccessTokenInfo {
         queue.sync { invocations.append(.getAccessToken) }
-        return AccessTokenInfo(scope: "profile", token: "toktok")
+        return AccessTokenInfo(scope: "profile", token: "toktok", key: nil, expiresAt: Int64.max)
     }
 
     override func getProfile(ignoreCache _: Bool) throws -> Profile {
         queue.sync { invocations.append(.getProfile) }
-        return Profile(uid: "uid", email: "foo@bar.bobo")
+        return Profile(uid: "uid", email: "foo@bar.bobo", displayName: "Bobo the Foo", avatar: "https://example.com/avatar.png", isDefaultAvatar: false)
     }
 
     override func beginOAuthFlow(
         scopes _: [String],
         entrypoint _: String,
-        metricsParams _: MetricsParams = MetricsParams.newEmpty()
+        metrics _: MetricsParams = MetricsParams(parameters: [:])
     ) throws -> URL {
         return URL(string: "https://foo.bar/oauth?state=bobo")!
     }
 }
 
 class MockFxAccountManager: FxAccountManager {
-    var storedAccount: FxAccount?
+    var storedAccount: PersistedFirefoxAccount?
 
-    override func createAccount() -> FxAccount {
+    override func createAccount() -> PersistedFirefoxAccount {
         return MockFxAccount()
     }
 
-    override func makeDeviceConstellation(account _: FxAccount) -> DeviceConstellation {
+    override func makeDeviceConstellation(account _: PersistedFirefoxAccount) -> DeviceConstellation {
         return MockDeviceConstellation(account: account)
     }
 
-    override func tryRestoreAccount() -> FxAccount? {
+    override func tryRestoreAccount() -> PersistedFirefoxAccount? {
         return storedAccount
     }
 }
@@ -106,7 +106,7 @@ class MockDeviceConstellation: DeviceConstellation {
         case refreshState
     }
 
-    override init(account: FxAccount?) {
+    override init(account: PersistedFirefoxAccount?) {
         super.init(account: account ?? MockFxAccount())
     }
 
