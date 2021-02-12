@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::super::do_incoming;
-use super::incoming::{stage_incoming, AddressesImpl};
+use super::incoming::AddressesImpl;
 use crate::db::{
     // addresses::sync::reset,
     addresses::reset_in_tx,
@@ -45,9 +45,11 @@ impl<'a> SyncEngine for AddressEngine<'a> {
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let timestamp = inbound.timestamp;
-        stage_incoming(&self.db.writer, inbound.changes.clone(), self.interruptee)?;
-        do_incoming(&self.db.writer, &AddressesImpl {}, self.interruptee)?;
-        incoming_telemetry.applied(inbound.changes.len() as u32);
+        let num_incoming = inbound.changes.len() as u32;
+        let tx = self.db.writer.unchecked_transaction()?;
+        let record_impl = AddressesImpl::new(&tx);
+        do_incoming(&record_impl, inbound.changes, self.interruptee)?;
+        incoming_telemetry.applied(num_incoming);
         telem.incoming(incoming_telemetry);
 
         // write the timestamp now, so if we are interrupted merging or
