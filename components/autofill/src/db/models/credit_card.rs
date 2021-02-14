@@ -3,11 +3,11 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::Metadata;
 use rusqlite::Row;
 use serde::Serialize;
 use serde_derive::*;
 use sync_guid::Guid;
-use types::Timestamp;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case", default)]
@@ -51,18 +51,22 @@ impl From<InternalCreditCard> for CreditCard {
             cc_exp_month: icc.cc_exp_month,
             cc_exp_year: icc.cc_exp_year,
             cc_type: icc.cc_type,
-            // *sob* - can't use u64 in uniffi
-            time_created: u64::from(icc.time_created) as i64,
-            time_last_used: icc.time_last_used.map(|v| u64::from(v) as i64),
-            time_last_modified: u64::from(icc.time_last_modified) as i64,
-            times_used: icc.times_used,
+            // note we can't use u64 in uniffi
+            time_created: u64::from(icc.metadata.time_created) as i64,
+            time_last_used: if icc.metadata.time_last_used.0 == 0 {
+                None
+            } else {
+                Some(icc.metadata.time_last_used.0 as i64)
+            },
+            time_last_modified: u64::from(icc.metadata.time_last_modified) as i64,
+            times_used: icc.metadata.times_used,
         }
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "kebab-case")]
-pub struct InternalCreditCard {
+pub(crate) struct InternalCreditCard {
     pub guid: Guid,
     pub cc_name: String,
     pub cc_number: String,
@@ -72,16 +76,7 @@ pub struct InternalCreditCard {
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
 
-    #[serde(rename = "timeCreated")]
-    pub time_created: Timestamp,
-    #[serde(rename = "timeLastUsed")]
-    pub time_last_used: Option<Timestamp>,
-    #[serde(rename = "timeLastModified")]
-    pub time_last_modified: Timestamp,
-    #[serde(rename = "timesUsed")]
-    pub times_used: i64,
-    #[serde(rename = "changeCounter")]
-    pub(crate) sync_change_counter: i64,
+    pub metadata: Metadata,
 }
 
 impl InternalCreditCard {
@@ -93,11 +88,14 @@ impl InternalCreditCard {
             cc_exp_month: row.get("cc_exp_month")?,
             cc_exp_year: row.get("cc_exp_year")?,
             cc_type: row.get("cc_type")?,
-            time_created: row.get("time_created")?,
-            time_last_used: row.get("time_last_used")?,
-            time_last_modified: row.get("time_last_modified")?,
-            times_used: row.get("times_used")?,
-            sync_change_counter: row.get("sync_change_counter")?,
+            metadata: Metadata {
+                time_created: row.get("time_created")?,
+                time_last_used: row.get("time_last_used")?,
+                time_last_modified: row.get("time_last_modified")?,
+                times_used: row.get("times_used")?,
+                version: 1,
+                sync_change_counter: row.get("sync_change_counter")?,
+            },
         })
     }
 }

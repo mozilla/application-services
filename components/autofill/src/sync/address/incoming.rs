@@ -3,18 +3,15 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use super::AddressRecord;
-use crate::db::schema::{ADDRESS_COMMON_COLS, ADDRESS_COMMON_VALS};
+use crate::db::addresses::{add_internal_address, update_internal_address};
+use crate::db::models::address::InternalAddress;
+use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{
-    IncomingState, MergeResult, Payload, RecordStorageImpl, ServerTimestamp, SyncRecord,
-};
-use crate::sync_merge_field_check;
+use crate::sync::{IncomingState, Payload, ProcessIncomingRecordImpl, ServerTimestamp};
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sync_guid::Guid as SyncGuid;
-use types::Timestamp;
 
 pub(super) struct AddressesImpl<'a> {
     tx: &'a Transaction<'a>,
@@ -26,8 +23,8 @@ impl<'a> AddressesImpl<'a> {
     }
 }
 
-impl<'a> RecordStorageImpl for AddressesImpl<'a> {
-    type Record = AddressRecord;
+impl<'a> ProcessIncomingRecordImpl for AddressesImpl<'a> {
+    type Record = InternalAddress;
 
     /// The first step in the "apply incoming" process - stage the records
     fn stage_incoming(
@@ -71,54 +68,7 @@ impl<'a> RecordStorageImpl for AddressesImpl<'a> {
         LEFT JOIN addresses_data l ON s.guid = l.guid
         LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
 
-        common_fetch_incoming_record_states(self.tx, sql)
-    }
-
-    /// Performs a three-way merge between an incoming, local, and mirror record.
-    /// If a merge cannot be successfully completed (ie, if we find the same
-    /// field has changed both locally and remotely since the last sync), the
-    /// local record data is returned with a new guid and updated sync metadata.
-    /// Note that mirror being None is an edge-case and typically means first
-    /// sync since a "reset" (eg, disconnecting and reconnecting.
-    #[allow(clippy::cognitive_complexity)] // Looks like clippy considers this after macro-expansion...
-    fn merge(
-        &self,
-        incoming: &Self::Record,
-        local: &Self::Record,
-        mirror: &Option<Self::Record>,
-    ) -> MergeResult<Self::Record> {
-        let mut merged_record: Self::Record = Default::default();
-        // guids must be identical
-        assert_eq!(incoming.guid, local.guid);
-
-        match mirror {
-            Some(m) => assert_eq!(incoming.guid, m.guid),
-            None => {}
-        };
-
-        merged_record.guid = incoming.guid.clone();
-
-        sync_merge_field_check!(given_name, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(additional_name, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(family_name, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(organization, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(street_address, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(address_level3, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(address_level2, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(address_level1, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(postal_code, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(country, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(tel, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(email, incoming, local, mirror, merged_record);
-
-        merged_record.metadata = incoming.metadata;
-        merged_record
-            .metadata
-            .merge(&local.metadata, &mirror.as_ref().map(|m| m.metadata()));
-
-        MergeResult::Merged {
-            merged: merged_record,
-        }
+        common_fetch_incoming_record_states(self.tx, sql, |row| Ok(InternalAddress::from_row(row)?))
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
@@ -169,7 +119,7 @@ impl<'a> RecordStorageImpl for AddressesImpl<'a> {
         };
 
         let result = self.tx.query_row_named(&sql, params, |row| {
-            Ok(AddressRecord::from_row(&row).expect("wtf? '?' doesn't work :("))
+            Ok(Self::Record::from_row(&row).expect("wtf? '?' doesn't work :("))
         });
 
         match result {
@@ -181,88 +131,13 @@ impl<'a> RecordStorageImpl for AddressesImpl<'a> {
         }
     }
 
-    fn update_local_record(&self, new_record: AddressRecord, flag_as_changed: bool) -> Result<()> {
-        let rows_changed = self.tx.execute_named(
-            "UPDATE addresses_data
-            SET given_name         = :given_name,
-                additional_name     = :additional_name,
-                family_name         = :family_name,
-                organization        = :organization,
-                street_address      = :street_address,
-                address_level3      = :address_level3,
-                address_level2      = :address_level2,
-                address_level1      = :address_level1,
-                postal_code         = :postal_code,
-                country             = :country,
-                tel                 = :tel,
-                email               = :email,
-                time_created        = :time_created,
-                time_last_used      = :time_last_used,
-                time_last_modified  = :time_last_modified,
-                times_used          = :times_used,
-                sync_change_counter = sync_change_counter + :change_counter_incr
-            WHERE guid              = :guid",
-            rusqlite::named_params! {
-                ":given_name": new_record.given_name,
-                ":additional_name": new_record.additional_name,
-                ":family_name": new_record.family_name,
-                ":organization": new_record.organization,
-                ":street_address": new_record.street_address,
-                ":address_level3": new_record.address_level3,
-                ":address_level2": new_record.address_level2,
-                ":address_level1": new_record.address_level1,
-                ":postal_code": new_record.postal_code,
-                ":country": new_record.country,
-                ":tel": new_record.tel,
-                ":email": new_record.email,
-                ":time_created": new_record.metadata.time_created,
-                ":time_last_used": new_record.metadata.time_last_used,
-                ":time_last_modified": new_record.metadata.time_last_modified,
-                ":times_used": new_record.metadata.times_used,
-                ":guid": new_record.guid,
-                ":change_counter_incr": flag_as_changed as u32,
-            },
-        )?;
-        // if we didn't actually update a row them something has gone very wrong...
-        assert_eq!(rows_changed, 1);
+    fn update_local_record(&self, new_record: Self::Record, flag_as_changed: bool) -> Result<()> {
+        update_internal_address(self.tx, &new_record, flag_as_changed)?;
         Ok(())
     }
 
-    fn insert_local_record(&self, new_record: AddressRecord) -> Result<()> {
-        self.tx.execute_named(
-            &format!(
-                "INSERT OR IGNORE INTO addresses_data (
-                {common_cols},
-                sync_change_counter
-            ) VALUES (
-                {common_vals},
-                :sync_change_counter
-            )",
-                common_cols = ADDRESS_COMMON_COLS,
-                common_vals = ADDRESS_COMMON_VALS
-            ),
-            rusqlite::named_params! {
-                ":guid": new_record.guid,
-                ":given_name": new_record.given_name,
-                ":additional_name": new_record.additional_name,
-                ":family_name": new_record.family_name,
-                ":organization": new_record.organization,
-                ":street_address": new_record.street_address,
-                ":address_level3": new_record.address_level3,
-                ":address_level2": new_record.address_level2,
-                ":address_level1": new_record.address_level1,
-                ":postal_code": new_record.postal_code,
-                ":country": new_record.country,
-                ":tel": new_record.tel,
-                ":email": new_record.email,
-                ":time_created": new_record.metadata.time_created,
-                ":time_last_used": new_record.metadata.time_last_used,
-                ":time_last_modified": new_record.metadata.time_last_modified,
-                ":times_used": new_record.metadata.times_used,
-                ":sync_change_counter": 0,
-            },
-        )?;
-
+    fn insert_local_record(&self, new_record: Self::Record) -> Result<()> {
+        add_internal_address(self.tx, &new_record)?;
         Ok(())
     }
 
@@ -279,20 +154,6 @@ impl<'a> RecordStorageImpl for AddressesImpl<'a> {
     fn remove_tombstone(&self, guid: &SyncGuid) -> Result<()> {
         common_remove_record(self.tx, "addresses_tombstones", guid)
     }
-}
-
-/// Returns a with the given local record's data but with a new guid and
-/// fresh sync metadata.
-fn get_forked_record(local_record: AddressRecord) -> AddressRecord {
-    let mut local_record_data = local_record;
-    local_record_data.guid = SyncGuid::random();
-    local_record_data.metadata.time_created = Timestamp::now();
-    local_record_data.metadata.time_last_used = Timestamp::now();
-    local_record_data.metadata.time_last_modified = Timestamp::now();
-    local_record_data.metadata.times_used = 0;
-    local_record_data.metadata.sync_change_counter = Some(1);
-
-    local_record_data
 }
 
 #[cfg(test)]
@@ -342,7 +203,7 @@ mod tests {
             .clone()
     }
 
-    fn test_record(guid_prefix: char) -> AddressRecord {
+    fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
         serde_json::from_value(json).expect("should be a valid record")
     }

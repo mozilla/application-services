@@ -18,12 +18,10 @@ use sync15::EngineSyncAssociation;
 use sync_guid::Guid;
 use types::Timestamp;
 
-pub fn add_credit_card(
+pub(crate) fn add_credit_card(
     conn: &Connection,
     new_credit_card_fields: UpdatableCreditCardFields,
 ) -> Result<InternalCreditCard> {
-    let tx = conn.unchecked_transaction()?;
-
     // We return an InternalCreditCard, so set it up first, including the
     // missing fields, before we insert it.
     let credit_card = InternalCreditCard {
@@ -35,13 +33,19 @@ pub fn add_credit_card(
         // Credit card types are a fixed set of strings as defined in the link below
         // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
         cc_type: new_credit_card_fields.cc_type,
-        time_created: Timestamp::now(),
-        time_last_used: Some(Timestamp::now()),
-        time_last_modified: Timestamp::now(),
-        times_used: 0,
-        sync_change_counter: 1,
+        metadata: Default::default(),
     };
 
+    let tx = conn.unchecked_transaction()?;
+    add_internal_credit_card(&tx, &credit_card)?;
+    tx.commit()?;
+    Ok(credit_card)
+}
+
+pub(crate) fn add_internal_credit_card(
+    tx: &Transaction<'_>,
+    card: &InternalCreditCard,
+) -> Result<()> {
     tx.execute_named(
         &format!(
             "INSERT OR IGNORE INTO credit_cards_data (
@@ -55,25 +59,23 @@ pub fn add_credit_card(
             common_vals = CREDIT_CARD_COMMON_VALS,
         ),
         rusqlite::named_params! {
-            ":guid": credit_card.guid,
-            ":cc_name": credit_card.cc_name,
-            ":cc_number": credit_card.cc_number,
-            ":cc_exp_month": credit_card.cc_exp_month,
-            ":cc_exp_year": credit_card.cc_exp_year,
-            ":cc_type": credit_card.cc_type,
-            ":time_created": credit_card.time_created,
-            ":time_last_used": credit_card.time_last_used,
-            ":time_last_modified": credit_card.time_last_modified,
-            ":times_used": credit_card.times_used,
-            ":sync_change_counter": credit_card.sync_change_counter,
+            ":guid": card.guid,
+            ":cc_name": card.cc_name,
+            ":cc_number": card.cc_number,
+            ":cc_exp_month": card.cc_exp_month,
+            ":cc_exp_year": card.cc_exp_year,
+            ":cc_type": card.cc_type,
+            ":time_created": card.metadata.time_created,
+            ":time_last_used": card.metadata.time_last_used,
+            ":time_last_modified": card.metadata.time_last_modified,
+            ":times_used": card.metadata.times_used,
+            ":sync_change_counter": card.metadata.sync_change_counter,
         },
     )?;
-
-    tx.commit()?;
-    Ok(credit_card)
+    Ok(())
 }
 
-pub fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<InternalCreditCard> {
+pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<InternalCreditCard> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
@@ -90,7 +92,7 @@ pub fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<InternalCreditC
     Ok(credit_card)
 }
 
-pub fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
+pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
     let credit_cards;
     let sql = format!(
         "SELECT
@@ -135,6 +137,44 @@ pub fn update_credit_card(
     )?;
 
     tx.commit()?;
+    Ok(())
+}
+
+/// Updates all fields including metadata - although the change counter gets
+/// slighly special treatment. Suitable for internal use (eg, by Sync)
+pub(crate) fn update_internal_credit_card(
+    tx: &Transaction<'_>,
+    card: &InternalCreditCard,
+    flag_as_changed: bool,
+) -> Result<()> {
+    let change_counter_increment = flag_as_changed as u32; // will be 1 or 0
+    tx.execute_named(
+        "UPDATE credit_cards_data
+        SET cc_name                     = :cc_name,
+            cc_number                   = :cc_number,
+            cc_exp_month                = :cc_exp_month,
+            cc_exp_year                 = :cc_exp_year,
+            cc_type                     = :cc_type,
+            time_created                = :time_created,
+            time_last_used              = :time_last_used,
+            time_last_modified          = :time_last_modified,
+            times_used                  = :times_used,
+            sync_change_counter         = sync_change_counter + :change_incr,
+        WHERE guid                      = :guid",
+        rusqlite::named_params! {
+            ":cc_name": card.cc_name,
+            ":cc_number": card.cc_number,
+            ":cc_exp_month": card.cc_exp_month,
+            ":cc_exp_year": card.cc_exp_year,
+            ":cc_type": card.cc_type,
+            ":time_created": card.metadata.time_created,
+            ":time_last_used": card.metadata.time_last_used,
+            ":time_last_modified": card.metadata.time_last_modified,
+            ":times_used": card.metadata.times_used,
+            ":change_incr": change_counter_increment,
+            ":guid": card.guid,
+        },
+    )?;
     Ok(())
 }
 
@@ -272,38 +312,6 @@ mod tests {
         .expect("should insert");
     }
 
-    fn insert_record(
-        conn: &Connection,
-        credit_card: &InternalCreditCard,
-    ) -> rusqlite::Result<usize, rusqlite::Error> {
-        conn.execute_named(
-            &format!(
-                "INSERT OR IGNORE INTO credit_cards_data (
-                    {common_cols},
-                    sync_change_counter
-                ) VALUES (
-                    {common_vals},
-                    :sync_change_counter
-                )",
-                common_cols = CREDIT_CARD_COMMON_COLS,
-                common_vals = CREDIT_CARD_COMMON_VALS,
-            ),
-            rusqlite::named_params! {
-                ":guid": credit_card.guid,
-                ":cc_name": credit_card.cc_name,
-                ":cc_number": credit_card.cc_number,
-                ":cc_exp_month": credit_card.cc_exp_month,
-                ":cc_exp_year": credit_card.cc_exp_year,
-                ":cc_type": credit_card.cc_type,
-                ":time_created": credit_card.time_created,
-                ":time_last_used": credit_card.time_last_used,
-                ":time_last_modified": credit_card.time_last_modified,
-                ":times_used": credit_card.times_used,
-                ":sync_change_counter": credit_card.sync_change_counter,
-            },
-        )
-    }
-
     #[test]
     fn test_credit_card_create_and_read() -> Result<()> {
         let db = new_mem_db();
@@ -322,8 +330,8 @@ mod tests {
         // check that the add function populated the guid field
         assert_ne!(Guid::default(), saved_credit_card.guid);
 
-        // check that sync_change_counter was set
-        assert_eq!(1, saved_credit_card.sync_change_counter);
+        // check that sync_change_counter was set to 0.
+        assert_eq!(0, saved_credit_card.metadata.sync_change_counter);
 
         // get created credit card
         let retrieved_credit_card = get_credit_card(&db, &saved_credit_card.guid)?;
@@ -447,7 +455,7 @@ mod tests {
         assert_eq!(expected_cc_name, updated_credit_card.cc_name);
 
         //check that the sync_change_counter was incremented
-        assert_eq!(2, updated_credit_card.sync_change_counter);
+        assert_eq!(1, updated_credit_card.metadata.sync_change_counter);
 
         Ok(())
     }
@@ -516,6 +524,7 @@ mod tests {
     #[test]
     fn test_credit_card_trigger_on_create() -> Result<()> {
         let db = new_mem_db();
+        let tx = db.unchecked_transaction()?;
         let guid = Guid::random();
 
         // create a tombstone record
@@ -533,14 +542,14 @@ mod tests {
             ..Default::default()
         };
 
-        let add_credit_card_result = insert_record(&db, &credit_card);
+        let add_credit_card_result = add_internal_credit_card(&tx, &credit_card);
         assert!(add_credit_card_result.is_err());
 
         let expected_error_message = "guid exists in `credit_cards_tombstones`";
-        assert_eq!(
-            expected_error_message,
-            add_credit_card_result.unwrap_err().to_string()
-        );
+        assert!(add_credit_card_result
+            .unwrap_err()
+            .to_string()
+            .contains(expected_error_message));
 
         Ok(())
     }
@@ -548,6 +557,7 @@ mod tests {
     #[test]
     fn test_credit_card_trigger_on_delete() -> Result<()> {
         let db = new_mem_db();
+        let tx = db.unchecked_transaction()?;
         let guid = Guid::random();
 
         // create an credit card
@@ -560,16 +570,16 @@ mod tests {
             cc_type: "visa".to_string(),
             ..Default::default()
         };
-        insert_record(&db, &credit_card)?;
+        add_internal_credit_card(&tx, &credit_card)?;
 
         // create a tombstone record with the same guid
         let tombstone_result = insert_tombstone_record(&db, credit_card.guid.to_string());
 
         let expected_error_message = "guid exists in `credit_cards_data`";
-        assert_eq!(
-            expected_error_message,
-            tombstone_result.unwrap_err().to_string()
-        );
+        assert!(tombstone_result
+            .unwrap_err()
+            .to_string()
+            .contains(expected_error_message));
 
         Ok(())
     }
@@ -588,15 +598,15 @@ mod tests {
             },
         )?;
 
-        assert_eq!(saved_credit_card.sync_change_counter, 1);
-        assert_eq!(saved_credit_card.times_used, 0);
+        assert_eq!(saved_credit_card.metadata.sync_change_counter, 0);
+        assert_eq!(saved_credit_card.metadata.times_used, 0);
 
         touch(&db, &saved_credit_card.guid)?;
 
         let touched_credit_card = get_credit_card(&db, &saved_credit_card.guid)?;
 
-        assert_eq!(touched_credit_card.sync_change_counter, 2);
-        assert_eq!(touched_credit_card.times_used, 1);
+        assert_eq!(touched_credit_card.metadata.sync_change_counter, 1);
+        assert_eq!(touched_credit_card.metadata.times_used, 1);
 
         Ok(())
     }
@@ -617,7 +627,7 @@ mod tests {
 
             ..InternalCreditCard::default()
         };
-        insert_record(&tx, &credit_card)?;
+        add_internal_credit_card(&tx, &credit_card)?;
 
         // create a mirror record
         let mirror_record = InternalCreditCard {
@@ -679,7 +689,7 @@ mod tests {
         clear_tables(&tx)?;
 
         // re-populating the tables
-        insert_record(&tx, &credit_card)?;
+        add_internal_credit_card(&tx, &credit_card)?;
         insert_mirror_record(&tx, &mirror_record);
         insert_tombstone_record(&tx, tombstone_guid.to_string())?;
 

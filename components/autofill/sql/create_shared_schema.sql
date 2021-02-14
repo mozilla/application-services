@@ -18,19 +18,19 @@ CREATE TABLE IF NOT EXISTS addresses_data (
     email               TEXT NOT NULL,
 
     time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
+    time_last_used      INTEGER NOT NULL DEFAULT 0,
     time_last_modified  INTEGER NOT NULL,
     times_used          INTEGER NOT NULL DEFAULT 0,
 
-    sync_change_counter INTEGER NOT NULL DEFAULT 1
+    sync_change_counter INTEGER NOT NULL DEFAULT 0
 );
 
 -- What's on the server as the JSON payload.
 CREATE TABLE IF NOT EXISTS addresses_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
-    -- ideally we'd have `modified` (which is in the server response), but
-    -- there's no real use-case...
+    -- We could also have `modified`, which is in the server response and
+    -- passed around in the sync code, but we don't have a use-case for using it.
 );
 
 -- Tombstones are items deleted locally but not deleted in the mirror (ie, ones

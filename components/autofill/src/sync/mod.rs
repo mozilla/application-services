@@ -7,10 +7,10 @@ pub mod address;
 mod common;
 pub mod credit_card;
 
+pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
 use interrupt_support::Interruptee;
-use rusqlite::Row;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
@@ -20,8 +20,10 @@ use types::Timestamp;
 // A trait that abstracts the *storage* implementation of the specific record
 // types, and must be implemented by the concrete record owners.
 // Note that it doesn't assume a SQL database or anything concrete about the
-// storage.
-trait RecordStorageImpl {
+// storage, although objects implementing this trait will live only long enough
+// to perform the sync "incoming" steps - ie, a transaction is likely to live
+// exactly as long as this object.
+trait ProcessIncomingRecordImpl {
     type Record;
 
     fn stage_incoming(
@@ -31,18 +33,6 @@ trait RecordStorageImpl {
     ) -> Result<()>;
 
     fn fetch_incoming_states(&self) -> Result<Vec<IncomingState<Self::Record>>>;
-
-    // Merge or fork multiple records into 1. The resulting record might have
-    // the same guid as the inputs, meaning it was truly merged, or a different
-    // guid, in which case it was forked.
-    // TODO: Move this to `Record`? - it's a record abstraction, not a storage
-    // abstration!
-    fn merge(
-        &self,
-        incoming: &Self::Record,
-        local: &Self::Record,
-        mirror: &Option<Self::Record>,
-    ) -> MergeResult<Self::Record>;
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
     /// of the `guid` values which should differ) that will be used as a local duplicate record for
@@ -58,9 +48,9 @@ trait RecordStorageImpl {
     fn remove_record(&self, guid: &Guid) -> Result<()>;
 
     fn remove_tombstone(&self, guid: &Guid) -> Result<()>;
-
-    // TODO: Will need new stuff for, "finish incoming" and all outgoing.
 }
+
+// TODO: Will need new trait for outgoing.
 
 // A trait that abstracts the functionality in the record itself.
 trait SyncRecord {
@@ -68,32 +58,12 @@ trait SyncRecord {
     fn id(&self) -> &Guid;
     fn metadata(&self) -> &Metadata;
     fn metadata_mut(&mut self) -> &mut Metadata;
-    // This does assume sql, but that's a reasonable pragmatic decision...
-    fn from_row(row: &Row<'_>) -> Result<Self>
+    // Merge or fork multiple copies of the same record. The resulting record
+    // might have the same guid as the inputs, meaning it was truly merged, or
+    // a different guid, in which case it was forked due to conflicting changes.
+    fn merge(incoming: &Self, local: &Self, mirror: &Option<Self>) -> MergeResult<Self>
     where
         Self: Sized;
-}
-
-/// The represents the metadata that's common between the records.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Copy, Clone, Default)]
-// Ideally we would not have `serde(default)` but some tests only supply
-// partial json. I guess it doesn't matter much in practice.
-#[serde(default)]
-struct Metadata {
-    // metadata isn't kebab-case for some reason...
-    #[serde(rename = "timeCreated")]
-    pub time_created: Timestamp,
-    #[serde(rename = "timeLastUsed")]
-    pub time_last_used: Timestamp,
-    #[serde(rename = "timeLastModified")]
-    pub time_last_modified: Timestamp,
-    #[serde(rename = "timesUsed")]
-    pub times_used: i64,
-    // The server stores a "version" field that's always 1
-    pub version: u32,
-    // Change counter is never serialized or deserialized.
-    #[serde(skip)]
-    pub sync_change_counter: Option<i64>,
 }
 
 impl Metadata {
@@ -216,7 +186,7 @@ enum IncomingAction<T> {
 /// Convert a IncomingState to an IncomingAction - this is where the "policy"
 /// lives for when we resurrect, or merge etc.
 fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
-    rec_impl: &dyn RecordStorageImpl<Record = T>,
+    rec_impl: &dyn ProcessIncomingRecordImpl<Record = T>,
     staged_info: IncomingState<T>,
 ) -> Result<IncomingAction<T>> {
     log::trace!("plan_incoming: {:?}", staged_info);
@@ -276,7 +246,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                 LocalRecordInfo::Modified {
                     record: local_record,
                 } => {
-                    match rec_impl.merge(&incoming_record, &local_record, &mirror) {
+                    match SyncRecord::merge(&incoming_record, &local_record, &mirror) {
                         MergeResult::Merged { merged } => {
                             // The record we save locally has material differences
                             // from the incoming one, so we are going to need to
@@ -325,7 +295,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
 
 /// Apply the incoming action
 fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
-    rec_impl: &dyn RecordStorageImpl<Record = T>,
+    rec_impl: &dyn ProcessIncomingRecordImpl<Record = T>,
     action: IncomingAction<T>,
 ) -> Result<()> {
     log::trace!("applying action: {:?}", action);
@@ -371,7 +341,7 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
 // needs a better name :) But this is how all the above ties together.
 #[allow(dead_code)]
 fn do_incoming<T: std::fmt::Debug + SyncRecord + for<'a> Deserialize<'a>>(
-    rec_impl: &dyn RecordStorageImpl<Record = T>,
+    rec_impl: &dyn ProcessIncomingRecordImpl<Record = T>,
     incoming: Vec<(Payload, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {

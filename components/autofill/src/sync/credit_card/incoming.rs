@@ -8,7 +8,7 @@ use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{IncomingState, Payload, RecordStorageImpl, ServerTimestamp};
+use crate::sync::{IncomingState, Payload, ProcessIncomingRecordImpl, ServerTimestamp};
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sync_guid::Guid as SyncGuid;
@@ -24,7 +24,7 @@ impl<'a> CreditCardsImpl<'a> {
     }
 }
 
-impl<'a> RecordStorageImpl for CreditCardsImpl<'a> {
+impl<'a> ProcessIncomingRecordImpl for CreditCardsImpl<'a> {
     type Record = InternalCreditCard;
 
     /// The first step in the "apply incoming" process - stage the records
@@ -62,7 +62,9 @@ impl<'a> RecordStorageImpl for CreditCardsImpl<'a> {
         LEFT JOIN credit_cards_data l ON s.guid = l.guid
         LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        common_fetch_incoming_record_states(self.tx, sql, |row| Ok(InternalCreditCard::from_row(row)?))
+        common_fetch_incoming_record_states(self.tx, sql, |row| {
+            Ok(InternalCreditCard::from_row(row)?)
+        })
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception

@@ -13,7 +13,7 @@
 use crate::error::*;
 use crate::sync::{IncomingRecord, IncomingState, LocalRecordInfo, Payload, SyncRecord};
 use interrupt_support::Interruptee;
-use rusqlite::{types::ToSql, Connection};
+use rusqlite::{types::ToSql, Connection, Row};
 use serde::Deserialize;
 use sql_support::ConnExt;
 use sync15::ServerTimestamp;
@@ -62,10 +62,14 @@ pub(super) fn common_stage_incoming_records(
 }
 
 /// Incoming records are retrieved from the staging and mirror tables and assigned `IncomingState` values.
-pub(super) fn common_fetch_incoming_record_states<T: SyncRecord + for<'a> Deserialize<'a>>(
+pub(super) fn common_fetch_incoming_record_states<T: SyncRecord + for<'a> Deserialize<'a>, F>(
     conn: &Connection,
     sql: &str,
-) -> Result<Vec<IncomingState<T>>> {
+    fn_from_row: F,
+) -> Result<Vec<IncomingState<T>>>
+where
+    F: Fn(&Row<'_>) -> Result<T>,
+{
     Ok(conn
         .conn()
         .query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<T>> {
@@ -92,8 +96,8 @@ pub(super) fn common_fetch_incoming_record_states<T: SyncRecord + for<'a> Deseri
                 None => None,
             };
             let local = if local_exists {
-                let record = T::from_row(row)?;
-                let has_changes = record.metadata().sync_change_counter.unwrap_or(0) != 0;
+                let record = fn_from_row(row)?;
+                let has_changes = record.metadata().sync_change_counter != 0;
                 if has_changes {
                     LocalRecordInfo::Modified { record }
                 } else {
@@ -204,6 +208,7 @@ macro_rules! sync_merge_field_check {
 pub(super) mod tests {
     use super::super::*;
     use interrupt_support::NeverInterrupts;
+    use serde::Serialize;
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
 
@@ -236,7 +241,7 @@ pub(super) mod tests {
     pub(in crate::sync) fn do_test_incoming_same<
         T: SyncRecord + std::fmt::Debug + Clone + Serialize,
     >(
-        ri: &dyn RecordStorageImpl<Record = T>,
+        ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         record: T,
     ) {
         ri.insert_local_record(record.clone())
@@ -260,7 +265,7 @@ pub(super) mod tests {
     pub(in crate::sync) fn do_test_incoming_tombstone<
         T: SyncRecord + std::fmt::Debug + Clone + Serialize,
     >(
-        ri: &dyn RecordStorageImpl<Record = T>,
+        ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         record: T,
     ) {
         let guid = record.id().clone();

@@ -6,40 +6,13 @@
 pub mod engine;
 pub mod incoming;
 
-use super::{Metadata, SyncRecord};
-use crate::error::*;
-use rusqlite::Row;
-use serde::Serialize;
-use serde_derive::*;
+use super::{MergeResult, Metadata, SyncRecord};
+use crate::db::models::address::InternalAddress;
+use crate::sync_merge_field_check;
 use sync_guid::Guid as SyncGuid;
+use types::Timestamp;
 
-const RECORD_VERSION: u32 = 1;
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-#[serde(rename_all = "kebab-case")]
-#[serde(default)]
-struct AddressRecord {
-    #[serde(rename = "id")]
-    pub guid: SyncGuid,
-    pub given_name: String,
-    pub additional_name: String,
-    pub family_name: String,
-    pub organization: String,
-    pub street_address: String,
-    pub address_level3: String,
-    pub address_level2: String,
-    pub address_level1: String,
-    pub postal_code: String,
-    pub country: String,
-    pub tel: String,
-    pub email: String,
-    #[serde(flatten)]
-    pub metadata: Metadata,
-}
-
-impl AddressRecord {}
-
-impl SyncRecord for AddressRecord {
+impl SyncRecord for InternalAddress {
     fn record_name() -> &'static str {
         "Address"
     }
@@ -56,29 +29,59 @@ impl SyncRecord for AddressRecord {
         &mut self.metadata
     }
 
-    fn from_row(row: &Row<'_>) -> Result<AddressRecord> {
-        Ok(AddressRecord {
-            guid: row.get::<_, SyncGuid>("guid")?,
-            given_name: row.get::<_, String>("given_name")?,
-            additional_name: row.get::<_, String>("additional_name")?,
-            family_name: row.get::<_, String>("family_name")?,
-            organization: row.get::<_, String>("organization")?,
-            street_address: row.get::<_, String>("street_address")?,
-            address_level3: row.get::<_, String>("address_level3")?,
-            address_level2: row.get::<_, String>("address_level2")?,
-            address_level1: row.get::<_, String>("address_level1")?,
-            postal_code: row.get::<_, String>("postal_code")?,
-            country: row.get::<_, String>("country")?,
-            tel: row.get::<_, String>("tel")?,
-            email: row.get::<_, String>("email")?,
-            metadata: Metadata {
-                time_created: row.get("time_created")?,
-                time_last_used: row.get("time_last_used")?,
-                time_last_modified: row.get("time_last_modified")?,
-                times_used: row.get("times_used")?,
-                version: RECORD_VERSION,
-                sync_change_counter: row.get("sync_change_counter")?,
-            },
-        })
+    /// Performs a three-way merge between an incoming, local, and mirror record.
+    /// If a merge cannot be successfully completed (ie, if we find the same
+    /// field has changed both locally and remotely since the last sync), the
+    /// local record data is returned with a new guid and updated sync metadata.
+    /// Note that mirror being None is an edge-case and typically means first
+    /// sync since a "reset" (eg, disconnecting and reconnecting.
+    #[allow(clippy::cognitive_complexity)] // Looks like clippy considers this after macro-expansion...
+    fn merge(incoming: &Self, local: &Self, mirror: &Option<Self>) -> MergeResult<Self> {
+        let mut merged_record: Self = Default::default();
+        // guids must be identical
+        assert_eq!(incoming.guid, local.guid);
+
+        match mirror {
+            Some(m) => assert_eq!(incoming.guid, m.guid),
+            None => {}
+        };
+
+        merged_record.guid = incoming.guid.clone();
+
+        sync_merge_field_check!(given_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(additional_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(family_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(organization, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(street_address, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(address_level3, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(address_level2, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(address_level1, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(postal_code, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(country, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(tel, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(email, incoming, local, mirror, merged_record);
+
+        merged_record.metadata = incoming.metadata;
+        merged_record
+            .metadata
+            .merge(&local.metadata, &mirror.as_ref().map(|m| m.metadata()));
+
+        MergeResult::Merged {
+            merged: merged_record,
+        }
     }
+}
+
+/// Returns a with the given local record's data but with a new guid and
+/// fresh sync metadata.
+fn get_forked_record(local_record: InternalAddress) -> InternalAddress {
+    let mut local_record_data = local_record;
+    local_record_data.guid = SyncGuid::random();
+    local_record_data.metadata.time_created = Timestamp::now();
+    local_record_data.metadata.time_last_used = Timestamp::now();
+    local_record_data.metadata.time_last_modified = Timestamp::now();
+    local_record_data.metadata.times_used = 0;
+    local_record_data.metadata.sync_change_counter = 1;
+
+    local_record_data
 }

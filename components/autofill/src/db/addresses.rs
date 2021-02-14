@@ -18,8 +18,10 @@ use sync15::EngineSyncAssociation;
 use sync_guid::Guid;
 use types::Timestamp;
 
-#[allow(dead_code)]
-pub fn add_address(conn: &Connection, new: UpdatableAddressFields) -> Result<InternalAddress> {
+pub(crate) fn add_address(
+    conn: &Connection,
+    new: UpdatableAddressFields,
+) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
 
     // We return an InternalAddress, so set it up first, including the missing
@@ -38,13 +40,14 @@ pub fn add_address(conn: &Connection, new: UpdatableAddressFields) -> Result<Int
         country: new.country,
         tel: new.tel,
         email: new.email,
-        time_created: Timestamp::now(),
-        time_last_used: Some(Timestamp::now()),
-        time_last_modified: Timestamp::now(),
-        times_used: 0,
-        sync_change_counter: 1,
+        metadata: Default::default(),
     };
+    add_internal_address(&tx, &address)?;
+    tx.commit()?;
+    Ok(address)
+}
 
+pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddress) -> Result<()> {
     tx.execute_named(
         &format!(
             "INSERT OR IGNORE INTO addresses_data (
@@ -71,20 +74,17 @@ pub fn add_address(conn: &Connection, new: UpdatableAddressFields) -> Result<Int
             ":country": address.country,
             ":tel": address.tel,
             ":email": address.email,
-            ":time_created": address.time_created,
-            ":time_last_used": address.time_last_used,
-            ":time_last_modified": address.time_last_modified,
-            ":times_used": address.times_used,
-            ":sync_change_counter": address.sync_change_counter,
+            ":time_created": address.metadata.time_created,
+            ":time_last_used": address.metadata.time_last_used,
+            ":time_last_modified": address.metadata.time_last_modified,
+            ":times_used": address.metadata.times_used,
+            ":sync_change_counter": address.metadata.sync_change_counter,
         },
     )?;
-
-    tx.commit()?;
-    Ok(address)
+    Ok(())
 }
 
-#[allow(dead_code)]
-pub fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
+pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
@@ -101,8 +101,7 @@ pub fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
     Ok(address)
 }
 
-#[allow(dead_code)]
-pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
+pub(crate) fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
     let sql = format!(
         "SELECT
             {common_cols},
@@ -118,8 +117,9 @@ pub fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
     Ok(addresses)
 }
 
-#[allow(dead_code)]
-pub fn update_address(
+/// Updates just the "updatable" columns - suitable for exposure as a public
+/// API.
+pub(crate) fn update_address(
     conn: &Connection,
     guid: &Guid,
     address: &UpdatableAddressFields,
@@ -162,7 +162,62 @@ pub fn update_address(
     Ok(())
 }
 
-pub fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
+/// Updates all fields including metadata - although the change counter gets
+/// slighly special treatment. Suitable for internal use (eg, by Sync)
+pub(crate) fn update_internal_address(
+    tx: &Transaction<'_>,
+    address: &InternalAddress,
+    flag_as_changed: bool,
+) -> Result<()> {
+    let change_counter_increment = flag_as_changed as u32; // will be 1 or 0
+    let rows_changed = tx.execute_named(
+        "UPDATE addresses_data SET
+            given_name          = :given_name,
+            additional_name     = :additional_name,
+            family_name         = :family_name,
+            organization        = :organization,
+            street_address      = :street_address,
+            address_level3      = :address_level3,
+            address_level2      = :address_level2,
+            address_level1      = :address_level1,
+            postal_code         = :postal_code,
+            country             = :country,
+            tel                 = :tel,
+            email               = :email,
+            time_created        = :time_created,
+            time_last_used      = :time_last_used,
+            time_last_modified  = :time_last_modified,
+            times_used          = :times_used,
+            sync_change_counter = sync_change_counter + :change_incr,
+        WHERE guid              = :guid",
+        rusqlite::named_params! {
+            ":given_name": address.given_name,
+            ":additional_name": address.additional_name,
+            ":family_name": address.family_name,
+            ":organization": address.organization,
+            ":street_address": address.street_address,
+            ":address_level3": address.address_level3,
+            ":address_level2": address.address_level2,
+            ":address_level1": address.address_level1,
+            ":postal_code": address.postal_code,
+            ":country": address.country,
+            ":tel": address.tel,
+            ":email": address.email,
+            ":time_created": address.metadata.time_created,
+            ":time_last_used": address.metadata.time_last_used,
+            ":time_last_modified": address.metadata.time_last_modified,
+            ":times_used": address.metadata.times_used,
+            ":change_incr": change_counter_increment,
+            ":guid": address.guid,
+        },
+    )?;
+    // Something went badly wrong if we are asking to update a row that doesn't
+    // exist, or somehow we updated more than 1!
+    assert_eq!(rows_changed, 1);
+    Ok(())
+}
+
+pub(crate) fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
     let tx = conn.unchecked_transaction()?;
 
     // execute_named returns how many rows were affected.
@@ -297,45 +352,6 @@ mod tests {
         .expect("should create it");
     }
 
-    fn insert_record(
-        conn: &Connection,
-        address: &InternalAddress,
-    ) -> rusqlite::Result<usize, rusqlite::Error> {
-        conn.execute_named(
-            &format!(
-                "INSERT OR IGNORE INTO addresses_data (
-                    {common_cols},
-                    sync_change_counter
-                ) VALUES (
-                    {common_vals},
-                    :sync_change_counter
-                )",
-                common_cols = ADDRESS_COMMON_COLS,
-                common_vals = ADDRESS_COMMON_VALS,
-            ),
-            rusqlite::named_params! {
-                ":guid": address.guid,
-                ":given_name": address.given_name,
-                ":additional_name": address.additional_name,
-                ":family_name": address.family_name,
-                ":organization": address.organization,
-                ":street_address": address.street_address,
-                ":address_level3": address.address_level3,
-                ":address_level2": address.address_level2,
-                ":address_level1": address.address_level1,
-                ":postal_code": address.postal_code,
-                ":country": address.country,
-                ":tel": address.tel,
-                ":email": address.email,
-                ":time_created": address.time_created,
-                ":time_last_used": address.time_last_used,
-                ":time_last_modified": address.time_last_modified,
-                ":times_used": address.times_used,
-                ":sync_change_counter": address.sync_change_counter,
-            },
-        )
-    }
-
     #[test]
     fn test_address_create_and_read() {
         let db = new_mem_db();
@@ -357,8 +373,7 @@ mod tests {
         // check that the add function populated the guid field
         assert_ne!(Guid::default(), saved_address.guid);
 
-        // check that sync_change_counter was set
-        assert_eq!(1, saved_address.sync_change_counter);
+        assert_eq!(0, saved_address.metadata.sync_change_counter);
 
         // get created address
         let retrieved_address = get_address(&db, &saved_address.guid)
@@ -467,6 +482,8 @@ mod tests {
             },
         )
         .expect("should contain saved address");
+        // change_counter starts at 0
+        assert_eq!(0, saved_address.metadata.sync_change_counter);
 
         let expected_additional_name = "paul".to_string();
         let update_result = update_address(
@@ -496,7 +513,7 @@ mod tests {
         assert_eq!(expected_additional_name, updated_address.additional_name);
 
         //check that the sync_change_counter was incremented
-        assert_eq!(2, updated_address.sync_change_counter);
+        assert_eq!(1, updated_address.metadata.sync_change_counter);
     }
 
     #[test]
@@ -555,6 +572,7 @@ mod tests {
     #[test]
     fn test_address_trigger_on_create() {
         let db = new_mem_db();
+        let tx = db.unchecked_transaction().expect("should get a tx");
         let guid = Guid::random();
 
         // create a tombstone record
@@ -572,19 +590,20 @@ mod tests {
             ..Default::default()
         };
 
-        let add_address_result = insert_record(&db, &address);
+        let add_address_result = add_internal_address(&tx, &address);
         assert!(add_address_result.is_err());
 
         let expected_error_message = "guid exists in `addresses_tombstones`";
-        assert_eq!(
-            expected_error_message,
-            add_address_result.unwrap_err().to_string()
-        );
+        assert!(add_address_result
+            .unwrap_err()
+            .to_string()
+            .contains(expected_error_message))
     }
 
     #[test]
     fn test_address_trigger_on_delete() {
         let db = new_mem_db();
+        let tx = db.unchecked_transaction().expect("should get a tx");
         let guid = Guid::random();
 
         // create an address
@@ -598,7 +617,7 @@ mod tests {
             ..Default::default()
         };
 
-        let add_address_result = insert_record(&db, &address);
+        let add_address_result = add_internal_address(&tx, &address);
         assert!(add_address_result.is_ok());
 
         // create a tombstone record with the same guid
@@ -628,15 +647,15 @@ mod tests {
             },
         )?;
 
-        assert_eq!(saved_address.sync_change_counter, 1);
-        assert_eq!(saved_address.times_used, 0);
+        assert_eq!(saved_address.metadata.sync_change_counter, 0);
+        assert_eq!(saved_address.metadata.times_used, 0);
 
         touch(&db, &saved_address.guid)?;
 
         let touched_address = get_address(&db, &saved_address.guid)?;
 
-        assert_eq!(touched_address.sync_change_counter, 2);
-        assert_eq!(touched_address.times_used, 1);
+        assert_eq!(touched_address.metadata.sync_change_counter, 1);
+        assert_eq!(touched_address.metadata.times_used, 1);
 
         Ok(())
     }
@@ -649,7 +668,6 @@ mod tests {
         // create a record
         let address = InternalAddress {
             guid: Guid::random(),
-            sync_change_counter: 0,
             given_name: "jane".to_string(),
             family_name: "doe".to_string(),
             street_address: "123 Second Avenue".to_string(),
@@ -658,7 +676,7 @@ mod tests {
 
             ..InternalAddress::default()
         };
-        insert_record(&tx, &address)?;
+        add_internal_address(&tx, &address)?;
 
         // create a mirror record
         let mirror_record = InternalAddress {
@@ -720,7 +738,7 @@ mod tests {
         clear_tables(&tx)?;
 
         // re-populating the tables
-        insert_record(&tx, &address)?;
+        add_internal_address(&tx, &address)?;
         insert_mirror_record(&tx, &mirror_record);
         insert_tombstone_record(&tx, tombstone_guid.to_string())?;
 

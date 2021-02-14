@@ -19,6 +19,7 @@ pub struct Store {
     db: AutofillDb,
 }
 
+#[allow(dead_code)]
 impl Store {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
@@ -39,19 +40,16 @@ impl Store {
         &self.db
     }
 
-    #[allow(dead_code)]
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
         let credit_card = credit_cards::add_credit_card(&self.db.writer, fields)?;
         Ok(credit_card.into())
     }
 
-    #[allow(dead_code)]
     pub fn get_credit_card(&self, guid: String) -> Result<CreditCard> {
         let credit_card = credit_cards::get_credit_card(&self.db.writer, &Guid::new(&guid))?;
         Ok(credit_card.into())
     }
 
-    #[allow(dead_code)]
     pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
         let credit_cards = credit_cards::get_all_credit_cards(&self.db.writer)?
             .into_iter()
@@ -60,7 +58,6 @@ impl Store {
         Ok(credit_cards)
     }
 
-    #[allow(dead_code)]
     pub fn update_credit_card(
         &self,
         guid: String,
@@ -69,7 +66,6 @@ impl Store {
         credit_cards::update_credit_card(&self.db.writer, &Guid::new(&guid), &credit_card)
     }
 
-    #[allow(dead_code)]
     pub fn delete_credit_card(&self, guid: String) -> Result<bool> {
         credit_cards::delete_credit_card(&self.db.writer, &Guid::new(&guid))
     }
@@ -78,17 +74,14 @@ impl Store {
         credit_cards::touch(&self.db.writer, &Guid::new(&guid))
     }
 
-    #[allow(dead_code)]
     pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
         Ok(addresses::add_address(&self.db.writer, new_address)?.into())
     }
 
-    #[allow(dead_code)]
     pub fn get_address(&self, guid: String) -> Result<Address> {
         Ok(addresses::get_address(&self.db.writer, &Guid::new(&guid))?.into())
     }
 
-    #[allow(dead_code)]
     pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
         let addresses = addresses::get_all_addresses(&self.db.writer)?
             .into_iter()
@@ -97,17 +90,14 @@ impl Store {
         Ok(addresses)
     }
 
-    #[allow(dead_code)]
     pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> Result<()> {
         addresses::update_address(&self.db.writer, &Guid::new(&guid), &address)
     }
 
-    #[allow(dead_code)]
     pub fn delete_address(&self, guid: String) -> Result<bool> {
         addresses::delete_address(&self.db.writer, &Guid::new(&guid))
     }
 
-    #[allow(dead_code)]
     pub fn touch_address(&self, guid: String) -> Result<()> {
         addresses::touch(&self.db.writer, &Guid::new(&guid))
     }
