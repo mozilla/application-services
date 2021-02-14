@@ -493,53 +493,21 @@ fn save_to_mirror(
 ) -> Result<()> {
     log::info!("adding {} records to the mirror", records.len());
 
-    let chunk_size = 17;
+    let chunk_size = 2;
     sql_support::each_sized_chunk(
         &records,
         sql_support::default_max_variable_number() / chunk_size,
         |chunk, _| -> Result<()> {
-            let sql = format!(
-                "INSERT OR REPLACE INTO addresses_mirror (
-                    guid,
-                    given_name,
-                    additional_name,
-                    family_name,
-                    organization,
-                    street_address,
-                    address_level3,
-                    address_level2,
-                    address_level1,
-                    postal_code,
-                    country,
-                    tel,
-                    email,
-                    time_created,
-                    time_last_used,
-                    time_last_modified,
-                    times_used
-                ) VALUES {}",
-                sql_support::repeat_multi_values(chunk.len(), chunk_size)
+            signal.err_if_interrupted()?;
+            let sql =
+                "INSERT OR REPLACE INTO addresses_mirror (guid, payload)
+                 VALUES {}",
             );
             let mut params = Vec::with_capacity(chunk.len() * chunk_size);
             for record in chunk {
-                signal.err_if_interrupted()?;
+                let payload = record.to_value()?;
                 params.push(&record.guid as &dyn ToSql);
-                params.push(&record.given_name);
-                params.push(&record.additional_name);
-                params.push(&record.family_name);
-                params.push(&record.organization);
-                params.push(&record.street_address);
-                params.push(&record.address_level3);
-                params.push(&record.address_level2);
-                params.push(&record.address_level1);
-                params.push(&record.postal_code);
-                params.push(&record.country);
-                params.push(&record.tel);
-                params.push(&record.email);
-                params.push(&record.time_created);
-                params.push(&record.time_last_used);
-                params.push(&record.time_last_modified);
-                params.push(&record.times_used);
+                params.push(&payload);
             }
             conn.execute(&sql, &params)?;
             Ok(())

@@ -26,7 +26,7 @@ trait RecordStorageImpl {
 
     fn stage_incoming(
         &self,
-        inbound: IncomingRecords<Self::Record>,
+        incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()>;
 
@@ -69,7 +69,7 @@ trait SyncRecord {
     fn metadata(&self) -> &Metadata;
     fn metadata_mut(&mut self) -> &mut Metadata;
     // This does assume sql, but that's a reasonable pragmatic decision...
-    fn from_row(row: &Row<'_>, column_prefix: &str) -> Result<Self>
+    fn from_row(row: &Row<'_>) -> Result<Self>
     where
         Self: Sized;
 }
@@ -147,14 +147,6 @@ impl Metadata {
     }
 }
 
-// A helper struct for stage_incoming, holding the incoming records,
-// already deserialized and already split into tombstones and not.
-#[derive(Debug)]
-struct IncomingRecords<T> {
-    pub records: Vec<(T, ServerTimestamp)>,
-    pub tombstones: Vec<(T, ServerTimestamp)>,
-}
-
 // Some enums that help represent what the state of local records are.
 // The idea is that the actual implementations just need to tell you what
 // exists and what doesn't, but don't need to implement the actual policy for
@@ -162,15 +154,13 @@ struct IncomingRecords<T> {
 
 // An "incoming" record can be in only 2 states.
 #[derive(Debug)]
-#[allow(dead_code)]
-enum IncomingRecordInfo<T> {
+enum IncomingRecord<T> {
     Record { record: T },
     Tombstone { guid: Guid },
 }
 
 // A local record can be in any of these 4 states.
 #[derive(Debug)]
-#[allow(dead_code)]
 enum LocalRecordInfo<T> {
     Unmodified { record: T },
     Modified { record: T },
@@ -181,7 +171,6 @@ enum LocalRecordInfo<T> {
 // An enum for the return value from our "merge" function, which might either
 // update the record, or might fork it.
 #[derive(Debug)]
-#[allow(dead_code)]
 enum MergeResult<T> {
     Merged { merged: T },
     Forked { forked: T },
@@ -191,7 +180,7 @@ enum MergeResult<T> {
 // implementations to put together for us.
 #[derive(Debug)]
 struct IncomingState<T> {
-    incoming: IncomingRecordInfo<T>,
+    incoming: IncomingRecord<T>,
     local: LocalRecordInfo<T>,
     // We don't have an enum for the mirror - an Option<> is fine because we
     // don't store tombstones there.
@@ -224,49 +213,6 @@ enum IncomingAction<T> {
     DoNothing,
 }
 
-/// The first step in the "apply incoming" process for syncing autofill records.
-fn stage_incoming<T: std::fmt::Debug + SyncRecord + for<'a> Deserialize<'a>>(
-    rec_impl: &dyn RecordStorageImpl<Record = T>,
-    inbound: Vec<(Payload, ServerTimestamp)>,
-    signal: &dyn Interruptee,
-) -> Result<()> {
-    let mut records = Vec::with_capacity(inbound.len());
-    let mut tombstones = Vec::with_capacity(inbound.len());
-
-    for (payload, timestamp) in inbound {
-        let payload_id = payload.id.clone();
-        let payload_is_tombstone = payload.deleted;
-
-        log::trace!(
-            "staging incoming payload {} (deleted={})",
-            payload_id,
-            payload_is_tombstone,
-        );
-
-        match payload.into_record::<T>() {
-            Ok(record) => {
-                if payload_is_tombstone {
-                    tombstones.push((record, timestamp));
-                } else {
-                    records.push((record, timestamp));
-                }
-            }
-            Err(e) => log::error!(
-                "failed to deserialize incoming {} payload {}: {}",
-                T::record_name(),
-                payload_id,
-                e,
-            ),
-        };
-    }
-    let incoming = IncomingRecords {
-        records,
-        tombstones,
-    };
-    rec_impl.stage_incoming(incoming, signal)?;
-    Ok(())
-}
-
 /// Convert a IncomingState to an IncomingAction - this is where the "policy"
 /// lives for when we resurrect, or merge etc.
 fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
@@ -281,7 +227,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
     } = staged_info;
 
     let state = match incoming {
-        IncomingRecordInfo::Tombstone { guid } => {
+        IncomingRecord::Tombstone { guid } => {
             match local {
                 LocalRecordInfo::Unmodified { .. } => {
                     // Note: On desktop, when there's a local record for an incoming tombstone, a local tombstone
@@ -304,7 +250,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                 LocalRecordInfo::Missing => IncomingAction::DoNothing,
             }
         }
-        IncomingRecordInfo::Record {
+        IncomingRecord::Record {
             record: mut incoming_record,
         } => {
             match local {
@@ -355,7 +301,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                             record: incoming_record,
                         },
                         Some((old_guid, local_dupe)) => {
-                            // *sob* - need guid fetching in the trait??? assert_ne!(incoming_record.guid, local_dupe.guid);
+                            assert_ne!(incoming_record.id(), local_dupe.id());
                             // The existing item is identical except for the metadata, so
                             // we still merge that metadata.
                             let metadata = incoming_record.metadata_mut();
@@ -426,13 +372,15 @@ fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
 #[allow(dead_code)]
 fn do_incoming<T: std::fmt::Debug + SyncRecord + for<'a> Deserialize<'a>>(
     rec_impl: &dyn RecordStorageImpl<Record = T>,
-    inbound: Vec<(Payload, ServerTimestamp)>,
+    incoming: Vec<(Payload, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
-    stage_incoming(rec_impl, inbound, signal)?;
-    let states = rec_impl.fetch_incoming_states()?;
-    for state in states {
+    // The first step in the "apply incoming" process for syncing autofill records.
+    rec_impl.stage_incoming(incoming, signal)?;
+    // 2nd step is to get "states" for each record...
+    for state in rec_impl.fetch_incoming_states()? {
         signal.err_if_interrupted()?;
+        // Finally get a "plan" and apply it.
         let action = plan_incoming(rec_impl, state)?;
         apply_incoming_action(rec_impl, action)?;
     }

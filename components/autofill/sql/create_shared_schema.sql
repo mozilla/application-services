@@ -25,30 +25,16 @@ CREATE TABLE IF NOT EXISTS addresses_data (
     sync_change_counter INTEGER NOT NULL DEFAULT 1
 );
 
--- Note that we don't store tombstones in the mirror - maybe we should? That
--- would mean we need to change the schema here significantly - maybe we should
--- just store the JSON payload?
+-- What's on the server as the JSON payload.
 CREATE TABLE IF NOT EXISTS addresses_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    given_name          TEXT NOT NULL,
-    additional_name     TEXT NOT NULL,
-    family_name         TEXT NOT NULL,
-    organization        TEXT NOT NULL,  -- Company
-    street_address      TEXT NOT NULL,  -- (Multiline)
-    address_level3      TEXT NOT NULL,  -- Suburb/Sublocality
-    address_level2      TEXT NOT NULL,  -- City/Town
-    address_level1      TEXT NOT NULL,  -- Province (Standardized code if possible)
-    postal_code         TEXT NOT NULL,
-    country             TEXT NOT NULL,  -- ISO 3166
-    tel                 TEXT NOT NULL,  -- Stored in E.164 format
-    email               TEXT NOT NULL,
-
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL DEFAULT 0
+    payload             TEXT NOT NULL CHECK(length(payload) != 0)
+    -- ideally we'd have `modified` (which is in the server response), but
+    -- there's no real use-case...
 );
 
+-- Tombstones are items deleted locally but not deleted in the mirror (ie, ones
+-- we are yet to upload)
 CREATE TABLE IF NOT EXISTS addresses_tombstones (
     guid            TEXT PRIMARY KEY CHECK(length(guid) != 0),
     time_deleted    INTEGER NOT NULL
@@ -76,16 +62,7 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
 
 CREATE TABLE IF NOT EXISTS credit_cards_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    cc_name             TEXT NOT NULL, -- full name
-    cc_number           TEXT NOT NULL,
-    cc_exp_month        INTEGER,
-    cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL DEFAULT 0
+    payload             TEXT NOT NULL CHECK(length(payload) != 0)
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_tombstones (

@@ -259,33 +259,17 @@ mod tests {
         )
     }
 
-    fn insert_mirror_record(
-        conn: &Connection,
-        credit_card: &InternalCreditCard,
-    ) -> rusqlite::Result<usize, rusqlite::Error> {
+    fn insert_mirror_record(conn: &Connection, credit_card: &InternalCreditCard) {
+        let payload = serde_json::to_string(credit_card).expect("is json");
         conn.execute_named(
-            &format!(
-                "INSERT OR IGNORE INTO credit_cards_mirror (
-                {common_cols}
-            ) VALUES (
-                {common_vals}
-            )",
-                common_cols = CREDIT_CARD_COMMON_COLS,
-                common_vals = CREDIT_CARD_COMMON_VALS
-            ),
+            "INSERT OR IGNORE INTO credit_cards_mirror (guid, payload)
+             VALUES (:guid, :payload)",
             rusqlite::named_params! {
                 ":guid": credit_card.guid,
-                ":cc_name": credit_card.cc_name,
-                ":cc_number": credit_card.cc_number,
-                ":cc_exp_month": credit_card.cc_exp_month,
-                ":cc_exp_year": credit_card.cc_exp_year,
-                ":cc_type": credit_card.cc_type,
-                ":time_created": credit_card.time_created,
-                ":time_last_used": credit_card.time_last_used,
-                ":time_last_modified": credit_card.time_last_modified,
-                ":times_used": credit_card.times_used,
+                ":payload": &payload,
             },
         )
+        .expect("should insert");
     }
 
     fn insert_record(
@@ -499,7 +483,7 @@ mod tests {
         )?;
 
         // create a mirror record to check that a tombstone record is created upon deletion
-        insert_mirror_record(&db, &saved_credit_card2)?;
+        insert_mirror_record(&db, &saved_credit_card2);
 
         let delete_result2 = delete_credit_card(&db, &saved_credit_card2.guid);
         assert!(delete_result2.is_ok());
@@ -646,7 +630,7 @@ mod tests {
 
             ..InternalCreditCard::default()
         };
-        insert_mirror_record(&tx, &mirror_record)?;
+        insert_mirror_record(&tx, &mirror_record);
 
         // create a tombstone record
         let tombstone_guid = Guid::random();
@@ -696,7 +680,7 @@ mod tests {
 
         // re-populating the tables
         insert_record(&tx, &credit_card)?;
-        insert_mirror_record(&tx, &mirror_record)?;
+        insert_mirror_record(&tx, &mirror_record);
         insert_tombstone_record(&tx, tombstone_guid.to_string())?;
 
         // call reset for sign in

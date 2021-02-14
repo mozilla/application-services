@@ -7,111 +7,14 @@ use super::AddressRecord;
 use crate::db::schema::{ADDRESS_COMMON_COLS, ADDRESS_COMMON_VALS};
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{IncomingRecords, MergeResult, RecordStorageImpl, SyncRecord};
+use crate::sync::{
+    IncomingState, MergeResult, Payload, RecordStorageImpl, ServerTimestamp, SyncRecord,
+};
 use crate::sync_merge_field_check;
 use interrupt_support::Interruptee;
-use rusqlite::{named_params, types::ToSql, Connection, Transaction};
+use rusqlite::{named_params, Transaction};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
-
-type IncomingState = crate::sync::IncomingState<AddressRecord>;
-
-/// Incoming tombstones are retrieved from the `addresses_tombstone_sync_staging` table
-/// and assigned `IncomingState` values.
-fn get_incoming_tombstone_states(conn: &Connection) -> Result<Vec<IncomingState>> {
-    let sql = "SELECT
-        s.guid as s_guid,
-        l.guid as l_guid,
-        t.guid as t_guid,
-        l.given_name,
-        l.additional_name,
-        l.family_name,
-        l.organization,
-        l.street_address,
-        l.address_level3,
-        l.address_level2,
-        l.address_level1,
-        l.postal_code,
-        l.country,
-        l.tel,
-        l.email,
-        l.time_created,
-        l.time_last_used,
-        l.time_last_modified,
-        l.times_used,
-        l.sync_change_counter
-    FROM temp.addresses_tombstone_sync_staging s
-    LEFT JOIN addresses_data l ON s.guid = l.guid
-    LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
-
-    common_get_incoming_tombstone_states(conn, sql)
-}
-
-/// Incoming records (excluding tombstones) are retrieved from the `addresses_sync_staging` table
-/// and assigned `IncomingState` values.
-fn get_incoming_record_states(conn: &Connection) -> Result<Vec<IncomingState>> {
-    let sql_query = "
-        SELECT
-            s.guid as s_guid,
-            m.guid as m_guid,
-            l.guid as l_guid,
-            s.given_name as s_given_name,
-            m.given_name as m_given_name,
-            l.given_name as l_given_name,
-            s.additional_name as s_additional_name,
-            m.additional_name as m_additional_name,
-            l.additional_name as l_additional_name,
-            s.family_name as s_family_name,
-            m.family_name as m_family_name,
-            l.family_name as l_family_name,
-            s.organization as s_organization,
-            m.organization as m_organization,
-            l.organization as l_organization,
-            s.street_address as s_street_address,
-            m.street_address as m_street_address,
-            l.street_address as l_street_address,
-            s.address_level3 as s_address_level3,
-            m.address_level3 as m_address_level3,
-            l.address_level3 as l_address_level3,
-            s.address_level2 as s_address_level2,
-            m.address_level2 as m_address_level2,
-            l.address_level2 as l_address_level2,
-            s.address_level1 as s_address_level1,
-            m.address_level1 as m_address_level1,
-            l.address_level1 as l_address_level1,
-            s.postal_code as s_postal_code,
-            m.postal_code as m_postal_code,
-            l.postal_code as l_postal_code,
-            s.country as s_country,
-            m.country as m_country,
-            l.country as l_country,
-            s.tel as s_tel,
-            m.tel as m_tel,
-            l.tel as l_tel,
-            s.email as s_email,
-            m.email as m_email,
-            l.email as l_email,
-            s.time_created as s_time_created,
-            m.time_created as m_time_created,
-            l.time_created as l_time_created,
-            s.time_last_used as s_time_last_used,
-            m.time_last_used as m_time_last_used,
-            l.time_last_used as l_time_last_used,
-            s.time_last_modified as s_time_last_modified,
-            m.time_last_modified as m_time_last_modified,
-            l.time_last_modified as l_time_last_modified,
-            s.times_used as s_times_used,
-            m.times_used as m_times_used,
-            l.times_used as l_times_used,
-            l.sync_change_counter as l_sync_change_counter,
-            t.guid as t_guid
-        FROM temp.addresses_sync_staging s
-        LEFT JOIN addresses_mirror m ON s.guid = m.guid
-        LEFT JOIN addresses_data l ON s.guid = l.guid
-        LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
-
-    common_get_incoming_record_states(conn, sql_query)
-}
 
 pub(super) struct AddressesImpl<'a> {
     tx: &'a Transaction<'a>,
@@ -129,56 +32,46 @@ impl<'a> RecordStorageImpl for AddressesImpl<'a> {
     /// The first step in the "apply incoming" process - stage the records
     fn stage_incoming(
         &self,
-        incoming: IncomingRecords<Self::Record>,
+        incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
-        // The non-tombstone records...
-        common_stage_incoming_records(
-            self.tx,
-            "addresses_sync_staging",
-            ADDRESS_COMMON_COLS,
-            incoming.records,
-            signal,
-            |record| {
-                vec![
-                    &record.guid as &dyn ToSql,
-                    &record.given_name,
-                    &record.additional_name,
-                    &record.family_name,
-                    &record.organization,
-                    &record.street_address,
-                    &record.address_level3,
-                    &record.address_level2,
-                    &record.address_level1,
-                    &record.postal_code,
-                    &record.country,
-                    &record.tel,
-                    &record.email,
-                    &record.metadata.time_created,
-                    &record.metadata.time_last_used,
-                    &record.metadata.time_last_modified,
-                    &record.metadata.times_used,
-                ]
-            },
-        )?;
-        // and tombstones
-        common_stage_incoming_tombstones(
-            self.tx,
-            "addresses_tombstone_sync_staging",
-            incoming.tombstones,
-            signal,
-        )?;
-        Ok(())
+        common_stage_incoming_records(self.tx, "addresses_sync_staging", incoming, signal)
     }
 
     /// The second step in the "apply incoming" process for syncing autofill address records.
-    /// Incoming tombstones and records are retrieved from the temp tables and assigned
-    /// `IncomingState` values.
-    fn fetch_incoming_states(&self) -> Result<Vec<IncomingState>> {
-        let mut incoming_infos = get_incoming_tombstone_states(self.tx)?;
-        let mut incoming_record_infos = get_incoming_record_states(self.tx)?;
-        incoming_infos.append(&mut incoming_record_infos);
-        Ok(incoming_infos)
+    /// Incoming items are retrieved from the temp tables, deserialized, and
+    /// assigned `IncomingState` values.
+    fn fetch_incoming_states(&self) -> Result<Vec<IncomingState<Self::Record>>> {
+        let sql = "
+        SELECT
+            s.guid as guid,
+            l.guid as l_guid,
+            t.guid as t_guid,
+            s.payload as s_payload,
+            m.payload as m_payload,
+            l.given_name,
+            l.additional_name,
+            l.family_name,
+            l.organization,
+            l.street_address,
+            l.address_level3,
+            l.address_level2,
+            l.address_level1,
+            l.postal_code,
+            l.country,
+            l.tel,
+            l.email,
+            l.time_created,
+            l.time_last_used,
+            l.time_last_modified,
+            l.times_used,
+            l.sync_change_counter
+        FROM temp.addresses_sync_staging s
+        LEFT JOIN addresses_mirror m ON s.guid = m.guid
+        LEFT JOIN addresses_data l ON s.guid = l.guid
+        LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
+
+        common_fetch_incoming_record_states(self.tx, sql)
     }
 
     /// Performs a three-way merge between an incoming, local, and mirror record.
@@ -276,7 +169,7 @@ impl<'a> RecordStorageImpl for AddressesImpl<'a> {
         };
 
         let result = self.tx.query_row_named(&sql, params, |row| {
-            Ok(AddressRecord::from_row(&row, "").expect("wtf? '?' doesn't work :("))
+            Ok(AddressRecord::from_row(&row).expect("wtf? '?' doesn't work :("))
         });
 
         match result {
@@ -410,6 +303,7 @@ mod tests {
     use crate::sync::common::tests::*;
 
     use interrupt_support::NeverInterrupts;
+    use rusqlite::NO_PARAMS;
     use serde_json::{json, Map, Value};
     use sql_support::ConnExt;
 
@@ -459,8 +353,8 @@ mod tests {
         let mut db = new_syncable_mem_db();
         struct TestCase {
             incoming_records: Vec<Value>,
-            expected_record_count: u32,
-            expected_tombstone_count: u32,
+            expected_record_count: usize,
+            expected_tombstone_count: usize,
         }
 
         let test_cases = vec![
@@ -491,31 +385,22 @@ mod tests {
             let ri = AddressesImpl::new(&tx);
             ri.stage_incoming(array_to_incoming(tc.incoming_records), &NeverInterrupts)?;
 
-            let record_count: u32 = tx
-                .try_query_one(
-                    "SELECT COUNT(*) FROM temp.addresses_sync_staging",
-                    &[],
-                    false,
-                )
-                .expect("get incoming record count")
-                .unwrap_or_default();
+            let payloads = tx.conn().query_rows_and_then_named(
+                "SELECT * FROM temp.addresses_sync_staging;",
+                &[],
+                |row| -> Result<Payload> {
+                    let payload: String = row.get_unwrap("payload");
+                    Ok(Payload::from_json(serde_json::from_str(&payload)?)?)
+                },
+            )?;
 
-            let tombstone_count: u32 = tx
-                .try_query_one(
-                    "SELECT COUNT(*) FROM temp.addresses_tombstone_sync_staging",
-                    &[],
-                    false,
-                )
-                .expect("get incoming tombstone count")
-                .unwrap_or_default();
+            let record_count = payloads.iter().filter(|p| !p.is_tombstone()).count();
+            let tombstone_count = payloads.len() - record_count;
 
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
 
-            tx.execute_all(&[
-                "DELETE FROM temp.addresses_tombstone_sync_staging;",
-                "DELETE FROM temp.addresses_sync_staging;",
-            ])?;
+            tx.execute("DELETE FROM temp.addresses_sync_staging;", NO_PARAMS)?;
         }
         Ok(())
     }
@@ -544,5 +429,13 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = AddressesImpl::new(&tx);
         do_test_incoming_same(&ai, test_record('C'));
+    }
+
+    #[test]
+    fn test_incoming_tombstone() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ai = AddressesImpl::new(&tx);
+        do_test_incoming_tombstone(&ai, test_record('C'));
     }
 }

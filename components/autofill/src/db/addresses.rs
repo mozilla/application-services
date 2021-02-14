@@ -284,40 +284,17 @@ mod tests {
         )
     }
 
-    fn insert_mirror_record(
-        conn: &Connection,
-        address: &InternalAddress,
-    ) -> rusqlite::Result<usize, rusqlite::Error> {
+    fn insert_mirror_record(conn: &Connection, address: &InternalAddress) {
+        let payload = serde_json::to_value(address).expect("should serialize");
         conn.execute_named(
-            &format!(
-                "INSERT OR IGNORE INTO addresses_mirror (
-                {common_cols}
-            ) VALUES (
-                {common_vals}
-            )",
-                common_cols = ADDRESS_COMMON_COLS,
-                common_vals = ADDRESS_COMMON_VALS
-            ),
+            "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
+             VALUES (:guid, :payload)",
             rusqlite::named_params! {
                 ":guid": address.guid,
-                ":given_name": address.given_name,
-                ":additional_name": address.additional_name,
-                ":family_name": address.family_name,
-                ":organization": address.organization,
-                ":street_address": address.street_address,
-                ":address_level3": address.address_level3,
-                ":address_level2": address.address_level2,
-                ":address_level1": address.address_level1,
-                ":postal_code": address.postal_code,
-                ":country": address.country,
-                ":tel": address.tel,
-                ":email": address.email,
-                ":time_created": address.time_created,
-                ":time_last_used": address.time_last_used,
-                ":time_last_modified": address.time_last_modified,
-                ":times_used": address.times_used,
+                ":payload": payload,
             },
         )
+        .expect("should create it");
     }
 
     fn insert_record(
@@ -565,9 +542,8 @@ mod tests {
         .expect("create 2nd address should work");
         db.execute(
             &format!(
-                "INSERT INTO addresses_mirror ({cols})
-                 SELECT {cols} FROM addresses_data;",
-                cols = ADDRESS_COMMON_COLS
+                "INSERT INTO addresses_mirror (guid, payload) VALUES ('{}', 'whatever')",
+                saved_address.guid,
             ),
             NO_PARAMS,
         )
@@ -695,7 +671,7 @@ mod tests {
 
             ..InternalAddress::default()
         };
-        insert_mirror_record(&tx, &mirror_record)?;
+        insert_mirror_record(&tx, &mirror_record);
 
         // create a tombstone record
         let tombstone_guid = Guid::random();
@@ -745,7 +721,7 @@ mod tests {
 
         // re-populating the tables
         insert_record(&tx, &address)?;
-        insert_mirror_record(&tx, &mirror_record)?;
+        insert_mirror_record(&tx, &mirror_record);
         insert_tombstone_record(&tx, tombstone_guid.to_string())?;
 
         // call reset for sign in
