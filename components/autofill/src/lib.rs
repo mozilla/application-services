@@ -6,7 +6,7 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
-pub(crate) mod db;
+pub mod db;
 pub mod error;
 pub mod sync;
 

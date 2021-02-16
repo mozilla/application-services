@@ -12,12 +12,12 @@ use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::AddressesImpl;
 use rusqlite::Transaction;
+use std::sync::{Arc, Mutex};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 
 // The engine.
-#[allow(dead_code)]
-pub(super) fn get_engine(db: &'_ crate::db::AutofillDb) -> ConfigSyncEngine<'_, InternalAddress> {
+pub fn create_engine(db: Arc<Mutex<crate::db::AutofillDb>>) -> ConfigSyncEngine<InternalAddress> {
     ConfigSyncEngine {
         db,
         config: EngineConfig {

@@ -9,6 +9,7 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
 };
+use std::sync::{Arc, Mutex};
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, ServerTimestamp, SyncEngine,
@@ -17,9 +18,9 @@ use sync_guid::Guid;
 
 // We have 2 engines in this crate and they are identical except for stuff
 // abstracted here!
-pub(super) struct EngineConfig {
-    pub namespace: String,        // prefix for meta keys, etc.
-    pub collection: &'static str, // static collection name on the server.
+pub struct EngineConfig {
+    pub(crate) namespace: String,        // prefix for meta keys, etc.
+    pub(crate) collection: &'static str, // static collection name on the server.
 }
 
 // meta keys, will be prefixed by the "namespace"
@@ -28,19 +29,19 @@ pub const GLOBAL_SYNCID_META_KEY: &str = "global_sync_id";
 pub const COLLECTION_SYNCID_META_KEY: &str = "sync_id";
 
 // A trait to abstract the broader sync processes.
-pub(super) trait SyncEngineStorageImpl<T> {
+pub trait SyncEngineStorageImpl<T> {
     fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = T>>;
     fn reset_storage(&self, conn: &Transaction<'_>) -> Result<()>;
 }
 
 // A sync engine that gets functionality from an EngineConfig.
-pub(super) struct ConfigSyncEngine<'a, T> {
-    pub config: EngineConfig,
-    pub db: &'a AutofillDb,
-    pub storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
+pub struct ConfigSyncEngine<T> {
+    pub(crate) config: EngineConfig,
+    pub(crate) db: Arc<Mutex<AutofillDb>>,
+    pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
 }
 
-impl<'a, T> ConfigSyncEngine<'a, T> {
+impl<T> ConfigSyncEngine<T> {
     fn put_meta(&self, conn: &Connection, tail: &str, value: &dyn ToSql) -> Result<()> {
         let key = format!("{}.{}", self.config.namespace, tail);
         crate::db::store::put_meta(conn, &key, value)
@@ -56,7 +57,7 @@ impl<'a, T> ConfigSyncEngine<'a, T> {
 }
 
 // We're just an "adaptor" to the sync15 version of an 'engine'
-impl<'a, T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<'a, T> {
+impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         self.config.collection.into()
     }
@@ -69,13 +70,16 @@ impl<'a, T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<'a, T>
         assert_eq!(inbound.len(), 1, "we only request one item");
         let inbound = inbound.into_iter().next().unwrap();
 
-        let signal = self.db.begin_interrupt_scope();
+        let db = self.db.lock().unwrap();
+        crate::db::schema::create_empty_sync_temp_tables(&db.writer)?;
+
+        let signal = db.begin_interrupt_scope();
 
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
         let timestamp = inbound.timestamp;
         let num_incoming = inbound.changes.len() as u32;
-        let tx = self.db.writer.unchecked_transaction()?;
+        let tx = db.writer.unchecked_transaction()?;
         let incoming_impl = self.storage_impl.get_incoming_impl();
 
         // The first step in the "apply incoming" process for syncing autofill records.
@@ -109,13 +113,14 @@ impl<'a, T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<'a, T>
         new_timestamp: ServerTimestamp,
         _records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
+        let db = self.db.lock().unwrap();
         self.put_meta(
-            &self.db.writer,
+            &db.writer,
             LAST_SYNC_META_KEY,
             &(new_timestamp.as_millis() as i64),
         )?;
         // TODO: Call yet-to-be implement stage outgoing code
-        self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+        db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
         Ok(())
     }
 
@@ -123,8 +128,9 @@ impl<'a, T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<'a, T>
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
+        let db = self.db.lock().unwrap();
         let since = ServerTimestamp(
-            self.get_meta::<i64>(&self.db.writer, LAST_SYNC_META_KEY)?
+            self.get_meta::<i64>(&db.writer, LAST_SYNC_META_KEY)?
                 .unwrap_or_default(),
         );
         Ok(if since == server_timestamp {
@@ -137,8 +143,9 @@ impl<'a, T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<'a, T>
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let global = self.get_meta(&self.db.writer, GLOBAL_SYNCID_META_KEY)?;
-        let coll = self.get_meta(&self.db.writer, COLLECTION_SYNCID_META_KEY)?;
+        let db = self.db.lock().unwrap();
+        let global = self.get_meta(&db.writer, GLOBAL_SYNCID_META_KEY)?;
+        let coll = self.get_meta(&db.writer, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
             EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
@@ -147,7 +154,8 @@ impl<'a, T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<'a, T>
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        let tx = self.db.unchecked_transaction()?;
+        let db = self.db.lock().unwrap();
+        let tx = db.unchecked_transaction()?;
         self.storage_impl.reset_storage(&tx)?;
         // Reset the last sync time, so that the next sync fetches fresh records
         // from the server.
@@ -187,12 +195,14 @@ mod tests {
     use rusqlite::NO_PARAMS;
 
     // We use the credit-card engine here.
-    use crate::sync::credit_card::get_engine;
+    fn create_engine(db: AutofillDb) -> ConfigSyncEngine<InternalCreditCard> {
+        crate::sync::credit_card::create_engine(Arc::new(Mutex::new(db)))
+    }
 
     #[test]
     fn test_credit_card_engine_sync_finished() -> Result<()> {
         let db = new_mem_db();
-        let credit_card_engine = get_engine(&db);
+        let credit_card_engine = create_engine(db);
 
         let last_sync = 24;
         let result =
@@ -200,8 +210,10 @@ mod tests {
         assert!(result.is_ok());
 
         // check that last sync metadata was set
+        let conn = &credit_card_engine.db.lock().unwrap().writer;
+
         assert_eq!(
-            credit_card_engine.get_meta::<i64>(&db.writer, LAST_SYNC_META_KEY)?,
+            credit_card_engine.get_meta::<i64>(conn, LAST_SYNC_META_KEY)?,
             Some(last_sync)
         );
 
@@ -211,7 +223,7 @@ mod tests {
     #[test]
     fn test_credit_card_engine_get_sync_assoc() -> Result<()> {
         let db = new_mem_db();
-        let credit_card_engine = get_engine(&db);
+        let credit_card_engine = create_engine(db);
 
         let result = credit_card_engine.get_sync_assoc();
         assert!(result.is_ok());
@@ -226,8 +238,11 @@ mod tests {
             global: global_guid,
             coll: coll_guid,
         };
-        credit_card_engine.put_meta(&db.writer, GLOBAL_SYNCID_META_KEY, &ids.global)?;
-        credit_card_engine.put_meta(&db.writer, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        {
+            let conn = &credit_card_engine.db.lock().unwrap().writer;
+            credit_card_engine.put_meta(conn, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+            credit_card_engine.put_meta(conn, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        }
 
         let result = credit_card_engine.get_sync_assoc();
         assert!(result.is_ok());
@@ -240,7 +255,6 @@ mod tests {
     #[test]
     fn test_engine_sync_reset() -> Result<()> {
         let db = new_mem_db();
-        let engine = get_engine(&db);
 
         let tx = db.writer.unchecked_transaction()?;
         // create a normal record, a mirror record and a tombstone.
@@ -258,7 +272,7 @@ mod tests {
         insert_tombstone_record(&tx, Guid::random().to_string())?;
         tx.commit()?;
 
-        let conn = &db.writer;
+        let engine = create_engine(db);
 
         // create sync metadata
         let global_guid = Guid::new("AAAA");
@@ -267,8 +281,11 @@ mod tests {
             global: global_guid.clone(),
             coll: coll_guid.clone(),
         };
-        engine.put_meta(conn, GLOBAL_SYNCID_META_KEY, &ids.global)?;
-        engine.put_meta(conn, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        {
+            let conn = &engine.db.lock().unwrap().writer;
+            engine.put_meta(conn, GLOBAL_SYNCID_META_KEY, &ids.global)?;
+            engine.put_meta(conn, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+        }
 
         // call reset for sign out
         engine
@@ -276,52 +293,56 @@ mod tests {
             .expect("should work");
 
         // check that sync change counter has been reset
-        let reset_record_exists: bool = db.writer.query_row(
-            "SELECT EXISTS (
-                SELECT 1
-                FROM credit_cards_data
-                WHERE sync_change_counter = 1
-            )",
-            NO_PARAMS,
-            |row| row.get(0),
-        )?;
-        assert!(reset_record_exists);
+        {
+            let conn = &engine.db.lock().unwrap().writer;
+            let reset_record_exists: bool = conn.query_row(
+                "SELECT EXISTS (
+                    SELECT 1
+                    FROM credit_cards_data
+                    WHERE sync_change_counter = 1
+                )",
+                NO_PARAMS,
+                |row| row.get(0),
+            )?;
+            assert!(reset_record_exists);
 
-        // check that the mirror and tombstone tables have no records
-        assert!(get_all(conn, "credit_cards_mirror".to_string())?.is_empty());
-        assert!(get_all(conn, "credit_cards_tombstones".to_string())?.is_empty());
+            // check that the mirror and tombstone tables have no records
+            assert!(get_all(conn, "credit_cards_mirror".to_string())?.is_empty());
+            assert!(get_all(conn, "credit_cards_tombstones".to_string())?.is_empty());
 
-        // check that the last sync time was reset to 0
-        let expected_sync_time = 0;
-        assert_eq!(
-            engine
-                .get_meta::<i64>(conn, LAST_SYNC_META_KEY)?
-                .unwrap_or(1),
-            expected_sync_time
-        );
+            // check that the last sync time was reset to 0
+            let expected_sync_time = 0;
+            assert_eq!(
+                engine
+                    .get_meta::<i64>(conn, LAST_SYNC_META_KEY)?
+                    .unwrap_or(1),
+                expected_sync_time
+            );
 
-        // check that the meta records were deleted
-        assert!(engine
-            .get_meta::<String>(conn, GLOBAL_SYNCID_META_KEY)?
-            .is_none());
-        assert!(engine
-            .get_meta::<String>(conn, COLLECTION_SYNCID_META_KEY)?
-            .is_none());
+            // check that the meta records were deleted
+            assert!(engine
+                .get_meta::<String>(conn, GLOBAL_SYNCID_META_KEY)?
+                .is_none());
+            assert!(engine
+                .get_meta::<String>(conn, COLLECTION_SYNCID_META_KEY)?
+                .is_none());
 
-        clear_tables(conn)?;
+            clear_tables(conn)?;
 
-        // re-populating the tables
-        let tx = conn.unchecked_transaction()?;
-        add_internal_credit_card(&tx, &cc)?;
-        insert_mirror_record(&tx, &cc);
-        insert_tombstone_record(&tx, Guid::random().to_string())?;
-        tx.commit()?;
+            // re-populating the tables
+            let tx = conn.unchecked_transaction()?;
+            add_internal_credit_card(&tx, &cc)?;
+            insert_mirror_record(&tx, &cc);
+            insert_tombstone_record(&tx, Guid::random().to_string())?;
+            tx.commit()?;
+        }
 
         // call reset for sign in
         engine
             .reset(&EngineSyncAssociation::Connected(ids))
             .expect("should work");
 
+        let conn = &engine.db.lock().unwrap().writer;
         // check that the meta records were set
         let retrieved_global_sync_id = engine.get_meta::<String>(conn, GLOBAL_SYNCID_META_KEY)?;
         assert_eq!(
@@ -334,7 +355,6 @@ mod tests {
             retrieved_coll_sync_id.unwrap_or_default(),
             coll_guid.to_string()
         );
-
         Ok(())
     }
 }

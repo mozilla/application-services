@@ -13,7 +13,7 @@ use types::Timestamp;
 // Ideally we would not have `serde(default)` but some tests only supply
 // partial json. I guess it doesn't matter much in practice.
 #[serde(default)]
-pub(crate) struct Metadata {
+pub struct Metadata {
     // metadata isn't kebab-case for some reason...
     #[serde(rename = "timeCreated")]
     pub time_created: Timestamp,

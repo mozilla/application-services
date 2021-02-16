@@ -66,7 +66,7 @@ impl From<InternalCreditCard> for CreditCard {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "kebab-case")]
-pub(crate) struct InternalCreditCard {
+pub struct InternalCreditCard {
     #[serde(rename = "id")]
     pub guid: Guid,
     pub cc_name: String,

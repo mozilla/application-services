@@ -90,7 +90,7 @@ impl From<InternalAddress> for Address {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[serde(default)] // not ideal, but helps for tests.
-pub(crate) struct InternalAddress {
+pub struct InternalAddress {
     #[serde(rename = "id")]
     pub guid: Guid,
     pub given_name: String,

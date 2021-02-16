@@ -28,7 +28,7 @@ use types::Timestamp;
 // theory could be avoided if the concrete impls could keep the ref (ie, if
 // it was held behind `self`), but markh failed to make this work due to
 // lifetime woes.
-trait ProcessIncomingRecordImpl {
+pub trait ProcessIncomingRecordImpl {
     type Record;
 
     fn stage_incoming(
@@ -76,7 +76,7 @@ trait ProcessIncomingRecordImpl {
 // TODO: Will need new trait for outgoing.
 
 // A trait that abstracts the functionality in the record itself.
-trait SyncRecord {
+pub trait SyncRecord {
     fn record_name() -> &'static str; // "addresses" or similar, for logging/debuging.
     fn id(&self) -> &Guid;
     fn metadata(&self) -> &Metadata;
@@ -164,7 +164,7 @@ enum LocalRecordInfo<T> {
 // An enum for the return value from our "merge" function, which might either
 // update the record, or might fork it.
 #[derive(Debug)]
-enum MergeResult<T> {
+pub enum MergeResult<T> {
     Merged { merged: T },
     Forked { forked: T },
 }
@@ -172,7 +172,7 @@ enum MergeResult<T> {
 // This ties the 3 possible records together and is what we expect the
 // implementations to put together for us.
 #[derive(Debug)]
-struct IncomingState<T> {
+pub struct IncomingState<T> {
     incoming: IncomingRecord<T>,
     local: LocalRecordInfo<T>,
     // We don't have an enum for the mirror - an Option<> is fine because we

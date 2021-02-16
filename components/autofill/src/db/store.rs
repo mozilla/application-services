@@ -12,18 +12,20 @@ use rusqlite::{
 };
 use sql_support::{self, ConnExt};
 use std::path::Path;
+use std::sync::{Arc, Mutex};
+use sync15_traits::SyncEngine;
 use sync_guid::Guid;
 
 #[allow(dead_code)]
 pub struct Store {
-    db: AutofillDb,
+    db: Arc<Mutex<AutofillDb>>,
 }
 
 #[allow(dead_code)]
 impl Store {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
-            db: AutofillDb::new(db_path)?,
+            db: Arc::new(Mutex::new(AutofillDb::new(db_path)?)),
         })
     }
 
@@ -31,27 +33,28 @@ impl Store {
     #[cfg(test)]
     pub fn new_memory(db_path: &str) -> Result<Self> {
         Ok(Self {
-            db: AutofillDb::new_memory(db_path)?,
+            db: Arc::new(Mutex::new(AutofillDb::new_memory(db_path)?)),
         })
     }
 
-    #[cfg(test)] // XXX - maybe this should just be `impl ConnExt`?
-    pub fn db(&self) -> &AutofillDb {
-        &self.db
+    #[cfg(test)]
+    pub fn db(&self) -> Arc<Mutex<AutofillDb>> {
+        self.db.clone()
     }
 
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
-        let credit_card = credit_cards::add_credit_card(&self.db.writer, fields)?;
+        let credit_card = credit_cards::add_credit_card(&self.db.lock().unwrap().writer, fields)?;
         Ok(credit_card.into())
     }
 
     pub fn get_credit_card(&self, guid: String) -> Result<CreditCard> {
-        let credit_card = credit_cards::get_credit_card(&self.db.writer, &Guid::new(&guid))?;
+        let credit_card =
+            credit_cards::get_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))?;
         Ok(credit_card.into())
     }
 
     pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
-        let credit_cards = credit_cards::get_all_credit_cards(&self.db.writer)?
+        let credit_cards = credit_cards::get_all_credit_cards(&self.db.lock().unwrap().writer)?
             .into_iter()
             .map(|x| x.into())
             .collect();
@@ -63,27 +66,31 @@ impl Store {
         guid: String,
         credit_card: UpdatableCreditCardFields,
     ) -> Result<()> {
-        credit_cards::update_credit_card(&self.db.writer, &Guid::new(&guid), &credit_card)
+        credit_cards::update_credit_card(
+            &self.db.lock().unwrap().writer,
+            &Guid::new(&guid),
+            &credit_card,
+        )
     }
 
     pub fn delete_credit_card(&self, guid: String) -> Result<bool> {
-        credit_cards::delete_credit_card(&self.db.writer, &Guid::new(&guid))
+        credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
     pub fn touch_credit_card(&self, guid: String) -> Result<()> {
-        credit_cards::touch(&self.db.writer, &Guid::new(&guid))
+        credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
     pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
-        Ok(addresses::add_address(&self.db.writer, new_address)?.into())
+        Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
     }
 
     pub fn get_address(&self, guid: String) -> Result<Address> {
-        Ok(addresses::get_address(&self.db.writer, &Guid::new(&guid))?.into())
+        Ok(addresses::get_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))?.into())
     }
 
     pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
-        let addresses = addresses::get_all_addresses(&self.db.writer)?
+        let addresses = addresses::get_all_addresses(&self.db.lock().unwrap().writer)?
             .into_iter()
             .map(|x| x.into())
             .collect();
@@ -91,15 +98,23 @@ impl Store {
     }
 
     pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> Result<()> {
-        addresses::update_address(&self.db.writer, &Guid::new(&guid), &address)
+        addresses::update_address(&self.db.lock().unwrap().writer, &Guid::new(&guid), &address)
     }
 
     pub fn delete_address(&self, guid: String) -> Result<bool> {
-        addresses::delete_address(&self.db.writer, &Guid::new(&guid))
+        addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
     pub fn touch_address(&self, guid: String) -> Result<()> {
-        addresses::touch(&self.db.writer, &Guid::new(&guid))
+        addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    }
+
+    pub fn create_credit_cards_sync_engine(&self) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::credit_card::create_engine(self.db.clone()))
+    }
+
+    pub fn create_addresses_sync_engine(&self) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::address::create_engine(self.db.clone()))
     }
 }
 
