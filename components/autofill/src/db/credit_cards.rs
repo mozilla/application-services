@@ -6,15 +6,10 @@
 use crate::db::{
     models::credit_card::{InternalCreditCard, UpdatableCreditCardFields},
     schema::{CREDIT_CARD_COMMON_COLS, CREDIT_CARD_COMMON_VALS},
-    store::{delete_meta, put_meta},
 };
 use crate::error::*;
-use crate::sync::credit_card::engine::{
-    COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
-};
 
 use rusqlite::{Connection, Transaction, NO_PARAMS};
-use sync15::EngineSyncAssociation;
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -214,46 +209,13 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     Ok(())
 }
 
-pub fn reset_in_tx(tx: &Transaction<'_>, assoc: &EngineSyncAssociation) -> Result<()> {
-    // Remove all synced credit cards and pending tombstones, and mark all
-    // local credit cards as new.
-    tx.execute_batch(
-        "DELETE FROM credit_cards_mirror;
-
-        DELETE FROM credit_cards_tombstones;
-
-        UPDATE credit_cards_data
-        SET sync_change_counter = 1",
-    )?;
-
-    // Reset the last sync time, so that the next sync fetches fresh records
-    // from the server.
-    put_meta(tx, LAST_SYNC_META_KEY, &0)?;
-
-    // Clear the sync ID if we're signing out, or set it to whatever the
-    // server gave us if we're signing in.
-    match assoc {
-        EngineSyncAssociation::Disconnected => {
-            delete_meta(tx, GLOBAL_SYNCID_META_KEY)?;
-            delete_meta(tx, COLLECTION_SYNCID_META_KEY)?;
-        }
-        EngineSyncAssociation::Connected(ids) => {
-            put_meta(tx, GLOBAL_SYNCID_META_KEY, &ids.global)?;
-            put_meta(tx, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-        }
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    use crate::db::{store::get_meta, test::new_mem_db};
+    use crate::db::test::new_mem_db;
     use sql_support::ConnExt;
-    use sync15::CollSyncIds;
 
-    fn get_all(
+    pub fn get_all(
         conn: &Connection,
         table_name: String,
     ) -> rusqlite::Result<Vec<String>, rusqlite::Error> {
@@ -271,7 +233,7 @@ mod tests {
         Ok(guids)
     }
 
-    fn clear_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {
+    pub fn clear_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {
         conn.execute_all(&[
             "DELETE FROM credit_cards_data;",
             "DELETE FROM credit_cards_mirror;",
@@ -280,7 +242,7 @@ mod tests {
         ])
     }
 
-    fn insert_tombstone_record(
+    pub fn insert_tombstone_record(
         conn: &Connection,
         guid: String,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
@@ -299,7 +261,7 @@ mod tests {
         )
     }
 
-    fn insert_mirror_record(conn: &Connection, credit_card: &InternalCreditCard) {
+    pub(crate) fn insert_mirror_record(conn: &Connection, credit_card: &InternalCreditCard) {
         let payload = serde_json::to_string(credit_card).expect("is json");
         conn.execute_named(
             "INSERT OR IGNORE INTO credit_cards_mirror (guid, payload)
@@ -607,107 +569,6 @@ mod tests {
 
         assert_eq!(touched_credit_card.metadata.sync_change_counter, 1);
         assert_eq!(touched_credit_card.metadata.times_used, 1);
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_credit_card_sync_reset() -> Result<()> {
-        let mut db = new_mem_db();
-        let tx = &db.transaction()?;
-
-        // create a record
-        let credit_card = InternalCreditCard {
-            guid: Guid::random(),
-            cc_name: "jane doe".to_string(),
-            cc_number: "2222333344445555".to_string(),
-            cc_exp_month: 3,
-            cc_exp_year: 2022,
-            cc_type: "visa".to_string(),
-
-            ..InternalCreditCard::default()
-        };
-        add_internal_credit_card(&tx, &credit_card)?;
-
-        // create a mirror record
-        let mirror_record = InternalCreditCard {
-            guid: Guid::random(),
-            cc_name: "jane doe".to_string(),
-            cc_number: "2222333344445555".to_string(),
-            cc_exp_month: 3,
-            cc_exp_year: 2022,
-            cc_type: "visa".to_string(),
-
-            ..InternalCreditCard::default()
-        };
-        insert_mirror_record(&tx, &mirror_record);
-
-        // create a tombstone record
-        let tombstone_guid = Guid::random();
-        insert_tombstone_record(&tx, tombstone_guid.to_string())?;
-
-        // create sync metadata
-        let global_guid = Guid::new("AAAA");
-        let coll_guid = Guid::new("AAAA");
-        let ids = CollSyncIds {
-            global: global_guid.clone(),
-            coll: coll_guid.clone(),
-        };
-        put_meta(&tx, GLOBAL_SYNCID_META_KEY, &ids.global)?;
-        put_meta(&tx, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-
-        // call reset for sign out
-        reset_in_tx(&tx, &EngineSyncAssociation::Disconnected)?;
-
-        // check that sync change counter has been reset
-        let reset_record_exists: bool = tx.query_row(
-            "SELECT EXISTS (
-                SELECT 1
-                FROM credit_cards_data
-                WHERE sync_change_counter = 1
-            )",
-            NO_PARAMS,
-            |row| row.get(0),
-        )?;
-        assert!(reset_record_exists);
-
-        // check that the mirror and tombstone tables have no records
-        assert!(get_all(&tx, "credit_cards_mirror".to_string())?.is_empty());
-        assert!(get_all(&tx, "credit_cards_tombstones".to_string())?.is_empty());
-
-        // check that the last sync time was reset to 0
-        let expected_sync_time = 0;
-        assert_eq!(
-            get_meta::<i64>(&tx, LAST_SYNC_META_KEY)?.unwrap_or(1),
-            expected_sync_time
-        );
-
-        // check that the meta records were deleted
-        assert!(get_meta::<String>(&tx, GLOBAL_SYNCID_META_KEY)?.is_none());
-        assert!(get_meta::<String>(&tx, COLLECTION_SYNCID_META_KEY)?.is_none());
-
-        clear_tables(&tx)?;
-
-        // re-populating the tables
-        add_internal_credit_card(&tx, &credit_card)?;
-        insert_mirror_record(&tx, &mirror_record);
-        insert_tombstone_record(&tx, tombstone_guid.to_string())?;
-
-        // call reset for sign in
-        reset_in_tx(&tx, &EngineSyncAssociation::Connected(ids))?;
-
-        // check that the meta records were set
-        let retrieved_global_sync_id = get_meta::<String>(&tx, GLOBAL_SYNCID_META_KEY)?;
-        assert_eq!(
-            retrieved_global_sync_id.unwrap_or_default(),
-            global_guid.to_string()
-        );
-
-        let retrieved_coll_sync_id = get_meta::<String>(&tx, COLLECTION_SYNCID_META_KEY)?;
-        assert_eq!(
-            retrieved_coll_sync_id.unwrap_or_default(),
-            coll_guid.to_string()
-        );
 
         Ok(())
     }

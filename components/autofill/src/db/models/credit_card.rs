@@ -67,6 +67,7 @@ impl From<InternalCreditCard> for CreditCard {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "kebab-case")]
 pub(crate) struct InternalCreditCard {
+    #[serde(rename = "id")]
     pub guid: Guid,
     pub cc_name: String,
     pub cc_number: String,
@@ -75,7 +76,7 @@ pub(crate) struct InternalCreditCard {
     // Credit card types are a fixed set of strings as defined in the link below
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
-
+    #[serde(flatten)]
     pub metadata: Metadata,
 }
 

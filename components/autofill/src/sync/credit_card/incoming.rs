@@ -13,33 +13,28 @@ use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sync_guid::Guid as SyncGuid;
 
-pub(super) struct CreditCardsImpl<'a> {
-    tx: &'a Transaction<'a>,
-}
+pub(super) struct CreditCardsImpl {}
 
-#[allow(dead_code)]
-impl<'a> CreditCardsImpl<'a> {
-    pub fn new(tx: &'a Transaction<'a>) -> Self {
-        Self { tx }
-    }
-}
-
-impl<'a> ProcessIncomingRecordImpl for CreditCardsImpl<'a> {
+impl ProcessIncomingRecordImpl for CreditCardsImpl {
     type Record = InternalCreditCard;
 
     /// The first step in the "apply incoming" process - stage the records
     fn stage_incoming(
         &self,
+        tx: &Transaction<'_>,
         incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
-        common_stage_incoming_records(self.tx, "creditcards_sync_staging", incoming, signal)
+        common_stage_incoming_records(tx, "credit_cards_sync_staging", incoming, signal)
     }
 
     /// The second step in the "apply incoming" process for syncing autofill CC records.
     /// Incoming items are retrieved from the temp tables, deserialized, and
     /// assigned `IncomingState` values.
-    fn fetch_incoming_states(&self) -> Result<Vec<IncomingState<Self::Record>>> {
+    fn fetch_incoming_states(
+        &self,
+        tx: &Transaction<'_>,
+    ) -> Result<Vec<IncomingState<Self::Record>>> {
         let sql = "
         SELECT
             s.guid as guid,
@@ -62,15 +57,17 @@ impl<'a> ProcessIncomingRecordImpl for CreditCardsImpl<'a> {
         LEFT JOIN credit_cards_data l ON s.guid = l.guid
         LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        common_fetch_incoming_record_states(self.tx, sql, |row| {
-            Ok(InternalCreditCard::from_row(row)?)
-        })
+        common_fetch_incoming_record_states(tx, sql, |row| Ok(InternalCreditCard::from_row(row)?))
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
     /// of the `guid` values which should differ) that will be used as a local duplicate record for
     /// syncing.
-    fn get_local_dupe(&self, incoming: &Self::Record) -> Result<Option<(SyncGuid, Self::Record)>> {
+    fn get_local_dupe(
+        &self,
+        tx: &Transaction<'_>,
+        incoming: &Self::Record,
+    ) -> Result<Option<(SyncGuid, Self::Record)>> {
         let sql = format!("
             SELECT
                 {common_cols},
@@ -100,7 +97,7 @@ impl<'a> ProcessIncomingRecordImpl for CreditCardsImpl<'a> {
             ":cc_type": incoming.cc_type,
         };
 
-        let result = self.tx.query_row_named(&sql, params, |row| {
+        let result = tx.query_row_named(&sql, params, |row| {
             Ok(Self::Record::from_row(&row).expect("wtf? '?' doesn't work :("))
         });
 
@@ -113,28 +110,38 @@ impl<'a> ProcessIncomingRecordImpl for CreditCardsImpl<'a> {
         }
     }
 
-    fn update_local_record(&self, new_record: Self::Record, flag_as_changed: bool) -> Result<()> {
-        update_internal_credit_card(self.tx, &new_record, flag_as_changed)?;
+    fn update_local_record(
+        &self,
+        tx: &Transaction<'_>,
+        new_record: Self::Record,
+        flag_as_changed: bool,
+    ) -> Result<()> {
+        update_internal_credit_card(tx, &new_record, flag_as_changed)?;
         Ok(())
     }
 
-    fn insert_local_record(&self, new_record: Self::Record) -> Result<()> {
-        add_internal_credit_card(self.tx, &new_record)?;
+    fn insert_local_record(&self, tx: &Transaction<'_>, new_record: Self::Record) -> Result<()> {
+        add_internal_credit_card(tx, &new_record)?;
         Ok(())
     }
 
     /// Changes the guid of the local record for the given `old_guid` to the given `new_guid` used
     /// for the `HasLocalDupe` incoming state, and mark the item as dirty.
-    fn change_local_guid(&self, old_guid: &SyncGuid, new_guid: &SyncGuid) -> Result<()> {
-        common_change_guid(self.tx, "credit_cards_data", old_guid, new_guid)
+    fn change_local_guid(
+        &self,
+        tx: &Transaction<'_>,
+        old_guid: &SyncGuid,
+        new_guid: &SyncGuid,
+    ) -> Result<()> {
+        common_change_guid(tx, "credit_cards_data", old_guid, new_guid)
     }
 
-    fn remove_record(&self, guid: &SyncGuid) -> Result<()> {
-        common_remove_record(self.tx, "credit_cards_data", guid)
+    fn remove_record(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
+        common_remove_record(tx, "credit_cards_data", guid)
     }
 
-    fn remove_tombstone(&self, guid: &SyncGuid) -> Result<()> {
-        common_remove_record(self.tx, "credit_cards_tombstones", guid)
+    fn remove_tombstone(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
+        common_remove_record(tx, "credit_cards_tombstones", guid)
     }
 }
 
@@ -225,8 +232,12 @@ mod tests {
         for tc in test_cases {
             log::info!("starting new testcase");
             let tx = db.transaction()?;
-            let ri = CreditCardsImpl::new(&tx);
-            ri.stage_incoming(array_to_incoming(tc.incoming_records), &NeverInterrupts)?;
+            let ri = CreditCardsImpl {};
+            ri.stage_incoming(
+                &tx,
+                array_to_incoming(tc.incoming_records),
+                &NeverInterrupts,
+            )?;
 
             let payloads = tx.conn().query_rows_and_then_named(
                 "SELECT * FROM temp.credit_cards_sync_staging;",
@@ -252,11 +263,12 @@ mod tests {
     fn test_change_local_guid() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
-        let ri = CreditCardsImpl::new(&tx);
+        let ri = CreditCardsImpl {};
 
-        ri.insert_local_record(test_record('C'))?;
+        ri.insert_local_record(&tx, test_record('C'))?;
 
         ri.change_local_guid(
+            &tx,
             &SyncGuid::new(&expand_test_guid('C')),
             &SyncGuid::new(&expand_test_guid('B')),
         )?;
@@ -270,15 +282,15 @@ mod tests {
     fn test_get_incoming() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = CreditCardsImpl::new(&tx);
-        do_test_incoming_same(&ai, test_record('C'));
+        let ai = CreditCardsImpl {};
+        do_test_incoming_same(&ai, &tx, test_record('C'));
     }
 
     #[test]
     fn test_incoming_tombstone() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = CreditCardsImpl::new(&tx);
-        do_test_incoming_tombstone(&ai, test_record('C'));
+        let ai = CreditCardsImpl {};
+        do_test_incoming_tombstone(&ai, &tx, test_record('C'));
     }
 }

@@ -6,11 +6,12 @@
 pub mod address;
 mod common;
 pub mod credit_card;
+pub mod engine;
 
 pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
 use interrupt_support::Interruptee;
-use serde::Deserialize;
+use rusqlite::Transaction;
 use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
@@ -23,31 +24,53 @@ use types::Timestamp;
 // storage, although objects implementing this trait will live only long enough
 // to perform the sync "incoming" steps - ie, a transaction is likely to live
 // exactly as long as this object.
+// XXX - *sob* - although each method has a `&Transaction` param, which in
+// theory could be avoided if the concrete impls could keep the ref (ie, if
+// it was held behind `self`), but markh failed to make this work due to
+// lifetime woes.
 trait ProcessIncomingRecordImpl {
     type Record;
 
     fn stage_incoming(
         &self,
+        tx: &Transaction<'_>,
         incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()>;
 
-    fn fetch_incoming_states(&self) -> Result<Vec<IncomingState<Self::Record>>>;
+    fn fetch_incoming_states(
+        &self,
+        tx: &Transaction<'_>,
+    ) -> Result<Vec<IncomingState<Self::Record>>>;
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
     /// of the `guid` values which should differ) that will be used as a local duplicate record for
     /// syncing.
-    fn get_local_dupe(&self, incoming: &Self::Record) -> Result<Option<(Guid, Self::Record)>>;
+    fn get_local_dupe(
+        &self,
+        tx: &Transaction<'_>,
+        incoming: &Self::Record,
+    ) -> Result<Option<(Guid, Self::Record)>>;
 
-    fn update_local_record(&self, record: Self::Record, was_merged: bool) -> Result<()>;
+    fn update_local_record(
+        &self,
+        tx: &Transaction<'_>,
+        record: Self::Record,
+        was_merged: bool,
+    ) -> Result<()>;
 
-    fn insert_local_record(&self, record: Self::Record) -> Result<()>;
+    fn insert_local_record(&self, tx: &Transaction<'_>, record: Self::Record) -> Result<()>;
 
-    fn change_local_guid(&self, old_guid: &Guid, new_guid: &Guid) -> Result<()>;
+    fn change_local_guid(
+        &self,
+        tx: &Transaction<'_>,
+        old_guid: &Guid,
+        new_guid: &Guid,
+    ) -> Result<()>;
 
-    fn remove_record(&self, guid: &Guid) -> Result<()>;
+    fn remove_record(&self, tx: &Transaction<'_>, guid: &Guid) -> Result<()>;
 
-    fn remove_tombstone(&self, guid: &Guid) -> Result<()>;
+    fn remove_tombstone(&self, tx: &Transaction<'_>, guid: &Guid) -> Result<()>;
 }
 
 // TODO: Will need new trait for outgoing.
@@ -187,6 +210,7 @@ enum IncomingAction<T> {
 /// lives for when we resurrect, or merge etc.
 fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
     rec_impl: &dyn ProcessIncomingRecordImpl<Record = T>,
+    tx: &Transaction<'_>,
     staged_info: IncomingState<T>,
 ) -> Result<IncomingAction<T>> {
     log::trace!("plan_incoming: {:?}", staged_info);
@@ -266,7 +290,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                     record: incoming_record,
                 },
                 LocalRecordInfo::Missing => {
-                    match rec_impl.get_local_dupe(&incoming_record)? {
+                    match rec_impl.get_local_dupe(tx, &incoming_record)? {
                         None => IncomingAction::Insert {
                             record: incoming_record,
                         },
@@ -296,63 +320,45 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
 /// Apply the incoming action
 fn apply_incoming_action<T: std::fmt::Debug + SyncRecord>(
     rec_impl: &dyn ProcessIncomingRecordImpl<Record = T>,
+    tx: &Transaction<'_>,
     action: IncomingAction<T>,
 ) -> Result<()> {
     log::trace!("applying action: {:?}", action);
     match action {
         IncomingAction::Update { record, was_merged } => {
-            rec_impl.update_local_record(record, was_merged)?;
+            rec_impl.update_local_record(tx, record, was_merged)?;
         }
         IncomingAction::Fork { forked, incoming } => {
             // `forked` exists in the DB with the same guid as `incoming`, so fix that.
-            rec_impl.change_local_guid(incoming.id(), forked.id())?;
+            rec_impl.change_local_guid(tx, incoming.id(), forked.id())?;
             // `incoming` has the correct new guid.
-            rec_impl.insert_local_record(incoming)?;
+            rec_impl.insert_local_record(tx, incoming)?;
         }
         IncomingAction::Insert { record } => {
-            rec_impl.insert_local_record(record)?;
+            rec_impl.insert_local_record(tx, record)?;
         }
         IncomingAction::UpdateLocalGuid { old_guid, record } => {
             // expect record to have the new guid.
             assert_ne!(old_guid, *record.id());
-            rec_impl.change_local_guid(&old_guid, record.id())?;
+            rec_impl.change_local_guid(tx, &old_guid, record.id())?;
             // the item is identical with the item with the new guid
             // *except* for the metadata - so we still need to update, but
             // don't need to treat the item as dirty.
-            rec_impl.update_local_record(record, false)?;
+            rec_impl.update_local_record(tx, record, false)?;
         }
         IncomingAction::ResurrectLocalTombstone { record } => {
-            rec_impl.remove_tombstone(record.id())?;
-            rec_impl.insert_local_record(record)?;
+            rec_impl.remove_tombstone(tx, record.id())?;
+            rec_impl.insert_local_record(tx, record)?;
         }
         IncomingAction::ResurrectRemoteTombstone { record } => {
             // This is just "ensure local record dirty", which
             // update_local_record conveniently does.
-            rec_impl.update_local_record(record, true)?;
+            rec_impl.update_local_record(tx, record, true)?;
         }
         IncomingAction::DeleteLocalRecord { guid } => {
-            rec_impl.remove_record(&guid)?;
+            rec_impl.remove_record(tx, &guid)?;
         }
         IncomingAction::DoNothing => {}
-    }
-    Ok(())
-}
-
-// needs a better name :) But this is how all the above ties together.
-#[allow(dead_code)]
-fn do_incoming<T: std::fmt::Debug + SyncRecord + for<'a> Deserialize<'a>>(
-    rec_impl: &dyn ProcessIncomingRecordImpl<Record = T>,
-    incoming: Vec<(Payload, ServerTimestamp)>,
-    signal: &dyn Interruptee,
-) -> Result<()> {
-    // The first step in the "apply incoming" process for syncing autofill records.
-    rec_impl.stage_incoming(incoming, signal)?;
-    // 2nd step is to get "states" for each record...
-    for state in rec_impl.fetch_incoming_states()? {
-        signal.err_if_interrupted()?;
-        // Finally get a "plan" and apply it.
-        let action = plan_incoming(rec_impl, state)?;
-        apply_incoming_action(rec_impl, action)?;
     }
     Ok(())
 }

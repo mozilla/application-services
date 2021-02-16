@@ -242,20 +242,22 @@ pub(super) mod tests {
         T: SyncRecord + std::fmt::Debug + Clone + Serialize,
     >(
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
+        tx: &Transaction<'_>,
         record: T,
     ) {
-        ri.insert_local_record(record.clone())
+        ri.insert_local_record(tx, record.clone())
             .expect("insert should work");
         let payload = Payload::from_record(record).expect("should serialize");
         ri.stage_incoming(
+            tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
             &NeverInterrupts,
         )
         .expect("stage should work");
-        let mut states = ri.fetch_incoming_states().expect("fetch should work");
+        let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         let action =
-            crate::sync::plan_incoming(ri, states.pop().unwrap()).expect("plan should work");
+            crate::sync::plan_incoming(ri, tx, states.pop().unwrap()).expect("plan should work");
         // Even though the records are identical, we still merged the metadata
         // so treat this as an Update.
         assert!(matches!(action, crate::sync::IncomingAction::Update { .. }));
@@ -266,20 +268,23 @@ pub(super) mod tests {
         T: SyncRecord + std::fmt::Debug + Clone + Serialize,
     >(
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
+        tx: &Transaction<'_>,
         record: T,
     ) {
         let guid = record.id().clone();
-        ri.insert_local_record(record).expect("insert should work");
+        ri.insert_local_record(tx, record)
+            .expect("insert should work");
         let payload = Payload::new_tombstone(guid);
         ri.stage_incoming(
+            tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
             &NeverInterrupts,
         )
         .expect("stage should work");
-        let mut states = ri.fetch_incoming_states().expect("fetch should work");
+        let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         let action =
-            crate::sync::plan_incoming(ri, states.pop().unwrap()).expect("plan should work");
+            crate::sync::plan_incoming(ri, tx, states.pop().unwrap()).expect("plan should work");
         // Even though the records are identical, we still merged the metadata
         // so treat this as an Update.
         assert!(matches!(action, crate::sync::IncomingAction::DeleteLocalRecord { .. }));

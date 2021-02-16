@@ -3,14 +3,49 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-pub mod engine;
 pub mod incoming;
 
-use super::{MergeResult, Metadata, SyncRecord};
+use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
+use super::{MergeResult, Metadata, ProcessIncomingRecordImpl, SyncRecord};
 use crate::db::models::credit_card::InternalCreditCard;
+use crate::error::*;
 use crate::sync_merge_field_check;
+use incoming::CreditCardsImpl;
+use rusqlite::Transaction;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
+
+// The engine.
+#[allow(dead_code)]
+pub(super) fn get_engine(
+    db: &'_ crate::db::AutofillDb,
+) -> ConfigSyncEngine<'_, InternalCreditCard> {
+    ConfigSyncEngine {
+        db,
+        config: EngineConfig {
+            namespace: "credit_cards".to_string(),
+            collection: "creditcards",
+        },
+        storage_impl: Box::new(CreditCardsEngineStorageImpl {}),
+    }
+}
+
+pub(super) struct CreditCardsEngineStorageImpl {}
+
+impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl {
+    fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = InternalCreditCard>> {
+        Box::new(CreditCardsImpl {})
+    }
+
+    fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
+        tx.execute_batch(
+            "DELETE FROM credit_cards_mirror;
+            DELETE FROM credit_cards_tombstones;
+            UPDATE credit_cards_data SET sync_change_counter = 1",
+        )?;
+        Ok(())
+    }
+}
 
 impl SyncRecord for InternalCreditCard {
     fn record_name() -> &'static str {

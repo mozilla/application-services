@@ -6,3 +6,8 @@ CREATE TEMP TABLE addresses_sync_staging (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
 );
+
+CREATE TEMP TABLE credit_cards_sync_staging (
+    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+    payload             TEXT NOT NULL CHECK(length(payload) != 0)
+);
