@@ -1,5 +1,12 @@
 # Unreleased changes
 
+# 0.8.1 (_2021-02-17_)
+
+## What's New
+
+- Defaulting `feature_id` and `feature_ids` to the empty string, to allow migration from existing
+experiment formats to continue to work.
+
 # 0.8.0 (_2021-02-11_)
 
 ## What's New
