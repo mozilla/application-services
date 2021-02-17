@@ -306,7 +306,8 @@ pub const SCHEMA_VERSION: u32 = 1;
 // the schema could be decoupled from the sdk so that it can be iterated on while the
 // sdk depends on a particular version of the schema through the cargo.toml.
 
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Experiment {
@@ -319,6 +320,8 @@ pub struct Experiment {
     pub bucket_config: BucketConfig,
     pub probe_sets: Vec<String>,
     pub branches: Vec<Branch>,
+    // The `feature_ids` field was added later. For compatibility with exising experiments
+    // and to avoid a db migration, we default it to an empty list when it is missing.
     #[serde(default)]
     pub feature_ids: Vec<String>,
     pub targeting: Option<String>,
@@ -357,7 +360,8 @@ pub struct FeatureConfig {
     // it yet and the details are still being finalized, so we ignore it for now.
 }
 
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 pub struct Branch {
     pub slug: String,
@@ -369,7 +373,8 @@ fn default_buckets() -> u32 {
     DEFAULT_TOTAL_BUCKETS
 }
 
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BucketConfig {
@@ -381,7 +386,8 @@ pub struct BucketConfig {
     pub total: u32,
 }
 
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum RandomizationUnit {
@@ -507,5 +513,114 @@ mod tests {
         assert_eq!(events.len(), 1);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+/// A suite of tests for b/w compat of data storage schema.
+///
+/// We use the `Serialize/`Deserialize` impls on various structs in order to persist them
+/// into rkv, and it's important that we be able to read previously-persisted data even
+/// if the struct definitions change over time.
+///
+/// This is a suite of tests specifically to check for backward compatibility with data
+/// that may have been written to disk by previous versions of the library.
+///
+/// ⚠️ Warning : Do not change the JSON data used by these tests. ⚠️
+/// ⚠️ The whole point of the tests is to check things work with that data. ⚠️
+///
+mod test_schema_bw_compat {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    // This was the `Experiment` object schema as it originally shipped to Fenix Nightly.
+    // It was missing some fields that have since been added.
+    fn test_experiment_schema_initial_release() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        let exp: Experiment = serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                }
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "application":"fenix",
+            "bucketConfig":{
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        }))
+        .unwrap();
+        assert_eq!(exp.get_first_feature_id(), "");
+    }
+
+    // In #96 we added a `featureIds` field to the Experiment schema.
+    // This tests the data as it was after that change.
+    #[test]
+    fn test_experiment_schema_with_feature_ids() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        let exp: Experiment = serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "endDate": null,
+            "featureIds": ["some_control"],
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "some_control",
+                        "enabled": false
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "some_control",
+                        "enabled": true
+                    }
+                }
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "application":"fenix",
+            "bucketConfig":{
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        }))
+        .unwrap();
+        assert_eq!(exp.get_first_feature_id(), "some_control");
     }
 }

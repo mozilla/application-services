@@ -15,8 +15,13 @@ use rkv::{StoreError, StoreOptions};
 use std::fs;
 use std::path::Path;
 
+// We use an incrementing integer to manage database migrations.
+// If you need to make a backwards-incompatible change to the data schema,
+// increment `DB_VERSION` and implement some migration logic in `maybe_upgrade`.
+//
+// ⚠️ Warning : Altering the type of `DB_VERSION` would itself require a DB migration. ⚠️
 const DB_KEY_DB_VERSION: &str = "db_version";
-const DB_VERSION: u16 = 1; // Increment and implement a DB migration in `maybe_upgrade` when necessary.
+const DB_VERSION: u16 = 1;
 
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
@@ -77,11 +82,41 @@ mod backend {
 use backend::*;
 pub use backend::{Readable, Writer};
 
-//#[derive(Copy, Clone)]
+/// Enumeration of the different stores within our database.
+///
+/// Our rkv database contains a number of different "stores", and the items
+/// in each store correspond to a particular type of object at the Rust level.
 pub enum StoreId {
+    /// Store containing the set of known experiments, as read from the server.
+    ///
+    /// Keys in the `Experiments` store are experiment identifier slugs, and their
+    /// corresponding values are  serialized instances of the [`Experiment`] struct
+    /// representing the last known state of that experiment.
     Experiments,
+    /// Store containing the set of known experiment enrollments.
+    ///
+    /// Keys in the `Enrollments` store are experiment identifier slugs, and their
+    /// corresponding values are serialized instances of the [`ExperimentEnrollment`]
+    /// struct representing the current state of this client's enrollment (or not)
+    /// in that experiment.
     Enrollments,
+    /// Store containing miscellaneous metadata about this client instance.
+    ///
+    /// Keys in the `Meta` store are string constants, and their corresponding values
+    /// are serialized items whose type depends on the constant. Known constaints
+    /// include:
+    ///   * "db_version":   u16, the version number of the most revent migration
+    ///                     applied to this database.
+    ///   * "nimbus-id":    String, the randomly-generated identifier for the
+    ///                     current client instance.
+    ///   * "user-opt-in":  bool, whether the user has explicitly opted in or out
+    ///                     of participating in experiments.
     Meta,
+    /// Store containing pending updates to experiment data.
+    ///
+    /// The `Updates` store contains a single key "pending-experiment-updates", whose
+    /// corresponding value is a serialized `Vec<Experiment>` of new experiment data
+    /// that has been received from the server but not yet processed by the application.
     Updates,
 }
 
@@ -195,7 +230,10 @@ impl Database {
         let mut writer = self.rkv.write()?;
         let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
         match db_version {
-            Some(DB_VERSION) => return Ok(()),
+            Some(DB_VERSION) => {
+                // Already at the current version, no migration required.
+                return Ok(());
+            }
             None => {
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
@@ -214,7 +252,7 @@ impl Database {
         // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
         // as it will be re-filled from the server on the next `fetch_experiments()`.
         // The current contents of the update store may cause experiments to not load, or worse,
-        // accidentally unenrol.
+        // accidentally unenroll.
         self.updates_store.clear(&mut writer)?;
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
@@ -372,7 +410,6 @@ mod tests {
         enrollment_store.put(&mut writer, "foo", &"bar".to_owned())?;
         experiment_store.put(&mut writer, "bobo", &"tron".to_owned())?;
         writer.commit()?;
-
         let db = Database::new(&tmp_dir)?;
         assert_eq!(db.get(StoreId::Meta, DB_KEY_DB_VERSION)?, Some(DB_VERSION));
         assert!(db.collect_all::<String>(StoreId::Enrollments)?.is_empty());

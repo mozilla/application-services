@@ -18,7 +18,8 @@ const DEFAULT_GLOBAL_USER_PARTICIPATION: bool = true;
 const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 3600);
 
 // These are types we use internally for managing enrollments.
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
     Qualified, // A normal enrollment as per the experiment's rules.
@@ -26,7 +27,9 @@ pub enum EnrolledReason {
 }
 
 // These are types we use internally for managing non-enrollments.
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum NotEnrolledReason {
     OptOut,      // The user opted-out of experiments before we ever got enrolled to this one.
@@ -36,7 +39,9 @@ pub enum NotEnrolledReason {
 }
 
 // These are types we use internally for managing disqualifications.
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DisqualifiedReason {
     Error,       // There was an error.
@@ -45,7 +50,9 @@ pub enum DisqualifiedReason {
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct ExperimentEnrollment {
     pub slug: String,
@@ -410,13 +417,17 @@ impl ExperimentEnrollment {
     }
 }
 
-// ⚠️ Warning : Altering this type might require a DB migration. ⚠️
+// ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
+// ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrollmentStatus {
     Enrolled {
         enrollment_id: Uuid, // Random ID used for telemetry events correlation.
         reason: EnrolledReason,
         branch: String,
+        // The `feature_id` field was added later. To avoid a db migration we
+        // default it to "" for persisted enrollments where it is missing.
+        #[serde(default)]
         feature_id: String,
     },
     NotEnrolled {
@@ -755,7 +766,7 @@ pub fn get_global_user_participation<'r>(
     reader: &'r impl Readable<'r>,
 ) -> Result<bool> {
     let store = db.get_store(StoreId::Meta);
-    let opted_in = store.get(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
+    let opted_in = store.get::<bool, _>(reader, DB_KEY_GLOBAL_USER_PARTICIPATION)?;
     if let Some(opted_in) = opted_in {
         Ok(opted_in)
     } else {
@@ -2119,5 +2130,62 @@ mod tests {
         ));
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+/// A suite of tests for b/w compat of data storage schema.
+///
+/// We use the `Serialize/`Deserialize` impls on various structs in order to persist them
+/// into rkv, and it's important that we be able to read previously-persisted data even
+/// if the struct definitions change over time.
+///
+/// This is a suite of tests specifically to check for backward compatibility with data
+/// that may have been written to disk by previous versions of the library.
+///
+/// ⚠️ Warning : Do not change the JSON data used by these tests. ⚠️
+/// ⚠️ The whole point of the tests is to check things work with that data. ⚠️
+///
+mod test_schema_bw_compat {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    // This was the `ExperimentEnrollment` object schema as it initially shipped to Fenix Nightly.
+    // It was missing some fields that have since been added.
+    fn test_experiment_enrollment_schema_initial_release() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        let enroll: ExperimentEnrollment = serde_json::from_value(json!({
+            "slug": "test",
+            "status": {"Enrolled": {
+                "enrollment_id": "b6d6f532-e219-4b5a-8ddf-66700dd47d68",
+                "reason": "Qualified",
+                "branch": "hello",
+            }}
+        }))
+        .unwrap();
+        assert!(
+            matches!(enroll.status, EnrollmentStatus::Enrolled{ ref feature_id, ..} if feature_id.is_empty())
+        );
+    }
+
+    // In #96 we added a `feature_id` field to the ExperimentEnrollment schema.
+    // This tests the data as it was after that change.
+    #[test]
+    fn test_experiment_schema_with_feature_ids() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        let enroll: ExperimentEnrollment = serde_json::from_value(json!({
+            "slug": "secure-gold",
+            "status": {"Enrolled": {
+                "enrollment_id": "b6d6f532-e219-4b5a-8ddf-66700dd47d68",
+                "reason": "Qualified",
+                "branch": "hello",
+                "feature_id": "some_control"
+            }}
+        }))
+        .unwrap();
+        assert!(
+            matches!(enroll.status, EnrollmentStatus::Enrolled{ ref feature_id, ..} if feature_id == "some_control")
+        );
     }
 }
