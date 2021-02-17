@@ -1,3 +1,13 @@
+# v71.0.0 (_2021-02-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v70.0.0...v71.0.0)
+
+## General
+
+### What's Changed
+
+- The bundled version of the Nimbus SDK has been updated to v0.8.1.
+
 # v70.0.0 (_2021-02-04_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v69.0.0...v70.0.0)
