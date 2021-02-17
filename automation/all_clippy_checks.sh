@@ -18,7 +18,7 @@ fi
 EXTRA_ARGS=( "$@" )
 
 # Later rust versions downgraded some warning to pedantic, so we allow them here.
-ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool" "-Aunknown-lints")
+ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool" "-Aunknown-lints" "-Aclippy::unknown_clippy_lints")
 
 cargo clippy --all --all-targets --all-features "${EXCLUDES[@]}" -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
@@ -29,5 +29,5 @@ for manifest in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages
     package=$(dirname "$manifest")
     package=$(basename "$package")
     echo "## no-default-features clippy for package $package (manifest @ $manifest)"
-    cargo clippy --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
+    cargo clippy --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 done
