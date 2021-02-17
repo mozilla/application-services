@@ -11,13 +11,13 @@ mod common;
 #[cfg(feature = "rkv-safe-mode")]
 #[cfg(test)]
 mod test {
-    use super::common::{initial_test_experiments, new_test_client, no_test_experiments};
+    use super::common::{exactly_two_experiments, new_test_client, no_test_experiments};
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::{error::Result, NimbusClient};
 
     fn startup(client: &NimbusClient, first_run: bool) -> Result<()> {
         if first_run {
-            client.set_experiments_locally(initial_test_experiments())?;
+            client.set_experiments_locally(exactly_two_experiments())?;
         }
         client.apply_pending_experiments()?;
         client.fetch_experiments()?;
@@ -68,7 +68,7 @@ mod test {
         let client = new_test_client("test_set_experiments_locally")?;
         assert_experiment_count(&client, 0)?;
 
-        client.set_experiments_locally(initial_test_experiments())?;
+        client.set_experiments_locally(exactly_two_experiments())?;
         assert_experiment_count(&client, 0)?;
 
         client.apply_pending_experiments()?;

@@ -26,44 +26,65 @@ fn test_before_open() -> Result<()> {
 #[test]
 fn test_enrolled() -> Result<()> {
     let _ = env_logger::try_init();
-    let client = common::new_test_client("test_before_open")?;
+    let client = common::new_test_client("test_enrolled")?;
     client.initialize()?;
-    client.set_experiments_locally(common::initial_test_experiments())?;
+    client.set_experiments_locally(common::experiments_testing_feature_ids())?;
 
-    // haven't applied them yet, so not enrolled as the experiment doesn't
-    // really exist.
-    assert_eq!(
-        client.get_experiment_branch("secure-gold".to_string())?,
-        None
-    );
+    let experiment_slugs = vec!["secure-gold", "no-features"];
+    for experiment_slug in &experiment_slugs {
+        // haven't applied them yet, so not enrolled as the experiment doesn't
+        // really exist.
+        assert_eq!(
+            client.get_experiment_branch(experiment_slug.to_string())?,
+            None,
+            "shouldn't return anything before pending experiments applied"
+        );
+    }
+
     client.apply_pending_experiments()?;
-    // secure-gold enrolls everyone - not clear what treatment though.
-    assert!(client
-        .get_experiment_branch("secure-gold".to_string())?
-        .is_some());
+    for experiment_slug in &experiment_slugs {
+        // these experiements enroll everyone - not clear what treatment though.
+        assert!(
+            client
+                .get_experiment_branch(experiment_slug.to_string())?
+                .is_some(),
+            "{} should return a branch for an experiment that enrolls everyone",
+            experiment_slug
+        );
 
-    client.opt_out("secure-gold".to_string())?;
-    assert_eq!(
-        client.get_experiment_branch("secure-gold".to_string())?,
-        None
-    );
+        client.opt_out(experiment_slug.to_string())?;
+        assert_eq!(
+            client.get_experiment_branch(experiment_slug.to_string())?,
+            None,
+            "{} should not return a branch we've just opted out of",
+            experiment_slug
+        );
 
-    client.opt_in_with_branch("secure-gold".to_string(), "treatment".to_string())?;
-    assert_eq!(
-        client.get_experiment_branch("secure-gold".to_string())?,
-        Some("treatment".to_string())
-    );
+        client.opt_in_with_branch(experiment_slug.to_string(), "treatment".to_string())?;
+        assert_eq!(
+            client.get_experiment_branch(experiment_slug.to_string())?,
+            Some("treatment".to_string()),
+            "{} should return a treatment branch we've just opted into",
+            experiment_slug
+        );
 
-    client.opt_in_with_branch("secure-gold".to_string(), "control".to_string())?;
-    assert_eq!(
-        client.get_experiment_branch("secure-gold".to_string())?,
-        Some("control".to_string())
-    );
-
+        client.opt_in_with_branch(experiment_slug.to_string(), "control".to_string())?;
+        assert_eq!(
+            client.get_experiment_branch(experiment_slug.to_string())?,
+            Some("control".to_string()),
+            "{} should return a second branch we've just opted into",
+            experiment_slug
+        );
+    }
     client.set_global_user_participation(false)?;
-    assert_eq!(
-        client.get_experiment_branch("secure-gold".to_string())?,
-        None
-    );
+    for experiment_slug in experiment_slugs {
+        assert_eq!(
+            client.get_experiment_branch(experiment_slug.to_string())?,
+            None,
+            "{} should not return a branch if we've globally opted out",
+            experiment_slug
+        );
+    }
+
     Ok(())
 }

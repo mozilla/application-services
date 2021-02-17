@@ -319,6 +319,7 @@ pub struct Experiment {
     pub bucket_config: BucketConfig,
     pub probe_sets: Vec<String>,
     pub branches: Vec<Branch>,
+    #[serde(default)]
     pub feature_ids: Vec<String>,
     pub targeting: Option<String>,
     pub start_date: Option<String>, // TODO: Use a date format here
@@ -335,6 +336,14 @@ impl Experiment {
         self.branches
             .iter()
             .any(|branch| branch.slug == branch_slug)
+    }
+
+    fn get_first_feature_id(&self) -> String {
+        if self.feature_ids.is_empty() {
+            "".to_string()
+        } else {
+            self.feature_ids[0].clone()
+        }
     }
 }
 

@@ -30,7 +30,7 @@ pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
 }
 
 #[allow(dead_code)] // not clear why this is necessary...
-pub fn initial_test_experiments() -> String {
+pub fn exactly_two_experiments() -> String {
     use serde_json::json;
     json!({
         "data": [
@@ -117,6 +117,134 @@ pub fn initial_test_experiments() -> String {
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
                 "id":"secure-gold",
+                "last_modified":1_602_197_324_372i64
+            }
+        ]
+    })
+    .to_string()
+}
+
+#[allow(dead_code)] // not clear why this is necessary...
+pub fn experiments_testing_feature_ids() -> String {
+    use serde_json::json;
+    json!({
+        "data": [
+            {
+                "schemaVersion": "1.0.0",
+                "slug": "startup-gold",
+                "endDate": null,
+                "featureIds": ["aboutmonkeys"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "aboutmonkeys",
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aboutmonkeys",
+                            "enabled": true
+                        },
+
+                    }
+                ],
+                "probeSets":[],
+                "startDate":null,
+                "application":"fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"startup-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"startup-gold",
+                "last_modified":1_602_197_324_372i64
+            },
+            {
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold",
+                "endDate": null,
+                "featureIds": ["aboutwelcome"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "aboutwelcome",
+                            "enabled": false
+                        },
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aboutwelcome",
+                            "enabled": true
+                        },
+                    }
+                ],
+                "probeSets":[],
+                "startDate":null,
+                "application":"fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"secure-gold",
+                "last_modified":1_602_197_324_372i64
+            },
+            {
+                "schemaVersion": "1.0.0",
+                "slug": "no-features",
+                "endDate": null,
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                    }
+                ],
+                "probeSets":[],
+                "startDate":null,
+                "application":"fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"no-features",
                 "last_modified":1_602_197_324_372i64
             }
         ]

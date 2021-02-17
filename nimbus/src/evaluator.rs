@@ -85,7 +85,7 @@ pub fn evaluate_enrollment(
                         EnrollmentStatus::new_enrolled(
                             EnrolledReason::Qualified,
                             &choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
-                            &exp.feature_ids[0],
+                            &exp.get_first_feature_id(),
                         )
                     } else {
                         EnrollmentStatus::NotEnrolled {
@@ -373,9 +373,13 @@ mod tests {
         let enrollment =
             evaluate_enrollment(&id, &available_randomization_units, &context, &experiment1)
                 .unwrap();
-        assert!(
-            matches!(enrollment.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
-        );
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
 
         let enrollment =
             evaluate_enrollment(&id, &available_randomization_units, &context, &experiment2)
@@ -400,8 +404,12 @@ mod tests {
         let enrollment =
             evaluate_enrollment(&id, &available_randomization_units, &context, &experiment2)
                 .unwrap();
-        assert!(
-            matches!(enrollment.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
-        );
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
     }
 }

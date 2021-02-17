@@ -113,7 +113,7 @@ impl ExperimentEnrollment {
             status: EnrollmentStatus::new_enrolled(
                 EnrolledReason::OptIn,
                 branch_slug,
-                &experiment.feature_ids[0],
+                &experiment.get_first_feature_id(),
             ),
         };
         out_enrollment_events.push(enrollment.get_change_event());
@@ -267,6 +267,7 @@ impl ExperimentEnrollment {
     }
 
     /// Force unenroll ourselves from an experiment.
+    #[allow(clippy::unnecessary_wraps)]
     fn on_explicit_opt_out(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
@@ -916,7 +917,10 @@ mod tests {
         let enrollment = evolver
             .evolve_enrollment(true, None, Some(exp), None, &mut events)?
             .unwrap();
-        assert!(matches!(enrollment.status, EnrollmentStatus::Enrolled { .. }));
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled { .. }
+        ));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].experiment_slug, exp.slug);
         assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
@@ -1089,7 +1093,11 @@ mod tests {
             )?
             .unwrap();
         assert!(matches!(
-            enrollment.status, EnrollmentStatus::Enrolled {reason: EnrolledReason::Qualified, .. }
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
         ));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].experiment_slug, exp.slug);
@@ -1122,9 +1130,13 @@ mod tests {
                 &mut events,
             )?
             .unwrap();
-        assert!(
-            matches!(enrollment.status, EnrollmentStatus::Disqualified { reason: DisqualifiedReason::OptOut, .. })
-        );
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        ));
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
         assert_eq!(events[0].experiment_slug, exp.slug);
@@ -1736,9 +1748,13 @@ mod tests {
             },
         };
         let enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
-        assert!(
-            matches!(enrollment.status, EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::OptOut, .. })
-        );
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::OptOut,
+                ..
+            }
+        ));
         assert!(events.is_empty());
         Ok(())
     }
@@ -1807,9 +1823,13 @@ mod tests {
             .get_store(StoreId::Enrollments)
             .get(&writer, "secure-gold")?
             .expect("should exist");
-        assert!(
-            matches!(ee.status, EnrollmentStatus::Enrolled { reason: EnrolledReason::Qualified, .. })
-        );
+        assert!(matches!(
+            ee.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
 
         // Now opt-out.
         opt_out(&db, &mut writer, "secure-gold")?;
@@ -1819,9 +1839,13 @@ mod tests {
             .get_store(StoreId::Enrollments)
             .get(&writer, "secure-gold")?
             .expect("should exist");
-        assert!(
-            matches!(ee.status, EnrollmentStatus::Disqualified { reason: DisqualifiedReason::OptOut,.. })
-        );
+        assert!(matches!(
+            ee.status,
+            EnrollmentStatus::Disqualified {
+                reason: DisqualifiedReason::OptOut,
+                ..
+            }
+        ));
 
         // Opt in to a specific branch.
         opt_in_with_branch(&db, &mut writer, "secure-gold", "treatment")?;
@@ -1954,7 +1978,8 @@ mod tests {
                     matches!(
                         enr.status,
                         EnrollmentStatus::Disqualified {
-                            reason: DisqualifiedReason::OptOut, ..
+                            reason: DisqualifiedReason::OptOut,
+                            ..
                         }
                     )
                 })
@@ -1977,7 +2002,8 @@ mod tests {
                     matches!(
                         enr.status,
                         EnrollmentStatus::Disqualified {
-                            reason: DisqualifiedReason::OptOut, ..
+                            reason: DisqualifiedReason::OptOut,
+                            ..
                         }
                     )
                 })
@@ -2070,12 +2096,13 @@ mod tests {
 
         // The not-enrolled experiment should have been unchanged.
         assert_eq!(enrollments[2].slug, mock_exp3_slug);
-        assert!(
-            matches!(&enrollments[2].status, EnrollmentStatus::NotEnrolled {
+        assert!(matches!(
+            &enrollments[2].status,
+            EnrollmentStatus::NotEnrolled {
                 reason: NotEnrolledReason::NotTargeted,
                 ..
-            })
-        );
+            }
+        ));
 
         // We should have returned a single disqualification event.
         assert_eq!(events.len(), 1);

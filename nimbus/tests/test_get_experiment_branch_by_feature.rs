@@ -31,7 +31,7 @@ fn test_enrolled_feature() -> Result<()> {
     let _ = env_logger::try_init();
     let client = common::new_test_client("test_enrolled_feature")?;
     client.initialize()?;
-    client.set_experiments_locally(common::initial_test_experiments())?;
+    client.set_experiments_locally(common::experiments_testing_feature_ids())?;
 
     // haven't applied them yet, so not enrolled as the experiment doesn't
     // really exist.
