@@ -29,7 +29,7 @@ log = "0.4"
 viaduct = { git = "https://github.com/mozilla/application-services", rev = "8a576fbe79199fa8664f64285524017f74ebcc5f"}
 thiserror = "1"
 url = "2.1"
-rkv = "0.15"
+rkv = "0.17"
 jexl-eval = "0.1.7"
 uuid = { version = "0.8", features = ["serde", "v4"]}
 sha2 = "0.9"

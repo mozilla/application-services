@@ -12,7 +12,7 @@ pub enum Error {
     #[error("Invalid persisted data")]
     InvalidPersistedData,
     #[error("Rkv error: {0}")]
-    RkvError(rkv::StoreError),
+    RkvError(#[from] rkv::StoreError),
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
     #[error("JSON Error: {0}")]
@@ -51,14 +51,6 @@ pub enum Error {
     BackoffError(u64),
     #[error("Initialization of the database is not yet complete")]
     DatabaseNotReady,
-}
-
-// This can be replaced with #[from] in the enum definition
-// once rkv::StoreError impl std::error:Error (https://github.com/mozilla/rkv/issues/188)
-impl From<rkv::StoreError> for Error {
-    fn from(store_error: rkv::StoreError) -> Self {
-        Error::RkvError(store_error)
-    }
 }
 
 impl<'a> From<jexl_eval::error::EvaluationError<'a>> for Error {
