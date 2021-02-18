@@ -2,11 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v70.0.0...main)
-
-## General
-
-### What's Changed
-
-- The bundled version of the Nimbus SDK has been updated to v0.8.1.
-
+[Full Changelog](https://github.com/mozilla/application-services/compare/v71.0.0...main)
