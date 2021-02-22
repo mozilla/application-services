@@ -187,16 +187,24 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
 mod tests {
     use super::*;
     use crate::db::credit_cards::add_internal_credit_card;
-    use crate::db::credit_cards::tests::{
-        clear_tables, get_all, insert_mirror_record, insert_tombstone_record,
-    };
+    use crate::db::credit_cards::tests::{get_all, insert_mirror_record, insert_tombstone_record};
     use crate::db::models::credit_card::InternalCreditCard;
     use crate::db::test::new_mem_db;
     use rusqlite::NO_PARAMS;
+    use sql_support::ConnExt;
 
     // We use the credit-card engine here.
     fn create_engine(db: AutofillDb) -> ConfigSyncEngine<InternalCreditCard> {
         crate::sync::credit_card::create_engine(Arc::new(Mutex::new(db)))
+    }
+
+    pub fn clear_cc_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {
+        conn.execute_all(&[
+            "DELETE FROM credit_cards_data;",
+            "DELETE FROM credit_cards_mirror;",
+            "DELETE FROM credit_cards_tombstones;",
+            "DELETE FROM moz_meta;",
+        ])
     }
 
     #[test]
@@ -327,7 +335,7 @@ mod tests {
                 .get_meta::<String>(conn, COLLECTION_SYNCID_META_KEY)?
                 .is_none());
 
-            clear_tables(conn)?;
+            clear_cc_tables(conn)?;
 
             // re-populating the tables
             let tx = conn.unchecked_transaction()?;

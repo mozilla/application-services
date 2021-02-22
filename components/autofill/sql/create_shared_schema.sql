@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS addresses_data (
     email               TEXT NOT NULL,
 
     time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER NOT NULL DEFAULT 0,
+    time_last_used      INTEGER NOT NULL,
     time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL DEFAULT 0,
+    times_used          INTEGER NOT NULL,
 
-    sync_change_counter INTEGER NOT NULL DEFAULT 0
+    sync_change_counter INTEGER NOT NULL
 );
 
 -- What's on the server as the JSON payload.
@@ -54,10 +54,10 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
     time_created        INTEGER NOT NULL,
     time_last_used      INTEGER,
     time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL DEFAULT 0,
+    times_used          INTEGER NOT NULL,
 
     /* Same "sync change counter" strategy used by other components. */
-    sync_change_counter INTEGER NOT NULL DEFAULT 1
+    sync_change_counter INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS credit_cards_mirror (

@@ -158,7 +158,8 @@ pub(crate) fn update_address(
 }
 
 /// Updates all fields including metadata - although the change counter gets
-/// slighly special treatment. Suitable for internal use (eg, by Sync)
+/// slighly special treatment (eg, when called by Sync we don't want the
+/// change counter incremented)
 pub(crate) fn update_internal_address(
     tx: &Transaction<'_>,
     address: &InternalAddress,

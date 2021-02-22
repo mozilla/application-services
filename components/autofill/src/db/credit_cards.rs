@@ -136,7 +136,8 @@ pub fn update_credit_card(
 }
 
 /// Updates all fields including metadata - although the change counter gets
-/// slighly special treatment. Suitable for internal use (eg, by Sync)
+/// slightly special treatment (eg, when called by Sync we don't want the
+/// change counter incremented).
 pub(crate) fn update_internal_credit_card(
     tx: &Transaction<'_>,
     card: &InternalCreditCard,
@@ -213,7 +214,6 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
 pub(crate) mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
-    use sql_support::ConnExt;
 
     pub fn get_all(
         conn: &Connection,
@@ -231,15 +231,6 @@ pub(crate) mod tests {
         }
 
         Ok(guids)
-    }
-
-    pub fn clear_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {
-        conn.execute_all(&[
-            "DELETE FROM credit_cards_data;",
-            "DELETE FROM credit_cards_mirror;",
-            "DELETE FROM credit_cards_tombstones;",
-            "DELETE FROM moz_meta;",
-        ])
     }
 
     pub fn insert_tombstone_record(
