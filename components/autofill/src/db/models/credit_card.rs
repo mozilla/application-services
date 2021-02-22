@@ -5,12 +5,9 @@
 
 use super::Metadata;
 use rusqlite::Row;
-use serde::Serialize;
-use serde_derive::*;
 use sync_guid::Guid;
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", default)]
+#[derive(Debug, Clone, Default)]
 pub struct UpdatableCreditCardFields {
     pub cc_name: String,
     pub cc_number: String,
@@ -64,10 +61,8 @@ impl From<InternalCreditCard> for CreditCard {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
-#[serde(default, rename_all = "kebab-case")]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct InternalCreditCard {
-    #[serde(rename = "id")]
     pub guid: Guid,
     pub cc_name: String,
     pub cc_number: String,
@@ -76,7 +71,6 @@ pub struct InternalCreditCard {
     // Credit card types are a fixed set of strings as defined in the link below
     // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
     pub cc_type: String,
-    #[serde(flatten)]
     pub metadata: Metadata,
 }
 
@@ -94,7 +88,6 @@ impl InternalCreditCard {
                 time_last_used: row.get("time_last_used")?,
                 time_last_modified: row.get("time_last_modified")?,
                 times_used: row.get("times_used")?,
-                version: 1,
                 sync_change_counter: row.get("sync_change_counter")?,
             },
         })

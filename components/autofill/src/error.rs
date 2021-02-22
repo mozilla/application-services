@@ -27,6 +27,9 @@ pub enum Error {
 
     #[error("JSON Error: {0}")]
     JsonError(#[from] serde_json::Error),
+
+    #[error("Invalid sync payload: {0}")]
+    InvalidSyncPayload(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

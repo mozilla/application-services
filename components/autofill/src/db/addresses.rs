@@ -293,20 +293,6 @@ mod tests {
         )
     }
 
-    #[allow(dead_code)]
-    fn insert_mirror_record(conn: &Connection, address: &InternalAddress) {
-        let payload = serde_json::to_value(address).expect("should serialize");
-        conn.execute_named(
-            "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
-             VALUES (:guid, :payload)",
-            rusqlite::named_params! {
-                ":guid": address.guid,
-                ":payload": payload,
-            },
-        )
-        .expect("should create it");
-    }
-
     #[test]
     fn test_address_create_and_read() {
         let db = new_mem_db();

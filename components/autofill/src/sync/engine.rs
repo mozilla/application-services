@@ -276,7 +276,7 @@ mod tests {
             ..Default::default()
         };
         add_internal_credit_card(&tx, &cc)?;
-        insert_mirror_record(&tx, &cc);
+        insert_mirror_record(&tx, cc.clone());
         insert_tombstone_record(&tx, Guid::random().to_string())?;
         tx.commit()?;
 
@@ -340,7 +340,7 @@ mod tests {
             // re-populating the tables
             let tx = conn.unchecked_transaction()?;
             add_internal_credit_card(&tx, &cc)?;
-            insert_mirror_record(&tx, &cc);
+            insert_mirror_record(&tx, cc);
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }
