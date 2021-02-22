@@ -1,8 +1,0 @@
-libraryVersion: 0.5.1
-groupId: org.mozilla.experiments
-artifactId: nimbus
-description: A uniffi generated android bindings for the Nimbus SDK
-libUrl: https://github.com/mozilla/nimbus-sdk
-libVcsUrl: https://github.com/mozilla/nimbus-sdk.git
-libLicense: MPL-2.0
-libLicenseUrl: https://www.mozilla.org/en-US/MPL/2.0/
