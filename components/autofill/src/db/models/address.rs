@@ -3,11 +3,10 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+use super::Metadata;
 use rusqlite::Row;
-use serde::Serialize;
 use serde_derive::*;
 use sync_guid::Guid;
-use types::Timestamp;
 
 // UpdatableAddressFields contains the fields we support for creating a new
 // address or updating an existing one. It's missing the guid, our "internal"
@@ -48,7 +47,7 @@ pub struct Address {
     pub country: String,
     pub tel: String,
     pub email: String,
-    // We expose the metadata
+    // We expose some of the metadata
     pub time_created: i64,
     pub time_last_used: Option<i64>,
     pub time_last_modified: i64,
@@ -73,24 +72,26 @@ impl From<InternalAddress> for Address {
             country: ia.country,
             tel: ia.tel,
             email: ia.email,
-            // *sob* - can't use u64 in uniffi
-            time_created: u64::from(ia.time_created) as i64,
-            time_last_used: ia.time_last_used.map(|v| u64::from(v) as i64),
-            time_last_modified: u64::from(ia.time_last_modified) as i64,
-            times_used: ia.times_used,
+            // note we can't use u64 in uniffi
+            time_created: u64::from(ia.metadata.time_created) as i64,
+            time_last_used: if ia.metadata.time_last_used.0 == 0 {
+                None
+            } else {
+                Some(ia.metadata.time_last_used.0 as i64)
+            },
+            time_last_modified: u64::from(ia.metadata.time_last_modified) as i64,
+            times_used: ia.metadata.times_used,
         }
     }
 }
 
-// An "internal" address has both the fields we expose to consumers and those
-// we do not. This is the primary struct used internally, and is serialized to
-// and from JSON for sync etc.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+// An "internal" address is used by the public APIs and by sync. This is what
+// Sync de-serializes as a payload.
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+#[serde(default)] // not ideal, but helps for tests.
 pub struct InternalAddress {
-    // it sucks that we need to duplicate the fields, but we do so because
-    // uniffi forces us to use, eg, strings for guids and ints for timestamps,
-    // but we want our rust code to deal with timestamps etc.
+    #[serde(rename = "id")]
     pub guid: Guid,
     pub given_name: String,
     pub additional_name: String,
@@ -104,22 +105,8 @@ pub struct InternalAddress {
     pub country: String,
     pub tel: String,
     pub email: String,
-
-    // We expose the metadata - note that for compatibility with desktop
-    // these are *not* kebab-case - for some obscure reason the sync server's
-    // records have a mix of cases.
-    #[serde(rename = "timeCreated")]
-    pub time_created: Timestamp,
-    #[serde(rename = "timeLastUsed")]
-    pub time_last_used: Option<Timestamp>,
-    #[serde(rename = "timeLastModified")]
-    pub time_last_modified: Timestamp,
-    #[serde(rename = "timesUsed")]
-    pub times_used: i64,
-
-    #[serde(default)]
-    #[serde(rename = "changeCounter")]
-    pub(crate) sync_change_counter: i64,
+    #[serde(flatten)]
+    pub metadata: Metadata,
 }
 
 impl InternalAddress {
@@ -138,11 +125,14 @@ impl InternalAddress {
             country: row.get("country")?,
             tel: row.get("tel")?,
             email: row.get("email")?,
-            time_created: row.get("time_created")?,
-            time_last_used: row.get("time_last_used")?,
-            time_last_modified: row.get("time_last_modified")?,
-            times_used: row.get("times_used")?,
-            sync_change_counter: row.get("sync_change_counter")?,
+            metadata: Metadata {
+                time_created: row.get("time_created")?,
+                time_last_used: row.get("time_last_used")?,
+                time_last_modified: row.get("time_last_modified")?,
+                times_used: row.get("times_used")?,
+                version: 1,
+                sync_change_counter: row.get("sync_change_counter")?,
+            },
         })
     }
 }

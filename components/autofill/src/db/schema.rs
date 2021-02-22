@@ -92,6 +92,7 @@ fn create(db: &Connection) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
     log::debug!("Initializing sync temp tables");
     db.execute_batch(CREATE_SYNC_TEMP_TABLES_SQL)?;

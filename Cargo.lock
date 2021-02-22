@@ -799,9 +799,14 @@ dependencies = [
  "anyhow",
  "autofill",
  "cli-support",
+ "fxa-client",
+ "interrupt-support",
+ "log 0.4.11",
  "serde_json",
  "structopt",
  "sync-guid",
+ "sync15",
+ "viaduct-reqwest",
 ]
 
 [[package]]

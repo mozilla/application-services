@@ -3,86 +3,118 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-pub mod engine;
 pub mod incoming;
 
+use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
+use super::{MergeResult, Metadata, ProcessIncomingRecordImpl, SyncRecord};
+use crate::db::models::address::InternalAddress;
 use crate::error::*;
-use rusqlite::Row;
-use serde::Serialize;
-use serde_derive::*;
+use crate::sync_merge_field_check;
+use incoming::AddressesImpl;
+use rusqlite::Transaction;
+use std::sync::{Arc, Mutex};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 
-const RECORD_VERSION: u32 = 1;
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
-#[serde(rename_all = "kebab-case")]
-#[serde(default)]
-pub struct AddressRecord {
-    #[serde(rename = "id")]
-    pub guid: SyncGuid,
-    pub given_name: String,
-    pub additional_name: String,
-    pub family_name: String,
-    pub organization: String,
-    pub street_address: String,
-    pub address_level3: String,
-    pub address_level2: String,
-    pub address_level1: String,
-    pub postal_code: String,
-    pub country: String,
-    pub tel: String,
-    pub email: String,
-    // metadata isn't kebab-case for some reason...
-    #[serde(rename = "timeCreated")]
-    pub time_created: Timestamp,
-    #[serde(rename = "timeLastUsed")]
-    pub time_last_used: Timestamp,
-    #[serde(rename = "timeLastModified")]
-    pub time_last_modified: Timestamp,
-    #[serde(rename = "timesUsed")]
-    pub times_used: i64,
-    // The server stores a "version" field that's always 1
-    pub version: u32,
-    // Change counter is never serialized or deserialized.
-    #[serde(skip)]
-    pub sync_change_counter: Option<i64>,
+// The engine.
+pub fn create_engine(db: Arc<Mutex<crate::db::AutofillDb>>) -> ConfigSyncEngine<InternalAddress> {
+    ConfigSyncEngine {
+        db,
+        config: EngineConfig {
+            namespace: "addresses".to_string(),
+            collection: "addresses",
+        },
+        storage_impl: Box::new(AddressesEngineStorageImpl {}),
+    }
 }
 
-impl AddressRecord {
-    pub fn from_row(row: &Row<'_>, column_prefix: &str) -> Result<AddressRecord> {
-        Ok(AddressRecord {
-            guid: row.get::<_, SyncGuid>(format!("{}{}", column_prefix, "guid").as_str())?,
-            given_name: row
-                .get::<_, String>(format!("{}{}", column_prefix, "given_name").as_str())?,
-            additional_name: row
-                .get::<_, String>(format!("{}{}", column_prefix, "additional_name").as_str())?,
-            family_name: row
-                .get::<_, String>(format!("{}{}", column_prefix, "family_name").as_str())?,
-            organization: row
-                .get::<_, String>(format!("{}{}", column_prefix, "organization").as_str())?,
-            street_address: row
-                .get::<_, String>(format!("{}{}", column_prefix, "street_address").as_str())?,
-            address_level3: row
-                .get::<_, String>(format!("{}{}", column_prefix, "address_level3").as_str())?,
-            address_level2: row
-                .get::<_, String>(format!("{}{}", column_prefix, "address_level2").as_str())?,
-            address_level1: row
-                .get::<_, String>(format!("{}{}", column_prefix, "address_level1").as_str())?,
-            postal_code: row
-                .get::<_, String>(format!("{}{}", column_prefix, "postal_code").as_str())?,
-            country: row.get::<_, String>(format!("{}{}", column_prefix, "country").as_str())?,
-            tel: row.get::<_, String>(format!("{}{}", column_prefix, "tel").as_str())?,
-            email: row.get::<_, String>(format!("{}{}", column_prefix, "email").as_str())?,
-            time_created: row.get(format!("{}{}", column_prefix, "time_created").as_str())?,
-            time_last_used: row.get(format!("{}{}", column_prefix, "time_last_used").as_str())?,
-            time_last_modified: row
-                .get(format!("{}{}", column_prefix, "time_last_modified").as_str())?,
-            times_used: row.get(format!("{}{}", column_prefix, "times_used").as_str())?,
-            version: RECORD_VERSION,
-            sync_change_counter: row
-                .get(format!("{}{}", column_prefix, "sync_change_counter").as_str())
-                .ok(),
-        })
+pub(super) struct AddressesEngineStorageImpl {}
+
+impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
+    fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = InternalAddress>> {
+        Box::new(AddressesImpl {})
     }
+
+    fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
+        tx.execute_batch(
+            "DELETE FROM addresses_mirror;
+            DELETE FROM addresses_tombstones;
+            UPDATE addresses_data SET sync_change_counter = 1",
+        )?;
+        Ok(())
+    }
+}
+
+impl SyncRecord for InternalAddress {
+    fn record_name() -> &'static str {
+        "Address"
+    }
+
+    fn id(&self) -> &SyncGuid {
+        &self.guid
+    }
+
+    fn metadata(&self) -> &Metadata {
+        &self.metadata
+    }
+
+    fn metadata_mut(&mut self) -> &mut Metadata {
+        &mut self.metadata
+    }
+
+    /// Performs a three-way merge between an incoming, local, and mirror record.
+    /// If a merge cannot be successfully completed (ie, if we find the same
+    /// field has changed both locally and remotely since the last sync), the
+    /// local record data is returned with a new guid and updated sync metadata.
+    /// Note that mirror being None is an edge-case and typically means first
+    /// sync since a "reset" (eg, disconnecting and reconnecting.
+    #[allow(clippy::cognitive_complexity)] // Looks like clippy considers this after macro-expansion...
+    fn merge(incoming: &Self, local: &Self, mirror: &Option<Self>) -> MergeResult<Self> {
+        let mut merged_record: Self = Default::default();
+        // guids must be identical
+        assert_eq!(incoming.guid, local.guid);
+
+        match mirror {
+            Some(m) => assert_eq!(incoming.guid, m.guid),
+            None => {}
+        };
+
+        merged_record.guid = incoming.guid.clone();
+
+        sync_merge_field_check!(given_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(additional_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(family_name, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(organization, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(street_address, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(address_level3, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(address_level2, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(address_level1, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(postal_code, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(country, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(tel, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(email, incoming, local, mirror, merged_record);
+
+        merged_record.metadata = incoming.metadata;
+        merged_record
+            .metadata
+            .merge(&local.metadata, &mirror.as_ref().map(|m| m.metadata()));
+
+        MergeResult::Merged {
+            merged: merged_record,
+        }
+    }
+}
+
+/// Returns a with the given local record's data but with a new guid and
+/// fresh sync metadata.
+fn get_forked_record(local_record: InternalAddress) -> InternalAddress {
+    let mut local_record_data = local_record;
+    local_record_data.guid = SyncGuid::random();
+    local_record_data.metadata.time_created = Timestamp::now();
+    local_record_data.metadata.time_last_used = Timestamp::now();
+    local_record_data.metadata.time_last_modified = Timestamp::now();
+    local_record_data.metadata.times_used = 0;
+    local_record_data.metadata.sync_change_counter = 1;
+
+    local_record_data
 }

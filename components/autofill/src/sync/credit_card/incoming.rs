@@ -3,9 +3,9 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-use crate::db::addresses::{add_internal_address, update_internal_address};
-use crate::db::models::address::InternalAddress;
-use crate::db::schema::ADDRESS_COMMON_COLS;
+use crate::db::credit_cards::{add_internal_credit_card, update_internal_credit_card};
+use crate::db::models::credit_card::InternalCreditCard;
+use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{IncomingState, Payload, ProcessIncomingRecordImpl, ServerTimestamp};
@@ -13,10 +13,10 @@ use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sync_guid::Guid as SyncGuid;
 
-pub(super) struct AddressesImpl {}
+pub(super) struct CreditCardsImpl {}
 
-impl ProcessIncomingRecordImpl for AddressesImpl {
-    type Record = InternalAddress;
+impl ProcessIncomingRecordImpl for CreditCardsImpl {
+    type Record = InternalCreditCard;
 
     /// The first step in the "apply incoming" process - stage the records
     fn stage_incoming(
@@ -25,10 +25,10 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
         incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
-        common_stage_incoming_records(tx, "addresses_sync_staging", incoming, signal)
+        common_stage_incoming_records(tx, "credit_cards_sync_staging", incoming, signal)
     }
 
-    /// The second step in the "apply incoming" process for syncing autofill address records.
+    /// The second step in the "apply incoming" process for syncing autofill CC records.
     /// Incoming items are retrieved from the temp tables, deserialized, and
     /// assigned `IncomingState` values.
     fn fetch_incoming_states(
@@ -42,29 +42,22 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
             t.guid as t_guid,
             s.payload as s_payload,
             m.payload as m_payload,
-            l.given_name,
-            l.additional_name,
-            l.family_name,
-            l.organization,
-            l.street_address,
-            l.address_level3,
-            l.address_level2,
-            l.address_level1,
-            l.postal_code,
-            l.country,
-            l.tel,
-            l.email,
+            l.cc_name,
+            l.cc_number,
+            l.cc_exp_month,
+            l.cc_exp_year,
+            l.cc_type,
             l.time_created,
             l.time_last_used,
             l.time_last_modified,
             l.times_used,
             l.sync_change_counter
-        FROM temp.addresses_sync_staging s
-        LEFT JOIN addresses_mirror m ON s.guid = m.guid
-        LEFT JOIN addresses_data l ON s.guid = l.guid
-        LEFT JOIN addresses_tombstones t ON s.guid = t.guid";
+        FROM temp.credit_cards_sync_staging s
+        LEFT JOIN credit_cards_mirror m ON s.guid = m.guid
+        LEFT JOIN credit_cards_data l ON s.guid = l.guid
+        LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        common_fetch_incoming_record_states(tx, sql, |row| Ok(InternalAddress::from_row(row)?))
+        common_fetch_incoming_record_states(tx, sql, |row| Ok(InternalCreditCard::from_row(row)?))
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
@@ -79,43 +72,29 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
             SELECT
                 {common_cols},
                 sync_change_counter
-            FROM addresses_data
+            FROM credit_cards_data
             WHERE
                 -- `guid <> :guid` is a pre-condition for this being called, but...
                 guid <> :guid
                 -- only non-synced records are candidates, which means can't already be in the mirror.
                 AND guid NOT IN (
                     SELECT guid
-                    FROM addresses_mirror
+                    FROM credit_cards_mirror
                 )
                 -- and sql can check the field values.
-                AND given_name == :given_name
-                AND additional_name == :additional_name
-                AND family_name == :family_name
-                AND organization == :organization
-                AND street_address == :street_address
-                AND address_level3 == :address_level3
-                AND address_level2 == :address_level2
-                AND address_level1 == :address_level1
-                AND postal_code == :postal_code
-                AND country == :country
-                AND tel == :tel
-                AND email == :email", common_cols = ADDRESS_COMMON_COLS);
+                AND cc_name == :cc_name
+                AND cc_number == :cc_number
+                AND cc_exp_month == :cc_exp_month
+                AND cc_exp_year == :cc_exp_year
+                AND cc_type == :cc_type", common_cols = CREDIT_CARD_COMMON_COLS);
 
         let params = named_params! {
             ":guid": incoming.guid,
-            ":given_name": incoming.given_name,
-            ":additional_name": incoming.additional_name,
-            ":family_name": incoming.family_name,
-            ":organization": incoming.organization,
-            ":street_address": incoming.street_address,
-            ":address_level3": incoming.address_level3,
-            ":address_level2": incoming.address_level2,
-            ":address_level1": incoming.address_level1,
-            ":postal_code": incoming.postal_code,
-            ":country": incoming.country,
-            ":tel": incoming.tel,
-            ":email": incoming.email,
+            ":cc_name": incoming.cc_name,
+            ":cc_number": incoming.cc_number,
+            ":cc_exp_month": incoming.cc_exp_month,
+            ":cc_exp_year": incoming.cc_exp_year,
+            ":cc_type": incoming.cc_type,
         };
 
         let result = tx.query_row_named(&sql, params, |row| {
@@ -137,12 +116,12 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
         new_record: Self::Record,
         flag_as_changed: bool,
     ) -> Result<()> {
-        update_internal_address(tx, &new_record, flag_as_changed)?;
+        update_internal_credit_card(tx, &new_record, flag_as_changed)?;
         Ok(())
     }
 
     fn insert_local_record(&self, tx: &Transaction<'_>, new_record: Self::Record) -> Result<()> {
-        add_internal_address(tx, &new_record)?;
+        add_internal_credit_card(tx, &new_record)?;
         Ok(())
     }
 
@@ -154,15 +133,15 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
         old_guid: &SyncGuid,
         new_guid: &SyncGuid,
     ) -> Result<()> {
-        common_change_guid(tx, "addresses_data", old_guid, new_guid)
+        common_change_guid(tx, "credit_cards_data", old_guid, new_guid)
     }
 
     fn remove_record(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
-        common_remove_record(tx, "addresses_data", guid)
+        common_remove_record(tx, "credit_cards_data", guid)
     }
 
     fn remove_tombstone(&self, tx: &Transaction<'_>, guid: &SyncGuid) -> Result<()> {
-        common_remove_record(tx, "addresses_tombstones", guid)
+        common_remove_record(tx, "credit_cards_tombstones", guid)
     }
 }
 
@@ -170,7 +149,7 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
 mod tests {
     use super::super::super::test::new_syncable_mem_db;
     use super::*;
-    use crate::db::addresses::get_address;
+    use crate::db::credit_cards::get_credit_card;
     use crate::sync::common::tests::*;
 
     use interrupt_support::NeverInterrupts;
@@ -183,19 +162,19 @@ mod tests {
             let val = json! {{
                 "A" : {
                     "id": expand_test_guid('A'),
-                    "givenName": "john",
-                    "familyName": "doe",
-                    "streetAddress": "1300 Broadway",
-                    "addressLevel2": "New York, NY",
-                    "country": "United States",
+                    "cc_name": "Mr Me A Person",
+                    "cc_number": "12345678",
+                    "cc_exp_month": 12,
+                    "cc_exp_year": 2021,
+                    "cc_type": "Cash!",
                 },
                 "C" : {
                     "id": expand_test_guid('C'),
-                    "givenName": "jane",
-                    "familyName": "doe",
-                    "streetAddress": "3050 South La Brea Ave",
-                    "addressLevel2": "Los Angeles, CA",
-                    "country": "United States",
+                    "cc_name": "Mr Me Another Person",
+                    "cc_number": "87654321",
+                    "cc_exp_month": 1,
+                    "cc_exp_year": 2020,
+                    "cc_type": "visa",
                     "timeCreated": 0,
                     "timeLastUsed": 0,
                     "timeLastModified": 0,
@@ -213,7 +192,7 @@ mod tests {
             .clone()
     }
 
-    fn test_record(guid_prefix: char) -> InternalAddress {
+    fn test_record(guid_prefix: char) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
         serde_json::from_value(json).expect("should be a valid record")
     }
@@ -253,7 +232,7 @@ mod tests {
         for tc in test_cases {
             log::info!("starting new testcase");
             let tx = db.transaction()?;
-            let ri = AddressesImpl {};
+            let ri = CreditCardsImpl {};
             ri.stage_incoming(
                 &tx,
                 array_to_incoming(tc.incoming_records),
@@ -261,7 +240,7 @@ mod tests {
             )?;
 
             let payloads = tx.conn().query_rows_and_then_named(
-                "SELECT * FROM temp.addresses_sync_staging;",
+                "SELECT * FROM temp.credit_cards_sync_staging;",
                 &[],
                 |row| -> Result<Payload> {
                     let payload: String = row.get_unwrap("payload");
@@ -275,7 +254,7 @@ mod tests {
             assert_eq!(record_count, tc.expected_record_count);
             assert_eq!(tombstone_count, tc.expected_tombstone_count);
 
-            tx.execute("DELETE FROM temp.addresses_sync_staging;", NO_PARAMS)?;
+            tx.execute("DELETE FROM temp.credit_cards_sync_staging;", NO_PARAMS)?;
         }
         Ok(())
     }
@@ -284,7 +263,7 @@ mod tests {
     fn test_change_local_guid() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
-        let ri = AddressesImpl {};
+        let ri = CreditCardsImpl {};
 
         ri.insert_local_record(&tx, test_record('C'))?;
 
@@ -294,8 +273,8 @@ mod tests {
             &SyncGuid::new(&expand_test_guid('B')),
         )?;
         tx.commit()?;
-        assert!(get_address(&db.writer, &expand_test_guid('C').into()).is_err());
-        assert!(get_address(&db.writer, &expand_test_guid('B').into()).is_ok());
+        assert!(get_credit_card(&db.writer, &expand_test_guid('C').into()).is_err());
+        assert!(get_credit_card(&db.writer, &expand_test_guid('B').into()).is_ok());
         Ok(())
     }
 
@@ -303,7 +282,7 @@ mod tests {
     fn test_get_incoming() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = AddressesImpl {};
+        let ai = CreditCardsImpl {};
         do_test_incoming_same(&ai, &tx, test_record('C'));
     }
 
@@ -311,7 +290,7 @@ mod tests {
     fn test_incoming_tombstone() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = AddressesImpl {};
+        let ai = CreditCardsImpl {};
         do_test_incoming_tombstone(&ai, &tx, test_record('C'));
     }
 }

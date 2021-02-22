@@ -14,6 +14,11 @@ path = "src/autofill-utils.rs"
 anyhow = "1.0"
 autofill = { path = "../../components/autofill" }
 cli-support = { path = "../cli-support" }
+fxa-client = { path = "../../components/fxa-client" }
+interrupt-support = { path = "../../components/support/interrupt" } # XXX - should be removed once we do interrupts correctly!
+log = "0.4"
 serde_json = "1"
 structopt = "0.3"
 sync-guid = { path = "../../components/support/guid", features = ["rusqlite_support", "random"] }
+sync15 = { path = "../../components/sync15" }
+viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
