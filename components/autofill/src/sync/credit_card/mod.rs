@@ -12,8 +12,9 @@ use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::CreditCardsImpl;
 use rusqlite::Transaction;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use sync_guid::Guid as SyncGuid;
+use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
@@ -47,12 +48,41 @@ impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl 
     }
 }
 
+// These structs are what's stored on the sync server.
+#[derive(Default, Debug, Deserialize, Serialize)]
+struct CreditCardPayload {
+    id: Guid,
+    // For some historical reason and unlike most other sync records, creditcards
+    // are serialized with this explicit 'entry' object.
+    entry: PayloadEntry,
+}
+
+#[derive(Default, Debug, Deserialize, Serialize)]
+#[serde(default, rename_all = "kebab-case")]
+struct PayloadEntry {
+    pub cc_name: String,
+    pub cc_number: String,
+    pub cc_exp_month: i64,
+    pub cc_exp_year: i64,
+    pub cc_type: String,
+    // metadata (which isn't kebab-case for some historical reason...)
+    #[serde(rename = "timeCreated")]
+    pub time_created: Timestamp,
+    #[serde(rename = "timeLastUsed")]
+    pub time_last_used: Timestamp,
+    #[serde(rename = "timeLastModified")]
+    pub time_last_modified: Timestamp,
+    #[serde(rename = "timesUsed")]
+    pub times_used: i64,
+    pub version: u32, // always 3 for credit-cards
+}
+
 impl SyncRecord for InternalCreditCard {
     fn record_name() -> &'static str {
         "CreditCard"
     }
 
-    fn id(&self) -> &SyncGuid {
+    fn id(&self) -> &Guid {
         &self.guid
     }
 
@@ -98,13 +128,59 @@ impl SyncRecord for InternalCreditCard {
             merged: merged_record,
         }
     }
+
+    fn to_record(sync_payload: sync15::Payload) -> Result<Self> {
+        let p: CreditCardPayload = sync_payload.into_record()?;
+        if p.entry.version != 3 {
+            // when new versions are introduced we will start accepting and
+            // converting old ones - but 3 is the lowest we support.
+            return Err(Error::InvalidSyncPayload(format!(
+                "invalid version - {}",
+                p.entry.version
+            )));
+        }
+        Ok(InternalCreditCard {
+            guid: p.id,
+            cc_name: p.entry.cc_name,
+            cc_number: p.entry.cc_number,
+            cc_exp_month: p.entry.cc_exp_month,
+            cc_exp_year: p.entry.cc_exp_year,
+            cc_type: p.entry.cc_type,
+            metadata: Metadata {
+                time_created: p.entry.time_created,
+                time_last_used: p.entry.time_last_used,
+                time_last_modified: p.entry.time_last_modified,
+                times_used: p.entry.times_used,
+                sync_change_counter: 0,
+            },
+        })
+    }
+
+    fn to_payload(self) -> Result<sync15::Payload> {
+        let p = CreditCardPayload {
+            id: self.guid,
+            entry: PayloadEntry {
+                cc_name: self.cc_name,
+                cc_number: self.cc_number,
+                cc_exp_month: self.cc_exp_month,
+                cc_exp_year: self.cc_exp_year,
+                cc_type: self.cc_type,
+                time_created: self.metadata.time_created,
+                time_last_used: self.metadata.time_last_used,
+                time_last_modified: self.metadata.time_last_modified,
+                times_used: self.metadata.times_used,
+                version: 3,
+            },
+        };
+        Ok(sync15::Payload::from_record(p)?)
+    }
 }
 
 /// Returns a with the given local record's data but with a new guid and
 /// fresh sync metadata.
 fn get_forked_record(local_record: InternalCreditCard) -> InternalCreditCard {
     let mut local_record_data = local_record;
-    local_record_data.guid = SyncGuid::random();
+    local_record_data.guid = Guid::random();
     local_record_data.metadata.time_created = Timestamp::now();
     local_record_data.metadata.time_last_used = Timestamp::now();
     local_record_data.metadata.time_last_modified = Timestamp::now();

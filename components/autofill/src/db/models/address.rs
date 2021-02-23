@@ -5,7 +5,6 @@
 
 use super::Metadata;
 use rusqlite::Row;
-use serde_derive::*;
 use sync_guid::Guid;
 
 // UpdatableAddressFields contains the fields we support for creating a new
@@ -14,8 +13,7 @@ use sync_guid::Guid;
 // (such as timeCreated) because it doesn't make sense for these things to be
 // specified as an item is created - any meta fields which can be updated
 // have special methods for doing so.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case", default)]
+#[derive(Debug, Clone, Default)]
 pub struct UpdatableAddressFields {
     pub given_name: String,
     pub additional_name: String,
@@ -85,13 +83,9 @@ impl From<InternalAddress> for Address {
     }
 }
 
-// An "internal" address is used by the public APIs and by sync. This is what
-// Sync de-serializes as a payload.
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-#[serde(default)] // not ideal, but helps for tests.
+// An "internal" address is used by the public APIs and by sync.
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct InternalAddress {
-    #[serde(rename = "id")]
     pub guid: Guid,
     pub given_name: String,
     pub additional_name: String,
@@ -105,7 +99,6 @@ pub struct InternalAddress {
     pub country: String,
     pub tel: String,
     pub email: String,
-    #[serde(flatten)]
     pub metadata: Metadata,
 }
 
@@ -130,7 +123,6 @@ impl InternalAddress {
                 time_last_used: row.get("time_last_used")?,
                 time_last_modified: row.get("time_last_modified")?,
                 times_used: row.get("times_used")?,
-                version: 1,
                 sync_change_counter: row.get("sync_change_counter")?,
             },
         })

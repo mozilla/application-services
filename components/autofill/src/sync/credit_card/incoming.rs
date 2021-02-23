@@ -151,6 +151,7 @@ mod tests {
     use super::*;
     use crate::db::credit_cards::get_credit_card;
     use crate::sync::common::tests::*;
+    use crate::sync::SyncRecord;
 
     use interrupt_support::NeverInterrupts;
     use rusqlite::NO_PARAMS;
@@ -159,26 +160,34 @@ mod tests {
 
     lazy_static::lazy_static! {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
+            // NOTE: the JSON here is the same as stored on the sync server -
+            // the superfluous `entry` is unfortunate but from desktop.
             let val = json! {{
                 "A" : {
                     "id": expand_test_guid('A'),
-                    "cc_name": "Mr Me A Person",
-                    "cc_number": "12345678",
-                    "cc_exp_month": 12,
-                    "cc_exp_year": 2021,
-                    "cc_type": "Cash!",
+                    "entry": {
+                        "cc-name": "Mr Me A Person",
+                        "cc-number": "12345678",
+                        "cc-exp_month": 12,
+                        "cc-exp_year": 2021,
+                        "cc-type": "Cash!",
+                        "version": 3,
+                    }
                 },
                 "C" : {
                     "id": expand_test_guid('C'),
-                    "cc_name": "Mr Me Another Person",
-                    "cc_number": "87654321",
-                    "cc_exp_month": 1,
-                    "cc_exp_year": 2020,
-                    "cc_type": "visa",
-                    "timeCreated": 0,
-                    "timeLastUsed": 0,
-                    "timeLastModified": 0,
-                    "timesUsed": 0,
+                    "entry": {
+                        "cc-name": "Mr Me Another Person",
+                        "cc-number": "87654321",
+                        "cc-exp-month": 1,
+                        "cc-exp-year": 2020,
+                        "cc-type": "visa",
+                        "timeCreated": 0,
+                        "timeLastUsed": 0,
+                        "timeLastModified": 0,
+                        "timesUsed": 0,
+                        "version": 3,
+                    }
                 }
             }};
             val.as_object().expect("literal is an object").clone()
@@ -194,7 +203,8 @@ mod tests {
 
     fn test_record(guid_prefix: char) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
-        serde_json::from_value(json).expect("should be a valid record")
+        let sync_payload = sync15::Payload::from_json(json).unwrap();
+        InternalCreditCard::to_record(sync_payload).expect("should be valid")
     }
 
     #[test]

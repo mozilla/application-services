@@ -252,13 +252,19 @@ pub(crate) mod tests {
         )
     }
 
-    pub(crate) fn insert_mirror_record(conn: &Connection, credit_card: &InternalCreditCard) {
-        let payload = serde_json::to_string(credit_card).expect("is json");
+    pub(crate) fn insert_mirror_record(conn: &Connection, credit_card: InternalCreditCard) {
+        // This should probably be in the sync module, but it's used here.
+        use crate::sync::SyncRecord;
+        let guid = credit_card.guid.clone();
+        let payload = credit_card
+            .to_payload()
+            .expect("is json")
+            .into_json_string();
         conn.execute_named(
             "INSERT OR IGNORE INTO credit_cards_mirror (guid, payload)
              VALUES (:guid, :payload)",
             rusqlite::named_params! {
-                ":guid": credit_card.guid,
+                ":guid": guid,
                 ":payload": &payload,
             },
         )
@@ -444,9 +450,10 @@ pub(crate) mod tests {
         )?;
 
         // create a mirror record to check that a tombstone record is created upon deletion
-        insert_mirror_record(&db, &saved_credit_card2);
+        let cc2_guid = saved_credit_card2.guid.clone();
+        insert_mirror_record(&db, saved_credit_card2);
 
-        let delete_result2 = delete_credit_card(&db, &saved_credit_card2.guid);
+        let delete_result2 = delete_credit_card(&db, &cc2_guid);
         assert!(delete_result2.is_ok());
         assert!(delete_result2?);
 
@@ -457,7 +464,7 @@ pub(crate) mod tests {
                 FROM credit_cards_tombstones
                 WHERE guid = :guid
             )",
-            &[&saved_credit_card2.guid.as_str()],
+            &[&cc2_guid],
             |row| row.get(0),
         )?;
         assert!(tombstone_exists);
@@ -467,7 +474,7 @@ pub(crate) mod tests {
             "DELETE FROM credit_cards_tombstones
             WHERE guid = :guid",
             rusqlite::named_params! {
-                ":guid": saved_credit_card2.guid,
+                ":guid": cc2_guid,
             },
         )?;
 

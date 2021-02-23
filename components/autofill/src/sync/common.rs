@@ -11,12 +11,11 @@
 // very similar.
 
 use crate::error::*;
-use crate::sync::{IncomingRecord, IncomingState, LocalRecordInfo, Payload, SyncRecord};
+use crate::sync::{IncomingRecord, IncomingState, LocalRecordInfo, SyncRecord};
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row};
-use serde::Deserialize;
 use sql_support::ConnExt;
-use sync15::ServerTimestamp;
+use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 
 /// Stages incoming records (excluding incoming tombstones) in preparation for
@@ -62,7 +61,7 @@ pub(super) fn common_stage_incoming_records(
 }
 
 /// Incoming records are retrieved from the staging and mirror tables and assigned `IncomingState` values.
-pub(super) fn common_fetch_incoming_record_states<T: SyncRecord + for<'a> Deserialize<'a>, F>(
+pub(super) fn common_fetch_incoming_record_states<T: SyncRecord, F>(
     conn: &Connection,
     sql: &str,
     fn_from_row: F,
@@ -81,6 +80,7 @@ where
             let mirror_payload: Option<String> = row.get_unwrap("m_payload");
 
             let staged_payload: String = row.get_unwrap("s_payload");
+            // Turn the raw string into a sync15::Payload, then to our record.
             let payload = Payload::from_json(serde_json::from_str(&staged_payload)?)?;
             let incoming = if payload.is_tombstone() {
                 IncomingRecord::Tombstone {
@@ -88,11 +88,13 @@ where
                 }
             } else {
                 IncomingRecord::Record {
-                    record: payload.into_record()?,
+                    record: T::to_record(payload)?,
                 }
             };
             let mirror = match mirror_payload {
-                Some(payload) => serde_json::from_str(&payload)?,
+                Some(payload) => Some(T::to_record(Payload::from_json(serde_json::from_str(
+                    &payload,
+                )?)?)?),
                 None => None,
             };
             let local = if local_exists {
@@ -208,7 +210,6 @@ macro_rules! sync_merge_field_check {
 pub(super) mod tests {
     use super::super::*;
     use interrupt_support::NeverInterrupts;
-    use serde::Serialize;
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
 
@@ -238,16 +239,14 @@ pub(super) mod tests {
     }
 
     // Incoming record is identical to a local record.
-    pub(in crate::sync) fn do_test_incoming_same<
-        T: SyncRecord + std::fmt::Debug + Clone + Serialize,
-    >(
+    pub(in crate::sync) fn do_test_incoming_same<T: SyncRecord + std::fmt::Debug + Clone>(
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
     ) {
         ri.insert_local_record(tx, record.clone())
             .expect("insert should work");
-        let payload = Payload::from_record(record).expect("should serialize");
+        let payload = record.to_payload().expect("should serialize");
         ri.stage_incoming(
             tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
@@ -264,9 +263,7 @@ pub(super) mod tests {
     }
 
     // Incoming tombstone for an existing local record.
-    pub(in crate::sync) fn do_test_incoming_tombstone<
-        T: SyncRecord + std::fmt::Debug + Clone + Serialize,
-    >(
+    pub(in crate::sync) fn do_test_incoming_tombstone<T: SyncRecord + std::fmt::Debug + Clone>(
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,

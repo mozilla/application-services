@@ -172,6 +172,7 @@ mod tests {
     use super::*;
     use crate::db::addresses::get_address;
     use crate::sync::common::tests::*;
+    use crate::sync::SyncRecord;
 
     use interrupt_support::NeverInterrupts;
     use rusqlite::NO_PARAMS;
@@ -180,26 +181,34 @@ mod tests {
 
     lazy_static::lazy_static! {
         static ref TEST_JSON_RECORDS: Map<String, Value> = {
+            // NOTE: the JSON here is the same as stored on the sync server -
+            // the superfluous `entry` is unfortunate but from desktop.
             let val = json! {{
                 "A" : {
                     "id": expand_test_guid('A'),
-                    "givenName": "john",
-                    "familyName": "doe",
-                    "streetAddress": "1300 Broadway",
-                    "addressLevel2": "New York, NY",
-                    "country": "United States",
+                    "entry": {
+                        "givenName": "john",
+                        "familyName": "doe",
+                        "streetAddress": "1300 Broadway",
+                        "addressLevel2": "New York, NY",
+                        "country": "United States",
+                        "version": 1,
+                    }
                 },
                 "C" : {
                     "id": expand_test_guid('C'),
-                    "givenName": "jane",
-                    "familyName": "doe",
-                    "streetAddress": "3050 South La Brea Ave",
-                    "addressLevel2": "Los Angeles, CA",
-                    "country": "United States",
-                    "timeCreated": 0,
-                    "timeLastUsed": 0,
-                    "timeLastModified": 0,
-                    "timesUsed": 0,
+                    "entry": {
+                        "givenName": "jane",
+                        "familyName": "doe",
+                        "streetAddress": "3050 South La Brea Ave",
+                        "addressLevel2": "Los Angeles, CA",
+                        "country": "United States",
+                        "timeCreated": 0,
+                        "timeLastUsed": 0,
+                        "timeLastModified": 0,
+                        "timesUsed": 0,
+                        "version": 1,
+                    }
                 }
             }};
             val.as_object().expect("literal is an object").clone()
@@ -215,7 +224,8 @@ mod tests {
 
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
-        serde_json::from_value(json).expect("should be a valid record")
+        let sync_payload = sync15::Payload::from_json(json).unwrap();
+        InternalAddress::to_record(sync_payload).expect("should be valid")
     }
 
     #[test]

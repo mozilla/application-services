@@ -12,8 +12,9 @@ use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::AddressesImpl;
 use rusqlite::Transaction;
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use sync_guid::Guid as SyncGuid;
+use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
@@ -45,12 +46,48 @@ impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
     }
 }
 
+// These structs are what's stored on the sync server.
+#[derive(Default, Deserialize, Serialize)]
+struct AddressPayload {
+    id: Guid,
+    // For some historical reason and unlike most other sync records, addresses
+    // are serialized with this explicit 'entry' object.
+    entry: PayloadEntry,
+}
+
+#[derive(Default, Deserialize, Serialize)]
+#[serde(default, rename_all = "kebab-case")]
+struct PayloadEntry {
+    pub given_name: String,
+    pub additional_name: String,
+    pub family_name: String,
+    pub organization: String,
+    pub street_address: String,
+    pub address_level3: String,
+    pub address_level2: String,
+    pub address_level1: String,
+    pub postal_code: String,
+    pub country: String,
+    pub tel: String,
+    pub email: String,
+    // metadata (which isn't kebab-case for some historical reason...)
+    #[serde(rename = "timeCreated")]
+    pub time_created: Timestamp,
+    #[serde(rename = "timeLastUsed")]
+    pub time_last_used: Timestamp,
+    #[serde(rename = "timeLastModified")]
+    pub time_last_modified: Timestamp,
+    #[serde(rename = "timesUsed")]
+    pub times_used: i64,
+    pub version: u32, // always 3 for credit-cards
+}
+
 impl SyncRecord for InternalAddress {
     fn record_name() -> &'static str {
         "Address"
     }
 
-    fn id(&self) -> &SyncGuid {
+    fn id(&self) -> &Guid {
         &self.guid
     }
 
@@ -103,13 +140,73 @@ impl SyncRecord for InternalAddress {
             merged: merged_record,
         }
     }
+
+    fn to_record(sync_payload: sync15::Payload) -> Result<Self> {
+        let p: AddressPayload = sync_payload.into_record()?;
+        if p.entry.version != 1 {
+            // Always been version 1
+            return Err(Error::InvalidSyncPayload(format!(
+                "invalid version - {}",
+                p.entry.version
+            )));
+        }
+
+        Ok(InternalAddress {
+            guid: p.id,
+            given_name: p.entry.given_name,
+            additional_name: p.entry.additional_name,
+            family_name: p.entry.family_name,
+            organization: p.entry.organization,
+            street_address: p.entry.street_address,
+            address_level3: p.entry.address_level3,
+            address_level2: p.entry.address_level2,
+            address_level1: p.entry.address_level1,
+            postal_code: p.entry.postal_code,
+            country: p.entry.country,
+            tel: p.entry.tel,
+            email: p.entry.email,
+            metadata: Metadata {
+                time_created: p.entry.time_created,
+                time_last_used: p.entry.time_last_used,
+                time_last_modified: p.entry.time_last_modified,
+                times_used: p.entry.times_used,
+                sync_change_counter: 0,
+            },
+        })
+    }
+
+    fn to_payload(self) -> Result<sync15::Payload> {
+        let p = AddressPayload {
+            id: self.guid,
+            entry: PayloadEntry {
+                given_name: self.given_name,
+                additional_name: self.additional_name,
+                family_name: self.family_name,
+                organization: self.organization,
+                street_address: self.street_address,
+                address_level3: self.address_level3,
+                address_level2: self.address_level2,
+                address_level1: self.address_level1,
+                postal_code: self.postal_code,
+                country: self.country,
+                tel: self.tel,
+                email: self.email,
+                time_created: self.metadata.time_created,
+                time_last_used: self.metadata.time_last_used,
+                time_last_modified: self.metadata.time_last_modified,
+                times_used: self.metadata.times_used,
+                version: 1,
+            },
+        };
+        Ok(sync15::Payload::from_record(p)?)
+    }
 }
 
 /// Returns a with the given local record's data but with a new guid and
 /// fresh sync metadata.
 fn get_forked_record(local_record: InternalAddress) -> InternalAddress {
     let mut local_record_data = local_record;
-    local_record_data.guid = SyncGuid::random();
+    local_record_data.guid = Guid::random();
     local_record_data.metadata.time_created = Timestamp::now();
     local_record_data.metadata.time_last_used = Timestamp::now();
     local_record_data.metadata.time_last_modified = Timestamp::now();
