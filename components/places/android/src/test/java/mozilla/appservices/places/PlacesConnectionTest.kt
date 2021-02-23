@@ -333,7 +333,6 @@ class PlacesConnectionTest {
 
     @Test
     fun testHistoryMetricsGathering() {
-        assert(!PlacesManagerMetrics.writeQueryTime.testHasValue())
         assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
 
@@ -341,7 +340,6 @@ class PlacesConnectionTest {
         db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitType.LINK, at = 150000))
         db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitType.LINK, at = 200000))
 
-        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
         assertEquals(3, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["__other__"].testHasValue())
 
@@ -352,18 +350,15 @@ class PlacesConnectionTest {
             // nothing to do here
         }
 
-        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
         assertEquals(4, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
         assertEquals(1, PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
 
-        assert(!PlacesManagerMetrics.readQueryTime.testHasValue())
         assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
 
         db.getVisitInfos(125000, 225000)
 
-        assert(PlacesManagerMetrics.readQueryTime.testHasValue())
         assertEquals(1, PlacesManagerMetrics.readQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
 
@@ -372,14 +367,12 @@ class PlacesConnectionTest {
         val infos = db.getVisitInfos(130000, 200000)
         assertEquals(2, infos.size)
 
-        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
         assertEquals(5, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["_other_"].testHasValue())
     }
 
     @Test
     fun testBookmarksMetricsGathering() {
-        assert(!PlacesManagerMetrics.writeQueryTime.testHasValue())
         assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
 
@@ -388,7 +381,6 @@ class PlacesConnectionTest {
                 url = "https://www.example.com/",
                 title = "example")
 
-        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
         assertEquals(1, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
 
@@ -402,22 +394,17 @@ class PlacesConnectionTest {
             // nothing to do here
         }
 
-        assert(PlacesManagerMetrics.writeQueryTime.testHasValue())
         assertEquals(2, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
         assertEquals(1, PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testGetValue())
 
-        assert(!PlacesManagerMetrics.readQueryTime.testHasValue())
         assert(!PlacesManagerMetrics.readQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
 
         db.getBookmark(itemGUID)
 
-        assert(PlacesManagerMetrics.readQueryTime.testHasValue())
         assertEquals(1, PlacesManagerMetrics.readQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
-
-        assert(!PlacesManagerMetrics.scanQueryTime.testHasValue())
 
         val folderGUID = db.createFolder(
                 parentGUID = BookmarkRoot.Unfiled.id,
@@ -439,7 +426,5 @@ class PlacesConnectionTest {
                 title = "example4")
 
         db.getBookmarksTree(folderGUID, false)
-
-        assert(PlacesManagerMetrics.scanQueryTime.testHasValue())
     }
 }

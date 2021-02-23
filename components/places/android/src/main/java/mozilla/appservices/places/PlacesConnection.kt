@@ -302,14 +302,12 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         readQueryCounters.measure {
             rustCall { error ->
                 val bufferPtr = Native.getDirectBufferPointer(byteBuffer)
-                PlacesManagerMetrics.readQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_get_visited(
-                            this.handle.get(),
-                            urlStrings, urls.size,
-                            bufferPtr, urls.size,
-                            error
-                    )
-                }
+                LibPlacesFFI.INSTANCE.places_get_visited(
+                        this.handle.get(),
+                        urlStrings, urls.size,
+                        bufferPtr, urls.size,
+                        error
+                )
             }
         }
         val result = ArrayList<Boolean>(urls.size)
@@ -341,10 +339,8 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     override fun getVisitInfos(start: Long, end: Long, excludeTypes: List<VisitType>): List<VisitInfo> {
         readQueryCounters.measure {
             val infoBuffer = rustCall { error ->
-                PlacesManagerMetrics.readQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_get_visit_infos(
-                            this.handle.get(), start, end, visitTransitionSet(excludeTypes), error)
-                }
+                LibPlacesFFI.INSTANCE.places_get_visit_infos(
+                        this.handle.get(), start, end, visitTransitionSet(excludeTypes), error)
             }
             try {
                 val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
@@ -396,9 +392,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     override fun getBookmark(guid: String): BookmarkTreeNode? {
         readQueryCounters.measure {
             val rustBuf = rustCall { err ->
-                PlacesManagerMetrics.readQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, 0.toByte(), err)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, 0.toByte(), err)
             }
             try {
                 return rustBuf.asCodedInputStream()?.let { stream ->
@@ -412,12 +406,10 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
 
     override fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode? {
         val rustBuf = rustCall { err ->
-            PlacesManagerMetrics.scanQueryTime.measure {
-                if (recursive) {
-                    LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
-                } else {
-                    LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), rootGUID, 1.toByte(), err)
-                }
+            if (recursive) {
+                LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
+            } else {
+                LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), rootGUID, 1.toByte(), err)
             }
         }
         try {
@@ -432,9 +424,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     override fun getBookmarksWithURL(url: String): List<BookmarkItem> {
         readQueryCounters.measure {
             val rustBuf = rustCall { err ->
-                PlacesManagerMetrics.readQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_get_all_with_url(this.handle.get(), url, err)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_get_all_with_url(this.handle.get(), url, err)
             }
 
             try {
@@ -455,9 +445,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
         readQueryCounters.measure {
             val rustBuf = rustCall { err ->
-                PlacesManagerMetrics.readQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
             }
 
             try {
@@ -472,9 +460,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
         readQueryCounters.measure {
             val rustBuf = rustCall { err ->
-                PlacesManagerMetrics.readQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_get_recent(this.handle.get(), limit, err)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_get_recent(this.handle.get(), limit, err)
             }
 
             try {
@@ -518,9 +504,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         val json = data.toJSON().toString()
         return writeQueryCounters.measure {
             rustCall { error ->
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
-                }
+                LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
             }
         }
     }
@@ -528,10 +512,8 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteVisitsFor(url: String) {
         return writeQueryCounters.measure {
             rustCall { error ->
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_delete_visits_for(
-                        this.handle.get(), url, error)
-                }
+                LibPlacesFFI.INSTANCE.places_delete_visits_for(
+                    this.handle.get(), url, error)
             }
         }
     }
@@ -539,10 +521,8 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteVisit(url: String, visitTimestamp: Long) {
         return writeQueryCounters.measure {
             rustCall { error ->
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_delete_visit(
-                            this.handle.get(), url, visitTimestamp, error)
-                }
+                LibPlacesFFI.INSTANCE.places_delete_visit(
+                        this.handle.get(), url, visitTimestamp, error)
             }
         }
     }
@@ -554,10 +534,8 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteVisitsBetween(startTime: Long, endTime: Long) {
         return writeQueryCounters.measure {
             rustCall { error ->
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_delete_visits_between(
-                        this.handle.get(), startTime, endTime, error)
-                }
+                LibPlacesFFI.INSTANCE.places_delete_visits_between(
+                    this.handle.get(), startTime, endTime, error)
             }
         }
     }
@@ -583,9 +561,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteEverything() {
         return writeQueryCounters.measure {
             rustCall { error ->
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
-                }
+                LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
             }
         }
     }
@@ -593,9 +569,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
             rustCall { error ->
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
             }
         }
     }
@@ -603,9 +577,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun deleteBookmarkNode(guid: String): Boolean {
         return writeQueryCounters.measure {
             rustCall { error ->
-                val existedByte = PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
-                }
+                val existedByte = LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
                 existedByte.toInt() != 0
             }
         }
@@ -620,9 +592,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         writeQueryCounters.measure {
             return rustCallForString { err ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_insert(this.handle.get(), ptr, len, err)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_insert(this.handle.get(), ptr, len, err)
             }
         }
     }
@@ -657,9 +627,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         return writeQueryCounters.measure {
             rustCall { err ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                PlacesManagerMetrics.writeQueryTime.measure {
-                    LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), ptr, len, err)
-                }
+                LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), ptr, len, err)
             }
         }
     }

@@ -74,12 +74,10 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
                 if (!isLocked()) {
                     throw MismatchedLockException("Unlock called when we are already unlocked")
                 }
-                LoginsStoreMetrics.unlockTime.measure {
-                    raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
-                            dbPath,
-                            encryptionKey,
-                            it))
-                }
+                raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
+                        dbPath,
+                        encryptionKey,
+                        it))
             }
         }
     }
@@ -89,16 +87,14 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun unlock(encryptionKey: ByteArray) {
         return unlockCounters.measure {
             rustCall {
-                LoginsStoreMetrics.unlockTime.measure {
-                    if (!isLocked()) {
-                        throw MismatchedLockException("Unlock called when we are already unlocked")
-                    }
-                    raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
-                            dbPath,
-                            encryptionKey,
-                            encryptionKey.size,
-                            it))
+                if (!isLocked()) {
+                    throw MismatchedLockException("Unlock called when we are already unlocked")
                 }
+                raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
+                        dbPath,
+                        encryptionKey,
+                        encryptionKey.size,
+                        it))
             }
         }
     }
@@ -166,9 +162,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun delete(id: String): Boolean {
         return writeQueryCounters.measure {
             rustCallWithLock { raw, error ->
-                val deleted = LoginsStoreMetrics.writeQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
-                }
+                val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
                 deleted.toInt() != 0
             }
         }
@@ -178,9 +172,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun get(id: String): ServerPassword? {
         return readQueryCounters.measure {
             val rustBuf = rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.readQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
             }
             try {
                 rustBuf.asCodedInputStream()?.let { stream ->
@@ -196,9 +188,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun touch(id: String) {
         writeQueryCounters.measure {
             rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.writeQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
             }
         }
     }
@@ -207,9 +197,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
     override fun list(): List<ServerPassword> {
         return readQueryCounters.measure {
             val rustBuf = rustCallWithLock { raw, error ->
-                LoginsStoreMetrics.readQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
             }
             try {
                 ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
@@ -240,9 +228,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
             val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                LoginsStoreMetrics.writeQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, ptr, len, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, ptr, len, error)
             }.getAndConsumeRustString()
         }
     }
@@ -267,9 +253,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
             val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                LoginsStoreMetrics.writeQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, ptr, len, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, ptr, len, error)
             }
         }
     }
@@ -282,14 +266,12 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
             val (nioBuf, len) = buf.toNioDirectBuffer()
             val rustBuf = rustCallWithLock { raw, error ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                LoginsStoreMetrics.readQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_potential_dupes_ignoring_username(
-                        raw,
-                        ptr,
-                        len,
-                        error
-                    )
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_potential_dupes_ignoring_username(
+                    raw,
+                    ptr,
+                    len,
+                    error
+                )
             }
             try {
                 ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
@@ -306,9 +288,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
             val (nioBuf, len) = buf.toNioDirectBuffer()
             rustCallWithLock { raw, error ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                LoginsStoreMetrics.readQueryTime.measure {
-                    PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, ptr, len, error)
-                }
+                PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, ptr, len, error)
             }
         }
     }
