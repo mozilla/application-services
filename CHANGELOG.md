@@ -1,5 +1,13 @@
 # Unreleased changes
 
+# 0.8.2 (_2021-02-23_)
+
+## What's Changed
+
+- The project no longer ships its own `build.gradle` and related Android build files.
+  These were not being used in practice and so were removed to avoid confusion.
+  Release artifacts will continue to be built from the application-services repo
+
 # 0.8.1 (_2021-02-17_)
 
 ## What's New
