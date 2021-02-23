@@ -204,11 +204,12 @@ changes to the server.
 
 You will need an FFI or some other way of exposing stuff to your consumers.
 
-We are tentatively exploring uniffi - but this is so new that it's not even
-clear yet exactly where the canonical home for this tool is yet, let alone best
-practices.
+We are exploring a tool called [UniFFI](https://github.com/mozilla/uniffi-rs/) to automatically
+generate FFI bindings from the Rust code. It's probably worth a look for your use case, but
+is still quite new and may not support everything you need.
 
-However, here are some earlier blog posts which might be helpful:
+If UniFFI doesn't work for you, then you'll need to hand-write the FFI layer.
+Here are some earlier blog posts on the topic which might be helpful:
 
 * [Building and Deploying a Rust library on Android](https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-21-rust-on-android.html)
 * [Building and Deploying a Rust library on iOS](https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-06-rust-on-ios.html)
