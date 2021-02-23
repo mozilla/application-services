@@ -17,7 +17,6 @@ the details of which are reproduced below.
 * [MIT License: matches](#mit-license-matches)
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: ordered-float](#mit-license-ordered-float)
-* [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: weedle](#mit-license-weedle)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
@@ -436,8 +435,6 @@ The following text applies to code linked from these dependencies:
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
-[failure](https://github.com/rust-lang-nursery/failure),
-[failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
@@ -485,6 +482,7 @@ The following text applies to code linked from these dependencies:
 [sha2](https://github.com/RustCrypto/hashes),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
+[static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
@@ -1047,22 +1045,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: synstructure
-
-The following text applies to code linked from these dependencies:
-[synstructure](https://github.com/mystor/synstructure)
-
-```
-Copyright 2016 Nika Layzell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------

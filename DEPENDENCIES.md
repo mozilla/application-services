@@ -31,7 +31,6 @@ the details of which are reproduced below.
 * [MIT License: oslog](#mit-license-oslog)
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: slab](#mit-license-slab)
-* [MIT License: synstructure](#mit-license-synstructure)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core-tracing-futures)
 * [MIT License: tower-service](#mit-license-tower-service)
@@ -470,8 +469,6 @@ The following text applies to code linked from these dependencies:
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
 [env_logger](https://github.com/sebasmagri/env_logger/),
-[failure](https://github.com/rust-lang-nursery/failure),
-[failure_derive](https://github.com/rust-lang-nursery/failure),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
@@ -557,6 +554,7 @@ The following text applies to code linked from these dependencies:
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
 [socket2](https://github.com/alexcrichton/socket2-rs),
+[static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
 [tempfile](https://github.com/Stebalien/tempfile),
@@ -1546,22 +1544,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: synstructure
-
-The following text applies to code linked from these dependencies:
-[synstructure](https://github.com/mystor/synstructure)
-
-```
-Copyright 2016 Nika Layzell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
