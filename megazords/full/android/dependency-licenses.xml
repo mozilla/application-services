@@ -109,14 +109,6 @@ the details of which are reproduced below.
     <url>https://github.com/bluss/either/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: failure</name>
-    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
-    <name>Apache License 2.0: failure_derive</name>
-    <url>https://github.com/rust-lang-nursery/failure/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: fallible-iterator</name>
     <url>https://github.com/sfackler/rust-fallible-iterator/blob/master/LICENSE-APACHE</url>
   </license>
@@ -309,6 +301,10 @@ the details of which are reproduced below.
     <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: static_assertions</name>
+    <url>https://github.com/nvzqz/static-assertions-rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: syn</name>
     <url>https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE</url>
   </license>
@@ -423,10 +419,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: ordered-float</name>
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
-  </license>
-  <license>
-    <name>MIT License: synstructure</name>
-    <url>https://github.com/mystor/synstructure/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: textwrap</name>

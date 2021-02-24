@@ -932,27 +932,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "failure"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
-dependencies = [
- "failure_derive",
-]
-
-[[package]]
-name = "failure_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "synstructure",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1209,7 +1188,7 @@ dependencies = [
  "flate2",
  "log 0.4.11",
  "once_cell",
- "rkv 0.17.0",
+ "rkv",
  "serde",
  "serde_json",
  "uuid",
@@ -1847,14 +1826,14 @@ dependencies = [
 
 [[package]]
 name = "nimbus-sdk"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "anyhow",
  "hex",
  "jexl-eval",
  "log 0.4.11",
  "once_cell",
- "rkv 0.15.0",
+ "rkv",
  "serde",
  "serde_derive",
  "serde_json",
@@ -2795,29 +2774,6 @@ dependencies = [
 
 [[package]]
 name = "rkv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e97d1b6321740ce36d77d67d22ff84ac8a996cf69dbd0727b8bcae52f1c98aaa"
-dependencies = [
- "arrayref",
- "bincode",
- "bitflags 1.2.1",
- "byteorder",
- "failure",
- "id-arena",
- "lazy_static",
- "lmdb-rkv",
- "log 0.4.11",
- "ordered-float",
- "paste 0.1.18",
- "serde",
- "serde_derive",
- "url",
- "uuid",
-]
-
-[[package]]
-name = "rkv"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "28e2e15d3fff125cfc4fb3f1b226ff83af057c4715061ded16193b7142beefc9"
@@ -3078,6 +3034,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
 name = "strsim"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3229,18 +3191,6 @@ dependencies = [
  "sync15",
  "sync_manager",
  "tabs_ffi",
-]
-
-[[package]]
-name = "synstructure"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b834f2d66f734cb897113e34aaff2f1ab4719ca946f9a7358dba8f8064148701"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "unicode-xid 0.2.1",
 ]
 
 [[package]]
@@ -3642,9 +3592,9 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uniffi"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "898d32df6c100782f22bd379d20e7ae6a9cb394773b45874c19023ef8b6cd427"
+checksum = "31525465aa3d139f86469ebdd942fee31e8c797e92bcf6c572adff436b0b8b37"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3653,13 +3603,14 @@ dependencies = [
  "lazy_static",
  "log 0.4.11",
  "paste 1.0.2",
+ "static_assertions",
 ]
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e386b641d5d4943cf9a6b0a0d834d19b462505e506c3dfe89bc97f596c700fea"
+checksum = "1f836b13903bc6723d8549533af032464d358824201d6c18a6afc87ec0a5aa5c"
 dependencies = [
  "anyhow",
  "askama",
@@ -3673,9 +3624,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb93ed9cb0057e211d15e15d5107697a59050211aba5b589ed7c11dcff62718e"
+checksum = "6ce0c555b64138ef673e4194f657a616c6c977d18a9e27198cfa8ed0350f0b1a"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
@@ -3907,9 +3858,9 @@ dependencies = [
 
 [[package]]
 name = "weedle"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a7d4f9feb723a800d8f7b74edc9fa44ff35cb0b2ec64886714362f423427f37"
+checksum = "610950904727748ca09682e857f0d6d6437f0ca862f32f9229edba8cec8b2635"
 dependencies = [
  "nom",
 ]
