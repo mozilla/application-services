@@ -13,7 +13,7 @@
 use crate::error::*;
 use crate::sync::{IncomingRecord, IncomingState, LocalRecordInfo, SyncRecord};
 use interrupt_support::Interruptee;
-use rusqlite::{types::ToSql, Connection, Row};
+use rusqlite::{types::ToSql, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
@@ -158,6 +158,23 @@ pub(super) fn common_change_guid(
     Ok(())
 }
 
+/// Records in the incoming staging table need to end up in the mirror.
+pub(super) fn common_mirror_staged_records(
+    conn: &Connection,
+    staging_table_name: &str,
+    mirror_table_name: &str,
+) -> Result<()> {
+    conn.execute(
+        &format!(
+            "INSERT OR REPLACE INTO {} (guid, payload)
+             SELECT guid, payload FROM temp.{}",
+            mirror_table_name, staging_table_name,
+        ),
+        NO_PARAMS,
+    )?;
+    Ok(())
+}
+
 // A macro for our record merge implementation.
 // We allow all "common" fields from the sub-types to be getters on the
 // InsertableItem type.
@@ -210,6 +227,7 @@ macro_rules! sync_merge_field_check {
 pub(super) mod tests {
     use super::super::*;
     use interrupt_support::NeverInterrupts;
+    use rusqlite::NO_PARAMS;
     use serde_json::{json, Value};
     use sync15::ServerTimestamp;
 
@@ -285,5 +303,39 @@ pub(super) mod tests {
         // Even though the records are identical, we still merged the metadata
         // so treat this as an Update.
         assert!(matches!(action, crate::sync::IncomingAction::DeleteLocalRecord { .. }));
+    }
+
+    // "Staged" records are moved to the mirror by finish_incoming().
+    pub(in crate::sync) fn do_test_staged_to_mirror<T: SyncRecord + std::fmt::Debug + Clone>(
+        ri: &dyn ProcessIncomingRecordImpl<Record = T>,
+        tx: &Transaction<'_>,
+        record: T,
+        mirror_table_name: &str,
+    ) {
+        let guid1 = record.id().clone();
+        let payload1 = record.to_payload().expect("should get a payload");
+        let guid2 = Guid::random();
+        let payload2 = Payload::new_tombstone(guid2.clone());
+
+        ri.stage_incoming(
+            tx,
+            vec![
+                (payload1, ServerTimestamp::from_millis(0)),
+                (payload2, ServerTimestamp::from_millis(0)),
+            ],
+            &NeverInterrupts,
+        )
+        .expect("stage should work");
+
+        ri.finish_incoming(tx).expect("finish should work");
+
+        let sql = format!(
+            "SELECT COUNT(*) FROM {} where guid = '{}' OR guid = '{}'",
+            mirror_table_name, guid1, guid2
+        );
+        let num_rows = tx
+            .query_row(&sql, NO_PARAMS, |row| Ok(row.get::<_, u32>(0).unwrap()))
+            .unwrap();
+        assert_eq!(num_rows, 2);
     }
 }

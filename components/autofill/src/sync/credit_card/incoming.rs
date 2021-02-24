@@ -28,6 +28,10 @@ impl ProcessIncomingRecordImpl for CreditCardsImpl {
         common_stage_incoming_records(tx, "credit_cards_sync_staging", incoming, signal)
     }
 
+    fn finish_incoming(&self, tx: &Transaction<'_>) -> Result<()> {
+        common_mirror_staged_records(tx, "credit_cards_sync_staging", "credit_cards_mirror")
+    }
+
     /// The second step in the "apply incoming" process for syncing autofill CC records.
     /// Incoming items are retrieved from the temp tables, deserialized, and
     /// assigned `IncomingState` values.
@@ -292,15 +296,23 @@ mod tests {
     fn test_get_incoming() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = CreditCardsImpl {};
-        do_test_incoming_same(&ai, &tx, test_record('C'));
+        let ci = CreditCardsImpl {};
+        do_test_incoming_same(&ci, &tx, test_record('C'));
     }
 
     #[test]
     fn test_incoming_tombstone() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = CreditCardsImpl {};
-        do_test_incoming_tombstone(&ai, &tx, test_record('C'));
+        let ci = CreditCardsImpl {};
+        do_test_incoming_tombstone(&ci, &tx, test_record('C'));
+    }
+
+    #[test]
+    fn test_staged_to_mirror() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = CreditCardsImpl {};
+        do_test_staged_to_mirror(&ci, &tx, test_record('C'), "credit_cards_mirror");
     }
 }
