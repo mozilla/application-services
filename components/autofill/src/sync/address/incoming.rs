@@ -28,6 +28,10 @@ impl ProcessIncomingRecordImpl for AddressesImpl {
         common_stage_incoming_records(tx, "addresses_sync_staging", incoming, signal)
     }
 
+    fn finish_incoming(&self, tx: &Transaction<'_>) -> Result<()> {
+        common_mirror_staged_records(tx, "addresses_sync_staging", "addresses_mirror")
+    }
+
     /// The second step in the "apply incoming" process for syncing autofill address records.
     /// Incoming items are retrieved from the temp tables, deserialized, and
     /// assigned `IncomingState` values.
@@ -323,5 +327,13 @@ mod tests {
         let tx = db.transaction().expect("should get tx");
         let ai = AddressesImpl {};
         do_test_incoming_tombstone(&ai, &tx, test_record('C'));
+    }
+
+    #[test]
+    fn test_staged_to_mirror() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ai = AddressesImpl {};
+        do_test_staged_to_mirror(&ai, &tx, test_record('C'), "addresses_mirror");
     }
 }

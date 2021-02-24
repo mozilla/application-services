@@ -98,6 +98,8 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         // creating outgoing changesets we don't need to re-download the same
         // records.
         self.put_meta(&tx, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+
+        incoming_impl.finish_incoming(&tx)?;
         // Not quite sure if we should commit now and then stage outgoing?
         tx.commit()?;
 

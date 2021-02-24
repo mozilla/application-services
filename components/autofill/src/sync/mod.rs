@@ -38,6 +38,10 @@ pub trait ProcessIncomingRecordImpl {
         signal: &dyn Interruptee,
     ) -> Result<()>;
 
+    /// Finish the incoming phase. This will typically caused staged records
+    // to be written to the mirror.
+    fn finish_incoming(&self, tx: &Transaction<'_>) -> Result<()>;
+
     fn fetch_incoming_states(
         &self,
         tx: &Transaction<'_>,
