@@ -405,7 +405,7 @@ impl Default for RandomizationUnit {
 pub struct AvailableRandomizationUnits {
     pub client_id: Option<String>,
     #[allow(dead_code)]
-    dummy: i8, // See comments in nimbus.idl for why this hacky item exists.
+    dummy: i8, // See comments in nimbus.udl for why this hacky item exists.
 }
 
 impl AvailableRandomizationUnits {

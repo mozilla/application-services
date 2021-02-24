@@ -4,5 +4,5 @@
 
 pub fn main() {
     #[cfg(feature = "uniffi-bindings")]
-    uniffi_build::generate_scaffolding("./src/nimbus.idl").unwrap();
+    uniffi_build::generate_scaffolding("./src/nimbus.udl").unwrap();
 }
