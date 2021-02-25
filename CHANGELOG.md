@@ -1,3 +1,20 @@
+# v72.0.0 (_2021-02-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v71.0.0...v72.0.0)
+
+## General
+
+### What's Changed
+
+- The bundled version of the Nimbus SDK has been updated to v0.8.2.
+
+## Autofill
+
+### ⚠️ Breaking changes ⚠️
+
+- The autofill Kotlin package as been renamed from `org.mozilla.appservices.autofill`
+  to `mozilla.appservices.autofill`, for consistency with other components.
+
 # v71.0.0 (_2021-02-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v70.0.0...v71.0.0)
