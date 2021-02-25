@@ -1,5 +1,6 @@
 [alias]
 regen-protobufs = ["run", "--bin", "protobuf-gen", "tools/protobuf_files.toml"]
+uniffi-bindgen = ["run", "--bin", "embedded-uniffi-bindgen"]
 dev-install = ["install", "asdev"]
 all_tests = ["asdev", "test"]
 rust_tests = ["asdev", "test_rust"]
