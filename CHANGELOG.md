@@ -1,3 +1,14 @@
+# v72.1.0 (_2021-02-25_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v72.0.0...v72.1.0)
+
+## General
+
+### What's Changed
+
+- This release fixes an "unsatisfied link error" problem with autofill and nimbus,
+  stemming from a misconfiguration in the Android build setup.
+
 # v72.0.0 (_2021-02-25_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v71.0.0...v72.0.0)
