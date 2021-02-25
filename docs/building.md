@@ -22,10 +22,6 @@ Ensure this section works for you before jumping to the Android/iOS specific sec
   - zlib
     - Using apt: `apt install zlib1g-dev`
     - Already installed on macOS by XCode.
-  - uniffi-bindgen
-    - `cargo install uniffi_bindgen`. Note that this is being updated regularly,
-    so if you see complaints about the wrong version being installed, you
-    probably need to `cargo install -f uniffi_bindgen`.
 
 Note that we have a guide if you happen to use [WSL](howtos/wsl-build-guide.md).
 

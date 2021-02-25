@@ -40,6 +40,7 @@ members = [
     "megazords/ios/rust",
     "testing/sync-test",
     "tools/protobuf-gen",
+    "tools/embedded-uniffi-bindgen",
 
     "examples/*/",
     "testing/separated/*/",
@@ -109,6 +110,7 @@ default-members = [
     "components/webext-storage",
     "testing/sync-test",
     "tools/protobuf-gen",
+    "tools/embedded-uniffi-bindgen",
     "examples/*/",
     "testing/separated/*/",
 ]
