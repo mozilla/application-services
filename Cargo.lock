@@ -1651,6 +1651,7 @@ dependencies = [
  "fxa-client",
  "glean-ffi",
  "logins_ffi",
+ "nimbus-sdk",
  "places-ffi",
  "rc_log_ffi",
  "viaduct",

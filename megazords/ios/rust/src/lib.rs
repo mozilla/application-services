@@ -11,3 +11,4 @@ pub use logins_ffi;
 pub use places_ffi;
 pub use rc_log_ffi;
 pub use viaduct_reqwest;
+pub use nimbus;
