@@ -45,7 +45,8 @@ pub(crate) fn open(
 ) -> Result<Vec<u8>> {
     let ciphertext_len = ciphertext_and_tag
         .len()
-        .checked_sub(key.algorithm().tag_len()).ok_or(ErrorKind::InternalError)?;
+        .checked_sub(key.algorithm().tag_len())
+        .ok_or(ErrorKind::InternalError)?;
     let (ciphertext, hmac_signature) = ciphertext_and_tag.split_at(ciphertext_len);
     let (aes_key, hmac_key_bytes) = extract_keys(&key);
     // 1. Tag (HMAC signature) check.
@@ -56,13 +57,7 @@ pub(crate) fn open(
         hmac_signature,
     )?;
     // 2. Decryption.
-    aes_cbc(
-        aes_key,
-        nonce,
-        aad,
-        ciphertext,
-        aead::Direction::Opening,
-    )
+    aes_cbc(aes_key, nonce, aad, ciphertext, aead::Direction::Opening)
 }
 
 pub(crate) fn seal(

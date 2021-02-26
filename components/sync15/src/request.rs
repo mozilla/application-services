@@ -420,7 +420,8 @@ where
 
         let batch_id = record
             .batch
-            .as_ref().ok_or({
+            .as_ref()
+            .ok_or({
                 ErrorKind::ServerBatchProblem("Invalid server response: 202 without a batch ID")
             })?
             .clone();

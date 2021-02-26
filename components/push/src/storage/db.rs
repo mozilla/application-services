@@ -48,14 +48,12 @@ impl PushDb {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         // By default, file open errors are StorageSqlErrors and aren't super helpful.
         // Instead, remap to StorageError and provide the path to the file that couldn't be opened.
-        Self::with_connection(Connection::open(&path).map_err(
-            |_| {
-                ErrorKind::StorageError(format!(
-                    "Could not open database file {:?}",
-                    &path.as_ref().as_os_str()
-                ))
-            },
-        )?)
+        Self::with_connection(Connection::open(&path).map_err(|_| {
+            ErrorKind::StorageError(format!(
+                "Could not open database file {:?}",
+                &path.as_ref().as_os_str()
+            ))
+        })?)
     }
 
     pub fn open_in_memory() -> Result<Self> {

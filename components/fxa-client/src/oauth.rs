@@ -360,7 +360,10 @@ impl FirefoxAccount {
         }
         let old_refresh_token = self.state.refresh_token.clone();
         let new_refresh_token = resp
-            .refresh_token.ok_or(ErrorKind::UnrecoverableServerError("No refresh token in response"))?;
+            .refresh_token
+            .ok_or(ErrorKind::UnrecoverableServerError(
+                "No refresh token in response",
+            ))?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -414,7 +417,8 @@ impl FirefoxAccount {
         let old_refresh_token = self
             .state
             .refresh_token
-            .as_ref().ok_or(ErrorKind::NoRefreshToken)?;
+            .as_ref()
+            .ok_or(ErrorKind::NoRefreshToken)?;
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
         let resp = self.client.refresh_token_with_session_token(
             &self.state.config,
@@ -422,7 +426,10 @@ impl FirefoxAccount {
             &scopes,
         )?;
         let new_refresh_token = resp
-            .refresh_token.ok_or(ErrorKind::UnrecoverableServerError("No refresh token in response"))?;
+            .refresh_token
+            .ok_or(ErrorKind::UnrecoverableServerError(
+                "No refresh token in response",
+            ))?;
         self.state.refresh_token = Some(RefreshToken {
             token: new_refresh_token,
             scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
@@ -507,16 +514,20 @@ impl TryFrom<Url> for AuthorizationParameters {
         let query_map: HashMap<String, String> = url.query_pairs().into_owned().collect();
         let scope = query_map
             .get("scope")
-            .cloned().ok_or(ErrorKind::MissingUrlParameter("scope"))?;
+            .cloned()
+            .ok_or(ErrorKind::MissingUrlParameter("scope"))?;
         let client_id = query_map
             .get("client_id")
-            .cloned().ok_or(ErrorKind::MissingUrlParameter("client_id"))?;
+            .cloned()
+            .ok_or(ErrorKind::MissingUrlParameter("client_id"))?;
         let state = query_map
             .get("state")
-            .cloned().ok_or(ErrorKind::MissingUrlParameter("state"))?;
+            .cloned()
+            .ok_or(ErrorKind::MissingUrlParameter("state"))?;
         let access_type = query_map
             .get("access_type")
-            .cloned().ok_or(ErrorKind::MissingUrlParameter("access_type"))?;
+            .cloned()
+            .ok_or(ErrorKind::MissingUrlParameter("access_type"))?;
         let code_challenge = query_map.get("code_challenge").cloned();
         let code_challenge_method = query_map.get("code_challenge_method").cloned();
         let pkce_params = match (code_challenge, code_challenge_method) {

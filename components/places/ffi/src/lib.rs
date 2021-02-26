@@ -383,11 +383,7 @@ pub extern "C" fn places_get_top_frecent_site_infos(
 ) -> ByteBuffer {
     log::debug!("places_get_top_frecent_site_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_top_frecent_site_infos(
-            conn,
-            num_items,
-            frecency_threshold,
-        )
+        storage::history::get_top_frecent_site_infos(conn, num_items, frecency_threshold)
     })
 }
 
@@ -590,11 +586,7 @@ pub extern "C" fn bookmarks_get_by_guid(
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid::from(guid.as_str());
-        bookmarks::public_node::fetch_bookmark(
-            conn,
-            &guid,
-            get_direct_children != 0,
-        )
+        bookmarks::public_node::fetch_bookmark(conn, &guid, get_direct_children != 0)
     })
 }
 

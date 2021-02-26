@@ -511,9 +511,7 @@ impl<T> HandleMap<T> {
         let entry = &self.entries[idx];
         // This should be caught by check_handle above, but we avoid panicking
         // because we'd rather not poison any locks we don't have to poison
-        let item = entry
-            .state
-            .get_item().ok_or(HandleError::InvalidHandle)?;
+        let item = entry.state.get_item().ok_or(HandleError::InvalidHandle)?;
         Ok(item)
     }
 
@@ -526,7 +524,8 @@ impl<T> HandleMap<T> {
         // because we'd rather not poison any locks we don't have to poison
         let item = entry
             .state
-            .get_item_mut().ok_or(HandleError::InvalidHandle)?;
+            .get_item_mut()
+            .ok_or(HandleError::InvalidHandle)?;
         Ok(item)
     }
 }

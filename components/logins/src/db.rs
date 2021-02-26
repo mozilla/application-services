@@ -95,11 +95,7 @@ impl LoginDb {
     }
 
     pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        Self::with_connection(
-            Connection::open(path)?,
-            encryption_key,
-            None,
-        )
+        Self::with_connection(Connection::open(path)?, encryption_key, None)
     }
 
     pub fn open_with_salt(
@@ -108,19 +104,11 @@ impl LoginDb {
         salt: &str,
     ) -> Result<Self> {
         ensure_valid_salt(salt)?;
-        Self::with_connection(
-            Connection::open(path)?,
-            Some(encryption_key),
-            Some(salt),
-        )
+        Self::with_connection(Connection::open(path)?, Some(encryption_key), Some(salt))
     }
 
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        Self::with_connection(
-            Connection::open_in_memory()?,
-            encryption_key,
-            None,
-        )
+        Self::with_connection(Connection::open_in_memory()?, encryption_key, None)
     }
 
     /// Opens an existing database and fetches the salt.

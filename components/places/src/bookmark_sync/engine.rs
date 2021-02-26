@@ -1428,7 +1428,8 @@ impl<'a> dogear::Store for Merger<'a> {
                     Ok(Tree::with_root(root))
                 },
                 false,
-            )?.ok_or(ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
+            )?
+            .ok_or(ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
         builder.reparent_orphans_to(&dogear::UNFILED_GUID);
 
         let sql = format!(

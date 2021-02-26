@@ -66,11 +66,7 @@ impl PlacesDb {
         // is closely related to the timeouts configured on the database
         // itself.
         let commit_after = Duration::from_millis(1000);
-        ChunkedCoopTransaction::new(
-            self.conn(),
-            commit_after,
-            &self.coop_tx_lock,
-        )
+        ChunkedCoopTransaction::new(self.conn(), commit_after, &self.coop_tx_lock)
     }
 
     /// Begin a "coop" transaction. Must be called from the write connection, see
