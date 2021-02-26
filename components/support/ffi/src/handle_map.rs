@@ -513,8 +513,7 @@ impl<T> HandleMap<T> {
         // because we'd rather not poison any locks we don't have to poison
         let item = entry
             .state
-            .get_item()
-            .ok_or_else(|| HandleError::InvalidHandle)?;
+            .get_item().ok_or(HandleError::InvalidHandle)?;
         Ok(item)
     }
 
@@ -527,8 +526,7 @@ impl<T> HandleMap<T> {
         // because we'd rather not poison any locks we don't have to poison
         let item = entry
             .state
-            .get_item_mut()
-            .ok_or_else(|| HandleError::InvalidHandle)?;
+            .get_item_mut().ok_or(HandleError::InvalidHandle)?;
         Ok(item)
     }
 }

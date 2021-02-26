@@ -170,7 +170,7 @@ impl FirefoxAccount {
             &self.state.config.client_id,
             scopes::OLD_SYNC,
         )?;
-        let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or_else(|| {
+        let oldsync_key_data = scoped_key_data.get(scopes::OLD_SYNC).ok_or({
             ErrorKind::IllegalState("The session token doesn't have access to kSync!")
         })?;
         let kid = format!("{}-{}", oldsync_key_data.key_rotation_timestamp, k_xcs);

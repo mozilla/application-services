@@ -267,7 +267,7 @@ impl EncryptedBso {
     where
         for<'a> T: Deserialize<'a>,
     {
-        Ok(self.decrypt(key)?.into_record::<T>()?)
+        self.decrypt(key)?.into_record::<T>()
     }
 }
 

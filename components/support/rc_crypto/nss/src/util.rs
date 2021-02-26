@@ -61,8 +61,7 @@ pub fn get_last_error() -> Error {
             unsafe { PR_GetErrorText(out_str.as_mut_ptr() as *mut c_char) };
             CString::new(&out_str[0..error_text_len])
                 .unwrap_or_else(|_| CString::default())
-                .to_str()
-                .unwrap_or_else(|_| "")
+                .to_str().unwrap_or("")
                 .to_owned()
         })
         .unwrap_or_else(|_| "".to_string());

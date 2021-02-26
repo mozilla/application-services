@@ -45,7 +45,7 @@ impl Backend for FfiBackend {
         super::note_backend("FFI (trusted)");
 
         let method = request.method;
-        let fetch = callback_holder::get_callback().ok_or_else(|| Error::BackendNotInitialized)?;
+        let fetch = callback_holder::get_callback().ok_or(Error::BackendNotInitialized)?;
         let proto_req: msg_types::Request = request.into();
         let buf = proto_req.into_ffi_value();
         let response = unsafe { fetch(buf) };

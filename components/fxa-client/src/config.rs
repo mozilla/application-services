@@ -172,11 +172,11 @@ impl Config {
     }
 
     pub fn client_config_url(&self) -> Result<Url> {
-        Ok(self.content_url_path(".well-known/fxa-client-configuration")?)
+        self.content_url_path(".well-known/fxa-client-configuration")
     }
 
     pub fn openid_config_url(&self) -> Result<Url> {
-        Ok(self.content_url_path(".well-known/openid-configuration")?)
+        self.content_url_path(".well-known/openid-configuration")
     }
 
     pub fn connect_another_device_url(&self) -> Result<Url> {

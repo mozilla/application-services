@@ -140,8 +140,7 @@ impl PrivateKey {
                 attr.type_ == nss_sys::CKA_ID.into()
                     && attr.pValue.is_null()
                     && attr.ulValueLen == 0
-            })
-            .ok_or_else(|| ErrorKind::InternalError)?;
+            }).ok_or(ErrorKind::InternalError)?;
         id_attr.pValue = obj_id_buf.as_mut_ptr() as *mut c_void;
         id_attr.ulValueLen = nss_sys::CK_ULONG::try_from(obj_id_buf.len())?;
         // We use `PK11_CreateGenericObject` instead of `PK11_CreateManagedGenericObject`

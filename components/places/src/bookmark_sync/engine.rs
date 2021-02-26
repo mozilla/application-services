@@ -131,7 +131,7 @@ impl<'a> BookmarksEngine<'a> {
             .try_query_row(
                 &sql,
                 &[],
-                |row| -> rusqlite::Result<_> { Ok(row.get::<_, bool>(0)?) },
+                |row| -> rusqlite::Result<_> { row.get::<_, bool>(0) },
                 false,
             )?
             .unwrap_or(false))
@@ -1428,8 +1428,7 @@ impl<'a> dogear::Store for Merger<'a> {
                     Ok(Tree::with_root(root))
                 },
                 false,
-            )?
-            .ok_or_else(|| ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
+            )?.ok_or(ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
         builder.reparent_orphans_to(&dogear::UNFILED_GUID);
 
         let sql = format!(
@@ -1829,7 +1828,7 @@ mod tests {
             .expect("Should prepare statement to fetch uploaded GUIDs");
         let uploaded_guids: Vec<Guid> = stmt
             .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok(row.get::<_, Guid>(0)?)
+                row.get::<_, Guid>(0)
             })
             .expect("Should fetch uploaded GUIDs")
             .map(std::result::Result::unwrap)
@@ -3209,7 +3208,7 @@ mod tests {
              WHERE url_hash = hash(:url) AND
                    url = :url",
                 &[(":url", &"http://example.com/a/%s")],
-                |row| -> rusqlite::Result<_> { Ok(row.get::<_, i64>(0)?) },
+                |row| -> rusqlite::Result<_> { row.get::<_, i64>(0) },
                 false,
             )?
             .expect("Should fetch foreign count for URL A");

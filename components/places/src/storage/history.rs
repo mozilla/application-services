@@ -155,7 +155,7 @@ pub fn frecency_stale_at(db: &PlacesDb, url: &Url) -> Result<Option<Timestamp>> 
          WHERE h.url_hash = hash(:url) AND
                h.url = :url",
         &[(":url", &url.as_str())],
-        |row| -> rusqlite::Result<_> { Ok(row.get::<_, Timestamp>(0)?) },
+        |row| -> rusqlite::Result<_> { row.get::<_, Timestamp>(0) },
         true,
     )?;
     Ok(result)
@@ -209,7 +209,7 @@ pub fn href_to_guid(db: &PlacesDb, url: &str) -> Result<Option<SyncGuid>> {
         &[(":url", &url.to_owned())],
         // subtle: we explicitly need to specify rusqlite::Result or the compiler
         // struggles to work out what error type to return from try_query_row.
-        |row| -> rusqlite::Result<_> { Ok(row.get::<_, SyncGuid>(0)?) },
+        |row| -> rusqlite::Result<_> { row.get::<_, SyncGuid>(0) },
         true,
     )?;
     Ok(result)
@@ -1191,7 +1191,7 @@ pub fn get_visited_urls(
     Ok(db.query_rows_and_then_named_cached(
         &sql,
         &[(":start", &start), (":end", &end)],
-        |row| -> RusqliteResult<_> { Ok(row.get::<_, String>(0)?) },
+        |row| -> RusqliteResult<_> { row.get::<_, String>(0) },
     )?)
 }
 
@@ -2585,7 +2585,7 @@ mod tests {
         let mut places_stmt = conn.prepare("SELECT url FROM moz_places").unwrap();
         let remaining_urls: Vec<String> = places_stmt
             .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok(row.get::<_, String>(0)?)
+                row.get::<_, String>(0)
             })
             .expect("Should fetch remaining URLs")
             .map(std::result::Result::unwrap)
@@ -2595,7 +2595,7 @@ mod tests {
         let mut input_stmt = conn.prepare("SELECT input FROM moz_inputhistory").unwrap();
         let remaining_inputs: Vec<String> = input_stmt
             .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok(row.get::<_, String>(0)?)
+                row.get::<_, String>(0)
             })
             .expect("Should fetch remaining autocomplete history entries")
             .map(std::result::Result::unwrap)
@@ -2712,7 +2712,7 @@ mod tests {
             .prepare("SELECT host FROM moz_origins")
             .expect("Should prepare origins statement")
             .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                Ok(row.get::<_, String>(0)?)
+                row.get::<_, String>(0)
             })
             .expect("Should fetch all origins")
             .map(|r| r.expect("Should get origin from row"))

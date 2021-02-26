@@ -789,7 +789,7 @@ mod tests {
             let mut bso =
                 crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
             bso.modified = modified;
-            Ok(bso.encrypt(root_key)?)
+            bso.encrypt(root_key)
         }
     }
 

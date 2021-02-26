@@ -151,8 +151,7 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
         )?;
         let mut rows = stmt.query_named(&[(":page_id", &page_id)])?;
         let row = rows
-            .next()?
-            .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)?;
+            .next()?.ok_or(rusqlite::Error::QueryReturnedNoRows)?;
         let typed: i32 = row.get("typed")?;
         let visit_count: i32 = row.get("visit_count")?;
         let foreign_count: i32 = row.get("foreign_count")?;

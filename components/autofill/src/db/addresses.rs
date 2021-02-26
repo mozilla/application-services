@@ -90,7 +90,7 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
         common_cols = ADDRESS_COMMON_COLS
     );
 
-    let address = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?))?;
+    let address = tx.query_row(&sql, &[guid], |row| InternalAddress::from_row(row))?;
 
     tx.commit()?;
     Ok(address)

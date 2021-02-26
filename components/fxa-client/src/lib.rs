@@ -177,7 +177,7 @@ impl FirefoxAccount {
         if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_CHINA)? {
             return Ok(Url::parse("https://firefox.com.cn/pair")?);
         }
-        Ok(self.state.config.pair_url()?)
+        self.state.config.pair_url()
     }
 
     /// Get the "connection succeeded" page URL.

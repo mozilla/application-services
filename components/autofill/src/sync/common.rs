@@ -69,7 +69,7 @@ pub(super) fn common_fetch_incoming_record_states<T: SyncRecord, F>(
 where
     F: Fn(&Row<'_>) -> Result<T>,
 {
-    Ok(conn
+    conn
         .conn()
         .query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<T>> {
             // the 'guid' and 's_payload' rows must be non-null.
@@ -116,7 +116,7 @@ where
                 local,
                 mirror,
             })
-        })?)
+        })
 }
 
 pub(super) fn common_remove_record(conn: &Connection, table_name: &str, guid: &Guid) -> Result<()> {

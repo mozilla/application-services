@@ -48,19 +48,19 @@ impl PushDb {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         // By default, file open errors are StorageSqlErrors and aren't super helpful.
         // Instead, remap to StorageError and provide the path to the file that couldn't be opened.
-        Ok(Self::with_connection(Connection::open(&path).map_err(
+        Self::with_connection(Connection::open(&path).map_err(
             |_| {
                 ErrorKind::StorageError(format!(
                     "Could not open database file {:?}",
                     &path.as_ref().as_os_str()
                 ))
             },
-        )?)?)
+        )?)
     }
 
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
-        Ok(Self::with_connection(conn)?)
+        Self::with_connection(conn)
     }
 
     /// Normalize UUID values to undashed, lowercase.
@@ -108,12 +108,12 @@ impl Storage for PushDb {
              FROM push_record WHERE uaid = :uaid AND channel_id = :chid",
             common_cols = schema::COMMON_COLS,
         );
-        Ok(self.try_query_row(
+        self.try_query_row(
             &query,
             &[(":uaid", &uaid), (":chid", &Self::normalize_uuid(chid))],
             PushRecord::from_row,
             false,
-        )?)
+        )
     }
 
     fn get_record_by_chid(&self, chid: &str) -> Result<Option<PushRecord>> {
@@ -122,12 +122,12 @@ impl Storage for PushDb {
              FROM push_record WHERE channel_id = :chid",
             common_cols = schema::COMMON_COLS,
         );
-        Ok(self.try_query_row(
+        self.try_query_row(
             &query,
             &[(":chid", &Self::normalize_uuid(chid))],
             PushRecord::from_row,
             false,
-        )?)
+        )
     }
 
     fn put_record(&self, record: &PushRecord) -> Result<bool> {

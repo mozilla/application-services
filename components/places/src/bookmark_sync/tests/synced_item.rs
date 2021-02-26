@@ -161,7 +161,7 @@ impl SyncedBookmarkItem {
 
     // Get a record from the DB.
     pub fn get(conn: &PlacesDb, guid: &SyncGuid) -> Result<Option<Self>> {
-        Ok(conn.try_query_row(
+        conn.try_query_row(
             "SELECT b.*,
                     (SELECT p.url FROM moz_places p
                      WHERE p.id = b.placeId) AS url,
@@ -178,7 +178,7 @@ impl SyncedBookmarkItem {
             &[(":guid", guid)],
             Self::from_row,
             true,
-        )?)
+        )
     }
 
     // Return a new SyncedBookmarkItem from a database row. All values will

@@ -209,7 +209,7 @@ impl Guid {
     pub fn is_valid_for_sync_server(&self) -> bool {
         !self.is_empty()
             && self.len() <= 64
-            && self.bytes().all(|b| b >= b' ' && b <= b'~' && b != b',')
+            && self.bytes().all(|b| (b' '..=b'~').contains(&b) && b != b',')
     }
 
     /// Returns true for Guids that are valid places guids, and false for all others.

@@ -230,7 +230,7 @@ impl SearchResult {
         let bookmark_title = row.get::<_, Option<String>>("btitle")?;
         let frecency = row.get::<_, i64>("frecency")?;
 
-        let title = bookmark_title.or_else(|| history_title).unwrap_or_default();
+        let title = bookmark_title.or(history_title).unwrap_or_default();
 
         let tags = row.get::<_, Option<String>>("tags")?;
         if let Some(tags) = tags {
@@ -259,7 +259,7 @@ impl SearchResult {
 
         let history_title = row.get::<_, Option<String>>("title")?;
         let bookmark_title = row.get::<_, Option<String>>("btitle")?;
-        let title = bookmark_title.or_else(|| history_title).unwrap_or_default();
+        let title = bookmark_title.or(history_title).unwrap_or_default();
 
         let tags = row.get::<_, Option<String>>("tags")?;
         if let Some(tags) = tags {
@@ -506,7 +506,7 @@ impl<'query> Adaptive<'query> {
 
 impl<'query> Matcher for Adaptive<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(query_flat_rows_and_then_named(
+        query_flat_rows_and_then_named(
             conn,
             "
             SELECT h.url as url,
@@ -546,7 +546,7 @@ impl<'query> Matcher for Adaptive<'query> {
                 (":maxResults", &max_results),
             ],
             SearchResult::from_adaptive_row,
-        )?)
+        )
     }
 }
 
@@ -572,7 +572,7 @@ impl<'query> Suggestions<'query> {
 
 impl<'query> Matcher for Suggestions<'query> {
     fn search(&self, conn: &PlacesDb, max_results: u32) -> Result<Vec<SearchResult>> {
-        Ok(query_flat_rows_and_then_named(
+        query_flat_rows_and_then_named(
             conn,
             "
             SELECT h.url, h.title,
@@ -605,7 +605,7 @@ impl<'query> Matcher for Suggestions<'query> {
                 (":maxResults", &max_results),
             ],
             SearchResult::from_suggestion_row,
-        )?)
+        )
     }
 }
 

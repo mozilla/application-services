@@ -75,8 +75,7 @@ impl<T> Sync15ClientResponse<T> {
             let last_modified = resp
                 .headers
                 .get(header_names::X_LAST_MODIFIED)
-                .and_then(|s| ServerTimestamp::from_str(s).ok())
-                .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+                .and_then(|s| ServerTimestamp::from_str(s).ok()).ok_or(ErrorKind::MissingServerTimestamp)?;
             log::info!(
                 "Successful request to \"{}\", incoming x-last-modified={:?}",
                 route,

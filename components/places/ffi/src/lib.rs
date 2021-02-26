@@ -383,11 +383,11 @@ pub extern "C" fn places_get_top_frecent_site_infos(
 ) -> ByteBuffer {
     log::debug!("places_get_top_frecent_site_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(storage::history::get_top_frecent_site_infos(
+        storage::history::get_top_frecent_site_infos(
             conn,
             num_items,
             frecency_threshold,
-        )?)
+        )
     })
 }
 
@@ -401,13 +401,13 @@ pub extern "C" fn places_get_visit_infos(
 ) -> ByteBuffer {
     log::debug!("places_get_visit_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(storage::history::get_visit_infos(
+        storage::history::get_visit_infos(
             conn,
             types::Timestamp(start_date.max(0) as u64),
             types::Timestamp(end_date.max(0) as u64),
             VisitTransitionSet::from_u16(exclude_types as u16)
                 .expect("Bug: Invalid VisitTransitionSet"),
-        )?)
+        )
     })
 }
 
@@ -567,7 +567,7 @@ pub extern "C" fn bookmarks_get_tree(
     log::debug!("bookmarks_get_tree");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let root_id = SyncGuid::from(guid.as_str());
-        Ok(bookmarks::public_node::fetch_public_tree(conn, &root_id)?)
+        bookmarks::public_node::fetch_public_tree(conn, &root_id)
     })
 }
 
@@ -590,11 +590,11 @@ pub extern "C" fn bookmarks_get_by_guid(
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid::from(guid.as_str());
-        Ok(bookmarks::public_node::fetch_bookmark(
+        bookmarks::public_node::fetch_bookmark(
             conn,
             &guid,
             get_direct_children != 0,
-        )?)
+        )
     })
 }
 
