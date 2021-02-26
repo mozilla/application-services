@@ -12,7 +12,7 @@ pub(crate) use crate::db::models::Metadata;
 use crate::error::Result;
 use interrupt_support::Interruptee;
 use rusqlite::Transaction;
-use sync15::{Payload, ServerTimestamp};
+use sync15::{OutgoingChangeset, Payload, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
 
@@ -77,7 +77,22 @@ pub trait ProcessIncomingRecordImpl {
     fn remove_tombstone(&self, tx: &Transaction<'_>, guid: &Guid) -> Result<()>;
 }
 
-// TODO: Will need new trait for outgoing.
+pub trait ProcessOutgoingRecordImpl {
+    type Record;
+
+    fn fetch_outgoing_records(
+        &self,
+        tx: &Transaction<'_>,
+        collection_name: String,
+        timestamp: ServerTimestamp,
+    ) -> anyhow::Result<OutgoingChangeset>;
+
+    fn push_synced_items(
+        &self,
+        tx: &Transaction<'_>,
+        records_synced: Vec<Guid>,
+    ) -> anyhow::Result<()>;
+}
 
 // A trait that abstracts the functionality in the record itself.
 pub trait SyncRecord {
@@ -102,7 +117,7 @@ impl Metadata {
     /// (which must already have valid metadata).
     /// Note that mirror being None is an edge-case and typically means first
     /// sync since a "reset" (eg, disconnecting and reconnecting.
-    pub fn merge(&mut self, other: &Metadata, mirror: &Option<&Metadata>) {
+    pub fn merge(&mut self, other: &Metadata, mirror: Option<&Metadata>) {
         match mirror {
             Some(m) => {
                 fn get_latest_time(t1: Timestamp, t2: Timestamp, t3: Timestamp) -> Timestamp {
@@ -265,7 +280,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                     let metadata = incoming_record.metadata_mut();
                     metadata.merge(
                         &local_record.metadata(),
-                        &mirror.as_ref().map(|m| m.metadata()),
+                        mirror.as_ref().map(|m| m.metadata()),
                     );
                     // a micro-optimization here would be to `::DoNothing` if
                     // the metadata was actually identical, but this seems like
@@ -309,7 +324,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                             let metadata = incoming_record.metadata_mut();
                             metadata.merge(
                                 &local_dupe.metadata(),
-                                &mirror.as_ref().map(|m| m.metadata()),
+                                mirror.as_ref().map(|m| m.metadata()),
                             );
                             IncomingAction::UpdateLocalGuid {
                                 old_guid,
