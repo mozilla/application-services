@@ -405,7 +405,7 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
-        let local_channels: HashSet<String> = HashSet::from_iter(channels.iter().cloned());
+        let local_channels: HashSet<String> = channels.iter().cloned().collect();
         let remote_channels: HashSet<String> = HashSet::from_iter(self.channel_list()?);
 
         // verify both lists match. Either side could have lost it's mind.

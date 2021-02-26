@@ -378,7 +378,7 @@ impl FirefoxAccount {
         };
         self.state.refresh_token = Some(RefreshToken {
             token: new_refresh_token,
-            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
+            scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
         });
         // In order to keep 1 and only 1 refresh token alive per client instance,
         // we also destroy the existing refresh token.
@@ -432,7 +432,7 @@ impl FirefoxAccount {
             ))?;
         self.state.refresh_token = Some(RefreshToken {
             token: new_refresh_token,
-            scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
+            scopes: resp.scope.split(' ').map(ToString::to_string).collect(),
         });
         self.state.session_token = Some(session_token.to_owned());
         self.clear_access_token_cache();

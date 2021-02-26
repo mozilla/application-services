@@ -35,7 +35,7 @@ lazy_static::lazy_static! {
     };
 }
 
-fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request, viaduct::Error> {
+fn into_reqwest(request: viaduct::Request) -> reqwest::blocking::Request {
     let method = match request.method {
         viaduct::Method::Get => reqwest::Method::GET,
         viaduct::Method::Head => reqwest::Method::HEAD,
@@ -56,7 +56,7 @@ fn into_reqwest(request: viaduct::Request) -> Result<reqwest::blocking::Request,
             .insert(HeaderName::from_bytes(h.name().as_bytes()).unwrap(), value);
     }
     *result.body_mut() = request.body.map(reqwest::blocking::Body::from);
-    Ok(result)
+    result
 }
 
 pub struct ReqwestBackend;
@@ -64,7 +64,7 @@ impl Backend for ReqwestBackend {
     fn send(&self, request: viaduct::Request) -> Result<viaduct::Response, viaduct::Error> {
         viaduct::note_backend("reqwest (untrusted)");
         let request_method = request.method;
-        let req = into_reqwest(request)?;
+        let req = into_reqwest(request);
         let mut resp = CLIENT
             .execute(req)
             .map_err(|e| viaduct::Error::NetworkError(e.to_string()))?;
