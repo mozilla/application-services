@@ -302,7 +302,10 @@ pub(super) mod tests {
             crate::sync::plan_incoming(ri, tx, states.pop().unwrap()).expect("plan should work");
         // Even though the records are identical, we still merged the metadata
         // so treat this as an Update.
-        assert!(matches!(action, crate::sync::IncomingAction::DeleteLocalRecord { .. }));
+        assert!(matches!(
+            action,
+            crate::sync::IncomingAction::DeleteLocalRecord { .. }
+        ));
     }
 
     // "Staged" records are moved to the mirror by finish_incoming().

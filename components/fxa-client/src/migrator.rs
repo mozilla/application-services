@@ -237,7 +237,10 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 500, .. }));
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::RemoteError { code: 500, .. }
+        ));
         assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::CopySessionToken
@@ -316,7 +319,10 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", true)
             .unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 400, .. }));
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::RemoteError { code: 400, .. }
+        ));
         assert!(matches!(fxa.is_in_migration_state(), MigrationState::None));
     }
 
@@ -358,7 +364,10 @@ mod tests {
         let err = fxa
             .migrate_from_session_token("session", "aabbcc", "ddeeff", false)
             .unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 500, .. }));
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::RemoteError { code: 500, .. }
+        ));
         assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::ReuseSessionToken
@@ -385,7 +394,10 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         let err = fxa.try_migration().unwrap_err();
-        assert!(matches!(err.kind(), ErrorKind::RemoteError { code: 500, .. }));
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::RemoteError { code: 500, .. }
+        ));
         assert!(matches!(
             fxa.is_in_migration_state(),
             MigrationState::ReuseSessionToken
