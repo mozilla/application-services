@@ -8,9 +8,11 @@ pub mod outgoing;
 
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
 use super::{
-    MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
+    MergeResult, Metadata, Payload, PersistablePayload, ProcessIncomingRecordImpl,
+    ProcessOutgoingRecordImpl, SyncRecord,
 };
 use crate::db::models::credit_card::InternalCreditCard;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::IncomingCreditCardsImpl;
@@ -25,21 +27,29 @@ use types::Timestamp;
 pub fn create_engine(
     db: Arc<Mutex<crate::db::AutofillDb>>,
 ) -> ConfigSyncEngine<InternalCreditCard> {
-    ConfigSyncEngine {
-        db,
-        config: EngineConfig {
+    ConfigSyncEngine::new(
+        EngineConfig {
             namespace: "credit_cards".to_string(),
             collection: "creditcards",
         },
-        storage_impl: Box::new(CreditCardsEngineStorageImpl {}),
-    }
+        db,
+        Box::new(CreditCardsEngineStorageImpl {}),
+    )
 }
 
 pub(super) struct CreditCardsEngineStorageImpl {}
 
 impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl {
-    fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = InternalCreditCard>> {
-        Box::new(IncomingCreditCardsImpl {})
+    fn get_incoming_impl(
+        &self,
+        enc_key: &Option<String>,
+    ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = InternalCreditCard>>> {
+        let enc_key = match enc_key {
+            None => return Err(Error::MissingEncryptionKey),
+            Some(enc_key) => enc_key,
+        };
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        Ok(Box::new(IncomingCreditCardsImpl { encdec }))
     }
 
     fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
@@ -50,8 +60,16 @@ impl SyncEngineStorageImpl<InternalCreditCard> for CreditCardsEngineStorageImpl 
         Ok(())
     }
 
-    fn get_outgoing_impl(&self) -> Box<dyn ProcessOutgoingRecordImpl<Record = InternalCreditCard>> {
-        Box::new(OutgoingCreditCardsImpl {})
+    fn get_outgoing_impl(
+        &self,
+        enc_key: &Option<String>,
+    ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = InternalCreditCard>>> {
+        let enc_key = match enc_key {
+            None => return Err(Error::MissingEncryptionKey),
+            Some(enc_key) => enc_key,
+        };
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        Ok(Box::new(OutgoingCreditCardsImpl { encdec }))
     }
 }
 
@@ -64,6 +82,12 @@ struct CreditCardPayload {
     entry: PayloadEntry,
 }
 
+// Note that the sync payload contains the "unencrypted" cc_number - but our
+// internal structs have the cc_number_enc/cc_number_last_4 pair, so we need to
+// take care going to and from.
+// (The scare-quotes around "unencrypted" are to reflect that, obviously, the
+// payload itself *is* encrypted by sync, but the number is plain-text in that
+// payload)
 #[derive(Default, Debug, Deserialize, Serialize)]
 #[serde(default, rename_all = "kebab-case")]
 struct PayloadEntry {
@@ -85,7 +109,7 @@ struct PayloadEntry {
 }
 
 impl InternalCreditCard {
-    fn from_payload(sync_payload: sync15::Payload) -> Result<Self> {
+    fn from_payload(sync_payload: sync15::Payload, encdec: &EncryptorDecryptor) -> Result<Self> {
         let p: CreditCardPayload = sync_payload.into_record()?;
         if p.entry.version != 3 {
             // when new versions are introduced we will start accepting and
@@ -95,10 +119,15 @@ impl InternalCreditCard {
                 p.entry.version
             )));
         }
+        // need to encrypt the cleartext in the sync record.
+        let cc_number_enc = encdec.encrypt(&p.entry.cc_number)?;
+        let cc_number_last_4 = get_last_4(&p.entry.cc_number);
+
         Ok(InternalCreditCard {
             guid: p.id,
             cc_name: p.entry.cc_name,
-            cc_number: p.entry.cc_number,
+            cc_number_enc,
+            cc_number_last_4,
             cc_exp_month: p.entry.cc_exp_month,
             cc_exp_year: p.entry.cc_exp_year,
             cc_type: p.entry.cc_type,
@@ -112,12 +141,13 @@ impl InternalCreditCard {
         })
     }
 
-    pub fn into_payload(self) -> Result<sync15::Payload> {
+    pub(crate) fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
+        let cc_number = encdec.decrypt(&self.cc_number_enc)?;
         let p = CreditCardPayload {
             id: self.guid,
             entry: PayloadEntry {
                 cc_name: self.cc_name,
-                cc_number: self.cc_number,
+                cc_number,
                 cc_exp_month: self.cc_exp_month,
                 cc_exp_year: self.cc_exp_year,
                 cc_type: self.cc_type,
@@ -169,7 +199,11 @@ impl SyncRecord for InternalCreditCard {
         merged_record.guid = incoming.guid.clone();
 
         sync_merge_field_check!(cc_name, incoming, local, mirror, merged_record);
-        sync_merge_field_check!(cc_number, incoming, local, mirror, merged_record);
+        // XXX - It looks like this will allow us to merge a locally changed
+        // cc_number_enc and remotely changed cc_number_last_4, which is nonsensical.
+        // Given sync itself is populating this it needs more thought.
+        sync_merge_field_check!(cc_number_enc, incoming, local, mirror, merged_record);
+        sync_merge_field_check!(cc_number_last_4, incoming, local, mirror, merged_record);
         sync_merge_field_check!(cc_exp_month, incoming, local, mirror, merged_record);
         sync_merge_field_check!(cc_exp_year, incoming, local, mirror, merged_record);
         sync_merge_field_check!(cc_type, incoming, local, mirror, merged_record);
@@ -185,6 +219,21 @@ impl SyncRecord for InternalCreditCard {
     }
 }
 
+impl PersistablePayload {
+    fn from_cc_payload(payload: sync15::Payload, encdec: &EncryptorDecryptor) -> Result<Self> {
+        Ok(Self {
+            guid: Guid::new(payload.id()),
+            payload: encdec.encrypt(&payload.into_json_string())?,
+        })
+    }
+
+    fn make_cc_payload(payload: &str, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
+        Ok(Payload::from_json(serde_json::from_str(
+            &encdec.decrypt(payload)?,
+        )?)?)
+    }
+}
+
 /// Returns a with the given local record's data but with a new guid and
 /// fresh sync metadata.
 fn get_forked_record(local_record: InternalCreditCard) -> InternalCreditCard {
@@ -197,4 +246,67 @@ fn get_forked_record(local_record: InternalCreditCard) -> InternalCreditCard {
     local_record_data.metadata.sync_change_counter = 1;
 
     local_record_data
+}
+
+// Wow - strings are hard! credit-card sync is the only thing that needs to
+// get the last 4 chars of a string.
+fn get_last_4(v: &str) -> String {
+    v.chars()
+        .rev()
+        .take(4)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<String>()
+}
+#[test]
+fn test_last_4() {
+    assert_eq!(get_last_4("testing"), "ting".to_string());
+    assert_eq!(get_last_4("abc"), "abc".to_string());
+    assert_eq!(get_last_4(""), "".to_string());
+}
+
+#[test]
+fn test_to_from_payload() {
+    let key = crate::encryption::create_key().unwrap();
+    let cc_number = "1234567812345678";
+    let cc_number_enc =
+        crate::encryption::encrypt_string(key.clone(), cc_number.to_string()).unwrap();
+    let cc = InternalCreditCard {
+        cc_name: "Shaggy".to_string(),
+        cc_number_enc,
+        cc_number_last_4: "5678".to_string(),
+        cc_exp_month: 12,
+        cc_exp_year: 2021,
+        cc_type: "foo".to_string(),
+        ..Default::default()
+    };
+    let encdec = EncryptorDecryptor::new(&key).unwrap();
+    let sync_payload = cc.clone().into_payload(&encdec).unwrap();
+    let payload: CreditCardPayload = sync_payload.clone().into_record().unwrap();
+
+    assert_eq!(payload.id, cc.guid);
+    assert_eq!(payload.entry.cc_name, "Shaggy".to_string());
+    assert_eq!(payload.entry.cc_number, cc_number.to_string());
+    assert_eq!(payload.entry.cc_exp_month, 12);
+    assert_eq!(payload.entry.cc_exp_year, 2021);
+    assert_eq!(payload.entry.cc_type, "foo".to_string());
+
+    // and back.
+    let cc2 = InternalCreditCard::from_payload(sync_payload, &encdec).unwrap();
+    // sadly we can't just check equality because the encrypted value will be
+    // different even if the card number is identical.
+    assert_eq!(cc2.guid, cc.guid);
+    assert_eq!(cc2.cc_name, "Shaggy".to_string());
+    assert_eq!(cc2.cc_number_last_4, cc.cc_number_last_4);
+    assert_eq!(cc2.cc_exp_month, cc.cc_exp_month);
+    assert_eq!(cc2.cc_exp_year, cc.cc_exp_year);
+    assert_eq!(cc2.cc_type, cc.cc_type);
+    // The decrypted number should be the same.
+    assert_eq!(
+        crate::encryption::decrypt_string(key, cc2.cc_number_enc.clone()).unwrap(),
+        cc_number
+    );
+    // But the encrypted value should not.
+    assert_ne!(cc2.cc_number_enc, cc.cc_number_enc);
 }

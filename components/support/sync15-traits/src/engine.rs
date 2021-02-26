@@ -57,6 +57,32 @@ pub trait SyncEngine {
         Ok(())
     }
 
+    /// Tells the engine what the local encryption key is for the data managed
+    /// by the engine. This is only used by collections that store data
+    /// encrypted locally and is unrelated to the encryption used by Sync.
+    /// The intent is that for such collections, this key can be used to
+    /// decrypt local data before it is re-encrypted by Sync and sent to the
+    /// storage servers, and similarly, data from the storage servers will be
+    /// decrypted by Sync, then encrypted by the local encryption key before
+    /// being added to the local database.
+    ///
+    /// The expectation is that the key value is being maintained by the
+    /// embedding application in some secure way suitable for the environment
+    /// in which the app is running - eg, the OS "keychain". The value of the
+    /// key is implementation dependent - it is expected that the engine and
+    /// embedding application already have some external agreement about how
+    /// to generate keys and in what form they are exchanged. Finally, there's
+    /// an assumption that sync engines are short-lived and only live for a
+    /// single sync - this means that sync doesn't hold on to the key for an
+    /// extended period.
+    ///
+    /// This will panic if called by an engine that doesn't have explicit
+    /// support for local encryption keys as that implies a degree of confusion
+    /// which shouldn't be possible to ignore.
+    fn set_local_encryption_key(&self, _key: &str) -> Result<()> {
+        unimplemented!("This engine does not support local encryption");
+    }
+
     /// `inbound` is a vector to support the case where
     /// `get_collection_requests` returned multiple requests. The changesets are
     /// in the same order as the requests were -- e.g. if `vec![req_a, req_b]`

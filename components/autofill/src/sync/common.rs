@@ -10,6 +10,7 @@
 // using a sql database and knows that the schemas for addresses and cards are
 // very similar.
 
+use super::PersistablePayload;
 use crate::error::*;
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row, NO_PARAMS};
@@ -21,7 +22,7 @@ use sync_guid::Guid;
 pub(super) fn common_stage_incoming_records(
     conn: &Connection,
     table_name: &str,
-    incoming: Vec<(Payload, ServerTimestamp)>,
+    incoming: Vec<(PersistablePayload, ServerTimestamp)>,
     signal: &dyn Interruptee,
 ) -> Result<()> {
     log::info!(
@@ -30,9 +31,9 @@ pub(super) fn common_stage_incoming_records(
         table_name
     );
     let chunk_size = 2;
-    let vals: Vec<(String, String)> = incoming
+    let vals: Vec<(Guid, String)> = incoming
         .into_iter()
-        .map(|(p, _)| (p.id().to_string(), p.into_json_string()))
+        .map(|(p, _)| (p.guid, p.payload))
         .collect();
     sql_support::each_sized_chunk(
         &vals,
@@ -166,19 +167,12 @@ pub(super) fn common_get_outgoing_staging_records(
     data_sql: &str,
     tombstones_sql: &str,
     payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload>,
-) -> anyhow::Result<Vec<(String, String, i64)>> {
+) -> anyhow::Result<Vec<(Payload, i64)>> {
     let outgoing_records =
         common_get_outgoing_records(conn, data_sql, tombstones_sql, payload_from_data_row)?;
     Ok(outgoing_records
         .into_iter()
-        .map(|(payload, sync_change_counter)| {
-            (
-                payload.id.to_string(),
-                payload.into_json_string(),
-                sync_change_counter as i64,
-            )
-        })
-        .collect::<Vec<(String, String, i64)>>())
+        .collect::<Vec<(Payload, i64)>>())
 }
 
 fn get_outgoing_records(
@@ -218,7 +212,7 @@ pub(super) fn common_get_outgoing_records(
 pub(super) fn common_save_outgoing_records(
     conn: &Connection,
     table_name: &str,
-    staging_records: Vec<(String, String, i64)>,
+    staging_records: Vec<(Guid, String, i64)>,
 ) -> anyhow::Result<()> {
     let chunk_size = 3;
     sql_support::each_sized_chunk(

@@ -27,7 +27,8 @@ pub(crate) fn add_credit_card(
     let credit_card = InternalCreditCard {
         guid: Guid::random(),
         cc_name: new_credit_card_fields.cc_name,
-        cc_number: new_credit_card_fields.cc_number,
+        cc_number_enc: new_credit_card_fields.cc_number_enc,
+        cc_number_last_4: new_credit_card_fields.cc_number_last_4,
         cc_exp_month: new_credit_card_fields.cc_exp_month,
         cc_exp_year: new_credit_card_fields.cc_exp_year,
         // Credit card types are a fixed set of strings as defined in the link below
@@ -65,7 +66,8 @@ pub(crate) fn add_internal_credit_card(
         rusqlite::named_params! {
             ":guid": card.guid,
             ":cc_name": card.cc_name,
-            ":cc_number": card.cc_number,
+            ":cc_number_enc": card.cc_number_enc,
+            ":cc_number_last_4": card.cc_number_last_4,
             ":cc_exp_month": card.cc_exp_month,
             ":cc_exp_year": card.cc_exp_year,
             ":cc_type": card.cc_type,
@@ -122,7 +124,8 @@ pub fn update_credit_card(
     tx.execute_named(
         "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
-            cc_number                   = :cc_number,
+            cc_number_enc               = :cc_number_enc,
+            cc_number_last_4            = :cc_number_last_4,
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
             cc_type                     = :cc_type,
@@ -131,7 +134,8 @@ pub fn update_credit_card(
         WHERE guid                      = :guid",
         rusqlite::named_params! {
             ":cc_name": credit_card.cc_name,
-            ":cc_number": credit_card.cc_number,
+            ":cc_number_enc": credit_card.cc_number_enc,
+            ":cc_number_last_4": credit_card.cc_number_last_4,
             ":cc_exp_month": credit_card.cc_exp_month,
             ":cc_exp_year": credit_card.cc_exp_year,
             ":cc_type": credit_card.cc_type,
@@ -156,7 +160,8 @@ pub(crate) fn update_internal_credit_card(
     tx.execute_named(
         "UPDATE credit_cards_data
         SET cc_name                     = :cc_name,
-            cc_number                   = :cc_number,
+            cc_number_enc               = :cc_number_enc,
+            cc_number_last_4            = :cc_number_last_4,
             cc_exp_month                = :cc_exp_month,
             cc_exp_year                 = :cc_exp_year,
             cc_type                     = :cc_type,
@@ -168,7 +173,8 @@ pub(crate) fn update_internal_credit_card(
         WHERE guid                      = :guid",
         rusqlite::named_params! {
             ":cc_name": card.cc_name,
-            ":cc_number": card.cc_number,
+            ":cc_number_enc": card.cc_number_enc,
+            ":cc_number_last_4": card.cc_number_last_4,
             ":cc_exp_month": card.cc_exp_month,
             ":cc_exp_year": card.cc_exp_year,
             ":cc_type": card.cc_type,
@@ -223,6 +229,7 @@ pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
 pub(crate) mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
+    use crate::encryption::EncryptorDecryptor;
 
     pub fn get_all(
         conn: &Connection,
@@ -261,19 +268,16 @@ pub(crate) mod tests {
         )
     }
 
-    pub(crate) fn insert_mirror_record(conn: &Connection, credit_card: InternalCreditCard) {
+    pub(crate) fn insert_mirror_record(conn: &Connection, payload: sync15::Payload) {
         // This should probably be in the sync module, but it's used here.
-        let guid = credit_card.guid.clone();
-        let payload = credit_card
-            .into_payload()
-            .expect("is json")
-            .into_json_string();
+        let guid = payload.id.clone();
+        let payload_string = payload.into_json_string();
         conn.execute_named(
             "INSERT INTO credit_cards_mirror (guid, payload)
              VALUES (:guid, :payload)",
             rusqlite::named_params! {
                 ":guid": guid,
-                ":payload": &payload,
+                ":payload": &payload_string,
             },
         )
         .expect("should insert");
@@ -287,7 +291,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "jane doe".to_string(),
-                cc_number: "2222333344445555".to_string(),
+                cc_number_enc: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".to_string(),
+                cc_number_last_4: "1234".to_string(),
                 cc_exp_month: 3,
                 cc_exp_year: 2022,
                 cc_type: "visa".to_string(),
@@ -309,7 +314,14 @@ pub(crate) mod tests {
 
         assert_eq!(saved_credit_card.guid, retrieved_credit_card.guid);
         assert_eq!(saved_credit_card.cc_name, retrieved_credit_card.cc_name);
-        assert_eq!(saved_credit_card.cc_number, retrieved_credit_card.cc_number);
+        assert_eq!(
+            saved_credit_card.cc_number_enc,
+            retrieved_credit_card.cc_number_enc
+        );
+        assert_eq!(
+            saved_credit_card.cc_number_last_4,
+            retrieved_credit_card.cc_number_last_4
+        );
         assert_eq!(
             saved_credit_card.cc_exp_month,
             retrieved_credit_card.cc_exp_month
@@ -338,7 +350,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "jane doe".to_string(),
-                cc_number: "2222333344445555".to_string(),
+                cc_number_enc: "YYYYYYYYYYYYYYYYYYYYYYYYYYYYY".to_string(),
+                cc_number_last_4: "4321".to_string(),
                 cc_exp_month: 3,
                 cc_exp_year: 2022,
                 cc_type: "visa".to_string(),
@@ -349,7 +362,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: "ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ".to_string(),
+                cc_number_last_4: "6543".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -361,7 +375,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "abraham lincoln".to_string(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
+                cc_number_last_4: "9876".to_string(),
                 cc_exp_month: 1,
                 cc_exp_year: 2024,
                 cc_type: "amex".to_string(),
@@ -399,7 +414,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
+                cc_number_last_4: "4321".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -412,7 +428,8 @@ pub(crate) mod tests {
             &saved_credit_card.guid,
             &UpdatableCreditCardFields {
                 cc_name: expected_cc_name.clone(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
+                cc_number_last_4: "1234".to_string(),
                 cc_type: "mastercard".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
@@ -442,7 +459,8 @@ pub(crate) mod tests {
             &InternalCreditCard {
                 guid: guid.clone(),
                 cc_name: "john deer".to_string(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
+                cc_number_last_4: "1234".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -456,7 +474,8 @@ pub(crate) mod tests {
             &InternalCreditCard {
                 guid: guid.clone(),
                 cc_name: "john deer".to_string(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBB".to_string(),
+                cc_number_last_4: "1234".to_string(),
                 cc_exp_month: expected_cc_exp_month,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -484,12 +503,14 @@ pub(crate) mod tests {
     #[test]
     fn test_credit_card_delete() -> Result<()> {
         let db = new_mem_db();
+        let encdec = EncryptorDecryptor::new_test_key();
 
         let saved_credit_card = add_credit_card(
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john deer".to_string(),
-                cc_number: "1111222233334444".to_string(),
+                cc_number_enc: encdec.encrypt("1234567812345678")?,
+                cc_number_last_4: "5678".to_string(),
                 cc_exp_month: 10,
                 cc_exp_year: 2025,
                 cc_type: "mastercard".to_string(),
@@ -504,7 +525,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john doe".to_string(),
-                cc_number: "5555666677778888".to_string(),
+                cc_number_enc: encdec.encrypt("1234123412341234")?,
+                cc_number_last_4: "1234".to_string(),
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
                 cc_type: "visa".to_string(),
@@ -513,7 +535,9 @@ pub(crate) mod tests {
 
         // create a mirror record to check that a tombstone record is created upon deletion
         let cc2_guid = saved_credit_card2.guid.clone();
-        insert_mirror_record(&db, saved_credit_card2);
+        let payload = saved_credit_card2.into_payload(&encdec).expect("is json");
+
+        insert_mirror_record(&db, payload);
 
         let delete_result2 = delete_credit_card(&db, &cc2_guid);
         assert!(delete_result2.is_ok());
@@ -556,7 +580,8 @@ pub(crate) mod tests {
         let credit_card = InternalCreditCard {
             guid,
             cc_name: "john deer".to_string(),
-            cc_number: "1111222233334444".to_string(),
+            cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+            cc_number_last_4: "6543".to_string(),
             cc_exp_month: 10,
             cc_exp_year: 2025,
             cc_type: "mastercard".to_string(),
@@ -586,7 +611,8 @@ pub(crate) mod tests {
         let credit_card = InternalCreditCard {
             guid,
             cc_name: "jane doe".to_string(),
-            cc_number: "2222333344445555".to_string(),
+            cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+            cc_number_last_4: "6543".to_string(),
             cc_exp_month: 3,
             cc_exp_year: 2022,
             cc_type: "visa".to_string(),
@@ -613,7 +639,8 @@ pub(crate) mod tests {
             &db,
             UpdatableCreditCardFields {
                 cc_name: "john doe".to_string(),
-                cc_number: "5555666677778888".to_string(),
+                cc_number_enc: "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW".to_string(),
+                cc_number_last_4: "6543".to_string(),
                 cc_exp_month: 5,
                 cc_exp_year: 2024,
                 cc_type: "visa".to_string(),

@@ -9,8 +9,8 @@ use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
-    ServerTimestamp, SyncRecord,
+    IncomingRecord, IncomingState, LocalRecordInfo, Payload, PersistablePayload,
+    ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
@@ -29,7 +29,18 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
-        common_stage_incoming_records(tx, "addresses_sync_staging", incoming, signal)
+        let to_stage = incoming
+            .into_iter()
+            .map(|(payload, timestamp)| {
+                let p = PersistablePayload {
+                    guid: SyncGuid::new(payload.id()),
+                    payload: payload.into_json_string(),
+                };
+                (p, timestamp)
+            })
+            .collect();
+
+        common_stage_incoming_records(tx, "addresses_sync_staging", to_stage, signal)
     }
 
     fn finish_incoming(&self, tx: &Transaction<'_>) -> Result<()> {

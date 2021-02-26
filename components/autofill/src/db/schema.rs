@@ -46,7 +46,8 @@ pub const ADDRESS_COMMON_VALS: &str = "
 pub const CREDIT_CARD_COMMON_COLS: &str = "
     guid,
     cc_name,
-    cc_number,
+    cc_number_enc,
+    cc_number_last_4,
     cc_exp_month,
     cc_exp_year,
     cc_type,
@@ -58,7 +59,8 @@ pub const CREDIT_CARD_COMMON_COLS: &str = "
 pub const CREDIT_CARD_COMMON_VALS: &str = "
     :guid,
     :cc_name,
-    :cc_number,
+    :cc_number_enc,
+    :cc_number_last_4,
     :cc_exp_month,
     :cc_exp_year,
     :cc_type,

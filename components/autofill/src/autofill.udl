@@ -1,9 +1,25 @@
-namespace autofill {};
+namespace autofill {
+    // We expose the crypto primitives on the namespace
+
+    // Create a new, random, encryption key.
+    [Throws=Error]
+    string create_key();
+
+    // Encrypt an arbitrary string - `key` must have come from `create_key()`
+    [Throws=Error]
+    string encrypt_string(string key, string cleartext);
+
+    // Decrypt an arbitrary string - `key` must have come from `create_key()`
+    // and `ciphertext` must have come from `encrypt_string()`
+    [Throws=Error]
+    string decrypt_string(string key, string ciphertext);
+};
 
 // What you pass to create or update a credit-card.
 dictionary UpdatableCreditCardFields {
     string cc_name;
-    string cc_number;
+    string cc_number_enc;
+    string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -13,7 +29,8 @@ dictionary UpdatableCreditCardFields {
 dictionary CreditCard {
     string guid;
     string cc_name;
-    string cc_number;
+    string cc_number_enc;
+    string cc_number_last_4;
     i64 cc_exp_month;
     i64 cc_exp_year;
     string cc_type;
@@ -64,7 +81,9 @@ dictionary Address {
 
 [Error]
 enum Error {
-   "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath", "Utf8Error", "JsonError", "InvalidSyncPayload",
+   "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath",
+   "Utf8Error", "JsonError", "InvalidSyncPayload", "MissingEncryptionKey",
+   "CryptoError",
 };
 
 interface Store {
