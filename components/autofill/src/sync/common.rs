@@ -11,10 +11,8 @@
 // very similar.
 
 use crate::error::*;
-use crate::sync::{IncomingRecord, IncomingState, LocalRecordInfo, SyncRecord};
 use interrupt_support::Interruptee;
 use rusqlite::{types::ToSql, Connection, Row, NO_PARAMS};
-use sql_support::ConnExt;
 use sync15::{Payload, ServerTimestamp};
 use sync_guid::Guid;
 
@@ -58,65 +56,6 @@ pub(super) fn common_stage_incoming_records(
     )?;
     log::trace!("staged");
     Ok(())
-}
-
-/// Incoming records are retrieved from the staging and mirror tables and assigned `IncomingState` values.
-pub(super) fn common_fetch_incoming_record_states<T: SyncRecord, F>(
-    conn: &Connection,
-    sql: &str,
-    fn_from_row: F,
-) -> Result<Vec<IncomingState<T>>>
-where
-    F: Fn(&Row<'_>) -> Result<T>,
-{
-    Ok(conn
-        .conn()
-        .query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<T>> {
-            // the 'guid' and 's_payload' rows must be non-null.
-            let guid: Guid = row.get_unwrap("guid");
-            // all other rows may be null.
-            let tombstone_exists = row.get_unwrap::<_, Option<String>>("t_guid").is_some();
-            let local_exists = row.get_unwrap::<_, Option<String>>("l_guid").is_some();
-            let mirror_payload: Option<String> = row.get_unwrap("m_payload");
-
-            let staged_payload: String = row.get_unwrap("s_payload");
-            // Turn the raw string into a sync15::Payload, then to our record.
-            let payload = Payload::from_json(serde_json::from_str(&staged_payload)?)?;
-            let incoming = if payload.is_tombstone() {
-                IncomingRecord::Tombstone {
-                    guid: payload.id().into(),
-                }
-            } else {
-                IncomingRecord::Record {
-                    record: T::to_record(payload)?,
-                }
-            };
-            let mirror = match mirror_payload {
-                Some(payload) => Some(T::to_record(Payload::from_json(serde_json::from_str(
-                    &payload,
-                )?)?)?),
-                None => None,
-            };
-            let local = if local_exists {
-                let record = fn_from_row(row)?;
-                let has_changes = record.metadata().sync_change_counter != 0;
-                if has_changes {
-                    LocalRecordInfo::Modified { record }
-                } else {
-                    LocalRecordInfo::Unmodified { record }
-                }
-            } else if tombstone_exists {
-                LocalRecordInfo::Tombstone { guid }
-            } else {
-                LocalRecordInfo::Missing
-            };
-
-            Ok(IncomingState {
-                incoming,
-                local,
-                mirror,
-            })
-        })?)
 }
 
 pub(super) fn common_remove_record(conn: &Connection, table_name: &str, guid: &Guid) -> Result<()> {
@@ -405,10 +344,10 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
+        payload: sync15::Payload,
     ) {
-        ri.insert_local_record(tx, record.clone())
+        ri.insert_local_record(tx, record)
             .expect("insert should work");
-        let payload = record.to_payload().expect("should serialize");
         ri.stage_incoming(
             tx,
             vec![(payload, ServerTimestamp::from_millis(0))],
@@ -454,10 +393,10 @@ pub(super) mod tests {
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,
         tx: &Transaction<'_>,
         record: T,
+        payload1: sync15::Payload,
         mirror_table_name: &str,
     ) {
         let guid1 = record.id().clone();
-        let payload1 = record.to_payload().expect("should get a payload");
         let guid2 = Guid::random();
         let payload2 = Payload::new_tombstone(guid2.clone());
 

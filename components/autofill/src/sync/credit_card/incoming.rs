@@ -8,9 +8,13 @@ use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{IncomingState, Payload, ProcessIncomingRecordImpl, ServerTimestamp};
+use crate::sync::{
+    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
+    ServerTimestamp, SyncRecord,
+};
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
+use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
 
 pub(super) struct IncomingCreditCardsImpl {}
@@ -61,7 +65,64 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         LEFT JOIN credit_cards_data l ON s.guid = l.guid
         LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        common_fetch_incoming_record_states(tx, sql, |row| Ok(InternalCreditCard::from_row(row)?))
+        Ok(tx.query_rows_and_then_named(
+            sql,
+            &[],
+            |row| -> Result<IncomingState<Self::Record>> {
+                // the 'guid' and 's_payload' rows must be non-null.
+                let guid: SyncGuid = row.get("guid")?;
+                // the incoming sync15::Payload
+                let incoming_payload =
+                    Payload::from_json(serde_json::from_str(&row.get::<_, String>("s_payload")?)?)?;
+
+                Ok(IncomingState {
+                    incoming: {
+                        if incoming_payload.is_tombstone() {
+                            IncomingRecord::Tombstone {
+                                guid: incoming_payload.id().into(),
+                            }
+                        } else {
+                            IncomingRecord::Record {
+                                record: InternalCreditCard::from_payload(incoming_payload)?,
+                            }
+                        }
+                    },
+                    local: match row.get_unwrap::<_, Option<String>>("l_guid") {
+                        Some(l_guid) => {
+                            assert_eq!(l_guid, guid);
+                            // local record exists, check the state.
+                            let record = InternalCreditCard::from_row(row)?;
+                            let has_changes = record.metadata().sync_change_counter != 0;
+                            if has_changes {
+                                LocalRecordInfo::Modified { record }
+                            } else {
+                                LocalRecordInfo::Unmodified { record }
+                            }
+                        }
+                        None => {
+                            // no local record - maybe a tombstone?
+                            match row.get::<_, Option<String>>("t_guid")? {
+                                Some(t_guid) => {
+                                    assert_eq!(guid, t_guid);
+                                    LocalRecordInfo::Tombstone { guid }
+                                }
+                                None => LocalRecordInfo::Missing,
+                            }
+                        }
+                    },
+                    mirror: {
+                        match row.get::<_, Option<String>>("m_payload")? {
+                            Some(m_payload) => {
+                                let payload =
+                                    Payload::from_json(serde_json::from_str(&m_payload)?)?;
+                                Some(InternalCreditCard::from_payload(payload)?)
+                            }
+                            None => None,
+                        }
+                    },
+                })
+            },
+        )?)
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
@@ -155,7 +216,6 @@ mod tests {
     use super::*;
     use crate::db::credit_cards::get_credit_card;
     use crate::sync::common::tests::*;
-    use crate::sync::SyncRecord;
 
     use interrupt_support::NeverInterrupts;
     use rusqlite::NO_PARAMS;
@@ -208,7 +268,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
         let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalCreditCard::to_record(sync_payload).expect("should be valid")
+        InternalCreditCard::from_payload(sync_payload).expect("should be valid")
     }
 
     #[test]
@@ -296,8 +356,10 @@ mod tests {
     fn test_get_incoming() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ai = IncomingCreditCardsImpl {};
-        do_test_incoming_same(&ai, &tx, test_record('C'));
+        let ci = IncomingCreditCardsImpl {};
+        let record = test_record('C');
+        let payload = record.clone().into_payload().expect("must get a payload");
+        do_test_incoming_same(&ci, &tx, record, payload);
     }
 
     #[test]
@@ -313,6 +375,8 @@ mod tests {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
         let ci = IncomingCreditCardsImpl {};
-        do_test_staged_to_mirror(&ci, &tx, test_record('C'), "credit_cards_mirror");
+        let record = test_record('C');
+        let payload = record.clone().into_payload().expect("must get a payload");
+        do_test_staged_to_mirror(&ci, &tx, record, payload, "credit_cards_mirror");
     }
 }

@@ -106,10 +106,6 @@ pub trait SyncRecord {
     fn merge(incoming: &Self, local: &Self, mirror: &Option<Self>) -> MergeResult<Self>
     where
         Self: Sized;
-    fn to_record(p: sync15::Payload) -> Result<Self>
-    where
-        Self: Sized;
-    fn to_payload(self) -> Result<sync15::Payload>;
 }
 
 impl Metadata {
