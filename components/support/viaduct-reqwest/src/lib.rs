@@ -91,10 +91,10 @@ impl Backend for ReqwestBackend {
         }
         Ok(viaduct::Response {
             request_method,
-            body,
             url,
             status,
             headers,
+            body,
         })
     }
 }

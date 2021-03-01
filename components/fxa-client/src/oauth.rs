@@ -331,7 +331,7 @@ impl FirefoxAccount {
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
         if let Some(ref jwe) = resp.keys_jwe {
-            let scoped_keys_flow = scoped_keys_flow.ok_or_else(|| {
+            let scoped_keys_flow = scoped_keys_flow.ok_or({
                 ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
             })?;
             let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
@@ -361,7 +361,9 @@ impl FirefoxAccount {
         let old_refresh_token = self.state.refresh_token.clone();
         let new_refresh_token = resp
             .refresh_token
-            .ok_or_else(|| ErrorKind::UnrecoverableServerError("No refresh token in response"))?;
+            .ok_or(ErrorKind::UnrecoverableServerError(
+                "No refresh token in response",
+            ))?;
         // Destroying a refresh token also destroys its associated device,
         // grab the device information for replication later.
         let old_device_info = match old_refresh_token {
@@ -416,7 +418,7 @@ impl FirefoxAccount {
             .state
             .refresh_token
             .as_ref()
-            .ok_or_else(|| ErrorKind::NoRefreshToken)?;
+            .ok_or(ErrorKind::NoRefreshToken)?;
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
         let resp = self.client.refresh_token_with_session_token(
             &self.state.config,
@@ -425,7 +427,9 @@ impl FirefoxAccount {
         )?;
         let new_refresh_token = resp
             .refresh_token
-            .ok_or_else(|| ErrorKind::UnrecoverableServerError("No refresh token in response"))?;
+            .ok_or(ErrorKind::UnrecoverableServerError(
+                "No refresh token in response",
+            ))?;
         self.state.refresh_token = Some(RefreshToken {
             token: new_refresh_token,
             scopes: HashSet::from_iter(resp.scope.split(' ').map(ToString::to_string)),
@@ -511,19 +515,19 @@ impl TryFrom<Url> for AuthorizationParameters {
         let scope = query_map
             .get("scope")
             .cloned()
-            .ok_or_else(|| ErrorKind::MissingUrlParameter("scope"))?;
+            .ok_or(ErrorKind::MissingUrlParameter("scope"))?;
         let client_id = query_map
             .get("client_id")
             .cloned()
-            .ok_or_else(|| ErrorKind::MissingUrlParameter("client_id"))?;
+            .ok_or(ErrorKind::MissingUrlParameter("client_id"))?;
         let state = query_map
             .get("state")
             .cloned()
-            .ok_or_else(|| ErrorKind::MissingUrlParameter("state"))?;
+            .ok_or(ErrorKind::MissingUrlParameter("state"))?;
         let access_type = query_map
             .get("access_type")
             .cloned()
-            .ok_or_else(|| ErrorKind::MissingUrlParameter("access_type"))?;
+            .ok_or(ErrorKind::MissingUrlParameter("access_type"))?;
         let code_challenge = query_map.get("code_challenge").cloned();
         let code_challenge_method = query_map.get("code_challenge_method").cloned();
         let pkce_params = match (code_challenge, code_challenge_method) {

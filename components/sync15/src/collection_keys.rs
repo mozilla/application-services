@@ -55,7 +55,7 @@ impl CollectionKeys {
                 .collect(),
         };
         let bso = crate::CleartextBso::from_payload(Payload::from_record(record)?, "crypto");
-        Ok(bso.encrypt(root_key)?)
+        bso.encrypt(root_key)
     }
 
     pub fn key_for_collection<'a>(&'a self, collection: &str) -> &'a KeyBundle {

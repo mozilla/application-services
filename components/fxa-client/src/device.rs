@@ -199,7 +199,7 @@ impl FirefoxAccount {
             self.fetch_and_parse_commands(index, Some(1), CommandFetchReason::Push(index))?;
         let device_command = device_commands
             .pop()
-            .ok_or_else(|| ErrorKind::IllegalState("Index fetch came out empty."))?;
+            .ok_or(ErrorKind::IllegalState("Index fetch came out empty."))?;
         if !device_commands.is_empty() {
             log::warn!("Index fetch resulted in more than 1 element");
         }

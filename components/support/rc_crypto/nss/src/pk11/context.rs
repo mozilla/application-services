@@ -71,7 +71,7 @@ pub fn hmac_sign(digest_alg: &HashAlgorithm, sym_key_bytes: &[u8], data: &[u8]) 
     let mech = digest_alg.as_hmac_mechanism();
     let sym_key = import_sym_key(mech.into(), nss_sys::CKA_SIGN.into(), sym_key_bytes)?;
     let context = create_context_by_sym_key(mech.into(), nss_sys::CKA_SIGN.into(), &sym_key)?;
-    Ok(hash_buf_with_context(&context, data)?)
+    hash_buf_with_context(&context, data)
 }
 
 /// Similar to hash_buf except the consumer has to provide the digest context.

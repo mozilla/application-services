@@ -120,7 +120,7 @@ impl Cryptographer for RcCryptoCryptographer {
         let remote = remote_any
             .downcast_ref::<RcCryptoRemotePublicKey>()
             .unwrap();
-        Ok(local.agree(&remote)?)
+        local.agree(&remote)
     }
 
     fn hkdf_sha256(
