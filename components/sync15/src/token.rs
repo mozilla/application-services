@@ -130,7 +130,7 @@ impl TokenFetcher for TokenServerFetcher {
         let server_timestamp = resp
             .headers
             .try_get::<ServerTimestamp, _>(header_names::X_TIMESTAMP)
-            .ok_or_else(|| ErrorKind::MissingServerTimestamp)?;
+            .ok_or(ErrorKind::MissingServerTimestamp)?;
         Ok(TokenFetchResult {
             token,
             server_timestamp,

@@ -109,12 +109,12 @@ impl FirefoxAccount {
     fn diagnose_remote_keys(&mut self, local_send_tab_key: PrivateSendTabKeys) -> Result<()> {
         let own_device = &mut self
             .get_current_device()?
-            .ok_or_else(|| ErrorKind::SendTabDiagnosisError("No remote device."))?;
+            .ok_or(ErrorKind::SendTabDiagnosisError("No remote device."))?;
 
         let command = own_device
             .available_commands
             .get(send_tab::COMMAND_NAME)
-            .ok_or_else(|| ErrorKind::SendTabDiagnosisError("No remote command."))?;
+            .ok_or(ErrorKind::SendTabDiagnosisError("No remote command."))?;
         let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
         let oldsync_key = self.get_scoped_key(scopes::OLD_SYNC)?;
         let public_keys_remote = bundle.decrypt(oldsync_key).map_err(|_| {

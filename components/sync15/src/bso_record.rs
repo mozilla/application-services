@@ -107,17 +107,14 @@ impl<T> BsoRecord<Option<T>> {
             ttl,
             payload,
         } = self;
-        match payload {
-            Some(p) => Some(BsoRecord {
-                id,
-                collection,
-                modified,
-                sortindex,
-                ttl,
-                payload: p,
-            }),
-            None => None,
-        }
+        payload.map(|p| BsoRecord {
+            id,
+            collection,
+            modified,
+            sortindex,
+            ttl,
+            payload: p,
+        })
     }
 }
 
@@ -267,7 +264,7 @@ impl EncryptedBso {
     where
         for<'a> T: Deserialize<'a>,
     {
-        Ok(self.decrypt(key)?.into_record::<T>()?)
+        self.decrypt(key)?.into_record::<T>()
     }
 }
 

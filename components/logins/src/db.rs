@@ -95,11 +95,7 @@ impl LoginDb {
     }
 
     pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        Ok(Self::with_connection(
-            Connection::open(path)?,
-            encryption_key,
-            None,
-        )?)
+        Self::with_connection(Connection::open(path)?, encryption_key, None)
     }
 
     pub fn open_with_salt(
@@ -108,19 +104,11 @@ impl LoginDb {
         salt: &str,
     ) -> Result<Self> {
         ensure_valid_salt(salt)?;
-        Ok(Self::with_connection(
-            Connection::open(path)?,
-            Some(encryption_key),
-            Some(salt),
-        )?)
+        Self::with_connection(Connection::open(path)?, Some(encryption_key), Some(salt))
     }
 
     pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        Ok(Self::with_connection(
-            Connection::open_in_memory()?,
-            encryption_key,
-            None,
-        )?)
+        Self::with_connection(Connection::open_in_memory()?, encryption_key, None)
     }
 
     /// Opens an existing database and fetches the salt.
@@ -404,7 +392,7 @@ impl LoginDb {
         } else {
             query += " AND formSubmitURL IS :form_submit"
         }
-        Ok(self.try_query_row(&query, args, |row| Login::from_row(row), false)?)
+        self.try_query_row(&query, args, |row| Login::from_row(row), false)
     }
 
     pub fn get_all(&self) -> Result<Vec<Login>> {
@@ -1165,7 +1153,7 @@ impl LoginDb {
             result
         }?;
         self.execute_plan(plan, scope)?;
-        Ok(self.fetch_outgoing(inbound.timestamp, scope)?)
+        self.fetch_outgoing(inbound.timestamp, scope)
     }
 
     fn put_meta(&self, key: &str, value: &dyn ToSql) -> Result<()> {
@@ -1177,12 +1165,12 @@ impl LoginDb {
     }
 
     fn get_meta<T: FromSql>(&self, key: &str) -> Result<Option<T>> {
-        Ok(self.try_query_row(
+        self.try_query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = :key",
             named_params! { ":key": key },
             |row| Ok::<_, Error>(row.get(0)?),
             true,
-        )?)
+        )
     }
 
     fn delete_meta(&self, key: &str) -> Result<()> {

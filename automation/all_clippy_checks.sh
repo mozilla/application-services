@@ -17,10 +17,20 @@ fi
 
 EXTRA_ARGS=( "$@" )
 
+# set this in the environment for the script when we want to use the
+# experimental automated clippy fixes from a future version of nightly
+# to ease the pain of doing an upgrade:
+if [[ -z ${CLIPPY_FIX+x} ]]
+then
+    CLIPPY_HEAD="cargo clippy"
+else
+    CLIPPY_HEAD="cargo +nightly clippy --fix -Z unstable-options"
+fi
+
 # Later rust versions downgraded some warning to pedantic, so we allow them here.
 ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool" "-Aunknown-lints" "-Aclippy::unknown_clippy_lints")
 
-cargo clippy --all --all-targets --all-features "${EXCLUDES[@]}" -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
+${CLIPPY_HEAD} --all --all-targets --all-features "${EXCLUDES[@]}" -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
 # Instead we pull the list of individual package manifest files which have default features
@@ -29,5 +39,5 @@ for manifest in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages
     package=$(dirname "$manifest")
     package=$(basename "$package")
     echo "## no-default-features clippy for package $package (manifest @ $manifest)"
-    cargo clippy --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
+    ${CLIPPY_HEAD} --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 done

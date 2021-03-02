@@ -117,8 +117,8 @@ pub fn connect(
         .into());
     };
     let connection = ConnectHttp {
-        uaid,
         options,
+        uaid,
         auth,
     };
 

@@ -32,10 +32,7 @@ pub fn aes_gcm_crypt(
         pIv: nonce.as_ptr() as nss_sys::CK_BYTE_PTR,
         ulIvLen: nss_sys::CK_ULONG::try_from(nonce.len())?,
         ulIvBits: nss_sys::CK_ULONG::try_from(
-            nonce
-                .len()
-                .checked_mul(8)
-                .ok_or_else(|| ErrorKind::InternalError)?,
+            nonce.len().checked_mul(8).ok_or(ErrorKind::InternalError)?,
         )?,
         pAAD: aad.as_ptr() as nss_sys::CK_BYTE_PTR,
         ulAADLen: nss_sys::CK_ULONG::try_from(aad.len())?,
@@ -94,7 +91,7 @@ pub fn common_crypt(
     let result_max_len = data
         .len()
         .checked_add(extra_data_len)
-        .ok_or_else(|| ErrorKind::InternalError)?;
+        .ok_or(ErrorKind::InternalError)?;
     let mut out_len: c_uint = 0;
     let mut out = vec![0u8; result_max_len];
     let result_max_len_uint = c_uint::try_from(result_max_len)?;

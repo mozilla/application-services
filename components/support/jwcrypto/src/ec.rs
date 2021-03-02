@@ -58,13 +58,13 @@ pub(crate) fn encrypt_to_jwe(
     let auth_tag = encrypted.split_off(tag_idx);
     let ciphertext = encrypted;
 
-    Ok(CompactJwe::new(
+    CompactJwe::new(
         Some(protected_header),
         None,
         Some(iv),
         ciphertext,
         Some(auth_tag),
-    )?)
+    )
 }
 
 pub(crate) fn decrypt_jwe(
@@ -73,9 +73,9 @@ pub(crate) fn decrypt_jwe(
 ) -> Result<String> {
     let DecryptionParameters::ECDH_ES { local_key_pair } = decryption_params;
 
-    let protected_header = jwe
-        .protected_header()?
-        .ok_or_else(|| JwCryptoError::IllegalState("protected_header must be present."))?;
+    let protected_header = jwe.protected_header()?.ok_or(JwCryptoError::IllegalState(
+        "protected_header must be present.",
+    ))?;
     if protected_header.alg != Algorithm::ECDH_ES {
         return Err(JwCryptoError::IllegalState("alg mismatch."));
     }
@@ -84,7 +84,7 @@ pub(crate) fn decrypt_jwe(
     let peer_jwk = protected_header
         .epk
         .as_ref()
-        .ok_or_else(|| JwCryptoError::IllegalState("epk not present"))?;
+        .ok_or(JwCryptoError::IllegalState("epk not present"))?;
     let JwkKeyParameters::EC(ref ec_key_params) = peer_jwk.key_parameters;
     let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
 
@@ -99,7 +99,7 @@ pub(crate) fn decrypt_jwe(
     };
     let auth_tag = jwe
         .auth_tag()?
-        .ok_or_else(|| JwCryptoError::IllegalState("auth_tag must be present."))?;
+        .ok_or(JwCryptoError::IllegalState("auth_tag must be present."))?;
     if auth_tag.len() != encryption_algorithm.tag_len() {
         return Err(JwCryptoError::IllegalState(
             "The auth tag must be 16 bytes long.",
@@ -107,7 +107,7 @@ pub(crate) fn decrypt_jwe(
     }
     let iv = jwe
         .iv()?
-        .ok_or_else(|| JwCryptoError::IllegalState("iv must be present."))?;
+        .ok_or(JwCryptoError::IllegalState("iv must be present."))?;
     let opening_key = aead::OpeningKey::new(&encryption_algorithm, &secret.as_ref())?;
     let ciphertext_and_tag: Vec<u8> = [jwe.ciphertext()?, auth_tag].concat();
     let nonce = aead::Nonce::try_assume_unique_for_key(&encryption_algorithm, &iv)?;

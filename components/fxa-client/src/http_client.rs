@@ -581,7 +581,7 @@ pub fn get_keys_bundle(config: &Config, hkdf_sha256_key: &[u8]) -> Result<Vec<u8
     let bundle = hex::decode(
         &resp["bundle"]
             .as_str()
-            .ok_or_else(|| ErrorKind::UnrecoverableServerError("bundle not present"))?,
+            .ok_or(ErrorKind::UnrecoverableServerError("bundle not present"))?,
     )?;
     Ok(bundle)
 }

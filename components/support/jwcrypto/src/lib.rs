@@ -136,9 +136,8 @@ impl CompactJwe {
     }
 
     fn ciphertext(&self) -> Result<Vec<u8>> {
-        Ok(self
-            .try_deserialize_base64_segment(3)?
-            .ok_or_else(|| JwCryptoError::IllegalState("Ciphertext is empty"))?)
+        self.try_deserialize_base64_segment(3)?
+            .ok_or(JwCryptoError::IllegalState("Ciphertext is empty"))
     }
 
     fn auth_tag(&self) -> Result<Option<Vec<u8>>> {

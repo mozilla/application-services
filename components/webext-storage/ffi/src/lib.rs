@@ -16,7 +16,7 @@ pub extern "C" fn webext_store_new(db_path: FfiStr<'_>, error: &mut ExternError)
     log::debug!("webext_store_new");
     STORES.insert_with_result(error, || -> error::Result<Store> {
         let path = db_path.as_str();
-        Ok(Store::new(path)?)
+        Store::new(path)
     })
 }
 

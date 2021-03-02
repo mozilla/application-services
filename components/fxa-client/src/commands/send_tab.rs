@@ -209,7 +209,7 @@ pub fn build_send_command(
     let command = target
         .available_commands
         .get(COMMAND_NAME)
-        .ok_or_else(|| ErrorKind::UnsupportedCommand(COMMAND_NAME))?;
+        .ok_or(ErrorKind::UnsupportedCommand(COMMAND_NAME))?;
     let bundle: SendTabKeysPayload = serde_json::from_str(command)?;
     let public_keys = bundle.decrypt(scoped_key)?;
     let encrypted_payload = send_tab_payload.encrypt(public_keys)?;

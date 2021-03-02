@@ -62,7 +62,7 @@ pub fn get_last_error() -> Error {
             CString::new(&out_str[0..error_text_len])
                 .unwrap_or_else(|_| CString::default())
                 .to_str()
-                .unwrap_or_else(|_| "")
+                .unwrap_or("")
                 .to_owned()
         })
         .unwrap_or_else(|_| "".to_string());
