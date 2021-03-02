@@ -45,7 +45,7 @@ pub(crate) fn add_address(
 pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddress) -> Result<()> {
     tx.execute_named(
         &format!(
-            "INSERT OR IGNORE INTO addresses_data (
+            "INSERT INTO addresses_data (
                 {common_cols},
                 sync_change_counter
             ) VALUES (
@@ -279,7 +279,7 @@ mod tests {
         guid: String,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
         conn.execute_named(
-            "INSERT OR IGNORE INTO addresses_tombstones (
+            "INSERT INTO addresses_tombstones (
                 guid,
                 time_deleted
             ) VALUES (

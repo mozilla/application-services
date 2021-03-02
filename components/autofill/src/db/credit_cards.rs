@@ -43,7 +43,7 @@ pub(crate) fn add_internal_credit_card(
 ) -> Result<()> {
     tx.execute_named(
         &format!(
-            "INSERT OR IGNORE INTO credit_cards_data (
+            "INSERT INTO credit_cards_data (
                 {common_cols},
                 sync_change_counter
             ) VALUES (
@@ -238,7 +238,7 @@ pub(crate) mod tests {
         guid: String,
     ) -> rusqlite::Result<usize, rusqlite::Error> {
         conn.execute_named(
-            "INSERT OR IGNORE INTO credit_cards_tombstones (
+            "INSERT INTO credit_cards_tombstones (
                 guid,
                 time_deleted
             ) VALUES (
@@ -261,7 +261,7 @@ pub(crate) mod tests {
             .expect("is json")
             .into_json_string();
         conn.execute_named(
-            "INSERT OR IGNORE INTO credit_cards_mirror (guid, payload)
+            "INSERT INTO credit_cards_mirror (guid, payload)
              VALUES (:guid, :payload)",
             rusqlite::named_params! {
                 ":guid": guid,
