@@ -176,14 +176,13 @@ impl LoginDb {
 
 // Checks if the provided string is a 32 len hex string.
 fn ensure_valid_salt(salt: &str) -> Result<()> {
-    if salt.len() == 32
-        && salt.as_bytes().iter().all(|c| match c {
-            b'A'..=b'F' => true,
-            b'a'..=b'f' => true,
-            b'0'..=b'9' => true,
-            _ => false,
-        })
-    {
+    let is_valid_hex_character = |c: &u8| {
+        matches!(c,
+                b'A'..=b'F' |
+                b'a'..=b'f' |
+                b'0'..=b'9')
+    };
+    if salt.len() == 32 && salt.as_bytes().iter().all(is_valid_hex_character) {
         return Ok(());
     }
     Err(ErrorKind::InvalidSalt.into())

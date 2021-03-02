@@ -148,7 +148,7 @@ impl SyncedBookmarkItem {
     impl_builder_opt_string!(feed_url);
     impl_builder_opt_string!(site_url);
 
-    pub fn tags<'a>(&'a mut self, mut tags: Vec<String>) -> &'a mut SyncedBookmarkItem {
+    pub fn tags(&mut self, mut tags: Vec<String>) -> &mut SyncedBookmarkItem {
         tags.sort();
         self.tags = SyncedBookmarkValue::Specified(tags);
         self

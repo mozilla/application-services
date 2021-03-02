@@ -410,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn test_plan_dupe_visit_same_guid() -> Result<()> {
+    fn test_plan_dupe_visit_same_guid() {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(ConnectionType::Sync).expect("no memory db");
         let now = SystemTime::now();
@@ -443,7 +443,6 @@ mod tests {
             plan_incoming_record(&conn, record, 10),
             IncomingPlan::Reconciled
         ));
-        Ok(())
     }
 
     #[test]

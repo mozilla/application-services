@@ -173,7 +173,7 @@ pub struct GlobalState {
 
 /// Creates a fresh `meta/global` record, using the default engine selections,
 /// and declined engines from our PersistedGlobalState.
-fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
+fn new_global(pgs: &PersistedGlobalState) -> MetaGlobalRecord {
     let sync_id = Guid::random();
     let mut engines: HashMap<String, _> = HashMap::new();
     for (name, version) in DEFAULT_ENGINES.iter() {
@@ -194,12 +194,12 @@ fn new_global(pgs: &PersistedGlobalState) -> error::Result<MetaGlobalRecord> {
         _ => DEFAULT_DECLINED.iter().map(ToString::to_string).collect(),
     };
 
-    Ok(MetaGlobalRecord {
+    MetaGlobalRecord {
         sync_id,
         storage_version: STORAGE_VERSION,
         engines,
         declined,
-    })
+    }
 }
 
 fn fixup_meta_global(global: &mut MetaGlobalRecord) -> bool {
@@ -552,7 +552,7 @@ impl<'a> SetupStateMachine<'a> {
 
                 self.changes_needed = Some(computed.changes_needed);
 
-                let new_global = new_global(self.pgs)?;
+                let new_global = new_global(self.pgs);
 
                 self.client
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
@@ -755,6 +755,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn mocked_success_ts<T>(t: T, ts: i64) -> error::Result<Sync15ClientResponse<T>> {
         Ok(Sync15ClientResponse::Success {
             status: 200,
