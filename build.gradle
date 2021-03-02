@@ -253,7 +253,7 @@ ext.cargoExecWithSQLCipher = { spec, toolchain ->
 detekt {
     toolVersion = "1.7.4"
     input = files(
-        fileTree(dir: "${projectDir}/components", excludes: ["external"]),
+        fileTree(dir: "${projectDir}/components", excludes: ["external", "**/generated"]),
         "${projectDir}/gradle-plugin",
         "buildSrc"
     )
