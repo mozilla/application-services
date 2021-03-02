@@ -12,8 +12,7 @@
 # consideration the following known consumers of the logins component
 # Android bindings:
 #
-#  * Firefox Preview
-#  * Firefox Lockwise for Android
+#  * Fenix for Andriod
 
 ---
 $schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
@@ -37,11 +36,13 @@ logins_store:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   unlock_error_count:
     type: labeled_counter
@@ -59,11 +60,13 @@ logins_store:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   read_query_count:
     type: counter
@@ -78,11 +81,13 @@ logins_store:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   read_query_error_count:
     type: labeled_counter
@@ -99,11 +104,13 @@ logins_store:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   write_query_count:
     type: counter
@@ -118,11 +125,13 @@ logins_store:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   write_query_error_count:
     type: labeled_counter
@@ -142,62 +151,10 @@ logins_store:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
-
-  # These help us understand the performance of the logins store in the wild.
-  # We'll use them to identify any application or platform features that are
-  # leading to unacceptably slow performance of the store, and eventually for
-  # comparison with other logins store implementations (such as the one in
-  # Desktop).
-
-  unlock_time:
-    type: timing_distribution
-    description: >
-      The time taken to open the logins store on startup, or after locking it
-      due to user inactivity.
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
-
-  read_query_time:
-    type: timing_distribution
-    description: >
-      The time taken to execute a read query on the logins store (such as
-      listing all logins, or finding a specific login by id).
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
-
-  write_query_time:
-    type: timing_distribution
-    description: >
-      The time taken to execute a write query on the logins store (such as
-      adding, updating, or deleting a login record).
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"

@@ -33,11 +33,13 @@ places_manager:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   read_query_error_count:
     type: labeled_counter
@@ -55,11 +57,13 @@ places_manager:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   write_query_count:
     type: counter
@@ -75,11 +79,13 @@ places_manager:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
 
   write_query_error_count:
     type: labeled_counter
@@ -101,58 +107,10 @@ places_manager:
     data_reviews:
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
       - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
+      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
     data_sensitivity:
       - interaction
     notification_emails:
+      - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
-
-  read_query_time:
-    type: timing_distribution
-    description: >
-      The time taken to execute a read query on the places store.
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2300
-      - https://github.com/mozilla/application-services/issues/2299
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
-
-  scan_query_time:
-    type: timing_distribution
-    description: >
-      The time taken to execute a scan query on the places store. This metric
-      is for queries that we expect to be costly
-      e.g. getBookmarksTree(guid, recursive=True).
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2300
-      - https://github.com/mozilla/application-services/issues/2299
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
-
-  write_query_time:
-    type: timing_distribution
-    description: >
-      The time taken to execute a write query on the places store.
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2300
-      - https://github.com/mozilla/application-services/issues/2299
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1607621
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - synced-client-integrations@mozilla.com
-    expires: "2021-03-01"
+    expires: "never"
