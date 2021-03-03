@@ -10,13 +10,13 @@
 
 use ffi_support::{
     define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
-    define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
+    define_string_destructor, ConcurrentHandleMap, ExternError, FfiStr,
 };
+use uniffi::ViaFfi;
 use places::error::*;
-use places::msg_types::{BookmarkNodeList, SearchResultList};
 use places::storage::bookmarks;
-use places::types::VisitTransitionSet;
-use places::{storage, ConnectionType, PlacesApi, PlacesDb};
+use places::types::{VisitTransitionSet};
+use places::{storage, ConnectionType, PlacesApi, PlacesDb, BookmarkNode, SearchResult};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use std::sync::Arc;
@@ -108,12 +108,14 @@ pub extern "C" fn places_pinned_sites_import_from_fennec(
     api_handle: u64,
     db_path: FfiStr<'_>,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("places_pinned_sites_import_from_fennec");
     APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
-        Ok(BookmarkNodeList::from(
-            places::import::import_fennec_pinned_sites(api, db_path.as_str())?,
-        ))
+        let nodes = places::import::import_fennec_pinned_sites(api, db_path.as_str())?
+            .into_iter().map(Into::into).collect::<Vec<BookmarkNode>>();
+        // This is kind of awkward, we can't impl `IntoFfi` for `Vec<T>` so have to call `lower()` by hand.
+        // Maybe UniFFI could impl this for us as a helper?
+        Ok(nodes.lower())
     })
 }
 
@@ -192,7 +194,7 @@ pub extern "C" fn places_query_autocomplete(
     search: FfiStr<'_>,
     limit: u32,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("places_query_autocomplete");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let results = search_frecent(
@@ -204,8 +206,8 @@ pub extern "C" fn places_query_autocomplete(
         )?
         .into_iter()
         .map(|r| r.into())
-        .collect();
-        Ok(SearchResultList { results })
+        .collect::<Vec<SearchResult>>();
+        Ok(results.lower())
     })
 }
 
@@ -380,10 +382,11 @@ pub extern "C" fn places_get_top_frecent_site_infos(
     num_items: i32,
     frecency_threshold: i64,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("places_get_top_frecent_site_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_top_frecent_site_infos(conn, num_items, frecency_threshold)
+        let results = storage::history::get_top_frecent_site_infos(conn, num_items, frecency_threshold)?;
+        Ok(results.lower())
     })
 }
 
@@ -394,16 +397,17 @@ pub extern "C" fn places_get_visit_infos(
     end_date: i64,
     exclude_types: i32,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("places_get_visit_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_visit_infos(
+        let results = storage::history::get_visit_infos(
             conn,
             types::Timestamp(start_date.max(0) as u64),
             types::Timestamp(end_date.max(0) as u64),
             VisitTransitionSet::from_u16(exclude_types as u16)
                 .expect("Bug: Invalid VisitTransitionSet"),
-        )
+        )?;
+        Ok(results.lower())
     })
 }
 
@@ -432,10 +436,10 @@ pub extern "C" fn places_get_visit_page(
     count: i64,
     exclude_types: i32,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("places_get_visit_page");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_visit_page(
+        let results = storage::history::get_visit_page(
             conn,
             offset,
             count,
@@ -443,7 +447,8 @@ pub extern "C" fn places_get_visit_page(
             // if this expect fires.
             VisitTransitionSet::from_u16(exclude_types as u16)
                 .expect("Bug: Invalid VisitTransitionSet"),
-        )
+        )?;
+        Ok(results.lower())
     })
 }
 
@@ -455,7 +460,7 @@ pub extern "C" fn places_get_visit_page_with_bound(
     count: i64,
     exclude_types: i32,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("places_get_visit_page");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         storage::history::get_visit_page_with_bound(
@@ -559,7 +564,7 @@ pub extern "C" fn bookmarks_get_tree(
     handle: u64,
     guid: FfiStr<'_>,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("bookmarks_get_tree");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let root_id = SyncGuid::from(guid.as_str());
@@ -582,7 +587,7 @@ pub extern "C" fn bookmarks_get_by_guid(
     guid: FfiStr<'_>,
     get_direct_children: u8,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("bookmarks_get_by_guid");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let guid = SyncGuid::from(guid.as_str());
@@ -590,50 +595,30 @@ pub extern "C" fn bookmarks_get_by_guid(
     })
 }
 
-unsafe fn get_buffer<'a>(data: *const u8, len: i32) -> &'a [u8] {
-    assert!(len >= 0, "Bad buffer len: {}", len);
-    if len == 0 {
-        // This will still fail, but as a bad protobuf format.
-        &[]
-    } else {
-        assert!(!data.is_null(), "Unexpected null data pointer");
-        std::slice::from_raw_parts(data, len as usize)
-    }
-}
-/// # Safety
-/// Deref pointer, thus unsafe
 #[no_mangle]
-pub unsafe extern "C" fn bookmarks_insert(
+pub extern "C" fn bookmarks_insert(
     handle: u64,
-    data: *const u8,
-    len: i32,
+    data: uniffi::RustBuffer,
     error: &mut ExternError,
 ) -> *mut c_char {
     log::debug!("bookmarks_insert");
-    use places::msg_types::BookmarkNode;
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let buffer = get_buffer(data, len);
-        let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
+        let bookmark: BookmarkNode = <BookmarkNode as uniffi::ViaFfi>::try_lift(data).unwrap();
         let insertable = bookmark.into_insertable()?;
         let guid = bookmarks::insert_bookmark(conn, &insertable)?;
         Ok(guid.into_string())
     })
 }
 
-/// # Safety
-/// Deref pointer, thus unsafe
 #[no_mangle]
-pub unsafe extern "C" fn bookmarks_update(
+pub extern "C" fn bookmarks_update(
     handle: u64,
-    data: *const u8,
-    len: i32,
+    data: uniffi::RustBuffer,
     error: &mut ExternError,
 ) {
     log::debug!("bookmarks_update");
-    use places::msg_types::BookmarkNode;
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let buffer = get_buffer(data, len);
-        let bookmark: BookmarkNode = prost::Message::decode(buffer)?;
+        let bookmark: BookmarkNode = <BookmarkNode as uniffi::ViaFfi>::try_lift(data).unwrap();
         bookmarks::public_node::update_bookmark_from_message(conn, bookmark)?;
         Ok(())
     })
@@ -654,19 +639,20 @@ pub extern "C" fn bookmarks_get_all_with_url(
     handle: u64,
     url: FfiStr<'_>,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("bookmarks_get_all_with_url");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(match parse_url(url.as_str()) {
+        let results: Vec<BookmarkNode> = match parse_url(url.as_str()) {
             Ok(url) => {
-                BookmarkNodeList::from(bookmarks::public_node::fetch_bookmarks_by_url(conn, &url)?)
+                bookmarks::public_node::fetch_bookmarks_by_url(conn, &url)?.into_iter().map(Into::into).collect()
             }
             Err(e) => {
                 // There are no bookmarks with the URL if it's invalid.
                 log::warn!("Invalid URL passed to bookmarks_get_all_with_url, {}", e);
-                BookmarkNodeList::from(Vec::<bookmarks::public_node::PublicNode>::new())
+                vec![]
             }
-        })
+        };
+        Ok(results.lower())
     })
 }
 
@@ -691,12 +677,11 @@ pub extern "C" fn bookmarks_search(
     query: FfiStr<'_>,
     limit: i32,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("bookmarks_search");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(BookmarkNodeList::from(
-            bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?,
-        ))
+        let results: Vec<BookmarkNode> = bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?.into_iter().map(Into::into).collect();
+        Ok(results.lower())
     })
 }
 
@@ -705,12 +690,11 @@ pub extern "C" fn bookmarks_get_recent(
     handle: u64,
     limit: i32,
     error: &mut ExternError,
-) -> ByteBuffer {
+) -> uniffi::RustBuffer {
     log::debug!("bookmarks_get_recent");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        Ok(BookmarkNodeList::from(
-            bookmarks::public_node::recent_bookmarks(conn, limit as u32)?,
-        ))
+        let results: Vec<BookmarkNode> = bookmarks::public_node::recent_bookmarks(conn, limit as u32)?.into_iter().map(Into::into).collect();
+        Ok(results.lower())
     })
 }
 

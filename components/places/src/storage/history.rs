@@ -10,13 +10,12 @@ use crate::hash;
 use crate::history_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
-use crate::msg_types::{
-    HistoryVisitInfo, HistoryVisitInfos, HistoryVisitInfosWithBound, TopFrecentSiteInfo,
-    TopFrecentSiteInfos,
-};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
+use crate::types::{
+    HistoryVisitInfo, HistoryVisitInfosWithBound, SyncStatus, TopFrecentSiteInfo, VisitTransition,
+    VisitTransitionSet,
+};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
@@ -1199,7 +1198,7 @@ pub fn get_top_frecent_site_infos(
     db: &PlacesDb,
     num_items: i32,
     frecency_threshold: i64,
-) -> Result<TopFrecentSiteInfos> {
+) -> Result<Vec<TopFrecentSiteInfo>> {
     // Get the complement of the visit types that should be excluded.
     let allowed_types = VisitTransitionSet::for_specific(&[
         VisitTransition::Download,
@@ -1211,7 +1210,7 @@ pub fn get_top_frecent_site_infos(
     ])
     .complement();
 
-    let infos = db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_named_cached(
         "SELECT h.frecency, h.title, h.url
         FROM moz_places h
         WHERE EXISTS (
@@ -1232,8 +1231,7 @@ pub fn get_top_frecent_site_infos(
             ":frecency_threshold": frecency_threshold,
         },
         TopFrecentSiteInfo::from_row,
-    )?;
-    Ok(TopFrecentSiteInfos { infos })
+    )
 }
 
 pub fn get_visit_infos(
@@ -1241,9 +1239,9 @@ pub fn get_visit_infos(
     start: Timestamp,
     end: Timestamp,
     exclude_types: VisitTransitionSet,
-) -> Result<HistoryVisitInfos> {
+) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
-    let infos = db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
          FROM moz_places h
          JOIN moz_historyvisits v
@@ -1258,8 +1256,7 @@ pub fn get_visit_infos(
             ":allowed_types": allowed_types,
         },
         HistoryVisitInfo::from_row,
-    )?;
-    Ok(HistoryVisitInfos { infos })
+    )
 }
 
 pub fn get_visit_count(db: &PlacesDb, exclude_types: VisitTransitionSet) -> Result<i64> {
@@ -1286,9 +1283,9 @@ pub fn get_visit_page(
     offset: i64,
     count: i64,
     exclude_types: VisitTransitionSet,
-) -> Result<HistoryVisitInfos> {
+) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
-    let infos = db.query_rows_and_then_named_cached(
+    db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
          FROM moz_places h
          JOIN moz_historyvisits v
@@ -1304,8 +1301,7 @@ pub fn get_visit_page(
             ":allowed_types": allowed_types,
         },
         HistoryVisitInfo::from_row,
-    )?;
-    Ok(HistoryVisitInfos { infos })
+    )
 }
 
 pub fn get_visit_page_with_bound(

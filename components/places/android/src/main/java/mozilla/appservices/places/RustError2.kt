@@ -12,9 +12,9 @@ import com.sun.jna.Pointer
 import com.sun.jna.Structure
 
 @Structure.FieldOrder("code", "message")
-internal open class RustError : Structure() {
+internal open class RustError2 : Structure() {
 
-    class ByReference : RustError(), Structure.ByReference
+    class ByReference : RustError2(), Structure.ByReference
 
     @JvmField var code: Int = 0
     @JvmField var message: Pointer? = null

@@ -26,14 +26,17 @@ ffi-support = "0.4"
 bitflags = "1.2"
 idna = "0.2"
 memchr = "2.3"
-prost = "0.6"
-prost-derive = "0.6"
 dogear = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "1.0"
 anyhow = "1.0"
+uniffi = "^0.7.2"
+uniffi_macros = "^0.7.2"
+
+[build-dependencies]
+uniffi_build = { version = "^0.7.2", features=["builtin-bindgen"] }
 
 [dependencies.rusqlite]
 version = "0.24.2"

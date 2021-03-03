@@ -314,9 +314,9 @@ class PlacesConnectionTest {
         val sep = db.getBookmark(sepGUID)!! as BookmarkSeparator
         val folder = db.getBookmark(folderGUID)!! as BookmarkFolder
 
-        assertEquals(item.type, BookmarkType.Bookmark)
-        assertEquals(sep.type, BookmarkType.Separator)
-        assertEquals(folder.type, BookmarkType.Folder)
+        assertEquals(item.type, BookmarkType.BOOKMARK)
+        assertEquals(sep.type, BookmarkType.SEPARATOR)
+        assertEquals(folder.type, BookmarkType.FOLDER)
 
         assertEquals(item.title, "example")
         assertEquals(item.url, "https://www.example.com/")

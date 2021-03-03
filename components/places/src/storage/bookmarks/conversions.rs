@@ -4,17 +4,16 @@
 
 use super::{
     BookmarkPosition, BookmarkRootGuid, BookmarkTreeNode, InsertableBookmark, InsertableFolder,
-    InsertableItem, InsertableSeparator, PublicNode, RawBookmark, UpdatableBookmark,
+    InsertableItem, InsertableSeparator, InternalBookmarkNode, RawBookmark, UpdatableBookmark,
     UpdatableFolder, UpdatableItem, UpdatableSeparator, UpdateTreeLocation,
 };
 
 use crate::error::{InvalidPlaceInfo, Result};
-use crate::msg_types;
 use crate::types::BookmarkType;
 use sync_guid::Guid as SyncGuid;
 use url::Url;
 
-impl From<BookmarkTreeNode> for PublicNode {
+impl From<BookmarkTreeNode> for InternalBookmarkNode {
     // TODO: Eventually this should either be a function that takes an
     // SqlInterruptScope, or we should have another version that does.
     // For now it is likely fine.
@@ -45,7 +44,7 @@ impl From<BookmarkTreeNode> for PublicNode {
                         .into_iter()
                         .enumerate()
                         .map(|(i, bn)| {
-                            let mut child = PublicNode::from(bn);
+                            let mut child = InternalBookmarkNode::from(bn);
                             child.parent_guid = Some(own_guid.clone());
                             child.position = i as u32;
                             child
@@ -58,41 +57,39 @@ impl From<BookmarkTreeNode> for PublicNode {
     }
 }
 
-impl From<PublicNode> for msg_types::BookmarkNode {
-    fn from(n: PublicNode) -> Self {
-        let have_child_nodes = if n.node_type == BookmarkType::Folder {
-            Some(n.child_nodes.is_some())
-        } else {
-            None
-        };
+impl From<InternalBookmarkNode> for crate::types::BookmarkNode {
+    fn from(n: InternalBookmarkNode) -> Self {
         Self {
-            node_type: Some(n.node_type as i32),
+            node_type: Some(n.node_type),
             guid: Some(n.guid.into_string()),
             date_added: Some(n.date_added.0 as i64),
             last_modified: Some(n.last_modified.0 as i64),
             title: n.title,
             url: n.url.map(url::Url::into_string),
             parent_guid: n.parent_guid.map(|g| g.into_string()),
-            position: Some(n.position),
+            position: Some(n.position as i32),
             child_guids: n.child_guids.map_or(vec![], |child_guids| {
                 child_guids
                     .into_iter()
                     .map(|m| m.into_string())
                     .collect::<Vec<String>>()
             }),
-            child_nodes: n.child_nodes.map_or(vec![], |nodes| {
-                nodes
-                    .into_iter()
-                    .map(msg_types::BookmarkNode::from)
-                    .collect()
-            }),
-            have_child_nodes,
+            child_nodes: if n.node_type == BookmarkType::Folder {
+                Some(n.child_nodes.map_or(vec![], |nodes| {
+                    nodes
+                        .into_iter()
+                        .map(crate::types::BookmarkNode::from)
+                        .collect()
+                }))
+            } else {
+                None
+            },
         }
     }
 }
 
 // Note: this conversion is incomplete if rb is a folder!
-impl From<RawBookmark> for PublicNode {
+impl From<RawBookmark> for InternalBookmarkNode {
     fn from(rb: RawBookmark) -> Self {
         Self {
             node_type: rb.bookmark_type,
@@ -109,27 +106,11 @@ impl From<RawBookmark> for PublicNode {
     }
 }
 
-impl From<Vec<PublicNode>> for msg_types::BookmarkNodeList {
-    fn from(ns: Vec<PublicNode>) -> Self {
-        Self {
-            nodes: ns.into_iter().map(msg_types::BookmarkNode::from).collect(),
-        }
-    }
-}
-
-impl msg_types::BookmarkNode {
-    /// Get the BookmarkType, panicking if it's invalid (because it really never
+impl crate::types::BookmarkNode {
+    /// Get the BookmarkType, panicking if it's missing (because it really never
     /// should be unless we have a bug somewhere).
     pub(crate) fn get_node_type(&self) -> BookmarkType {
-        let value = self.node_type.unwrap();
-        // Check that the cast wouldn't truncate first.
-        assert!(
-            value >= 0 && value <= i32::from(std::u8::MAX),
-            "wildly illegal node_type: {}",
-            value
-        );
-
-        BookmarkType::from_u8(value as u8).expect("Invalid node_type")
+        self.node_type.unwrap()
     }
 
     /// Convert the protobuf bookmark into information for insertion.
@@ -141,9 +122,9 @@ impl msg_types::BookmarkNode {
             .map(SyncGuid::from)
             .unwrap_or_else(|| BookmarkRootGuid::Unfiled.into());
 
-        let position = self
-            .position
-            .map_or(BookmarkPosition::Append, BookmarkPosition::Specific);
+        let position = self.position.map_or(BookmarkPosition::Append, |pos| {
+            BookmarkPosition::Specific(pos as u32)
+        });
 
         Ok(match ty {
             BookmarkType::Bookmark => InsertableItem::Bookmark(InsertableBookmark {
@@ -239,8 +220,8 @@ impl BookmarkUpdateInfo {
     }
 }
 
-impl From<msg_types::BookmarkNode> for BookmarkUpdateInfo {
-    fn from(n: msg_types::BookmarkNode) -> Self {
+impl From<crate::types::BookmarkNode> for BookmarkUpdateInfo {
+    fn from(n: crate::types::BookmarkNode) -> Self {
         Self {
             // This is a bug in our code on the other side of the FFI,
             // so expect should be fine.
@@ -248,13 +229,7 @@ impl From<msg_types::BookmarkNode> for BookmarkUpdateInfo {
             title: n.title,
             url: n.url,
             parent_guid: n.parent_guid.map(SyncGuid::from),
-            position: n.position,
+            position: n.position.map(|p| p as u32),
         }
-    }
-}
-
-impl From<Vec<msg_types::BookmarkNode>> for msg_types::BookmarkNodeList {
-    fn from(nodes: Vec<msg_types::BookmarkNode>) -> Self {
-        Self { nodes }
     }
 }

@@ -28,7 +28,7 @@ use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
 
-pub use public_node::PublicNode;
+pub use public_node::InternalBookmarkNode;
 pub use root_guid::{BookmarkRootGuid, USER_CONTENT_ROOTS};
 
 mod conversions;

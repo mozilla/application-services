@@ -165,6 +165,133 @@ impl Serialize for BookmarkType {
     }
 }
 
+/// A bookmark node.
+///
+/// We use a single message type for bookmarks. It covers insertion, deletion,
+/// and update, and represents all three bookmark types.
+///
+/// This simplifies the FFI by reducing the number of types that must go across
+/// it, and retuces boilderplate, but removes some static-ish guarantees we
+/// might have otherwise.
+pub struct BookmarkNode {
+    /// The type of this bookmark.
+    /// This impacts which fields may be present.
+    /// It's illegal to attempt to change this when updating a bookmark.
+    ///
+    /// - Always returned on reads.
+    /// - Required for inserts.
+    /// - Not provided for updates.
+    pub node_type: Option<BookmarkType>,
+
+    /// The bookmark's guid.
+    ///
+    /// - Always returned on reads.
+    /// - Not allowed for inserts.
+    /// - Required for updates (specifies which record is being changed)
+    pub guid: Option<String>,
+
+    /// Creation time, in milliseconds since the unix epoch.
+    ///
+    /// May not be a local timestamp, and may shift if new devices are able to
+    /// provide an earlier (but still valid) timestamp.
+    ///
+    /// - Always returned on reads.
+    /// - Ignored for insertion and update.
+    pub date_added: Option<i64>,
+
+    /// Last modification time, in milliseconds since the unix epoch.
+    ///
+    /// - Always returned on reads.
+    /// - Ignored for insertion and update.
+    pub last_modified: Option<i64>,
+
+    /// Guid of the parent record.
+    ///
+    /// - Returned on reads, except for reads of the bookmark root.
+    /// - Required for insertion.
+    /// - On updates, if provided, we treat it as a move.
+    ///     - Interacts with `position`, see its documentation below
+    ///       for details on how.
+    pub parent_guid: Option<String>,
+
+    /// Zero based index within the parent.
+    ///
+    /// - Not provided on reads (for now).
+    ///
+    /// - Allowed for insertion.
+    ///    - Leaving it out means 'end of folder'.
+    ///
+    /// - Allowed for updates.
+    ///     - If `parent_guid` is not provided and `position` is, we treat this
+    ///       a move within the same folder.
+    ///
+    ///     - If `parent_guid` and `position` are both provided, we treat this as
+    ///       a move to / within that folder, and we insert at the requested
+    ///       position.
+    ///
+    ///     - If `position` is not provided (and `parent_guid` is) then it's
+    ///       treated as a move to the end of that folder.
+    pub position: Option<i32>,
+
+    /// Bookmark title. Not present for type = `BookmarkType::Separator`.
+    ///
+    /// - Returned on reads if it exists.
+    /// - Required when inserting folders.
+    pub title: Option<String>,
+
+    /// Bookmark URL. Only allowed/present for type = `BookmarkType::Bookmark`.
+    ///
+    /// - Always returned on reads (for `BookmarkType::Bookmark`).
+    /// - Required when inserting a new bookmark.
+    pub url: Option<String>,
+
+    /// IDs of folder children, in order. Only present for type =
+    /// `BookmarkType::Folder`.
+    ///
+    /// - Returned on reads (for `BookmarkType::Folder`).
+    /// - Forbidden for insertions and updates.
+    /// - Not provided if `child_nodes` is provided, to avoid sending more data
+    ///   over the FFI than necessary.
+    pub child_guids: Vec<String>,
+
+    /// Data about folder children, in order. Only present for type =
+    /// `BookmarkType::Folder`.
+    ///
+    /// For performance reasons, this only is provided if it's requested.
+    pub child_nodes: Option<Vec<BookmarkNode>>,
+}
+
+/// Information about a specific history visit.
+///
+pub struct HistoryVisitInfo {
+    pub url: String,
+    pub title: Option<String>,
+    pub timestamp: i64,
+    pub visit_type: VisitTransition,
+    pub is_hidden: bool,
+}
+
+/// A list of history visits, along with pagination info.
+/// This is useful when loading lots of history visits via pagination.
+///
+pub struct HistoryVisitInfosWithBound {
+    pub infos: Vec<HistoryVisitInfo>,
+    pub bound: i64,
+    pub offset: i64,
+}
+
+pub struct TopFrecentSiteInfo {
+    pub url: String,
+    pub title: Option<String>,
+}
+
+// This just makes sure we have some extra helper functions available,
+// to be called from our hand-written bindings.
+pub struct TypesThatWouldAppearInFunctionSignaturesIfWeUniffiedTheFunctions {
+    pub search_results: Vec<crate::api::matcher::SearchResult>,
+    pub frecency_results: Vec<TopFrecentSiteInfo>,
+}
+
 /// Re SyncStatus - note that:
 /// * logins has synced=0, changed=1, new=2
 /// * desktop bookmarks has unknown=0, new=1, normal=2

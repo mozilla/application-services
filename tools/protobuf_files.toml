@@ -8,9 +8,6 @@ dir = "../components/fxa-client/src/"
 ["logins_msg_types.proto"]
 dir = "../components/logins/src/"
 
-["places_msg_types.proto"]
-dir = "../components/places/src/"
-
 ["push_msg_types.proto"]
 dir = "../components/push/src/"
 

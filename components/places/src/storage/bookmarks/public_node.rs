@@ -4,12 +4,11 @@
 
 use super::super::bookmarks::FetchDepth;
 use super::*;
-use crate::msg_types::BookmarkNode as ProtoBookmark;
 
-/// This type basically exists to become a msg_types::BookmarkNode, but is
-/// slightly less of a pain to deal with in rust.
+/// This type basically exists to become an instance of the public `BookmarkNode` struct,
+/// but is slightly less of a pain to deal with in rust.
 #[derive(Debug, Clone)]
-pub struct PublicNode {
+pub struct InternalBookmarkNode {
     pub node_type: BookmarkType,
     pub guid: SyncGuid,
     pub parent_guid: Option<SyncGuid>,
@@ -20,14 +19,15 @@ pub struct PublicNode {
     pub url: Option<Url>,
     pub title: Option<String>,
     pub child_guids: Option<Vec<SyncGuid>>,
-    pub child_nodes: Option<Vec<PublicNode>>,
+    pub child_nodes: Option<Vec<InternalBookmarkNode>>,
 }
 
-impl Default for PublicNode {
+impl Default for InternalBookmarkNode {
     fn default() -> Self {
         Self {
             // Note: we mainly want `Default::default()` for filling in the
-            // missing part of struct decls.
+            // missing part of struct decls, so it's ok to pick an arbitrary value
+            // for fields that will always be specified explicitly in practice.
             node_type: BookmarkType::Separator,
             guid: SyncGuid::from(""),
             parent_guid: None,
@@ -42,8 +42,8 @@ impl Default for PublicNode {
     }
 }
 
-impl PartialEq for PublicNode {
-    fn eq(&self, other: &PublicNode) -> bool {
+impl PartialEq for InternalBookmarkNode {
+    fn eq(&self, other: &InternalBookmarkNode) -> bool {
         // Compare everything except date_added and last_modified.
         self.node_type == other.node_type
             && self.guid == other.guid
@@ -54,7 +54,7 @@ impl PartialEq for PublicNode {
     }
 }
 
-pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<Vec<PublicNode>> {
+pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<Vec<InternalBookmarkNode>> {
     let nodes = get_raw_bookmarks_for_url(db, url)?
         .into_iter()
         .map(|rb| {
@@ -63,7 +63,7 @@ pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<Vec<PublicNode
             debug_assert_eq!(rb.child_count, 0);
             debug_assert_eq!(rb.bookmark_type, BookmarkType::Bookmark);
             debug_assert_eq!(rb.url.as_ref(), Some(url));
-            PublicNode {
+            InternalBookmarkNode {
                 node_type: rb.bookmark_type,
                 guid: rb.guid,
                 parent_guid: rb.parent_guid,
@@ -86,13 +86,13 @@ pub fn fetch_bookmarks_by_url(db: &PlacesDb, url: &Url) -> Result<Vec<PublicNode
 /// If `get_direct_children` is true, it will return 1 level of folder children,
 /// otherwise it returns just their guids.
 ///
-/// It also produces the protobuf message type directly, rather than
+/// It also produces the InternalBookmarkNode type directly, rather than
 /// add a special variant of this bookmark type just for this function.
 pub fn fetch_bookmark(
     db: &PlacesDb,
     item_guid: &SyncGuid,
     get_direct_children: bool,
-) -> Result<Option<PublicNode>> {
+) -> Result<Option<InternalBookmarkNode>> {
     let depth = if get_direct_children {
         FetchDepth::Specific(1)
     } else {
@@ -122,8 +122,8 @@ pub fn fetch_bookmark(
     Ok(Some(bookmark))
 }
 
-pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result<()> {
-    let info = conversions::BookmarkUpdateInfo::from(msg);
+pub fn update_bookmark_from_message(db: &PlacesDb, node: crate::types::BookmarkNode) -> Result<()> {
+    let info = conversions::BookmarkUpdateInfo::from(node);
 
     let tx = db.begin_transaction()?;
     let existing = get_raw_bookmark(db, &info.guid)?
@@ -137,18 +137,21 @@ pub fn update_bookmark_from_message(db: &PlacesDb, msg: ProtoBookmark) -> Result
 
 /// Call fetch_public_tree_with_depth with FetchDepth::Deepest.
 /// This is the function called by the FFI when requesting the tree.
-pub fn fetch_public_tree(db: &PlacesDb, item_guid: &SyncGuid) -> Result<Option<PublicNode>> {
+pub fn fetch_public_tree(
+    db: &PlacesDb,
+    item_guid: &SyncGuid,
+) -> Result<Option<InternalBookmarkNode>> {
     fetch_public_tree_with_depth(db, item_guid, &FetchDepth::Deepest)
 }
 
 /// Call fetch_tree with a depth parameter and convert the result
-/// to a ProtoBookmark, and ensure the requested item's position
+/// to an InternalBookmarkNode, and ensure the requested item's position
 /// and parent info are provided as well.
 pub fn fetch_public_tree_with_depth(
     db: &PlacesDb,
     item_guid: &SyncGuid,
     target_depth: &FetchDepth,
-) -> Result<Option<PublicNode>> {
+) -> Result<Option<InternalBookmarkNode>> {
     let _tx = db.begin_transaction()?;
     let (tree, parent_guid, position) =
         if let Some((tree, parent_guid, position)) = fetch_tree(db, item_guid, target_depth)? {
@@ -158,21 +161,25 @@ pub fn fetch_public_tree_with_depth(
         };
 
     // `position` and `parent_guid` will be handled for the children of
-    // `item_guid` by `PublicNode::from` automatically, however we
+    // `item_guid` by `InternalBookmarkNode::from` automatically, however we
     // still need to fill in it's own `parent_guid` and `position`.
-    let mut proto = PublicNode::from(tree);
+    let mut node = InternalBookmarkNode::from(tree);
 
     if item_guid != BookmarkRootGuid::Root {
-        proto.parent_guid = parent_guid;
-        proto.position = position;
+        node.parent_guid = parent_guid;
+        node.position = position;
     }
-    Ok(Some(proto))
+    Ok(Some(node))
 }
 
-pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<PublicNode>> {
+pub fn search_bookmarks(
+    db: &PlacesDb,
+    search: &str,
+    limit: u32,
+) -> Result<Vec<InternalBookmarkNode>> {
     let scope = db.begin_interrupt_scope();
     Ok(db
-        .query_rows_into_cached::<Vec<Option<PublicNode>>, _, _, _>(
+        .query_rows_into_cached::<Vec<Option<InternalBookmarkNode>>, _, _, _>(
             &SEARCH_QUERY,
             &[(":search", &search), (":limit", &limit)],
             |row| -> Result<_> {
@@ -182,7 +189,7 @@ pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<P
                         .get::<_, Option<String>>("url")?
                         .and_then(|href| url::Url::parse(&href).ok())
                     {
-                        Some(url) => Some(PublicNode {
+                        Some(url) => Some(InternalBookmarkNode {
                             node_type: BookmarkType::Bookmark,
                             guid: row.get("guid")?,
                             parent_guid: row.get("parentGuid")?,
@@ -204,7 +211,7 @@ pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<P
         .collect())
 }
 
-pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
+pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<InternalBookmarkNode>> {
     let scope = db.begin_interrupt_scope();
     let sql = format!(
         "SELECT
@@ -224,7 +231,7 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
         bookmark_type = BookmarkType::Bookmark as u8,
     );
     Ok(db
-        .query_rows_into_cached::<Vec<Option<PublicNode>>, _, _, _>(
+        .query_rows_into_cached::<Vec<Option<InternalBookmarkNode>>, _, _, _>(
             &sql,
             &[(":limit", &limit)],
             |row| -> Result<_> {
@@ -234,7 +241,7 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
                         .get::<_, Option<String>>("url")?
                         .and_then(|href| url::Url::parse(&href).ok())
                     {
-                        Some(url) => Some(PublicNode {
+                        Some(url) => Some(InternalBookmarkNode {
                             node_type: BookmarkType::Bookmark,
                             guid: row.get("guid")?,
                             parent_guid: row.get("parentGuid")?,
@@ -337,7 +344,7 @@ mod test {
         assert_eq!(bmks.len(), 2);
         assert_eq!(
             bmks[0],
-            PublicNode {
+            InternalBookmarkNode {
                 node_type: BookmarkType::Bookmark,
                 guid: "bookmark2___".into(),
                 title: Some("yes 1".into()),
@@ -353,7 +360,7 @@ mod test {
         );
         assert_eq!(
             bmks[1],
-            PublicNode {
+            InternalBookmarkNode {
                 node_type: BookmarkType::Bookmark,
                 guid: "bookmark4___".into(),
                 title: Some("yes 2".into()),
@@ -671,7 +678,7 @@ mod test {
 
         assert_eq!(
             bmks[0],
-            PublicNode {
+            InternalBookmarkNode {
                 node_type: BookmarkType::Bookmark,
                 guid: "bookmark5___".into(),
                 title: Some("b5".into()),
@@ -687,7 +694,7 @@ mod test {
         );
         assert_eq!(
             bmks[1],
-            PublicNode {
+            InternalBookmarkNode {
                 node_type: BookmarkType::Bookmark,
                 guid: "bookmark4___".into(),
                 title: Some("b4".into()),
@@ -703,7 +710,7 @@ mod test {
         );
         assert_eq!(
             bmks[2],
-            PublicNode {
+            InternalBookmarkNode {
                 node_type: BookmarkType::Bookmark,
                 guid: "bookmark3___".into(),
                 title: Some("b3".into()),

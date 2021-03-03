@@ -4,8 +4,6 @@
 
 package mozilla.appservices.places
 
-import java.lang.RuntimeException
-
 /**
  * Enumeration of the ids of the roots of the bookmarks tree.
  *
@@ -21,17 +19,6 @@ enum class BookmarkRoot(val id: String) {
     Toolbar("toolbar_____"),
     Unfiled("unfiled_____"),
     Mobile("mobile______"),
-}
-
-/**
- * Enumeration of the type of a bookmark item.
- *
- * Must match BookmarkType in the Rust code.
- */
-enum class BookmarkType(val value: Int) {
-    Bookmark(1),
-    Folder(2),
-    Separator(3),
 }
 
 /**
@@ -77,7 +64,7 @@ sealed class BookmarkTreeNode {
 /**
  * A bookmark tree node that represents a bookmarked URL.
  *
- * Its type is always [BookmarkType.Bookmark], and it has a `title `and `url`
+ * Its type is always [BookmarkType.BOOKMARK], and it has a `title `and `url`
  * in addition to the fields defined by [BookmarkTreeNode].
  */
 
@@ -101,13 +88,13 @@ data class BookmarkItem(
      */
     val title: String
 ) : BookmarkTreeNode() {
-    override val type get() = BookmarkType.Bookmark
+    override val type get() = BookmarkType.BOOKMARK
 }
 
 /**
  * A bookmark which is a folder.
  *
- * Its type is always [BookmarkType.Folder], and it has a `title`,
+ * Its type is always [BookmarkType.FOLDER], and it has a `title`,
  * a list of `childGUIDs`, and possibly a list of `children` in
  * addition to those defined by [BookmarkTreeNode].
  */
@@ -138,13 +125,13 @@ data class BookmarkFolder(
     val children: List<BookmarkTreeNode>?
 
 ) : BookmarkTreeNode() {
-    override val type get() = BookmarkType.Folder
+    override val type get() = BookmarkType.FOLDER
 }
 
 /**
  * A bookmark which is a separator.
  *
- * Its type is always [BookmarkType.Separator], and it has no fields
+ * Its type is always [BookmarkType.SEPARATOR], and it has no fields
  * besides those defined by [BookmarkTreeNode].
  */
 data class BookmarkSeparator(
@@ -154,7 +141,7 @@ data class BookmarkSeparator(
     override val parentGUID: String?,
     override val position: Int
 ) : BookmarkTreeNode() {
-    override val type get() = BookmarkType.Separator
+    override val type get() = BookmarkType.SEPARATOR
 }
 
 /**
@@ -394,26 +381,31 @@ data class BookmarkUpdateInfo(
     val position: Int? = null,
 
     /**
-     * For nodes of type [BookmarkType.Bookmark] and [BookmarkType.Folder],
+     * For nodes of type [BookmarkType.BOOKMARK] and [BookmarkType.FOLDER],
      * a string specifying the new title of the bookmark node.
      */
     val title: String? = null,
 
     /**
-     * For nodes of type [BookmarkType.Bookmark], a string specifying
+     * For nodes of type [BookmarkType.BOOKMARK], a string specifying
      * the new url of the bookmark node.
      */
     val url: String? = null
 ) {
 
-    internal fun toProtobuf(guid: String): MsgTypes.BookmarkNode {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-        builder.setGuid(guid)
-        this.position?.let { builder.setPosition(it) }
-        this.parentGUID?.let { builder.setParentGuid(it) }
-        this.title?.let { builder.setTitle(it) }
-        this.url?.let { builder.setUrl(it) }
-        return builder.build()
+    internal fun toBookmarkNode(guid: String): BookmarkNode {
+        return BookmarkNode(
+            null,
+            guid,
+            null,
+            null,
+            this.parentGUID,
+            this.position,
+            this.title,
+            this.url,
+            emptyList(),
+            null
+        )
     }
 }
 
@@ -465,78 +457,69 @@ open class CannotUpdateRoot(msg: String) : PlacesException(msg)
 open class InvalidParent(msg: String) : PlacesException(msg)
 
 /**
- * Turn the protobuf rust passes us into a BookmarkTreeNode.
+ * Turn the result type rust passes us into a BookmarkTreeNode.
  *
- * Note that we have no way to determine empty lists and lists that weren't provided, so we pass
- * in what we.
- * expect as a boolean flag (shouldHaveChildNodes).
  */
 @Suppress("ComplexMethod", "ReturnCount", "TooGenericExceptionThrown")
-internal fun unpackProtobuf(msg: MsgTypes.BookmarkNode): BookmarkTreeNode {
-    val guid = msg.guid
-    val parentGUID = msg.parentGuid
-    val position = msg.position
-    val dateAdded = msg.dateAdded
-    val lastModified = msg.lastModified
-    val type = msg.nodeType
-    val title = if (msg.hasTitle()) { msg.title } else { "" }
-    val shouldHaveChildNodes = if (msg.hasHaveChildNodes()) { msg.haveChildNodes } else { false }
+internal fun unpackBookmarkNode(node: BookmarkNode): BookmarkTreeNode {
+    val guid = node.guid
+    val parentGUID = node.parentGuid
+    val position = node.position
+    val dateAdded = node.dateAdded
+    val lastModified = node.lastModified
+    val type = node.nodeType!!
+    val title = node.title ?: ""
     when (type) {
 
-        BookmarkType.Bookmark.value -> {
+        BookmarkType.BOOKMARK -> {
             return BookmarkItem(
-                    guid = guid,
+                    guid = guid!!,
                     parentGUID = parentGUID,
-                    position = position,
-                    dateAdded = dateAdded,
-                    lastModified = lastModified,
+                    position = position!!,
+                    dateAdded = dateAdded!!,
+                    lastModified = lastModified!!,
                     title = title,
-                    url = msg.url
+                    url = node.url!!
             )
         }
 
-        BookmarkType.Separator.value -> {
+        BookmarkType.SEPARATOR -> {
             return BookmarkSeparator(
-                    guid = guid,
+                    guid = guid!!,
                     parentGUID = parentGUID,
-                    position = position,
-                    dateAdded = dateAdded,
-                    lastModified = lastModified
+                    position = position!!,
+                    dateAdded = dateAdded!!,
+                    lastModified = lastModified!!
             )
         }
 
-        BookmarkType.Folder.value -> {
-            val childNodes: List<BookmarkTreeNode> = msg.childNodesList.map {
-                child -> unpackProtobuf(child)
+        BookmarkType.FOLDER -> {
+            val childNodes: List<BookmarkTreeNode>? = node.childNodes?.map {
+                child -> unpackBookmarkNode(child)
             }
-            var childGuids = msg.childGuidsList
+            var childGuids = node.childGuids
 
             // If we got child nodes instead of guids, use the nodes to get the guids.
-            if (childGuids.isEmpty() && childNodes.isNotEmpty()) {
+            if (childGuids.isEmpty() && childNodes != null && childNodes.isNotEmpty()) {
                 childGuids = childNodes.map { child -> child.guid }
             }
 
             return BookmarkFolder(
-                    guid = guid,
+                    guid = guid!!,
                     parentGUID = parentGUID,
-                    position = position,
-                    dateAdded = dateAdded,
-                    lastModified = lastModified,
+                    position = position!!,
+                    dateAdded = dateAdded!!,
+                    lastModified = lastModified!!,
                     title = title,
                     childGUIDs = childGuids,
-                    children = if (shouldHaveChildNodes) { childNodes } else { null }
+                    children = childNodes
             )
-        }
-
-        else -> {
-            // Should never happen
-            throw RuntimeException("Rust passed in an illegal bookmark type $type")
         }
     }
 }
 
 // Unpack results from getBookmarksWithURL and searchBookmarks. Both of these can only return
 // BookmarkItems, so we just do the cast inside the mapper.
-internal fun unpackProtobufItemList(msg: MsgTypes.BookmarkNodeList): List<BookmarkItem> {
-    return msg.nodesList.map { unpackProtobuf(it) as BookmarkItem }
+internal fun unpackBookmarkNodeList(nodes: List<BookmarkNode>): List<BookmarkItem> {
+    return nodes.map { unpackBookmarkNode(it) as BookmarkItem }
 }

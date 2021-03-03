@@ -64,9 +64,6 @@ pub enum ErrorKind {
     #[error("Illegal database path: {0:?}")]
     IllegalDatabasePath(std::path::PathBuf),
 
-    #[error("Protobuf decode error: {0}")]
-    ProtobufDecodeError(#[from] prost::DecodeError),
-
     #[error("UTF8 Error: {0}")]
     Utf8Error(#[from] std::str::Utf8Error),
 
@@ -87,7 +84,6 @@ error_support::define_error! {
         (Corruption, Corruption),
         (IoError, std::io::Error),
         (MergeError, dogear::Error),
-        (ProtobufDecodeError, prost::DecodeError),
         (InterruptedError, Interrupted),
         (Utf8Error, std::str::Utf8Error),
     }

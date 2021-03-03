@@ -5,7 +5,6 @@
 use crate::db::PlacesDb;
 use crate::error::Result;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
-use crate::msg_types::{SearchResultMessage, SearchResultReason};
 use rusqlite::{types::ToSql, Row};
 use serde_derive::*;
 use sql_support::{maybe_log_plan, ConnExt};
@@ -94,7 +93,7 @@ pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Strin
     // Doing it like this lets us move the result, avoiding a copy (which almost
     // certainly doesn't matter but whatever)
     if let Some(res) = results.into_iter().next() {
-        Ok(Some(res.url.into_string()))
+        Ok(Some(res.url))
     } else {
         Ok(None)
     }
@@ -188,8 +187,7 @@ pub enum MatchReason {
     Url,
     PreviousUse,
     Bookmark,
-    // Hrm... This will probably make this all serialize weird...
-    Tags(String),
+    Tags { tags: String },
 }
 
 #[derive(Debug, Clone, Serialize, Eq, PartialEq)]
@@ -199,7 +197,7 @@ pub struct SearchResult {
 
     /// The URL to open when the user confirms a match. This is
     /// equivalent to `nsIAutoCompleteResult.getFinalCompleteValueAt`.
-    pub url: Url,
+    pub url: String,
 
     /// The title of the autocompleted value, to show in the UI. This can be the
     /// title of the bookmark or page, origin, URL, or URL fragment.
@@ -207,7 +205,7 @@ pub struct SearchResult {
 
     /// The favicon URL.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub icon_url: Option<Url>,
+    pub icon_url: Option<String>,
 
     /// A frecency score for this match.
     pub frecency: i64,
@@ -234,12 +232,11 @@ impl SearchResult {
 
         let tags = row.get::<_, Option<String>>("tags")?;
         if let Some(tags) = tags {
-            reasons.push(MatchReason::Tags(tags));
+            reasons.push(MatchReason::Tags { tags });
         }
         if bookmarked {
             reasons.push(MatchReason::Bookmark);
         }
-        let url = Url::parse(&url)?;
 
         Ok(Self {
             search_string,
@@ -263,9 +260,8 @@ impl SearchResult {
 
         let tags = row.get::<_, Option<String>>("tags")?;
         if let Some(tags) = tags {
-            reasons.push(MatchReason::Tags(tags));
+            reasons.push(MatchReason::Tags { tags });
         }
-        let url = Url::parse(&url)?;
 
         let frecency = row.get::<_, i64>("frecency")?;
 
@@ -284,8 +280,6 @@ impl SearchResult {
         let url = row.get::<_, String>("url")?;
         let display_url = row.get::<_, String>("displayURL")?;
         let frecency = row.get::<_, i64>("frecency")?;
-
-        let url = Url::parse(&url)?;
 
         Ok(Self {
             search_string,
@@ -319,11 +313,11 @@ impl SearchResult {
                     }
                     None => &href[stripped_url_index..],
                 };
-                let url = Url::parse(&[stripped_prefix, title].concat())?;
+                let url = [stripped_prefix, title].concat();
                 (url, title.into())
             }
             None => {
-                let url = Url::parse(&href)?;
+                let url = href;
                 (url, stripped_url)
             }
         };
@@ -336,34 +330,6 @@ impl SearchResult {
             frecency,
             reasons,
         })
-    }
-}
-
-impl From<SearchResult> for SearchResultMessage {
-    fn from(res: SearchResult) -> Self {
-        Self {
-            url: res.url.into_string(),
-            title: res.title,
-            frecency: res.frecency,
-            reasons: res
-                .reasons
-                .into_iter()
-                .map(|r| Into::<SearchResultReason>::into(r) as i32)
-                .collect::<Vec<i32>>(),
-        }
-    }
-}
-
-impl From<MatchReason> for SearchResultReason {
-    fn from(mr: MatchReason) -> Self {
-        match mr {
-            MatchReason::Keyword => SearchResultReason::Keyword,
-            MatchReason::Origin => SearchResultReason::Origin,
-            MatchReason::Url => SearchResultReason::Url,
-            MatchReason::PreviousUse => SearchResultReason::PreviousUse,
-            MatchReason::Bookmark => SearchResultReason::Bookmark,
-            MatchReason::Tags(_) => SearchResultReason::Tag,
-        }
     }
 }
 
@@ -731,7 +697,7 @@ mod tests {
         assert!(by_adaptive
             .iter()
             .any(|result| result.search_string == "ample"
-                && result.url == url
+                && result.url == url.to_string()
                 && result.reasons == [MatchReason::PreviousUse]));
 
         let with_limit = search_frecent(
@@ -746,7 +712,7 @@ mod tests {
             with_limit,
             vec![SearchResult {
                 search_string: "example".into(),
-                url: Url::parse("http://example.com/").unwrap(),
+                url: "http://example.com/".into(),
                 title: "example.com/".into(),
                 icon_url: None,
                 frecency: 1999,
@@ -817,12 +783,17 @@ mod tests {
     // This panics in tests but not for "real" consumers. In an effort to ensure
     // we are panicing where we think we are, note the 'expected' string.
     // (Not really clear this test offers much value, but seems worth having...)
+    // TODO:
+    // I changed the types on `SearchResult` to be plain strings rather than URLs,
+    // to make it easier to expose them via UniFFI. If we want to keep this, we'll
+    // need a little conversion layer to turn the UniFFI things back into structs
+    // with richer types for their fields.
+    /*
     #[test]
     #[cfg_attr(
         debug_assertions,
         should_panic(expected = "Failed to perform a search:")
-    )]
-    fn search_invalid_url() {
+    )]fn search_invalid_url() {
         use rusqlite::NO_PARAMS;
         let conn = new_mem_connection();
 
@@ -840,5 +811,5 @@ mod tests {
                 limit: 10,
             },
         );
-    }
+    }*/
 }

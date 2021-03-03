@@ -1,31 +1,56 @@
-syntax = "proto2";
+//
+// UniFFI interface definition for the "places" component.
+//
+// The "places" component is still in the process of being converted
+// to UniFFI, so this file doesnt' define the entire interface.
+// For now it only contains the rich datatypes that we want to
+// transfer across the FFI boundary.
 
-// Note: this file name must be unique due to how the iOS megazord works :(
 
-package mozilla.appservices.places.protobuf;
+namespace places {};
 
-option java_package = "mozilla.appservices.places";
-option java_outer_classname = "MsgTypes";
-option swift_prefix = "MsgTypes_";
-option optimize_for = LITE_RUNTIME;
+enum VisitTransition {
+    /** This transition type means the user followed a link. */
+    "Link",
+    /** This transition type means that the user typed the page's URL in the
+     *  URL bar or selected it from UI (URL bar autocomplete results, etc).
+     */
+     "Typed",
+     "Bookmark",
+     "Embed",
+     "RedirectPermanent",
+     "RedirectTemporary",
+     "Download",
+     "FramedLink",
+     "Reload"
+};
 
-message HistoryVisitInfo {
-    required string url = 1;
-    optional string title = 2;
-    required int64 timestamp = 3;
-    required int32 visit_type = 4;
-    required bool is_hidden = 5;
-}
+// Information about a specific history visit.
+//
+dictionary HistoryVisitInfo {
+    string url;
+    string? title;
+    i64 timestamp;
+    VisitTransition visit_type;
+    boolean is_hidden;
+};
 
-message HistoryVisitInfos {
-    repeated HistoryVisitInfo infos = 1;
-}
+// A list of history visits, along with pagination info.
+// This is useful when loading lots of history visits via pagination.
+//
+dictionary HistoryVisitInfosWithBound {
+    sequence<HistoryVisitInfo> infos;
+    i64 bound;
+    i64 offset;
+};
 
-message HistoryVisitInfosWithBound {
-    repeated HistoryVisitInfo infos = 1;
-    required int64 bound = 2;
-    required int64 offset = 3;
-}
+
+enum BookmarkType {
+    "Bookmark",
+    "Folder",
+    "Separator"
+};
+
 
 /**
  * A bookmark node.
@@ -40,7 +65,7 @@ message HistoryVisitInfosWithBound {
  * Note that these docs comments are internal, and don't necessarily impact the actual
  * API we expose to Kotlin/Swift (this is particularly true around reads).
  */
-message BookmarkNode {
+dictionary BookmarkNode {
     /**
      * The type of this bookmark, a `BookmarkType` (from `types.rs`).
      *
@@ -55,19 +80,20 @@ message BookmarkNode {
      * in Rust.
      *
      * - Always returned on reads.
+     
      * - Required for inserts.
      * - Not provided for updates.
      */
-    optional int32 node_type = 1;
+    BookmarkType? node_type;
 
     /**
-     * The bookmarks guid.
+     * The bookmark's guid.
      *
      * - Always returned on reads.
      * - Not allowed for inserts.
      * - Required for updates (specifies which record is being changed)
      */
-    optional string guid = 2;
+    string? guid;
 
     /**
      * Creation time, in milliseconds since the unix epoch.
@@ -78,7 +104,7 @@ message BookmarkNode {
      * - Always returned on reads.
      * - Ignored for insertion and update.
      */
-    optional int64 date_added = 3;
+    i64? date_added;
 
     /**
      * Last modification time, in milliseconds since the unix epoch.
@@ -86,7 +112,7 @@ message BookmarkNode {
      * - Always returned on reads.
      * - Ignored for insertion and update.
      */
-    optional int64 last_modified = 4;
+    i64? last_modified;
 
     /**
      * Guid of the parent record.
@@ -97,7 +123,7 @@ message BookmarkNode {
      *     - Interacts with `position`, see its documentation below
      *       for details on how.
      */
-    optional string parent_guid = 5;
+    string? parent_guid;
 
     /**
      * Zero based index within the parent.
@@ -118,7 +144,7 @@ message BookmarkNode {
      *     - If `position` is not provided (and `parent_guid` is) then it's
      *       treated as a move to the end of that folder.
      */
-    optional uint32 position = 6;
+    i32? position;
 
     /**
      * Bookmark title. Not present for type = `BookmarkType::Separator`.
@@ -126,7 +152,7 @@ message BookmarkNode {
      * - Returned on reads if it exists.
      * - Required when inserting folders.
      */
-    optional string title = 7;
+    string? title;
 
     /**
      * Bookmark URL. Only allowed/present for type = `BookmarkType::Bookmark`.
@@ -134,7 +160,7 @@ message BookmarkNode {
      * - Always returned on reads (for `BookmarkType::Bookmark`).
      * - Required when inserting a new bookmark.
      */
-    optional string url = 8;
+    string? url;
 
     /**
      * IDs of folder children, in order. Only present for type =
@@ -145,7 +171,7 @@ message BookmarkNode {
      * - Not provided if `child_nodes` is provided, to avoid sending more data
      *   over the FFI than necessary.
      */
-    repeated string child_guids = 9;
+    sequence<string> child_guids;
 
     /**
      * Data about folder children, in order. Only present for type =
@@ -153,55 +179,40 @@ message BookmarkNode {
      *
      * For performance reasons, this only is provided if it's requested.
      */
-    repeated BookmarkNode child_nodes = 10;
+    sequence<BookmarkNode>? child_nodes;
+};
 
-    /**
-     * Returned by reads, and used to distinguish between the cases of
-     * "empty child_nodes because the API doesn't return children" and
-     * "empty child_nodes because this folder has no children (but
-     * we'd populate them if it had them)".
-     *
-     * Only required because you can't have `optional repeated`.
-     *
-     * Leaving this out is equivalent to false.
-     */
-    optional bool have_child_nodes = 11;
-}
-
-/** An array of bookmark nodes, since we can't represent that directly */
-message BookmarkNodeList {
-    repeated BookmarkNode nodes = 1;
-}
-
-// Protobuf allows nesting these, but prost behaves weirdly if we do.
-enum SearchResultReason {
+[Enum]
+interface MatchReason {
     // Never used in practice. Maybe remove this from here and from the rust enum?
-    KEYWORD = 1;
-    ORIGIN = 2;
-    URL = 3;
-    PREVIOUS_USE = 4;
-    BOOKMARK = 5;
-    // If we get real tag support, just add `optional string tags` to SearchResult below, but
+    Keyword();
+    Origin();
+    Url();
+    PreviousUse();
+    Bookmark();
+    // If we get real tag support, just add `string? tags` to SearchResult below, but
     // for now expose that it was because of tags.
-    TAG = 6;
-}
+    Tags(string tags);
+};
 
-message SearchResultMessage {
-    required string url = 1;
-    required string title = 2;
-    required int64 frecency = 3;
-    repeated SearchResultReason reasons = 4 [packed = true];
-}
+dictionary SearchResult {
+    string search_string;
+    string url;
+    string title;
+    string? icon_url;
+    i64 frecency;
+    sequence<MatchReason> reasons;
+};
 
-message SearchResultList {
-    repeated SearchResultMessage results = 1;
-}
 
-message TopFrecentSiteInfo {
-    required string url = 1;
-    optional string title = 2;
-}
+dictionary TopFrecentSiteInfo {
+    string url;
+    string? title;
+};
 
-message TopFrecentSiteInfos {
-    repeated TopFrecentSiteInfo infos = 1;
-}
+// This just makes sure we have some extra helper functions available,
+// to be called from our hand-written bindings.
+dictionary TypesThatWouldAppearInFunctionSignaturesIfWeUniffiedTheFunctions {
+    sequence<SearchResult> search_results;
+    sequence<TopFrecentSiteInfo> frecency_results;
+};

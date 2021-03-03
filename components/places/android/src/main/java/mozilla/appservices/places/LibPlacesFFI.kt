@@ -9,7 +9,6 @@ import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import com.sun.jna.StringArray
-import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.places.BuildConfig
 
@@ -27,40 +26,40 @@ internal interface LibPlacesFFI : Library {
     /** Create a new places api */
     fun places_api_new(
         db_path: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): PlacesApiHandle
 
     /** Create a new places connection */
     fun places_connection_new(
         handle: PlacesApiHandle,
         conn_type: Int,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): PlacesConnectionHandle
 
     // Returns a JSON string containing bookmark import metrics
     fun places_bookmarks_import_from_fennec(
         handle: PlacesApiHandle,
         db_path: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): Pointer?
 
     fun places_pinned_sites_import_from_fennec(
         handle: PlacesApiHandle,
         db_path: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): RustBuffer.ByValue
 
     // Returns a JSON string containing import metrics
     fun places_history_import_from_fennec(
         handle: PlacesApiHandle,
         db_path: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): Pointer?
 
     fun places_note_observation(
         handle: PlacesConnectionHandle,
         json_observation_data: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     /** Returns JSON string, which you need to free with places_destroy_string */
@@ -68,14 +67,14 @@ internal interface LibPlacesFFI : Library {
         handle: PlacesConnectionHandle,
         search: String,
         limit: Int,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): RustBuffer.ByValue
 
     /** Returns a URL, or null if no match was found. */
     fun places_match_url(
         handle: PlacesConnectionHandle,
         search: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): Pointer?
 
     /** Note: urls_len and buffer_len must be the same length. The argument is somewhat redundant, but
@@ -87,7 +86,7 @@ internal interface LibPlacesFFI : Library {
         urls_len: Int,
         buffer: Pointer,
         buf_len: Int,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_get_visited_urls_in_range(
@@ -95,69 +94,69 @@ internal interface LibPlacesFFI : Library {
         start: Long,
         end: Long,
         include_remote: Byte,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): Pointer?
 
     fun places_new_interrupt_handle(
         conn: PlacesConnectionHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): RawPlacesInterruptHandle?
 
     fun places_new_sync_conn_interrupt_handle(
         api: PlacesApiHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): RawPlacesInterruptHandle?
 
     fun places_interrupt(
         conn: RawPlacesInterruptHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_delete_visits_for(
         handle: PlacesConnectionHandle,
         url: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_delete_visits_between(
         handle: PlacesConnectionHandle,
         start: Long,
         end: Long,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_delete_visit(
         handle: PlacesConnectionHandle,
         visit_url: String,
         visit_timestamp: Long,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_wipe_local(
         handle: PlacesConnectionHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_run_maintenance(
         handle: PlacesConnectionHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_prune_destructively(
         handle: PlacesConnectionHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_delete_everything(
         handle: PlacesConnectionHandle,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 
     fun places_get_top_frecent_site_infos(
         handle: PlacesConnectionHandle,
         numItems: Int,
         frecencyThreshold: Long,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun places_get_visit_infos(
@@ -165,7 +164,7 @@ internal interface LibPlacesFFI : Library {
         startDate: Long,
         endDate: Long,
         excludeTypes: Int,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun places_get_visit_page(
@@ -173,7 +172,7 @@ internal interface LibPlacesFFI : Library {
         offset: Long,
         count: Long,
         excludeTypes: Int,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun places_get_visit_page_with_bound(
@@ -182,18 +181,18 @@ internal interface LibPlacesFFI : Library {
         offset: Long,
         count: Long,
         excludeTypes: Int,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun places_get_visit_count(
         handle: PlacesConnectionHandle,
         excludeTypes: Int,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): Long
 
     fun places_reset(
         handle: PlacesApiHandle,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     )
 
     // Returns a JSON string containing a sync ping.
@@ -203,7 +202,7 @@ internal interface LibPlacesFFI : Library {
         access_token: String,
         sync_key: String,
         tokenserver_url: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): Pointer?
 
     // Returns a JSON string containing a sync ping.
@@ -213,77 +212,75 @@ internal interface LibPlacesFFI : Library {
         access_token: String,
         sync_key: String,
         tokenserver_url: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     ): Pointer?
 
     fun bookmarks_get_all_with_url(
         handle: PlacesConnectionHandle,
         url: String,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun bookmarks_get_url_for_keyword(
         handle: PlacesConnectionHandle,
         keyword: String,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): Pointer?
 
     fun bookmarks_get_tree(
         handle: PlacesConnectionHandle,
         optRootId: String?,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun bookmarks_get_by_guid(
         handle: PlacesConnectionHandle,
         optRootId: String?,
         getDirectChildren: Byte,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun bookmarks_search(
         handle: PlacesConnectionHandle,
         search: String,
         limit: Int,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     fun bookmarks_get_recent(
         handle: PlacesConnectionHandle,
         limit: Int,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): RustBuffer.ByValue
 
     // Returns newly inserted guid
     fun bookmarks_insert(
         handle: PlacesConnectionHandle,
-        data: Pointer,
-        len: Int,
-        error: RustError.ByReference
+        data: RustBuffer.ByValue,
+        error: RustError2.ByReference
     ): Pointer?
 
     fun bookmarks_update(
         handle: PlacesConnectionHandle,
-        data: Pointer,
-        len: Int,
-        error: RustError.ByReference
+        data: RustBuffer.ByValue,
+        error: RustError2.ByReference
     )
 
     // Returns 1 if the item existed and was deleted.
     fun bookmarks_delete(
         handle: PlacesConnectionHandle,
         id: String,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     ): Byte
 
     fun bookmarks_delete_everything(
         handle: PlacesConnectionHandle,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     )
 
     fun bookmarks_reset(
         handle: PlacesApiHandle,
-        error: RustError.ByReference
+        error: RustError2.ByReference
     )
 
     /** Destroy strings returned from libplaces_ffi calls. */
@@ -292,14 +289,14 @@ internal interface LibPlacesFFI : Library {
     fun places_api_return_write_conn(
         apiHandle: PlacesApiHandle,
         writeHandle: PlacesConnectionHandle,
-        err: RustError.ByReference
+        err: RustError2.ByReference
     )
 
     /** Destroy connection created using `places_connection_new` */
-    fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError.ByReference)
+    fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError2.ByReference)
 
     /** Destroy api created using `places_api_new` */
-    fun places_api_destroy(handle: PlacesApiHandle, out_err: RustError.ByReference)
+    fun places_api_destroy(handle: PlacesApiHandle, out_err: RustError2.ByReference)
 
     /** Destroy handle created using `places_new_interrupt_handle` */
     fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
@@ -310,7 +307,7 @@ internal interface LibPlacesFFI : Library {
         handle: PlacesConnectionHandle,
         search_string: String,
         url: String,
-        out_err: RustError.ByReference
+        out_err: RustError2.ByReference
     )
 }
 

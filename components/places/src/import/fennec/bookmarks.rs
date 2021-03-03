@@ -10,7 +10,9 @@ use crate::bookmark_sync::{
 use crate::db::db::PlacesDb;
 use crate::error::*;
 use crate::import::common::{attached_database, ExecuteOnDrop};
-use crate::storage::bookmarks::{bookmark_sync::create_synced_bookmark_roots, PublicNode};
+use crate::storage::bookmarks::{
+    bookmark_sync::create_synced_bookmark_roots, InternalBookmarkNode,
+};
 use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::NO_PARAMS;
 use serde_derive::*;
@@ -48,7 +50,7 @@ pub fn import(
 pub fn import_pinned_sites(
     places_api: &PlacesApi,
     path: impl AsRef<std::path::Path>,
-) -> Result<Vec<PublicNode>> {
+) -> Result<Vec<InternalBookmarkNode>> {
     let url = crate::util::ensure_url_path(path)?;
     do_pinned_sites_import(places_api, url)
 }
@@ -159,7 +161,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
 fn do_pinned_sites_import(
     places_api: &PlacesApi,
     fennec_db_file_url: Url,
-) -> Result<Vec<PublicNode>> {
+) -> Result<Vec<InternalBookmarkNode>> {
     let conn = places_api.open_sync_connection()?;
     let scope = conn.begin_interrupt_scope();
 
@@ -413,8 +415,8 @@ lazy_static::lazy_static! {
 
 fn public_node_from_fennec_pinned(
     row: &rusqlite::Row<'_>,
-) -> std::result::Result<PublicNode, rusqlite::Error> {
-    Ok(PublicNode {
+) -> std::result::Result<InternalBookmarkNode, rusqlite::Error> {
+    Ok(InternalBookmarkNode {
         node_type: BookmarkType::Bookmark,
         guid: row.get::<_, String>("guid")?.into(),
         parent_guid: None,

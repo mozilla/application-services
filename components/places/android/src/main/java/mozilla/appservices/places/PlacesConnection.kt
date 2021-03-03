@@ -7,7 +7,6 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
-import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import org.json.JSONArray
 import org.json.JSONObject
@@ -29,6 +28,11 @@ import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManage
 import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
+// Different names between Rust and Kotlin, for...reasons?
+typealias VisitType = VisitTransition
+typealias VisitInfo = HistoryVisitInfo
+typealias VisitInfosWithBound = HistoryVisitInfosWithBound
+
 /**
  * An implementation of a [PlacesManager] backed by a Rust Places library.
  *
@@ -42,10 +46,10 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     private var writeConn: PlacesWriterConnection
 
     init {
-        handle.set(rustCall(this) { error ->
+        handle.set(rustCall2(this) { error ->
             LibPlacesFFI.INSTANCE.places_api_new(path, error)
         })
-        writeConn = PlacesWriterConnection(rustCall(this) { error ->
+        writeConn = PlacesWriterConnection(rustCall2(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
         }, this)
     }
@@ -66,7 +70,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun openReader(): PlacesReaderConnection {
-        val connHandle = rustCall(this) { error ->
+        val connHandle = rustCall2(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
         return PlacesReaderConnection(connHandle)
@@ -85,21 +89,21 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         if (handle != 0L) {
             if (writeHandle != 0L) {
                 try {
-                    rustCall(this) { err ->
+                    rustCall2(this) { err ->
                         LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
                     }
                 } catch (e: PlacesException) {
                     // Ignore it.
                 }
             }
-            rustCall(this) { error ->
+            rustCall2(this) { error ->
                 LibPlacesFFI.INSTANCE.places_api_destroy(handle, error)
             }
         }
     }
 
     override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
+        val pingJSONString = rustCall2ForString(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_history_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -113,7 +117,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
+        val pingJSONString = rustCall2ForString(this) { error ->
             LibPlacesFFI.INSTANCE.sync15_bookmarks_sync(
                     this.handle.get(),
                     syncInfo.kid,
@@ -127,49 +131,49 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun importBookmarksFromFennec(path: String): JSONObject {
-        val json = rustCallForString(this) { error ->
+        val json = rustCall2ForString(this) { error ->
             LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(this.handle.get(), path, error)
         }
         return JSONObject(json)
     }
 
     override fun importPinnedSitesFromFennec(path: String): List<BookmarkItem> {
-        val rustBuf = rustCall(this) { error ->
+        val rustBuf = rustCall2(this) { error ->
             LibPlacesFFI.INSTANCE.places_pinned_sites_import_from_fennec(
                 this.handle.get(), path, error)
         }
 
         try {
-            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-            return unpackProtobufItemList(message)
+            val node = liftSequenceRecordBookmarkNode(rustBuf)
+            return unpackBookmarkNodeList(node)
         } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+            RustBuffer.free(rustBuf)
         }
     }
 
     override fun importVisitsFromFennec(path: String): JSONObject {
-        val json = rustCallForString(this) { error ->
+        val json = rustCall2ForString(this) { error ->
             LibPlacesFFI.INSTANCE.places_history_import_from_fennec(this.handle.get(), path, error)
         }
         return JSONObject(json)
     }
 
     override fun resetHistorySyncMetadata() {
-        rustCall(this) { error ->
+        rustCall2(this) { error ->
             LibPlacesFFI.INSTANCE.places_reset(this.handle.get(), error)
         }
     }
 
     override fun resetBookmarkSyncMetadata() {
-        rustCall(this) { error ->
+        rustCall2(this) { error ->
             LibPlacesFFI.INSTANCE.bookmarks_reset(this.handle.get(), error)
         }
     }
 }
 
-internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) -> U): U {
+internal inline fun <U> rustCall2(syncOn: Any, callback: (RustError2.ByReference) -> U): U {
     synchronized(syncOn) {
-        val e = RustError.ByReference()
+        val e = RustError2.ByReference()
         val ret: U = callback(e)
         if (e.isFailure()) {
             throw e.intoException()
@@ -180,8 +184,8 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
 }
 
 @Suppress("TooGenericExceptionThrown")
-internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String {
-    val cstring = rustCall(syncOn, callback)
+internal inline fun rustCall2ForString(syncOn: Any, callback: (RustError2.ByReference) -> Pointer?): String {
+    val cstring = rustCall2(syncOn, callback)
             ?: throw RuntimeException("Bug: Don't use this function when you can return" +
                     " null on success.")
     try {
@@ -191,8 +195,8 @@ internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByRefere
     }
 }
 
-internal inline fun rustCallForOptString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String? {
-    val cstring = rustCall(syncOn, callback)
+internal inline fun rustCall2ForOptString(syncOn: Any, callback: (RustError2.ByReference) -> Pointer?): String? {
+    val cstring = rustCall2(syncOn, callback)
     try {
         return cstring?.getString(0, "utf8")
     } finally {
@@ -208,11 +212,11 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
     init {
         handle.set(connHandle)
         try {
-            interruptHandle = InterruptHandle(rustCall { err ->
+            interruptHandle = InterruptHandle(rustCall2 { err ->
                 LibPlacesFFI.INSTANCE.places_new_interrupt_handle(connHandle, err)
             }!!)
         } catch (e: Throwable) {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
             }
             throw e
@@ -223,7 +227,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
     protected fun destroy() {
         val handle = this.handle.getAndSet(0L)
         if (handle != 0L) {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
             }
         }
@@ -239,16 +243,16 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
         this.interruptHandle.interrupt()
     }
 
-    internal inline fun <U> rustCall(callback: (RustError.ByReference) -> U): U {
-        return rustCall(this, callback)
+    internal inline fun <U> rustCall2(callback: (RustError2.ByReference) -> U): U {
+        return rustCall2(this, callback)
     }
 
-    internal inline fun rustCallForString(callback: (RustError.ByReference) -> Pointer?): String {
-        return rustCallForString(this, callback)
+    internal inline fun rustCall2ForString(callback: (RustError2.ByReference) -> Pointer?): String {
+        return rustCall2ForString(this, callback)
     }
 
-    internal inline fun rustCallForOptString(callback: (RustError.ByReference) -> Pointer?): String? {
-        return rustCallForOptString(this, callback)
+    internal inline fun rustCall2ForOptString(callback: (RustError2.ByReference) -> Pointer?): String? {
+        return rustCall2ForOptString(this, callback)
     }
 }
 
@@ -263,32 +267,30 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         ReadableHistoryConnection,
         ReadableBookmarksConnection {
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
-        val resultBuffer = rustCall { error ->
+        val resultBuffer = rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_query_autocomplete(this.handle.get(), query, limit, error)
         }
         try {
-            val results = MsgTypes.SearchResultList.parseFrom(resultBuffer.asCodedInputStream()!!)
-            return SearchResult.fromCollectionMessage(results)
+            return liftSequenceRecordSearchResult(resultBuffer)
         } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(resultBuffer)
+            RustBuffer.free(resultBuffer)
         }
     }
 
     override fun matchUrl(query: String): String? {
-        return rustCallForOptString { error ->
+        return rustCall2ForOptString { error ->
             LibPlacesFFI.INSTANCE.places_match_url(this.handle.get(), query, error)
         }
     }
 
     override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {
-        val infoBuffer = rustCall { error ->
+        val infoBuffer = rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_get_top_frecent_site_infos(this.handle.get(), numItems, frecencyThreshold.value, error)
         }
         try {
-            val infos = MsgTypes.TopFrecentSiteInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
-            return TopFrecentSiteInfo.fromMessage(infos)
+            return liftSequenceRecordTopFrecentSiteInfo(infoBuffer)
         } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+            RustBuffer.free(infoBuffer)
         }
     }
 
@@ -300,7 +302,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         val byteBuffer = ByteBuffer.allocateDirect(urls.size)
         byteBuffer.order(ByteOrder.nativeOrder())
         readQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 val bufferPtr = Native.getDirectBufferPointer(byteBuffer)
                 LibPlacesFFI.INSTANCE.places_get_visited(
                         this.handle.get(),
@@ -323,7 +325,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
     }
 
     override fun getVisitedUrlsInRange(start: Long, end: Long, includeRemote: Boolean): List<String> {
-        val urlsJson = rustCallForString { error ->
+        val urlsJson = rustCall2ForString { error ->
             val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
             LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
                     this.handle.get(), start, end, incRemoteArg, error)
@@ -338,29 +340,27 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
 
     override fun getVisitInfos(start: Long, end: Long, excludeTypes: List<VisitType>): List<VisitInfo> {
         readQueryCounters.measure {
-            val infoBuffer = rustCall { error ->
+            val infoBuffer = rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_get_visit_infos(
                         this.handle.get(), start, end, visitTransitionSet(excludeTypes), error)
             }
             try {
-                val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
-                return VisitInfo.fromMessage(infos)
+                return liftSequenceRecordHistoryVisitInfo(infoBuffer)
             } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+                RustBuffer.free(infoBuffer)
             }
         }
     }
 
     override fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType>): List<VisitInfo> {
-        val infoBuffer = rustCall { error ->
+        val infoBuffer = rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_get_visit_page(
                     this.handle.get(), offset, count, visitTransitionSet(excludeTypes), error)
         }
         try {
-            val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
-            return VisitInfo.fromMessage(infos)
+            return liftSequenceRecordHistoryVisitInfo(infoBuffer)
         } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+            RustBuffer.free(infoBuffer)
         }
     }
 
@@ -370,20 +370,19 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         count: Long,
         excludeTypes: List<VisitType>
     ): VisitInfosWithBound {
-        val infoBuffer = rustCall { error ->
+        val infoBuffer = rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_get_visit_page_with_bound(
                     this.handle.get(), offset, bound, count, visitTransitionSet(excludeTypes), error)
         }
         try {
-            val infos = MsgTypes.HistoryVisitInfosWithBound.parseFrom(infoBuffer.asCodedInputStream()!!)
-            return VisitInfosWithBound.fromMessage(infos)
+            return HistoryVisitInfosWithBound.lift(infoBuffer)
         } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
+            RustBuffer.free(infoBuffer)
         }
     }
 
     override fun getVisitCount(excludeTypes: List<VisitType>): Long {
-        return rustCall { error ->
+        return rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_get_visit_count(
                     this.handle.get(), visitTransitionSet(excludeTypes), error)
         }
@@ -391,21 +390,19 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
 
     override fun getBookmark(guid: String): BookmarkTreeNode? {
         readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
+            val rustBuf = rustCall2 { err ->
                 LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, 0.toByte(), err)
             }
             try {
-                return rustBuf.asCodedInputStream()?.let { stream ->
-                    unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream))
-                }
+                return unpackBookmarkNode(BookmarkNode.lift(rustBuf))
             } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+                RustBuffer.free(rustBuf)
             }
         }
     }
 
     override fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode? {
-        val rustBuf = rustCall { err ->
+        val rustBuf = rustCall2 { err ->
             if (recursive) {
                 LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
             } else {
@@ -413,61 +410,56 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
             }
         }
         try {
-            return rustBuf.asCodedInputStream()?.let { stream ->
-                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream))
-            }
+            return unpackBookmarkNode(BookmarkNode.lift(rustBuf))
         } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+            RustBuffer.free(rustBuf)
         }
     }
 
     override fun getBookmarksWithURL(url: String): List<BookmarkItem> {
         readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
+            val rustBuf = rustCall2 { err ->
                 LibPlacesFFI.INSTANCE.bookmarks_get_all_with_url(this.handle.get(), url, err)
             }
 
             try {
-                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-                return unpackProtobufItemList(message)
+                return unpackBookmarkNodeList(liftSequenceRecordBookmarkNode(rustBuf))
             } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+                RustBuffer.free(rustBuf)
             }
         }
     }
 
     override fun getBookmarkUrlForKeyword(keyword: String): String? {
-        return rustCallForOptString { error ->
+        return rustCall2ForOptString { error ->
             LibPlacesFFI.INSTANCE.bookmarks_get_url_for_keyword(this.handle.get(), keyword, error)
         }
     }
 
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
         readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
+            val rustBuf = rustCall2 { err ->
                 LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
             }
 
             try {
-                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-                return unpackProtobufItemList(message)
+                return unpackBookmarkNodeList(liftSequenceRecordBookmarkNode(rustBuf))
             } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+                RustBuffer.free(rustBuf)
             }
         }
     }
 
     override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
         readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
+            val rustBuf = rustCall2 { err ->
                 LibPlacesFFI.INSTANCE.bookmarks_get_recent(this.handle.get(), limit, err)
             }
 
             try {
-                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-                return unpackProtobufItemList(message)
+                return unpackBookmarkNodeList(liftSequenceRecordBookmarkNode(rustBuf))
             } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+                RustBuffer.free(rustBuf)
             }
         }
     }
@@ -481,9 +473,10 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
 }
 
 fun visitTransitionSet(l: List<VisitType>): Int {
+    // TODO: oh no, we're depending on the raw integer enum values...
     var res = 0
     for (ty in l) {
-        res = res or (1 shl ty.type)
+        res = res or (1 shl ty.ordinal)
     }
     return res
 }
@@ -503,7 +496,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     override fun noteObservation(data: VisitObservation) {
         val json = data.toJSON().toString()
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
             }
         }
@@ -511,7 +504,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override fun deleteVisitsFor(url: String) {
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_delete_visits_for(
                     this.handle.get(), url, error)
             }
@@ -520,7 +513,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override fun deleteVisit(url: String, visitTimestamp: Long) {
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_delete_visit(
                         this.handle.get(), url, visitTimestamp, error)
             }
@@ -533,7 +526,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override fun deleteVisitsBetween(startTime: Long, endTime: Long) {
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_delete_visits_between(
                     this.handle.get(), startTime, endTime, error)
             }
@@ -541,26 +534,26 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
     }
 
     override fun wipeLocal() {
-        rustCall { error ->
+        rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_wipe_local(this.handle.get(), error)
         }
     }
 
     override fun runMaintenance() {
-        rustCall { error ->
+        rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_run_maintenance(this.handle.get(), error)
         }
     }
 
     override fun pruneDestructively() {
-        rustCall { error ->
+        rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_prune_destructively(this.handle.get(), error)
         }
     }
 
     override fun deleteEverything() {
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
             }
         }
@@ -568,7 +561,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
             }
         }
@@ -576,7 +569,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override fun deleteBookmarkNode(guid: String): Boolean {
         return writeQueryCounters.measure {
-            rustCall { error ->
+            rustCall2 { error ->
                 val existedByte = LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
                 existedByte.toInt() != 0
             }
@@ -585,55 +578,73 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     // Does the shared insert work, takes the position just because
     // its a little tedious to type out setting it
-    private fun doInsert(builder: MsgTypes.BookmarkNode.Builder, position: Int?): String {
-        position?.let { builder.setPosition(position) }
-        val buf = builder.build()
-        val (nioBuf, len) = buf.toNioDirectBuffer()
+    private fun doInsert(node: BookmarkNode): String {
         writeQueryCounters.measure {
-            return rustCallForString { err ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                LibPlacesFFI.INSTANCE.bookmarks_insert(this.handle.get(), ptr, len, err)
+            return rustCall2ForString { err ->
+                LibPlacesFFI.INSTANCE.bookmarks_insert(this.handle.get(), node.lower(), err)
             }
         }
     }
 
     override fun createFolder(parentGUID: String, title: String, position: Int?): String {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-                .setNodeType(BookmarkType.Folder.value)
-                .setParentGuid(parentGUID)
-                .setTitle(title)
-        return this.doInsert(builder, position)
+        val node = BookmarkNode(
+            nodeType = BookmarkType.FOLDER,
+            guid = null,
+            dateAdded = null,
+            lastModified = null,
+            parentGuid = parentGUID,
+            position = position,
+            title = title,
+            url = null,
+            childGuids = emptyList(),
+            childNodes = null
+        )
+        return this.doInsert(node)
     }
 
     override fun createSeparator(parentGUID: String, position: Int?): String {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-                .setNodeType(BookmarkType.Separator.value)
-                .setParentGuid(parentGUID)
-        return this.doInsert(builder, position)
+        val node = BookmarkNode(
+            nodeType = BookmarkType.SEPARATOR,
+            guid = null,
+            dateAdded = null,
+            lastModified = null,
+            parentGuid = parentGUID,
+            position = position,
+            title = null,
+            url = null,
+            childGuids = emptyList(),
+            childNodes = null
+        )
+        return this.doInsert(node)
     }
 
     override fun createBookmarkItem(parentGUID: String, url: String, title: String, position: Int?): String {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-                .setNodeType(BookmarkType.Bookmark.value)
-                .setParentGuid(parentGUID)
-                .setUrl(url)
-                .setTitle(title)
-        return this.doInsert(builder, position)
+        val node = BookmarkNode(
+            nodeType = BookmarkType.BOOKMARK,
+            guid = null,
+            dateAdded = null,
+            lastModified = null,
+            parentGuid = parentGUID,
+            position = position,
+            title = title,
+            url = url,
+            childGuids = emptyList(),
+            childNodes = null
+        )
+        return this.doInsert(node)
     }
 
     override fun updateBookmark(guid: String, info: BookmarkUpdateInfo) {
-        val buf = info.toProtobuf(guid)
-        val (nioBuf, len) = buf.toNioDirectBuffer()
+        val node = info.toBookmarkNode(guid)
         return writeQueryCounters.measure {
-            rustCall { err ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), ptr, len, err)
+            rustCall2 { err ->
+                LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), node.lower(), err)
             }
         }
     }
 
     override fun acceptResult(searchString: String, url: String) {
-        rustCall { error ->
+        rustCall2 { error ->
             LibPlacesFFI.INSTANCE.places_accept_result(
                     this.handle.get(), searchString, url, error)
         }
@@ -1026,7 +1037,7 @@ class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : Auto
     @Synchronized
     fun interrupt() {
         handle.get()?.let {
-            val e = RustError.ByReference()
+            val e = RustError2.ByReference()
             LibPlacesFFI.INSTANCE.places_interrupt(it, e)
             if (e.isFailure()) {
                 throw e.intoException()
@@ -1041,34 +1052,13 @@ open class UrlParseFailed(msg: String) : PlacesException(msg)
 open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
 open class OperationInterrupted(msg: String) : PlacesException(msg)
 
-enum class VisitType(val type: Int) {
-    /** This isn't a visit, but a request to update meta data about a page */
-    UPDATE_PLACE(-1),
-    /** This transition type means the user followed a link. */
-    LINK(1),
-    /** This transition type means that the user typed the page's URL in the
-     *  URL bar or selected it from UI (URL bar autocomplete results, etc).
-     */
-    TYPED(2),
-    // TODO: rest of docs
-    BOOKMARK(3),
-    EMBED(4),
-    REDIRECT_PERMANENT(5),
-    REDIRECT_TEMPORARY(6),
-    DOWNLOAD(7),
-    FRAMED_LINK(8),
-    RELOAD(9)
-}
-
-private val intToVisitType: Map<Int, VisitType> = VisitType.values().associateBy(VisitType::type)
-
 /**
  * Encapsulates either information about a visit to a page, or meta information about the page,
- * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
+ * or both. Use `visitType = null` to differentiate an update from a visit.
  */
 data class VisitObservation(
     val url: String,
-    val visitType: VisitType,
+    val visitType: VisitType?,
     val title: String? = null,
     val isError: Boolean? = null,
     val isRedirectSource: Boolean? = null,
@@ -1078,12 +1068,13 @@ data class VisitObservation(
     val referrer: String? = null,
     val isRemote: Boolean? = null
 ) {
+    // TODO: what exactly do we use this for..?
     fun toJSON(): JSONObject {
         val o = JSONObject()
         o.put("url", this.url)
         // Absence of visit_type indicates that this is an update.
-        if (this.visitType != VisitType.UPDATE_PLACE) {
-            o.put("visit_type", this.visitType.type)
+        if (this.visitType != null) {
+            o.put("visit_type", this.visitType)
         }
         this.title?.let { o.put("title", it) }
         this.isError?.let { o.put("is_error", it) }
@@ -1104,76 +1095,6 @@ fun stringOrNull(jsonObject: JSONObject, key: String): String? {
     }
 }
 
-enum class SearchResultReason {
-    KEYWORD,
-    ORIGIN,
-    URL,
-    PREVIOUS_USE,
-    BOOKMARK,
-    TAG;
-
-    companion object {
-        fun fromMessage(reason: MsgTypes.SearchResultReason): SearchResultReason {
-            return when (reason) {
-                MsgTypes.SearchResultReason.KEYWORD -> KEYWORD
-                MsgTypes.SearchResultReason.ORIGIN -> ORIGIN
-                MsgTypes.SearchResultReason.URL -> URL
-                MsgTypes.SearchResultReason.PREVIOUS_USE -> PREVIOUS_USE
-                MsgTypes.SearchResultReason.BOOKMARK -> BOOKMARK
-                MsgTypes.SearchResultReason.TAG -> TAG
-            }
-        }
-    }
-}
-
-data class SearchResult(
-    val url: String,
-    val title: String,
-    val frecency: Long,
-    val reasons: List<SearchResultReason>
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.SearchResultMessage): SearchResult {
-            return SearchResult(
-                url = msg.url,
-                title = msg.title,
-                frecency = msg.frecency,
-                reasons = msg.reasonsList.map {
-                    SearchResultReason.fromMessage(it)
-                }
-            )
-        }
-        internal fun fromCollectionMessage(msg: MsgTypes.SearchResultList): List<SearchResult> {
-            return msg.resultsList.map {
-                fromMessage(it)
-            }
-        }
-    }
-}
-
-/**
- * Information about a top frecent site. Returned by `PlacesAPI.getTopFrecentSiteInfos`.
- */
-data class TopFrecentSiteInfo(
-    /**
-     * The URL of the page that was visited.
-     */
-    val url: String,
-
-    /**
-     * The title of the page that was visited, if known.
-     */
-    val title: String?
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.TopFrecentSiteInfos): List<TopFrecentSiteInfo> {
-            return msg.infosList.map {
-                TopFrecentSiteInfo(url = it.url, title = it.title)
-            }
-        }
-    }
-}
-
 /**
  * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
  * with a frecency score greater or equal to the [value].
@@ -1184,74 +1105,6 @@ enum class FrecencyThresholdOption(val value: Long) {
 
     /** Skip visited pages that were only visited once. */
     SKIP_ONE_TIME_PAGES(101)
-}
-
-/**
- * Information about a history visit. Returned by `PlacesAPI.getVisitInfos`.
- */
-data class VisitInfo(
-    /**
-     * The URL of the page that was visited.
-     */
-    val url: String,
-
-    /**
-     * The title of the page that was visited, if known.
-     */
-    val title: String?,
-
-    /**
-     * The time the page was visited in integer milliseconds since the unix epoch.
-     */
-    val visitTime: Long,
-
-    /**
-     * What the transition type of the visit is.
-     */
-    val visitType: VisitType,
-
-    /**
-     * Whether the page is hidden because it redirected to another page, or was
-     * visited in a frame.
-     */
-    val isHidden: Boolean
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
-            return msg.infosList.map {
-                VisitInfo(url = it.url,
-                    title = it.title,
-                    visitTime = it.timestamp,
-                    visitType = intToVisitType[it.visitType]!!,
-                    isHidden = it.isHidden)
-            }
-        }
-    }
-}
-
-data class VisitInfosWithBound(
-    val infos: List<VisitInfo>,
-    val bound: Long,
-    val offset: Long
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.HistoryVisitInfosWithBound): VisitInfosWithBound {
-            val infoList = msg.infosList.map {
-                VisitInfo(
-                    url = it.url,
-                    title = it.title,
-                    visitTime = it.timestamp,
-                    visitType = intToVisitType[it.visitType]!!,
-                    isHidden = it.isHidden
-                )
-            }
-            return VisitInfosWithBound(
-                infos = infoList,
-                bound = msg.bound,
-                offset = msg.offset
-            )
-        }
-    }
 }
 
 /**

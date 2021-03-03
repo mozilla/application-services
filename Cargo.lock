@@ -1220,6 +1220,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glob"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
+
+[[package]]
 name = "h2"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2177,8 +2183,6 @@ dependencies = [
  "memchr",
  "percent-encoding",
  "pretty_assertions",
- "prost",
- "prost-derive",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -2189,6 +2193,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "types",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
 ]
 
@@ -2214,12 +2221,12 @@ dependencies = [
  "lazy_static",
  "log 0.4.11",
  "places",
- "prost",
  "serde_json",
  "sql-support",
  "sync-guid",
  "sync15",
  "types",
+ "uniffi",
  "url",
  "viaduct",
 ]
@@ -3638,6 +3645,18 @@ checksum = "d442a26b12b04bf1f4fb3645d5deaba9376cf117022935bebe773a03e6e8664f"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
+]
+
+[[package]]
+name = "uniffi_macros"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10d472df0436970c100f0da4945c334e22ce78bd38ced931b3d6f1be435493e7"
+dependencies = [
+ "glob",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

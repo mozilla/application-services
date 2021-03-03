@@ -5,9 +5,8 @@
 // This module implement the traits that make the FFI code easier to manage.
 
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo};
-use crate::msg_types;
 use ffi_support::{
-    implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ErrorCode, ExternError,
+    implement_into_ffi_by_delegation, ErrorCode, ExternError,
 };
 
 pub mod error_codes {
@@ -137,13 +136,38 @@ impl From<Error> for ExternError {
     }
 }
 
-implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
-implement_into_ffi_by_protobuf!(msg_types::TopFrecentSiteInfos);
-implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
-implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfosWithBound);
-implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
-implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
+
+/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) implementing
+/// `uniffi::ViaFfi` (UniFFI auto-generated serialization) by delegating to that implementation.
+///
+/// Note: for this to work, the crate it's called in must depend on `uniffi`.
+///
+/// Note: Each type passed in must implement or derive `uniffi::ViaFfi`.
+#[macro_export]
+macro_rules! implement_into_ffi_by_uniffi {
+    ($($FFIType:ty),* $(,)*) => {$(
+        unsafe impl ffi_support::IntoFfi for $FFIType where $FFIType: uniffi::ViaFfi {
+            type Value = <Self as uniffi::ViaFfi>::FfiType;
+            #[inline]
+            fn ffi_default() -> Self::Value {
+                Default::default()
+            }
+
+            #[inline]
+            fn into_ffi_value(self) -> Self::Value {
+                <Self as uniffi::ViaFfi>::lower(self)
+            }
+        }
+    )*}
+}
+
+
+implement_into_ffi_by_uniffi!(crate::SearchResult);
+implement_into_ffi_by_uniffi!(crate::TopFrecentSiteInfo);
+implement_into_ffi_by_uniffi!(crate::HistoryVisitInfo);
+implement_into_ffi_by_uniffi!(crate::types::HistoryVisitInfosWithBound);
+implement_into_ffi_by_uniffi!(crate::types::BookmarkNode);
 implement_into_ffi_by_delegation!(
-    crate::storage::bookmarks::PublicNode,
-    msg_types::BookmarkNode
+    crate::storage::bookmarks::InternalBookmarkNode,
+    crate::types::BookmarkNode
 );
