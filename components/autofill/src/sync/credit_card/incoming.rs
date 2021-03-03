@@ -13,9 +13,9 @@ use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sync_guid::Guid as SyncGuid;
 
-pub(super) struct CreditCardsImpl {}
+pub(super) struct IncomingCreditCardsImpl {}
 
-impl ProcessIncomingRecordImpl for CreditCardsImpl {
+impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
     type Record = InternalCreditCard;
 
     /// The first step in the "apply incoming" process - stage the records
@@ -246,7 +246,7 @@ mod tests {
         for tc in test_cases {
             log::info!("starting new testcase");
             let tx = db.transaction()?;
-            let ri = CreditCardsImpl {};
+            let ri = IncomingCreditCardsImpl {};
             ri.stage_incoming(
                 &tx,
                 array_to_incoming(tc.incoming_records),
@@ -277,7 +277,7 @@ mod tests {
     fn test_change_local_guid() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
-        let ri = CreditCardsImpl {};
+        let ri = IncomingCreditCardsImpl {};
 
         ri.insert_local_record(&tx, test_record('C'))?;
 
@@ -296,15 +296,15 @@ mod tests {
     fn test_get_incoming() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ci = CreditCardsImpl {};
-        do_test_incoming_same(&ci, &tx, test_record('C'));
+        let ai = IncomingCreditCardsImpl {};
+        do_test_incoming_same(&ai, &tx, test_record('C'));
     }
 
     #[test]
     fn test_incoming_tombstone() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ci = CreditCardsImpl {};
+        let ci = IncomingCreditCardsImpl {};
         do_test_incoming_tombstone(&ci, &tx, test_record('C'));
     }
 
@@ -312,7 +312,7 @@ mod tests {
     fn test_staged_to_mirror() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ci = CreditCardsImpl {};
+        let ci = IncomingCreditCardsImpl {};
         do_test_staged_to_mirror(&ci, &tx, test_record('C'), "credit_cards_mirror");
     }
 }

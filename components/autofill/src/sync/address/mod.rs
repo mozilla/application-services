@@ -4,13 +4,17 @@
 */
 
 pub mod incoming;
+pub mod outgoing;
 
 use super::engine::{ConfigSyncEngine, EngineConfig, SyncEngineStorageImpl};
-use super::{MergeResult, Metadata, ProcessIncomingRecordImpl, SyncRecord};
+use super::{
+    MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
+};
 use crate::db::models::address::InternalAddress;
 use crate::error::*;
 use crate::sync_merge_field_check;
-use incoming::AddressesImpl;
+use incoming::IncomingAddressesImpl;
+use outgoing::OutgoingAddressesImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
@@ -33,16 +37,19 @@ pub(super) struct AddressesEngineStorageImpl {}
 
 impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
     fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = InternalAddress>> {
-        Box::new(AddressesImpl {})
+        Box::new(IncomingAddressesImpl {})
     }
 
     fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
         tx.execute_batch(
             "DELETE FROM addresses_mirror;
-            DELETE FROM addresses_tombstones;
-            UPDATE addresses_data SET sync_change_counter = 1",
+            DELETE FROM addresses_tombstones;",
         )?;
         Ok(())
+    }
+
+    fn get_outgoing_impl(&self) -> Box<dyn ProcessOutgoingRecordImpl<Record = InternalAddress>> {
+        Box::new(OutgoingAddressesImpl {})
     }
 }
 
@@ -134,7 +141,7 @@ impl SyncRecord for InternalAddress {
         merged_record.metadata = incoming.metadata;
         merged_record
             .metadata
-            .merge(&local.metadata, &mirror.as_ref().map(|m| m.metadata()));
+            .merge(&local.metadata, mirror.as_ref().map(|m| m.metadata()));
 
         MergeResult::Merged {
             merged: merged_record,

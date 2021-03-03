@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{plan_incoming, ProcessIncomingRecordImpl, SyncRecord};
+use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
 use crate::db::AutofillDb;
 use crate::error::*;
 use rusqlite::{
@@ -32,6 +32,7 @@ pub const COLLECTION_SYNCID_META_KEY: &str = "sync_id";
 pub trait SyncEngineStorageImpl<T> {
     fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = T>>;
     fn reset_storage(&self, conn: &Transaction<'_>) -> Result<()>;
+    fn get_outgoing_impl(&self) -> Box<dyn ProcessOutgoingRecordImpl<Record = T>>;
 }
 
 // A sync engine that gets functionality from an EngineConfig.
@@ -81,6 +82,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let num_incoming = inbound.changes.len() as u32;
         let tx = db.writer.unchecked_transaction()?;
         let incoming_impl = self.storage_impl.get_incoming_impl();
+        let outgoing_impl = self.storage_impl.get_outgoing_impl();
 
         // The first step in the "apply incoming" process for syncing autofill records.
         incoming_impl.stage_incoming(&tx, inbound.changes, &signal)?;
@@ -100,20 +102,25 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         self.put_meta(&tx, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         incoming_impl.finish_incoming(&tx)?;
-        // Not quite sure if we should commit now and then stage outgoing?
-        tx.commit()?;
 
         // Finally, stage outgoing items.
-        // TODO: Call yet-to-be-implemented stage outgoing code
-        //     let outgoing = self.fetch_outgoing_records(timestamp)?;
-        //     Ok(outgoing)
-        Ok(OutgoingChangeset::new(self.collection_name(), timestamp))
+        let outgoing = outgoing_impl.fetch_outgoing_records(
+            &tx,
+            self.config.collection.to_string(),
+            timestamp,
+        )?;
+        // we're committing now because it may take a long time to actually perform the upload
+        // and we've already staged everything we need to complete the sync in a way that
+        // doesn't require the transaction to stay alive, so we commit now and start a new
+        // transaction once complete
+        tx.commit()?;
+        Ok(outgoing)
     }
 
     fn sync_finished(
         &self,
         new_timestamp: ServerTimestamp,
-        _records_synced: Vec<Guid>,
+        records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
         let db = self.db.lock().unwrap();
         self.put_meta(
@@ -121,8 +128,10 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
             LAST_SYNC_META_KEY,
             &(new_timestamp.as_millis() as i64),
         )?;
-        // TODO: Call yet-to-be implement stage outgoing code
-        db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+        let tx = db.writer.unchecked_transaction()?;
+        let outgoing_impl = self.storage_impl.get_outgoing_impl();
+        outgoing_impl.push_synced_items(&tx, records_synced)?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -191,8 +200,7 @@ mod tests {
     use crate::db::credit_cards::add_internal_credit_card;
     use crate::db::credit_cards::tests::{get_all, insert_mirror_record, insert_tombstone_record};
     use crate::db::models::credit_card::InternalCreditCard;
-    use crate::db::test::new_mem_db;
-    use rusqlite::NO_PARAMS;
+    use crate::db::{schema::create_empty_sync_temp_tables, test::new_mem_db};
     use sql_support::ConnExt;
 
     // We use the credit-card engine here.
@@ -212,6 +220,8 @@ mod tests {
     #[test]
     fn test_credit_card_engine_sync_finished() -> Result<()> {
         let db = new_mem_db();
+        create_empty_sync_temp_tables(&db).expect("should create temp tables");
+
         let credit_card_engine = create_engine(db);
 
         let last_sync = 24;
@@ -302,19 +312,8 @@ mod tests {
             .reset(&EngineSyncAssociation::Disconnected)
             .expect("should work");
 
-        // check that sync change counter has been reset
         {
             let conn = &engine.db.lock().unwrap().writer;
-            let reset_record_exists: bool = conn.query_row(
-                "SELECT EXISTS (
-                    SELECT 1
-                    FROM credit_cards_data
-                    WHERE sync_change_counter = 1
-                )",
-                NO_PARAMS,
-                |row| row.get(0),
-            )?;
-            assert!(reset_record_exists);
 
             // check that the mirror and tombstone tables have no records
             assert!(get_all(conn, "credit_cards_mirror".to_string())?.is_empty());
