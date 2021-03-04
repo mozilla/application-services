@@ -111,8 +111,7 @@ impl SearchBehavior {
 impl FromSql for SearchBehavior {
     #[inline]
     fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
-        SearchBehavior::from_bits(u32::column_result(value)?)
-            .ok_or_else(|| FromSqlError::InvalidType)
+        SearchBehavior::from_bits(u32::column_result(value)?).ok_or(FromSqlError::InvalidType)
     }
 }
 
@@ -446,7 +445,7 @@ mod test {
         for c in 0u8..=255u8 {
             assert_eq!(
                 is_ascii_lower_alpha(c),
-                b'a' <= c && c <= b'z',
+                (b'a'..=b'z').contains(&c),
                 "is_lower_ascii_alpha is wrong for {}",
                 c
             );

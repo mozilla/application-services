@@ -119,7 +119,7 @@ impl FromSql for BookmarkType {
         if v < 0 || v > i64::from(u8::max_value()) {
             return Err(FromSqlError::OutOfRange(v));
         }
-        BookmarkType::from_u8(v as u8).ok_or_else(|| FromSqlError::OutOfRange(v))
+        BookmarkType::from_u8(v as u8).ok_or(FromSqlError::OutOfRange(v))
     }
 }
 

@@ -280,6 +280,8 @@ pub struct Login {
     pub times_used: i64,
 }
 
+// Quiet clippy, since this function is passed to deserialiaze_with...
+#[allow(clippy::unnecessary_wraps)]
 fn deserialize_timestamp<'de, D>(deserializer: D) -> std::result::Result<i64, D::Error>
 where
     D: serde::de::Deserializer<'de>,

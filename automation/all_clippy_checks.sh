@@ -41,3 +41,8 @@ for manifest in $(cargo metadata --no-deps --format-version 1 | jq -r '.packages
     echo "## no-default-features clippy for package $package (manifest @ $manifest)"
     ${CLIPPY_HEAD} --manifest-path "$manifest" --all-targets --no-default-features -- -D warnings "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 done
+
+if [[ -z ${CLIPPY_FIX+x } ]]
+then
+    echo 'remember that automatic fixes were done by the nightly Rust compiler, so review carefully'
+fi

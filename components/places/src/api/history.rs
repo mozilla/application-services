@@ -112,17 +112,15 @@ mod tests {
 
 /////////////////////////////////////////////
 // Stuff to reimplement nsHistory::VisitUri()
-fn is_recently_visited(_url: &Url) -> Result<bool> {
+fn is_recently_visited(_url: &Url) -> bool {
     // History.cpp keeps an in-memory hashtable of urls visited in the last
     // 6 minutes to avoid pages which self-refresh from getting many entries.
     // ie, there's no DB query done here.
     // TODO: implement this.
-    Ok(false)
+    false
 }
 
-fn add_recently_visited(_url: &Url) -> Result<()> {
-    Ok(())
-}
+fn add_recently_visited(_url: &Url) {}
 
 // Other "recent" flags:
 // enum RecentEventFlags {
@@ -171,10 +169,10 @@ pub fn visit_uri(
     // Note clear if we should try and unify these.
     // (and note that if we can, we can drop the recently_visited cache)
     if let Some(ref last) = last_url {
-        if url == last && is_recently_visited(url)? {
+        if url == last && is_recently_visited(url) {
             // it's a reload we don't want to record, although we do want to
             // update it as being recent.
-            add_recently_visited(url)?;
+            add_recently_visited(url);
             return Ok(());
         };
     }

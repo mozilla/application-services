@@ -63,19 +63,19 @@ struct TokenServerFetcher {
     key_id: String,
 }
 
-fn fixup_server_url(mut url: Url) -> Result<Url> {
+fn fixup_server_url(mut url: Url) -> url::Url {
     // The given `url` is the end-point as returned by .well-known/fxa-client-configuration,
     // or as directly specified by self-hosters. As a result, it may or may not have
     // the sync 1.5 suffix of "/1.0/sync/1.5", so add it on here if it does not.
     if url.as_str().ends_with("1.0/sync/1.5") {
-        Ok(url)
+        url
     } else if url.as_str().ends_with("1.0/sync/1.5/") {
         // Shouldn't ever be Err() here, but the result is `Result<PathSegmentsMut, ()>`
         // and I don't want to unwrap or add a new error type just for PathSegmentsMut failing.
         if let Ok(mut path) = url.path_segments_mut() {
             path.pop();
         }
-        Ok(url)
+        url
     } else {
         // We deliberately don't use `.join()` here in order to preserve all path components.
         // For example, "http://example.com/token" should produce "http://example.com/token/1.0/sync/1.5"
@@ -84,17 +84,17 @@ fn fixup_server_url(mut url: Url) -> Result<Url> {
             path.pop_if_empty();
             path.extend(&["1.0", "sync", "1.5"]);
         }
-        Ok(url)
+        url
     }
 }
 
 impl TokenServerFetcher {
-    fn new(base_url: Url, access_token: String, key_id: String) -> Result<TokenServerFetcher> {
-        Ok(TokenServerFetcher {
-            server_url: fixup_server_url(base_url)?,
+    fn new(base_url: Url, access_token: String, key_id: String) -> TokenServerFetcher {
+        TokenServerFetcher {
+            server_url: fixup_server_url(base_url),
             access_token,
             key_id,
-        })
+        }
     }
 }
 
@@ -406,7 +406,7 @@ pub struct TokenProvider {
 
 impl TokenProvider {
     pub fn new(url: Url, access_token: String, key_id: String) -> Result<Self> {
-        let fetcher = TokenServerFetcher::new(url, access_token, key_id)?;
+        let fetcher = TokenServerFetcher::new(url, access_token, key_id);
         Ok(Self {
             imp: TokenProviderImpl::new(fetcher),
         })
@@ -561,7 +561,6 @@ mod tests {
             fixup_server_url(
                 Url::parse("https://token.services.mozilla.com/1.0/sync/1.5").unwrap()
             )
-            .unwrap()
             .as_str(),
             "https://token.services.mozilla.com/1.0/sync/1.5"
         );
@@ -569,27 +568,21 @@ mod tests {
             fixup_server_url(
                 Url::parse("https://token.services.mozilla.com/1.0/sync/1.5/").unwrap()
             )
-            .unwrap()
             .as_str(),
             "https://token.services.mozilla.com/1.0/sync/1.5"
         );
         assert_eq!(
-            fixup_server_url(Url::parse("https://token.services.mozilla.com").unwrap())
-                .unwrap()
-                .as_str(),
+            fixup_server_url(Url::parse("https://token.services.mozilla.com").unwrap()).as_str(),
             "https://token.services.mozilla.com/1.0/sync/1.5"
         );
         assert_eq!(
-            fixup_server_url(Url::parse("https://token.services.mozilla.com/").unwrap())
-                .unwrap()
-                .as_str(),
+            fixup_server_url(Url::parse("https://token.services.mozilla.com/").unwrap()).as_str(),
             "https://token.services.mozilla.com/1.0/sync/1.5"
         );
         assert_eq!(
             fixup_server_url(
                 Url::parse("https://selfhosted.example.com/token/1.0/sync/1.5").unwrap()
             )
-            .unwrap()
             .as_str(),
             "https://selfhosted.example.com/token/1.0/sync/1.5"
         );
@@ -597,20 +590,15 @@ mod tests {
             fixup_server_url(
                 Url::parse("https://selfhosted.example.com/token/1.0/sync/1.5/").unwrap()
             )
-            .unwrap()
             .as_str(),
             "https://selfhosted.example.com/token/1.0/sync/1.5"
         );
         assert_eq!(
-            fixup_server_url(Url::parse("https://selfhosted.example.com/token/").unwrap())
-                .unwrap()
-                .as_str(),
+            fixup_server_url(Url::parse("https://selfhosted.example.com/token/").unwrap()).as_str(),
             "https://selfhosted.example.com/token/1.0/sync/1.5"
         );
         assert_eq!(
-            fixup_server_url(Url::parse("https://selfhosted.example.com/token").unwrap())
-                .unwrap()
-                .as_str(),
+            fixup_server_url(Url::parse("https://selfhosted.example.com/token").unwrap()).as_str(),
             "https://selfhosted.example.com/token/1.0/sync/1.5"
         );
     }

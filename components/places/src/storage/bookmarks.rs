@@ -975,7 +975,7 @@ mod test_serialize {
     }
 
     #[test]
-    fn test_tree_invalid() -> Result<()> {
+    fn test_tree_invalid() {
         let jtree = json!({
             "type": 2,
             "children" : [
@@ -1027,8 +1027,6 @@ mod test_serialize {
             }
             _ => false,
         });
-
-        Ok(())
     }
 }
 
@@ -1799,14 +1797,13 @@ mod tests {
     }
 
     #[test]
-    fn test_delete_roots() -> Result<()> {
+    fn test_delete_roots() {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         delete_bookmark(&conn, &BookmarkRootGuid::Root.into()).expect_err("can't delete root");
         delete_bookmark(&conn, &BookmarkRootGuid::Unfiled.into())
             .expect_err("can't delete any root");
-        Ok(())
     }
 
     #[test]
@@ -1834,7 +1831,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_move_same_parent() -> Result<()> {
+    fn test_update_move_same_parent() {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let unfiled = &BookmarkRootGuid::Unfiled.as_guid();
@@ -1928,8 +1925,6 @@ mod tests {
             {"url": "https://www.example2.com/"},
             {"url": "https://www.example1.com/"},
         ]));
-
-        Ok(())
     }
 
     #[test]
@@ -2287,7 +2282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_errors() -> Result<()> {
+    fn test_update_errors() {
         let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
@@ -2355,7 +2350,6 @@ mod tests {
             .into(),
         )
         .expect_err("can't move to the root");
-        Ok(())
     }
 
     #[test]

@@ -26,10 +26,7 @@
 //! from older struct versions.
 
 use serde_derive::*;
-use std::{
-    collections::{HashMap, HashSet},
-    iter::FromIterator,
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     config::Config,
@@ -159,7 +156,7 @@ impl From<StateV1> for Result<StateV2> {
                 token: token.refresh_token.clone().expect(
                     "all_refresh_tokens should only contain access tokens with refresh tokens",
                 ),
-                scopes: HashSet::from_iter(token.scopes.iter().map(ToString::to_string)),
+                scopes: token.scopes.iter().map(ToString::to_string).collect(),
             });
         let introspection_endpoint = format!("{}/v1/introspect", &state.config.oauth_url);
         Ok(StateV2 {

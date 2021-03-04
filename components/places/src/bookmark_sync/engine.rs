@@ -1429,7 +1429,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 },
                 false,
             )?
-            .ok_or_else(|| ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
+            .ok_or(ErrorKind::Corruption(Corruption::InvalidSyncedRoots))?;
         builder.reparent_orphans_to(&dogear::UNFILED_GUID);
 
         let sql = format!(
@@ -1490,7 +1490,7 @@ impl<'a> dogear::Store for Merger<'a> {
         Ok(tree)
     }
 
-    fn apply<'t>(&mut self, root: MergedRoot<'t>) -> Result<()> {
+    fn apply(&mut self, root: MergedRoot<'_>) -> Result<()> {
         let ops = root.completion_ops_with_signal(&MergeInterruptee(self.engine.interruptee))?;
 
         if ops.is_empty() {

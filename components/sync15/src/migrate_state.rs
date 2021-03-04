@@ -123,6 +123,7 @@ mod tests {
         get_state_with_engine_changes_and_declined(changes, "")
     }
 
+    #[allow(clippy::unnecessary_wraps)] // complex call stack, not worth the effort to fix
     fn make_csids(global: &str, coll: &str) -> Option<CollSyncIds> {
         Some(CollSyncIds {
             global: global.into(),
