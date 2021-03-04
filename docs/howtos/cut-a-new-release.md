@@ -36,31 +36,31 @@
 
 ## Make a new point-release from an existing release that is behind latest main.
 
-1. If necessary, make a new branch named `release-v0.XX` which will be used for all point-releases on the `v0.XX.Y`
+1. If necessary, make a new branch named `release-vXX` which will be used for all point-releases on the `vXX.YY.ZZ`
    series. Example:
     ```
-    git checkout -b release-v0.31 v0.31.2
-    git push -u origin release-v0.31
+    git checkout -b release-v72 v72.1.0
+    git push -u origin release-v72
     ```
 2. Make a new branch with any fixes to be included in the release, *remembering not to make any breaking API
    changes.*. This may involve cherry-picking fixes from main, or developing a new fix directly against the
    branch. Example:
     ```
-    git checkout -b fixes-for-v0.31.3 release-v0.31
+    git checkout -b fixes-for-v72.1.1 release-v72
     git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
-    git push -u origin fixes-for-v0.31.3
+    git push -u origin fixes-for-v72.1.1
     ```
 3. Get a PR up with your changes and land them into the "base" branch.
-   For example, if you are making a `release-v0.31.X` release, all the changes
-   you want in that release must already be in the `release-v0.31` branch before
+   For example, if you are making a `release-v72.1.1` release, all the changes
+   you want in that release must already be in the `release-v72` branch before
    following the steps below.
 4. Follow the above steps for cutting a new release from main, except that:
     * When running the `./automation/prepare-release.py` script, use the `--base-branch` argument to point it at your release branch, and specify `patch` as the release type. Example:
        ```
-       ./automation/prepare-release.py --base-branch=release-v0.31 patch
+       ./automation/prepare-release.py --base-branch=release-v72 patch
        ```
-    * When opening a PR to land the commits, target the `release-v0.XX` branch rather than main.
-    * When cutting the new release via github's UI, target the `release-v0.XX` branch rather than main.
+    * When opening a PR to land the commits, target the `release-vXX` branch rather than main.
+    * When cutting the new release via github's UI, target the `release-vXX` branch rather than main.
 5. Merge the new release back to main.
     * This will typically require a PR and involve resolving merge conflicts in the changelog.
     * This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
