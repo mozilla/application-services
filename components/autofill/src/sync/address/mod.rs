@@ -89,6 +89,68 @@ struct PayloadEntry {
     pub version: u32, // always 3 for credit-cards
 }
 
+impl InternalAddress {
+    fn from_payload(sync_payload: sync15::Payload) -> Result<Self> {
+        let p: AddressPayload = sync_payload.into_record()?;
+        if p.entry.version != 1 {
+            // Always been version 1
+            return Err(Error::InvalidSyncPayload(format!(
+                "invalid version - {}",
+                p.entry.version
+            )));
+        }
+
+        Ok(InternalAddress {
+            guid: p.id,
+            given_name: p.entry.given_name,
+            additional_name: p.entry.additional_name,
+            family_name: p.entry.family_name,
+            organization: p.entry.organization,
+            street_address: p.entry.street_address,
+            address_level3: p.entry.address_level3,
+            address_level2: p.entry.address_level2,
+            address_level1: p.entry.address_level1,
+            postal_code: p.entry.postal_code,
+            country: p.entry.country,
+            tel: p.entry.tel,
+            email: p.entry.email,
+            metadata: Metadata {
+                time_created: p.entry.time_created,
+                time_last_used: p.entry.time_last_used,
+                time_last_modified: p.entry.time_last_modified,
+                times_used: p.entry.times_used,
+                sync_change_counter: 0,
+            },
+        })
+    }
+
+    pub fn into_payload(self) -> Result<sync15::Payload> {
+        let p = AddressPayload {
+            id: self.guid,
+            entry: PayloadEntry {
+                given_name: self.given_name,
+                additional_name: self.additional_name,
+                family_name: self.family_name,
+                organization: self.organization,
+                street_address: self.street_address,
+                address_level3: self.address_level3,
+                address_level2: self.address_level2,
+                address_level1: self.address_level1,
+                postal_code: self.postal_code,
+                country: self.country,
+                tel: self.tel,
+                email: self.email,
+                time_created: self.metadata.time_created,
+                time_last_used: self.metadata.time_last_used,
+                time_last_modified: self.metadata.time_last_modified,
+                times_used: self.metadata.times_used,
+                version: 1,
+            },
+        };
+        Ok(sync15::Payload::from_record(p)?)
+    }
+}
+
 impl SyncRecord for InternalAddress {
     fn record_name() -> &'static str {
         "Address"
@@ -146,66 +208,6 @@ impl SyncRecord for InternalAddress {
         MergeResult::Merged {
             merged: merged_record,
         }
-    }
-
-    fn to_record(sync_payload: sync15::Payload) -> Result<Self> {
-        let p: AddressPayload = sync_payload.into_record()?;
-        if p.entry.version != 1 {
-            // Always been version 1
-            return Err(Error::InvalidSyncPayload(format!(
-                "invalid version - {}",
-                p.entry.version
-            )));
-        }
-
-        Ok(InternalAddress {
-            guid: p.id,
-            given_name: p.entry.given_name,
-            additional_name: p.entry.additional_name,
-            family_name: p.entry.family_name,
-            organization: p.entry.organization,
-            street_address: p.entry.street_address,
-            address_level3: p.entry.address_level3,
-            address_level2: p.entry.address_level2,
-            address_level1: p.entry.address_level1,
-            postal_code: p.entry.postal_code,
-            country: p.entry.country,
-            tel: p.entry.tel,
-            email: p.entry.email,
-            metadata: Metadata {
-                time_created: p.entry.time_created,
-                time_last_used: p.entry.time_last_used,
-                time_last_modified: p.entry.time_last_modified,
-                times_used: p.entry.times_used,
-                sync_change_counter: 0,
-            },
-        })
-    }
-
-    fn to_payload(self) -> Result<sync15::Payload> {
-        let p = AddressPayload {
-            id: self.guid,
-            entry: PayloadEntry {
-                given_name: self.given_name,
-                additional_name: self.additional_name,
-                family_name: self.family_name,
-                organization: self.organization,
-                street_address: self.street_address,
-                address_level3: self.address_level3,
-                address_level2: self.address_level2,
-                address_level1: self.address_level1,
-                postal_code: self.postal_code,
-                country: self.country,
-                tel: self.tel,
-                email: self.email,
-                time_created: self.metadata.time_created,
-                time_last_used: self.metadata.time_last_used,
-                time_last_modified: self.metadata.time_last_modified,
-                times_used: self.metadata.times_used,
-                version: 1,
-            },
-        };
-        Ok(sync15::Payload::from_record(p)?)
     }
 }
 

@@ -7,9 +7,7 @@ use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{
-    OutgoingChangeset, Payload, ProcessOutgoingRecordImpl, ServerTimestamp, SyncRecord,
-};
+use crate::sync::{OutgoingChangeset, Payload, ProcessOutgoingRecordImpl, ServerTimestamp};
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
 
@@ -45,7 +43,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
             common_cols = CREDIT_CARD_COMMON_COLS,
         );
         let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| Ok(InternalCreditCard::from_row(row)?.to_payload()?);
+            &|row| Ok(InternalCreditCard::from_row(row)?.into_payload()?);
 
         let tombstones_sql = "SELECT guid FROM credit_cards_tombstones";
 
@@ -90,7 +88,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 mod tests {
     use super::*;
     use crate::db::credit_cards::{add_internal_credit_card, tests::insert_mirror_record};
-    use crate::sync::{common::tests::*, test::new_syncable_mem_db, SyncRecord};
+    use crate::sync::{common::tests::*, test::new_syncable_mem_db};
     use serde_json::{json, Map, Value};
     use types::Timestamp;
 
@@ -131,7 +129,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
         let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalCreditCard::to_record(sync_payload).expect("should be valid")
+        InternalCreditCard::from_payload(sync_payload).expect("should be valid")
     }
 
     #[test]

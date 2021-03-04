@@ -254,10 +254,9 @@ pub(crate) mod tests {
 
     pub(crate) fn insert_mirror_record(conn: &Connection, credit_card: InternalCreditCard) {
         // This should probably be in the sync module, but it's used here.
-        use crate::sync::SyncRecord;
         let guid = credit_card.guid.clone();
         let payload = credit_card
-            .to_payload()
+            .into_payload()
             .expect("is json")
             .into_json_string();
         conn.execute_named(

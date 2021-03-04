@@ -7,9 +7,7 @@ use crate::db::models::address::InternalAddress;
 use crate::db::schema::ADDRESS_COMMON_COLS;
 use crate::error::*;
 use crate::sync::common::*;
-use crate::sync::{
-    OutgoingChangeset, Payload, ProcessOutgoingRecordImpl, ServerTimestamp, SyncRecord,
-};
+use crate::sync::{OutgoingChangeset, Payload, ProcessOutgoingRecordImpl, ServerTimestamp};
 use rusqlite::{Row, Transaction};
 use sync_guid::Guid as SyncGuid;
 
@@ -45,7 +43,7 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             common_cols = ADDRESS_COMMON_COLS,
         );
         let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| Ok(InternalAddress::from_row(row)?.to_payload()?);
+            &|row| Ok(InternalAddress::from_row(row)?.into_payload()?);
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 
@@ -89,7 +87,7 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
 mod tests {
     use super::*;
     use crate::db::{addresses::add_internal_address, models::address::InternalAddress};
-    use crate::sync::{common::tests::*, test::new_syncable_mem_db, SyncRecord};
+    use crate::sync::{common::tests::*, test::new_syncable_mem_db};
     use rusqlite::Connection;
     use serde_json::{json, Map, Value};
     use types::Timestamp;
@@ -99,7 +97,7 @@ mod tests {
     fn insert_mirror_record(conn: &Connection, address: InternalAddress) {
         // This should probably be in the sync module, but it's used here.
         let guid = address.guid.clone();
-        let payload = address.to_payload().expect("is json").into_json_string();
+        let payload = address.into_payload().expect("is json").into_json_string();
         conn.execute_named(
             "INSERT OR IGNORE INTO addresses_mirror (guid, payload)
              VALUES (:guid, :payload)",
@@ -146,7 +144,7 @@ mod tests {
     fn test_record(guid_prefix: char) -> InternalAddress {
         let json = test_json_record(guid_prefix);
         let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalAddress::to_record(sync_payload).expect("should be valid")
+        InternalAddress::from_payload(sync_payload).expect("should be valid")
     }
 
     #[test]

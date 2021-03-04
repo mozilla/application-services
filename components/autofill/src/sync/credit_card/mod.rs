@@ -84,6 +84,54 @@ struct PayloadEntry {
     pub version: u32, // always 3 for credit-cards
 }
 
+impl InternalCreditCard {
+    fn from_payload(sync_payload: sync15::Payload) -> Result<Self> {
+        let p: CreditCardPayload = sync_payload.into_record()?;
+        if p.entry.version != 3 {
+            // when new versions are introduced we will start accepting and
+            // converting old ones - but 3 is the lowest we support.
+            return Err(Error::InvalidSyncPayload(format!(
+                "invalid version - {}",
+                p.entry.version
+            )));
+        }
+        Ok(InternalCreditCard {
+            guid: p.id,
+            cc_name: p.entry.cc_name,
+            cc_number: p.entry.cc_number,
+            cc_exp_month: p.entry.cc_exp_month,
+            cc_exp_year: p.entry.cc_exp_year,
+            cc_type: p.entry.cc_type,
+            metadata: Metadata {
+                time_created: p.entry.time_created,
+                time_last_used: p.entry.time_last_used,
+                time_last_modified: p.entry.time_last_modified,
+                times_used: p.entry.times_used,
+                sync_change_counter: 0,
+            },
+        })
+    }
+
+    pub fn into_payload(self) -> Result<sync15::Payload> {
+        let p = CreditCardPayload {
+            id: self.guid,
+            entry: PayloadEntry {
+                cc_name: self.cc_name,
+                cc_number: self.cc_number,
+                cc_exp_month: self.cc_exp_month,
+                cc_exp_year: self.cc_exp_year,
+                cc_type: self.cc_type,
+                time_created: self.metadata.time_created,
+                time_last_used: self.metadata.time_last_used,
+                time_last_modified: self.metadata.time_last_modified,
+                times_used: self.metadata.times_used,
+                version: 3,
+            },
+        };
+        Ok(sync15::Payload::from_record(p)?)
+    }
+}
+
 impl SyncRecord for InternalCreditCard {
     fn record_name() -> &'static str {
         "CreditCard"
@@ -134,52 +182,6 @@ impl SyncRecord for InternalCreditCard {
         MergeResult::Merged {
             merged: merged_record,
         }
-    }
-
-    fn to_record(sync_payload: sync15::Payload) -> Result<Self> {
-        let p: CreditCardPayload = sync_payload.into_record()?;
-        if p.entry.version != 3 {
-            // when new versions are introduced we will start accepting and
-            // converting old ones - but 3 is the lowest we support.
-            return Err(Error::InvalidSyncPayload(format!(
-                "invalid version - {}",
-                p.entry.version
-            )));
-        }
-        Ok(InternalCreditCard {
-            guid: p.id,
-            cc_name: p.entry.cc_name,
-            cc_number: p.entry.cc_number,
-            cc_exp_month: p.entry.cc_exp_month,
-            cc_exp_year: p.entry.cc_exp_year,
-            cc_type: p.entry.cc_type,
-            metadata: Metadata {
-                time_created: p.entry.time_created,
-                time_last_used: p.entry.time_last_used,
-                time_last_modified: p.entry.time_last_modified,
-                times_used: p.entry.times_used,
-                sync_change_counter: 0,
-            },
-        })
-    }
-
-    fn to_payload(self) -> Result<sync15::Payload> {
-        let p = CreditCardPayload {
-            id: self.guid,
-            entry: PayloadEntry {
-                cc_name: self.cc_name,
-                cc_number: self.cc_number,
-                cc_exp_month: self.cc_exp_month,
-                cc_exp_year: self.cc_exp_year,
-                cc_type: self.cc_type,
-                time_created: self.metadata.time_created,
-                time_last_used: self.metadata.time_last_used,
-                time_last_modified: self.metadata.time_last_modified,
-                times_used: self.metadata.times_used,
-                version: 3,
-            },
-        };
-        Ok(sync15::Payload::from_record(p)?)
     }
 }
 
