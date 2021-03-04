@@ -2,4 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v72.1.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v72.1.1...main)

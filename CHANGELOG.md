@@ -1,3 +1,12 @@
+# v72.1.1 (_2021-03-04_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v72.1.0...v72.1.1)
+
+## General
+
+- This is a deliberately empty release, to help test some release automation scripts.
+
+
 # v72.1.0 (_2021-02-25_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v72.0.0...v72.1.0)

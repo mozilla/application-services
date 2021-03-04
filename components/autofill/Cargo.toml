@@ -35,4 +35,4 @@ libsqlite3-sys = "0.20.1"
 
 [build-dependencies]
 nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
-uniffi_build = "^0.7.1"
+uniffi_build = "0.7.1"
