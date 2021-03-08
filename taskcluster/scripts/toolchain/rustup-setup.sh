@@ -16,7 +16,7 @@ export SCCACHE_CACHE_SIZE='40G'
 export SCCACHE_ERROR_LOG='/builds/worker/sccache.log'
 export RUST_LOG='sccache=info'
 # We are pinned at this rust stable version (see also ../.circleci/config.yml)
-export RUST_STABLE_VERSION='1.43.0'
+export RUST_STABLE_VERSION='1.50.0'
 
 # Rust
 set -eux; \
