@@ -1,5 +1,9 @@
 # Unreleased changes
 
+## What's Changed
+
+- Upgraded uniffi to 0.8.0. This is to allow nimbus to be includable in the iOS megazord.
+
 # 0.8.2 (_2021-02-23_)
 
 ## What's Changed
