@@ -6,7 +6,7 @@ parameters:
   # See also ../taskcluster/scripts/toolchain/rustup-setup.sh
   stable-rust-version:
     type: string
-    default: 1.43.0
+    default: 1.50.0
 
 commands:
   full-checkout:

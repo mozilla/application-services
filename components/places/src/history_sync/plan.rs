@@ -405,7 +405,10 @@ mod tests {
             visits,
         };
 
-        assert!(matches!(plan_incoming_record(&conn, record, 10), IncomingPlan::Apply{..}));
+        assert!(matches!(
+            plan_incoming_record(&conn, record, 10),
+            IncomingPlan::Apply { .. }
+        ));
         Ok(())
     }
 
@@ -470,7 +473,10 @@ mod tests {
         };
         // Even though there are no visits we should record that it will be
         // applied with the guid change.
-        assert!(matches!(plan_incoming_record(&conn, record, 10), IncomingPlan::Apply{..}));
+        assert!(matches!(
+            plan_incoming_record(&conn, record, 10),
+            IncomingPlan::Apply { .. }
+        ));
     }
 
     // These "dupe" tests all do the full application of the plan and checks
