@@ -16,7 +16,7 @@
 use std::time::{Duration, Instant};
 
 use crate::config::RemoteSettingsConfig;
-use crate::error::{Error, Result};
+use crate::error::{NimbusError, Result};
 use crate::{Experiment, SettingsClient, SCHEMA_VERSION};
 use std::cell::Cell;
 use url::Url;
@@ -60,7 +60,7 @@ impl Client {
         if resp.is_success() || resp.status == status_codes::NOT_MODIFIED {
             Ok(resp)
         } else {
-            Err(Error::ResponseError(resp.text().to_string()))
+            Err(NimbusError::ResponseError(resp.text().to_string()))
         }
     }
 
@@ -75,7 +75,7 @@ impl Client {
                 self.remote_state.replace(RemoteState::Ok);
             } else {
                 let remaining = duration - elapsed_time;
-                return Err(Error::BackoffError(remaining.as_secs()));
+                return Err(NimbusError::BackoffError(remaining.as_secs()));
             }
         }
         Ok(())
@@ -127,9 +127,14 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
     // to allow us to deserialize each experiment individually,
     // omitting any malformed experiments
     let value: serde_json::Value = serde_json::from_str(payload)?;
-    let data = value.get("data").ok_or(Error::InvalidExperimentFormat)?;
+    let data = value
+        .get("data")
+        .ok_or(NimbusError::InvalidExperimentFormat)?;
     let mut res = Vec::new();
-    for exp in data.as_array().ok_or(Error::InvalidExperimentFormat)? {
+    for exp in data
+        .as_array()
+        .ok_or(NimbusError::InvalidExperimentFormat)?
+    {
         // Validate the schema major version matches the supported version
         let exp_schema_version = match exp.get("schemaVersion") {
             Some(ver) => {
@@ -351,7 +356,7 @@ mod tests {
         let http_client = Client::new(config).unwrap();
         assert!(http_client.fetch_experiments().is_ok());
         let second_request = http_client.fetch_experiments();
-        assert!(matches!(second_request, Err(Error::BackoffError(_))));
+        assert!(matches!(second_request, Err(NimbusError::BackoffError(_))));
         m.expect(1).assert();
     }
 
@@ -374,7 +379,7 @@ mod tests {
         let http_client = Client::new(config).unwrap();
         assert!(http_client.fetch_experiments().is_err());
         let second_request = http_client.fetch_experiments();
-        assert!(matches!(second_request, Err(Error::BackoffError(_))));
+        assert!(matches!(second_request, Err(NimbusError::BackoffError(_))));
         m.expect(1).assert();
     }
 
@@ -402,7 +407,7 @@ mod tests {
         });
         assert!(matches!(
             http_client.fetch_experiments(),
-            Err(Error::BackoffError(_))
+            Err(NimbusError::BackoffError(_))
         ));
         // Then do the actual test.
         http_client.remote_state = Cell::new(RemoteState::Backoff {

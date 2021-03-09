@@ -8,7 +8,7 @@
 //! TODO: Implement proper error handling, this would include defining the error enum,
 //! impl std::error::Error using `thiserror` and ensuring all errors are handled appropriately
 #[derive(Debug, thiserror::Error)]
-pub enum Error {
+pub enum NimbusError {
     #[error("Invalid persisted data")]
     InvalidPersistedData,
     #[error("Rkv error: {0}")]
@@ -53,10 +53,10 @@ pub enum Error {
     DatabaseNotReady,
 }
 
-impl<'a> From<jexl_eval::error::EvaluationError<'a>> for Error {
+impl<'a> From<jexl_eval::error::EvaluationError<'a>> for NimbusError {
     fn from(eval_error: jexl_eval::error::EvaluationError<'a>) -> Self {
-        Error::EvaluationError(eval_error.to_string())
+        NimbusError::EvaluationError(eval_error.to_string())
     }
 }
 
-pub type Result<T, E = Error> = std::result::Result<T, E>;
+pub type Result<T, E = NimbusError> = std::result::Result<T, E>;

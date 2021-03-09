@@ -7,7 +7,7 @@ use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
 use crate::{
-    error::{Error, Result},
+    error::{NimbusError, Result},
     AvailableRandomizationUnits,
 };
 use crate::{matcher::AppContext, sampling};
@@ -138,7 +138,7 @@ fn choose_branch<'a>(slug: &str, branches: &'a [Branch], id: &str) -> Result<&'a
     // TODO: Change it to be something more related to the SDK if it is needed
     let input = format!("{:}-{:}-{:}-branch", "experimentmanager", id, slug);
     let index = sampling::ratio_sample(&input, &ratios)?;
-    branches.get(index).ok_or(Error::OutOfBoundsError)
+    branches.get(index).ok_or(NimbusError::OutOfBoundsError)
 }
 
 /// Checks if the client is targeted by an experiment
@@ -167,11 +167,11 @@ fn targeting(expression_statement: &str, ctx: &AppContext) -> Option<EnrollmentS
                 reason: NotEnrolledReason::NotTargeted,
             }),
             None => Some(EnrollmentStatus::Error {
-                reason: Error::InvalidExpression.to_string(),
+                reason: NimbusError::InvalidExpression.to_string(),
             }),
         },
         Err(e) => Some(EnrollmentStatus::Error {
-            reason: Error::EvaluationError(e.to_string()).to_string(),
+            reason: NimbusError::EvaluationError(e.to_string()).to_string(),
         }),
     }
 }

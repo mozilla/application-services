@@ -5,7 +5,7 @@
 mod fs_client;
 mod http_client;
 mod null_client;
-use crate::error::{Error, Result};
+use crate::error::{NimbusError, Result};
 use crate::Experiment;
 use crate::RemoteSettingsConfig;
 use fs_client::FileSystemClient;
@@ -29,7 +29,7 @@ pub(crate) fn create_client(
                 // seem valuable for the use-cases we care about here.
                 let path = match url.to_file_path() {
                     Ok(path) => path,
-                    _ => return Err(Error::InvalidPath(config.server_url)),
+                    _ => return Err(NimbusError::InvalidPath(config.server_url)),
                 };
                 Box::new(FileSystemClient::new(path)?)
             } else {

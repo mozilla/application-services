@@ -1,8 +1,8 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
+use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
-use crate::{error::Result, Error};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
 use crate::{AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment};
 
@@ -110,7 +110,7 @@ impl ExperimentEnrollment {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         if !experiment.has_branch(branch_slug) {
-            return Err(Error::NoSuchBranch(
+            return Err(NimbusError::NoSuchBranch(
                 branch_slug.to_owned(),
                 experiment.slug.clone(),
             ));
@@ -583,7 +583,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         for experiment in updated_experiments {
             // Sanity check.
             if !updated_enrollments.contains_key(&experiment.slug) {
-                return Err(Error::InternalError(
+                return Err(NimbusError::InternalError(
                     "An experiment must always have an associated enrollment.",
                 ));
             }
@@ -665,12 +665,12 @@ impl<'a> EnrollmentsEvolver<'a> {
                 }
                 (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),
                 (None, Some(_), Some(_)) => {
-                    return Err(Error::InternalError(
+                    return Err(NimbusError::InternalError(
                         "New experiment but enrollment already exists.",
                     ))
                 }
                 (Some(_), None, None) | (Some(_), Some(_), None) => {
-                    return Err(Error::InternalError(
+                    return Err(NimbusError::InternalError(
                         "Experiment in the db did not have an associated enrollment record.",
                     ))
                 }
@@ -739,7 +739,7 @@ pub fn opt_in_with_branch(
     let exp: Experiment = db
         .get_store(StoreId::Experiments)
         .get(writer, experiment_slug)?
-        .ok_or_else(|| Error::NoSuchExperiment(experiment_slug.to_owned()))?;
+        .ok_or_else(|| NimbusError::NoSuchExperiment(experiment_slug.to_owned()))?;
     let enrollment = ExperimentEnrollment::from_explicit_opt_in(&exp, branch, &mut events)?;
     db.get_store(StoreId::Enrollments)
         .put(writer, experiment_slug, &enrollment)?;
@@ -755,7 +755,7 @@ pub fn opt_out(
     let enr_store = db.get_store(StoreId::Enrollments);
     let existing_enrollment: ExperimentEnrollment = enr_store
         .get(writer, experiment_slug)?
-        .ok_or_else(|| Error::NoSuchExperiment(experiment_slug.to_owned()))?;
+        .ok_or_else(|| NimbusError::NoSuchExperiment(experiment_slug.to_owned()))?;
     let updated_enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
     enr_store.put(writer, experiment_slug, &updated_enrollment)?;
     Ok(events)

@@ -3,7 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use crate::enrollment::get_enrollments;
-use crate::error::{Error, Result};
+use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, Writer};
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -91,7 +91,7 @@ impl DatabaseCache {
                 log::warn!(
                     "DatabaseCache attempting to read data before initialization is completed"
                 );
-                Err(Error::DatabaseNotReady)
+                Err(NimbusError::DatabaseNotReady)
             }
             Some(ref data) => Ok(func(data)),
         }

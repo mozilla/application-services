@@ -5,7 +5,7 @@
 //! This module implements the sampling logic required to hash,
 //! randomize and pick branches using pre-set ratios.
 
-use crate::error::{Error, Result};
+use crate::error::{NimbusError, Result};
 use sha2::{Digest, Sha256};
 use std::convert::TryInto;
 
@@ -73,7 +73,7 @@ pub(crate) fn bucket_sample<T: serde::Serialize>(
 /// Could return an error if the input couldn't be hashed
 pub(crate) fn ratio_sample<T: serde::Serialize>(input: T, ratios: &[u32]) -> Result<usize> {
     if ratios.is_empty() {
-        return Err(Error::EmptyRatiosError);
+        return Err(NimbusError::EmptyRatiosError);
     }
     let input_hash = hex::encode(truncated_hash(input)?);
     let ratio_total: u32 = ratios.iter().sum();
@@ -144,7 +144,7 @@ fn is_hash_in_bucket(
 /// returns an error if the fraction not within the 0-1 range
 fn fraction_to_key(fraction: f64) -> Result<String> {
     if !(0.0..=1.0).contains(&fraction) {
-        return Err(Error::InvalidFraction);
+        return Err(NimbusError::InvalidFraction);
     }
     let multiplied = (fraction * (2u64.pow(HASH_BITS) - 1) as f64).floor();
     let multiplied = format!("{:x}", multiplied as u64);
@@ -221,7 +221,7 @@ mod tests {
         let ratios = Vec::new();
         let res = ratio_sample(input, &ratios);
         match res.unwrap_err() {
-            Error::EmptyRatiosError => (), // okay,
+            NimbusError::EmptyRatiosError => (), // okay,
             _ => panic!("Should be an empty ratios error!"),
         }
     }

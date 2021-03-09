@@ -4,7 +4,7 @@
 
 //! Our storage abstraction, currently backed by Rkv.
 
-use crate::error::{Error, Result};
+use crate::error::{NimbusError, Result};
 // This uses the lmdb backend for rkv, which is unstable.
 // We use it for now since glean didn't seem to have trouble with it (although
 // it must be noted that the rkv documentation explicitly says "To use rkv in
@@ -169,7 +169,7 @@ impl SingleStore {
                 if let rkv::Value::Json(data) = data {
                     Ok(Some(serde_json::from_str::<T>(data)?))
                 } else {
-                    Err(Error::InvalidPersistedData)
+                    Err(NimbusError::InvalidPersistedData)
                 }
             }
             None => Ok(None),
@@ -336,7 +336,7 @@ impl Database {
                 if let rkv::Value::Json(data) = data {
                     Ok(Some(serde_json::from_str::<T>(data)?))
                 } else {
-                    Err(Error::InvalidPersistedData)
+                    Err(NimbusError::InvalidPersistedData)
                 }
             }
             None => Ok(None),

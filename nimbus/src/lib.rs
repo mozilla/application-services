@@ -6,7 +6,7 @@ mod dbcache;
 mod enrollment;
 pub mod error;
 mod evaluator;
-pub use error::{Error, Result};
+pub use error::{NimbusError, Result};
 mod client;
 mod config;
 mod matcher;
@@ -102,7 +102,7 @@ impl NimbusClient {
             .iter()
             .find(|e| e.slug == slug)
             .map(|e| e.branches.clone())
-            .ok_or(Error::NoSuchExperiment(slug))?)
+            .ok_or(NimbusError::NoSuchExperiment(slug))?)
     }
 
     pub fn get_global_user_participation(&self) -> Result<bool> {

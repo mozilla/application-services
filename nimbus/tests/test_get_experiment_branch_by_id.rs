@@ -5,7 +5,7 @@
 // Testing get_experiment_branch semantics.
 
 mod common;
-use nimbus::error::{Error, Result};
+use nimbus::error::{NimbusError, Result};
 
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
@@ -14,7 +14,7 @@ fn test_before_open() -> Result<()> {
     let client = common::new_test_client("test_before_open")?;
     assert!(matches!(
         client.get_experiment_branch("foo".to_string()),
-        Err(Error::DatabaseNotReady)
+        Err(NimbusError::DatabaseNotReady)
     ));
     // now initialize the DB - it should start working (and report no branch)
     client.initialize()?;
