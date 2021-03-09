@@ -4,7 +4,7 @@
 
 use cli_support::prompt::prompt_string;
 use dialoguer::Select;
-use fxa_client::{device, Config, FirefoxAccount, IncomingDeviceCommand};
+use fxa_client::internal::{device, Config, FirefoxAccount, IncomingDeviceCommand};
 use std::{
     collections::HashMap,
     fs,
@@ -147,7 +147,7 @@ fn main() -> Result<()> {
                 let url: String = prompt_string("URL").unwrap();
                 acct.lock()
                     .unwrap()
-                    .send_tab(&target.id, &title, &url)
+                    .send_single_tab(&target.id, &title, &url)
                     .unwrap();
                 println!("Tab sent!");
             }

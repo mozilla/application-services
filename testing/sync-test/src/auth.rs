@@ -3,7 +3,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::Opts;
 use anyhow::Result;
-use fxa_client::{self, auth, Config as FxaConfig, FirefoxAccount};
+use fxa_client::internal::{auth, config::Config as FxaConfig, FirefoxAccount};
 use logins::PasswordStore;
 use serde_json::json;
 use std::collections::HashMap;
@@ -220,7 +220,7 @@ impl Drop for TestAccount {
 }
 
 pub struct TestClient {
-    pub fxa: fxa_client::FirefoxAccount,
+    pub fxa: fxa_client::internal::FirefoxAccount,
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
     pub logins_store: PasswordStore,
@@ -257,7 +257,11 @@ impl TestClient {
         fxa.complete_oauth_flow(&code, &state)?;
         log::info!("OAuth flow finished");
 
-        fxa.initialize_device("Testing Device", fxa_client::device::Type::Desktop, &[])?;
+        fxa.initialize_device(
+            "Testing Device",
+            fxa_client::internal::device::Type::Desktop,
+            &[],
+        )?;
 
         Ok(Self {
             fxa,

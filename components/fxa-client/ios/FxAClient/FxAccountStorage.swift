@@ -14,7 +14,7 @@ class KeyChainAccountStorage {
         keychainWrapper = KeychainWrapper.sharedAppContainerKeychain(keychainAccessGroup: keychainAccessGroup)
     }
 
-    func read() -> FxAccount? {
+    func read() -> PersistedFirefoxAccount? {
         // Firefox iOS v25.0 shipped with the default accessibility, which breaks Send Tab when the screen is locked.
         // This method migrates the existing keychains to the correct accessibility.
         keychainWrapper.ensureStringItemAccessibility(
@@ -26,7 +26,7 @@ class KeyChainAccountStorage {
             withAccessibility: KeyChainAccountStorage.accessibility
         ) {
             do {
-                return try FxAccount(fromJsonState: json)
+                return try PersistedFirefoxAccount.fromJSON(data: json)
             } catch {
                 FxALog.error("FxAccount internal state de-serialization failed: \(error).")
                 return nil

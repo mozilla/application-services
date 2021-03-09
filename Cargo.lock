@@ -1118,8 +1118,6 @@ dependencies = [
  "log 0.4.11",
  "mockiato",
  "mockito",
- "prost",
- "prost-derive",
  "rand_rccrypto",
  "rate-limiter",
  "rc_crypto",
@@ -1129,23 +1127,12 @@ dependencies = [
  "sync-guid",
  "sync15",
  "thiserror",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
  "viaduct",
  "viaduct-reqwest",
-]
-
-[[package]]
-name = "fxaclient_ffi"
-version = "0.1.0"
-dependencies = [
- "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "fxa-client",
- "lazy_static",
- "log 0.4.11",
- "prost",
- "serde_json",
- "url",
- "viaduct",
 ]
 
 [[package]]
@@ -1218,6 +1205,12 @@ dependencies = [
  "serde_json",
  "uuid",
 ]
+
+[[package]]
+name = "glob"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 
 [[package]]
 name = "h2"
@@ -1640,7 +1633,7 @@ name = "megazord"
 version = "0.1.0"
 dependencies = [
  "autofill",
- "fxaclient_ffi",
+ "fxa-client",
  "lazy_static",
  "logins_ffi",
  "nimbus-sdk",
@@ -1655,7 +1648,7 @@ dependencies = [
 name = "megazord_ios"
 version = "0.1.0"
 dependencies = [
- "fxaclient_ffi",
+ "fxa-client",
  "glean-ffi",
  "logins_ffi",
  "places-ffi",
@@ -3638,6 +3631,18 @@ checksum = "d442a26b12b04bf1f4fb3645d5deaba9376cf117022935bebe773a03e6e8664f"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
+]
+
+[[package]]
+name = "uniffi_macros"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10d472df0436970c100f0da4945c334e22ce78bd38ced931b3d6f1be435493e7"
+dependencies = [
+ "glob",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

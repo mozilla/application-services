@@ -19,8 +19,8 @@ open class FxAccountManager {
     var deviceConfig: DeviceConfig
     let applicationScopes: [String]
 
-    var acct: FxAccount?
-    var account: FxAccount? {
+    var acct: PersistedFirefoxAccount?
+    var account: PersistedFirefoxAccount? {
         get { return acct }
         set {
             acct = newValue
@@ -95,7 +95,7 @@ open class FxAccountManager {
     /// `finishAuthentication(...)` to complete the flow.
     public func beginAuthentication(
         entrypoint: String,
-        metricsParams: MetricsParams = MetricsParams.newEmpty(),
+        metrics: MetricsParams = MetricsParams(parameters: [:]),
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
         FxALog.info("beginAuthentication")
@@ -104,7 +104,7 @@ open class FxAccountManager {
                 try account.beginOAuthFlow(
                     scopes: self.applicationScopes,
                     entrypoint: entrypoint,
-                    metricsParams: metricsParams
+                    metrics: metrics
                 )
             }
             DispatchQueue.main.async { completionHandler(result) }
@@ -123,7 +123,7 @@ open class FxAccountManager {
     public func beginPairingAuthentication(
         pairingUrl: String,
         entrypoint: String,
-        metricsParams: MetricsParams = MetricsParams.newEmpty(),
+        metrics: MetricsParams = MetricsParams(parameters: [:]),
         completionHandler: @escaping (Result<URL, Error>) -> Void
     ) {
         DispatchQueue.global().async {
@@ -132,7 +132,7 @@ open class FxAccountManager {
                     pairingUrl: pairingUrl,
                     scopes: self.applicationScopes,
                     entrypoint: entrypoint,
-                    metricsParams: metricsParams
+                    metrics: metrics
                 )
             }
             DispatchQueue.main.async { completionHandler(result) }
@@ -143,7 +143,7 @@ open class FxAccountManager {
     /// and put it aside for later in `latestOAuthStateParam`.
     /// Afterwards, in `finishAuthentication` we ensure that we are
     /// finishing the correct (and same) authentication flow.
-    private func updatingLatestAuthState(_ beginFlowFn: (FxAccount) throws -> URL) -> Result<URL, Error> {
+    private func updatingLatestAuthState(_ beginFlowFn: (PersistedFirefoxAccount) throws -> URL) -> Result<URL, Error> {
         do {
             let url = try beginFlowFn(requireAccount())
             let comps = URLComponents(url: url, resolvingAgainstBaseURL: true)
@@ -194,9 +194,9 @@ open class FxAccountManager {
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) {
         if latestOAuthStateParam == nil {
-            DispatchQueue.main.async { completionHandler(.failure(FirefoxAccountError.noExistingAuthFlow)) }
+            DispatchQueue.main.async { completionHandler(.failure(FxaError.NoExistingAuthFlow(message: ""))) }
         } else if authData.state != latestOAuthStateParam {
-            DispatchQueue.main.async { completionHandler(.failure(FirefoxAccountError.wrongAuthFlow)) }
+            DispatchQueue.main.async { completionHandler(.failure(FxaError.WrongAuthFlow(message: ""))) }
         } else { /* state == latestAuthState */
             processEvent(event: .authenticated(authData: authData)) {
                 DispatchQueue.main.async { completionHandler(.success(())) }
@@ -378,12 +378,8 @@ open class FxAccountManager {
                 switch via {
                 case .logout: do {
                         // Clean up internal account state and destroy the current FxA device record.
-                        do {
-                            try requireAccount().disconnect()
-                            FxALog.info("Disconnected FxA account")
-                        } catch {
-                            FxALog.error("Failed to fully disconnect the FxA account: \(error).")
-                        }
+                        requireAccount().disconnect()
+                        FxALog.info("Disconnected FxA account")
                         profile = nil
                         constellation = nil
                         accountStorage.clear()
@@ -407,7 +403,8 @@ open class FxAccountManager {
                         if acct.migrateFromSessionToken(
                             sessionToken: sessionToken,
                             kSync: kSync,
-                            kXCS: kXCS
+                            kXCS: kXCS,
+                            copySessionToken: false
                         ) {
                             return .authenticatedViaMigration
                         }
@@ -597,7 +594,7 @@ open class FxAccountManager {
                             onError()
                             return nil
                         }
-                        try account.clearAccessTokenCache()
+                        account.clearAccessTokenCache()
                         // Make sure we're back on track by re-requesting the profile access token.
                         _ = try account.getAccessToken(scope: OAuthScope.profile)
                         return .recoveredFromAuthenticationProblem
@@ -612,15 +609,15 @@ open class FxAccountManager {
         return nil
     }
 
-    internal func createAccount() -> FxAccount {
-        return try! FxAccount(config: config)
+    internal func createAccount() -> PersistedFirefoxAccount {
+        return PersistedFirefoxAccount(config: config)
     }
 
-    internal func tryRestoreAccount() -> FxAccount? {
+    internal func tryRestoreAccount() -> PersistedFirefoxAccount? {
         return accountStorage.read()
     }
 
-    internal func makeDeviceConstellation(account: FxAccount) -> DeviceConstellation {
+    internal func makeDeviceConstellation(account: PersistedFirefoxAccount) -> DeviceConstellation {
         return DeviceConstellation(account: account)
     }
 
@@ -657,7 +654,7 @@ open class FxAccountManager {
         }
     }
 
-    internal func requireAccount() -> FxAccount {
+    internal func requireAccount() -> PersistedFirefoxAccount {
         if let acct = account {
             return acct
         }

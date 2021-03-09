@@ -37,7 +37,8 @@ The following text applies to code linked from these dependencies:
 [jexl-parser](https://github.com/mozilla/jexl-rs),
 [uniffi](https://github.com/mozilla/uniffi-rs),
 [uniffi_bindgen](https://github.com/mozilla/uniffi-rs),
-[uniffi_build](https://github.com/mozilla/uniffi-rs)
+[uniffi_build](https://github.com/mozilla/uniffi-rs),
+[uniffi_macros](https://github.com/mozilla/uniffi-rs)
 
 ```
 Mozilla Public License Version 2.0
@@ -439,6 +440,7 @@ The following text applies to code linked from these dependencies:
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/application-services),
 [getrandom](https://github.com/rust-random/getrandom),
+[glob](https://github.com/rust-lang/glob),
 [hashbrown](https://github.com/rust-lang/hashbrown),
 [hashlink](https://github.com/kyren/hashlink),
 [heck](https://github.com/withoutboats/heck),

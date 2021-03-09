@@ -41,6 +41,10 @@ the details of which are reproduced below.
     <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
   </license>
   <license>
+    <name>Mozilla Public License 2.0: uniffi_macros</name>
+    <url>https://github.com/mozilla/uniffi-rs/blob/main/LICENSE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: ahash</name>
     <url>https://github.com/tkaitchuck/ahash/blob/master/LICENSE-APACHE</url>
   </license>
@@ -123,6 +127,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: getrandom</name>
     <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: glob</name>
+    <url>https://github.com/rust-lang/glob/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: hashbrown</name>
