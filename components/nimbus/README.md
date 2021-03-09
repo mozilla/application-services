@@ -48,6 +48,7 @@ To update Nimbus:
     git add Cargo.lock
     git commit
     ```
-5. Run `./gradlew nimbus:test` to ensure that things still work correctly.
+5. Run `./gradlew nimbus:test` to ensure that things still work correctly for Android.
    If this returns an error, you may need to update `./build.gradle` to track
    any build changes made in the upstream Nimbus repository.
+6. Run an Xcode build to ensure everything compiles correctly for iOS.
