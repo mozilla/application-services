@@ -223,12 +223,6 @@ commands:
           command: |
             sudo pip3 install --require-hashes -r ./tools/requirements.txt
             python3 ./tools/sync_bugzilla_to_github.py
-  sync-tests:
-    steps:
-      - test-setup
-      - run:
-          name: Sync Integration Test Suite
-          command: cargo run -p sync-test -- --oauth-retries 5
   bench-all:
     steps:
       - test-setup
@@ -353,13 +347,6 @@ jobs:
       - restore-sccache-cache
       - rust-tests:
           rust-version: "beta"
-      - save-sccache-cache
-  Sync integration tests:
-    docker:
-      - image: circleci/rust:latest-browsers
-    steps:
-      - restore-sccache-cache
-      - sync-tests
       - save-sccache-cache
   Rust benchmarks:
     docker:
@@ -524,7 +511,6 @@ workflows:
     jobs:
       - Rust tests
       - Rust benchmarks
-      - Sync integration tests
   coverage:
     jobs:
       - Generate code coverage
