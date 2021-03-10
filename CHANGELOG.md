@@ -1,8 +1,12 @@
 # Unreleased changes
 
+# 0.9.0 (_2021-03-09_)
 ## What's Changed
 
 - Upgraded uniffi to 0.8.0. This is to allow nimbus to be includable in the iOS megazord.
+
+## ⚠️ Breaking changes ⚠️
+
 - Changed `Error` to `NimbusError`. This is so as not collide with other implementations of Error in the megazord, (including Swift's).
 
 # 0.8.2 (_2021-02-23_)
