@@ -11,6 +11,10 @@
 - The top-level Rust workspace is now stapled to Rust 1.50, so all developers
   will build with 1.50, as will the continuous integration for this repo.
 
+## iOS 
+
+- The Nimbus SDK is now available as part of the `MozillaAppServices` Swift module.
+
 ## FxA Client
 
 ### ⚠️ Breaking changes ⚠️
