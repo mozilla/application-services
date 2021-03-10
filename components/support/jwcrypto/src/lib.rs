@@ -65,7 +65,7 @@ struct JweHeader {
     apv: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Jwk {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kid: Option<String>,
@@ -73,7 +73,7 @@ pub struct Jwk {
     pub key_parameters: JwkKeyParameters,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "kty")]
 pub enum JwkKeyParameters {
     EC(ec::ECKeysParameters),
@@ -211,6 +211,43 @@ fn test_encrypt_decrypt_jwe_ecdh_es() {
     )
     .unwrap();
     assert_eq!(decrypted, std::str::from_utf8(data).unwrap());
+}
+
+#[test]
+fn test_jwk_deser_with_kid() {
+    let jwk = Jwk {
+        kid: Some("the-key-id".to_string()),
+        key_parameters: JwkKeyParameters::EC(ec::ECKeysParameters {
+            crv: "CRV".to_string(),
+            x: "X".to_string(),
+            y: "Y".to_string(),
+        }),
+    };
+    let jstr = serde_json::to_string(&jwk).unwrap();
+    // Make sure all the tags get the right info by checking the literal string.
+    assert_eq!(
+        jstr,
+        r#"{"kid":"the-key-id","kty":"EC","crv":"CRV","x":"X","y":"Y"}"#
+    );
+    // And check it round-trips.
+    assert_eq!(jwk, serde_json::from_str(&jstr).unwrap());
+}
+
+#[test]
+fn test_jwk_deser_no_kid() {
+    let jwk = Jwk {
+        kid: None,
+        key_parameters: JwkKeyParameters::EC(ec::ECKeysParameters {
+            crv: "CRV".to_string(),
+            x: "X".to_string(),
+            y: "Y".to_string(),
+        }),
+    };
+    let jstr = serde_json::to_string(&jwk).unwrap();
+    // Make sure all the tags get the right info by checking the literal string.
+    assert_eq!(jstr, r#"{"kty":"EC","crv":"CRV","x":"X","y":"Y"}"#);
+    // And check it round-trips.
+    assert_eq!(jwk, serde_json::from_str(&jstr).unwrap());
 }
 
 #[test]
