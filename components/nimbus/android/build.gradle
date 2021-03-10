@@ -43,8 +43,8 @@ android {
     // We don't have any source files of our own, we're re-packaging the ones
     // from the Nimbus repo (which is included as a submodule in our repo).
     sourceSets {
-        main.java.srcDirs += "../external/nimbus-sdk/android/src/main/java"
-        test.java.srcDirs += "../external/nimbus-sdk/android/src/test"
+        main.java.srcDirs += "../../external/nimbus-sdk/android/src/main/java"
+        test.java.srcDirs += "../../external/nimbus-sdk/android/src/test"
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
     }
@@ -121,7 +121,7 @@ dependencies {
 android.libraryVariants.all { variant ->
     def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
         workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../external/nimbus-sdk/nimbus/src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../../external/nimbus-sdk/nimbus/src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
     }
     variant.javaCompileProvider.get().dependsOn(t)
     def sourceSet = variant.sourceSets.find { it.name == variant.name }

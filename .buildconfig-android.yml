@@ -86,7 +86,7 @@ projects:
       type: aar
     description: Sync 1.5 remote tabs implementation.
   nimbus:
-    path: components/nimbus
+    path: components/nimbus/android
     artifactId: nimbus
     publications:
     - name: nimbus
