@@ -1651,6 +1651,7 @@ dependencies = [
  "fxa-client",
  "glean-ffi",
  "logins_ffi",
+ "nimbus-sdk",
  "places-ffi",
  "rc_log_ffi",
  "viaduct",
@@ -1827,7 +1828,7 @@ dependencies = [
 
 [[package]]
 name = "nimbus-sdk"
-version = "0.8.2"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "hex",
@@ -3593,9 +3594,9 @@ checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
 name = "uniffi"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e53678c74206450393a7d8eedf04e60193c184717d12553c7f9c0a8e19346298"
+checksum = "951741396f443adea228ef79abb846340607dfed26068ec0405dd180fd3dbaa5"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3609,9 +3610,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_bindgen"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b26f4b5f70aae3673ac4e03aaa1936a5ebd996360b239c2f592448ab38c23dda"
+checksum = "9fc7f411f7c8faa9d9940eb3a36e271972f4bb35d6860c920f41eca93831e10d"
 dependencies = [
  "anyhow",
  "askama",
@@ -3625,9 +3626,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d442a26b12b04bf1f4fb3645d5deaba9376cf117022935bebe773a03e6e8664f"
+checksum = "fa6892022dca2c387d91aced1ae78f12cca854cdf395ae8035616d100d54f18c"
 dependencies = [
  "anyhow",
  "uniffi_bindgen",
@@ -3635,9 +3636,9 @@ dependencies = [
 
 [[package]]
 name = "uniffi_macros"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10d472df0436970c100f0da4945c334e22ce78bd38ced931b3d6f1be435493e7"
+checksum = "ce261685f44e0a2448dc939baa68c2253cc69a2a38a9d487d967c90cb645f05f"
 dependencies = [
  "glob",
  "proc-macro2",

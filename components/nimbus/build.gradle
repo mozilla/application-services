@@ -121,7 +121,7 @@ dependencies {
 android.libraryVariants.all { variant ->
     def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
         workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../external/nimbus-sdk/nimbus/src/nimbus.idl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../external/nimbus-sdk/nimbus/src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
     }
     variant.javaCompileProvider.get().dependsOn(t)
     def sourceSet = variant.sourceSets.find { it.name == variant.name }

@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1379D0682404BE1300AABD16 /* logins_msg_types.proto */; };
 		137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137C5892240257340016932F /* Data+LoginsRustBuffer.swift */; };
+		394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9924024A25F789F200841837 /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 394A807325EE94C600FAF26F /* nimbus.udl */; };
 		99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */; };
 		BF1A879025064A4C00FED88E /* Dispatchers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A878C25064A4C00FED88E /* Dispatchers.swift */; };
@@ -150,8 +152,11 @@
 /* Begin PBXFileReference section */
 		1379D0682404BE1300AABD16 /* logins_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = logins_msg_types.proto; path = ../../src/logins_msg_types.proto; sourceTree = "<group>"; };
 		137C5892240257340016932F /* Data+LoginsRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Data+LoginsRustBuffer.swift"; path = "Extensions/Data+LoginsRustBuffer.swift"; sourceTree = "<group>"; };
-		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = fxa_client.swift; path = ../../Generated/fxa_client.swift; sourceTree = "<group>"; };
-		99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "uniffi_fxa_client-Bridging-Header.h"; path = "../../Generated/uniffi_fxa_client-Bridging-Header.h"; sourceTree = "<group>"; };
+		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = src/nimbus.udl; sourceTree = "<group>"; };
+		394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_nimbus-Bridging-Header.h"; sourceTree = "<group>"; };
+		394A807725EE951D00FAF26F /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = "<group>"; };
+		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = "<group>"; };
+		99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_fxa_client-Bridging-Header.h"; sourceTree = "<group>"; };
 		99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountOAuth.swift; sourceTree = "<group>"; };
 		BF1A878C25064A4C00FED88E /* Dispatchers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dispatchers.swift; sourceTree = "<group>"; };
 		BF1A878D25064A4C00FED88E /* Glean.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Glean.swift; sourceTree = "<group>"; };
@@ -262,13 +267,34 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		394A807225EE927D00FAF26F /* Nimbus */ = {
+			isa = PBXGroup;
+			children = (
+				394A807525EE951D00FAF26F /* Generated */,
+				394A807325EE94C600FAF26F /* nimbus.udl */,
+			);
+			name = Nimbus;
+			path = "../../components/external/nimbus-sdk/nimbus";
+			sourceTree = SOURCE_ROOT;
+		};
+		394A807525EE951D00FAF26F /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */,
+				394A807725EE951D00FAF26F /* nimbus.swift */,
+			);
+			name = Generated;
+			path = ios/Generated;
+			sourceTree = "<group>";
+		};
 		99FAA19025E60D2C001E2231 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
 				99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */,
 				99FAA19125E60D57001E2231 /* fxa_client.swift */,
 			);
-			path = Generated;
+			name = Generated;
+			path = ../Generated;
 			sourceTree = "<group>";
 		};
 		BF1A877F2506490700FED88E /* Glean */ = {
@@ -505,6 +531,7 @@
 				C852EEDA220A2A2B00A6E79A /* FxAClient */,
 				C852EEC7220A29FE00A6E79A /* Logins */,
 				BF1A877F2506490700FED88E /* Glean */,
+				394A807225EE927D00FAF26F /* Nimbus */,
 				EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */,
 				CE9D202120914D0D00F1C8FA /* Products */,
 				CE9D203720914D4800F1C8FA /* Frameworks */,
@@ -572,6 +599,7 @@
 				D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */,
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
 				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
+				394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */,
 				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
 				99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */,
 				BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */,
@@ -721,6 +749,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9924024A25F789F200841837 /* nimbus.udl in Sources */,
 				BF1A87B625064A8100FED88E /* UuidMetric.swift in Sources */,
 				BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */,
 				CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */,

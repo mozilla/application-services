@@ -58,8 +58,8 @@ public enum LoginsStoreError: LocalizedError {
             return "LoginsStoreError.noSuchRecord: \(message)"
         case let .duplicateGuid(message):
             return "LoginsStoreError.duplicateGuid: \(message)"
-        case let .invalidLogin(message):
-            return "LoginsStoreError.invalidLogin: \(message)"
+        case let .invalidLogin(message, reason):
+            return "LoginsStoreError.invalidLogin(\(reason)): \(message)"
         case let .invalidKey(message):
             return "LoginsStoreError.invalidKey: \(message)"
         case let .network(message):

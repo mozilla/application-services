@@ -15,6 +15,7 @@ the details of which are reproduced below.
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: clap](#mit-license-clap)
 * [MIT License: dashmap](#mit-license-dashmap)
+* [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
@@ -46,6 +47,8 @@ The following text applies to code linked from these dependencies:
 [NSS](https://hg.mozilla.org/projects/nss),
 [ece](https://github.com/mozilla/rust-ece),
 [hawk](https://github.com/taskcluster/rust-hawk),
+[jexl-eval](https://github.com/mozilla/jexl-rs),
+[jexl-parser](https://github.com/mozilla/jexl-rs),
 [uniffi](https://github.com/mozilla/uniffi-rs),
 [uniffi_bindgen](https://github.com/mozilla/uniffi-rs),
 [uniffi_build](https://github.com/mozilla/uniffi-rs),
@@ -441,6 +444,7 @@ The following text applies to code linked from these dependencies:
 [autocfg](https://github.com/cuviper/autocfg),
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
+[block-buffer](https://github.com/RustCrypto/utils),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
@@ -448,7 +452,9 @@ The following text applies to code linked from these dependencies:
 [const-random](https://github.com/tkaitchuck/constrandom),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
+[cpuid-bool](https://github.com/RustCrypto/utils),
 [crc32fast](https://github.com/srijs/rust-crc32fast),
+[digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [dtoa](https://github.com/dtolnay/dtoa),
 [either](https://github.com/bluss/either),
@@ -483,6 +489,7 @@ The following text applies to code linked from these dependencies:
 [ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
+[lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
 [libc](https://github.com/rust-lang/libc),
 [lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
@@ -495,6 +502,7 @@ The following text applies to code linked from these dependencies:
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
 [once_cell](https://github.com/matklad/once_cell),
+[opaque-debug](https://github.com/RustCrypto/utils),
 [paste-impl](https://github.com/dtolnay/paste),
 [paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
@@ -527,6 +535,7 @@ The following text applies to code linked from these dependencies:
 [serde_derive](https://github.com/serde-rs/serde),
 [serde_json](https://github.com/serde-rs/json),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
+[sha2](https://github.com/RustCrypto/hashes),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
 [socket2](https://github.com/alexcrichton/socket2-rs),
@@ -540,6 +549,7 @@ The following text applies to code linked from these dependencies:
 [time](https://github.com/time-rs/time),
 [tinyvec](https://github.com/Lokathor/tinyvec),
 [toml](https://github.com/alexcrichton/toml-rs),
+[typenum](https://github.com/paholg/typenum),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
@@ -1033,6 +1043,35 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+```
+-------------
+## MIT License: generic-array
+
+The following text applies to code linked from these dependencies:
+[generic-array](https://github.com/fizyk20/generic-array.git)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2015 Bartłomiej Kamiński
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 -------------
 ## MIT License: h2
