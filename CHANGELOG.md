@@ -1,3 +1,13 @@
+# v73.0.1 (_2021-03-10_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.0...v73.0.1)
+
+# Android
+
+- The `-forUnitTest` build no longer includes code compiled for Windows, meaning that
+  it is no longer possible to run appservices Kotlin unit tests on Windows. We hope
+  this will be a temporary measure while we resolve some build issues.
+
 # v73.0.0 (_2021-03-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v72.1.0...v73.0.0)
