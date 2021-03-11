@@ -17,3 +17,4 @@ viaduct = { path = "../../../components/viaduct" }
 viaduct-reqwest = { path = "../../../components/support/viaduct-reqwest" }
 glean-ffi = { path = "../../../components/external/glean/glean-core/ffi" }
 nimbus-sdk = { path = "../../../components/external/nimbus-sdk/nimbus" }
+crashtest = { path = "../../../components/crashtest" }

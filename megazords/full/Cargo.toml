@@ -18,5 +18,6 @@ viaduct = { path = "../../components/viaduct" }
 sync_manager_ffi = { path = "../../components/sync_manager/ffi" }
 nimbus-sdk = { path = "../../components/external/nimbus-sdk/nimbus" }
 autofill = { path = "../../components/autofill" }
+crashtest = { path = "../../components/crashtest" }
 
 lazy_static = "1.4"

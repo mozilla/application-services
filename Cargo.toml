@@ -2,6 +2,7 @@
 # Note: Any additions here should be repeated in default-members below.
 members = [
     "components/autofill",
+    "components/crashtest",
     "components/fxa-client",
     "components/logins",
     "components/logins/ffi",
@@ -78,6 +79,7 @@ exclude = [
 # use the full member set.
 default-members = [
     "components/autofill",
+    "components/crashtest",
     "components/fxa-client",
     "components/logins",
     "components/logins/ffi",

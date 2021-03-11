@@ -5,6 +5,7 @@
 #![allow(unknown_lints)]
 #![warn(rust_2018_idioms)]
 
+pub use crashtest;
 pub use fxa_client;
 pub use glean_ffi;
 pub use logins_ffi;

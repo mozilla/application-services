@@ -9,6 +9,7 @@ use std::ffi::CString;
 use std::os::raw::c_char;
 
 pub use autofill;
+pub use crashtest;
 pub use fxa_client;
 pub use logins_ffi;
 pub use nimbus;
