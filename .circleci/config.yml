@@ -215,14 +215,6 @@ commands:
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
-  sync-bugzilla-to-github:
-    steps:
-      - checkout
-      - run:
-          name: Mirror Bugzilla issues into GitHub
-          command: |
-            sudo pip3 install --require-hashes -r ./tools/requirements.txt
-            python3 ./tools/sync_bugzilla_to_github.py
   bench-all:
     steps:
       - test-setup
@@ -323,12 +315,6 @@ jobs:
       - setup-rust-toolchain
       - full-checkout
       - dependency-checks
-  Mirror Bugzilla issues into GitHub:
-    docker:
-      - image: circleci/python:latest
-    resource_class: small
-    steps:
-      - sync-bugzilla-to-github
   Rust tests:
     docker:
       - image: circleci/rust:latest
@@ -493,16 +479,6 @@ workflows:
     triggers:
       - schedule:
           cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - main
-  mirror-bugzilla-to-github-periodically:
-    jobs:
-      - Mirror Bugzilla issues into GitHub
-    triggers:
-      - schedule:
-          cron: "0,30 * * * *"
           filters:
             branches:
               only:
