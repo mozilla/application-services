@@ -1,0 +1,174 @@
+namespace nimbus {};
+dictionary AppContext {
+    string app_id;
+    string? app_version;
+    string? app_build;
+    string? architecture;
+    string? device_manufacturer;
+    string? device_model;
+    string? locale;
+    string? os;
+    string? os_version;
+    string? android_sdk_version;
+    string? debug_tag;
+};
+
+dictionary EnrolledExperiment {
+    sequence<string> feature_ids;
+    string slug;
+    string user_facing_name;
+    string user_facing_description;
+    string branch_slug;
+    string enrollment_id;
+};
+
+dictionary Branch {
+    string slug;
+    i32 ratio; // ideally would be u32, but kotlin considers unsigned experimental - see SDK-175.
+    FeatureConfig? feature;
+};
+
+dictionary FeatureConfig {
+    string feature_id;
+    boolean enabled;
+};
+
+dictionary RemoteSettingsConfig {
+    string server_url;
+    string bucket_name;
+    string collection_name;
+};
+
+dictionary AvailableRandomizationUnits {
+    string? client_id;
+    // work around uniffi-rs #331 by including a non-optional value. We'll
+    // try and hide this in the bindings used by clients and eventually remove
+    // it entirely.
+    i8 dummy;
+};
+
+dictionary EnrollmentChangeEvent {
+    string experiment_slug;
+    string branch_slug;
+    string enrollment_id;
+    string? reason;
+    EnrollmentChangeEventType change;
+};
+
+enum EnrollmentChangeEventType {
+    "Enrollment",
+    "Disqualification",
+    "Unenrollment",
+};
+
+[Error]
+enum NimbusError {
+    "InvalidPersistedData", "RkvError", "IOError",
+    "JSONError", "EvaluationError", "InvalidExpression", "InvalidFraction",
+    "TryFromSliceError", "EmptyRatiosError", "OutOfBoundsError","UrlParsingError",
+    "RequestError", "ResponseError", "UuidError", "InvalidExperimentFormat",
+    "InvalidPath", "InternalError", "NoSuchExperiment", "NoSuchBranch", "BackoffError",
+    "DatabaseNotReady",
+};
+
+[Threadsafe]
+interface NimbusClient {
+    [Throws=NimbusError]
+    constructor(
+        AppContext app_ctx,
+        string dbpath,
+        RemoteSettingsConfig? remote_settings_config,
+        AvailableRandomizationUnits available_randomization_units
+    );
+
+    // Initializes the database and caches enough information so that the
+    // non-blocking API functions (eg, `get_experiment_branch()`) can
+    // return accurate results rather than throwing a "not initialized" error.
+    // It's not strictly necessary to call this function - any function that
+    // wants to use the database will implicitly initialize too - this exists
+    // so that the consuming application can have confidence the non-blocking
+    // functions will return data instead of returning an error, and will do
+    // the minimum amount of work to achieve that.
+    [Throws=NimbusError]
+    void initialize();
+
+    // Returns the branch allocated for a given feature_id or experiment_slug.
+    // Search first by feature_id, then by experiment_slug, returning the
+    // the first hit. If the user is enrolled neither in an experiment with id
+    // as the feature_id nor with id as the experiment_slug for the feature,
+    // null is returned.
+    [Throws=NimbusError]
+    string? get_experiment_branch(string id);
+
+    // Returns a list of experiment branches for a given experiment ID.
+    [Throws=NimbusError]
+    sequence<Branch> get_experiment_branches(string experiment_slug);
+
+    // Returns a list of experiments this user is enrolled in.
+    [Throws=NimbusError]
+    sequence<EnrolledExperiment> get_active_experiments();
+
+    // Getter and setter for user's participation in all experiments.
+    // Possible values are:
+    // * `true`: the user will not enroll in new experiments, and opt out of all exisitng ones.
+    // * `false`: experiments proceed as usual.
+    [Throws=NimbusError]
+    boolean get_global_user_participation();
+
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
+
+    // Updates the list of experiments from the server.
+    // This method is deprecated, in favour of calling `fetch_experiments()` and then
+    // `apply_pending_updates()`.
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> update_experiments();
+
+    // Fetches the list of experiments from the server. This does not affect the list
+    // of active experiments or experiment enrolment.
+    // Fetched experiments are not applied until `apply_pending_updates()` is called.
+    [Throws=NimbusError]
+    void fetch_experiments();
+
+    // Apply the updated experiments from the last fetch.
+    // After calling this, the list of active experiments might change
+    // (there might be new experiments, or old experiments might have expired).
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> apply_pending_experiments();
+
+    // A convenience method for apps to set the experiments from a local source
+    // for either testing, or before the first fetch has finished.
+    // 
+    // Experiments set with this method are not applied until `apply_pending_updates()` is called.
+    [Throws=NimbusError]
+    void set_experiments_locally(string experiments_json);
+
+    // These are test-only functions and should never be exposed to production
+    // users, as they mess with the "statistical requirements" of the SDK.
+
+    // Opt in to a specific branch on a specific experiment. Useful for
+    // developers to test their app's interaction with the experiment.
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> opt_in_with_branch(string experiment_slug, string branch);
+
+    // Opt out of a specific experiment.
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> opt_out(string experiment_slug);
+
+    // Reset internal state in response to application-level telemetry reset.
+    //
+    // Consumers should call this method when the user resets the telemetry state of the
+    // consuming application, such as by opting out of submitting telemetry. It resets the
+    // internal state of the Nimbus client to create a clean break between data collected
+    // before and after the reset, including:
+    //
+    //    * clearing any unique identifiers used internally, so they will reset to
+    //      new random values on next use.
+    //    * accepting new randomization units, based on application-level ids that
+    //      may have also changed.
+    //    * disqualifying this client out of any active experiments, to avoid submitting
+    //      misleading incomplete data.
+    //
+    [Throws=NimbusError]
+    sequence<EnrollmentChangeEvent> reset_telemetry_identifiers(AvailableRandomizationUnits new_randomization_units);
+};
