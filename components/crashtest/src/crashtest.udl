@@ -1,0 +1,56 @@
+
+
+
+// # Crash Test Helper APIs
+//
+// The `crashtest` component offers a little helper API that lets you deliberately
+// crash the application. It's intended to help developers test the crash-handling
+// and crash-reporting capabilities of their app.
+
+namespace crashtest {
+    
+    
+  // Trigger a hard abort inside the Rust code.
+  //
+  // This function simulates some kind of uncatchable illegal operation
+  // performed inside the Rust code. After calling this function you should
+  // expect your application to be halted with e.g. a `SIGABRT` or similar.
+  //
+  void trigger_rust_abort();
+    
+    
+  // Trigger a panic inside the Rust code.
+  //
+  // This function simulates the occurence of an unexpected state inside
+  // the Rust code that causes it to panic. We build our Rust components to
+  // unwind on panic, so after calling this function through the foreign
+  // language bindings, you should expect it to intercept the panic translate
+  // it into some foreign-language-appropriate equivalent:
+  //
+  //  - In Kotlin, it will throw an exception.
+  //  - In Swift, it will fail with a `try!` runtime error.
+  //
+  void trigger_rust_panic();
+    
+    
+  // Trigger an error inside the Rust code.
+  //
+  // This function simulates the occurence of an expected error inside
+  // the Rust code. You should expect calling this function to throw the
+  // foreign-language representation of the [`CrashTestError`] class.
+  //
+  [Throws=CrashTestError]
+  void trigger_rust_error();
+    
+};
+
+
+
+// An error that can be returned from Rust code.
+//
+[Error]
+enum CrashTestError {
+  "ErrorFromTheRustCode",
+};
+
+

@@ -8,6 +8,13 @@ projects:
     - name: autofill
       type: aar
     description: Addresses and Credit Cards autofill.
+  crashtest:
+    path: components/crashtest/android
+    artifactId: crashtest
+    publications:
+    - name: crashtest
+      type: aar
+    description: Helper APIs to trigger an application crash.
   fxaclient:
     path: components/fxa-client/android
     artifactId: fxaclient

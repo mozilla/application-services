@@ -7,6 +7,7 @@
 FOUNDATION_EXPORT double MegazordClientVersionNumber;
 FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 
+#import "uniffi_crashtest-Bridging-Header.h"
 #import "uniffi_fxa_client-Bridging-Header.h"
 #import "uniffi_nimbus-Bridging-Header.h"
 #import "RustPasswordAPI.h"

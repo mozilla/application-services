@@ -10,6 +10,9 @@
 		1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1379D0682404BE1300AABD16 /* logins_msg_types.proto */; };
 		137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137C5892240257340016932F /* Data+LoginsRustBuffer.swift */; };
 		394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		9908639E25F9CC5F00032083 /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 9908639B25F9CC3600032083 /* crashtest.udl */; };
+		990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
 		9924024A25F789F200841837 /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 394A807325EE94C600FAF26F /* nimbus.udl */; };
 		99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */; };
@@ -155,6 +158,10 @@
 		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = src/nimbus.udl; sourceTree = "<group>"; };
 		394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_nimbus-Bridging-Header.h"; sourceTree = "<group>"; };
 		394A807725EE951D00FAF26F /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = "<group>"; };
+		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../src/crashtest.udl; sourceTree = "<group>"; };
+		9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_crashtest-Bridging-Header.h"; sourceTree = "<group>"; };
+		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
+		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
 		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = "<group>"; };
 		99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_fxa_client-Bridging-Header.h"; sourceTree = "<group>"; };
 		99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountOAuth.swift; sourceTree = "<group>"; };
@@ -285,6 +292,26 @@
 			);
 			name = Generated;
 			path = ios/Generated;
+			sourceTree = "<group>";
+		};
+		9908639825F9CB6A00032083 /* CrashTest */ = {
+			isa = PBXGroup;
+			children = (
+				9908639D25F9CC4700032083 /* Generated */,
+				9908639B25F9CC3600032083 /* crashtest.udl */,
+			);
+			name = CrashTest;
+			path = ../../components/crashtest/ios/CrashTest;
+			sourceTree = "<group>";
+		};
+		9908639D25F9CC4700032083 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				990863A025F9D25A00032083 /* crashtest.swift */,
+				9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */,
+			);
+			name = Generated;
+			path = ../Generated;
 			sourceTree = "<group>";
 		};
 		99FAA19025E60D2C001E2231 /* Generated */ = {
@@ -528,6 +555,7 @@
 				CDC21B11221DCE3700AA71E5 /* RustLog */,
 				CE9FFA11242D4E5A0011029E /* Viaduct */,
 				C852EEB2220A285B00A6E79A /* config */,
+				9908639825F9CB6A00032083 /* CrashTest */,
 				C852EEDA220A2A2B00A6E79A /* FxAClient */,
 				C852EEC7220A29FE00A6E79A /* Logins */,
 				BF1A877F2506490700FED88E /* Glean */,
@@ -578,6 +606,7 @@
 		EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */ = {
 			isa = PBXGroup;
 			children = (
+				990863A325F9D48400032083 /* CrashTestTests.swift */,
 				EB879D7E221234EB00753DC9 /* Info.plist */,
 				CEB1A06723D8A42D005BD4DD /* FxAccountMocks.swift */,
 				CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */,
@@ -599,10 +628,11 @@
 				D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */,
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
 				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
-				394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */,
 				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
-				99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */,
 				BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */,
+				990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */,
+				99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */,
+				394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -749,6 +779,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9908639E25F9CC5F00032083 /* crashtest.udl in Sources */,
 				9924024A25F789F200841837 /* nimbus.udl in Sources */,
 				BF1A87B625064A8100FED88E /* UuidMetric.swift in Sources */,
 				BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */,
@@ -825,6 +856,7 @@
 				CD4CFDD3221DFA5100EB3B33 /* LogTest.swift in Sources */,
 				EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */,
 				CE90D1BB23D7570A00FD9A5F /* FxAccountManagerTests.swift in Sources */,
+				990863A425F9D48400032083 /* CrashTestTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
