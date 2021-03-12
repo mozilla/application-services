@@ -5,6 +5,7 @@ members = [
     "components/fxa-client",
     "components/logins",
     "components/logins/ffi",
+    "components/nimbus",
     "components/places",
     "components/places/ffi",
     "components/push",
@@ -49,7 +50,6 @@ members = [
 # been written with that in mind. They might work, but they might not.
 exclude = [
     "components/external/glean/",
-    "components/external/nimbus-sdk/",
 ]
 
 # The `default-members` are the things that are built/tested when you run `cargo
@@ -81,6 +81,7 @@ default-members = [
     "components/fxa-client",
     "components/logins",
     "components/logins/ffi",
+    "components/nimbus",
     "components/places",
     "components/places/ffi",
     "components/push",
