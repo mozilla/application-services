@@ -39,14 +39,25 @@ We use rustdoc to document both the public API of the component and the various 
 cargo doc --no-deps --document-private-items --open
 ```
 
-### How an application uses sync and storage components
-
-Firefox applications access the user's personal browsing data by loading a high-level "syncable store" abstraction for each datatype of interest, as well as loading several supporting components. An example application wanting to use both logins and history data would look something like this:
-
-![component diagram](docs/diagrams/sync_components.png)
+The [./docs/](docs) directory holds internal documentation about working with the
+code in this repository
 
 ### Rust Components
 
+* [./components/](components) contains the source for each component, and its
+  FFI bindings.
+  * See [./components/logins/](components/logins) for an example, where you can
+    find:
+    * The shared [rust code](components/logins/src).
+    * The mapping into a [C FFI](components/logins/ffi).
+    * The [Kotlin bindings](components/logins/android) for use by Android
+      applications.
+    * The [Swift bindings](components/logins/ios) for use by iOS applications.
+  * See [./components/fxa-client](components/fxa-client) for an example the uses
+    [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
+    multiple languages, such as Kotlin and Swift.
+
+#### List of components
 * [autofill](components/autofill) - for storage and syncing of credit card and
   address information
 * [crashtest](components/crashtest) - testing-purposes (crashing the Rust code)
@@ -75,37 +86,3 @@ Firefox applications access the user's personal browsing data by loading a high-
 * [viaduct](components/viaduct) - an HTTP request library
 * [webext-storage](components/webext-storage) - powers an implementation of the
 chrome.storage.sync WebExtension API
-
-### Repository
-The code for these components is organized as follows:
-
-* [./libs/](libs) contains infrastructure for building some native dependencies,
-  such as NSS.
-* [./components/](components) contains the source for each component, and its
-  FFI bindings.
-  * See [./components/logins/](components/logins) for an example, where you can
-    find:
-    * The shared [rust code](components/logins/src).
-    * The mapping into a [C FFI](components/logins/ffi).
-    * The [Kotlin bindings](components/logins/android) for use by Android
-      applications.
-    * The [Swift bindings](components/logins/ios) for use by iOS applications.
-  * See [./components/fxa-client](components/fxa-client) for an example the uses
-    [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
-    multiple languages, such as Kotlin and Swift.
-* [./megazords/](megazords) contains infrastructure for bundling multiple rust
-  components into a single build artifact called a "[megazord library](docs/design/megazords.md)"
-  for easy consumption by applications.
-
-For more details on how the client libraries are built and published, please see
-the [Guide to Building a Rust Component](docs/howtos/building-a-rust-component.md).
-
-This repository also hosts the [website source](website) for the [Application
-Services Product Portal](https://mozilla.github.io/application-services/), which
-provides consumer-facing documentation on how to integrate with various
-Application services products.
-
-The [./docs/](docs) directory holds intenal documentation about working with the
-code in this repository, and is most likely only of interest to contributors.
-
-### Components
