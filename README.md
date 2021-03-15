@@ -15,15 +15,15 @@ Get in touch with other community members on Matrix, the mailing list or through
 ```shell
   git clone https://github.com/mozilla/application-services
   ```
-1. Follow these instructions to install your [system-level dependencies](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-application-services) (2 hrs)
-1. Fetch and install submodule dependencies
+2. Follow these instructions to install your [system-level dependencies](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-application-services) (2 hrs)
+3. Fetch and install submodule dependencies
 ```shell
 git submodule init
 git submodule update --recursive
 ```
-1. Rust the a-s Rust unit tests
+4. Rust the a-s Rust unit tests
 ```shell
-cargo tests
+cargo test
 ```
 
 The application-services library's primary consumers are both Fenix (Firefox on Android) and Firefox iOS. Assure you are able to run integration tests for both by following the instructions to build for Android and iOS integrations.
