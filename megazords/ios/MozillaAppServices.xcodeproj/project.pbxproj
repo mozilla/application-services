@@ -14,8 +14,9 @@
 		990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
 		394A809825F94E1300FAF26F /* Nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394A809725F94E1300FAF26F /* Nimbus.swift */; };
+		394D6C622600E64E008F9CE5 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394D6C612600E64E008F9CE5 /* NimbusCreate.swift */; };
 		395992B625FBC91500E3185F /* NimbusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B525FBC91500E3185F /* NimbusTests.swift */; };
-		395992B825FBE40300E3185F /* NimbusProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B725FBE40300E3185F /* NimbusProtocol.swift */; };
+		395992B825FBE40300E3185F /* NimbusApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B725FBE40300E3185F /* NimbusApi.swift */; };
 		9924024A25F789F200841837 /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 394A807325EE94C600FAF26F /* nimbus.udl */; };
 		99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */; };
@@ -166,8 +167,9 @@
 		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
 		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
 		394A809725F94E1300FAF26F /* Nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Nimbus.swift; sourceTree = "<group>"; };
+		394D6C612600E64E008F9CE5 /* NimbusCreate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusCreate.swift; sourceTree = "<group>"; };
 		395992B525FBC91500E3185F /* NimbusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusTests.swift; sourceTree = "<group>"; };
-		395992B725FBE40300E3185F /* NimbusProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusProtocol.swift; sourceTree = "<group>"; };
+		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
 		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = "<group>"; };
 		99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_fxa_client-Bridging-Header.h"; sourceTree = "<group>"; };
 		99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountOAuth.swift; sourceTree = "<group>"; };
@@ -286,7 +288,8 @@
 				394A807525EE951D00FAF26F /* Generated */,
 				394A807325EE94C600FAF26F /* nimbus.udl */,
 				394A809725F94E1300FAF26F /* Nimbus.swift */,
-				395992B725FBE40300E3185F /* NimbusProtocol.swift */,
+				395992B725FBE40300E3185F /* NimbusApi.swift */,
+				394D6C612600E64E008F9CE5 /* NimbusCreate.swift */,
 			);
 			name = Nimbus;
 			path = ../../components/nimbus/ios/Nimbus;
@@ -805,6 +808,7 @@
 				BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */,
 				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
 				BF1A87AF25064A8100FED88E /* MemoryDistributionMetric.swift in Sources */,
+				394D6C622600E64E008F9CE5 /* NimbusCreate.swift in Sources */,
 				BF1A87C725064AA500FED88E /* PingUploadOperation.swift in Sources */,
 				BF1A87BB25064A8100FED88E /* TimespanMetric.swift in Sources */,
 				BF1A879025064A4C00FED88E /* Dispatchers.swift in Sources */,
@@ -838,7 +842,7 @@
 				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
 				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
 				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
-				395992B825FBE40300E3185F /* NimbusProtocol.swift in Sources */,
+				395992B825FBE40300E3185F /* NimbusApi.swift in Sources */,
 				BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */,
 				CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */,
 				CE13F19D23F448D0005187A7 /* FxAccountState.swift in Sources */,

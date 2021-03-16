@@ -4,39 +4,7 @@
 
 import Foundation
 
-private let LOG_TAG = "service/Nimbus"
-private let EXPERIMENT_BUCKET_NAME = "main"
-private let EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
-
-private let logger = Logger(tag: LOG_TAG)
-
-public extension Notification.Name {
-    static let nimbusExperimentsFetched = Notification.Name("nimbusExperimentsFetched")
-    static let nimbusExperimentsApplied = Notification.Name("nimbusExperimentsApplied")
-}
-
-public typealias NimbusErrorReporter = (Error) -> ()
-
-public let defaultErrorReporter: NimbusErrorReporter = { err in
-    switch err {
-    case is LocalizedError:
-        let description = err.localizedDescription
-        logger.error("Nimbus error: \(description)")
-    default:
-        logger.error("Nimbus error: \(err)")
-    }
-}
-
-public struct NimbusServerSettings {
-    let url: URL
-}
-
-public struct NimbusAppSettings {
-    let appName: String
-    let channel: String
-}
-
-public class Nimbus: NimbusApi {
+public class Nimbus {
     private let nimbusClient: NimbusClientProtocol
 
     private let errorReporter: NimbusErrorReporter
@@ -44,64 +12,8 @@ public class Nimbus: NimbusApi {
     private let dbQueue = DispatchQueue(label: "com.mozilla.nimbus.ios-db", qos: .userInitiated)
     private let fetchQueue = DispatchQueue(label: "com.mozilla.nimbus.ios-network", qos: .background)
 
-    public static func create(_ server: NimbusServerSettings?,
-                              appSettings: NimbusAppSettings,
-                              dbPath: String,
-                              enabled: Bool = true,
-                              errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
-    ) -> NimbusApi {
-
-        guard enabled else {
-            return NimbusDisabled()
-        }
-
-        let context = Nimbus.buildExperimentContext(appSettings)
-        let remoteSettings = server.map { server -> RemoteSettingsConfig in
-            let url = server.url.absoluteString
-            return RemoteSettingsConfig(
-                serverUrl: url,
-                bucketName: EXPERIMENT_BUCKET_NAME,
-                collectionName: EXPERIMENT_COLLECTION_NAME
-            )
-        }
-
-        do {
-            let nimbusClient = try NimbusClient(
-                appCtx: context,
-                dbpath: dbPath,
-                remoteSettingsConfig: remoteSettings,
-                // The "dummy" field here is required for obscure reasons when generating code on desktop,
-                // so we just automatically set it to a dummy value.
-                availableRandomizationUnits: AvailableRandomizationUnits(clientId: nil, dummy: 0)
-            )
-
-            return Nimbus(nimbusClient: nimbusClient, errorReporter: errorReporter)
-        } catch {
-            errorReporter(error)
-            return NimbusDisabled()
-        }
-    }
-
-    public static func buildExperimentContext(_ appSettings: NimbusAppSettings,
-                                              bundle: Bundle = Bundle.main,
-                                              device: UIDevice = .current
-    ) -> AppContext {
-        let info = bundle.infoDictionary ?? [:]
-        return AppContext(appId: info["CFBundleIdentifier"] as? String ?? "unknown",
-                          appVersion: info["CFBundleShortVersionString"] as? String,
-                          appBuild: info["CFBundleVersion"] as? String,
-                          architecture: nil,
-                          deviceManufacturer: Sysctl.manufacturer,
-                          deviceModel: Sysctl.model,
-                          locale: Locale.current.identifier,
-                          os: device.systemName,
-                          osVersion: device.systemVersion,
-                          androidSdkVersion: nil,
-                          debugTag: LOG_TAG)
-    }
-
-    init(nimbusClient: NimbusClientProtocol,
-         errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
+    internal init(nimbusClient: NimbusClientProtocol,
+         errorReporter: @escaping NimbusErrorReporter
     ) {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
@@ -142,6 +54,17 @@ private extension Nimbus {
         experiments.forEach { experiment in
             Glean.shared.setExperimentActive(experimentId: experiment.slug, branch: experiment.branchSlug, extra: nil)
         }
+        self.notifyOnExperimentsApplied(experiments)
+    }
+}
+
+private extension Nimbus {
+    func notifyOnExperimentsFetched() {
+        NotificationCenter.default.post(name: .nimbusExperimentsFetched, object: nil)
+    }
+
+    func notifyOnExperimentsApplied(_ experiments: [EnrolledExperiment]) {
+        NotificationCenter.default.post(name: .nimbusExperimentsApplied, object: experiments)
     }
 }
 
@@ -176,14 +99,19 @@ internal extension Nimbus {
         self.postEnrolmentCalculation(changes)
     }
 
+    func optInOnThisThread(_ experimentId: String, branch: String) throws {
+        let changes = try self.nimbusClient.optInWithBranch(experimentSlug: experimentId, branch: branch)
+        self.postEnrolmentCalculation(changes)
+    }
+
     func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
         let changes = try self.nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
         self.postEnrolmentCalculation(changes)
     }
 }
 
-public extension Nimbus {
-    var globalUserParticipation: Bool {
+extension Nimbus: NimbusApi {
+    public var globalUserParticipation: Bool {
         get {
             catchAll { try nimbusClient.getGlobalUserParticipation() } ?? false
         }
@@ -194,49 +122,62 @@ public extension Nimbus {
         }
     }
 
-    func getActiveExperiments() -> [EnrolledExperiment] {
+    public func getActiveExperiments() -> [EnrolledExperiment] {
         return catchAll {
             try nimbusClient.getActiveExperiments()
         } ?? []
     }
 
-    func getExperimentBranch(featureId: String) -> String? {
+    public func getExperimentBranch(featureId: String) -> String? {
         return catchAll {
             try nimbusClient.getExperimentBranch(id: featureId)
         }
     }
 
-    func initialize() {
+    public func initialize() {
         catchAll(dbQueue) {
             try self.initializeOnThisThread()
         }
     }
 
-    func fetchExperiments() {
+    public func fetchExperiments() {
         catchAll(fetchQueue) {
             try self.fetchExperimentsOnThisThread()
         }
     }
 
-    func applyPendingExperiments() {
+    public func applyPendingExperiments() {
         catchAll(dbQueue) {
             try self.applyPendingExperimentsOnThisThread()
         }
     }
 
-    func setExperimentsLocally(_ experimentsJson: String) {
+    public func setExperimentsLocally(_ fileURL: URL) {
+        catchAll(dbQueue) {
+            let json = try String(contentsOf: fileURL)
+            try self.setExperimentsLocallyOnThisThread(json)
+        }
+    }
+
+    public func setExperimentsLocally(_ experimentsJson: String) {
         catchAll(dbQueue) {
             try self.setExperimentsLocallyOnThisThread(experimentsJson)
         }
     }
 
-    func optOut(_ experimentId: String) {
+    public func optOut(_ experimentId: String) {
         catchAll(dbQueue) {
             try self.optOutOnThisThread(experimentId)
         }
     }
 
-    func resetTelemetryIdentifiers(_ identifiers: AvailableRandomizationUnits) {
+    public func optIn(_ experimentId: String, branch: String) {
+        catchAll(dbQueue) {
+            try self.optInOnThisThread(experimentId, branch: branch)
+        }
+    }
+
+    public func resetTelemetryIdentifiers(_ identifiers: AvailableRandomizationUnits) {
         catchAll(dbQueue) {
             try self.resetTelemetryIdentifiersOnThisThread(identifiers)
         }
@@ -263,10 +204,16 @@ public extension NimbusDisabled {
     func applyPendingExperiments() {
         return
     }
+    func setExperimentsLocally(_ fileURL: URL) {
+        return
+    }
     func setExperimentsLocally(_ experimentsJson: String) {
         return
     }
     func optOut(_ experimentId: String) {
+        return
+    }
+    func optIn(_ experimentId: String, branch: String) {
         return
     }
     func resetTelemetryIdentifiers(_ identifiers: AvailableRandomizationUnits) {

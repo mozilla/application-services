@@ -78,7 +78,7 @@ class NimbusTests: XCTestCase {
         XCTAssert(nimbusEnabled is Nimbus)
 
         let nimbusDisabled = Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath(), enabled: false)
-        XCTAssert(nimbusDisabled is NimbusDisabled, "Nimbus is disabled by default")
+        XCTAssert(nimbusDisabled is NimbusDisabled, "Nimbus is disabled if a feature flag disables it")
     }
 
     func testSmokeTest() throws {
@@ -90,6 +90,7 @@ class NimbusTests: XCTestCase {
 
         let branch = nimbus.getExperimentBranch(featureId: "aboutwelcome")
         XCTAssertNotNil(branch)
+        XCTAssert(branch == "treatment" || branch == "control")
 
         let experiments = nimbus.getActiveExperiments()
         XCTAssertEqual(experiments.count, 1)
