@@ -1,3 +1,10 @@
+# v73.0.2 (_2021-03-16_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.1...v73.0.2)
+
+* This is a deliberately empty release, designed to help test some downstream automation
+  that picks up new appservices releases.  
+
 # v73.0.1 (_2021-03-10_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.0...v73.0.1)
