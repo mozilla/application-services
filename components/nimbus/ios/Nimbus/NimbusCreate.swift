@@ -35,9 +35,7 @@ extension Nimbus {
                               appSettings: NimbusAppSettings,
                               dbPath: String,
                               enabled: Bool = true,
-                              errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
-    ) -> NimbusApi {
-
+                              errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter) -> NimbusApi {
         guard enabled else {
             return NimbusDisabled()
         }
@@ -69,10 +67,9 @@ extension Nimbus {
         }
     }
 
-    public static func buildExperimentContext(_ appSettings: NimbusAppSettings,
+    public static func buildExperimentContext(_: NimbusAppSettings,
                                               bundle: Bundle = Bundle.main,
-                                              device: UIDevice = .current
-    ) -> AppContext {
+                                              device: UIDevice = .current) -> AppContext {
         let info = bundle.infoDictionary ?? [:]
         return AppContext(appId: info["CFBundleIdentifier"] as? String ?? "unknown",
                           appVersion: info["CFBundleShortVersionString"] as? String,

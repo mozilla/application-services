@@ -79,7 +79,6 @@ public protocol NimbusStartup {
      * A utility method to load a file from resources and pass it to `setExperimentsLocally(String)`.
      */
     func setExperimentsLocally(_ fileURL: URL)
-
 }
 
 public protocol NimbusUserConfiguration {
@@ -111,8 +110,6 @@ public protocol NimbusUserConfiguration {
      * @return A list of [EnrolledExperiment]s
      */
     func getActiveExperiments() -> [EnrolledExperiment]
-
-
 }
 
 /**
@@ -141,4 +138,4 @@ public struct NimbusAppSettings {
 /**
  * This error reporter is passed to `Nimbus` and any errors that are caught are reported via this type.
  */
-public typealias NimbusErrorReporter = (Error) -> ()
+public typealias NimbusErrorReporter = (Error) -> Void
