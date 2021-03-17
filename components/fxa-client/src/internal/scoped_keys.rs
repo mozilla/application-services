@@ -92,7 +92,10 @@ mod tests {
         let key_pair = KeyPair::from(private_key).unwrap();
         let flow = ScopedKeysFlow::from_static_key_pair(key_pair).unwrap();
         let jwk = flow.get_public_key_jwk().unwrap();
-        let JwkKeyParameters::EC(ec_key_params) = jwk.key_parameters;
+        let ec_key_params = match jwk.key_parameters {
+            JwkKeyParameters::EC(ref ec_key_params) => ec_key_params,
+            _ => unreachable!("test only does EC"),
+        };
         assert_eq!(ec_key_params.crv, "P-256");
         assert_eq!(
             ec_key_params.x,

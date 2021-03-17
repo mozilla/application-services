@@ -2,18 +2,22 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+//! Implements Elliptic-Curve Diffie-Hellman for JWE - specifically, the
+//! "Ephemeral-Static direct key agreement" mode described in
+//! https://tools.ietf.org/html/rfc7518#section-4.6
+
 use crate::{
+    aes,
     error::{JwCryptoError, Result},
-    Algorithm, CompactJwe, DecryptionParameters, EncryptionAlgorithm, EncryptionParameters,
-    JweHeader, Jwk, JwkKeyParameters,
+    Algorithm, CompactJwe, EncryptionAlgorithm, JweHeader, Jwk, JwkKeyParameters,
 };
 use rc_crypto::{
-    aead,
     agreement::{self, EphemeralKeyPair, InputKeyMaterial, UnparsedPublicKey},
-    digest, rand,
+    digest,
 };
 use serde_derive::{Deserialize, Serialize};
 
+/// Key params specific to ECDH encryption.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct ECKeysParameters {
     pub crv: String,
@@ -21,14 +25,19 @@ pub struct ECKeysParameters {
     pub y: String,
 }
 
+/// The ECDH helper that takes the cleartext and key, creates the appropriate
+/// header, then calls the `aes` module to do the actual encryption.
 pub(crate) fn encrypt_to_jwe(
     data: &[u8],
-    encryption_params: EncryptionParameters,
+    enc: EncryptionAlgorithm,
+    peer_jwk: &Jwk,
 ) -> Result<CompactJwe> {
-    let EncryptionParameters::ECDH_ES { enc, peer_jwk } = encryption_params;
     let local_key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256)?;
     let local_public_key = extract_pub_key_jwk(&local_key_pair)?;
-    let JwkKeyParameters::EC(ref ec_key_params) = peer_jwk.key_parameters;
+    let ec_key_params = match peer_jwk.key_parameters {
+        JwkKeyParameters::EC(ref params) => params,
+        _ => return Err(JwCryptoError::IllegalState("Not an EC key")),
+    };
     let protected_header = JweHeader {
         kid: peer_jwk.kid.clone(),
         alg: Algorithm::ECDH_ES,
@@ -37,47 +46,30 @@ pub(crate) fn encrypt_to_jwe(
         apu: None,
         apv: None,
     };
-
     let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
-
-    let encryption_algorithm = match protected_header.enc {
-        EncryptionAlgorithm::A256GCM => &aead::AES_256_GCM,
-    };
-    let sealing_key = aead::SealingKey::new(encryption_algorithm, &secret.as_ref())?;
-    let additional_data = serde_json::to_string(&protected_header)?;
-    let additional_data =
-        base64::encode_config(additional_data.as_bytes(), base64::URL_SAFE_NO_PAD);
-    let additional_data = additional_data.as_bytes();
-    let aad = aead::Aad::from(additional_data);
-    let mut iv: Vec<u8> = vec![0; 12];
-    rand::fill(&mut iv)?;
-    let nonce = aead::Nonce::try_assume_unique_for_key(encryption_algorithm, &iv)?;
-    let mut encrypted = aead::seal(&sealing_key, nonce, aad, data)?;
-
-    let tag_idx = encrypted.len() - encryption_algorithm.tag_len();
-    let auth_tag = encrypted.split_off(tag_idx);
-    let ciphertext = encrypted;
-
-    CompactJwe::new(
-        Some(protected_header),
-        None,
-        Some(iv),
-        ciphertext,
-        Some(auth_tag),
-    )
+    match protected_header.enc {
+        EncryptionAlgorithm::A256GCM => {
+            aes::aes_gcm_encrypt(data, protected_header, secret.as_ref())
+        }
+    }
 }
 
-pub(crate) fn decrypt_jwe(
-    jwe: &CompactJwe,
-    decryption_params: DecryptionParameters,
-) -> Result<String> {
-    let DecryptionParameters::ECDH_ES { local_key_pair } = decryption_params;
-
+/// The ECDH helper that takes the ciphertext in the form of a CompactJwe,
+/// and the keys, creates the appropriate header, then calls the `aes` module to
+/// do the actual decrytion.
+pub(crate) fn decrypt_jwe(jwe: &CompactJwe, local_key_pair: EphemeralKeyPair) -> Result<String> {
+    // Part 0: Validate inputs.
     let protected_header = jwe.protected_header()?.ok_or(JwCryptoError::IllegalState(
         "protected_header must be present.",
     ))?;
     if protected_header.alg != Algorithm::ECDH_ES {
         return Err(JwCryptoError::IllegalState("alg mismatch."));
+    }
+    // `alg="ECDH-ES"` mandates no encrypted key.
+    if jwe.encrypted_key()?.is_some() {
+        return Err(JwCryptoError::IllegalState(
+            "The Encrypted Key must be empty.",
+        ));
     }
 
     // Part 1: Reconstruct the secret.
@@ -85,35 +77,18 @@ pub(crate) fn decrypt_jwe(
         .epk
         .as_ref()
         .ok_or(JwCryptoError::IllegalState("epk not present"))?;
-    let JwkKeyParameters::EC(ref ec_key_params) = peer_jwk.key_parameters;
+
+    let ec_key_params = match peer_jwk.key_parameters {
+        JwkKeyParameters::EC(ref params) => params,
+        _ => return Err(JwCryptoError::IllegalState("Not an EC key")),
+    };
+
     let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
 
     // Part 2: decrypt the payload
-    if jwe.encrypted_key()?.is_some() {
-        return Err(JwCryptoError::IllegalState(
-            "The Encrypted Key must be empty.",
-        ));
+    match protected_header.enc {
+        EncryptionAlgorithm::A256GCM => aes::aes_gcm_decrypt(jwe, secret.as_ref()),
     }
-    let encryption_algorithm = match protected_header.enc {
-        EncryptionAlgorithm::A256GCM => &aead::AES_256_GCM,
-    };
-    let auth_tag = jwe
-        .auth_tag()?
-        .ok_or(JwCryptoError::IllegalState("auth_tag must be present."))?;
-    if auth_tag.len() != encryption_algorithm.tag_len() {
-        return Err(JwCryptoError::IllegalState(
-            "The auth tag must be 16 bytes long.",
-        ));
-    }
-    let iv = jwe
-        .iv()?
-        .ok_or(JwCryptoError::IllegalState("iv must be present."))?;
-    let opening_key = aead::OpeningKey::new(&encryption_algorithm, &secret.as_ref())?;
-    let ciphertext_and_tag: Vec<u8> = [jwe.ciphertext()?, auth_tag].concat();
-    let nonce = aead::Nonce::try_assume_unique_for_key(&encryption_algorithm, &iv)?;
-    let aad = aead::Aad::from(jwe.protected_header_raw().as_bytes());
-    let plaintext = aead::open(&opening_key, nonce, aad, &ciphertext_and_tag)?;
-    Ok(String::from_utf8(plaintext.to_vec())?)
 }
 
 fn derive_shared_secret(
@@ -177,6 +152,7 @@ fn get_secret_from_ikm(
     Ok(secret)
 }
 
+/// Extracts the public key from an [EphemeralKeyPair] as a [Jwk].
 pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
     let pub_key_bytes = key_pair.public_key().to_bytes()?;
     // Uncompressed form (see SECG SEC1 section 2.3.3).
@@ -195,4 +171,48 @@ pub fn extract_pub_key_jwk(key_pair: &EphemeralKeyPair) -> Result<Jwk> {
             y,
         }),
     })
+}
+
+#[test]
+fn test_encrypt_decrypt_jwe_ecdh_es() {
+    use super::{decrypt_jwe, encrypt_to_jwe, DecryptionParameters, EncryptionParameters};
+    use rc_crypto::agreement;
+    let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
+    let jwk = extract_pub_key_jwk(&key_pair).unwrap();
+    let data = b"The big brown fox jumped over... What?";
+    let encrypted = encrypt_to_jwe(
+        data,
+        EncryptionParameters::ECDH_ES {
+            enc: EncryptionAlgorithm::A256GCM,
+            peer_jwk: &jwk,
+        },
+    )
+    .unwrap();
+    let decrypted = decrypt_jwe(
+        &encrypted,
+        DecryptionParameters::ECDH_ES {
+            local_key_pair: key_pair,
+        },
+    )
+    .unwrap();
+    assert_eq!(decrypted, std::str::from_utf8(data).unwrap());
+}
+
+#[test]
+fn test_bad_key_type() {
+    use super::{encrypt_to_jwe, EncryptionParameters};
+    use crate::error::JwCryptoError;
+    let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
+    let jwk = extract_pub_key_jwk(&key_pair).unwrap();
+    let data = b"The big brown fox fell down";
+    assert!(matches!(
+        encrypt_to_jwe(
+            data,
+            EncryptionParameters::Direct {
+                enc: EncryptionAlgorithm::A256GCM,
+                jwk: &jwk
+            },
+        ),
+        Err(JwCryptoError::IllegalState(_))
+    ));
 }

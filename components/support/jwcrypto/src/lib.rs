@@ -2,11 +2,20 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-//! Theorically, everything done in this crate could and should be done in a JWT library.
-//! However, none of the existing rust JWT libraries can handle ECDH-ES encryption, and API choices
-//! made by their authors make it difficult to add this feature.
-//! In the past, we chose cjose to do that job, but it added three C dependencies to build and link
-//! against: jansson, openssl and cjose itself.
+//! A library for using JSON Object Signing and Encryption (JOSE) data formats
+//! such as JWE and JWK, as described in https://tools.ietf.org/html/rfc7518
+//! and related standards.
+//! The encryption is done by [rc_crypto] - this crate just does the JOSE
+//! wrappers around this crypto. As a result, most of the structs etc here
+//! support serialization and deserialization to and from JSON via serde in
+//! a way that's compatibile with rfc7518 etc.
+
+// Theoretically, everything done in this crate could and should be done in a JWT library.
+// However, none of the existing rust JWT libraries can handle ECDH-ES encryption, and API choices
+// made by their authors make it difficult to add this feature.
+// In the past, we chose cjose to do that job, but it added three C dependencies to build and link
+// against: jansson, openssl and cjose itself.
+// So now, this *is* our JWT library.
 
 pub use error::JwCryptoError;
 use error::Result;
@@ -14,9 +23,12 @@ use rc_crypto::agreement::EphemeralKeyPair;
 use serde_derive::{Deserialize, Serialize};
 use std::str::FromStr;
 
+mod aes;
+mod direct;
 pub mod ec;
 mod error;
 
+/// Specifies the mode, algorithm and keys of the encryption operation.
 pub enum EncryptionParameters<'a> {
     // ECDH-ES in Direct Key Agreement mode.
     #[allow(non_camel_case_types)]
@@ -24,12 +36,24 @@ pub enum EncryptionParameters<'a> {
         enc: EncryptionAlgorithm,
         peer_jwk: &'a Jwk,
     },
+    // Direct Encryption with a shared symmetric key.
+    Direct {
+        enc: EncryptionAlgorithm,
+        jwk: &'a Jwk,
+    },
 }
 
+/// Specifies the mode and keys of the decryption operation.
 pub enum DecryptionParameters {
     // ECDH-ES in Direct Key Agreement mode.
     #[allow(non_camel_case_types)]
-    ECDH_ES { local_key_pair: EphemeralKeyPair },
+    ECDH_ES {
+        local_key_pair: EphemeralKeyPair,
+    },
+    // Direct with a shared symmetric key.
+    Direct {
+        jwk: Jwk,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -37,8 +61,12 @@ enum Algorithm {
     #[serde(rename = "ECDH-ES")]
     #[allow(non_camel_case_types)]
     ECDH_ES,
+    #[serde(rename = "dir")]
+    Direct,
 }
-#[derive(Serialize, Deserialize, Debug)]
+
+/// The encryption algorithms supported by this crate.
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum EncryptionAlgorithm {
     A256GCM,
 }
@@ -65,6 +93,7 @@ struct JweHeader {
     apv: Option<String>,
 }
 
+/// Defines the key to use for all operations in this crate.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct Jwk {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -73,14 +102,24 @@ pub struct Jwk {
     pub key_parameters: JwkKeyParameters,
 }
 
+/// The enum passed in to hold the encryption and decryption keys. The variant
+/// of the enum must match the variant of the Encryption/Decryption parameters
+/// or the encryption/decryption operations will fail.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "kty")]
 pub enum JwkKeyParameters {
+    /// When doing ECDH (asymmetric) encryption, you specify elliptic curve points.
     EC(ec::ECKeysParameters),
+    /// When doing Direct (symmetric) encryption, you specify random bytes of
+    /// the appropriate length, base64 encoded.
+    #[serde(rename = "oct")] // rfc7518 section-6.1 specifies "oct" as key-type...
+    Direct { k: String }, // ...and "k" for the base64 value.
 }
 
+/// Internal representation of a CompactJwe. The public interface of this
+/// crate is all via strings, so it's not public.
 #[derive(Debug)]
-pub struct CompactJwe {
+struct CompactJwe {
     jwe_segments: Vec<String>,
 }
 
@@ -176,45 +215,23 @@ impl ToString for CompactJwe {
 /// Encrypt and serialize data in the JWE compact form.
 pub fn encrypt_to_jwe(data: &[u8], encryption_params: EncryptionParameters) -> Result<String> {
     let jwe = match encryption_params {
-        EncryptionParameters::ECDH_ES { .. } => ec::encrypt_to_jwe(data, encryption_params)?,
-    };
+        EncryptionParameters::ECDH_ES { enc, peer_jwk } => ec::encrypt_to_jwe(data, enc, peer_jwk),
+        EncryptionParameters::Direct { enc, jwk } => direct::encrypt_to_jwe(data, enc, jwk),
+    }?;
     Ok(jwe.to_string())
 }
 
 /// Deserialize and decrypt data in the JWE compact form.
 pub fn decrypt_jwe(jwe: &str, decryption_params: DecryptionParameters) -> Result<String> {
     let jwe = jwe.parse()?;
-    Ok(match decryption_params {
-        DecryptionParameters::ECDH_ES { .. } => ec::decrypt_jwe(&jwe, decryption_params)?,
-    })
+    match decryption_params {
+        DecryptionParameters::ECDH_ES { local_key_pair } => ec::decrypt_jwe(&jwe, local_key_pair),
+        DecryptionParameters::Direct { jwk } => direct::decrypt_jwe(&jwe, jwk),
+    }
 }
 
 #[test]
-fn test_encrypt_decrypt_jwe_ecdh_es() {
-    use rc_crypto::agreement;
-    let key_pair = EphemeralKeyPair::generate(&agreement::ECDH_P256).unwrap();
-    let jwk = ec::extract_pub_key_jwk(&key_pair).unwrap();
-    let data = b"The big brown fox jumped over... What?";
-    let encrypted = encrypt_to_jwe(
-        data,
-        EncryptionParameters::ECDH_ES {
-            enc: EncryptionAlgorithm::A256GCM,
-            peer_jwk: &jwk,
-        },
-    )
-    .unwrap();
-    let decrypted = decrypt_jwe(
-        &encrypted,
-        DecryptionParameters::ECDH_ES {
-            local_key_pair: key_pair,
-        },
-    )
-    .unwrap();
-    assert_eq!(decrypted, std::str::from_utf8(data).unwrap());
-}
-
-#[test]
-fn test_jwk_deser_with_kid() {
+fn test_jwk_ec_deser_with_kid() {
     let jwk = Jwk {
         kid: Some("the-key-id".to_string()),
         key_parameters: JwkKeyParameters::EC(ec::ECKeysParameters {
@@ -246,6 +263,16 @@ fn test_jwk_deser_no_kid() {
     let jstr = serde_json::to_string(&jwk).unwrap();
     // Make sure all the tags get the right info by checking the literal string.
     assert_eq!(jstr, r#"{"kty":"EC","crv":"CRV","x":"X","y":"Y"}"#);
+    // And check it round-trips.
+    assert_eq!(jwk, serde_json::from_str(&jstr).unwrap());
+}
+
+#[test]
+fn test_jwk_direct_deser_with_kid() {
+    let jwk = Jwk::new_direct_from_bytes(Some("key-id".to_string()), &[0, 1, 2, 3]);
+    let jstr = serde_json::to_string(&jwk).unwrap();
+    // Make sure all the tags get the right info by checking the literal string.
+    assert_eq!(jstr, r#"{"kid":"key-id","kty":"oct","k":"AAECAw"}"#);
     // And check it round-trips.
     assert_eq!(jwk, serde_json::from_str(&jstr).unwrap());
 }
