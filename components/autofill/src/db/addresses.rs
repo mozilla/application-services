@@ -4,7 +4,10 @@
 */
 
 use crate::db::{
-    models::address::{InternalAddress, UpdatableAddressFields},
+    models::{
+        address::{InternalAddress, UpdatableAddressFields},
+        Metadata,
+    },
     schema::{ADDRESS_COMMON_COLS, ADDRESS_COMMON_VALS},
 };
 use crate::error::*;
@@ -18,6 +21,7 @@ pub(crate) fn add_address(
     new: UpdatableAddressFields,
 ) -> Result<InternalAddress> {
     let tx = conn.unchecked_transaction()?;
+    let now = Timestamp::now();
 
     // We return an InternalAddress, so set it up first, including the missing
     // fields, before we insert it.
@@ -35,7 +39,11 @@ pub(crate) fn add_address(
         country: new.country,
         tel: new.tel,
         email: new.email,
-        metadata: Default::default(),
+        metadata: Metadata {
+            time_created: now,
+            time_last_modified: now,
+            ..Default::default()
+        },
     };
     add_internal_address(&tx, &address)?;
     tx.commit()?;
@@ -313,6 +321,10 @@ mod tests {
 
         // check that the add function populated the guid field
         assert_ne!(Guid::default(), saved_address.guid);
+
+        // check that the time created and time last modified were set
+        assert_ne!(0, saved_address.metadata.time_created.as_millis());
+        assert_ne!(0, saved_address.metadata.time_last_modified.as_millis());
 
         assert_eq!(0, saved_address.metadata.sync_change_counter);
 

@@ -4,7 +4,10 @@
 */
 
 use crate::db::{
-    models::credit_card::{InternalCreditCard, UpdatableCreditCardFields},
+    models::{
+        credit_card::{InternalCreditCard, UpdatableCreditCardFields},
+        Metadata,
+    },
     schema::{CREDIT_CARD_COMMON_COLS, CREDIT_CARD_COMMON_VALS},
 };
 use crate::error::*;
@@ -17,6 +20,8 @@ pub(crate) fn add_credit_card(
     conn: &Connection,
     new_credit_card_fields: UpdatableCreditCardFields,
 ) -> Result<InternalCreditCard> {
+    let now = Timestamp::now();
+
     // We return an InternalCreditCard, so set it up first, including the
     // missing fields, before we insert it.
     let credit_card = InternalCreditCard {
@@ -28,7 +33,11 @@ pub(crate) fn add_credit_card(
         // Credit card types are a fixed set of strings as defined in the link below
         // (https://searchfox.org/mozilla-central/rev/7ef5cefd0468b8f509efe38e0212de2398f4c8b3/toolkit/modules/CreditCard.jsm#9-22)
         cc_type: new_credit_card_fields.cc_type,
-        metadata: Default::default(),
+        metadata: Metadata {
+            time_created: now,
+            time_last_modified: now,
+            ..Default::default()
+        },
     };
 
     let tx = conn.unchecked_transaction()?;
@@ -287,6 +296,10 @@ pub(crate) mod tests {
 
         // check that the add function populated the guid field
         assert_ne!(Guid::default(), saved_credit_card.guid);
+
+        // check that the time created and time last modified were set
+        assert_ne!(0, saved_credit_card.metadata.time_created.as_millis());
+        assert_ne!(0, saved_credit_card.metadata.time_last_modified.as_millis());
 
         // check that sync_change_counter was set to 0.
         assert_eq!(0, saved_credit_card.metadata.sync_change_counter);
