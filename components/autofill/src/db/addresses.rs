@@ -184,7 +184,7 @@ pub(crate) fn update_internal_address(
             time_last_used      = :time_last_used,
             time_last_modified  = :time_last_modified,
             times_used          = :times_used,
-            sync_change_counter = sync_change_counter + :change_incr,
+            sync_change_counter = sync_change_counter + :change_incr
         WHERE guid              = :guid",
         rusqlite::named_params! {
             ":given_name": address.given_name,
@@ -455,6 +455,70 @@ mod tests {
 
         //check that the sync_change_counter was incremented
         assert_eq!(1, updated_address.metadata.sync_change_counter);
+    }
+
+    #[test]
+    fn test_address_update_internal_address() -> Result<()> {
+        let mut db = new_mem_db();
+        let tx = db.transaction()?;
+
+        let guid = Guid::random();
+        add_internal_address(
+            &tx,
+            &InternalAddress {
+                guid: guid.clone(),
+                given_name: "john".to_string(),
+                additional_name: "paul".to_string(),
+                family_name: "deer".to_string(),
+                organization: "".to_string(),
+                street_address: "123 First Avenue".to_string(),
+                address_level3: "".to_string(),
+                address_level2: "Denver, CO".to_string(),
+                address_level1: "".to_string(),
+                postal_code: "".to_string(),
+                country: "United States".to_string(),
+                tel: "".to_string(),
+                email: "".to_string(),
+                ..Default::default()
+            },
+        )?;
+
+        let expected_family_name = "dear";
+        update_internal_address(
+            &tx,
+            &InternalAddress {
+                guid: guid.clone(),
+                given_name: "john".to_string(),
+                additional_name: "paul".to_string(),
+                family_name: expected_family_name.to_string(),
+                organization: "".to_string(),
+                street_address: "123 First Avenue".to_string(),
+                address_level3: "".to_string(),
+                address_level2: "Denver, CO".to_string(),
+                address_level1: "".to_string(),
+                postal_code: "".to_string(),
+                country: "United States".to_string(),
+                tel: "".to_string(),
+                email: "".to_string(),
+                ..Default::default()
+            },
+            false,
+        )?;
+
+        let record_exists: bool = tx.query_row(
+            "SELECT EXISTS (
+                SELECT 1
+                FROM addresses_data
+                WHERE guid = :guid
+                AND family_name = :family_name
+                AND sync_change_counter = 0
+            )",
+            &[&guid.to_string(), &expected_family_name.to_string()],
+            |row| row.get(0),
+        )?;
+        assert!(record_exists);
+
+        Ok(())
     }
 
     #[test]
