@@ -2,12 +2,6 @@ version: 2.1
 
 # ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
 
-parameters:
-  # See also ../taskcluster/scripts/toolchain/rustup-setup.sh
-  stable-rust-version:
-    type: string
-    default: 1.50.0
-
 commands:
   full-checkout:
     steps:
@@ -77,8 +71,8 @@ commands:
           name: Install Rust
           command: |
             RUSTUP_PLATFORM=x86_64-apple-darwin
-            RUSTUP_VERSION=1.18.3
-            RUSTUP_SHA256=16734a9a2d87a3054bd4eea962642687e50a34b6e73e17df6f3361c2c534dc30
+            RUSTUP_VERSION=1.23.1
+            RUSTUP_SHA256=39101feb178a7e3e4443b09b36338e794a9e00385e5f44a2f7789aefb91354a9
             curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
             chmod +x rustup-init
@@ -86,21 +80,12 @@ commands:
             rm rustup-init
             echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
   setup-rust-toolchain:
-    parameters:
-      rust-version:
-        type: string
-        default: << pipeline.parameters.stable-rust-version >>
     steps:
       - run:
           name: Set up Rust toolchain
           command: |
             rustup update
-            rustup install <<parameters.rust-version>>
-            rustup default <<parameters.rust-version>>
             rustc --version
-      - run:
-          name: Install UniFFI
-          command: cargo install --version 0.7.1 uniffi_bindgen
   build-libs:
     parameters:
       platform:
@@ -159,15 +144,10 @@ commands:
           paths:
             - Carthage
   test-setup:
-    parameters:
-      rust-version:
-        type: string
-        default: << pipeline.parameters.stable-rust-version >>
     steps:
       - full-checkout
       - build-desktop-libs
-      - setup-rust-toolchain:
-          rust-version: <<parameters.rust-version>>
+      - setup-rust-toolchain
       - setup-sccache
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
@@ -183,22 +163,19 @@ commands:
     parameters:
       rust-version:
         type: string
-        default: << pipeline.parameters.stable-rust-version >>
+        default: ""
     steps:
-      - test-setup:
-          rust-version: <<parameters.rust-version>>
+      - test-setup
       # Test with 1. only default features on, 2. all features on, 3. no features on.
       # This is not perfect (really we want the cartesian product), but is good enough in practice.
       - run:
           name: Test (default features, no features, and all features)
-          command: bash automation/all_rust_tests.sh --verbose
+          command: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/all_rust_tests.sh --verbose
   dependency-checks:
     steps:
       - run:
           name: Check for security vulnerabilities in dependencies
           command: |
-            rustup install nightly
-            rustup default nightly
             cargo install cargo-audit
             # Explanation for ignored issues:
             #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
@@ -208,8 +185,6 @@ commands:
           name: Check for any unrecorded changes in our dependency trees
           command: |
             pip3 install --require-hashes -r ./tools/requirements.txt
-            rustup install nightly
-            rustup default nightly
             cargo metadata --locked > /dev/null
             python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
@@ -261,7 +236,6 @@ jobs:
     steps:
       - full-checkout
       - setup-rust-toolchain
-      - run: rustup component add rustfmt
       - run: rustfmt --version
       - run: cargo fmt --all -- --check
   Lint Rust with clippy:
@@ -270,7 +244,6 @@ jobs:
     steps:
       - test-setup
       - restore-sccache-cache
-      - run: rustup component add clippy
       - run: cargo clippy --version
       - run: bash automation/all_clippy_checks.sh
       - save-sccache-cache
@@ -279,11 +252,11 @@ jobs:
       - image: circleci/rust:latest
     resource_class: large
     steps:
-      # Need to use nightly for this.
-      - test-setup:
-          rust-version: "nightly"
+      - test-setup
       - install-grcov
-      - run: bash ./automation/emit_coverage_info.sh
+      # Test coverage support in Rust has been evolving rapidly, use nightly
+      # in the hope of getting the best support/features on that front.
+      - run: RUSTUP_TOOLCHAIN="nightly" bash ./automation/emit_coverage_info.sh
       - run:
           name: Compile coverage
           command: grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
@@ -366,7 +339,6 @@ jobs:
       - run:
           name: Set up the build environment
           command: |
-            rustup target add aarch64-apple-ios x86_64-apple-ios
             brew install swift-protobuf
       - carthage-bootstrap
       - run:
