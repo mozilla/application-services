@@ -1186,7 +1186,7 @@ checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
 
 [[package]]
 name = "glean-core"
-version = "34.0.0"
+version = "36.0.0"
 dependencies = [
  "bincode",
  "chrono",
@@ -1198,11 +1198,12 @@ dependencies = [
  "serde",
  "serde_json",
  "uuid",
+ "zeitstempel",
 ]
 
 [[package]]
 name = "glean-ffi"
-version = "34.0.0"
+version = "36.0.0"
 dependencies = [
  "android_logger",
  "env_logger",
@@ -3986,4 +3987,15 @@ checksum = "5e917a3f24142e9ff8be2414e36c649d47d6cc2ba81f16201cdef96e533e02de"
 dependencies = [
  "libc",
  "log 0.4.11",
+]
+
+[[package]]
+name = "zeitstempel"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eeea3eb6a30ed24e374f59368d3917c5180a845fdd4ed6f1b2278811a9e826f8"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "once_cell",
 ]

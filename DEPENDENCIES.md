@@ -60,7 +60,8 @@ The following text applies to code linked from these dependencies:
 [uniffi](https://github.com/mozilla/uniffi-rs),
 [uniffi_bindgen](https://github.com/mozilla/uniffi-rs),
 [uniffi_build](https://github.com/mozilla/uniffi-rs),
-[uniffi_macros](https://github.com/mozilla/uniffi-rs)
+[uniffi_macros](https://github.com/mozilla/uniffi-rs),
+[zeitstempel](https://github.com/badboy/zeitstempel)
 
 ```
 Mozilla Public License Version 2.0
