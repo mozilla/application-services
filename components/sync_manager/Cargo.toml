@@ -7,6 +7,7 @@ license = "MPL-2.0"
 exclude = ["/android", "/ios"]
 
 [dependencies]
+autofill = { path = "../autofill" }
 sync15 = { path = "../sync15" }
 places = { path = "../places" }
 logins = { path = "../logins" }

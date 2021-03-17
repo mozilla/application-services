@@ -86,6 +86,11 @@ enum Error {
    "CryptoError",
 };
 
+// We don't really *need* this to be `Threadsafe` because we have a mutex to
+// manage concurrent DB connections - but we might as well so our Mutexes
+// do what we thing they are doing rather than being controlled by the hidden
+// mutexes non-threadsafe uniffi gives us.
+[Threadsafe]
 interface Store {
     [Throws=Error]
     constructor(string dbpath);
@@ -125,4 +130,6 @@ interface Store {
 
     [Throws=Error]
     void touch_address(string guid);
+
+    void register_with_sync_manager();
 };

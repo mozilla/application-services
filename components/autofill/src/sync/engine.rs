@@ -3,14 +3,14 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
-use crate::db::AutofillDb;
 use crate::error::*;
+use crate::StoreImpl as Store;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
 };
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, ServerTimestamp, SyncEngine,
@@ -45,7 +45,7 @@ pub trait SyncEngineStorageImpl<T> {
 // A sync engine that gets functionality from an EngineConfig.
 pub struct ConfigSyncEngine<T> {
     pub(crate) config: EngineConfig,
-    pub(crate) db: Arc<Mutex<AutofillDb>>,
+    pub(crate) store: Arc<Store>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     local_enc_key: RefCell<Option<String>>,
 }
@@ -53,12 +53,12 @@ pub struct ConfigSyncEngine<T> {
 impl<T> ConfigSyncEngine<T> {
     pub fn new(
         config: EngineConfig,
-        db: Arc<Mutex<AutofillDb>>,
+        store: Arc<Store>,
         storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     ) -> Self {
         Self {
             config,
-            db,
+            store,
             storage_impl,
             local_enc_key: RefCell::new(None),
         }
@@ -96,7 +96,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         assert_eq!(inbound.len(), 1, "we only request one item");
         let inbound = inbound.into_iter().next().unwrap();
 
-        let db = self.db.lock().unwrap();
+        let db = &self.store.db.lock().unwrap();
         crate::db::schema::create_empty_sync_temp_tables(&db.writer)?;
 
         let signal = db.begin_interrupt_scope();
@@ -151,7 +151,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
-        let db = self.db.lock().unwrap();
+        let db = &self.store.db.lock().unwrap();
         self.put_meta(
             &db.writer,
             LAST_SYNC_META_KEY,
@@ -170,7 +170,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
-        let db = self.db.lock().unwrap();
+        let db = &self.store.db.lock().unwrap();
         let since = ServerTimestamp(
             self.get_meta::<i64>(&db.writer, LAST_SYNC_META_KEY)?
                 .unwrap_or_default(),
@@ -185,7 +185,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let db = self.db.lock().unwrap();
+        let db = &self.store.db.lock().unwrap();
         let global = self.get_meta(&db.writer, GLOBAL_SYNCID_META_KEY)?;
         let coll = self.get_meta(&db.writer, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
@@ -196,7 +196,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        let db = self.db.lock().unwrap();
+        let db = &self.store.db.lock().unwrap();
         let tx = db.unchecked_transaction()?;
         self.storage_impl.reset_storage(&tx)?;
         // Reset the last sync time, so that the next sync fetches fresh records
@@ -233,13 +233,14 @@ mod tests {
         get_all, insert_tombstone_record, test_insert_mirror_record,
     };
     use crate::db::models::credit_card::InternalCreditCard;
-    use crate::db::{schema::create_empty_sync_temp_tables, test::new_mem_db};
+    use crate::db::schema::create_empty_sync_temp_tables;
     use crate::encryption::EncryptorDecryptor;
     use sql_support::ConnExt;
 
     // We use the credit-card engine here.
-    fn create_engine(db: AutofillDb) -> ConfigSyncEngine<InternalCreditCard> {
-        crate::sync::credit_card::create_engine(Arc::new(Mutex::new(db)))
+    fn create_engine() -> ConfigSyncEngine<InternalCreditCard> {
+        let store = crate::db::store::StoreImpl::new_memory();
+        crate::sync::credit_card::create_engine(Arc::new(store))
     }
 
     pub fn clear_cc_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {
@@ -253,14 +254,14 @@ mod tests {
 
     #[test]
     fn test_credit_card_engine_sync_finished() -> Result<()> {
-        let db = new_mem_db();
-        create_empty_sync_temp_tables(&db).expect("should create temp tables");
-
-        let credit_card_engine = create_engine(db);
+        let credit_card_engine = create_engine();
         let test_key = crate::encryption::create_key().unwrap();
         credit_card_engine
             .set_local_encryption_key(&test_key)
             .unwrap();
+        {
+            create_empty_sync_temp_tables(&credit_card_engine.store.db.lock().unwrap())?;
+        }
 
         let last_sync = 24;
         let result =
@@ -268,7 +269,7 @@ mod tests {
         assert!(result.is_ok());
 
         // check that last sync metadata was set
-        let conn = &credit_card_engine.db.lock().unwrap().writer;
+        let conn = &credit_card_engine.store.db.lock().unwrap().writer;
 
         assert_eq!(
             credit_card_engine.get_meta::<i64>(conn, LAST_SYNC_META_KEY)?,
@@ -280,8 +281,7 @@ mod tests {
 
     #[test]
     fn test_credit_card_engine_get_sync_assoc() -> Result<()> {
-        let db = new_mem_db();
-        let credit_card_engine = create_engine(db);
+        let credit_card_engine = create_engine();
 
         let result = credit_card_engine.get_sync_assoc();
         assert!(result.is_ok());
@@ -297,7 +297,7 @@ mod tests {
             coll: coll_guid,
         };
         {
-            let conn = &credit_card_engine.db.lock().unwrap().writer;
+            let conn = &credit_card_engine.store.db.lock().unwrap().writer;
             credit_card_engine.put_meta(conn, GLOBAL_SYNCID_META_KEY, &ids.global)?;
             credit_card_engine.put_meta(conn, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
         }
@@ -312,11 +312,9 @@ mod tests {
 
     #[test]
     fn test_engine_sync_reset() -> Result<()> {
-        let db = new_mem_db();
+        let engine = create_engine();
         let encdec = EncryptorDecryptor::new_test_key();
 
-        let tx = db.writer.unchecked_transaction()?;
-        // create a normal record, a mirror record and a tombstone.
         let cc = InternalCreditCard {
             guid: Guid::random(),
             cc_name: "Ms Jane Doe".to_string(),
@@ -327,12 +325,17 @@ mod tests {
             cc_type: "visa".to_string(),
             ..Default::default()
         };
-        add_internal_credit_card(&tx, &cc)?;
-        test_insert_mirror_record(&tx, cc.clone().into_payload(&encdec).expect("is json"));
-        insert_tombstone_record(&tx, Guid::random().to_string())?;
-        tx.commit()?;
 
-        let engine = create_engine(db);
+        {
+            // temp scope for the mutex lock.
+            let db = &engine.store.db.lock().unwrap();
+            let tx = db.writer.unchecked_transaction()?;
+            // create a normal record, a mirror record and a tombstone.
+            add_internal_credit_card(&tx, &cc)?;
+            test_insert_mirror_record(&tx, cc.clone().into_payload(&encdec).expect("is json"));
+            insert_tombstone_record(&tx, Guid::random().to_string())?;
+            tx.commit()?;
+        }
 
         // create sync metadata
         let global_guid = Guid::new("AAAA");
@@ -342,7 +345,7 @@ mod tests {
             coll: coll_guid.clone(),
         };
         {
-            let conn = &engine.db.lock().unwrap().writer;
+            let conn = &engine.store.db.lock().unwrap().writer;
             engine.put_meta(conn, GLOBAL_SYNCID_META_KEY, &ids.global)?;
             engine.put_meta(conn, COLLECTION_SYNCID_META_KEY, &ids.coll)?;
         }
@@ -353,7 +356,7 @@ mod tests {
             .expect("should work");
 
         {
-            let conn = &engine.db.lock().unwrap().writer;
+            let conn = &engine.store.db.lock().unwrap().writer;
 
             // check that the mirror and tombstone tables have no records
             assert!(get_all(conn, "credit_cards_mirror".to_string())?.is_empty());
@@ -391,7 +394,7 @@ mod tests {
             .reset(&EngineSyncAssociation::Connected(ids))
             .expect("should work");
 
-        let conn = &engine.db.lock().unwrap().writer;
+        let conn = &engine.store.db.lock().unwrap().writer;
         // check that the meta records were set
         let retrieved_global_sync_id = engine.get_meta::<String>(conn, GLOBAL_SYNCID_META_KEY)?;
         assert_eq!(

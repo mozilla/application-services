@@ -15,7 +15,7 @@ use std::time::SystemTime;
 use sync15::{
     self,
     clients::{self, Command, CommandProcessor, CommandStatus, Settings},
-    MemoryCachedState,
+    EngineSyncAssociation, MemoryCachedState, SyncEngine,
 };
 use tabs::TabsStore;
 
@@ -64,6 +64,23 @@ impl SyncManager {
         self.tabs = Arc::downgrade(&tabs);
     }
 
+    pub fn autofill_engine(engine: &str) -> Result<Option<Box<dyn SyncEngine>>> {
+        let cell = autofill::STORE_FOR_MANAGER.lock().unwrap();
+        // The cell holds a `Weak` - borrow it (which is safe as we have the
+        // mutex) and upgrade it to a real Arc.
+        let r = cell.borrow();
+        match r.upgrade() {
+            None => Ok(None),
+            Some(arc) => match engine {
+                "addresses" => Ok(Some(Box::new(autofill::sync::address::create_engine(arc)))),
+                "creditcards" => Ok(Some(Box::new(autofill::sync::credit_card::create_engine(
+                    arc,
+                )))),
+                _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+            },
+        }
+    }
+
     pub fn wipe(&mut self, engine: &str) -> Result<()> {
         match engine {
             "logins" => {
@@ -94,6 +111,12 @@ impl SyncManager {
                 } else {
                     Err(ErrorKind::ConnectionClosed(engine.into()).into())
                 }
+            }
+            "addresses" | "creditcards" => {
+                if let Some(engine) = Self::autofill_engine(engine)? {
+                    engine.wipe()?;
+                }
+                Ok(())
             }
             _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
         }
@@ -141,6 +164,12 @@ impl SyncManager {
                 } else {
                     Err(ErrorKind::ConnectionClosed(engine.into()).into())
                 }
+            }
+            "addresses" | "creditcards" => {
+                if let Some(engine) = Self::autofill_engine(engine)? {
+                    engine.reset(&EngineSyncAssociation::Disconnected)?;
+                }
+                Ok(())
             }
             _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
         }

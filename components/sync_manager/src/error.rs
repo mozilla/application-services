@@ -29,6 +29,10 @@ pub enum ErrorKind {
     LoginsError(#[from] logins::Error),
     #[error("Places error: {0}")]
     PlacesError(#[from] places::Error),
+    // We should probably upgrade this crate to anyhow, which would mean this
+    // gets replaced with AutofillError or similar.
+    #[error("External error: {0}")]
+    AnyhowError(#[from] anyhow::Error),
 }
 
 error_support::define_error! {
@@ -41,5 +45,6 @@ error_support::define_error! {
         (JsonError, serde_json::Error),
         (LoginsError, logins::Error),
         (PlacesError, places::Error),
+        (AnyhowError, anyhow::Error),
     }
 }
