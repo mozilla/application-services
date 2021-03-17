@@ -7,58 +7,57 @@ import XCTest
 @testable import MozillaAppServices
 
 class NimbusTests: XCTestCase {
-
     func emptyExperimentJSON() -> String {
         return """
-            { "data": [] }
-            """
+        { "data": [] }
+        """
     }
 
     func minimalExperimentJSON() -> String {
         return """
-            {
-                "data": [{
-                    "schemaVersion": "1.0.0",
-                    "slug": "secure-gold",
-                    "endDate": null,
-                    "featureIds": ["aboutwelcome"],
-                    "branches": [{
-                            "slug": "control",
-                            "ratio": 1,
-                            "feature": {
-                                "featureId": "aboutwelcome",
-                                "enabled": false
-                            }
-                        },
-                        {
-                            "slug": "treatment",
-                            "ratio": 1,
-                            "feature": {
-                                "featureId": "aboutwelcome",
-                                "enabled": true
-                            }
+        {
+            "data": [{
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold",
+                "endDate": null,
+                "featureIds": ["aboutwelcome"],
+                "branches": [{
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "aboutwelcome",
+                            "enabled": false
                         }
-                    ],
-                    "probeSets": [],
-                    "startDate": null,
-                    "application": "\(xcTestAppId())",
-                    "bucketConfig": {
-                        "count": 10000,
-                        "start": 0,
-                        "total": 10000,
-                        "namespace": "secure-gold",
-                        "randomizationUnit": "nimbus_id"
                     },
-                    "userFacingName": "Diagnostic test experiment",
-                    "referenceBranch": "control",
-                    "isEnrollmentPaused": false,
-                    "proposedEnrollment": 7,
-                    "userFacingDescription": "This is a test experiment for diagnostic purposes.",
-                    "id": "secure-gold",
-                    "last_modified": 1602197324372
-                }]
-            }
-            """
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "aboutwelcome",
+                            "enabled": true
+                        }
+                    }
+                ],
+                "probeSets": [],
+                "startDate": null,
+                "application": "\(xcTestAppId())",
+                "bucketConfig": {
+                    "count": 10000,
+                    "start": 0,
+                    "total": 10000,
+                    "namespace": "secure-gold",
+                    "randomizationUnit": "nimbus_id"
+                },
+                "userFacingName": "Diagnostic test experiment",
+                "referenceBranch": "control",
+                "isEnrollmentPaused": false,
+                "proposedEnrollment": 7,
+                "userFacingDescription": "This is a test experiment for diagnostic purposes.",
+                "id": "secure-gold",
+                "last_modified": 1602197324372
+            }]
+        }
+        """
     }
 
     func xcTestAppId() -> String {
@@ -74,16 +73,16 @@ class NimbusTests: XCTestCase {
 
     func testNimbusCreate() throws {
         let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
-        let nimbusEnabled = Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath())
+        let nimbusEnabled = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath())
         XCTAssert(nimbusEnabled is Nimbus)
 
-        let nimbusDisabled = Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath(), enabled: false)
+        let nimbusDisabled = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath(), enabled: false)
         XCTAssert(nimbusDisabled is NimbusDisabled, "Nimbus is disabled if a feature flag disables it")
     }
 
     func testSmokeTest() throws {
         let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
-        let nimbus = Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
 
         try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
         try nimbus.applyPendingExperimentsOnThisThread()
@@ -97,6 +96,33 @@ class NimbusTests: XCTestCase {
 
         try nimbus.setExperimentsLocallyOnThisThread(emptyExperimentJSON())
         try nimbus.applyPendingExperimentsOnThisThread()
+        let noExperiments = nimbus.getActiveExperiments()
+        XCTAssertEqual(noExperiments.count, 0)
+    }
+
+    func testSmokeTestAsync() throws {
+        let appSettings = NimbusAppSettings(appName: "test", channel: "nightly")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        // We do the same tests as `testSmokeTest` but with the actual calls that
+        // the client app will make.
+        // This shows that delegating to a background thread is working, and
+        // that Rust is callable from a background thread.
+        nimbus.setExperimentsLocally(minimalExperimentJSON())
+        nimbus.applyPendingExperiments()
+        Thread.sleep(until: Date(timeIntervalSinceNow: 1.0))
+
+        let branch = nimbus.getExperimentBranch(featureId: "aboutwelcome")
+        XCTAssertNotNil(branch)
+        XCTAssert(branch == "treatment" || branch == "control")
+
+        let experiments = nimbus.getActiveExperiments()
+        XCTAssertEqual(experiments.count, 1)
+
+        nimbus.setExperimentsLocally(emptyExperimentJSON())
+        nimbus.applyPendingExperiments()
+        Thread.sleep(until: Date(timeIntervalSinceNow: 1.0))
+
         let noExperiments = nimbus.getActiveExperiments()
         XCTAssertEqual(noExperiments.count, 0)
     }

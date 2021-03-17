@@ -4,13 +4,24 @@
 
 import Foundation
 
-public class Nimbus {
+public class Nimbus: NimbusApi {
     private let nimbusClient: NimbusClientProtocol
 
     private let errorReporter: NimbusErrorReporter
 
-    private let dbQueue = DispatchQueue(label: "com.mozilla.nimbus.ios-db", qos: .userInitiated)
-    private let fetchQueue = DispatchQueue(label: "com.mozilla.nimbus.ios-network", qos: .background)
+    lazy var fetchQueue: OperationQueue = {
+        var queue = OperationQueue()
+        queue.name = "Nimbus fetch queue"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
+
+    lazy var dbQueue: OperationQueue = {
+        var queue = OperationQueue()
+        queue.name = "Nimbus database queue"
+        queue.maxConcurrentOperationCount = 1
+        return queue
+    }()
 
     internal init(nimbusClient: NimbusClientProtocol,
                   errorReporter: @escaping NimbusErrorReporter) {
@@ -29,8 +40,8 @@ private extension Nimbus {
         }
     }
 
-    func catchAll(_ queue: DispatchQueue, thunk: @escaping () throws -> Void) {
-        queue.async {
+    func catchAll(_ queue: OperationQueue, thunk: @escaping () throws -> Void) {
+        queue.addOperation {
             self.catchAll(thunk)
         }
     }
@@ -42,7 +53,7 @@ private extension Nimbus {
         // TODO: https://jira.mozilla.com/browse/SDK-209
     }
 
-    func postEnrolmentCalculation(_ events: [EnrollmentChangeEvent]?) {
+    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]?) {
         guard events?.isEmpty == false else {
             return
         }
@@ -72,7 +83,7 @@ private extension Nimbus {
 internal extension Nimbus {
     func setGlobalUserParticipationOnThisThread(_ value: Bool) throws {
         let changes = try nimbusClient.setGlobalUserParticipation(optIn: value)
-        postEnrolmentCalculation(changes)
+        postEnrollmentCalculation(changes)
     }
 
     func initializeOnThisThread() throws {
@@ -85,7 +96,7 @@ internal extension Nimbus {
 
     func applyPendingExperimentsOnThisThread() throws {
         let changes = try nimbusClient.applyPendingExperiments()
-        postEnrolmentCalculation(changes)
+        postEnrollmentCalculation(changes)
     }
 
     func setExperimentsLocallyOnThisThread(_ experimentsJson: String) throws {
@@ -94,21 +105,29 @@ internal extension Nimbus {
 
     func optOutOnThisThread(_ experimentId: String) throws {
         let changes = try nimbusClient.optOut(experimentSlug: experimentId)
-        postEnrolmentCalculation(changes)
+        postEnrollmentCalculation(changes)
     }
 
     func optInOnThisThread(_ experimentId: String, branch: String) throws {
         let changes = try nimbusClient.optInWithBranch(experimentSlug: experimentId, branch: branch)
-        postEnrolmentCalculation(changes)
+        postEnrollmentCalculation(changes)
     }
 
     func resetTelemetryIdentifiersOnThisThread(_ identifiers: AvailableRandomizationUnits) throws {
         let changes = try nimbusClient.resetTelemetryIdentifiers(newRandomizationUnits: identifiers)
-        postEnrolmentCalculation(changes)
+        postEnrollmentCalculation(changes)
     }
 }
 
-extension Nimbus: NimbusApi {
+extension Nimbus: NimbusFeatureConfiguration {
+    public func getExperimentBranch(featureId: String) -> String? {
+        return catchAll {
+            try nimbusClient.getExperimentBranch(id: featureId)
+        }
+    }
+}
+
+extension Nimbus: NimbusUserConfiguration {
     public var globalUserParticipation: Bool {
         get {
             catchAll { try nimbusClient.getGlobalUserParticipation() } ?? false
@@ -126,12 +145,35 @@ extension Nimbus: NimbusApi {
         } ?? []
     }
 
-    public func getExperimentBranch(featureId: String) -> String? {
+    public func getExperimentBranches(_ experimentId: String) -> [Branch]? {
         return catchAll {
-            try nimbusClient.getExperimentBranch(id: featureId)
+            try nimbusClient.getExperimentBranches(experimentSlug: experimentId)
         }
     }
 
+    public func optOut(_ experimentId: String) {
+        catchAll(dbQueue) {
+            try self.optOutOnThisThread(experimentId)
+        }
+    }
+
+    public func optIn(_ experimentId: String, branch: String) {
+        catchAll(dbQueue) {
+            try self.optInOnThisThread(experimentId, branch: branch)
+        }
+    }
+
+    public func resetTelemetryIdentifiers() {
+        catchAll(dbQueue) {
+            // The "dummy" field here is required for obscure reasons when generating code on desktop,
+            // so we just automatically set it to a dummy value.
+            let aru = AvailableRandomizationUnits(clientId: nil, dummy: 0)
+            try self.resetTelemetryIdentifiersOnThisThread(aru)
+        }
+    }
+}
+
+extension Nimbus: NimbusStartup {
     public func initialize() {
         catchAll(dbQueue) {
             try self.initializeOnThisThread()
@@ -160,24 +202,6 @@ extension Nimbus: NimbusApi {
     public func setExperimentsLocally(_ experimentsJson: String) {
         catchAll(dbQueue) {
             try self.setExperimentsLocallyOnThisThread(experimentsJson)
-        }
-    }
-
-    public func optOut(_ experimentId: String) {
-        catchAll(dbQueue) {
-            try self.optOutOnThisThread(experimentId)
-        }
-    }
-
-    public func optIn(_ experimentId: String, branch: String) {
-        catchAll(dbQueue) {
-            try self.optInOnThisThread(experimentId, branch: branch)
-        }
-    }
-
-    public func resetTelemetryIdentifiers(_ identifiers: AvailableRandomizationUnits) {
-        catchAll(dbQueue) {
-            try self.resetTelemetryIdentifiersOnThisThread(identifiers)
         }
     }
 }
@@ -223,7 +247,11 @@ public extension NimbusDisabled {
         return
     }
 
-    func resetTelemetryIdentifiers(_: AvailableRandomizationUnits) {
+    func resetTelemetryIdentifiers() {
         return
+    }
+
+    func getExperimentBranches(_: String) -> [Branch]? {
+        return nil
     }
 }
