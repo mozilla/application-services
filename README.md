@@ -10,7 +10,7 @@ Get in touch with other community members on Matrix, the mailing list or through
 - Matrix: [#sync:mozilla.org](https://chat.mozilla.org/#/room/#sync:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
 - Mailing list: application-services@mozilla.com
 
-### Building
+### Building the Rust Components
 1. Clone or Download the repository:
 ```shell
   git clone https://github.com/mozilla/application-services
@@ -26,10 +26,19 @@ git submodule update --recursive
 cargo test
 ```
 
-The application-services library's primary consumers are both Fenix (Firefox on Android) and Firefox iOS. Assure you are able to run integration tests for both by following the instructions to build for Android and iOS integrations.
+### Consumer build, integration and testing
+The application-services library primary consumers are Fenix (Firefox on Android) and Firefox iOS. Assure you are able to run integration tests (for Android and iOS if using MacOS) by following the instructions to build for Android and iOS integrations.  
 
-* Build instructions to test [Fenix integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-fenix) (2 hrs)
+#### Android integration builds and helpful tools
+* Build instructions to test [Fenix / android-components integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-fenix) (2 hrs)
+* [Fenix Auto-publication workflow for android-components and application-services](https://github.com/mozilla-mobile/fenix/#auto-publication-workflow-for-android-components-and-application-services)
+* [Nimbus: using local servers for development](https://github.com/mozilla-mobile/fenix/#using-nimbus-servers-during-local-development)
+
+
+#### Firefox for iOS integration
 * Build instructions to test [Firefox iOS integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-firefox-ios) (2 hrs)
+
+#### Firefox Desktop
 * Build instructions to test [Firefox Desktop integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-firefox-desktop) (?? hrs)
 
 ### Documentation
@@ -44,16 +53,16 @@ code in this repository
 
 ### Rust Components
 
-* [./components/](components) contains the source for each component, and its
+[./components/](components) contains the source for each component, and its
   FFI bindings.
-  * See [./components/logins/](components/logins) for an example, where you can
+* See [./components/logins/](components/logins) for an example, where you can
     find:
-    * The shared [rust code](components/logins/src).
-    * The mapping into a [C FFI](components/logins/ffi).
-    * The [Kotlin bindings](components/logins/android) for use by Android
+  * The shared [rust code](components/logins/src).
+  * The mapping into a [C FFI](components/logins/ffi).
+  * The [Kotlin bindings](components/logins/android) for use by Android
       applications.
-    * The [Swift bindings](components/logins/ios) for use by iOS applications.
-  * See [./components/fxa-client](components/fxa-client) for an example the uses
+  * The [Swift bindings](components/logins/ios) for use by iOS applications.
+* See [./components/fxa-client](components/fxa-client) for an example the uses
     [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
     multiple languages, such as Kotlin and Swift.
 
@@ -65,6 +74,7 @@ code in this repository
   with FxA, access encryption keys for sync, and more.
 * [logins](components/logins) - for storage and syncing of a user's saved login
   credentials
+* [nimbus](components/nimbus) - for integrating with Mozilla's [experimentation](https://mozilla.github.io/experimenter-docs/) platform for Firefox
 * [places](components/places) - for storage and syncing of a user's saved
   browsing history
 * [push](components/push) - for applications to receive real-time updates via
