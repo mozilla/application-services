@@ -1,5 +1,9 @@
 # Unreleased changes
 
+## ⚠️ Breaking changes ⚠️
+
+- Changed `AppContext` struct to include non-optional `app_name` and `channel` fields per [ADR-0004](https://github.com/mozilla/nimbus-shared/blob/main/docs/adr/0004-dto-app-identifiers.md)
+
 # 0.9.0 (_2021-03-09_)
 ## What's Changed
 
