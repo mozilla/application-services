@@ -7,6 +7,13 @@
 ### What's Changed
 
 - The bundled version of Glean has been updated to v36.0.0.
+- The bundled version of Nimbus has been updated to v0.10.0.
+
+## Nimbus SDK
+
+### ⚠️ Breaking changes ⚠️
+
+- Nimbus update adds `app_name` and `channel` as required fields of the `AppContext` object that is passed into the `initialize` function.
 
 # v73.0.2 (_2021-03-16_)
 
