@@ -8,7 +8,7 @@ mod common;
 #[allow(unused_imports)]
 #[allow(unused_attributes)]
 #[macro_use]
- use nimbus::error::Result;
+use nimbus::error::Result;
 
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
