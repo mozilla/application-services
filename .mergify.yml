@@ -3,6 +3,7 @@ pull_request_rules:
     conditions:
       - base=main
       - author!=@mozilla/application-services
+      - author!=@mozilla/application-services-collaborators
     actions:
       dismiss_reviews:
         message: The pull request has been modified, dismissing previous reviews.
