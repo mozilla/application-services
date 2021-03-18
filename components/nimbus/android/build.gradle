@@ -3,9 +3,6 @@
 // READ THIS CAREFULLY before editing this file.
 // =============================================
 //
-// This is a lightly-modified version of the `build.gradle` file from Nimbus,
-// which you can find at `../external/nimbus-sdk/android/build.gradle`.
-//
 // The aim here is to pre-package the Nimbus Kotlin code and publish it under
 // `org.mozilla.appservices:nimbus` rather than `org.mozilla.experiments:nimbus`,
 // and to make it depend on `org.mozilla.appservices:full-megazord` for the
@@ -121,7 +118,7 @@ dependencies {
 android.libraryVariants.all { variant ->
     def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
         workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../../external/nimbus-sdk/nimbus/src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
     }
     variant.javaCompileProvider.get().dependsOn(t)
     def sourceSet = variant.sourceSets.find { it.name == variant.name }
