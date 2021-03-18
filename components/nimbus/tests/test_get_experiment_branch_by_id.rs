@@ -5,11 +5,16 @@
 // Testing get_experiment_branch semantics.
 
 mod common;
-use nimbus::error::{NimbusError, Result};
+#[allow(unused_imports)]
+#[allow(unused_attributes)]
+#[macro_use]
+ use nimbus::error::Result;
 
 #[cfg(feature = "rkv-safe-mode")]
 #[test]
 fn test_before_open() -> Result<()> {
+    use nimbus::error::NimbusError;
+
     let _ = env_logger::try_init();
     let client = common::new_test_client("test_before_open")?;
     assert!(matches!(
