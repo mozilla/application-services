@@ -22,9 +22,15 @@ use dbcache::DatabaseCache;
 pub use enrollment::EnrollmentStatus;
 use enrollment::{
     get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
-    set_global_user_participation, EnrollmentChangeEvent, EnrollmentChangeEventType,
+    set_global_user_participation, EnrollmentChangeEvent,
     EnrollmentsEvolver,
 };
+
+// We only use this in a test, and with --no-default-features, we don't use it
+// at all
+#[allow(unused_imports)]
+use enrollment::EnrollmentChangeEventType;
+
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};

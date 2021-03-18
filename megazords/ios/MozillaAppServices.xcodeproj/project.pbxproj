@@ -281,7 +281,7 @@
 				394A807325EE94C600FAF26F /* nimbus.udl */,
 			);
 			name = Nimbus;
-			path = "../../components/external/nimbus-sdk/nimbus";
+			path = ../../components/nimbus;
 			sourceTree = SOURCE_ROOT;
 		};
 		394A807525EE951D00FAF26F /* Generated */ = {

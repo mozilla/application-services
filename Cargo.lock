@@ -825,7 +825,7 @@ dependencies = [
  "structopt",
  "sync-guid",
  "sync15",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -875,7 +875,7 @@ dependencies = [
  "hex",
  "push",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -909,7 +909,7 @@ dependencies = [
  "log 0.4.11",
  "serde_json",
  "tabs",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -921,7 +921,7 @@ dependencies = [
  "dialoguer",
  "fxa-client",
  "url",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
  "webbrowser",
 ]
 
@@ -1143,7 +1143,7 @@ dependencies = [
  "uniffi_macros",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -1669,7 +1669,7 @@ dependencies = [
  "places-ffi",
  "rc_log_ffi",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -1845,21 +1845,26 @@ name = "nimbus-sdk"
 version = "0.10.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "env_logger",
  "hex",
  "jexl-eval",
  "log 0.4.11",
+ "mockito",
  "once_cell",
  "rkv",
  "serde",
  "serde_derive",
  "serde_json",
  "sha2",
+ "tempdir",
  "thiserror",
  "uniffi",
  "uniffi_build",
  "url",
  "uuid",
  "viaduct",
+ "viaduct-reqwest 0.1.0 (git+https://github.com/mozilla/application-services?rev=8a576fbe79199fa8664f64285524017f74ebcc5f)",
 ]
 
 [[package]]
@@ -2417,7 +2422,7 @@ dependencies = [
  "thiserror",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -3131,7 +3136,7 @@ dependencies = [
  "tabs",
  "url",
  "viaduct",
- "viaduct-reqwest",
+ "viaduct-reqwest 0.1.0",
 ]
 
 [[package]]
@@ -3718,6 +3723,18 @@ dependencies = [
 [[package]]
 name = "viaduct-reqwest"
 version = "0.1.0"
+dependencies = [
+ "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static",
+ "log 0.4.11",
+ "reqwest",
+ "viaduct",
+]
+
+[[package]]
+name = "viaduct-reqwest"
+version = "0.1.0"
+source = "git+https://github.com/mozilla/application-services?rev=8a576fbe79199fa8664f64285524017f74ebcc5f#8a576fbe79199fa8664f64285524017f74ebcc5f"
 dependencies = [
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
