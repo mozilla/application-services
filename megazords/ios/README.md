@@ -25,16 +25,20 @@ To update Glean:
     ```
 3. Update `Cargo.lock` to reflect any upstream changes:
     ```
-    cargo update
+    cargo update -p glean-ffi
     ```
-4. Commit the changes:
+4. Update the dependency summary:
+    ```
+    tools/regenerate_dependency_summaries.sh
+    ```
+5. Commit the changes:
 
     ```
     git add components/external/glean
     git add Cargo.lock
     git commit
     ```
-5. Run an Xcode build to ensure everything compiles.
+6. Run an Xcode build to ensure everything compiles.
 
 [Glean]: https://github.com/mozilla/glean
 [git submodule]: https://git-scm.com/docs/git-submodule
