@@ -1,3 +1,11 @@
+# v74.0.1 (_2021-03-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v74.0.0...v74.0.1)
+
+## General
+
+- Revert a Rust toolchain config change that turned out to cause build issues in our release pipeline.
+
 # v74.0.0 (_2021-03-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.2...v74.0.0)
