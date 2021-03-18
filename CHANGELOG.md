@@ -1,3 +1,20 @@
+# v74.0.0 (_2021-03-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.2...v74.0.0)
+
+## General
+
+### What's Changed
+
+- The bundled version of Glean has been updated to v36.0.0.
+- The bundled version of Nimbus has been updated to v0.10.0.
+
+## Nimbus SDK
+
+### ⚠️ Breaking changes ⚠️
+
+- Nimbus update adds `app_name` and `channel` as required fields of the `AppContext` object that is passed into the `initialize` function.
+
 # v73.0.2 (_2021-03-16_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.1...v73.0.2)
