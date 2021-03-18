@@ -131,7 +131,7 @@ fn test_modified_ciphertext() {
     // to get a base64 or json error.
     let jwe = CompactJwe::from_str(&encrypted).unwrap();
     let mut new_ciphertext = jwe.ciphertext().unwrap();
-    new_ciphertext[0] += 1;
+    new_ciphertext[0] = new_ciphertext[0].wrapping_add(1);
     let jwe_modified = CompactJwe::new(
         jwe.protected_header().unwrap(),
         jwe.encrypted_key().unwrap(),
