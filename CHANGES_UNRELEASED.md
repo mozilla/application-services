@@ -3,3 +3,7 @@
 # Unreleased Changes
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v74.0.0...main)
+
+## General
+
+- Revert a Rust toolchain config change that turned out to cause build issues in our release pipeline. 
