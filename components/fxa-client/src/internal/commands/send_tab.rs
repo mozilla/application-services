@@ -15,8 +15,7 @@
 /// then sent to the target device.
 use serde_derive::*;
 
-use rc_crypto::ece::{self, Aes128GcmEceWebPush, EcKeyComponents, WebPushParams};
-use rc_crypto::ece_crypto::{RcCryptoLocalKeyPair, RcCryptoRemotePublicKey};
+use rc_crypto::ece::{self, EcKeyComponents};
 use sync15::{EncryptedPayload, KeyBundle};
 
 use super::super::{device::Device, error::*, scoped_keys::ScopedKey, scopes, telemetry};
@@ -33,8 +32,7 @@ impl EncryptedSendTabPayload {
     pub(crate) fn decrypt(self, keys: &PrivateSendTabKeysV1) -> Result<SendTabPayload> {
         rc_crypto::ensure_initialized();
         let encrypted = base64::decode_config(&self.encrypted, base64::URL_SAFE_NO_PAD)?;
-        let private_key = RcCryptoLocalKeyPair::from_raw_components(&keys.p256key)?;
-        let decrypted = Aes128GcmEceWebPush::decrypt(&private_key, &keys.auth_secret, &encrypted)?;
+        let decrypted = ece::decrypt(&keys.p256key, &keys.auth_secret, &encrypted)?;
         Ok(serde_json::from_slice(&decrypted)?)
     }
 }
@@ -77,14 +75,8 @@ impl SendTabPayload {
         rc_crypto::ensure_initialized();
         let bytes = serde_json::to_vec(&self)?;
         let public_key = base64::decode_config(&keys.public_key, base64::URL_SAFE_NO_PAD)?;
-        let public_key = RcCryptoRemotePublicKey::from_raw(&public_key)?;
         let auth_secret = base64::decode_config(&keys.auth_secret, base64::URL_SAFE_NO_PAD)?;
-        let encrypted = Aes128GcmEceWebPush::encrypt(
-            &public_key,
-            &auth_secret,
-            &bytes,
-            WebPushParams::default(),
-        )?;
+        let encrypted = ece::encrypt(&public_key, &auth_secret, &bytes)?;
         let encrypted = base64::encode_config(&encrypted, base64::URL_SAFE_NO_PAD);
         Ok(EncryptedSendTabPayload { encrypted })
     }

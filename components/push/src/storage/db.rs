@@ -236,7 +236,7 @@ mod test {
     use crate::error::Result;
 
     use super::PushDb;
-    use crate::crypto::get_bytes;
+    use crate::crypto::get_random_bytes;
     use crate::storage::{db::Storage, record::PushRecord};
 
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
@@ -249,7 +249,7 @@ mod test {
     }
 
     fn get_uuid() -> Result<String> {
-        Ok(get_bytes(16)?
+        Ok(get_random_bytes(16)?
             .iter()
             .map(|b| format!("{:02x}", b))
             .collect::<Vec<String>>()

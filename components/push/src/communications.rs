@@ -468,7 +468,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
@@ -494,7 +494,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_ns_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
