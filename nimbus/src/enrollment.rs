@@ -278,8 +278,8 @@ impl ExperimentEnrollment {
     fn on_explicit_opt_out(
         &self,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
-    ) -> Result<Self> {
-        Ok(match self.status {
+    ) -> ExperimentEnrollment {
+        match self.status {
             EnrollmentStatus::Enrolled { .. } => {
                 let enrollment = self.disqualify_from_enrolled(DisqualifiedReason::OptOut);
                 out_enrollment_events.push(enrollment.get_change_event());
@@ -297,7 +297,7 @@ impl ExperimentEnrollment {
                 // Nothing to do here.
                 self.clone()
             }
-        })
+        }
     }
 
     /// Reset identifiers in response to application-level telemetry reset.
@@ -756,7 +756,7 @@ pub fn opt_out(
     let existing_enrollment: ExperimentEnrollment = enr_store
         .get(writer, experiment_slug)?
         .ok_or_else(|| NimbusError::NoSuchExperiment(experiment_slug.to_owned()))?;
-    let updated_enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
+    let updated_enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
     enr_store.put(writer, experiment_slug, &updated_enrollment)?;
     Ok(events)
 }
@@ -841,9 +841,11 @@ mod tests {
                         }
                     }
                 ],
+                "channel": "nightly",
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
@@ -870,9 +872,11 @@ mod tests {
                     {"slug": "treatment","ratio":1}, // XXX add feature
                 ],
                 "featureIds": ["monkey"],
+                "channel": "nightly",
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
                 "bucketConfig":{
                     // Also enroll everyone.
                     "count":10_000,
@@ -903,8 +907,11 @@ mod tests {
     fn local_ctx() -> (Uuid, AppContext, AvailableRandomizationUnits) {
         // Use a fixed nimbus_id so we don't switch between branches.
         let nimbus_id = Uuid::parse_str("29686b11-00c0-4905-b5e4-f5f945eda60a").unwrap();
+        // Create a matching context for the experiments above
         let app_ctx = AppContext {
-            app_id: "fenix".to_string(), // Matches the application in the experiments above.
+            app_name: "fenix".to_string(),
+            app_id: "org.mozilla.fenix".to_string(),
+            channel: "nightly".to_string(),
             ..Default::default()
         };
         let aru = Default::default();
@@ -1239,7 +1246,7 @@ mod tests {
             assert_eq!(branch, "control");
             assert_eq!(new_enrollment_id, enrollment_id);
         } else {
-            panic!("Wrong variant!");
+            panic!("Wrong variant! \n{:#?}", enrollment.status);
         }
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].enrollment_id, enrollment_id.to_string());
@@ -1715,7 +1722,7 @@ mod tests {
     }
 
     #[test]
-    fn test_enrollment_enrolled_explicit_opt_out() -> Result<()> {
+    fn test_enrollment_enrolled_explicit_opt_out() {
         let exp = get_test_experiments()[0].clone();
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
@@ -1728,7 +1735,7 @@ mod tests {
                 feature_id: "some_switch".to_owned(),
             },
         };
-        let enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
+        let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
         if let EnrollmentStatus::Disqualified {
             enrollment_id: new_enrollment_id,
             branch,
@@ -1745,11 +1752,10 @@ mod tests {
             events[0].change,
             EnrollmentChangeEventType::Disqualification
         ));
-        Ok(())
     }
 
     #[test]
-    fn test_enrollment_not_enrolled_explicit_opt_out() -> Result<()> {
+    fn test_enrollment_not_enrolled_explicit_opt_out() {
         let exp = get_test_experiments()[0].clone();
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
@@ -1758,7 +1764,7 @@ mod tests {
                 reason: NotEnrolledReason::NotTargeted,
             },
         };
-        let enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
+        let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
         assert!(matches!(
             enrollment.status,
             EnrollmentStatus::NotEnrolled {
@@ -1767,11 +1773,10 @@ mod tests {
             }
         ));
         assert!(events.is_empty());
-        Ok(())
     }
 
     #[test]
-    fn test_enrollment_disqualified_explicit_opt_out() -> Result<()> {
+    fn test_enrollment_disqualified_explicit_opt_out() {
         let exp = get_test_experiments()[0].clone();
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
@@ -1782,10 +1787,9 @@ mod tests {
                 reason: DisqualifiedReason::NotTargeted,
             },
         };
-        let enrollment = existing_enrollment.on_explicit_opt_out(&mut events)?;
+        let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
         assert_eq!(enrollment, existing_enrollment);
         assert!(events.is_empty());
-        Ok(())
     }
 
     // Older tests that also use the DB.
@@ -1801,7 +1805,9 @@ mod tests {
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
         let app_ctx = AppContext {
-            app_id: "fenix".to_string(),
+            app_name: "fenix".to_string(),
+            app_id: "org.mozilla.fenix".to_string(),
+            channel: "nightly".to_string(),
             ..Default::default()
         };
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
@@ -1879,7 +1885,9 @@ mod tests {
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
         let app_ctx = AppContext {
-            app_id: "fenix".to_string(),
+            app_name: "fenix".to_string(),
+            app_id: "org.mozilla.fenix".to_string(),
+            channel: "nightly".to_string(),
             ..Default::default()
         };
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
@@ -1921,7 +1929,9 @@ mod tests {
         let mut writer = db.write()?;
         let nimbus_id = Uuid::new_v4();
         let app_ctx = AppContext {
-            app_id: "fenix".to_string(),
+            app_name: "fenix".to_string(),
+            app_id: "org.mozilla.fenix".to_string(),
+            channel: "nightly".to_string(),
             ..Default::default()
         };
         let aru = Default::default();

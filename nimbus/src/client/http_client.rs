@@ -186,7 +186,8 @@ mod tests {
             {{
                 "schemaVersion": "{current_version}.0.0",
                 "slug": "mobile-a-a-example",
-                "application": "reference-browser",
+                "appName": "reference-browser",
+                "channel": "nightly",
                 "userFacingName": "Mobile A/A Example",
                 "userFacingDescription": "An A/A Test to validate the Rust SDK",
                 "isEnrollmentPaused": false,
@@ -225,7 +226,8 @@ mod tests {
             {{
                 "schemaVersion": "{newer_version}.0.0",
                 "slug": "mobile-a-a-example",
-                "application": "reference-browser",
+                "appName": "reference-browser",
+                "channel": "nightly",
                 "userFacingName": "Mobile A/A Example",
                 "userFacingDescription": "An A/A Test to validate the Rust SDK",
                 "isEnrollmentPaused": false,
@@ -255,7 +257,7 @@ mod tests {
             }},
             {{
                 "slug": "schema-version-missing",
-                "application": "reference-browser",
+                "appName": "reference-browser",
                 "userFacingName": "Schema Version Missing",
                 "userFacingDescription": "This should be completely ignored",
                 "isEnrollmentPaused": false
@@ -295,7 +297,9 @@ mod tests {
             Experiment {
                 schema_version: format!("{}.0.0", SCHEMA_VERSION),
                 slug: "mobile-a-a-example".to_string(),
-                application: "reference-browser".to_string(),
+                app_id: None,
+                app_name: Some("reference-browser".to_string()),
+                channel: Some("nightly".to_string()),
                 user_facing_name: "Mobile A/A Example".to_string(),
                 user_facing_description: "An A/A Test to validate the Rust SDK".to_string(),
                 is_enrollment_paused: false,
@@ -331,7 +335,7 @@ mod tests {
                         }),
                     },
                 ],
-                targeting: None,
+                targeting: None
             }
         )
     }

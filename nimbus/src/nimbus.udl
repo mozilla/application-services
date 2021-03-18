@@ -1,6 +1,8 @@
 namespace nimbus {};
 dictionary AppContext {
+    string app_name;
     string app_id;
+    string channel;
     string? app_version;
     string? app_build;
     string? architecture;

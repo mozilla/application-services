@@ -47,15 +47,50 @@ pub fn evaluate_enrollment(
     app_context: &AppContext,
     exp: &Experiment,
 ) -> Result<ExperimentEnrollment> {
-    // Verify the application-id matches the application being targeted
+    // Verify the app_name matches the application being targeted
     // by the experiment.
-    if !exp.application.eq(&app_context.app_id) {
-        return Ok(ExperimentEnrollment {
-            slug: exp.slug.clone(),
-            status: EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted,
-            },
-        });
+    match &exp.app_name {
+        Some(app_name) => {
+            if !app_name.eq(&app_context.app_name) {
+                return Ok(ExperimentEnrollment {
+                    slug: exp.slug.clone(),
+                    status: EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::NotTargeted,
+                    },
+                });
+            }
+        }
+        None => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
+    }
+    // Verify the app_id matches the application being targeted
+    // by the experiment.
+    match &exp.app_id {
+        Some(app_id) => {
+            if !app_id.eq(&app_context.app_id) {
+                return Ok(ExperimentEnrollment {
+                    slug: exp.slug.clone(),
+                    status: EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::NotTargeted,
+                    },
+                });
+            }
+        }
+        None => log::debug!("Experiment missing app_id, skipping it as a targeting parameter"),
+    }
+    // Verify the channel matches the application being targeted
+    // by the experiment.
+    match &exp.channel {
+        Some(channel) => {
+            if !channel.eq(&app_context.channel) {
+                return Ok(ExperimentEnrollment {
+                    slug: exp.slug.clone(),
+                    status: EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::NotTargeted,
+                    },
+                });
+            }
+        }
+        None => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
     }
 
     // Get targeting out of the way - "if let chains" are experimental,
@@ -189,7 +224,9 @@ mod tests {
 
         // A matching context testing the logical AND + OR of the expression
         let ctx = AppContext {
+            app_name: "nimbus_test".to_string(),
             app_id: "1010".to_string(),
+            channel: "test".to_string(),
             app_version: Some("4.4".to_string()),
             app_build: Some("1234".to_string()),
             architecture: Some("x86_64".to_string()),
@@ -205,7 +242,9 @@ mod tests {
 
         // A matching context testing the logical OR of the expression
         let ctx = AppContext {
+            app_name: "nimbus_test".to_string(),
             app_id: "1010".to_string(),
+            channel: "test".to_string(),
             app_version: Some("4.4".to_string()),
             app_build: Some("1234".to_string()),
             architecture: Some("x86_64".to_string()),
@@ -221,7 +260,9 @@ mod tests {
 
         // A non-matching context testing the logical AND of the expression
         let non_matching_ctx = AppContext {
+            app_name: "not_nimbus_test".to_string(),
             app_id: "org.example.app".to_string(),
+            channel: "test".to_string(),
             app_version: Some("4.4".to_string()),
             app_build: Some("1234".to_string()),
             architecture: Some("x86_64".to_string()),
@@ -242,7 +283,9 @@ mod tests {
 
         // A non-matching context testing the logical OR of the expression
         let non_matching_ctx = AppContext {
+            app_name: "not_nimbus_test".to_string(),
             app_id: "org.example.app".to_string(),
+            channel: "test".to_string(),
             app_version: Some("4.5".to_string()),
             app_build: Some("1234".to_string()),
             architecture: Some("x86_64".to_string()),
@@ -311,13 +354,229 @@ mod tests {
     }
 
     #[test]
-    fn test_get_enrollment() {
-        let experiment1 = Experiment {
-            application: "org.example.app".to_string(),
+    fn test_qualified_enrollment() {
+        let experiment = Experiment {
+            app_name: Some("NimbusTest".to_string()),
+            app_id: Some("org.example.app".to_string()),
+            channel: Some("nightly".to_string()),
+            schema_version: "1.0.0".to_string(),
+            slug: "TEST_EXP".to_string(),
+            is_enrollment_paused: false,
+            feature_ids: vec!["monkey".to_string()],
+            bucket_config: BucketConfig {
+                randomization_unit: RandomizationUnit::NimbusId,
+                start: 0,
+                count: 10000,
+                total: 10000,
+                ..Default::default()
+            },
+            branches: vec![
+                Branch {
+                    slug: "control".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+                Branch {
+                    slug: "blue".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+            ],
+            reference_branch: Some("control".to_string()),
+            ..Default::default()
+        };
+
+        // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
+        // or `channel` doesn't match the experiment, then the client won't be enrolled.
+        let context = AppContext {
+            app_name: "NimbusTest".to_string(),
+            app_id: "org.example.app".to_string(),
+            channel: "nightly".to_string(),
+            ..Default::default()
+        };
+
+        let enrollment = evaluate_enrollment(
+            &uuid::Uuid::new_v4(),
+            &Default::default(),
+            &context,
+            &experiment,
+        )
+        .unwrap();
+        println!("Uh oh!  {:#?}", enrollment.status);
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_wrong_randomization_units() {
+        let experiment = Experiment {
+            app_name: Some("NimbusTest".to_string()),
+            app_id: Some("org.example.app".to_string()),
+            channel: Some("nightly".to_string()),
+            schema_version: "1.0.0".to_string(),
+            slug: "TEST_EXP".to_string(),
+            is_enrollment_paused: false,
+            feature_ids: vec!["test-feature".to_string()],
+            bucket_config: BucketConfig {
+                randomization_unit: RandomizationUnit::ClientId,
+                start: 0,
+                count: 10000,
+                total: 10000,
+                ..Default::default()
+            },
+            branches: vec![
+                Branch {
+                    slug: "control".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+                Branch {
+                    slug: "blue".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+            ],
+            reference_branch: Some("control".to_string()),
+            ..Default::default()
+        };
+
+        // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
+        // or `channel` doesn't match the experiment, then the client won't be enrolled.
+        let context = AppContext {
+            app_name: "NimbusTest".to_string(),
+            app_id: "org.example.app".to_string(),
+            channel: "nightly".to_string(),
+            ..Default::default()
+        };
+
+        // We won't be enrolled in the experiment because we don't have the right randomization units since the
+        // experiment is requesting the `ClientId` and the `Default::default()` here will just have the
+        // NimbusId.
+        let enrollment = evaluate_enrollment(
+            &uuid::Uuid::new_v4(),
+            &Default::default(),
+            &context,
+            &experiment,
+        )
+        .unwrap();
+        // The status should be `Error`
+        assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
+
+        // Fits because of the client_id.
+        let available_randomization_units = AvailableRandomizationUnits::with_client_id("bobo");
+        let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
+        let enrollment =
+            evaluate_enrollment(&id, &available_randomization_units, &context, &experiment)
+                .unwrap();
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_not_targeted_for_enrollment() {
+        let experiment = Experiment {
+            app_name: Some("NimbusTest".to_string()),
+            app_id: Some("org.example.app".to_string()),
+            channel: Some("nightly".to_string()),
+            schema_version: "1.0.0".to_string(),
+            slug: "TEST_EXP2".to_string(),
+            is_enrollment_paused: false,
+            feature_ids: vec!["test-feature".to_string()],
+            bucket_config: BucketConfig {
+                randomization_unit: RandomizationUnit::NimbusId,
+                start: 0,
+                count: 10000,
+                total: 10000,
+                ..Default::default()
+            },
+            branches: vec![
+                Branch {
+                    slug: "control".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+                Branch {
+                    slug: "blue".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+            ],
+            reference_branch: Some("control".to_string()),
+            ..Default::default()
+        };
+
+        let id = uuid::Uuid::new_v4();
+
+        // If any of the `app_name`, `app_id`, or `channel` doesn't match the experiment,
+        // then the client won't be enrolled.
+        // Start with a context that does't match the app_name:
+        let mut context = AppContext {
+            app_name: "Wrong!".to_string(),
+            app_id: "org.example.app".to_string(),
+            channel: "nightly".to_string(),
+            ..Default::default()
+        };
+
+        // We won't be enrolled in the experiment because we don't have the right app_name
+        let enrollment =
+            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            }
+        ));
+
+        // Change the app_name back and change the app_id to test when it doesn't match:
+        context.app_name = "NimbusTest".to_string();
+        context.app_id = "Wrong".to_string();
+
+        // Now we won't be enrolled in the experiment because we don't have the right app_id, but with the same
+        // `NotTargeted` reason
+        let enrollment =
+            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            }
+        ));
+
+        // Change the app_id back and change the channel to test when it doesn't match:
+        context.app_id = "org.example.app".to_string();
+        context.channel = "Wrong".to_string();
+
+        // Now we won't be enrolled in the experiment because we don't have the right channel, but with the same
+        // `NotTargeted` reason
+        let enrollment =
+            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            }
+        ));
+    }
+
+    #[test]
+    fn test_enrollment_bucketing() {
+        let experiment = Experiment {
+            app_id: Some("org.example.app".to_string()),
+            channel: Some("nightly".to_string()),
             schema_version: "1.0.0".to_string(),
             slug: "TEST_EXP1".to_string(),
             is_enrollment_paused: false,
-            feature_ids: vec!["monkey".to_string()],
+            feature_ids: vec!["test-feature".to_string()],
             bucket_config: BucketConfig {
                 randomization_unit: RandomizationUnit::NimbusId,
                 namespace: "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77".to_string(),
@@ -333,33 +592,6 @@ mod tests {
             ..Default::default()
         };
 
-        let mut experiment2 = experiment1.clone();
-        experiment2.bucket_config = BucketConfig {
-            randomization_unit: RandomizationUnit::ClientId,
-            namespace:
-                "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77"
-                    .to_string(),
-            start: 9000,
-            count: 1000,
-            total: 10000,
-        };
-        experiment2.slug = "TEST_EXP2".to_string();
-
-        let mut experiment3 = experiment1.clone();
-        // We won't match experiment 3 because the application doesn't match.
-        experiment3.application = "not.this.app".to_string();
-        experiment3.bucket_config = BucketConfig {
-            randomization_unit: RandomizationUnit::NimbusId,
-            namespace:
-                "bug-1637316-message-aboutwelcome-pull-factor-reinforcement-76-rel-release-76-77"
-                    .to_string(),
-            start: 0,
-            count: 2000,
-            total: 10000,
-        };
-        experiment3.slug = "TEST_EXP3".to_string();
-
-        // We will not match EXP_2 because we don't have the necessary randomization unit.
         let available_randomization_units = Default::default();
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d uuid fits in start: 0, count: 2000, total: 10000 with the example namespace, to the treatment-variation-b branch
         // Tested against the desktop implementation
@@ -367,42 +599,12 @@ mod tests {
         // Application context for matching exp3
         let context = AppContext {
             app_id: "org.example.app".to_string(),
+            channel: "nightly".to_string(),
             ..Default::default()
         };
 
         let enrollment =
-            evaluate_enrollment(&id, &available_randomization_units, &context, &experiment1)
-                .unwrap();
-        assert!(matches!(
-            enrollment.status,
-            EnrollmentStatus::Enrolled {
-                reason: EnrolledReason::Qualified,
-                ..
-            }
-        ));
-
-        let enrollment =
-            evaluate_enrollment(&id, &available_randomization_units, &context, &experiment2)
-                .unwrap();
-        // Don't have the correct randomization_unit
-        assert!(matches!(enrollment.status, EnrollmentStatus::Error { .. }));
-
-        let enrollment =
-            evaluate_enrollment(&id, &available_randomization_units, &context, &experiment3)
-                .unwrap();
-        // Doesn't match because it's not the correct application
-        assert!(matches!(
-            enrollment.status,
-            EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted
-            }
-        ));
-
-        // Fits because of the client_id.
-        let available_randomization_units = AvailableRandomizationUnits::with_client_id("bobo");
-        let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
-        let enrollment =
-            evaluate_enrollment(&id, &available_randomization_units, &context, &experiment2)
+            evaluate_enrollment(&id, &available_randomization_units, &context, &experiment)
                 .unwrap();
         assert!(matches!(
             enrollment.status,

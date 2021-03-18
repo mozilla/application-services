@@ -13,7 +13,9 @@
   ],
   "probeSets": [],
   "startDate": null,
-  "application": "fenix",
+  "app_name": "fenix",
+  "app_id": "org.mozilla.fenix",
+  "channel": "nightly",
   "bucketConfig": {
     "count": 10000,
     "start": 0,

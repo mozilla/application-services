@@ -13,9 +13,11 @@
       "ratio": 1
     }
   ],
+  "channel": "nightly",
   "probeSets": [],
   "startDate": null,
-  "application": "fenix",
+  "appName": "fenix",
+  "appId": "org.mozilla.fenix",
   "bucketConfig": {
     "count": 10000,
     "start": 0,

@@ -23,7 +23,9 @@ pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
     };
     let aru = Default::default();
     let ctx = AppContext {
-        app_id: "fenix".to_string(),
+        app_name: "fenix".to_string(),
+        app_id: "org.mozilla.fenix".to_string(),
+        channel: "nightly".to_string(),
         ..Default::default()
     };
     NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
@@ -58,9 +60,11 @@ pub fn exactly_two_experiments() -> String {
 
                     }
                 ],
+                "channel": "nightly",
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
@@ -100,9 +104,11 @@ pub fn exactly_two_experiments() -> String {
                         },
                     }
                 ],
+                "channel": "nightly",
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
@@ -155,7 +161,9 @@ pub fn experiments_testing_feature_ids() -> String {
                 ],
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
@@ -197,7 +205,9 @@ pub fn experiments_testing_feature_ids() -> String {
                 ],
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
@@ -230,7 +240,9 @@ pub fn experiments_testing_feature_ids() -> String {
                 ],
                 "probeSets":[],
                 "startDate":null,
-                "application":"fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
