@@ -155,7 +155,7 @@ pub(crate) fn update_internal_credit_card(
             time_last_used              = :time_last_used,
             time_last_modified          = :time_last_modified,
             times_used                  = :times_used,
-            sync_change_counter         = sync_change_counter + :change_incr,
+            sync_change_counter         = sync_change_counter + :change_incr
         WHERE guid                      = :guid",
         rusqlite::named_params! {
             ":cc_name": card.cc_name,
@@ -414,6 +414,56 @@ pub(crate) mod tests {
 
         //check that the sync_change_counter was incremented
         assert_eq!(1, updated_credit_card.metadata.sync_change_counter);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_credit_card_update_internal_credit_card() -> Result<()> {
+        let mut db = new_mem_db();
+        let tx = db.transaction()?;
+
+        let guid = Guid::random();
+        add_internal_credit_card(
+            &tx,
+            &InternalCreditCard {
+                guid: guid.clone(),
+                cc_name: "john deer".to_string(),
+                cc_number: "1111222233334444".to_string(),
+                cc_exp_month: 10,
+                cc_exp_year: 2025,
+                cc_type: "mastercard".to_string(),
+                ..Default::default()
+            },
+        )?;
+
+        let expected_cc_exp_month = 11;
+        update_internal_credit_card(
+            &tx,
+            &InternalCreditCard {
+                guid: guid.clone(),
+                cc_name: "john deer".to_string(),
+                cc_number: "1111222233334444".to_string(),
+                cc_exp_month: expected_cc_exp_month,
+                cc_exp_year: 2025,
+                cc_type: "mastercard".to_string(),
+                ..Default::default()
+            },
+            false,
+        )?;
+
+        let record_exists: bool = tx.query_row(
+            "SELECT EXISTS (
+                SELECT 1
+                FROM credit_cards_data
+                WHERE guid = :guid
+                AND cc_exp_month = :cc_exp_month
+                AND sync_change_counter = 0
+            )",
+            &[&guid.to_string(), &expected_cc_exp_month.to_string()],
+            |row| row.get(0),
+        )?;
+        assert!(record_exists);
 
         Ok(())
     }
