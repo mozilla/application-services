@@ -16,6 +16,7 @@ import argparse
 import subprocess
 import hashlib
 import json
+import logging
 import textwrap
 import difflib
 import itertools
@@ -24,6 +25,9 @@ from urllib.parse import urlparse, urlunparse
 from xml.sax import saxutils
 
 import requests
+
+# handy for debugging; WARNING (default), INFO, and DEBUG can all be useful
+logging.basicConfig(level = logging.DEBUG)
 
 # The targets used by rust-android-gradle, including the ones for unit testing.
 # https://github.com/mozilla/rust-android-gradle/blob/master/plugin/src/main/kotlin/com/nishtahir/RustAndroidPlugin.kt
@@ -914,6 +918,7 @@ class WorkspaceMetadata(object):
             "Could not determine acceptable license for {}; license is '{}'".format(id, licenseId))
 
     def _find_license_file(self, id, license, pkgInfo):
+        logging.info("finding license file for %s", id)
         licenseFile = pkgInfo.get("license_file", None)
         if licenseFile is not None:
             return licenseFile
@@ -924,6 +929,7 @@ class WorkspaceMetadata(object):
             licenseFileNames = COMMON_LICENSE_FILE_NAMES[license]
         except KeyError:
             licenseFileNames = COMMON_LICENSE_FILE_NAMES[""]
+        logging.debug("candidate license filenames: %s", licenseFileNames)
         foundLicenseFiles = [nm for nm in os.listdir(
             pkgRoot) if nm.lower() in licenseFileNames]
         if len(foundLicenseFiles) == 1:
