@@ -688,13 +688,28 @@ for license in COMMON_LICENSE_FILE_NAME_ROOTS:
             COMMON_LICENSE_FILE_NAMES[license].add(root + suffix)
 
 
+def subprocess_run_cargo(args):
+    """Run `cargo` as a subprocess, returning stdout."""
+    # This script needs to use the `--build-plan` option, hence require cargo nightly.
+    # By using $RUSTUP_TOOLCHAIN to specify this, we can cause rustup to helpfully
+    # download and install the nightly toolchain if it's not already available.
+    env = os.environ.copy()
+    env["RUSTUP_TOOLCHAIN"] = "nightly"
+    p = subprocess.run(
+        ('cargo',) + args,
+        env=env,
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+    )
+    p.check_returncode()
+    return p.stdout
+
+
 def get_workspace_metadata():
     """Get metadata for all dependencies in the workspace."""
-    p = subprocess.run([
-        'cargo', '+nightly', 'metadata', '--locked', '--format-version', '1'
-    ], stdout=subprocess.PIPE, universal_newlines=True)
-    p.check_returncode()
-    return WorkspaceMetadata(json.loads(p.stdout))
+    return WorkspaceMetadata(json.loads(subprocess_run_cargo((
+        'metadata', '--locked', '--format-version', '1'
+    ))))
 
 
 class WorkspaceMetadata(object):
@@ -768,11 +783,12 @@ class WorkspaceMetadata(object):
 
         This implementation uses `cargo build --build-plan` to list all inputs to the build process.
         It has the advantage of being guaranteed to correspond to what's included in the actual build,
-        but requires using unstable cargo features.
+        but requires using unstable cargo features and hence cargo nightly.
         """
         targets = self.get_compatible_targets_for_package(name, targets)
-        cmd = (
-            'cargo', '+nightly', '-Z', 'unstable-options', 'build',
+        cargo_args = (
+            '-Z', 'unstable-options',
+            'build',
             '--build-plan',
             '--quiet',
             '--locked',
@@ -782,11 +798,8 @@ class WorkspaceMetadata(object):
         for target in targets:
             if target == "fake-target-for-ios":
                 target = "x86_64-apple-darwin"
-            args = ('--target', target,)
-            p = subprocess.run(
-                cmd + args, stdout=subprocess.PIPE, universal_newlines=True)
-            p.check_returncode()
-            buildPlan = json.loads(p.stdout)
+            buildPlan = subprocess_run_cargo(cargo_args + ('--target', target,))
+            buildPlan = json.loads(buildPlan)
             for manifestPath in buildPlan['inputs']:
                 info = self.get_package_by_manifest_path(manifestPath)
                 deps.add(info['id'])

@@ -19,6 +19,9 @@ fi
 
 EXTRA_ARGS=( "$@" )
 
+echo "Testing with rustc version:"
+rustc --version
+
 cargo test --all ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
