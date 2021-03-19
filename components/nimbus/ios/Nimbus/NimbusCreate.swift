@@ -63,12 +63,14 @@ extension Nimbus {
         return Nimbus(nimbusClient: nimbusClient, errorReporter: errorReporter)
     }
 
-    internal static func buildExperimentContext(_: NimbusAppSettings,
+    internal static func buildExperimentContext(_ appSettings: NimbusAppSettings,
                                                 bundle: Bundle = Bundle.main,
                                                 device: UIDevice = .current) -> AppContext
     {
         let info = bundle.infoDictionary ?? [:]
-        return AppContext(appId: info["CFBundleIdentifier"] as? String ?? "unknown",
+        return AppContext(appName: appSettings.appName,
+                          appId: info["CFBundleIdentifier"] as? String ?? "unknown",
+                          channel: appSettings.channel,
                           appVersion: info["CFBundleShortVersionString"] as? String,
                           appBuild: info["CFBundleVersion"] as? String,
                           architecture: Sysctl.machine, // Sysctl is from Glean.
