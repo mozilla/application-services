@@ -675,6 +675,8 @@ PACKAGE_METADATA_FIXUPS = {
 # If we can find one and only one of these files in a package, then we can be confident
 # that it's the intended license text.
 COMMON_LICENSE_FILE_NAME_ROOTS = {
+    "": ["license", "licence", "LICENSE"],
+    "Apache-2.0": ["license-apache", "licence-apache", "LICENSE-APACHE"],
     "": ["license", "licence"],
     "Apache-2.0": ["license-apache", "licence-apache"],
     "MIT": ["license-mit", "licence-mit"],
