@@ -1,27 +1,25 @@
 ## Firefox Application Services
 
-Application Services is collection of Rust Components that are built together into the application-services (a-s) library to enable Firefox applications to integrate with Firefox accounts, sync, push and experimentation. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
+Application Services (a-s) is collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
 
 ### Contributing
 To contribute, please review the Mozilla [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/) and then visit our [how to contribute](docs/contributing.md) guide.
 
 ### Contact
 Get in touch with other community members on Matrix, the mailing list or through issues here on GitHub.
-- Matrix: [#sync:mozilla.org](https://chat.mozilla.org/#/room/#sync:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
+- Matrix: [#rust-components:mozilla.org](https://chat.mozilla.org/#/room/#rust-components:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
 - Mailing list: application-services@mozilla.com
 
 ### Building the Rust Components
 1. Clone or Download the repository:
 ```shell
-  git clone https://github.com/mozilla/application-services
+  $ git clone https://github.com/mozilla/application-services (or use the ssh link)
+  $ cd application-services
+  $ git submodule init
+  $ git submodule update --recursive
   ```
-2. Follow these instructions to install your [system-level dependencies](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-application-services) (2 hrs)
-3. Fetch and install submodule dependencies
-```shell
-git submodule init
-git submodule update --recursive
-```
-4. Rust the a-s Rust unit tests
+1. Follow these instructions to install your [system-level dependencies](docs/building.md#building-application-services)
+1. Run the a-s Rust unit tests
 ```shell
 cargo test
 ```
@@ -30,19 +28,19 @@ cargo test
 The application-services library primary consumers are Fenix (Firefox on Android) and Firefox iOS. Assure you are able to run integration tests (for Android and iOS if using MacOS) by following the instructions to build for Android and iOS integrations.  
 
 #### Android integration builds and helpful tools
-* Build instructions to test [Fenix / android-components integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-fenix) (2 hrs)
+* Build instructions to test [Fenix / android-components integration](docs/building.md#building-for-fenix)
 * [Fenix Auto-publication workflow for android-components and application-services](https://github.com/mozilla-mobile/fenix/#auto-publication-workflow-for-android-components-and-application-services)
-* [Nimbus: using local servers for development](https://github.com/mozilla-mobile/fenix/#using-nimbus-servers-during-local-development)
 
 
 #### Firefox for iOS integration
-* Build instructions to test [Firefox iOS integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-firefox-ios) (2 hrs)
+* Build instructions to test [Firefox iOS integration](docs/building.md#building-for-firefox-ios)
+[Using local components in iOS](docs/howtos/locally-published-components-in-ios.md)
 
 #### Firefox Desktop
-* Build instructions to test [Firefox Desktop integration](https://github.com/mozilla/application-services/blob/main/docs/build.md#building-for-firefox-desktop) (?? hrs)
+* Build instructions to test [Firefox Desktop integration](docs/building.md#building-for-firefox-desktop)
 
 ### Documentation
-We use rustdoc to document both the public API of the component and the various internal implementation details. Once you have completed the build steps, you can view the docs by running:
+We use rustdoc to document both the public API of the components and the various internal implementation details. Once you have completed the build steps, you can view the docs by running:
 
 ```shell
 cargo doc --no-deps --document-private-items --open
@@ -62,7 +60,7 @@ code in this repository
   * The [Kotlin bindings](components/logins/android) for use by Android
       applications.
   * The [Swift bindings](components/logins/ios) for use by iOS applications.
-* See [./components/fxa-client](components/fxa-client) for an example the uses
+* See [./components/fxa-client](components/fxa-client) for an example that uses
     [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
     multiple languages, such as Kotlin and Swift.
 

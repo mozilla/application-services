@@ -15,14 +15,8 @@ a number of hours to complete.
 
 *Complete this section before moving to the android/iOS build instructions.*
 
-1. Install Rust
-   1. Install Rust: [via rustup](https://www.rust-lang.org/tools/install)
-   1. [set your version](https://doc.rust-lang.org/edition-guide/rust-2018/rustup-for-managing-rust-versions.html) to match the version specified in the [rust-toolchain](../rust-toolchain) file.
-   1. Run: `rustc --version` to confirm.
-1. Install your system dependencies - follow the instructions below for Linux, MacOS or Windows
-1. Install the application-services required submodules
-   1. Run: `git submodule init`
-   1. Run: `git submodule update --recursive`
+1. Install Rust: install [via rustup](https://www.rust-lang.org/tools/install)
+1. Install your system dependencies: - install via the instructions below for [Linux](building.md#linux), [MacOS](building.md#macos) or [Windows](building.md#windows)
 1. Check dependencies, environment variables and test
    1. Run: `./libs/verify-desktop-environment.sh`
    1. Run: `cargo test`
@@ -68,7 +62,7 @@ version.
 ---
 
 ## Building for Fenix
-The instructions here assume that you are building for Fenix in order test your changes in on Fenix and want to take advantage of the
+The instructions here assume that you are building for Fenix in order test your changes in Fenix and want to take advantage of the
 [Fenix Auto-publication workflow for android-components and application-services](https://github.com/mozilla-mobile/fenix/#auto-publication-workflow-for-android-components-and-application-services)
 
 1. Install Android SDK, JAVA, NDK and set required env vars
