@@ -78,12 +78,12 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
         Ok(outgoing)
     }
 
-    fn push_synced_items(
+    fn finish_synced_items(
         &self,
         tx: &Transaction<'_>,
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
-        common_push_synced_items(
+        common_finish_synced_items(
             &tx,
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
@@ -98,7 +98,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::credit_cards::{add_internal_credit_card, tests::insert_mirror_record};
+    use crate::db::credit_cards::{add_internal_credit_card, tests::test_insert_mirror_record};
     use crate::sync::{common::tests::*, test::new_syncable_mem_db};
     use serde_json::{json, Map, Value};
     use types::Timestamp;
@@ -214,7 +214,7 @@ mod tests {
         let initial_change_counter_val = 2;
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
-        insert_mirror_record(
+        test_insert_mirror_record(
             &tx,
             test_record
                 .clone()
@@ -250,7 +250,7 @@ mod tests {
         // create synced record with no changes (sync_change_counter = 0)
         let test_record = test_record('C', &co.encdec);
         assert!(add_internal_credit_card(&tx, &test_record).is_ok());
-        insert_mirror_record(
+        test_insert_mirror_record(
             &tx,
             test_record
                 .clone()

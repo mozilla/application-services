@@ -161,7 +161,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let outgoing_impl = self
             .storage_impl
             .get_outgoing_impl(&self.local_enc_key.borrow())?;
-        outgoing_impl.push_synced_items(&tx, records_synced)?;
+        outgoing_impl.finish_synced_items(&tx, records_synced)?;
         tx.commit()?;
         Ok(())
     }
@@ -229,7 +229,9 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
 mod tests {
     use super::*;
     use crate::db::credit_cards::add_internal_credit_card;
-    use crate::db::credit_cards::tests::{get_all, insert_mirror_record, insert_tombstone_record};
+    use crate::db::credit_cards::tests::{
+        get_all, insert_tombstone_record, test_insert_mirror_record,
+    };
     use crate::db::models::credit_card::InternalCreditCard;
     use crate::db::{schema::create_empty_sync_temp_tables, test::new_mem_db};
     use crate::encryption::EncryptorDecryptor;
@@ -326,7 +328,7 @@ mod tests {
             ..Default::default()
         };
         add_internal_credit_card(&tx, &cc)?;
-        insert_mirror_record(&tx, cc.clone().into_payload(&encdec).expect("is json"));
+        test_insert_mirror_record(&tx, cc.clone().into_payload(&encdec).expect("is json"));
         insert_tombstone_record(&tx, Guid::random().to_string())?;
         tx.commit()?;
 
@@ -379,7 +381,7 @@ mod tests {
             // re-populating the tables
             let tx = conn.unchecked_transaction()?;
             add_internal_credit_card(&tx, &cc)?;
-            insert_mirror_record(&tx, cc.into_payload(&encdec).expect("is json"));
+            test_insert_mirror_record(&tx, cc.into_payload(&encdec).expect("is json"));
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }

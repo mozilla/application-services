@@ -76,12 +76,12 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
         Ok(outgoing)
     }
 
-    fn push_synced_items(
+    fn finish_synced_items(
         &self,
         tx: &Transaction<'_>,
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
-        common_push_synced_items(
+        common_finish_synced_items(
             &tx,
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
@@ -103,7 +103,7 @@ mod tests {
 
     const COLLECTION_NAME: &str = "addresses";
 
-    fn insert_mirror_record(conn: &Connection, address: InternalAddress) {
+    fn test_insert_mirror_record(conn: &Connection, address: InternalAddress) {
         // This should probably be in the sync module, but it's used here.
         let guid = address.guid.clone();
         let payload = address.into_payload().expect("is json").into_json_string();
@@ -221,7 +221,7 @@ mod tests {
         let initial_change_counter_val = 2;
         test_record.metadata.sync_change_counter = initial_change_counter_val;
         assert!(add_internal_address(&tx, &test_record).is_ok());
-        insert_mirror_record(&tx, test_record.clone());
+        test_insert_mirror_record(&tx, test_record.clone());
         exists_with_counter_value_in_table(
             &tx,
             DATA_TABLE_NAME,
@@ -249,7 +249,7 @@ mod tests {
         // create synced record with no changes (sync_change_counter = 0)
         let test_record = test_record('C');
         assert!(add_internal_address(&tx, &test_record).is_ok());
-        insert_mirror_record(&tx, test_record.clone());
+        test_insert_mirror_record(&tx, test_record.clone());
 
         do_test_outgoing_synced_with_no_change(
             &tx,

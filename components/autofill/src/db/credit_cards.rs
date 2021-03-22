@@ -268,8 +268,11 @@ pub(crate) mod tests {
         )
     }
 
-    pub(crate) fn insert_mirror_record(conn: &Connection, payload: sync15::Payload) {
-        // This should probably be in the sync module, but it's used here.
+    pub(crate) fn test_insert_mirror_record(conn: &Connection, payload: sync15::Payload) {
+        // This test function is a bit suspect, because credit-cards always
+        // store encrypted records, which this ignores entirely, and stores the
+        // raw payload with a cleartext cc_number.
+        // It's OK for all current test consumers, but it's a bit of a smell...
         let guid = payload.id.clone();
         let payload_string = payload.into_json_string();
         conn.execute_named(
@@ -537,7 +540,7 @@ pub(crate) mod tests {
         let cc2_guid = saved_credit_card2.guid.clone();
         let payload = saved_credit_card2.into_payload(&encdec).expect("is json");
 
-        insert_mirror_record(&db, payload);
+        test_insert_mirror_record(&db, payload);
 
         let delete_result2 = delete_credit_card(&db, &cc2_guid);
         assert!(delete_result2.is_ok());
