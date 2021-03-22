@@ -25,7 +25,7 @@ serde_derive = "1"
 serde_json = "1"
 log = "0.4"
 # Viaduct locked to version same version of app-services as mozilla-central
-viaduct = { git = "https://github.com/mozilla/application-services", rev = "8a576fbe79199fa8664f64285524017f74ebcc5f"}
+viaduct = { path = "../viaduct" }
 thiserror = "1"
 url = "2.1"
 rkv = "0.17"
