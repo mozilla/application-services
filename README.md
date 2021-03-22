@@ -18,8 +18,8 @@ Get in touch with other community members on Matrix, the mailing list or through
   $ git submodule init
   $ git submodule update --recursive
   ```
-1. Follow these instructions to install your [system-level dependencies](docs/building.md#building-application-services)
-1. Run the a-s Rust unit tests
+2. Follow these instructions to install your [system-level dependencies](docs/building.md#building-application-services)
+3. Run the a-s Rust unit tests
 ```shell
 cargo test
 ```
@@ -34,7 +34,7 @@ The application-services library primary consumers are Fenix (Firefox on Android
 
 #### Firefox for iOS integration
 * Build instructions to test [Firefox iOS integration](docs/building.md#building-for-firefox-ios)
-[Using local components in iOS](docs/howtos/locally-published-components-in-ios.md)
+* [Using local components in iOS](docs/howtos/locally-published-components-in-ios.md)
 
 #### Firefox Desktop
 * Build instructions to test [Firefox Desktop integration](docs/building.md#building-for-firefox-desktop)
