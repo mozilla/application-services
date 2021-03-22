@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0.0",
+  "slug": "secure-gold",
+  "endDate": null,
+  "featureIds": ["some-feature"],
+  "branches": [
+    {
+      "slug": "control",
+      "ratio": 1
+    },
+    {
+      "slug": "treatment",
+      "ratio": 1
+    }
+  ],
+  "channel": "nightly",
+  "probeSets": [],
+  "startDate": null,
+  "appName": "fenix",
+  "appId": "org.mozilla.fenix",
+  "bucketConfig": {
+    "count": 10000,
+    "start": 0,
+    "total": 10000,
+    "namespace": "secure-gold",
+    "randomizationUnit": "nimbus_id"
+  },
+  "userFacingName": "Diagnostic test experiment",
+  "referenceBranch": "control",
+  "isEnrollmentPaused": false,
+  "proposedEnrollment": 7,
+  "userFacingDescription": "This is a test experiment for diagnostic purposes.",
+  "id": "secure-gold",
+  "last_modified": 1602197324372
+}
