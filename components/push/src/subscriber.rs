@@ -232,11 +232,7 @@ mod test {
         let mut pm = PushManager::new(test_config)?;
         let (info, key) = pm.subscribe(test_channel_id, "", None)?;
         // Act like a subscription provider, so create a "local" key to encrypt the data
-        let mut auth_secret = vec![0u8; 16];
-        let mut salt = vec![0u8; 16];
-        rc_crypto::rand::fill(&mut auth_secret).unwrap();
-        rc_crypto::rand::fill(&mut salt).unwrap();
-        let ciphertext = ece::encrypt(&key.public_key(), &key.auth, &salt, data_string).unwrap();
+        let ciphertext = ece::encrypt(&key.public_key(), &key.auth, data_string).unwrap();
         let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
 
         let result = pm

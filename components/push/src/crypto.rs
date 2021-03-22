@@ -3,9 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error;
-use rc_crypto::ece::{
-    Aes128GcmEceWebPush, AesGcmEceWebPush, AesGcmEncryptedBlock, EcKeyComponents, LocalKeyPair,
-};
+use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
 use serde_derive::*;
@@ -20,7 +18,7 @@ pub(crate) enum VersionnedKey {
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct KeyV1 {
-    p256key: EcKeyComponents,
+    p256key: ece::EcKeyComponents,
     pub auth: Vec<u8>,
 }
 pub type Key = KeyV1;
@@ -50,14 +48,12 @@ impl Key {
         }
     }
 
-    pub fn key_pair(&self) -> error::Result<RcCryptoLocalKeyPair> {
-        RcCryptoLocalKeyPair::from_raw_components(&self.p256key).map_err(|e| {
-            error::ErrorKind::CryptoError(format!(
-                "Could not re-create key from components: {:?}",
-                e
-            ))
-            .into()
-        })
+    pub fn key_pair(&self) -> &ece::EcKeyComponents {
+        &self.p256key
+    }
+
+    pub fn auth_secret(&self) -> &[u8] {
+        &self.auth
     }
 
     pub fn private_key(&self) -> &[u8] {
@@ -101,7 +97,7 @@ pub trait Cryptography {
 
 pub struct Crypto;
 
-pub fn get_bytes(size: usize) -> error::Result<Vec<u8>> {
+pub fn get_random_bytes(size: usize) -> error::Result<Vec<u8>> {
     let mut bytes = vec![0u8; size];
     rand::fill(&mut bytes).map_err(|e| {
         error::ErrorKind::CryptoError(format!("Could not generate random bytes: {:?}", e))
@@ -145,7 +141,7 @@ impl Cryptography for Crypto {
         let components = key.raw_components().map_err(|e| {
             error::ErrorKind::CryptoError(format!("Could not extract key components: {:?}", e))
         })?;
-        let auth = get_bytes(SER_AUTH_LENGTH)?;
+        let auth = get_random_bytes(SER_AUTH_LENGTH)?;
         Ok(Key {
             p256key: components,
             auth,
@@ -188,7 +184,6 @@ impl Cryptography for Crypto {
         }
     }
 
-    // IIUC: objects created on one side of FFI can't be freed on the other side, so we have to use references (or clone)
     fn decrypt_aesgcm(
         key: &Key,
         content: &[u8],
@@ -207,7 +202,8 @@ impl Cryptography for Crypto {
                 return Err(error::ErrorKind::CryptoError("Missing salt".to_string()).into());
             }
         };
-        let block = match AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec()) {
+        let block = match ece::legacy::AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec())
+        {
             Ok(b) => b,
             Err(e) => {
                 return Err(error::ErrorKind::CryptoError(format!(
@@ -217,12 +213,12 @@ impl Cryptography for Crypto {
                 .into());
             }
         };
-        AesGcmEceWebPush::decrypt(&key.key_pair()?, &key.auth, &block)
+        ece::legacy::decrypt_aesgcm(key.key_pair(), key.auth_secret(), &block)
             .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
-        Aes128GcmEceWebPush::decrypt(&key.key_pair()?, &key.auth, &content)
+        ece::decrypt(key.key_pair(), key.auth_secret(), &content)
             .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 }

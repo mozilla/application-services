@@ -9,15 +9,19 @@ license = "MPL-2.0"
 crate-type = ["lib"]
 
 [dependencies]
-base64 = "0.12"
+base64 = "0.13"
 thiserror = "1.0"
 error-support = { path = "../error" }
 nss = { path = "nss" }
 hawk = { version = "3.2", default-features = false, optional = true }
-ece = { version = "1.2" , default-features = false, features = ["serializable-keys"], optional = true }
+ece = { version = "2.0", default-features = false, features = ["serializable-keys"], optional = true }
 
 [dev-dependencies]
 hex = "0.4"
+
+[dev-dependencies.ece]
+default-features = false
+features = ["serializable-keys", "backend-test-helper"]
 
 [features]
 default = []

@@ -4,7 +4,7 @@
 
 use push::communications::Connection;
 use push::config::PushConfiguration;
-use push::crypto::get_bytes;
+use push::crypto::get_random_bytes;
 use push::error::Result;
 use push::subscriber::PushManager;
 
@@ -23,10 +23,10 @@ fn dummy_uuid() -> Result<String> {
     // Use easily findable "test" UUIDs
     Ok(format!(
         "deadbeef-{}-{}-{}-{}",
-        hex::encode(&get_bytes(2)?),
-        hex::encode(&get_bytes(2)?),
-        hex::encode(&get_bytes(2)?),
-        hex::encode(&get_bytes(6)?),
+        hex::encode(&get_random_bytes(2)?),
+        hex::encode(&get_random_bytes(2)?),
+        hex::encode(&get_random_bytes(2)?),
+        hex::encode(&get_random_bytes(6)?),
     ))
 }
 
