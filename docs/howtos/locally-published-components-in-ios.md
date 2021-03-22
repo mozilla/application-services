@@ -6,13 +6,16 @@ consumer project. Here are our current best-practices for approaching this on iO
 1. Make a local build of the application-services framework using `./build-carthage.sh`.
 1. Checkout and `carthage bootstrap` the consuming app (for example using [these instructions with Firefox for
    iOS](https://github.com/mozilla-mobile/firefox-ios#building-the-code)).
-1. In the consuming app, replace the application-services framework with a symlink to your local build. For example:
+1. In the consuming app, replace the application-services framework with a copy of your local build. For example:
 
    ```
    rm -rf Carthage/Build/iOS/MozillaAppServices.framework
-   ln -s path/to/application-services/Carthage/Build/iOS/MozillaAppServices.framework Carthage/Build/iOS
+   rsync -ad path/to/application-services/Carthage/Build/iOS/MozillaAppServices.framework/ Carthage/Build/iOS/MozillaAppServices.framework/
    ```
 1. Open the consuming app project in XCode and build it from there.
 
-After making changes to application-services code, re-run `./build-carthage.sh` and then rebuild
-the consuming app. You may need to clear the XCode cache using Cmd+k if the app doesn't seem to pick up your changes.
+After making changes to application-services code, you will need to re-run these steps in order to
+copy the latest changes over into the consuming app.
+
+Firefox for iOS also has a helper script that automates these steps:
+[`appservices_local_dev.sh`](https://github.com/mozilla-mobile/firefox-ios/blob/main/appservices_local_dev.sh).
