@@ -238,18 +238,36 @@ pub(super) fn common_save_outgoing_records(
     Ok(())
 }
 
-pub(super) fn common_push_synced_items(
+pub(super) fn common_finish_synced_items(
     conn: &Connection,
     data_table_name: &str,
     mirror_table_name: &str,
-    outgoing_table_name: &str,
+    outgoing_staging_table_name: &str,
     records_synced: Vec<Guid>,
 ) -> anyhow::Result<()> {
-    reset_sync_change_counter(conn, data_table_name, outgoing_table_name, records_synced)?;
-    push_outgoing_records(conn, mirror_table_name, outgoing_table_name)?;
+    // Update the local change counter for uploaded items.
+    reset_sync_change_counter(
+        conn,
+        data_table_name,
+        outgoing_staging_table_name,
+        records_synced,
+    )?;
+    // Copy from the outgoing staging table into the mirror.
+    let sql = format!(
+        "INSERT OR REPLACE INTO {mirror_table_name}
+            SELECT guid, payload FROM temp.{outgoing_staging_table_name}",
+        mirror_table_name = mirror_table_name,
+        outgoing_staging_table_name = outgoing_staging_table_name,
+    );
+    conn.execute(&sql, NO_PARAMS)?;
     Ok(())
 }
 
+// When we started syncing, we saved `sync_change_counter` in the staging
+// table for every record. Now that we've uploaded the server, we need to
+// decrement that value from the current value - anything that ends up with
+// a non-zero value must have changed since while we were uploading so remains
+// dirty. This does that decrement.
 fn reset_sync_change_counter(
     conn: &Connection,
     data_table_name: &str,
@@ -279,22 +297,6 @@ fn reset_sync_change_counter(
         )?;
         Ok(())
     })?;
-
-    Ok(())
-}
-
-fn push_outgoing_records(
-    conn: &Connection,
-    mirror_table_name: &str,
-    outgoing_staging_table_name: &str,
-) -> Result<()> {
-    let sql = format!(
-        "INSERT OR REPLACE INTO {mirror_table_name}
-            SELECT guid, payload FROM temp.{outgoing_staging_table_name}",
-        mirror_table_name = mirror_table_name,
-        outgoing_staging_table_name = outgoing_staging_table_name,
-    );
-    conn.execute(&sql, NO_PARAMS)?;
 
     Ok(())
 }
@@ -475,7 +477,7 @@ pub(super) mod tests {
         exists_in_table(&tx, &format!("temp.{}", staging_table_name), guid);
 
         // call push synced items
-        assert!(ro.push_synced_items(&tx, vec![guid.clone()]).is_ok());
+        assert!(ro.finish_synced_items(&tx, vec![guid.clone()]).is_ok());
 
         // check that the sync change counter
         exists_with_counter_value_in_table(&tx, data_table_name, guid, 0);
@@ -506,7 +508,7 @@ pub(super) mod tests {
         exists_in_table(&tx, &format!("temp.{}", staging_table_name), guid);
 
         // call push synced items
-        assert!(ro.push_synced_items(&tx, vec![guid.clone()]).is_ok());
+        assert!(ro.finish_synced_items(&tx, vec![guid.clone()]).is_ok());
 
         // check that the record wasn't copied to the data table
         let sql = format!(
@@ -546,7 +548,7 @@ pub(super) mod tests {
         exists_in_table(&tx, &format!("temp.{}", staging_table_name), guid);
 
         // call push synced items
-        assert!(ro.push_synced_items(&tx, vec![guid.clone()]).is_ok());
+        assert!(ro.finish_synced_items(&tx, vec![guid.clone()]).is_ok());
 
         // check that the sync change counter
         exists_with_counter_value_in_table(&tx, data_table_name, guid, 0);
@@ -586,7 +588,7 @@ pub(super) mod tests {
         assert_eq!(num_rows, 0);
 
         // call push synced items
-        assert!(ro.push_synced_items(&tx, Vec::<Guid>::new()).is_ok());
+        assert!(ro.finish_synced_items(&tx, Vec::<Guid>::new()).is_ok());
 
         // check that the sync change counter is unchanged
         exists_with_counter_value_in_table(&tx, data_table_name, guid, 0);

@@ -98,7 +98,7 @@ pub trait ProcessOutgoingRecordImpl {
         timestamp: ServerTimestamp,
     ) -> anyhow::Result<OutgoingChangeset>;
 
-    fn push_synced_items(
+    fn finish_synced_items(
         &self,
         tx: &Transaction<'_>,
         records_synced: Vec<Guid>,
