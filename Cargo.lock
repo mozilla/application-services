@@ -825,7 +825,7 @@ dependencies = [
  "structopt",
  "sync-guid",
  "sync15",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -875,7 +875,7 @@ dependencies = [
  "hex",
  "push",
  "viaduct",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -909,7 +909,7 @@ dependencies = [
  "log 0.4.11",
  "serde_json",
  "tabs",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -921,7 +921,7 @@ dependencies = [
  "dialoguer",
  "fxa-client",
  "url",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
  "webbrowser",
 ]
 
@@ -1143,7 +1143,7 @@ dependencies = [
  "uniffi_macros",
  "url",
  "viaduct",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -1669,7 +1669,7 @@ dependencies = [
  "places-ffi",
  "rc_log_ffi",
  "viaduct",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -1864,7 +1864,7 @@ dependencies = [
  "url",
  "uuid",
  "viaduct",
- "viaduct-reqwest 0.1.0 (git+https://github.com/mozilla/application-services?rev=8a576fbe79199fa8664f64285524017f74ebcc5f)",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -2422,7 +2422,7 @@ dependencies = [
  "thiserror",
  "url",
  "viaduct",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -3136,7 +3136,7 @@ dependencies = [
  "tabs",
  "url",
  "viaduct",
- "viaduct-reqwest 0.1.0",
+ "viaduct-reqwest",
 ]
 
 [[package]]
@@ -3723,18 +3723,6 @@ dependencies = [
 [[package]]
 name = "viaduct-reqwest"
 version = "0.1.0"
-dependencies = [
- "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static",
- "log 0.4.11",
- "reqwest",
- "viaduct",
-]
-
-[[package]]
-name = "viaduct-reqwest"
-version = "0.1.0"
-source = "git+https://github.com/mozilla/application-services?rev=8a576fbe79199fa8664f64285524017f74ebcc5f#8a576fbe79199fa8664f64285524017f74ebcc5f"
 dependencies = [
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static",
