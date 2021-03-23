@@ -7,6 +7,7 @@
 #![warn(rust_2018_idioms)]
 
 pub mod db;
+pub mod encryption;
 pub mod error;
 pub mod sync;
 
@@ -14,6 +15,7 @@ pub mod sync;
 use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
 use crate::db::store::Store;
+use crate::encryption::{create_key, decrypt_string, encrypt_string};
 use error::Error;
 
 include!(concat!(env!("OUT_DIR"), "/autofill.uniffi.rs"));

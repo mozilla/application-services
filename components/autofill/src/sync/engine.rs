@@ -9,6 +9,7 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
 };
+use std::cell::RefCell;
 use std::sync::{Arc, Mutex};
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
@@ -30,9 +31,15 @@ pub const COLLECTION_SYNCID_META_KEY: &str = "sync_id";
 
 // A trait to abstract the broader sync processes.
 pub trait SyncEngineStorageImpl<T> {
-    fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = T>>;
+    fn get_incoming_impl(
+        &self,
+        enc_key: &Option<String>,
+    ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = T>>>;
     fn reset_storage(&self, conn: &Transaction<'_>) -> Result<()>;
-    fn get_outgoing_impl(&self) -> Box<dyn ProcessOutgoingRecordImpl<Record = T>>;
+    fn get_outgoing_impl(
+        &self,
+        enc_key: &Option<String>,
+    ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = T>>>;
 }
 
 // A sync engine that gets functionality from an EngineConfig.
@@ -40,9 +47,22 @@ pub struct ConfigSyncEngine<T> {
     pub(crate) config: EngineConfig,
     pub(crate) db: Arc<Mutex<AutofillDb>>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
+    local_enc_key: RefCell<Option<String>>,
 }
 
 impl<T> ConfigSyncEngine<T> {
+    pub fn new(
+        config: EngineConfig,
+        db: Arc<Mutex<AutofillDb>>,
+        storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
+    ) -> Self {
+        Self {
+            config,
+            db,
+            storage_impl,
+            local_enc_key: RefCell::new(None),
+        }
+    }
     fn put_meta(&self, conn: &Connection, tail: &str, value: &dyn ToSql) -> Result<()> {
         let key = format!("{}.{}", self.config.namespace, tail);
         crate::db::store::put_meta(conn, &key, value)
@@ -63,6 +83,11 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         self.config.collection.into()
     }
 
+    fn set_local_encryption_key(&self, key: &str) -> anyhow::Result<()> {
+        self.local_enc_key.replace(Some(key.to_string()));
+        Ok(())
+    }
+
     fn apply_incoming(
         &self,
         inbound: Vec<IncomingChangeset>,
@@ -81,8 +106,12 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let timestamp = inbound.timestamp;
         let num_incoming = inbound.changes.len() as u32;
         let tx = db.writer.unchecked_transaction()?;
-        let incoming_impl = self.storage_impl.get_incoming_impl();
-        let outgoing_impl = self.storage_impl.get_outgoing_impl();
+        let incoming_impl = self
+            .storage_impl
+            .get_incoming_impl(&self.local_enc_key.borrow())?;
+        let outgoing_impl = self
+            .storage_impl
+            .get_outgoing_impl(&self.local_enc_key.borrow())?;
 
         // The first step in the "apply incoming" process for syncing autofill records.
         incoming_impl.stage_incoming(&tx, inbound.changes, &signal)?;
@@ -129,7 +158,9 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
             &(new_timestamp.as_millis() as i64),
         )?;
         let tx = db.writer.unchecked_transaction()?;
-        let outgoing_impl = self.storage_impl.get_outgoing_impl();
+        let outgoing_impl = self
+            .storage_impl
+            .get_outgoing_impl(&self.local_enc_key.borrow())?;
         outgoing_impl.push_synced_items(&tx, records_synced)?;
         tx.commit()?;
         Ok(())
@@ -201,6 +232,7 @@ mod tests {
     use crate::db::credit_cards::tests::{get_all, insert_mirror_record, insert_tombstone_record};
     use crate::db::models::credit_card::InternalCreditCard;
     use crate::db::{schema::create_empty_sync_temp_tables, test::new_mem_db};
+    use crate::encryption::EncryptorDecryptor;
     use sql_support::ConnExt;
 
     // We use the credit-card engine here.
@@ -223,6 +255,10 @@ mod tests {
         create_empty_sync_temp_tables(&db).expect("should create temp tables");
 
         let credit_card_engine = create_engine(db);
+        let test_key = crate::encryption::create_key().unwrap();
+        credit_card_engine
+            .set_local_encryption_key(&test_key)
+            .unwrap();
 
         let last_sync = 24;
         let result =
@@ -275,20 +311,22 @@ mod tests {
     #[test]
     fn test_engine_sync_reset() -> Result<()> {
         let db = new_mem_db();
+        let encdec = EncryptorDecryptor::new_test_key();
 
         let tx = db.writer.unchecked_transaction()?;
         // create a normal record, a mirror record and a tombstone.
         let cc = InternalCreditCard {
             guid: Guid::random(),
             cc_name: "Ms Jane Doe".to_string(),
-            cc_number: "1234".to_string(),
+            cc_number_enc: encdec.encrypt("12341232412341234")?,
+            cc_number_last_4: "1234".to_string(),
             cc_exp_month: 12,
             cc_exp_year: 2021,
             cc_type: "visa".to_string(),
             ..Default::default()
         };
         add_internal_credit_card(&tx, &cc)?;
-        insert_mirror_record(&tx, cc.clone());
+        insert_mirror_record(&tx, cc.clone().into_payload(&encdec).expect("is json"));
         insert_tombstone_record(&tx, Guid::random().to_string())?;
         tx.commit()?;
 
@@ -341,7 +379,7 @@ mod tests {
             // re-populating the tables
             let tx = conn.unchecked_transaction()?;
             add_internal_credit_card(&tx, &cc)?;
-            insert_mirror_record(&tx, cc);
+            insert_mirror_record(&tx, cc.into_payload(&encdec).expect("is json"));
             insert_tombstone_record(&tx, Guid::random().to_string())?;
             tx.commit()?;
         }

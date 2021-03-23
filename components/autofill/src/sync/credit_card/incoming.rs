@@ -6,18 +6,21 @@
 use crate::db::credit_cards::{add_internal_credit_card, update_internal_credit_card};
 use crate::db::models::credit_card::InternalCreditCard;
 use crate::db::schema::CREDIT_CARD_COMMON_COLS;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::common::*;
 use crate::sync::{
-    IncomingRecord, IncomingState, LocalRecordInfo, Payload, ProcessIncomingRecordImpl,
-    ServerTimestamp, SyncRecord,
+    IncomingRecord, IncomingState, LocalRecordInfo, Payload, PersistablePayload,
+    ProcessIncomingRecordImpl, ServerTimestamp, SyncRecord,
 };
 use interrupt_support::Interruptee;
 use rusqlite::{named_params, Transaction};
 use sql_support::ConnExt;
 use sync_guid::Guid as SyncGuid;
 
-pub(super) struct IncomingCreditCardsImpl {}
+pub(super) struct IncomingCreditCardsImpl {
+    pub(super) encdec: EncryptorDecryptor,
+}
 
 impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
     type Record = InternalCreditCard;
@@ -29,7 +32,15 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         incoming: Vec<(Payload, ServerTimestamp)>,
         signal: &dyn Interruptee,
     ) -> Result<()> {
-        common_stage_incoming_records(tx, "credit_cards_sync_staging", incoming, signal)
+        // Convert the sync15::Payloads to encrypted strings.
+        let mut to_stage = Vec::with_capacity(incoming.len());
+        for (payload, timestamp) in incoming {
+            to_stage.push((
+                PersistablePayload::from_cc_payload(payload, &self.encdec)?,
+                timestamp,
+            ));
+        }
+        common_stage_incoming_records(tx, "credit_cards_sync_staging", to_stage, signal)
     }
 
     fn finish_incoming(&self, tx: &Transaction<'_>) -> Result<()> {
@@ -51,7 +62,8 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
             s.payload as s_payload,
             m.payload as m_payload,
             l.cc_name,
-            l.cc_number,
+            l.cc_number_enc,
+            l.cc_number_last_4,
             l.cc_exp_month,
             l.cc_exp_year,
             l.cc_type,
@@ -72,8 +84,10 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                 // the 'guid' and 's_payload' rows must be non-null.
                 let guid: SyncGuid = row.get("guid")?;
                 // the incoming sync15::Payload
-                let incoming_payload =
-                    Payload::from_json(serde_json::from_str(&row.get::<_, String>("s_payload")?)?)?;
+                let incoming_payload = PersistablePayload::make_cc_payload(
+                    &row.get::<_, String>("s_payload")?,
+                    &self.encdec,
+                )?;
 
                 Ok(IncomingState {
                     incoming: {
@@ -83,7 +97,10 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                             }
                         } else {
                             IncomingRecord::Record {
-                                record: InternalCreditCard::from_payload(incoming_payload)?,
+                                record: InternalCreditCard::from_payload(
+                                    incoming_payload,
+                                    &self.encdec,
+                                )?,
                             }
                         }
                     },
@@ -114,8 +131,8 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                         match row.get::<_, Option<String>>("m_payload")? {
                             Some(m_payload) => {
                                 let payload =
-                                    Payload::from_json(serde_json::from_str(&m_payload)?)?;
-                                Some(InternalCreditCard::from_payload(payload)?)
+                                    PersistablePayload::make_cc_payload(&m_payload, &self.encdec)?;
+                                Some(InternalCreditCard::from_payload(payload, &self.encdec)?)
                             }
                             None => None,
                         }
@@ -146,9 +163,10 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                     SELECT guid
                     FROM credit_cards_mirror
                 )
-                -- and sql can check the field values.
+                -- and sql can check the field values (but note we can not meaningfully
+                -- check the encrypted value, as it's different each time it is encrypted)
                 AND cc_name == :cc_name
-                AND cc_number == :cc_number
+                AND cc_number_last_4 == :cc_number_last_4
                 AND cc_exp_month == :cc_exp_month
                 AND cc_exp_year == :cc_exp_year
                 AND cc_type == :cc_type", common_cols = CREDIT_CARD_COMMON_COLS);
@@ -156,23 +174,26 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         let params = named_params! {
             ":guid": incoming.guid,
             ":cc_name": incoming.cc_name,
-            ":cc_number": incoming.cc_number,
+            ":cc_number_last_4": incoming.cc_number_last_4,
             ":cc_exp_month": incoming.cc_exp_month,
             ":cc_exp_year": incoming.cc_exp_year,
             ":cc_type": incoming.cc_type,
         };
 
-        let result = tx.query_row_named(&sql, params, |row| {
-            Ok(Self::Record::from_row(&row).expect("wtf? '?' doesn't work :("))
-        });
+        // Because we can't check the number in the sql, we fetch all matching
+        // rows and decrypt the numbers here.
+        let records =
+            tx.query_rows_and_then_named(&sql, params, |row| -> Result<Self::Record> {
+                Ok(Self::Record::from_row(&row)?)
+            })?;
 
-        match result {
-            Ok(r) => Ok(Some((incoming.guid.clone(), r))),
-            Err(e) => match e {
-                rusqlite::Error::QueryReturnedNoRows => Ok(None),
-                _ => Err(Error::SqlError(e)),
-            },
+        let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc)?;
+        for record in records {
+            if self.encdec.decrypt(&record.cc_number_enc)? == incoming_cc_number {
+                return Ok(Some((incoming.guid.clone(), record)));
+            }
         }
+        Ok(None)
     }
 
     fn update_local_record(
@@ -231,7 +252,7 @@ mod tests {
                     "id": expand_test_guid('A'),
                     "entry": {
                         "cc-name": "Mr Me A Person",
-                        "cc-number": "12345678",
+                        "cc-number": "1234567812345678",
                         "cc-exp_month": 12,
                         "cc-exp_year": 2021,
                         "cc-type": "Cash!",
@@ -242,7 +263,7 @@ mod tests {
                     "id": expand_test_guid('C'),
                     "entry": {
                         "cc-name": "Mr Me Another Person",
-                        "cc-number": "87654321",
+                        "cc-number": "8765432112345678",
                         "cc-exp-month": 1,
                         "cc-exp-year": 2020,
                         "cc-type": "visa",
@@ -265,10 +286,10 @@ mod tests {
             .clone()
     }
 
-    fn test_record(guid_prefix: char) -> InternalCreditCard {
+    fn test_record(guid_prefix: char, encdec: &EncryptorDecryptor) -> InternalCreditCard {
         let json = test_json_record(guid_prefix);
         let sync_payload = sync15::Payload::from_json(json).unwrap();
-        InternalCreditCard::from_payload(sync_payload).expect("should be valid")
+        InternalCreditCard::from_payload(sync_payload, encdec).expect("should be valid")
     }
 
     #[test]
@@ -306,7 +327,8 @@ mod tests {
         for tc in test_cases {
             log::info!("starting new testcase");
             let tx = db.transaction()?;
-            let ri = IncomingCreditCardsImpl {};
+            let encdec = EncryptorDecryptor::new_test_key();
+            let ri = IncomingCreditCardsImpl { encdec };
             ri.stage_incoming(
                 &tx,
                 array_to_incoming(tc.incoming_records),
@@ -317,7 +339,8 @@ mod tests {
                 "SELECT * FROM temp.credit_cards_sync_staging;",
                 &[],
                 |row| -> Result<Payload> {
-                    let payload: String = row.get_unwrap("payload");
+                    let enc_payload: String = row.get_unwrap("payload");
+                    let payload = ri.encdec.decrypt(&enc_payload)?;
                     Ok(Payload::from_json(serde_json::from_str(&payload)?)?)
                 },
             )?;
@@ -337,9 +360,11 @@ mod tests {
     fn test_change_local_guid() -> Result<()> {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction()?;
-        let ri = IncomingCreditCardsImpl {};
+        let ri = IncomingCreditCardsImpl {
+            encdec: EncryptorDecryptor::new_test_key(),
+        };
 
-        ri.insert_local_record(&tx, test_record('C'))?;
+        ri.insert_local_record(&tx, test_record('C', &ri.encdec))?;
 
         ri.change_local_guid(
             &tx,
@@ -356,9 +381,14 @@ mod tests {
     fn test_get_incoming() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ci = IncomingCreditCardsImpl {};
-        let record = test_record('C');
-        let payload = record.clone().into_payload().expect("must get a payload");
+        let ci = IncomingCreditCardsImpl {
+            encdec: EncryptorDecryptor::new_test_key(),
+        };
+        let record = test_record('C', &ci.encdec);
+        let payload = record
+            .clone()
+            .into_payload(&ci.encdec)
+            .expect("must get a payload");
         do_test_incoming_same(&ci, &tx, record, payload);
     }
 
@@ -366,17 +396,58 @@ mod tests {
     fn test_incoming_tombstone() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ci = IncomingCreditCardsImpl {};
-        do_test_incoming_tombstone(&ci, &tx, test_record('C'));
+        let ci = IncomingCreditCardsImpl {
+            encdec: EncryptorDecryptor::new_test_key(),
+        };
+        do_test_incoming_tombstone(&ci, &tx, test_record('C', &ci.encdec));
     }
 
     #[test]
     fn test_staged_to_mirror() {
         let mut db = new_syncable_mem_db();
         let tx = db.transaction().expect("should get tx");
-        let ci = IncomingCreditCardsImpl {};
-        let record = test_record('C');
-        let payload = record.clone().into_payload().expect("must get a payload");
+        let ci = IncomingCreditCardsImpl {
+            encdec: EncryptorDecryptor::new_test_key(),
+        };
+        let record = test_record('C', &ci.encdec);
+        let payload = record
+            .clone()
+            .into_payload(&ci.encdec)
+            .expect("must get a payload");
         do_test_staged_to_mirror(&ci, &tx, record, payload, "credit_cards_mirror");
+    }
+
+    #[test]
+    fn test_find_dupe() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let encdec = EncryptorDecryptor::new_test_key();
+        let ci = IncomingCreditCardsImpl { encdec };
+        let local_record = test_record('C', &ci.encdec);
+        let local_guid = local_record.guid.clone();
+        ci.insert_local_record(&tx, local_record.clone()).unwrap();
+
+        // Now the same record incoming - it should find the one we just added
+        // above as a dupe.
+        let mut incoming_record = test_record('C', &ci.encdec);
+        // sanity check that the encrypted numbers are different even though
+        // the decrypted numbers are identical.
+        assert_ne!(local_record.cc_number_enc, incoming_record.cc_number_enc);
+        // but the other fields the sql checks are
+        assert_eq!(local_record.cc_name, incoming_record.cc_name);
+        assert_eq!(
+            local_record.cc_number_last_4,
+            incoming_record.cc_number_last_4
+        );
+        assert_eq!(local_record.cc_exp_month, incoming_record.cc_exp_month);
+        assert_eq!(local_record.cc_exp_year, incoming_record.cc_exp_year);
+        assert_eq!(local_record.cc_type, incoming_record.cc_type);
+        // change the incoming guid so we don't immediately think they are the same.
+        incoming_record.guid = SyncGuid::random();
+
+        // expect `Ok(Some(guid, record))`
+        let dupe = ci.get_local_dupe(&tx, &incoming_record).unwrap().unwrap();
+        assert_eq!(dupe.0, incoming_record.guid);
+        assert_eq!(dupe.1.guid, local_guid);
     }
 }

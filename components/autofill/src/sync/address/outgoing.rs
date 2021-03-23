@@ -53,7 +53,16 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             &data_sql,
             &tombstones_sql,
             payload_from_data_row,
-        )?;
+        )?
+        .into_iter()
+        .map(|(payload, sync_change_counter)| {
+            (
+                SyncGuid::new(payload.id()),
+                payload.into_json_string(),
+                sync_change_counter,
+            )
+        })
+        .collect::<Vec<(SyncGuid, String, i64)>>();
         common_save_outgoing_records(&tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes

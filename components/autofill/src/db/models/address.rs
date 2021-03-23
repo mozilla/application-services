@@ -83,8 +83,10 @@ impl From<InternalAddress> for Address {
     }
 }
 
-// An "internal" address is used by the public APIs and by sync.
-#[derive(Default, Debug, Clone, PartialEq)]
+// An "internal" address is used by the public APIs and by sync. No `PartialEq`
+// because it's impossible to do it meaningfully for credit-cards and we'd like
+// to keep the API symmetric
+#[derive(Default, Debug, Clone)]
 pub struct InternalAddress {
     pub guid: Guid,
     pub given_name: String,

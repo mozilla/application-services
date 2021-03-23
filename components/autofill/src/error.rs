@@ -30,6 +30,12 @@ pub enum Error {
 
     #[error("Invalid sync payload: {0}")]
     InvalidSyncPayload(String),
+
+    #[error("Crypto Error: {0}")]
+    CryptoError(#[from] jwcrypto::JwCryptoError),
+
+    #[error("Missing local encryption key")]
+    MissingEncryptionKey,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

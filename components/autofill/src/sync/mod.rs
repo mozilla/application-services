@@ -16,6 +16,17 @@ use sync15::{OutgoingChangeset, Payload, ServerTimestamp};
 use sync_guid::Guid;
 use types::Timestamp;
 
+// The fact that credit-card numbers are encrypted makes things a little tricky
+// for sync in various ways - and one non-obvious way is that the tables that
+// store sync payloads can't just store them directly as they are not encrypted
+// in that form.
+// So this type abstracts that away - addresses will just store the json version
+// of the payload, where credit-cards will store an encrypted version.
+struct PersistablePayload {
+    guid: Guid,
+    payload: String,
+}
+
 // Some traits that help us abstract away much of the sync functionality.
 
 // A trait that abstracts the *storage* implementation of the specific record

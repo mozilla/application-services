@@ -23,21 +23,25 @@ use types::Timestamp;
 
 // The engine.
 pub fn create_engine(db: Arc<Mutex<crate::db::AutofillDb>>) -> ConfigSyncEngine<InternalAddress> {
-    ConfigSyncEngine {
-        db,
-        config: EngineConfig {
+    ConfigSyncEngine::new(
+        EngineConfig {
             namespace: "addresses".to_string(),
             collection: "addresses",
         },
-        storage_impl: Box::new(AddressesEngineStorageImpl {}),
-    }
+        db,
+        Box::new(AddressesEngineStorageImpl {}),
+    )
 }
 
 pub(super) struct AddressesEngineStorageImpl {}
 
 impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
-    fn get_incoming_impl(&self) -> Box<dyn ProcessIncomingRecordImpl<Record = InternalAddress>> {
-        Box::new(IncomingAddressesImpl {})
+    fn get_incoming_impl(
+        &self,
+        enc_key: &Option<String>,
+    ) -> Result<Box<dyn ProcessIncomingRecordImpl<Record = InternalAddress>>> {
+        assert!(enc_key.is_none());
+        Ok(Box::new(IncomingAddressesImpl {}))
     }
 
     fn reset_storage(&self, tx: &Transaction<'_>) -> Result<()> {
@@ -48,8 +52,12 @@ impl SyncEngineStorageImpl<InternalAddress> for AddressesEngineStorageImpl {
         Ok(())
     }
 
-    fn get_outgoing_impl(&self) -> Box<dyn ProcessOutgoingRecordImpl<Record = InternalAddress>> {
-        Box::new(OutgoingAddressesImpl {})
+    fn get_outgoing_impl(
+        &self,
+        enc_key: &Option<String>,
+    ) -> Result<Box<dyn ProcessOutgoingRecordImpl<Record = InternalAddress>>> {
+        assert!(enc_key.is_none());
+        Ok(Box::new(OutgoingAddressesImpl {}))
     }
 }
 

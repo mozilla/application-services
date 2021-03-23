@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS addresses_data (
 -- What's on the server as the JSON payload.
 CREATE TABLE IF NOT EXISTS addresses_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+    -- The plain-text sync15 payload.
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
     -- We could also have `modified`, which is in the server response and
     -- passed around in the sync code, but we don't have a use-case for using it.
@@ -46,7 +47,13 @@ CREATE TABLE IF NOT EXISTS addresses_tombstones (
 CREATE TABLE IF NOT EXISTS credit_cards_data (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
     cc_name             TEXT NOT NULL, -- full name
-    cc_number           TEXT NOT NULL, -- TODO: consider storing this field as a hash
+    -- Encrypted card number, stored as a JWE. All valid unencrypted card
+    -- numbers are 19 chars or less, and a base64 encoded JWE is always going to
+    -- be longer than thus, so we add a CHECK designed to ensure we don't
+    -- accidentally store unencrypted numbers here.
+    cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
+    -- last 4 digits unencrypted. Check no larger than 4 to avoid the full number.
+    cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
     cc_exp_month        INTEGER,
     cc_exp_year         INTEGER,
     cc_type             TEXT NOT NULL,
@@ -62,6 +69,18 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
 
 CREATE TABLE IF NOT EXISTS credit_cards_mirror (
     guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+    /*
+    Note that:
+    * The mirror needs to have a fully-formed Sync BSO payload, which
+      includes the plaintext cc number.
+    * But we don't want plaintext cc numbers on disk, so we have to encrypt the
+      numbers in this payload - and the simplest way to do that is to just
+      encrypt the entire payload.
+    * The JWE encryption scheme is how we encrypt data for local storage, so
+      that's what we use here (ie, we use the same encryption scheme that we
+      use for `credit_cards_data.cc_number_enc`, and not the scheme Sync itself
+      uses for encrypting payloads)
+    */
     payload             TEXT NOT NULL CHECK(length(payload) != 0)
 );
 

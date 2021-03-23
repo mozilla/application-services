@@ -10,7 +10,8 @@ use sync_guid::Guid;
 #[derive(Debug, Clone, Default)]
 pub struct UpdatableCreditCardFields {
     pub cc_name: String,
-    pub cc_number: String,
+    pub cc_number_enc: String,
+    pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
     // Credit card types are a fixed set of strings as defined in the link below
@@ -22,7 +23,8 @@ pub struct UpdatableCreditCardFields {
 pub struct CreditCard {
     pub guid: String,
     pub cc_name: String,
-    pub cc_number: String,
+    pub cc_number_enc: String,
+    pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
 
@@ -44,7 +46,8 @@ impl From<InternalCreditCard> for CreditCard {
         CreditCard {
             guid: icc.guid.to_string(),
             cc_name: icc.cc_name,
-            cc_number: icc.cc_number,
+            cc_number_enc: icc.cc_number_enc,
+            cc_number_last_4: icc.cc_number_last_4,
             cc_exp_month: icc.cc_exp_month,
             cc_exp_year: icc.cc_exp_year,
             cc_type: icc.cc_type,
@@ -61,11 +64,14 @@ impl From<InternalCreditCard> for CreditCard {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+// NOTE: No `PartialEq` here because the same card number will encrypt to a
+// different value each time it is encrypted, making it meaningless to compare.
+#[derive(Debug, Clone, Default)]
 pub struct InternalCreditCard {
     pub guid: Guid,
     pub cc_name: String,
-    pub cc_number: String,
+    pub cc_number_enc: String,
+    pub cc_number_last_4: String,
     pub cc_exp_month: i64,
     pub cc_exp_year: i64,
     // Credit card types are a fixed set of strings as defined in the link below
@@ -79,7 +85,8 @@ impl InternalCreditCard {
         Ok(Self {
             guid: Guid::from_string(row.get("guid")?),
             cc_name: row.get("cc_name")?,
-            cc_number: row.get("cc_number")?,
+            cc_number_enc: row.get("cc_number_enc")?,
+            cc_number_last_4: row.get("cc_number_last_4")?,
             cc_exp_month: row.get("cc_exp_month")?,
             cc_exp_year: row.get("cc_exp_year")?,
             cc_type: row.get("cc_type")?,
