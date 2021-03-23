@@ -6,9 +6,8 @@ Application Services (a-s) is collection of Rust Components that are used to ena
 To contribute, please review the Mozilla [Community Participation Guidelines](https://www.mozilla.org/en-US/about/governance/policies/participation/) and then visit our [how to contribute](docs/contributing.md) guide.
 
 ### Contact
-Get in touch with other community members on Matrix, the mailing list or through issues here on GitHub.
+Get in touch with other community members on Matrix, or through issues here on GitHub.
 - Matrix: [#rust-components:mozilla.org](https://chat.mozilla.org/#/room/#rust-components:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
-- Mailing list: application-services@mozilla.com
 
 ### Building the Rust Components
 1. Clone or Download the repository:
