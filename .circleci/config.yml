@@ -41,17 +41,7 @@ commands:
       - run:
           name: Install grcov
           command: |
-            GRCOV_VERSION=v0.5.15
-            GRCOV_ARCHIVE=grcov-linux-x86_64.tar.bz2
-            GRCOV_SHA256=1182739b2b1df31dee74ed3533330001f9da921cf169bd8da4ec0386e4243ad0
-            GRCOV_URL="https://github.com/mozilla/grcov/releases/download/${GRCOV_VERSION}/${GRCOV_ARCHIVE}"
-            curl -sfSL --retry 5 --retry-delay 10 -O "${GRCOV_URL}"
-            echo "${GRCOV_SHA256} *${GRCOV_ARCHIVE}" | shasum -a 256 -c -
-
-            # Just install `grcov` to ~/.bin
-            mkdir -p "$HOME/.bin"
-            tar jxf "${GRCOV_ARCHIVE}" -C "$HOME/.bin"
-            echo 'export PATH="$HOME/.bin:$PATH"' >> $BASH_ENV
+            cargo install grcov
       # Run in a different shell to source $BASH_ENV
       - run: |
           grcov --version
