@@ -1,5 +1,8 @@
-# Unreleased changes
+This documents changes that were made to the nimbus-sdk before it was fully
+merged into the application-services repository.  New entries should be added
+to the application-services repo CHANGES_UNRELEASED.md file, not here.
 
+# 0.10.0 (_2021-03-18_)
 ## ⚠️ Breaking changes ⚠️
 
 - Changed `AppContext` struct to include non-optional `app_name` and `channel` fields per [ADR-0004](https://github.com/mozilla/nimbus-shared/blob/main/docs/adr/0004-dto-app-identifiers.md)
