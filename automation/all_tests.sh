@@ -51,7 +51,7 @@ cargo fmt --all
 
 if [[ "$(uname -s)" == "Darwin" ]]
 then
-    swiftformat megazords components/*/ios --lint --swiftversion 4
+    swiftformat megazords components/*/ios --exclude '**/Generated' --lint --swiftversion 4
 else
     echo "WARNING: skipping swiftformat on non-Darwin host"
 fi
