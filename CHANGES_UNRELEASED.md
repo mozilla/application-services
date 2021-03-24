@@ -12,10 +12,7 @@
   rm -fR components/external/nimbus-sdk
   ```
 
-  This is not expected to have any ramifications for consumers, other than
-  that the `nimbus-sdk` will (in the future) have the same version numbers as
-  the rest of `application-services`.
-
+  This is not expected to have any ramifications for consumers.
  ## iOS
 
 - Addition of the `Nimbus` helper object for interacting with the Nimbus SDK; this introduces some ergonomics around threading and error reporting.
