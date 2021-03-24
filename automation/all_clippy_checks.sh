@@ -30,7 +30,7 @@ fi
 # Later rust versions downgraded some warning to pedantic, so we allow them here.
 ALLOWS=("-Aclippy::unreadable-literal"  "-Aclippy::trivially-copy-pass-by-ref" "-Aclippy::match-bool" "-Aunknown-lints" "-Aclippy::unknown_clippy_lints")
 
-${CLIPPY_HEAD} --all --all-targets --all-features "${EXCLUDES[@]}" -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
+${CLIPPY_HEAD} --all --all-targets --all-features -- -D warnings  "${ALLOWS[@]}" ${EXTRA_ARGS[@]:+"${EXTRA_ARGS[@]}"}
 
 # Apparently --no-default-features doesn't work in the root, even with -p to select a specific package.
 # Instead we pull the list of individual package manifest files which have default features
