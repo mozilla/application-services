@@ -6,6 +6,7 @@ included: # paths to include during linting. `--path` is ignored if present.
   - components/fxa-client/ios
 excluded:
   - Carthage
+  - "**/*/ios/Generated"
   - "megazords/ios/MozillaAppServicesTests"
 
 disabled_rules:
