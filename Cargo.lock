@@ -1855,21 +1855,26 @@ name = "nimbus-sdk"
 version = "0.10.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "env_logger",
  "hex",
  "jexl-eval",
  "log 0.4.11",
+ "mockito",
  "once_cell",
  "rkv",
  "serde",
  "serde_derive",
  "serde_json",
  "sha2",
+ "tempdir",
  "thiserror",
  "uniffi",
  "uniffi_build",
  "url",
  "uuid",
  "viaduct",
+ "viaduct-reqwest",
 ]
 
 [[package]]

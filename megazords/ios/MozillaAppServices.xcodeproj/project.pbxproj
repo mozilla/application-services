@@ -10,13 +10,13 @@
 		1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1379D0682404BE1300AABD16 /* logins_msg_types.proto */; };
 		137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137C5892240257340016932F /* Data+LoginsRustBuffer.swift */; };
 		394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		9908639E25F9CC5F00032083 /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 9908639B25F9CC3600032083 /* crashtest.udl */; };
-		990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
 		394A809825F94E1300FAF26F /* Nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394A809725F94E1300FAF26F /* Nimbus.swift */; };
 		394D6C622600E64E008F9CE5 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394D6C612600E64E008F9CE5 /* NimbusCreate.swift */; };
 		395992B625FBC91500E3185F /* NimbusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B525FBC91500E3185F /* NimbusTests.swift */; };
 		395992B825FBE40300E3185F /* NimbusApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B725FBE40300E3185F /* NimbusApi.swift */; };
+		9908639E25F9CC5F00032083 /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 9908639B25F9CC3600032083 /* crashtest.udl */; };
+		990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
 		9924024A25F789F200841837 /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 394A807325EE94C600FAF26F /* nimbus.udl */; };
 		99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */; };
@@ -159,17 +159,17 @@
 /* Begin PBXFileReference section */
 		1379D0682404BE1300AABD16 /* logins_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = logins_msg_types.proto; path = ../../src/logins_msg_types.proto; sourceTree = "<group>"; };
 		137C5892240257340016932F /* Data+LoginsRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Data+LoginsRustBuffer.swift"; path = "Extensions/Data+LoginsRustBuffer.swift"; sourceTree = "<group>"; };
-		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = "../../../external/nimbus-sdk/nimbus/src/nimbus.udl"; sourceTree = "<group>"; };
+		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../src/nimbus.udl; sourceTree = "<group>"; };
 		394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_nimbus-Bridging-Header.h"; sourceTree = "<group>"; };
 		394A807725EE951D00FAF26F /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = "<group>"; };
-		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../src/crashtest.udl; sourceTree = "<group>"; };
-		9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_crashtest-Bridging-Header.h"; sourceTree = "<group>"; };
-		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
-		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
 		394A809725F94E1300FAF26F /* Nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Nimbus.swift; sourceTree = "<group>"; };
 		394D6C612600E64E008F9CE5 /* NimbusCreate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusCreate.swift; sourceTree = "<group>"; };
 		395992B525FBC91500E3185F /* NimbusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusTests.swift; sourceTree = "<group>"; };
 		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
+		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../src/crashtest.udl; sourceTree = "<group>"; };
+		9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_crashtest-Bridging-Header.h"; sourceTree = "<group>"; };
+		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
+		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
 		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = "<group>"; };
 		99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_fxa_client-Bridging-Header.h"; sourceTree = "<group>"; };
 		99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountOAuth.swift; sourceTree = "<group>"; };
@@ -302,7 +302,7 @@
 				394A807725EE951D00FAF26F /* nimbus.swift */,
 			);
 			name = Generated;
-			path = "../../components/external/nimbus-sdk/nimbus/ios/Generated";
+			path = ../../components/nimbus/ios/Generated;
 			sourceTree = SOURCE_ROOT;
 		};
 		9908639825F9CB6A00032083 /* CrashTest */ = {
