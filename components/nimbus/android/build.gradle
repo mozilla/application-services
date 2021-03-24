@@ -1,16 +1,3 @@
-// =============================================
-// We're doing something a bit weird here, so
-// READ THIS CAREFULLY before editing this file.
-// =============================================
-//
-// The aim here is to pre-package the Nimbus Kotlin code and publish it under
-// `org.mozilla.appservices:nimbus` rather than `org.mozilla.experiments:nimbus`,
-// and to make it depend on `org.mozilla.appservices:full-megazord` for the
-// compiled Rust code.
-//
-// We expect consumers that want to use Nimbus and AppServices together, will
-// use our re-packaged version rather than standalone Nimbus SDK.
-
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
