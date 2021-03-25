@@ -20,6 +20,7 @@ ece = { version = "2.0", default-features = false, features = ["serializable-key
 hex = "0.4"
 
 [dev-dependencies.ece]
+version = "2.0"
 default-features = false
 features = ["serializable-keys", "backend-test-helper"]
 
