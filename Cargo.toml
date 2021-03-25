@@ -39,7 +39,8 @@ members = [
     "components/webext-storage/ffi",
     "megazords/full",
     "megazords/ios/rust",
-    "testing/sync-test",
+# Disabled for intermittent failures; see SDK-233 and #3909 for details.
+#    "testing/sync-test",
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
 
@@ -109,7 +110,8 @@ default-members = [
     "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
-    "testing/sync-test",
+# Disabled for intermittent failures; see SDK-233 and #3909 for details.
+#    "testing/sync-test",
     "tools/protobuf-gen",
     "tools/embedded-uniffi-bindgen",
     "examples/*/",

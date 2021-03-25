@@ -33,7 +33,8 @@ fi
 
 ./automation/all_rust_tests.sh
 
-cargo run -p sync-test
+# Disabled for intermittent failures; see SDK-233 and #3909 for details.
+#cargo run -p sync-test
 
 ./gradlew test
 
