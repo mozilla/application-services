@@ -39,7 +39,7 @@ extension Nimbus {
                               errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter) throws -> NimbusApi
     {
         guard enabled else {
-            return NimbusDisabled()
+            return NimbusDisabled.shared
         }
 
         let context = Nimbus.buildExperimentContext(appSettings)

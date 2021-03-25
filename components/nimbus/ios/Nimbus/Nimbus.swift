@@ -208,6 +208,8 @@ extension Nimbus: NimbusStartup {
 }
 
 public class NimbusDisabled: NimbusApi {
+    public static let shared = NimbusDisabled()
+
     public var globalUserParticipation: Bool = false
 }
 

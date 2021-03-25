@@ -124,14 +124,23 @@ public extension Notification.Name {
 /// This struct is used during in the `create` method to point `Nimbus` at the given `RemoteSettings` server.
 ///
 public struct NimbusServerSettings {
-    let url: URL
+    public init(url: URL) {
+        self.url = url
+    }
+
+    public let url: URL
 }
 
 /// Name and channel of the app, which should agree with what is specified in Experimenter.
 ///
 public struct NimbusAppSettings {
-    let appName: String
-    let channel: String
+    public init(appName: String, channel: String) {
+        self.appName = appName
+        self.channel = channel
+    }
+
+    public let appName: String
+    public let channel: String
 }
 
 /// This error reporter is passed to `Nimbus` and any errors that are caught are reported via this type.
