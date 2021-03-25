@@ -21,6 +21,12 @@ To repeat with emphasis - **please consider this a living document**.
 
 We think components should be structured as described here.
 
+## We build libraries, not frameworks
+
+Think of building a "library", not a "framework" - the application should be in
+control and calling functions exposed by your component, not providing functions
+for your component to call.
+
 ## The "store" is the "entry-point"
 
 [Note that some of the older components use the term "store" differently; we
