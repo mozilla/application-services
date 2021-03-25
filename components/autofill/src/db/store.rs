@@ -11,35 +11,143 @@ use rusqlite::{
     Connection,
 };
 use sql_support::{self, ConnExt};
+use std::cell::RefCell;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use sync15_traits::SyncEngine;
 use sync_guid::Guid;
 
-#[allow(dead_code)]
-pub struct Store {
-    db: Arc<Mutex<AutofillDb>>,
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the inner stuff - needed
+    //        to wrap the RefCell as they aren't `Sync`
+    // RefCell: So we can replace what it holds. Normally you'd use `get_ref()`
+    //          on the mutex and avoid the RefCell entirely, but that requires
+    //          the mutex to be declared as `mut` which is apparently
+    //          impossible in a `lazy_static`
+    // [Arc/Weak]<StoreImpl>: What the sync manager actually needs.
+    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<StoreImpl>>> = Mutex::new(RefCell::new(Weak::new()));
 }
 
-#[allow(dead_code)]
+// This is the type that uniffi exposes. It holds an `Arc<>` around the
+// actual implementation, because we need to hand a clone of this `Arc<>` to
+// the sync manager and to sync engines. One day
+// https://github.com/mozilla/uniffi-rs/issues/417 will give us access to the
+// `Arc<>` uniffi owns, which means we can drop this entirely (ie, `Store` and
+// `StoreImpl` could be re-unified)
+// Sadly, this is `pub` because our `autofill-utils` example uses it.
+pub struct Store {
+    store_impl: Arc<StoreImpl>,
+}
+
 impl Store {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
-            db: Arc::new(Mutex::new(AutofillDb::new(db_path)?)),
+            store_impl: Arc::new(StoreImpl::new(db_path)?),
+        })
+    }
+
+    pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
+        self.store_impl.add_credit_card(fields)
+    }
+
+    pub fn get_credit_card(&self, guid: String) -> Result<CreditCard> {
+        self.store_impl.get_credit_card(guid)
+    }
+
+    pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
+        self.store_impl.get_all_credit_cards()
+    }
+
+    pub fn update_credit_card(
+        &self,
+        guid: String,
+        credit_card: UpdatableCreditCardFields,
+    ) -> Result<()> {
+        self.store_impl.update_credit_card(guid, credit_card)
+    }
+
+    pub fn delete_credit_card(&self, guid: String) -> Result<bool> {
+        self.store_impl.delete_credit_card(guid)
+    }
+
+    pub fn touch_credit_card(&self, guid: String) -> Result<()> {
+        self.store_impl.touch_credit_card(guid)
+    }
+
+    pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
+        self.store_impl.add_address(new_address)
+    }
+
+    pub fn get_address(&self, guid: String) -> Result<Address> {
+        self.store_impl.get_address(guid)
+    }
+
+    pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
+        self.store_impl.get_all_addresses()
+    }
+
+    pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> Result<()> {
+        self.store_impl.update_address(guid, address)
+    }
+
+    pub fn delete_address(&self, guid: String) -> Result<bool> {
+        self.store_impl.delete_address(guid)
+    }
+
+    pub fn touch_address(&self, guid: String) -> Result<()> {
+        self.store_impl.touch_address(guid)
+    }
+
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(&self) {
+        STORE_FOR_MANAGER
+            .lock()
+            .unwrap()
+            .replace(Arc::downgrade(&self.store_impl));
+    }
+
+    // These 2 are odd ones out - they don't just delegate but instead
+    // hand off the Arc.
+    // Currently the only consumer of this is our "example" (and hence why they
+    // are `pub` and not `pub(crate)`) - the sync manager duplicates it (because
+    // it doesn't have a reference to us, just to the store_impl)
+    // We could probably make the example work with the sync manager - but then
+    // our example would link with places and logins etc.
+    pub fn create_credit_cards_sync_engine(&self) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::credit_card::create_engine(
+            self.store_impl.clone(),
+        ))
+    }
+
+    pub fn create_addresses_sync_engine(&self) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::address::create_engine(self.store_impl.clone()))
+    }
+}
+
+// This is the actual implementation. All code in this crate works with this.
+// Sadly, it's forced to be `pub` because the SyncManager also uses it.
+pub struct StoreImpl {
+    pub(crate) db: Mutex<AutofillDb>,
+}
+
+impl StoreImpl {
+    pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
+        Ok(Self {
+            db: Mutex::new(AutofillDb::new(db_path)?),
         })
     }
 
     /// Creates a store backed by an in-memory database.
     #[cfg(test)]
-    pub fn new_memory(db_path: &str) -> Result<Self> {
-        Ok(Self {
-            db: Arc::new(Mutex::new(AutofillDb::new_memory(db_path)?)),
-        })
-    }
-
-    #[cfg(test)]
-    pub fn db(&self) -> Arc<Mutex<AutofillDb>> {
-        self.db.clone()
+    pub fn new_memory() -> Self {
+        Self {
+            db: Mutex::new(crate::db::test::new_mem_db()),
+        }
     }
 
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
@@ -107,14 +215,6 @@ impl Store {
 
     pub fn touch_address(&self, guid: String) -> Result<()> {
         addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
-    }
-
-    pub fn create_credit_cards_sync_engine(&self) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::credit_card::create_engine(self.db.clone()))
-    }
-
-    pub fn create_addresses_sync_engine(&self) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::address::create_engine(self.db.clone()))
     }
 }
 

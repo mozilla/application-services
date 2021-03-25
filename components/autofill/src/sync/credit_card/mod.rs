@@ -19,20 +19,18 @@ use incoming::IncomingCreditCardsImpl;
 use outgoing::OutgoingCreditCardsImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub fn create_engine(
-    db: Arc<Mutex<crate::db::AutofillDb>>,
-) -> ConfigSyncEngine<InternalCreditCard> {
+pub fn create_engine(store: Arc<crate::StoreImpl>) -> ConfigSyncEngine<InternalCreditCard> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "credit_cards".to_string(),
             collection: "creditcards",
         },
-        db,
+        store,
         Box::new(CreditCardsEngineStorageImpl {}),
     )
 }

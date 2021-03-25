@@ -17,18 +17,18 @@ use incoming::IncomingAddressesImpl;
 use outgoing::OutgoingAddressesImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub fn create_engine(db: Arc<Mutex<crate::db::AutofillDb>>) -> ConfigSyncEngine<InternalAddress> {
+pub fn create_engine(store: Arc<crate::StoreImpl>) -> ConfigSyncEngine<InternalAddress> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "addresses".to_string(),
             collection: "addresses",
         },
-        db,
+        store,
         Box::new(AddressesEngineStorageImpl {}),
     )
 }
