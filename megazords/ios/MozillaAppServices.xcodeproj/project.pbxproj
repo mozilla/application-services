@@ -759,6 +759,7 @@
 			inputPaths = (
 				"$(SRCROOT)/../../components/external/glean/glean-core/metrics.yaml",
 				"$(SRCROOT)/../../components/external/glean/glean-core/pings.yaml",
+				"$(SRCROOT)/../../components/nimbus/metrics.yaml",
 			);
 			name = "Generate Glean metrics";
 			outputFileListPaths = (

@@ -23,9 +23,7 @@ public class Nimbus: NimbusApi {
         return queue
     }()
 
-    internal init(nimbusClient: NimbusClientProtocol,
-                  errorReporter: @escaping NimbusErrorReporter)
-    {
+    internal init(nimbusClient: NimbusClientProtocol, errorReporter: @escaping NimbusErrorReporter) {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
     }
@@ -49,22 +47,69 @@ private extension Nimbus {
 }
 
 // Glean integration
-private extension Nimbus {
-    func recordExposure(experimentId _: String) {
-        // TODO: https://jira.mozilla.com/browse/SDK-209
+internal extension Nimbus {
+    func recordExposure(experimentId: String) {
+        let activeExperiments = getActiveExperiments()
+        if let experiment = activeExperiments.first(where: { $0.slug == experimentId }) {
+            GleanMetrics.NimbusEvents.exposure.record(extra: [
+                .experiment: experiment.slug,
+                .branch: experiment.branchSlug,
+                .enrollmentId: experiment.enrollmentId,
+            ])
+        }
     }
 
-    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]?) {
-        guard events?.isEmpty == false else {
-            return
-        }
-
-        // TODO: https://jira.mozilla.com/browse/SDK-209
+    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
+        // We need to update the experiment enrollment annotations in Glean
+        // regardless of whether we recieved any events. Calling the
+        // `setExperimentActive` function multiple times with the same
+        // experiment id is safe so nothing bad should happen in case we do.
         let experiments = getActiveExperiments()
-        experiments.forEach { experiment in
-            Glean.shared.setExperimentActive(experimentId: experiment.slug, branch: experiment.branchSlug, extra: nil)
+        recordExperimentTelemetry(experiments)
+
+        // Record enrollment change events, if any
+        if !events.isEmpty {
+            recordExperimentEvents(events)
+
+            // We are only notifying observers when we have enrollment
+            // change events, to make the observer less chatty.
+            notifyOnExperimentsApplied(experiments)
         }
-        notifyOnExperimentsApplied(experiments)
+    }
+
+    func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
+        for experiment in experiments {
+            Glean.shared.setExperimentActive(
+                experimentId: experiment.slug,
+                branch: experiment.branchSlug,
+                extra: ["enrollmentId": experiment.enrollmentId]
+            )
+        }
+    }
+
+    func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
+        for event in events {
+            switch event.change {
+            case .enrollment:
+                GleanMetrics.NimbusEvents.enrollment.record(extra: [
+                    .experiment: event.experimentSlug,
+                    .branch: event.branchSlug,
+                    .enrollmentId: event.enrollmentId,
+                ])
+            case .disqualification:
+                GleanMetrics.NimbusEvents.disqualification.record(extra: [
+                    .experiment: event.experimentSlug,
+                    .branch: event.branchSlug,
+                    .enrollmentId: event.enrollmentId,
+                ])
+            case .unenrollment:
+                GleanMetrics.NimbusEvents.unenrollment.record(extra: [
+                    .experiment: event.experimentSlug,
+                    .branch: event.branchSlug,
+                    .enrollmentId: event.enrollmentId,
+                ])
+            }
+        }
     }
 }
 
