@@ -26,6 +26,8 @@ pub struct SyncParams {
     pub device_name: std::string::String,
     #[prost(enumeration="DeviceType", required, tag="12")]
     pub device_type: i32,
+    #[prost(map="string, string", tag="13")]
+    pub local_encryption_keys: ::std::collections::HashMap<std::string::String, std::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SyncResult {
