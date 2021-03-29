@@ -45,6 +45,8 @@ message SyncParams {
     required string fxa_device_id = 10;
     required string device_name = 11;
     required DeviceType device_type = 12;
+
+    map<string, string> local_encryption_keys = 13;
 }
 
 enum ServiceStatus {

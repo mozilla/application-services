@@ -99,6 +99,25 @@ data class SyncParams(
     val enabledChanges: Map<String, Boolean>,
 
     /**
+     * A map of local encryption keys to use for engines. Only some engines
+     * use local encryption, so it's expected that many engines will not have
+     * entries. If an engine that requires a key does not find one, it will
+     * fail to sync.
+     *
+     * Note that this is for local encryption in the local databases and is not
+     * at all related to Sync encryption. The keys are needed to sync because
+     * sync will need to decrypt records from the local store before
+     * re-encrypting them using sync encryption to store on the server, and
+     * vice-versa, records read from the server will be decrypted using sync
+     * encryption and then encrypted before being stored locally.
+     *
+     * The keys of the map are the engine names as used by all other maps
+     * and lists here. The value is a string "key" which will have been
+     * previously obtained from the engine directly.
+     */
+    val localEncryptionKeys: Map<String, String>,
+
+    /**
      * The information used to authenticate with the sync server.
      */
     val authInfo: SyncAuthInfo,
@@ -135,6 +154,7 @@ data class SyncParams(
         }
 
         builder.putAllEnginesToChangeState(this.enabledChanges)
+        builder.putAllLocalEncryptionKeys(this.localEncryptionKeys)
 
         builder.acctAccessToken = this.authInfo.fxaAccessToken
         builder.acctSyncKey = this.authInfo.syncKey

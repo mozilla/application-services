@@ -17,9 +17,9 @@
 
 - Addition of the `Nimbus` helper object for interacting with the Nimbus SDK; this introduces some ergonomics around threading and error reporting.
 
-## Autofill
-
 ### ⚠️ Breaking changes ⚠️
+
+## Autofill
 
 * The credit-cards API has changed to support card numbers being encrypted.
   The card dictionary now has `cc_number_enc`, which is encrypted, and
@@ -30,5 +30,13 @@
 
   The exception is when syncing, where the key is needed, so support has
   been added to allow the engine to know the key during a sync.
+
+## Sync Manager
+
+* The SyncParams struct has a new map named `local_encryption_keys` (or
+  `localEncryptionKeys` in Kotlin) to support credit-card encryption. Due to
+  limitations in the Kotlin support for protobufs, this new map must be
+  specified - an emptyMap() is fine (although an entry will need to be
+  specified once credit-card syncing is enabled.)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v74.0.1...main)

@@ -339,6 +339,13 @@ impl SyncManager {
             Some(&params.engines_to_change_state)
         };
 
+        // tell engines about the local encryption key.
+        for engine in &engine_refs {
+            if let Some(key) = params.local_encryption_keys.get(&*engine.collection_name()) {
+                engine.set_local_encryption_key(key)?
+            }
+        }
+
         let settings = Settings {
             fxa_device_id: params.fxa_device_id,
             device_name: params.device_name,
