@@ -12,7 +12,7 @@ Use `cargo new --lib ./components/<your_crate_name>`to create a new library crat
 and please try to avoid using hyphens in the crate name.
 
 See the [Guide to Building a Rust Component](./building-a-rust-component.md) for general
-advice on designing and structuing the actual Rust code, and follow the
+advice on designing and structuring the actual Rust code, and follow the
 [Dependency Management Guidelines](../dependency-management.md) if your crate
 introduces any new dependencies.
 
@@ -41,7 +41,7 @@ In order to be published to consumers, your crate must be included in the
 
 Run `cargo check -p <your_crate_name>` in the repository root to confirm that
 things are configured properly. This will also have the side-effect of updating
-`Cargo.lock` to contain your new crate.
+`Cargo.lock` to contain your new crate and its dependencies.
 
 
 ## The Kotlin Bindings
@@ -85,7 +85,25 @@ You can write Kotlin-level tests that consume your component's API,
 by placing `.kt`` files in a directory named:
 * `./android/src/test/java/mozilla/appservices/<your_crate_name>/`.
 
-Run your component's Kotlin tests with `./gradlew <your_crate_name>:test`.
+So you would end up with a directory structure something like this:
+
+* `components/<your_crate_name>/`
+    * `Cargo.toml`
+    * `uniffi.toml`
+    * `src/`
+        * Rust code here.
+    * `android/`
+        * `build.gradle`
+        * `src/`
+          * `main/`
+              * `AndroidManifest.xml`
+              * `java/mozilla/appservices/<your_crate_name>/`
+                  * Hand-written Kotlin code here.
+          * `test/java/mozilla/appservices/<your_crate_name>/`
+              * Kotlin test-cases here.
+
+Run your component's Kotlin tests with `./gradlew <your_crate_name>:test`
+to confirm that this is all working correctly.
 
 
 ## The Swift Bindings
@@ -96,7 +114,21 @@ be written to a subdirectory named `Generated`.
 
 You can include hand-written Swift code alongside the automatically
 generated bindings, by placing `.swift` files in a directory named:
-* `./ios/<your_crate_name>/`
+`./ios/<your_crate_name>/`.
+
+So you would end up with a directory structure something like this:
+
+* `components/<your_crate_name>/`
+    * `Cargo.toml`
+    * `uniffi.toml`
+    * `src/`
+        * Rust code here.
+    * `ios/`
+        * `<your_crate_name>/`
+          * Hand-written Swift code here.
+        * `Generated/`
+          * Generated Swift code will be written into this directory.
+
 
 Edit `megazords/ios/MozillaAppServices.h` and add an import line for your component,
 like:
@@ -127,7 +159,7 @@ The result should look something like this:
 Click on the top-level "MozillaAppServices" project in the navigator,
 then go to "Build Phases" and add `<your_crate_name>.udl` to the list
 of "Compile Sources". This will trigger an XCode Build Rule that generates
-the Swift bindings automatically. Also inclue any hand-written `.swift` files
+the Swift bindings automatically. Also include any hand-written `.swift` files
 in this list.
 
 The result should look something like this:

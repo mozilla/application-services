@@ -12,18 +12,10 @@ be improved.
 
 As a last resort, you can make hand-written bindings from Rust to Kotlin,
 essentially manually performing the steps that UniFFI tries to automate
-for you:
-
-* Expose some `pub extern "C"` functions from your Rust code.  Use the
-  [ffi_support](https://docs.rs/ffi-support/0.1.3/ffi_support/) crate to help make
-  this easier, and consult the crate's documentation for tips and gotchas.
-* Write some low-level Kotlin bindings for the exposed functions, using
-  [JNA](https://github.com/java-native-access/jna) to load the compiled rust
-  code via shared library. Our [android support package](../components/support/android)
-  has some helpers to make this easier.
-* Write some higher-level Kotlin code that wraps those bindings in a nice safe
-  ergonomic Kotlin API, trying to mirror the structure of the original Rust code
-  as much as possible.
+for you: flatten your Rust API into a bunch of `pub extern "C"` functions,
+then use [JNA](https://github.com/java-native-access/jna) to call them
+from Kotlin. The details of how to do that are well beyond the scope of
+this document.
 
 ### How should I name the package?
 
@@ -48,26 +40,32 @@ from a file named `libmegazord.so`.
 There are a number of them. The issue boils down to the fact that you need to be
 completely certain that a JVM is associated with a given thread in order to call
 java code on it. The difficulty is that the JVM can GC its threads and will not
-let rust know about it. JNA can work around this for us to some extent, however
-there are difficulties.
+let rust know about it.
 
+JNA can work around this for us to some extent, at the cost of some complexity.
 The approach it takes is essentially to spawn a thread for each callback
 invocation. If you are certain you’re going to do a lot of callbacks and they
-all originate on the same thread, you can tell it to cache these.
+all originate on the same thread, you can have them all run on a single thread
+by using the [`CallbackThreadInitializer`](
+https://java-native-access.github.io/jna/4.2.1/com/sun/jna/CallbackThreadInitializer.html).
 
-Calling back from Rust into Kotlin isn’t too bad so long as you ensure the
-callback can not be GCed while rust code holds onto it, and you can either
-accept the overhead of extra threads being instantiated on each call, or you can
-ensure that it only happens from a single thread.
+With the help of JNA's workarounds, calling back from Rust into Kotlin isn’t too bad
+so long as you ensure that Kotlin cannot GC the callback while rust code holds onto it
+(perhaps by stashing it in a global variable), and so long as you can either accept the overhead of extra threads being instantiated on each call or are willing to manage
+the threads explicitly.
 
 Note that the situation would be somewhat better if we used JNI directly (and
-not JNA), but this would cause us to need to write two versions of each ffi
-crate, one for iOS, and one for Android.
+not JNA), but this would cause us to need to generate different Rust FFI code for
+Android than for iOS.
 
-Ultimately, in any case where you can reasonably move to making something a
-blocking call, do so. It’s very easy to run such things on a background thread
-in Kotlin. This is in line with the Android documentation on JNI usage, and my
-own experience. It’s vastly simpler and less painful this way.
+Ultimately, in any case where there is an alternative to using a callback, you
+should probably pursue that alternative.
+
+For example if you're using callbacks to implement async I/O, it's likely better to
+move to doing a blocking call, and have the calling code dispatch it on a background
+thread. It’s very easy to run such things on a background thread in Kotlin, is in line
+with the Android documentation on JNI usage, and in our experience is vastly simpler
+and less painful than using callbacks.
 
 (Of course, not every case is solvable like this).
 
@@ -75,8 +73,9 @@ own experience. It’s vastly simpler and less painful this way.
 
 We get a couple things from using JNA that we wouldn't with JNI.
 
-1. We are able to write a *single* FFI crate. If we used JNI we'd need to write
-   one FFI that android calls, and one that iOS calls.
+1. We are able to use the same Rust FFI code on all platforms. If we used JNI we'd
+   need to generate an Android-specific Rust FFI crate that used the JNI APIs, and
+   a separate Rust FFI crate for exposing to Swift.
 
 2. JNA provides a mapping of threads to callbacks for us, making callbacks over
    the FFI possible. That said, in practice this is still error prone, and easy
@@ -96,6 +95,9 @@ However, it comes with the following downsides:
    [`ffi_support` docs](https://docs.rs/ffi-support/*/ffi_support/), but a
    major one is when to use `Pointer` vs `String` (getting this wrong will
    often work, but may corrupt memory).
+
+We aim to avoid triggering these bugs by auto-generating the JNA bindings
+rather than writing them by hand.
 
 ### How do I debug Rust code with the step-debugger in Android Studio
 

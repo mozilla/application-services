@@ -4,7 +4,8 @@ All names in this project should adhere to the guidelines outlined in this docum
 
 ## Rust Code
 
-TL;DR: do what Rust's builtin warnings and clippy lints tell you.
+TL;DR: do what Rust's builtin warnings and clippy lints tell you
+(and CI will fail if there are any unresolved warnings or clippy lints).
 
 ### Overview
 
