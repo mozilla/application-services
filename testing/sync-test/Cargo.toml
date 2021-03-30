@@ -8,9 +8,11 @@ license = "MPL-2.0"
 [dependencies]
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 viaduct = { path = "../../components/viaduct"}
+autofill = { path = "../../components/autofill" }
 logins = { path = "../../components/logins" }
 sync15 = { path = "../../components/sync15" }
 sync15-traits = { path = "../../components/support/sync15-traits" }
+sync_manager = { path = "../../components/sync_manager" }
 restmail-client = { path = "../../components/support/restmail-client" }
 tabs = { path = "../../components/tabs" }
 fxa-client = { path = "../../components/fxa-client", features = ["integration_test"] }

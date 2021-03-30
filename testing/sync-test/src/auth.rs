@@ -3,6 +3,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 
 use crate::Opts;
 use anyhow::Result;
+use autofill::db::store::Store as AutofillStore;
 use fxa_client::internal::{auth, config::Config as FxaConfig, FirefoxAccount};
 use logins::PasswordStore;
 use serde_json::json;
@@ -223,6 +224,7 @@ pub struct TestClient {
     pub fxa: fxa_client::internal::FirefoxAccount,
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
+    pub autofill_store: AutofillStore,
     pub logins_store: PasswordStore,
     pub tabs_store: TabsStore,
 }
@@ -266,12 +268,13 @@ impl TestClient {
         Ok(Self {
             fxa,
             test_acct: acct,
+            autofill_store: AutofillStore::new_shared_memory("sync-test")?,
             logins_store: PasswordStore::new_in_memory(None)?,
             tabs_store: TabsStore::new(),
         })
     }
 
-    pub fn data_for_sync(&mut self) -> Result<(Sync15StorageClientInit, KeyBundle, String)> {
+    pub fn get_sync_data(&mut self) -> Result<(Sync15StorageClientInit, String, String)> {
         // Allow overriding it via environment
         let tokenserver_url = option_env!("TOKENSERVER_URL")
             .map(|env_var| {
@@ -291,9 +294,14 @@ impl TestClient {
             tokenserver_url,
         };
 
-        let root_sync_key = KeyBundle::from_ksync_base64(&key.k)?;
-
         let device_id = self.fxa.get_current_device_id()?;
+
+        Ok((client_init, key.k.clone(), device_id))
+    }
+
+    pub fn data_for_sync(&mut self) -> Result<(Sync15StorageClientInit, KeyBundle, String)> {
+        let (client_init, scoped_key, device_id) = self.get_sync_data()?;
+        let root_sync_key = KeyBundle::from_ksync_base64(&scoped_key)?;
 
         Ok((client_init, root_sync_key, device_id))
     }
@@ -307,6 +315,7 @@ impl TestClient {
 
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
+        self.autofill_store = AutofillStore::new_shared_memory("sync-test")?;
         self.logins_store = PasswordStore::new_in_memory(None)?;
         self.tabs_store = TabsStore::new();
         Ok(())

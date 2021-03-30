@@ -7,7 +7,7 @@
 
 pub mod error;
 mod ffi;
-mod manager;
+pub mod manager;
 
 pub use error::{Error, ErrorKind, Result};
 

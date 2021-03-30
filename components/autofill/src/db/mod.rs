@@ -30,7 +30,6 @@ impl AutofillDb {
         Self::new_named(db_path)
     }
 
-    #[cfg(test)]
     pub fn new_memory(db_path: &str) -> Result<Self> {
         let name = PathBuf::from(format!("file:{}?mode=memory&cache=shared", db_path));
         Self::new_named(name)

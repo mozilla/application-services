@@ -23,6 +23,8 @@ const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
 const BOOKMARKS_ENGINE: &str = "bookmarks";
 const TABS_ENGINE: &str = "tabs";
+const ADDRESSES_ENGINE: &str = "addresses";
+const CREDIT_CARDS_ENGINE: &str = "creditcards";
 
 // Casts aren't allowed in `match` arms, so we can't directly match
 // `SyncParams.device_type`, which is an `i32`, against `DeviceType`
@@ -40,6 +42,12 @@ pub struct SyncManager {
     places: Weak<PlacesApi>,
     logins: Weak<Mutex<PasswordStore>>,
     tabs: Weak<Mutex<TabsStore>>,
+}
+
+impl Default for SyncManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SyncManager {
@@ -64,19 +72,17 @@ impl SyncManager {
         self.tabs = Arc::downgrade(&tabs);
     }
 
-    pub fn autofill_engine(engine: &str) -> Result<Option<Box<dyn SyncEngine>>> {
+    pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
         let cell = autofill::STORE_FOR_MANAGER.lock().unwrap();
         // The cell holds a `Weak` - borrow it (which is safe as we have the
         // mutex) and upgrade it to a real Arc.
         let r = cell.borrow();
         match r.upgrade() {
-            None => Ok(None),
+            None => None,
             Some(arc) => match engine {
-                "addresses" => Ok(Some(Box::new(autofill::sync::address::create_engine(arc)))),
-                "creditcards" => Ok(Some(Box::new(autofill::sync::credit_card::create_engine(
-                    arc,
-                )))),
-                _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+                "addresses" => Some(Box::new(autofill::sync::address::create_engine(arc))),
+                "creditcards" => Some(Box::new(autofill::sync::credit_card::create_engine(arc))),
+                _ => unreachable!("can't process unknown engine: {}", engine),
             },
         }
     }
@@ -113,7 +119,7 @@ impl SyncManager {
                 }
             }
             "addresses" | "creditcards" => {
-                if let Some(engine) = Self::autofill_engine(engine)? {
+                if let Some(engine) = Self::autofill_engine(engine) {
                     engine.wipe()?;
                 }
                 Ok(())
@@ -134,6 +140,12 @@ impl SyncManager {
         if let Some(places) = self.places.upgrade() {
             places.wipe_bookmarks()?;
             places.wipe_history()?;
+        }
+        if let Some(addresses) = Self::autofill_engine("addresses") {
+            addresses.wipe()?;
+        }
+        if let Some(credit_cards) = Self::autofill_engine("creditcards") {
+            credit_cards.wipe()?;
         }
         Ok(())
     }
@@ -166,7 +178,7 @@ impl SyncManager {
                 }
             }
             "addresses" | "creditcards" => {
-                if let Some(engine) = Self::autofill_engine(engine)? {
+                if let Some(engine) = Self::autofill_engine(engine) {
                     engine.reset(&EngineSyncAssociation::Disconnected)?;
                 }
                 Ok(())
@@ -187,6 +199,12 @@ impl SyncManager {
         if let Some(places) = self.places.upgrade() {
             places.reset_bookmarks()?;
             places.reset_history()?;
+        }
+        if let Some(addresses) = Self::autofill_engine("addresses") {
+            addresses.reset(&EngineSyncAssociation::Disconnected)?;
+        }
+        if let Some(credit_cards) = Self::autofill_engine("creditcards") {
+            credit_cards.reset(&EngineSyncAssociation::Disconnected)?;
         }
         Ok(())
     }
@@ -215,6 +233,20 @@ impl SyncManager {
         } else {
             log::warn!("Unable to reset places, be sure to call set_places before disconnect if this is surprising");
         }
+        if let Some(addresses) = Self::autofill_engine("addresses") {
+            if let Err(e) = addresses.reset(&EngineSyncAssociation::Disconnected) {
+                log::error!("Failed to reset addresses: {}", e);
+            }
+        } else {
+            log::warn!("Unable to reset addresses, be sure to call register_with_sync_manager before disconnect if this is surprising");
+        }
+        if let Some(credit_cards) = Self::autofill_engine("creditcards") {
+            if let Err(e) = credit_cards.reset(&EngineSyncAssociation::Disconnected) {
+                log::error!("Failed to reset credit cards: {}", e);
+            }
+        } else {
+            log::warn!("Unable to reset credit cards, be sure to call register_with_sync_manager before disconnect if this is surprising");
+        }
     }
 
     pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
@@ -222,6 +254,8 @@ impl SyncManager {
         let places = self.places.upgrade();
         let tabs = self.tabs.upgrade();
         let logins = self.logins.upgrade();
+        let addresses = Self::autofill_engine("addresses");
+        let credit_cards = Self::autofill_engine("creditcards");
         if places.is_some() {
             have_engines.push(HISTORY_ENGINE);
             have_engines.push(BOOKMARKS_ENGINE);
@@ -231,6 +265,12 @@ impl SyncManager {
         }
         if tabs.is_some() {
             have_engines.push(TABS_ENGINE);
+        }
+        if addresses.is_some() {
+            have_engines.push(ADDRESSES_ENGINE);
+        }
+        if credit_cards.is_some() {
+            have_engines.push(CREDIT_CARDS_ENGINE);
         }
         check_engine_list(&params.engines_to_sync, &have_engines)?;
 
@@ -264,6 +304,8 @@ impl SyncManager {
         let mut places = self.places.upgrade();
         let logins = self.logins.upgrade();
         let tabs = self.tabs.upgrade();
+        let addresses = Self::autofill_engine("addresses");
+        let credit_cards = Self::autofill_engine("creditcards");
 
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
         let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
@@ -272,6 +314,8 @@ impl SyncManager {
         let history_sync = should_sync(&params, HISTORY_ENGINE) && places.is_some();
         let logins_sync = should_sync(&params, LOGINS_ENGINE) && logins.is_some();
         let tabs_sync = should_sync(&params, TABS_ENGINE) && tabs.is_some();
+        let addresses_sync = should_sync(&params, ADDRESSES_ENGINE) && addresses.is_some();
+        let credit_cards_sync = should_sync(&params, CREDIT_CARDS_ENGINE) && credit_cards.is_some();
 
         let places_conn = if bookmarks_sync || history_sync {
             places
@@ -282,13 +326,19 @@ impl SyncManager {
         } else {
             None
         };
-        let l = if logins_sync {
+        let ls = if logins_sync {
             logins.as_ref().map(|l| l.lock().expect("poisoned mutex"))
         } else {
             None
         };
-        let t = if tabs_sync {
+        let ts = if tabs_sync {
             tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"))
+        } else {
+            None
+        };
+        let ads = if addresses_sync { addresses } else { None };
+        let cs = if credit_cards_sync {
+            credit_cards
         } else {
             None
         };
@@ -316,14 +366,24 @@ impl SyncManager {
             }
         }
 
-        if let Some(le) = l.as_ref() {
+        if let Some(le) = ls.as_ref() {
             assert!(logins_sync, "Should have already checked");
             engines.push(Box::new(logins::LoginStore::new(&le.db)));
         }
 
-        if let Some(tbs) = t.as_ref() {
+        if let Some(tbs) = ts.as_ref() {
             assert!(tabs_sync, "Should have already checked");
             engines.push(Box::new(tabs::TabsEngine::new(&tbs.storage)));
+        }
+
+        if let Some(add) = ads {
+            assert!(addresses_sync, "Should have already checked");
+            engines.push(add);
+        }
+
+        if let Some(cc) = cs {
+            assert!(credit_cards_sync, "Should have already checked");
+            engines.push(cc);
         }
 
         let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
@@ -489,7 +549,16 @@ fn check_engine_list(list: &[String], have_engines: &[&str]) -> Result<()> {
         have_engines
     );
     for e in list {
-        if [BOOKMARKS_ENGINE, HISTORY_ENGINE, LOGINS_ENGINE, TABS_ENGINE].contains(&e.as_ref()) {
+        if [
+            ADDRESSES_ENGINE,
+            CREDIT_CARDS_ENGINE,
+            BOOKMARKS_ENGINE,
+            HISTORY_ENGINE,
+            LOGINS_ENGINE,
+            TABS_ENGINE,
+        ]
+        .contains(&e.as_ref())
+        {
             if !have_engines.iter().any(|engine| e == engine) {
                 return Err(ErrorKind::UnsupportedFeature(e.to_string()).into());
             }
