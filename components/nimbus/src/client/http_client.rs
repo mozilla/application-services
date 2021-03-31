@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use crate::config::RemoteSettingsConfig;
 use crate::error::{NimbusError, Result};
 use crate::{Experiment, SettingsClient, SCHEMA_VERSION};
+use remote_settings_client::{client::RcCryptoVerifier};
 use std::cell::Cell;
 use url::Url;
 use viaduct::{status_codes, Request, Response};
@@ -30,6 +31,7 @@ pub struct Client {
     collection_name: String,
     bucket_name: String,
     remote_state: Cell<RemoteState>,
+    rs_client: remote_settings_client::Client,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -45,11 +47,20 @@ impl Client {
     #[allow(unused)]
     pub fn new(config: RemoteSettingsConfig) -> Result<Self> {
         let base_url = Url::parse(&config.server_url)?;
+        let mut rs_client = remote_settings_client::Client::builder()
+            .bucket_name(config.bucket_name)
+            .collection_name(config.collection_name)
+            .verifier(Box::new(RcCryptoVerifier {}))
+            .build()
+            .unwrap();
+
+            // XXX lots of the stuff below here is probably no longer necessary
         Ok(Self {
             base_url,
             bucket_name: config.bucket_name,
             collection_name: config.collection_name,
             remote_state: Cell::new(RemoteState::Ok),
+            rs_client
         })
     }
 
@@ -117,24 +128,24 @@ impl SettingsClient for Client {
         );
         let url = self.base_url.join(&path)?;
         let req = Request::get(url);
-        let resp = self.make_request(req)?;
-        parse_experiments(&resp.text())
+        //let resp = self.make_request(req)?;
+        let records = self.rs_client.get().unwrap();
+        parse_experiments(records)
     }
 }
 
-pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
+pub fn parse_experiments(data: Vec<remote_settings_client::Record>) -> Result<Vec<Experiment>> {
     // We first encode the response into a `serde_json::Value`
     // to allow us to deserialize each experiment individually,
     // omitting any malformed experiments
-    let value: serde_json::Value = serde_json::from_str(payload)?;
-    let data = value
-        .get("data")
-        .ok_or(NimbusError::InvalidExperimentFormat)?;
+    // let value: serde_json::Value = serde_json::from_str(payload)?;
+    // let data = value
+    //     .get("data")
+    //     .ok_or(NimbusError::InvalidExperimentFormat)?;
     let mut res = Vec::new();
     for exp in data
-        .as_array()
-        .ok_or(NimbusError::InvalidExperimentFormat)?
     {
+        debug(exp);
         // Validate the schema major version matches the supported version
         let exp_schema_version = match exp.get("schemaVersion") {
             Some(ver) => {
@@ -158,7 +169,7 @@ pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
             continue;
         }
 
-        match serde_json::from_value::<Experiment>(exp.clone()) {
+        match serde_json::from_value::<Experiment>(*(exp.as_object())) {
             Ok(exp) => res.push(exp),
             Err(e) => {
                 log::trace!("Malformed experiment data: {:#?}", exp);

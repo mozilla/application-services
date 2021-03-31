@@ -27,6 +27,7 @@ log = "0.4"
 viaduct = { path = "../viaduct" }
 thiserror = "1"
 url = "2.1"
+remote-settings-client = {git="https://github.com/dmose/remote-settings-client",rev="d2e44828be994ecbd081e9c9fcc453787b60b97a", features = ["rc_crypto_verifier"]}
 rkv = "0.17"
 jexl-eval = "0.1.7"
 uuid = { version = "0.8", features = ["serde", "v4"]}
