@@ -757,9 +757,9 @@ checksum = "134951f4028bdadb9b84baf4232681efbf277da25144b9b0ad65df75946c422b"
 
 [[package]]
 name = "ece"
-version = "2.0.0"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd4c0fe620fc54d977412db29e7cc121e4200560cfe93b8ccb4d20e82f3eecab"
+checksum = "ce72a9f609537e2947d2e9ef9d3168e6b29eecaafb6d38dba8575849d5424678"
 dependencies = [
  "base64 0.12.3",
  "byteorder",
