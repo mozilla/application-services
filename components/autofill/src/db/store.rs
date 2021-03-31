@@ -71,6 +71,10 @@ impl Store {
         self.store_impl.delete_credit_card(guid)
     }
 
+    pub fn delete_all_credit_cards(&self) -> Result<()> {
+        self.store_impl.delete_all_credit_cards()
+    }
+
     pub fn touch_credit_card(&self, guid: String) -> Result<()> {
         self.store_impl.touch_credit_card(guid)
     }
@@ -95,8 +99,16 @@ impl Store {
         self.store_impl.delete_address(guid)
     }
 
+    pub fn delete_all_addresses(&self) -> Result<()> {
+        self.store_impl.delete_all_addresses()
+    }
+
     pub fn touch_address(&self, guid: String) -> Result<()> {
         self.store_impl.touch_address(guid)
+    }
+
+    pub fn delete_everything(&self) -> Result<()> {
+        self.store_impl.delete_everything()
     }
 
     // This allows the embedding app to say "make this instance available to
@@ -185,6 +197,14 @@ impl StoreImpl {
         credit_cards::delete_credit_card(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
+    pub fn delete_all_credit_cards(&self) -> Result<()> {
+        let writer = &self.db.lock().unwrap().writer;
+        let tx = writer.unchecked_transaction()?;
+        credit_cards::delete_all(&tx)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn touch_credit_card(&self, guid: String) -> Result<()> {
         credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
@@ -213,8 +233,25 @@ impl StoreImpl {
         addresses::delete_address(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
+    pub fn delete_all_addresses(&self) -> Result<()> {
+        let writer = &self.db.lock().unwrap().writer;
+        let tx = writer.unchecked_transaction()?;
+        addresses::delete_all(&tx)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn touch_address(&self, guid: String) -> Result<()> {
         addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    }
+
+    pub fn delete_everything(&self) -> Result<()> {
+        let writer = &self.db.lock().unwrap().writer;
+        let tx = writer.unchecked_transaction()?;
+        credit_cards::delete_all(&tx)?;
+        addresses::delete_all(&tx)?;
+        tx.commit()?;
+        Ok(())
     }
 }
 
@@ -278,6 +315,59 @@ mod tests {
 
         db.writer.execute("DELETE FROM moz_meta", NO_PARAMS)?;
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_delete_everything() -> Result<()> {
+        fn count_records(conn: &Connection, table: &str) -> u32 {
+            conn.query_row(
+                &format!("SELECT COUNT(*) FROM {}", table),
+                NO_PARAMS,
+                |row| row.get(0),
+            )
+            .expect("should work")
+        }
+
+        let store = StoreImpl {
+            db: Mutex::new(new_mem_db()),
+        };
+        {
+            // scope for the mutex
+            let db = store.db.lock().unwrap();
+
+            addresses::add_address(
+                &db,
+                UpdatableAddressFields {
+                    given_name: "jane".to_string(),
+                    family_name: "doe".to_string(),
+                    street_address: "123 Second Avenue".to_string(),
+                    address_level2: "Chicago, IL".to_string(),
+                    country: "United States".to_string(),
+                    ..UpdatableAddressFields::default()
+                },
+            )?;
+            credit_cards::add_credit_card(
+                &db,
+                UpdatableCreditCardFields {
+                    cc_name: "john deer".to_string(),
+                    cc_number_enc: "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX".to_string(),
+                    cc_number_last_4: "5678".to_string(),
+                    cc_exp_month: 10,
+                    cc_exp_year: 2025,
+                    cc_type: "mastercard".to_string(),
+                },
+            )?;
+            assert_eq!(count_records(&db, "addresses_data"), 1);
+            assert_eq!(count_records(&db, "credit_cards_data"), 1);
+        }
+        store.delete_everything()?;
+        {
+            // scope for the mutex
+            let db = store.db.lock().unwrap();
+            assert_eq!(count_records(&db, "addresses_data"), 0);
+            assert_eq!(count_records(&db, "credit_cards_data"), 0);
+        }
         Ok(())
     }
 }

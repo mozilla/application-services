@@ -205,6 +205,11 @@ pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
     Ok(exists)
 }
 
+pub(super) fn delete_all(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute("DELETE FROM credit_cards_data", NO_PARAMS)?;
+    Ok(())
+}
+
 pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
@@ -566,6 +571,60 @@ pub(crate) mod tests {
                 ":guid": cc2_guid,
             },
         )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_credit_card_delete_all() -> Result<()> {
+        let db = new_mem_db();
+        let encdec = EncryptorDecryptor::new_test_key();
+        add_credit_card(
+            &db,
+            UpdatableCreditCardFields {
+                cc_name: "john deer".to_string(),
+                cc_number_enc: encdec.encrypt("1234567812345678")?,
+                cc_number_last_4: "5678".to_string(),
+                cc_exp_month: 10,
+                cc_exp_year: 2025,
+                cc_type: "mastercard".to_string(),
+            },
+        )?;
+        let card2 = add_credit_card(
+            &db,
+            UpdatableCreditCardFields {
+                cc_name: "john doe".to_string(),
+                cc_number_enc: encdec.encrypt("1234123412341234")?,
+                cc_number_last_4: "1234".to_string(),
+                cc_exp_month: 5,
+                cc_exp_year: 2024,
+                cc_type: "visa".to_string(),
+            },
+        )?;
+
+        // still do the mirror checks here.
+        let payload = card2.into_payload(&encdec).expect("is json");
+        test_insert_mirror_record(&db, payload);
+
+        let tx = db.writer.unchecked_transaction()?;
+
+        delete_all(&tx)?;
+
+        // should be no cards left.
+        let num_cards: u32 =
+            tx.query_row("SELECT COUNT(*) FROM credit_cards_data", NO_PARAMS, |row| {
+                row.get(0)
+            })?;
+        assert_eq!(num_cards, 0);
+
+        // But the tombstone logic must still be used (meaning 1 tombstone)
+        let num_tombstones: u32 = tx.query_row(
+            "SELECT COUNT(*) FROM credit_cards_tombstones",
+            NO_PARAMS,
+            |row| row.get(0),
+        )?;
+        assert_eq!(num_tombstones, 1);
+        tx.rollback()?;
 
         Ok(())
     }

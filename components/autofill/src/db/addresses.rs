@@ -236,6 +236,11 @@ pub(crate) fn delete_address(conn: &Connection, guid: &Guid) -> Result<bool> {
     Ok(exists)
 }
 
+pub(super) fn delete_all(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute("DELETE FROM addresses_data", NO_PARAMS)?;
+    Ok(())
+}
+
 pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
@@ -584,6 +589,60 @@ mod tests {
         .expect("manual insert into mirror");
         delete_address(&db, &saved_address.guid).expect("2nd delete");
         assert_eq!(num_tombstones(&db), 1);
+    }
+
+    #[test]
+    fn test_address_delete_all() -> Result<()> {
+        let db = new_mem_db();
+        add_address(
+            &db,
+            UpdatableAddressFields {
+                given_name: "jane".to_string(),
+                family_name: "doe".to_string(),
+                street_address: "123 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+                ..UpdatableAddressFields::default()
+            },
+        )?;
+        let addy2 = add_address(
+            &db,
+            UpdatableAddressFields {
+                given_name: "jill".to_string(),
+                family_name: "door".to_string(),
+                street_address: "654 Second Avenue".to_string(),
+                address_level2: "Chicago, IL".to_string(),
+                country: "United States".to_string(),
+                ..UpdatableAddressFields::default()
+            },
+        )?;
+        db.execute(
+            &format!(
+                "INSERT INTO addresses_mirror (guid, payload) VALUES ('{}', 'whatever')",
+                addy2.guid,
+            ),
+            NO_PARAMS,
+        )?;
+
+        let tx = db.writer.unchecked_transaction()?;
+
+        delete_all(&tx)?;
+
+        // should be no addresses left.
+        let num_addresses: u32 =
+            tx.query_row("SELECT COUNT(*) FROM addresses_data", NO_PARAMS, |row| {
+                row.get(0)
+            })?;
+        assert_eq!(num_addresses, 0);
+        // But the tombstone logic must still be used (meaning 1 tombstone)
+        let num_tombstones: u32 = tx.query_row(
+            "SELECT COUNT(*) FROM addresses_tombstones",
+            NO_PARAMS,
+            |row| row.get(0),
+        )?;
+        assert_eq!(num_tombstones, 1);
+        tx.rollback()?;
+        Ok(())
     }
 
     #[test]

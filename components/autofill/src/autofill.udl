@@ -111,6 +111,9 @@ interface Store {
     boolean delete_credit_card(string guid);
 
     [Throws=Error]
+    void delete_all_credit_cards();
+
+    [Throws=Error]
     void touch_credit_card(string guid);
 
     [Throws=Error]
@@ -129,7 +132,13 @@ interface Store {
     boolean delete_address(string guid);
 
     [Throws=Error]
+    void delete_all_addresses();
+
+    [Throws=Error]
     void touch_address(string guid);
+
+    [Throws=Error]
+    void delete_everything();
 
     void register_with_sync_manager();
 };
