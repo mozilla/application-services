@@ -26,10 +26,9 @@ you work on app-services projects.  We have:
     * Code and architecture guidelines:
       * [Guide to Building a Rust Component](./howtos/building-a-rust-component.md)
       * [Guide to Testing a Rust Component](./howtos/testing-a-rust-component.md)
-      * [How to expose your Rust Component to Kotlin](./howtos/exposing-rust-components-to-kotlin.md)
-      * [How to expose your Rust Component to Swift](./howtos/exposing-rust-components-to-swift.md)
+      * [Guide to adding a new Component to our build/publish setup](./howtos/adding-a-new-component.md)
+      * [Guide to converting component with hand-written bindings to use UniFFI](./howtos/converting-a-component-to-uniffi.md)
       * [How to pass data cross the FFI boundary](./howtos/when-to-use-what-in-the-ffi.md)
-        * [How to do that specifically using protobuf](./howtos/passing-protobuf-data-over-ffi.md)
     * Development Tooling:
       * [How to try out local changes in Fenix](./howtos/locally-published-components-in-fenix.md)
       * [How to try out local changes in Firefox for iOS](./howtos/locally-published-components-in-ios.md)
