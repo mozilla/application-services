@@ -7,7 +7,7 @@ hand-written FFI layer and foreign-language bindings.
 As we've gained more experience with building components in this way, we've
 started to automated bindings generation and capture best practices in a
 tool called [UniFFI](https://mozilla.github.io/uniffi-rs/), which is the
-current recommended approach when [adding a new component from scratch](
+currently recommended approach when [adding a new component from scratch](
 ./adding-a-new-component.md).
 
 We expect that existing components will gradually be ported over to use
@@ -46,7 +46,7 @@ The code for these parts will be laid out something like this:
           * `main/`
               * `AndroidManifest.xml`
               * `java/mozilla/appservices/<component_name>/`
-                  * `LibComponentNameFFI.kt` (low-level bindings to the C-style FFI)
+                  * `Lib<ComponentName>FFI.kt` (low-level bindings to the C-style FFI)
                   * Higher-level hand-written Kotlin that wraps the FFI.
     * `ios/`
         * `<component_name>/`
@@ -57,13 +57,16 @@ The goal here is to replace much of the hand-written wrapper layers with autogen
 code:
 
 * The `./ffi/` crate will disappear entirely, its work is automated by UniFFI
-* The low-level `LibComponentNameFFI.kt` file will disappear entirely, as will some of the
+    * If you still need some hand-written `pub extern "C"` functions, perhaps to
+      implement features not currently supported by UniFFI, then they should move
+      into `lib.rs` of the main component crate.
+* The low-level `Lib<ComponentName>FFI.kt` file will disappear entirely, as will some of the
   code that converts it back into nice high-level Kotlin classes and interfaces.
-      * Some of the hand-written Kotlin code may remain, if it provides functionality that
+    * Some of the hand-written Kotlin code may remain, if it provides functionality that
       cannot be implemented in Rust.
-* The low-level `RustComponentNameAPI.h` file will disappear entirely, as will some of the
+* The low-level `Rust<ComponentName>API.h` file will disappear entirely, as will some of the
   code that converts it back into nice high-level Swift classes and interfaces.
-      * Some of the hand-written Kotlin code may remain, if it provides functionality that
+    * Some of the hand-written Swift code may remain, if it provides functionality that
       cannot be implemented in Rust.
 
 You'll aim to end up with a simplified file structure that looks like this:
@@ -96,6 +99,12 @@ using [UniFFI's interface definition language](https://mozilla.github.io/uniffi-
 You'll probably need to reverse-engineer it a little bit from the existing hand-written Kotlin and/or
 Swift code.
 
+Don't spend too much time on trying to match every minute detail of the existing hand-written API.
+There are likely to be small differences between how UniFFI likes to do things and how the hand-written
+APIs were structured, and it's in everyone's best long-term interests to just push ahead and update
+consumers to accommodate any breaking API changes, rathern than e.g. trying to convince UniFFI to
+capitalize enum variant names in the same style that the hand-written code was using.
+
 To check whether the `.udl` file is syntactically valid, you can use `uniffi-bindgen` to generate
 the Rust FFI scaffolding like so:
 
@@ -114,7 +123,7 @@ the existing component that is hard to express in UniFFI, perhaps even uncoverin
 that needs to be added to UniFFI itself!
 
 The `.udl` file is definitely a first draft at this point. It is normal and expected to need
-to iterate on this file as you port over the code.
+to iterate on this file as you port over the underlying Rust code.
 
 
 ## Restructure the Rust code to introduce UniFFI
@@ -147,6 +156,10 @@ The details of this step will depend heavily on the specific crate, but some tip
   defined in the `.proto` file will need to be converted into `dictionary` or `enum` definitions
   in your `.udl` file. See the section below for more details.
 
+As noted above, don't be afraid to accept some API churn during the conversion process.
+We're willing to accept some breaking API changes as the cost of getting bindings generated
+for free, as long as the core functionality and mental model of the component remain intact.
+
 At this point, in theory the crate should be buildable with UniFFI, although it's likely
 to require some iteration to get it all working! Run `cargo check` to check for any
 compilation errors without having to do a full build.
@@ -177,6 +190,8 @@ For more complex cases, you may find it helpful to define an `Into` mapping betw
 UniFFI dictionary/enum in the crate's public interface, and a more complex struct designed
 for internal use.
 
+As noted above, don't be afraid to accept some API churn during this conversion process.
+
 Once you have replaced all uses of the `msg_types` structs in the Rust code:
 
 * Delete `./src/<component_name>_msg_types.proto`.
@@ -203,6 +218,10 @@ cargo doc --no-deps --open
 In future, we intend to automatically extract documentation from the Rust code
 and make it easily available to consumers of the generated bindings.
 
+(In fact there is some work-in-progress code in [uniffi-rs#416](https://github.com/mozilla/uniffi-rs/pull/416)
+that can read docs from the Rust code and write them back into the `.udl` file, which you're
+welcome to try out if you're feeling adventurous. But it's just a very hacky prototype.)
+
 ## Set up the Kotlin wrapper
 
 It's easiest to start by removing all of the hand-written Kotlin code under `android/src/main/java`
@@ -225,9 +244,9 @@ If there are existing Kotlin tests for the component, the next step is to get th
 
 * `./gradlew <component_name>:test`
 
-It is normal and expected for the autogenerated bindings to be subtly different from the
-previous hand-written ones. For example, UniFFI insists on CAMEL_CASING variant names in
-Kotlin enums while the hand-written code does not to this consistently. Some components
+As noted above, it is normal and expected for the autogenerated bindings to be subtly different
+from the previous hand-written ones. For example, UniFFI insists on using SHOUTY_SNAKE_CASE
+variant names in Kotlin enums while the hand-written code may have used CamelCase. Some components
 also have small naming differences between the Rust code and the hand-written Kotlin bindings,
 which UniFFI will not allow.
 
@@ -269,9 +288,9 @@ If there are existing Swift tests for the component, the next step is to get tho
 * `./automation/run_ios_tests.sh`
 * (or run them from the XCode GUI)
 
-It is normal and expected for the autogenerated bindings to be subtly different from the
-previous hand-written ones. Many existing components have small naming differences between
-the Rust code and the hand-written Swift bindings, which UniFFI will not allow.
+As noted above, it is normal and expected for the autogenerated bindings to be subtly different
+from the previous hand-written ones. Many existing components have small naming differences
+between the Rust code and the hand-written Swift bindings, which UniFFI will not allow.
 
 If the component had functionality in its Swift layer that was not part of the Rust API,
 then you'll need to add some hand-written Swift code under `./ios/<ComponentName>` to
