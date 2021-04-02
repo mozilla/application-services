@@ -389,15 +389,17 @@ mod tests {
 
         // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
         // or `channel` doesn't match the experiment, then the client won't be enrolled.
-        let context = AppContext {
+        let mut context = AppContext {
             app_name: "NimbusTest".to_string(),
             app_id: "org.example.app".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
         };
 
+        let id = uuid::Uuid::new_v4();
+
         let enrollment = evaluate_enrollment(
-            &uuid::Uuid::new_v4(),
+            &id,
             &Default::default(),
             &context,
             &experiment,
@@ -411,6 +413,25 @@ mod tests {
                 ..
             }
         ));
+
+        // Change the channel to test when it has a different case than expected
+        // (See SDK-246: https://jira.mozilla.com/browse/SDK-246 )
+        context.channel = "Nightly".to_string();
+
+        // Now we will be enrolled in the experiment because we have the right channel, but with different capitalization
+        let enrollment =
+            evaluate_enrollment(
+                &id, &Default::default(),
+                &context,
+                &experiment,
+            ).unwrap();
+            assert!(matches!(
+                enrollment.status,
+                EnrollmentStatus::Enrolled {
+                    reason: EnrolledReason::Qualified,
+                    ..
+                }
+            ));
     }
 
     #[test]
