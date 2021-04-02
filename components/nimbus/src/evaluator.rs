@@ -82,7 +82,10 @@ pub fn evaluate_enrollment(
     // See https://jira.mozilla.com/browse/SDK-246 for more info.
     match &exp.channel {
         Some(channel) => {
-            if !channel.to_lowercase().eq(&app_context.channel.to_lowercase()) {
+            if !channel
+                .to_lowercase()
+                .eq(&app_context.channel.to_lowercase())
+            {
                 return Ok(ExperimentEnrollment {
                     slug: exp.slug.clone(),
                     status: EnrollmentStatus::NotEnrolled {
@@ -398,13 +401,8 @@ mod tests {
 
         let id = uuid::Uuid::new_v4();
 
-        let enrollment = evaluate_enrollment(
-            &id,
-            &Default::default(),
-            &context,
-            &experiment,
-        )
-        .unwrap();
+        let enrollment =
+            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
         println!("Uh oh!  {:#?}", enrollment.status);
         assert!(matches!(
             enrollment.status,
@@ -420,18 +418,14 @@ mod tests {
 
         // Now we will be enrolled in the experiment because we have the right channel, but with different capitalization
         let enrollment =
-            evaluate_enrollment(
-                &id, &Default::default(),
-                &context,
-                &experiment,
-            ).unwrap();
-            assert!(matches!(
-                enrollment.status,
-                EnrollmentStatus::Enrolled {
-                    reason: EnrolledReason::Qualified,
-                    ..
-                }
-            ));
+            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled {
+                reason: EnrolledReason::Qualified,
+                ..
+            }
+        ));
     }
 
     #[test]
