@@ -78,10 +78,11 @@ pub fn evaluate_enrollment(
         None => log::debug!("Experiment missing app_id, skipping it as a targeting parameter"),
     }
     // Verify the channel matches the application being targeted
-    // by the experiment.
+    // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
+    // See https://jira.mozilla.com/browse/SDK-246 for more info.
     match &exp.channel {
         Some(channel) => {
-            if !channel.eq(&app_context.channel) {
+            if !channel.to_lowercase().eq(&app_context.channel.to_lowercase()) {
                 return Ok(ExperimentEnrollment {
                     slug: exp.slug.clone(),
                     status: EnrollmentStatus::NotEnrolled {
