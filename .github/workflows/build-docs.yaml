@@ -1,0 +1,57 @@
+name: Build and Deploy
+on:   
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 1 * * *'
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Check     
+    steps:
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Get a-s repository
+        run: |
+          echo `env`
+          git init .
+          git remote add origin https://github.com/mozilla/application-services.git
+          git pull origin main
+          git submodule init
+          git submodule update --recursive
+          
+      - name: Generate developer docs with mdbook  
+        run: |
+          cargo install mdbook mdbook-mermaid mdbook-open-on-gh
+          ./tools/build-book.sh
+ 
+      - name: Build Dependencies and Generate Rust Docs
+        env: 
+          SQLCIPHER_LIB_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/lib
+          SQLCIPHER_INCLUDE_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/include
+          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
+          NSS_STATIC: 1 
+        run: |
+
+          git clone https://chromium.googlesource.com/external/gyp.git tools/gyp
+          cd tools/gyp
+          sudo python setup.py install
+          cd ../..
+          sudo apt-get install ninja-build zlib1g-dev tclsh python3
+          ./libs/verify-desktop-environment.sh
+          cargo doc --no-deps
+          echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
+          mkdir -p build/docs/rust-docs
+          cp -rf target/doc/* build/docs/rust-docs
+          
+      - name: Deploy 🚀
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages # The branch the action should deploy to.
+          FOLDER: build/docs # The folder the action should deploy.
