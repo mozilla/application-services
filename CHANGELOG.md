@@ -1,3 +1,14 @@
+# v75.0.1 (_2021-04-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v75.0.0...v75.0.1)
+
+## Nimbus SDK
+
+### What's changed
+
+- Make `channel` targeting comparision case-insensitive. ([#4009](https://github.com/mozilla/application-services/pull/4009))
+
+
 # v75.0.0 (_2021-03-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v74.0.1...v75.0.0)
@@ -34,7 +45,7 @@
 [Full Changelog](https://github.com/mozilla/application-services/compare/v73.0.1...v73.0.2)
 
 * This is a deliberately empty release, designed to help test some downstream automation
-  that picks up new appservices releases.  
+  that picks up new appservices releases.
 
 # v73.0.1 (_2021-03-10_)
 
@@ -50,14 +61,14 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v72.1.0...v73.0.0)
 
-## General 
+## General
 
 - The bundled version of the Nimbus SDK has been updated to v0.9.0.
 - The top-level Rust workspace now builds with Rust 1.50
 - The top-level Rust workspace is now stapled to Rust 1.50, so all developers
   will build with 1.50, as will the continuous integration for this repo.
 
-## iOS 
+## iOS
 
 - The Nimbus SDK is now available as part of the `MozillaAppServices` Swift module.
 
