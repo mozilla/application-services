@@ -47,6 +47,12 @@ impl Store {
         })
     }
 
+    pub fn new_shared_memory(db_name: &str) -> Result<Self> {
+        Ok(Self {
+            store_impl: Arc::new(StoreImpl::new_shared_memory(db_name)?),
+        })
+    }
+
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
         self.store_impl.add_credit_card(fields)
     }
@@ -142,12 +148,19 @@ impl StoreImpl {
         })
     }
 
-    /// Creates a store backed by an in-memory database.
+    /// Creates a store backed by an in-memory database with its own memory API (required for unit tests).
     #[cfg(test)]
     pub fn new_memory() -> Self {
         Self {
             db: Mutex::new(crate::db::test::new_mem_db()),
         }
+    }
+
+    // Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
+    pub fn new_shared_memory(db_name: &str) -> Result<Self> {
+        Ok(Self {
+            db: Mutex::new(AutofillDb::new_memory(db_name)?),
+        })
     }
 
     pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
