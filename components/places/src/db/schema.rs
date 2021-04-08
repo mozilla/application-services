@@ -18,7 +18,7 @@ use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 13;
+const VERSION: i64 = 14;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -280,6 +280,7 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         ],
         || Ok(()),
     )?;
+    migration(db, 13, 14, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // moz_places_metadata.
 
     // Add more migrations here...
 
@@ -841,12 +842,12 @@ mod tests {
         .expect("should insert into moz_bookmarks_synced");
 
         // Now open a second connection to the same named in-memory database.
-        // This should do our migration.
+        // This should do our migration. It'll migrate to the latest schema version, not the next one.
         let upgrade = PlacesDb::open(path, ConnectionType::ReadWrite, 0, Default::default())
             .expect("Should open second in-memory database with shared cache");
         assert_eq!(
             get_current_schema_version(&upgrade)?,
-            13,
+            14,
             "Should upgrade schema without errors"
         );
         // One with no mirror entry should still be New

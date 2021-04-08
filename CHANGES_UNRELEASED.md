@@ -2,6 +2,10 @@
 
 # Unreleased Changes
 
+## History Metadata Storage
+
+- Introduced a new metadata storage API, part of libplaces. Currently only has Android bindings.
+
 ## Sync Manager
 
 - Removed support for the wipeAll command (#4006)

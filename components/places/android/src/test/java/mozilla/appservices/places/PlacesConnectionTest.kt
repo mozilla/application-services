@@ -3,6 +3,7 @@
 
 package mozilla.appservices.places
 
+import kotlinx.coroutines.runBlocking
 import androidx.test.core.app.ApplicationProvider
 import mozilla.appservices.Megazord
 import mozilla.components.service.glean.testing.GleanTestRule
@@ -426,5 +427,57 @@ class PlacesConnectionTest {
                 title = "example4")
 
         db.getBookmarksTree(folderGUID, false)
+    }
+
+    @Test
+    fun testHistoryMetadataBasics() = runBlocking {
+        val currentTime = System.currentTimeMillis()
+
+        assertEquals(0, db.getHistoryMetadataSince(0L).size)
+
+        val meta2 = HistoryMetadata(
+            guid = null,
+            url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
+            title = "Are All Wireless Earbuds As Evil As AirPods? - iFixit",
+            createdAt = currentTime + 1000,
+            updatedAt = currentTime + 2000,
+            totalViewTime = 2000,
+            searchTerm = "repairable wireless headset",
+            isMedia = false,
+            parentUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit"
+        )
+        db.addHistoryMetadata(meta2)
+
+        val meta3 = HistoryMetadata(
+            guid = null,
+            url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
+            title = "Тайна валдайской дачи Путина - YouTube",
+            createdAt = currentTime + 1500,
+            updatedAt = currentTime + 1700,
+            totalViewTime = 200,
+            searchTerm = "путин валдай",
+            isMedia = true,
+            parentUrl = "https://yandex.ru/query?путин+валдай"
+        )
+        db.addHistoryMetadata(meta3)
+
+        val meta4 = HistoryMetadata(
+            guid = null,
+            url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
+            title = null,
+            createdAt = currentTime + 1500,
+            updatedAt = currentTime + 1700,
+            totalViewTime = 200,
+            searchTerm = null,
+            isMedia = true,
+            parentUrl = null
+        )
+        db.addHistoryMetadata(meta4)
+
+        assertEquals(3, db.getHistoryMetadataSince(0L).size)
+
+        db.deleteOlderThan(currentTime + 3000)
+
+        assertEquals(0, db.getHistoryMetadataSince(0L).size)
     }
 }

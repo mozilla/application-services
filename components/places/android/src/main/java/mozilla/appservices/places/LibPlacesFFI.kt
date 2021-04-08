@@ -196,6 +196,52 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     )
 
+    fun places_get_latest_history_metadata_for_url(
+        handle: PlacesConnectionHandle,
+        url: String,
+        error: RustError.ByReference
+    ): RustBuffer.ByValue
+
+    fun places_get_history_metadata_between(
+        handle: PlacesConnectionHandle,
+        start: Long,
+        end: Long,
+        error: RustError.ByReference
+    ): RustBuffer.ByValue
+
+    fun places_get_history_metadata_since(
+        handle: PlacesConnectionHandle,
+        start: Long,
+        error: RustError.ByReference
+    ): RustBuffer.ByValue
+
+    fun places_query_history_metadata(
+        handle: PlacesConnectionHandle,
+        query: String,
+        limit: Int,
+        error: RustError.ByReference
+    ): RustBuffer.ByValue
+
+    fun places_add_history_metadata(
+        handle: PlacesConnectionHandle,
+        data: Pointer,
+        len: Int,
+        out_err: RustError.ByReference
+    ): Pointer?
+
+    fun places_update_history_metadata(
+        handle: PlacesConnectionHandle,
+        guid: String,
+        totalViewTime: Int,
+        out_err: RustError.ByReference
+    )
+
+    fun places_metadata_delete_older_than(
+        handle: PlacesConnectionHandle,
+        olderThan: Long,
+        out_err: RustError.ByReference
+    )
+
     // Returns a JSON string containing a sync ping.
     fun sync15_history_sync(
         handle: PlacesApiHandle,
