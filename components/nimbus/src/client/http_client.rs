@@ -48,8 +48,8 @@ impl Client {
     pub fn new(config: RemoteSettingsConfig) -> Result<Self> {
         let base_url = Url::parse(&config.server_url)?;
         let mut rs_client = remote_settings_client::Client::builder()
-            .bucket_name(config.bucket_name)
-            .collection_name(config.collection_name)
+            .bucket_name(config.bucket_name.clone())
+            .collection_name(config.collection_name.clone())
             .verifier(Box::new(RcCryptoVerifier {}))
             .build()
             .unwrap();
@@ -57,8 +57,8 @@ impl Client {
             // XXX lots of the stuff below here is probably no longer necessary
         Ok(Self {
             base_url,
-            bucket_name: config.bucket_name,
-            collection_name: config.collection_name,
+            bucket_name: config.bucket_name.clone(),
+            collection_name: config.collection_name.clone(),
             remote_state: Cell::new(RemoteState::Ok),
             rs_client
         })
@@ -121,39 +121,22 @@ impl SettingsClient for Client {
         unimplemented!();
     }
 
-    fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let path = format!(
-            "buckets/{}/collections/{}/records",
-            &self.bucket_name, &self.collection_name
-        );
-        let url = self.base_url.join(&path)?;
-        let req = Request::get(url);
-        //let resp = self.make_request(req)?;
+    fn fetch_experiments(&mut self) -> Result<Vec<Experiment>> {
         let records = self.rs_client.get().unwrap();
-        parse_experiments(records)
+        parse_experiments_from_records(records.to_vec())
     }
 }
 
-pub fn parse_experiments(data: Vec<remote_settings_client::Record>) -> Result<Vec<Experiment>> {
-    // We first encode the response into a `serde_json::Value`
-    // to allow us to deserialize each experiment individually,
-    // omitting any malformed experiments
-    // let value: serde_json::Value = serde_json::from_str(payload)?;
-    // let data = value
-    //     .get("data")
-    //     .ok_or(NimbusError::InvalidExperimentFormat)?;
-    let mut res = Vec::new();
-    for exp in data
-    {
-        debug(exp);
+fn json_value_to_valid_experiment(value: serde_json::Value) -> Result<Experiment, NimbusError> {
+        // debug(exp);
         // Validate the schema major version matches the supported version
-        let exp_schema_version = match exp.get("schemaVersion") {
+        let exp_schema_version = match value.get("schemaVersion") {
             Some(ver) => {
                 serde_json::from_value::<String>(ver.to_owned()).unwrap_or_else(|_| "".to_string())
             }
             None => {
-                log::trace!("Missing schemaVersion: {:#?}", exp);
-                continue;
+                log::trace!("Missing schemaVersion: {:#?}", value);
+                return Err(NimbusError::InvalidPersistedData);
             }
         };
         let schema_maj_version = exp_schema_version.split('.').next().unwrap_or("");
@@ -166,21 +149,65 @@ pub fn parse_experiments(data: Vec<remote_settings_client::Record>) -> Result<Ve
                     SCHEMA_VERSION, schema_version
                 );
             // Schema version mismatch
-            continue;
+            return Err(NimbusError::InvalidPersistedData);
         }
 
-        match serde_json::from_value::<Experiment>(*(exp.as_object())) {
-            Ok(exp) => res.push(exp),
+        match serde_json::from_value::<Experiment>(value.clone()) {
+            Ok(exp) => return Ok(exp),
             Err(e) => {
-                log::trace!("Malformed experiment data: {:#?}", exp);
+                log::trace!("Malformed experiment data: {:#?}", value);
                 log::warn!(
                     "Malformed experiment found! Experiment {},  Error: {}",
-                    exp.get("id").unwrap_or(&serde_json::json!("ID_NOT_FOUND")),
+                    value.get("id").unwrap_or(&serde_json::json!("ID_NOT_FOUND")),
                     e
                 );
+                return Err(NimbusError::JSONError(e));
+            }
+        }
+}
+
+pub fn parse_experiments_from_records(records: Vec<remote_settings_client::Record>) -> Result<Vec<Experiment>> {
+    let mut res = Vec::new();
+    for record in records.into_iter() {
+        let value : serde_json::value::Value = serde_json::value::Value::Object(record.as_object().clone());
+
+        match json_value_to_valid_experiment(value) {
+            Ok(exp) => {
+                res.push(exp);
+                },
+            Err(_) => ()
+        }
+    }
+
+    Ok(res)
+}
+
+pub fn parse_experiments(payload: &str) -> Result<Vec<Experiment>> {
+    // We first encode the response into a `serde_json::Value`
+    // to allow us to deserialize each experiment individually,
+    // omitting any malformed experiments
+    let value: serde_json::Value = serde_json::from_str(payload)?;
+    let data = value
+        .get("data")
+        .ok_or(NimbusError::InvalidExperimentFormat)?;
+    let mut res = Vec::new();
+    let vals = match data {
+        serde_json::Value::Array(v) => v,
+        _ => return Ok(vec![]),
+    };
+
+    for val in vals {
+
+        match json_value_to_valid_experiment(val.clone()) {
+            Ok(exp) => {
+                res.push(exp);
+            },
+            Err(e) => {
+                log::warn!("Failed to blah: {}", e);
             }
         }
     }
+
     Ok(res)
 }
 
@@ -297,7 +324,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let http_client = Client::new(config).unwrap();
+        let mut http_client = Client::new(config).unwrap();
         let resp = http_client.fetch_experiments().unwrap();
 
         m.expect(1).assert();
@@ -368,7 +395,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let http_client = Client::new(config).unwrap();
+        let mut http_client = Client::new(config).unwrap();
         assert!(http_client.fetch_experiments().is_ok());
         let second_request = http_client.fetch_experiments();
         assert!(matches!(second_request, Err(NimbusError::BackoffError(_))));
@@ -391,7 +418,7 @@ mod tests {
             bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
-        let http_client = Client::new(config).unwrap();
+        let mut http_client = Client::new(config).unwrap();
         assert!(http_client.fetch_experiments().is_err());
         let second_request = http_client.fetch_experiments();
         assert!(matches!(second_request, Err(NimbusError::BackoffError(_))));

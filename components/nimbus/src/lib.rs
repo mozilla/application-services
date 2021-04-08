@@ -180,7 +180,7 @@ impl NimbusClient {
 
     pub fn fetch_experiments(&self) -> Result<()> {
         log::info!("fetching experiments");
-        let settings_client = self.settings_client.lock().unwrap();
+        let mut settings_client = self.settings_client.lock().unwrap();
         let new_experiments = settings_client.fetch_experiments()?;
         let db = self.db()?;
         let mut writer = db.write()?;
