@@ -43,3 +43,7 @@ automation/symbols-generation/bin/
 __pycache__
 *.py[cod]
 .Python
+
+# Generated mdbook documentation files
+build/docs/*
+docs/book
