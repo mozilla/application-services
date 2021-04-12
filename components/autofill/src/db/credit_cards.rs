@@ -92,7 +92,14 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    let credit_card = tx.query_row(&sql, &[guid], InternalCreditCard::from_row)?;
+    let result = tx.query_row(&sql, &[guid], InternalCreditCard::from_row);
+
+    let credit_card = match result {
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Err(Error::NoSuchRecord(guid.to_string()));
+        }
+        _ => result?,
+    };
 
     tx.commit()?;
     Ok(credit_card)
@@ -343,6 +350,19 @@ pub(crate) mod tests {
         assert!(get_credit_card(&db, &saved_credit_card.guid).is_err());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_credit_card_missing_guid() {
+        let db = new_mem_db();
+        let guid = Guid::random();
+        let result = get_credit_card(&db, &guid);
+
+        assert!(
+            matches!(&result, Err(Error::NoSuchRecord(error_param)) if error_param == &guid.to_string()),
+            "result = {:?}",
+            result
+        );
     }
 
     #[test]

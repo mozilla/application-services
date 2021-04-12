@@ -97,9 +97,13 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
         WHERE guid = :guid",
         common_cols = ADDRESS_COMMON_COLS
     );
-
-    let address = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?))?;
-
+    let result = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?));
+    let address = match result {
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Err(Error::NoSuchRecord(guid.to_string()));
+        }
+        _ => result?,
+    };
     tx.commit()?;
     Ok(address)
 }
@@ -350,6 +354,19 @@ mod tests {
         assert!(delete_result.unwrap());
 
         assert!(get_address(&db, &saved_address.guid).is_err());
+    }
+
+    #[test]
+    fn test_address_missing_guid() {
+        let db = new_mem_db();
+        let guid = Guid::random();
+        let result = get_address(&db, &guid);
+
+        assert!(
+            matches!(&result, Err(Error::NoSuchRecord(error_param)) if error_param == &guid.to_string()),
+            "result = {:?}",
+            result
+        );
     }
 
     #[test]
