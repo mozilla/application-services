@@ -13,7 +13,7 @@ import Foundation
 /// Developers building UI tools for the user or QA to modify experiment enrollment will mostly use `NimbusUserConfiguration` methods.
 /// Application developers integrating `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
-public protocol NimbusApi: NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
+public protocol NimbusApi: class, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
 
 public protocol NimbusFeatureConfiguration {
     /// Get the currently enrolled branch for the given experiment
@@ -112,6 +112,13 @@ public protocol NimbusUserConfiguration {
     /// - Parameter experimentId the specifies the experiment.
     /// - Returns a list of one more branches for the given experiment, or `nil` if no such experiment exists.
     func getExperimentBranches(_ experimentId: String) -> [Branch]?
+
+    /// Get the list of currently available experiments for the `appName` as specified in the `AppContext`.
+    ///
+    /// - Returns  A list of `AvailableExperiment`s
+    ///
+    func getAvailableExperiments() -> [AvailableExperiment]
+
 }
 
 /// Notifications emitted by the `NotificationCenter`.
