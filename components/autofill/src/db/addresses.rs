@@ -88,7 +88,6 @@ pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddre
 }
 
 pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
-    let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
             {common_cols},
@@ -97,12 +96,13 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
         WHERE guid = :guid",
         common_cols = ADDRESS_COMMON_COLS
     );
-    let result = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?));
+    let result = conn.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?));
     let address = match result {
-        Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NoSuchRecord(guid.to_string()))?,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Err(Error::NoSuchRecord(guid.to_string()));
+        }
         _ => result?,
     };
-    tx.commit()?;
     Ok(address)
 }
 

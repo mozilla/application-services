@@ -82,7 +82,6 @@ pub(crate) fn add_internal_credit_card(
 }
 
 pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<InternalCreditCard> {
-    let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
             {common_cols},
@@ -92,14 +91,15 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    let result = tx.query_row(&sql, &[guid], InternalCreditCard::from_row);
+    let result = conn.query_row(&sql, &[guid], InternalCreditCard::from_row);
 
     let credit_card = match result {
-        Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NoSuchRecord(guid.to_string()))?,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            return Err(Error::NoSuchRecord(guid.to_string()));
+        }
         _ => result?,
     };
 
-    tx.commit()?;
     Ok(credit_card)
 }
 
