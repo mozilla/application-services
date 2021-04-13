@@ -24,6 +24,14 @@ dictionary EnrolledExperiment {
     string enrollment_id;
 };
 
+dictionary AvailableExperiment {
+    string slug;
+    string user_facing_name;
+    string user_facing_description;
+    sequence<Branch> branches;
+    string? reference_branch;
+};
+
 dictionary Branch {
     string slug;
     i32 ratio; // ideally would be u32, but kotlin considers unsigned experimental - see SDK-175.
@@ -109,6 +117,11 @@ interface NimbusClient {
     // Returns a list of experiments this user is enrolled in.
     [Throws=NimbusError]
     sequence<EnrolledExperiment> get_active_experiments();
+
+    // Returns a list of experiments for this `app_name`, as specified in the `AppContext`.
+    // It is not intended to be used to be used for user facing applications.
+    [Throws=NimbusError]
+    sequence<AvailableExperiment> get_available_experiments();
 
     // Getter and setter for user's participation in all experiments.
     // Possible values are:
