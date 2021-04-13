@@ -95,9 +95,7 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
     let result = tx.query_row(&sql, &[guid], InternalCreditCard::from_row);
 
     let credit_card = match result {
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            return Err(Error::NoSuchRecord(guid.to_string()));
-        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NoSuchRecord(guid.to_string()))?,
         _ => result?,
     };
 
@@ -358,10 +356,9 @@ pub(crate) mod tests {
         let guid = Guid::random();
         let result = get_credit_card(&db, &guid);
 
-        assert!(
-            matches!(&result, Err(Error::NoSuchRecord(error_param)) if error_param == &guid.to_string()),
-            "result = {:?}",
-            result
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            Error::NoSuchRecord(guid.to_string()).to_string()
         );
     }
 

@@ -99,9 +99,7 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
     );
     let result = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?));
     let address = match result {
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            return Err(Error::NoSuchRecord(guid.to_string()));
-        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Err(Error::NoSuchRecord(guid.to_string()))?,
         _ => result?,
     };
     tx.commit()?;
@@ -362,10 +360,9 @@ mod tests {
         let guid = Guid::random();
         let result = get_address(&db, &guid);
 
-        assert!(
-            matches!(&result, Err(Error::NoSuchRecord(error_param)) if error_param == &guid.to_string()),
-            "result = {:?}",
-            result
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            Error::NoSuchRecord(guid.to_string()).to_string()
         );
     }
 
