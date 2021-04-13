@@ -156,7 +156,7 @@ pub fn is_experiment_available(
         }
         None => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
     }
-    return true;
+    true
 }
 
 /// Chooses a branch randomly from a set of branches
