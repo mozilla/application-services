@@ -94,7 +94,7 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
     conn.query_row(&sql, &[guid], InternalCreditCard::from_row)
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
-            e => e.into()
+            e => e.into(),
         })
 }
 
