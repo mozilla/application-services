@@ -63,7 +63,7 @@ extension Nimbus {
         return Nimbus(nimbusClient: nimbusClient, errorReporter: errorReporter)
     }
 
-    internal static func buildExperimentContext(_ appSettings: NimbusAppSettings,
+    public static func buildExperimentContext(_ appSettings: NimbusAppSettings,
                                                 bundle: Bundle = Bundle.main,
                                                 device: UIDevice = .current) -> AppContext
     {

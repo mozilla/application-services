@@ -1,3 +1,15 @@
+# v75.1.0 (_2021-04-13_)
+
+## Nimbus SDK
+
+### What's changed
+
+- add a `get_available_experiments()` method to enable QA tooling. This should not be used for user-facing user-interfaces.
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v75.0.1...v75.1.0)
+
+
+
 # v75.0.1 (_2021-04-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.0.0...v75.0.1)

@@ -216,6 +216,8 @@ jobs:
       xcode: "12.3.0"
     steps:
       - full-checkout
+      # swiftlint moved? See https://github.com/Homebrew/discussions/discussions/691
+      - run: brew update-reset
       - run: brew install swiftlint swiftformat
       - run: swiftlint --strict
       - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose

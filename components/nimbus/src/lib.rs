@@ -24,6 +24,7 @@ use enrollment::{
     get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
     set_global_user_participation, EnrollmentChangeEvent, EnrollmentsEvolver,
 };
+use evaluator::is_experiment_available;
 
 // We only use this in a test, and with --no-default-features, we don't use it
 // at all
@@ -151,6 +152,15 @@ impl NimbusClient {
         let reader = db.read()?;
         db.get_store(StoreId::Experiments)
             .collect_all::<Experiment, _>(&reader)
+    }
+
+    pub fn get_available_experiments(&self) -> Result<Vec<AvailableExperiment>> {
+        Ok(self
+            .get_all_experiments()?
+            .into_iter()
+            .filter(|exp| is_experiment_available(&self.app_context, &exp, false))
+            .map(|exp| exp.into())
+            .collect())
     }
 
     pub fn opt_in_with_branch(
@@ -391,6 +401,27 @@ pub struct BucketConfig {
     pub count: u32,
     #[serde(default = "default_buckets")]
     pub total: u32,
+}
+
+// This type is passed across the FFI to client consumers, e.g. UI for testing tooling.
+pub struct AvailableExperiment {
+    pub slug: String,
+    pub user_facing_name: String,
+    pub user_facing_description: String,
+    pub branches: Vec<Branch>,
+    pub reference_branch: Option<String>,
+}
+
+impl From<Experiment> for AvailableExperiment {
+    fn from(exp: Experiment) -> Self {
+        Self {
+            slug: exp.slug,
+            user_facing_name: exp.user_facing_name,
+            user_facing_description: exp.user_facing_description,
+            branches: exp.branches,
+            reference_branch: exp.reference_branch,
+        }
+    }
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️

@@ -191,6 +191,12 @@ extension Nimbus: NimbusUserConfiguration {
         } ?? []
     }
 
+    public func getAvailableExperiments() -> [AvailableExperiment] {
+        return catchAll {
+            try nimbusClient.getAvailableExperiments()
+        } ?? []
+    }
+
     public func getExperimentBranches(_ experimentId: String) -> [Branch]? {
         return catchAll {
             try nimbusClient.getExperimentBranches(experimentSlug: experimentId)
@@ -260,6 +266,10 @@ public class NimbusDisabled: NimbusApi {
 
 public extension NimbusDisabled {
     func getActiveExperiments() -> [EnrolledExperiment] {
+        return []
+    }
+
+    func getAvailableExperiments() -> [AvailableExperiment] {
         return []
     }
 

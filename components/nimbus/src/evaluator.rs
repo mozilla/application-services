@@ -47,54 +47,13 @@ pub fn evaluate_enrollment(
     app_context: &AppContext,
     exp: &Experiment,
 ) -> Result<ExperimentEnrollment> {
-    // Verify the app_name matches the application being targeted
-    // by the experiment.
-    match &exp.app_name {
-        Some(app_name) => {
-            if !app_name.eq(&app_context.app_name) {
-                return Ok(ExperimentEnrollment {
-                    slug: exp.slug.clone(),
-                    status: EnrollmentStatus::NotEnrolled {
-                        reason: NotEnrolledReason::NotTargeted,
-                    },
-                });
-            }
-        }
-        None => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
-    }
-    // Verify the app_id matches the application being targeted
-    // by the experiment.
-    match &exp.app_id {
-        Some(app_id) => {
-            if !app_id.eq(&app_context.app_id) {
-                return Ok(ExperimentEnrollment {
-                    slug: exp.slug.clone(),
-                    status: EnrollmentStatus::NotEnrolled {
-                        reason: NotEnrolledReason::NotTargeted,
-                    },
-                });
-            }
-        }
-        None => log::debug!("Experiment missing app_id, skipping it as a targeting parameter"),
-    }
-    // Verify the channel matches the application being targeted
-    // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
-    // See https://jira.mozilla.com/browse/SDK-246 for more info.
-    match &exp.channel {
-        Some(channel) => {
-            if !channel
-                .to_lowercase()
-                .eq(&app_context.channel.to_lowercase())
-            {
-                return Ok(ExperimentEnrollment {
-                    slug: exp.slug.clone(),
-                    status: EnrollmentStatus::NotEnrolled {
-                        reason: NotEnrolledReason::NotTargeted,
-                    },
-                });
-            }
-        }
-        None => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
+    if !is_experiment_available(app_context, exp, true) {
+        return Ok(ExperimentEnrollment {
+            slug: exp.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted,
+            },
+        });
     }
 
     // Get targeting out of the way - "if let chains" are experimental,
@@ -146,6 +105,58 @@ pub fn evaluate_enrollment(
             }
         },
     })
+}
+
+/// Check if an experiment is available for this app defined by this `AppContext`.
+///
+/// `is_release` supports two modes:
+/// if `true`, available means available for enrollment: i.e. does the `app_name`, `app_id` and `channel` match.
+/// if `false`, available means available for testing: i.e. does only the `app_name` match.
+pub fn is_experiment_available(
+    app_context: &AppContext,
+    exp: &Experiment,
+    is_release: bool,
+) -> bool {
+    // Verify the app_name matches the application being targeted
+    // by the experiment.
+    match &exp.app_name {
+        Some(app_name) => {
+            if !app_name.eq(&app_context.app_name) {
+                return false;
+            }
+        }
+        None => log::debug!("Experiment missing app_name, skipping it as a targeting parameter"),
+    }
+
+    if !is_release {
+        return true;
+    }
+
+    // Verify the app_id matches the application being targeted
+    // by the experiment.
+    match &exp.app_id {
+        Some(app_id) => {
+            if !app_id.eq(&app_context.app_id) {
+                return false;
+            }
+        }
+        None => log::debug!("Experiment missing app_id, skipping it as a targeting parameter"),
+    }
+    // Verify the channel matches the application being targeted
+    // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
+    // See https://jira.mozilla.com/browse/SDK-246 for more info.
+    match &exp.channel {
+        Some(channel) => {
+            if !channel
+                .to_lowercase()
+                .eq(&app_context.channel.to_lowercase())
+            {
+                return false;
+            }
+        }
+        None => log::debug!("Experiment missing channel, skipping it as a targeting parameter"),
+    }
+    true
 }
 
 /// Chooses a branch randomly from a set of branches
@@ -355,6 +366,71 @@ mod tests {
         let id = uuid::Uuid::parse_str("542213c0-9aef-47eb-bc6b-3b8529736ba2").unwrap();
         let b = choose_branch(slug, &branches, &id.to_string()).unwrap();
         assert_eq!(b.slug, "control");
+    }
+
+    #[test]
+    fn test_is_experiment_available() {
+        let experiment = Experiment {
+            app_name: Some("NimbusTest".to_string()),
+            app_id: Some("org.example.app".to_string()),
+            channel: Some("production".to_string()),
+            schema_version: "1.0.0".to_string(),
+            slug: "TEST_EXP".to_string(),
+            is_enrollment_paused: false,
+            feature_ids: vec!["monkey".to_string()],
+            bucket_config: BucketConfig {
+                randomization_unit: RandomizationUnit::NimbusId,
+                start: 0,
+                count: 10000,
+                total: 10000,
+                ..Default::default()
+            },
+            branches: vec![
+                Branch {
+                    slug: "control".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+                Branch {
+                    slug: "blue".to_string(),
+                    ratio: 1,
+                    feature: None,
+                },
+            ],
+            reference_branch: Some("control".to_string()),
+            ..Default::default()
+        };
+
+        // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
+        // or `channel` doesn't match the experiment, then the client won't be enrolled.
+        let app_context = AppContext {
+            app_name: "NimbusTest".to_string(),
+            app_id: "org.example.app".to_string(),
+            channel: "nightly".to_string(),
+            ..Default::default()
+        };
+        // If is_release is true, we should match on the exact combination of
+        // app_name, channel and app_id.
+        assert!(!is_experiment_available(&app_context, &experiment, true));
+
+        // If is_release is false, we only match on app_name.
+        // As a nightly build, we want to be able to test production experiments
+        assert!(is_experiment_available(&app_context, &experiment, false));
+
+        let experiment = Experiment {
+            channel: Some("nightly".to_string()),
+            ..experiment
+        };
+        // channels now match, so should be availble for enrollment (true) and testing (false)
+        assert!(is_experiment_available(&app_context, &experiment, true));
+        assert!(is_experiment_available(&app_context, &experiment, false));
+
+        let experiment = Experiment {
+            app_name: Some("a_different_app".to_string()),
+            ..experiment
+        };
+        assert!(!is_experiment_available(&app_context, &experiment, false));
+        assert!(!is_experiment_available(&app_context, &experiment, false));
     }
 
     #[test]
