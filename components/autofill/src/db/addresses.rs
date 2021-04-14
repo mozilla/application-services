@@ -96,14 +96,11 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
         WHERE guid = :guid",
         common_cols = ADDRESS_COMMON_COLS
     );
-    let result = conn.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?));
-    let address = match result {
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            return Err(Error::NoSuchRecord(guid.to_string()));
-        }
-        _ => result?,
-    };
-    Ok(address)
+    conn.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?))
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
+            e => e.into(),
+        })
 }
 
 pub(crate) fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {

@@ -91,16 +91,11 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    let result = conn.query_row(&sql, &[guid], InternalCreditCard::from_row);
-
-    let credit_card = match result {
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            return Err(Error::NoSuchRecord(guid.to_string()));
-        }
-        _ => result?,
-    };
-
-    Ok(credit_card)
+    conn.query_row(&sql, &[guid], InternalCreditCard::from_row)
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
+            e => e.into()
+        })
 }
 
 pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
