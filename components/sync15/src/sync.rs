@@ -14,29 +14,8 @@ use interrupt_support::Interruptee;
 
 pub use sync15_traits::{IncomingChangeset, SyncEngine};
 
-pub fn synchronize(
-    client: &Sync15StorageClient,
-    global_state: &GlobalState,
-    root_sync_key: &KeyBundle,
-    engine: &dyn SyncEngine,
-    fully_atomic: bool,
-    telem_engine: &mut telemetry::Engine,
-    interruptee: &dyn Interruptee,
-) -> Result<(), crate::Error> {
-    synchronize_with_clients_engine(
-        client,
-        global_state,
-        root_sync_key,
-        None,
-        engine,
-        fully_atomic,
-        telem_engine,
-        interruptee,
-    )
-}
-
 #[allow(clippy::too_many_arguments)]
-pub fn synchronize_with_clients_engine(
+pub(crate) fn synchronize_with_clients_engine(
     client: &Sync15StorageClient,
     global_state: &GlobalState,
     root_sync_key: &KeyBundle,

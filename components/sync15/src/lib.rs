@@ -38,7 +38,7 @@ pub use crate::migrate_state::extract_v1_state;
 pub use crate::request::CollectionRequest;
 pub use crate::state::{GlobalState, SetupStateMachine};
 pub use crate::status::{ServiceStatus, SyncResult};
-pub use crate::sync::{synchronize, SyncEngine};
+pub use crate::sync::SyncEngine;
 pub use crate::sync_multiple::{
     sync_multiple, sync_multiple_with_command_processor, MemoryCachedState, SyncRequestInfo,
 };
