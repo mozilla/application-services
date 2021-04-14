@@ -1,41 +1,14 @@
-## Firefox Application Services Docs
+# application-services Rust Components
 
-This directory is the documentation root for all the products managed by the
-Firefox Application Services Team.
+Application Services (a-s) is collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
 
-The [./product-portal/](product-portal) directory contains the source docs for
-the consumer-facing product portal website, which can be viewed here:
+To contact us you can:
+- Find us in the chat [#rust-components:mozilla.org](https://chat.mozilla.org/#/room/#rust-components:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
+- To report issues or request changes, file a bug in [Bugzilla for Firefox :: Sync](https://bugzilla.mozilla.org/enter_bug.cgi?product=Firefox&component=Sync)
 
-  * https://mozilla.github.io/application-services/
-  
-Everything else in this directory is contributor-facing documentation to help
-you work on app-services projects.  We have:
+The source code is available [on GitHub](https://github.com/mozilla/application-services/).
 
-  * A high-level guide to [Contributing to Application Services](./contributing.md)
-  * A description of the [metrics](./metrics/README.md) gathered by each component
-    (via the [glean](https://mozilla.github.io/glean/) framework).
-  * The [Synconomicon](https://mozilla.github.io/application-services/synconomicon/), a deep dive into the internals of sync and storage for Firefox Applications.
-  * The [Sync and Storage Handbook](https://mozilla.github.io/application-services/sync-storage-handbook/index.html), which provides a higher-level view of our sync and storage components.
-  * Docs for various infrastructure pieces:
-    * Our [Dependency Management Policies](./dependency-management.md)
-    * Our [Build and Publish Pipeline](./build-and-publish-pipeline.md)
-  * Architectural design docs:
-    * How [megazording](./design/megazords.md) works, and why we do it.
-    * The motivation and design of the [sync manager](./design/sync-manager.md).
-  * Howtos for specific coding activities:
-    * Code and architecture guidelines:
-      * [Guide to Building a Rust Component](./howtos/building-a-rust-component.md)
-      * [Guide to Testing a Rust Component](./howtos/testing-a-rust-component.md)
-      * [Guide to adding a new Component to our build/publish setup](./howtos/adding-a-new-component.md)
-      * [Guide to converting component with hand-written bindings to use UniFFI](./howtos/converting-a-component-to-uniffi.md)
-      * [How to pass data cross the FFI boundary](./howtos/when-to-use-what-in-the-ffi.md)
-    * Development Tooling:
-      * [How to try out local changes in Fenix](./howtos/locally-published-components-in-fenix.md)
-      * [How to try out local changes in Firefox for iOS](./howtos/locally-published-components-in-ios.md)
-      * [How to access logs for debugging](./logging.md)
-      * [How to build and use a locally-modified version of JNA](./howtos/locally-building-jna.md)
-    * Process guidelines:
-      * [How to cut a new release](./howtos/cut-a-new-release.md)
-  * For consumers:
-    * [Guide to Consuming Rust Components on Android](./howtos/consuming-rust-components-on-android.md)
-    * [Guide to Consuming Rust Components on iOS](./howtos/consuming-rust-components-on-ios.md)
+## License
+
+The Application Services Source Code is subject to the terms of the Mozilla Public License v2.0.
+You can obtain a copy of the MPL at <https://mozilla.org/MPL/2.0/>.
