@@ -1,8 +1,5 @@
 name: Build and Deploy
 on:   
-  push:
-    branches:
-      - SYNC-2133-update-gh-docs-deploy
   schedule:
     - cron: '0 1 * * *'
 jobs:
