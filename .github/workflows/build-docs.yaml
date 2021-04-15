@@ -2,7 +2,7 @@ name: Build and Deploy
 on:   
   push:
     branches:
-      - main
+      - SYNC-2133-update-gh-docs-deploy
   schedule:
     - cron: '0 1 * * *'
 jobs:
@@ -50,8 +50,14 @@ jobs:
           cp -rf target/doc/* build/docs/rust-docs
           
       - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v3
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages # The branch the action should deploy to.
-          FOLDER: build/docs # The folder the action should deploy.
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --global user.name "${{ github.actor }}"
+          git config --local url."https://ssh:${{ github.token }}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --local url."https://git:${{ github.token }}@github.com/".insteadOf "git@github.com:"
+          git checkout --orphan gh-pages
+          git --work-tree build/docs add --all
+          git --work-tree build/docs commit -m 'Deploy Docs'
+          git push origin HEAD:gh-pages --force
+          rm -r build/docs
+          git checkout -f main 
+          git branch -D gh-pages
