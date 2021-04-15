@@ -36,6 +36,9 @@ pub enum Error {
 
     #[error("Missing local encryption key")]
     MissingEncryptionKey,
+
+    #[error("No record with guid exists: {0}")]
+    NoSuchRecord(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

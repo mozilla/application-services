@@ -82,7 +82,6 @@ pub(crate) fn add_internal_credit_card(
 }
 
 pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<InternalCreditCard> {
-    let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
             {common_cols},
@@ -92,10 +91,11 @@ pub(crate) fn get_credit_card(conn: &Connection, guid: &Guid) -> Result<Internal
         common_cols = CREDIT_CARD_COMMON_COLS
     );
 
-    let credit_card = tx.query_row(&sql, &[guid], InternalCreditCard::from_row)?;
-
-    tx.commit()?;
-    Ok(credit_card)
+    conn.query_row(&sql, &[guid], InternalCreditCard::from_row)
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
+            e => e.into(),
+        })
 }
 
 pub(crate) fn get_all_credit_cards(conn: &Connection) -> Result<Vec<InternalCreditCard>> {
@@ -343,6 +343,18 @@ pub(crate) mod tests {
         assert!(get_credit_card(&db, &saved_credit_card.guid).is_err());
 
         Ok(())
+    }
+
+    #[test]
+    fn test_credit_card_missing_guid() {
+        let db = new_mem_db();
+        let guid = Guid::random();
+        let result = get_credit_card(&db, &guid);
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            Error::NoSuchRecord(guid.to_string()).to_string()
+        );
     }
 
     #[test]
