@@ -244,6 +244,7 @@ jobs:
     steps:
       - test-setup
       - install-grcov
+      - run: env
       # Test coverage support in Rust has been evolving rapidly, use nightly
       # in the hope of getting the best support/features on that front.
       - run: RUSTUP_TOOLCHAIN="nightly" bash ./automation/emit_coverage_info.sh
