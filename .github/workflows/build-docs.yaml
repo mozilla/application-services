@@ -49,7 +49,8 @@ jobs:
           mkdir -p build/docs/rust-docs
           cp -rf target/doc/* build/docs/rust-docs
           
-      - name: Deploy 🚀
+      - name: Deploy
+        run: |
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
           git config --global user.name "${{ github.actor }}"
           git config --local url."https://ssh:${{ github.token }}@github.com/".insteadOf "ssh://git@github.com/"
