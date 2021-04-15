@@ -6,17 +6,10 @@ on:
   schedule:
     - cron: '0 1 * * *'
 jobs:
-  build-and-deploy:
+  build-and-deploy-docs:
     runs-on: ubuntu-latest
-    name: Check     
-    steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Get a-s repository
+    steps: 
+      - name: Get repository and install Rust dependencies
         run: |
           echo `env`
           git init .
@@ -24,9 +17,9 @@ jobs:
           git pull origin main
           git submodule init
           git submodule update --recursive
-          
-      - name: Generate developer docs with mdbook  
-        run: |
+          echo 'rust.targets=linux-x86-64' > local.properties
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
           cargo install mdbook mdbook-mermaid mdbook-open-on-gh
           ./tools/build-book.sh
  
