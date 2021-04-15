@@ -105,6 +105,16 @@ impl Store {
         self.store_impl.touch_address(guid)
     }
 
+    pub fn scrub_encrypted_data(&self) -> Result<()> {
+        // scrub the data on disk
+        self.store_impl.scrub_encrypted_data()?;
+        // Force the sync engine to refetch data (only need to do this for the credit cards, since the
+        // addresses engine doesn't store encrypted data).
+        crate::sync::credit_card::create_engine(self.store_impl.clone())
+            .refetch_server_records()?;
+        Ok(())
+    }
+
     // This allows the embedding app to say "make this instance available to
     // the sync manager". The implementation is more like "offer to sync mgr"
     // (thereby avoiding us needing to link with the sync manager) but
@@ -200,6 +210,12 @@ impl StoreImpl {
 
     pub fn touch_credit_card(&self, guid: String) -> Result<()> {
         credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    }
+
+    pub fn scrub_encrypted_data(&self) -> Result<()> {
+        // Currently only credit cards have encrypted data
+        credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
+        Ok(())
     }
 
     pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
