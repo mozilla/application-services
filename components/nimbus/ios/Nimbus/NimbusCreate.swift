@@ -7,8 +7,8 @@ import Foundation
 private let remoteSettingsBucket = "main"
 private let remoteSettingsCollection = "nimbus-mobile-experiments"
 
-private let LOG_TAG = "Nimbus.swift"
-private let logger = Logger(tag: LOG_TAG)
+private let logTag = "Nimbus.swift"
+private let logger = Logger(tag: logTag)
 
 public let defaultErrorReporter: NimbusErrorReporter = { err in
     switch err {

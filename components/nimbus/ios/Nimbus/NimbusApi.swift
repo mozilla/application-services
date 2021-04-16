@@ -9,9 +9,10 @@ import Foundation
 /// Application developers are encouraged to build against this API protocol, and use the `Nimbus.create` method
 /// to create the correct implementation for them.
 ///
-/// Feature developers configuring their features shoiuld use the methods in `NimbusFeatureConfiguration`. These are safe to call from any thread.
-/// Developers building UI tools for the user or QA to modify experiment enrollment will mostly use `NimbusUserConfiguration` methods.
-/// Application developers integrating `Nimbus` into their app should use the methods in `NimbusStartup`.
+/// Feature developers configuring their features shoiuld use the methods in `NimbusFeatureConfiguration`.
+/// These are safe to call from any thread. Developers building UI tools for the user or QA to modify experiment
+/// enrollment will mostly use `NimbusUserConfiguration` methods. Application developers integrating
+/// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
 public protocol NimbusApi: class, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
 
@@ -66,7 +67,8 @@ public protocol NimbusStartup {
     ///
     /// This is performed on a background thread.
     ///
-    /// - Parameter experimentsJson string representation of the JSON document in the same format delivered by RemoteSettings.
+    /// - Parameter experimentsJson string representation of the JSON document in the same format
+    ///             delivered by RemoteSettings.
     ///
     func setExperimentsLocally(_ experimentsJson: String)
 
