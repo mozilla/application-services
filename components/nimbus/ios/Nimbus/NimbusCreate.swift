@@ -20,7 +20,7 @@ public let defaultErrorReporter: NimbusErrorReporter = { err in
     }
 }
 
-extension Nimbus {
+public extension Nimbus {
     /// Create an instance of `Nimbus`.
     ///
     /// - Parameters:
@@ -32,12 +32,13 @@ extension Nimbus {
     /// - Returns an implementation of `NimbusApi`.
     /// - Throws `NimbusError` if anything goes wrong with the Rust FFI or in the `NimbusClient` constructor.
     ///
-    public static func create(_ server: NimbusServerSettings?,
-                              appSettings: NimbusAppSettings,
-                              dbPath: String,
-                              enabled: Bool = true,
-                              errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter) throws -> NimbusApi
-    {
+    static func create(
+        _ server: NimbusServerSettings?,
+        appSettings: NimbusAppSettings,
+        dbPath: String,
+        enabled: Bool = true,
+        errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
+    ) throws -> NimbusApi {
         guard enabled else {
             return NimbusDisabled.shared
         }
@@ -63,23 +64,26 @@ extension Nimbus {
         return Nimbus(nimbusClient: nimbusClient, errorReporter: errorReporter)
     }
 
-    public static func buildExperimentContext(_ appSettings: NimbusAppSettings,
-                                                bundle: Bundle = Bundle.main,
-                                                device: UIDevice = .current) -> AppContext
-    {
+    static func buildExperimentContext(
+        _ appSettings: NimbusAppSettings,
+        bundle: Bundle = Bundle.main,
+        device: UIDevice = .current
+    ) -> AppContext {
         let info = bundle.infoDictionary ?? [:]
-        return AppContext(appName: appSettings.appName,
-                          appId: info["CFBundleIdentifier"] as? String ?? "unknown",
-                          channel: appSettings.channel,
-                          appVersion: info["CFBundleShortVersionString"] as? String,
-                          appBuild: info["CFBundleVersion"] as? String,
-                          architecture: Sysctl.machine, // Sysctl is from Glean.
-                          deviceManufacturer: Sysctl.manufacturer,
-                          deviceModel: Sysctl.model,
-                          locale: getLocaleTag(), // from Glean utils
-                          os: device.systemName,
-                          osVersion: device.systemVersion,
-                          androidSdkVersion: nil,
-                          debugTag: "Nimbus.rs")
+        return AppContext(
+            appName: appSettings.appName,
+            appId: info["CFBundleIdentifier"] as? String ?? "unknown",
+            channel: appSettings.channel,
+            appVersion: info["CFBundleShortVersionString"] as? String,
+            appBuild: info["CFBundleVersion"] as? String,
+            architecture: Sysctl.machine, // Sysctl is from Glean.
+            deviceManufacturer: Sysctl.manufacturer,
+            deviceModel: Sysctl.model,
+            locale: getLocaleTag(), // from Glean utils
+            os: device.systemName,
+            osVersion: device.systemVersion,
+            androidSdkVersion: nil,
+            debugTag: "Nimbus.rs"
+        )
     }
 }

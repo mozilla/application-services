@@ -118,7 +118,6 @@ public protocol NimbusUserConfiguration {
     /// - Returns  A list of `AvailableExperiment`s
     ///
     func getAvailableExperiments() -> [AvailableExperiment]
-
 }
 
 /// Notifications emitted by the `NotificationCenter`.
