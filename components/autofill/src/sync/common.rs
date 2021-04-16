@@ -387,6 +387,36 @@ pub(super) mod tests {
         ));
     }
 
+    // local record was scrubbed of encrypted data -- we should update it using server data
+    pub(in crate::sync) fn do_test_scrubbed_local_data<T: SyncRecord + std::fmt::Debug + Clone>(
+        ri: &dyn ProcessIncomingRecordImpl<Record = T>,
+        tx: &Transaction<'_>,
+        record: T,
+        payload: sync15::Payload,
+    ) {
+        ri.insert_local_record(tx, record)
+            .expect("insert should work");
+        ri.stage_incoming(
+            tx,
+            vec![(payload, ServerTimestamp::from_millis(0))],
+            &NeverInterrupts,
+        )
+        .expect("stage should work");
+        let mut states = ri.fetch_incoming_states(tx).expect("fetch should work");
+        assert_eq!(states.len(), 1, "1 records == 1 state!");
+        assert!(
+            matches!(states[0].local, LocalRecordInfo::Scrubbed { .. }),
+            format!(
+                "state should be LocalRecordInfo::Scubbed but it is: {:?}",
+                states[0].local
+            )
+        );
+
+        let action =
+            crate::sync::plan_incoming(ri, tx, states.pop().unwrap()).expect("plan should work");
+        assert!(matches!(action, crate::sync::IncomingAction::Update { .. }));
+    }
+
     // "Staged" records are moved to the mirror by finish_incoming().
     pub(in crate::sync) fn do_test_staged_to_mirror<T: SyncRecord + std::fmt::Debug + Clone>(
         ri: &dyn ProcessIncomingRecordImpl<Record = T>,

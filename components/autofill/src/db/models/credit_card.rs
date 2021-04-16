@@ -99,4 +99,8 @@ impl InternalCreditCard {
             },
         })
     }
+
+    pub fn has_scrubbed_data(&self) -> bool {
+        self.cc_number_enc.is_empty()
+    }
 }

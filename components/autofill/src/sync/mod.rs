@@ -182,11 +182,13 @@ enum IncomingRecord<T> {
     Tombstone { guid: Guid },
 }
 
-// A local record can be in any of these 4 states.
+// A local record can be in any of these 5 states.
 #[derive(Debug)]
 enum LocalRecordInfo<T> {
     Unmodified { record: T },
     Modified { record: T },
+    // encrypted data was scrubbed from the local record and needs to be resynced from the server
+    Scrubbed { record: T },
     Tombstone { guid: Guid },
     Missing,
 }
@@ -253,7 +255,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
     let state = match incoming {
         IncomingRecord::Tombstone { guid } => {
             match local {
-                LocalRecordInfo::Unmodified { .. } => {
+                LocalRecordInfo::Unmodified { .. } | LocalRecordInfo::Scrubbed { .. } => {
                     // Note: On desktop, when there's a local record for an incoming tombstone, a local tombstone
                     // would created. But we don't actually need to create a local tombstone here. If we did it would
                     // immediately be deleted after being uploaded to the server.
@@ -280,18 +282,24 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
             match local {
                 LocalRecordInfo::Unmodified {
                     record: local_record,
+                }
+                | LocalRecordInfo::Scrubbed {
+                    record: local_record,
                 } => {
-                    // We still need to merge the metadata, but we don't reupload
-                    // just for metadata changes, so don't flag the local item
-                    // as dirty.
+                    // The local record was either unmodified, or scrubbed of it's encrypted data.
+                    // Either way we want to:
+                    //   - Merge the metadata
+                    //   - Update the local record using data from the server
+                    //   - Don't flag the local item as dirty.  We don't want to reupload for just
+                    //     metadata changes.
                     let metadata = incoming_record.metadata_mut();
                     metadata.merge(
                         &local_record.metadata(),
                         mirror.as_ref().map(|m| m.metadata()),
                     );
                     // a micro-optimization here would be to `::DoNothing` if
-                    // the metadata was actually identical, but this seems like
-                    // an edge-case on an edge-case?
+                    // the metadata was actually identical and the local data wasn't scrubbed, but
+                    // this seems like an edge-case on an edge-case?
                     IncomingAction::Update {
                         record: incoming_record,
                         was_merged: false,

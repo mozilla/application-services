@@ -109,11 +109,15 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
                             assert_eq!(l_guid, guid);
                             // local record exists, check the state.
                             let record = InternalCreditCard::from_row(row)?;
-                            let has_changes = record.metadata().sync_change_counter != 0;
-                            if has_changes {
-                                LocalRecordInfo::Modified { record }
+                            if record.has_scrubbed_data() {
+                                LocalRecordInfo::Scrubbed { record }
                             } else {
-                                LocalRecordInfo::Unmodified { record }
+                                let has_changes = record.metadata().sync_change_counter != 0;
+                                if has_changes {
+                                    LocalRecordInfo::Modified { record }
+                                } else {
+                                    LocalRecordInfo::Unmodified { record }
+                                }
                             }
                         }
                         None => {
@@ -400,6 +404,22 @@ mod tests {
             encdec: EncryptorDecryptor::new_test_key(),
         };
         do_test_incoming_tombstone(&ci, &tx, test_record('C', &ci.encdec));
+    }
+
+    #[test]
+    fn test_local_data_scrubbed() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let ci = IncomingCreditCardsImpl {
+            encdec: EncryptorDecryptor::new_test_key(),
+        };
+        let mut scrubbed_record = test_record('A', &ci.encdec);
+        let payload = scrubbed_record
+            .clone()
+            .into_payload(&ci.encdec)
+            .expect("must get a payload");
+        scrubbed_record.cc_number_enc = "".to_string();
+        do_test_scrubbed_local_data(&ci, &tx, scrubbed_record, payload);
     }
 
     #[test]
