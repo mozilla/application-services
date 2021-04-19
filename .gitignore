@@ -29,6 +29,9 @@ components/**/ios/Generated
 megazords/ios/MozillaAppServices/Generated/Metrics.swift
 megazords/ios/.venv
 
+# Nimbus generated artifacts
+components/nimbus/db
+
 # Carthage generated artifacts
 Carthage
 MozillaAppServices.framework.zip
