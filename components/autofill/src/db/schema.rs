@@ -170,8 +170,7 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
             DROP TRIGGER credit_cards_tombstones_afterinsert_trigger;
             DROP TABLE credit_cards_data;
             ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
-            ",
-        )?;
+            ")?;
         // NOTE: at this point several triggers have been droped and not recreated, but that's okay
         // because they will be recreated when we execute CREATE_SHARED_TRIGGERS_SQL
     }
@@ -265,34 +264,35 @@ mod tests {
     fn test_upgrade_version_1() -> Result<()> {
         let db = new_mem_db();
         // Go back to version 0 of the credit_cards_data table and insert a row
-        db.execute_batch("
-DROP TABLE credit_cards_data;
-CREATE TABLE credit_cards_data (
-    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    cc_name             TEXT NOT NULL,
-    cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
-    cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-    cc_exp_month        INTEGER,
-    cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL,
-    sync_change_counter INTEGER NOT NULL
-);
-INSERT INTO credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
-cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used, sync_change_counter)
-VALUES ('A', 'Jane Doe', '012345678901234567890', '1234', 1, 2020, 'visa', 0, 1, 2, 3, 0);
-")?;
+        db.execute_batch(
+            "
+            DROP TABLE credit_cards_data;
+            CREATE TABLE credit_cards_data (
+                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+                cc_name             TEXT NOT NULL,
+                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
+                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+                cc_exp_month        INTEGER,
+                cc_exp_year         INTEGER,
+                cc_type             TEXT NOT NULL,
+                time_created        INTEGER NOT NULL,
+                time_last_used      INTEGER,
+                time_last_modified  INTEGER NOT NULL,
+                times_used          INTEGER NOT NULL,
+                sync_change_counter INTEGER NOT NULL
+            );
+            INSERT INTO credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
+            cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used, sync_change_counter)
+            VALUES ('A', 'Jane Doe', '012345678901234567890', '1234', 1, 2020, 'visa', 0, 1, 2, 3, 0);
+        ")?;
         // Do the upgrade
         upgrade(&db, 1)?;
         // Check that the old data is still present
         let query_sql = "
-SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type, time_created,
-    time_last_modified, time_last_used, times_used, sync_change_counter
-FROM credit_cards_data
-WHERE guid='A'";
+            SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type, time_created,
+                time_last_modified, time_last_used, times_used, sync_change_counter
+            FROM credit_cards_data
+            WHERE guid='A'";
         let credit_card = db.query_row(query_sql, NO_PARAMS, CreditCardRowV1::from_row)?;
         assert_eq!(credit_card.cc_name, "Jane Doe");
         assert_eq!(credit_card.cc_number_enc, "012345678901234567890");
