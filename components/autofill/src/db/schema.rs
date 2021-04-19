@@ -143,32 +143,34 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
         // correct schema.
         db.execute("DROP TABLE IF EXISTS credit_cards_data", NO_PARAMS)?;
     } else if from == 1 {
+        // Alter cc_number_enc using the 12-step generalized procedure described here:
+        // https://sqlite.org/lang_altertable.html
         db.execute_batch(
             "
-CREATE TABLE new_credit_cards_data (
-    guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-    cc_name             TEXT NOT NULL,
-    cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
-    cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-    cc_exp_month        INTEGER,
-    cc_exp_year         INTEGER,
-    cc_type             TEXT NOT NULL,
-    time_created        INTEGER NOT NULL,
-    time_last_used      INTEGER,
-    time_last_modified  INTEGER NOT NULL,
-    times_used          INTEGER NOT NULL,
-    sync_change_counter INTEGER NOT NULL
-);
-INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
-cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
-sync_change_counter)
-SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
-    time_created, time_last_used, time_last_modified, times_used, sync_change_counter
-FROM credit_cards_data;
-DROP TRIGGER credit_cards_tombstones_afterinsert_trigger;
-DROP TABLE credit_cards_data;
-ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
-",
+            CREATE TABLE new_credit_cards_data (
+                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+                cc_name             TEXT NOT NULL,
+                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
+                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+                cc_exp_month        INTEGER,
+                cc_exp_year         INTEGER,
+                cc_type             TEXT NOT NULL,
+                time_created        INTEGER NOT NULL,
+                time_last_used      INTEGER,
+                time_last_modified  INTEGER NOT NULL,
+                times_used          INTEGER NOT NULL,
+                sync_change_counter INTEGER NOT NULL
+            );
+            INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
+            cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
+            sync_change_counter)
+            SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
+                time_created, time_last_used, time_last_modified, times_used, sync_change_counter
+            FROM credit_cards_data;
+            DROP TRIGGER credit_cards_tombstones_afterinsert_trigger;
+            DROP TABLE credit_cards_data;
+            ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
+            ",
         )?;
         // NOTE: at this point several triggers have been droped and not recreated, but that's okay
         // because they will be recreated when we execute CREATE_SHARED_TRIGGERS_SQL

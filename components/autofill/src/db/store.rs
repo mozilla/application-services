@@ -110,8 +110,7 @@ impl Store {
         self.store_impl.scrub_encrypted_data()?;
         // Force the sync engine to refetch data (only need to do this for the credit cards, since the
         // addresses engine doesn't store encrypted data).
-        crate::sync::credit_card::create_engine(self.store_impl.clone())
-            .refetch_server_records()?;
+        crate::sync::credit_card::create_engine(self.store_impl.clone()).reset_local_sync_data()?;
         Ok(())
     }
 

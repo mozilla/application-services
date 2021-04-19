@@ -286,7 +286,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                 | LocalRecordInfo::Scrubbed {
                     record: local_record,
                 } => {
-                    // The local record was either unmodified, or scrubbed of it's encrypted data.
+                    // The local record was either unmodified, or scrubbed of its encrypted data.
                     // Either way we want to:
                     //   - Merge the metadata
                     //   - Update the local record using data from the server

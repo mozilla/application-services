@@ -75,8 +75,8 @@ impl<T> ConfigSyncEngine<T> {
         let key = format!("{}.{}", self.config.namespace, tail);
         crate::db::store::delete_meta(conn, &key)
     }
-    // Prepare to refetch all records from the server
-    pub fn refetch_server_records(&self) -> Result<()> {
+    // Reset the local sync data so the next server request fetches all records.
+    pub fn reset_local_sync_data(&self) -> Result<()> {
         let db = &self.store.db.lock().unwrap();
         let tx = db.unchecked_transaction()?;
         self.storage_impl.reset_storage(&tx)?;
