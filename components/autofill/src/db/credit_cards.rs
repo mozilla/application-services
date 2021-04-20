@@ -205,6 +205,13 @@ pub fn delete_credit_card(conn: &Connection, guid: &Guid) -> Result<bool> {
     Ok(exists)
 }
 
+pub fn scrub_encrypted_credit_card_data(conn: &Connection) -> Result<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute("UPDATE credit_cards_data SET cc_number_enc = ''", NO_PARAMS)?;
+    tx.commit()?;
+    Ok(())
+}
+
 pub fn touch(conn: &Connection, guid: &Guid) -> Result<()> {
     let tx = conn.unchecked_transaction()?;
     let now_ms = Timestamp::now();
@@ -578,6 +585,34 @@ pub(crate) mod tests {
                 ":guid": cc2_guid,
             },
         )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_scrub_encrypted_credit_card_data() -> Result<()> {
+        let db = new_mem_db();
+        let encdec = EncryptorDecryptor::new_test_key();
+        let mut saved_credit_cards = Vec::with_capacity(10);
+        for _ in 0..5 {
+            saved_credit_cards.push(add_credit_card(
+                &db,
+                UpdatableCreditCardFields {
+                    cc_name: "john deer".to_string(),
+                    cc_number_enc: encdec.encrypt("1234567812345678")?,
+                    cc_number_last_4: "5678".to_string(),
+                    cc_exp_month: 10,
+                    cc_exp_year: 2025,
+                    cc_type: "mastercard".to_string(),
+                },
+            )?);
+        }
+
+        scrub_encrypted_credit_card_data(&db)?;
+        for saved_credit_card in saved_credit_cards.into_iter() {
+            let retrieved_credit_card = get_credit_card(&db, &saved_credit_card.guid)?;
+            assert_eq!(retrieved_credit_card.cc_number_enc, "");
+        }
 
         Ok(())
     }

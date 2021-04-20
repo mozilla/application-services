@@ -75,7 +75,7 @@ const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_te
 
 // The schema version - changes to this typically require a custom
 // migration code.
-const VERSION: i64 = 1;
+const VERSION: i64 = 2;
 
 fn get_current_schema_version(db: &Connection) -> Result<i64> {
     Ok(db.query_row_and_then("PRAGMA user_version", NO_PARAMS, |row| row.get(0))?)
@@ -142,6 +142,37 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
         // migrate them, we just drop the table so it's re-created with the
         // correct schema.
         db.execute("DROP TABLE IF EXISTS credit_cards_data", NO_PARAMS)?;
+    } else if from == 1 {
+        // Alter cc_number_enc using the 12-step generalized procedure described here:
+        // https://sqlite.org/lang_altertable.html
+        db.execute_batch(
+            "
+            CREATE TABLE new_credit_cards_data (
+                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+                cc_name             TEXT NOT NULL,
+                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
+                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+                cc_exp_month        INTEGER,
+                cc_exp_year         INTEGER,
+                cc_type             TEXT NOT NULL,
+                time_created        INTEGER NOT NULL,
+                time_last_used      INTEGER,
+                time_last_modified  INTEGER NOT NULL,
+                times_used          INTEGER NOT NULL,
+                sync_change_counter INTEGER NOT NULL
+            );
+            INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
+            cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
+            sync_change_counter)
+            SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
+                time_created, time_last_used, time_last_modified, times_used, sync_change_counter
+            FROM credit_cards_data;
+            DROP TRIGGER credit_cards_tombstones_afterinsert_trigger;
+            DROP TABLE credit_cards_data;
+            ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
+            ")?;
+        // NOTE: at this point several triggers have been droped and not recreated, but that's okay
+        // because they will be recreated when we execute CREATE_SHARED_TRIGGERS_SQL
     }
     Ok(())
 }
@@ -150,6 +181,45 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
 mod tests {
     use super::*;
     use crate::db::test::new_mem_db;
+    use rusqlite::Row;
+    use types::Timestamp;
+
+    // Define some structs to handle data in the DB during an upgrade.  This allows us to change
+    // the schema without having to update the test code.
+    #[derive(Debug, Default)]
+    struct CreditCardRowV1 {
+        guid: String,
+        cc_name: String,
+        cc_number_enc: String,
+        cc_number_last_4: String,
+        cc_type: String,
+        cc_exp_month: i64,
+        cc_exp_year: i64,
+        time_created: Timestamp,
+        time_last_used: Timestamp,
+        time_last_modified: Timestamp,
+        times_used: i64,
+        sync_change_counter: i64,
+    }
+
+    impl CreditCardRowV1 {
+        fn from_row(row: &Row<'_>) -> rusqlite::Result<CreditCardRowV1> {
+            Ok(Self {
+                guid: row.get("guid")?,
+                cc_name: row.get("cc_name")?,
+                cc_number_enc: row.get("cc_number_enc")?,
+                cc_number_last_4: row.get("cc_number_last_4")?,
+                cc_exp_month: row.get("cc_exp_month")?,
+                cc_exp_year: row.get("cc_exp_year")?,
+                cc_type: row.get("cc_type")?,
+                time_created: row.get("time_created")?,
+                time_last_used: row.get("time_last_used")?,
+                time_last_modified: row.get("time_last_modified")?,
+                times_used: row.get("times_used")?,
+                sync_change_counter: row.get("sync_change_counter")?,
+            })
+        }
+    }
 
     #[test]
     fn test_create_schema_twice() {
@@ -187,5 +257,60 @@ mod tests {
         // should have dropped and recreated the table, so this select should work.
         db.execute_batch(select_name)
             .expect("select should now work");
+    }
+
+    #[test]
+    fn test_upgrade_version_1() -> Result<()> {
+        let db = new_mem_db();
+        // Go back to version 0 of the credit_cards_data table and insert a row
+        db.execute_batch(
+            "
+            DROP TABLE credit_cards_data;
+            CREATE TABLE credit_cards_data (
+                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+                cc_name             TEXT NOT NULL,
+                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
+                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+                cc_exp_month        INTEGER,
+                cc_exp_year         INTEGER,
+                cc_type             TEXT NOT NULL,
+                time_created        INTEGER NOT NULL,
+                time_last_used      INTEGER,
+                time_last_modified  INTEGER NOT NULL,
+                times_used          INTEGER NOT NULL,
+                sync_change_counter INTEGER NOT NULL
+            );
+            INSERT INTO credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
+            cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used, sync_change_counter)
+            VALUES ('A', 'Jane Doe', '012345678901234567890', '1234', 1, 2020, 'visa', 0, 1, 2, 3, 0);
+        ")?;
+        // Do the upgrade
+        upgrade(&db, 1)?;
+        // Check that the old data is still present
+        let query_sql = "
+            SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type, time_created,
+                time_last_modified, time_last_used, times_used, sync_change_counter
+            FROM credit_cards_data
+            WHERE guid='A'";
+        let credit_card = db.query_row(query_sql, NO_PARAMS, CreditCardRowV1::from_row)?;
+        assert_eq!(credit_card.cc_name, "Jane Doe");
+        assert_eq!(credit_card.cc_number_enc, "012345678901234567890");
+        assert_eq!(credit_card.cc_number_last_4, "1234");
+        assert_eq!(credit_card.cc_exp_month, 1);
+        assert_eq!(credit_card.cc_exp_year, 2020);
+        assert_eq!(credit_card.cc_type, "visa");
+        assert_eq!(credit_card.time_created, Timestamp(0));
+        assert_eq!(credit_card.time_last_used, Timestamp(1));
+        assert_eq!(credit_card.time_last_modified, Timestamp(2));
+        assert_eq!(credit_card.times_used, 3);
+        assert_eq!(credit_card.sync_change_counter, 0);
+
+        // Test the upgraded check constraint
+        db.execute("UPDATE credit_cards_data SET cc_number_enc=''", NO_PARAMS)
+            .expect("blank cc_number_enc should be valid");
+        db.execute("UPDATE credit_cards_data SET cc_number_enc='x'", NO_PARAMS)
+            .expect_err("cc_number_enc should be invalid");
+
+        Ok(())
     }
 }

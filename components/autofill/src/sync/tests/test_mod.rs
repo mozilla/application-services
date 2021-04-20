@@ -87,6 +87,20 @@ fn test_plan_incoming_record() -> Result<()> {
         }
     );
 
+    // LocalRecordInfo::Scrubbed - update the local with the incoming.
+    let state = IncomingState {
+        incoming: IncomingRecordInfo::Record { record: 0 },
+        local: LocalRecordInfo::Scrubbed { record: 1 },
+        mirror: None,
+    };
+    assert_eq!(
+        plan_incoming(&conn, &testimpl, state)?,
+        IncomingAction::Update {
+            record: 0,
+            was_merged: false
+        }
+    );
+
     // LocalRecordInfo::Modified - but it turns out they are identical.
     let state = IncomingState {
         incoming: IncomingRecordInfo::Record { record: 0 },

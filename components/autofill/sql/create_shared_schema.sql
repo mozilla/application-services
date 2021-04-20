@@ -51,7 +51,10 @@ CREATE TABLE IF NOT EXISTS credit_cards_data (
     -- numbers are 19 chars or less, and a base64 encoded JWE is always going to
     -- be longer than thus, so we add a CHECK designed to ensure we don't
     -- accidentally store unencrypted numbers here.
-    cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
+    -- The one exception is a completely blank value, which indicates that we
+    -- lost the key to decrypt the card number and need to refetch the value from
+    -- the sync server.
+    cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
     -- last 4 digits unencrypted. Check no larger than 4 to avoid the full number.
     cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
     cc_exp_month        INTEGER,
