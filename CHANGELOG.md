@@ -1,3 +1,14 @@
+# v75.2.0 (_2021-04-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v75.1.0...v75.2.0)
+
+## Autofill
+
+### What's Changed
+
+- `get_address()` and `get_credit_card()` now throw a NoSuchRecord error instead of SqlError when the GUID is not found
+- The main credit-cards table is dropped and recreated to ensure already existing databases will continue to work.
+
 # v75.1.0 (_2021-04-13_)
 
 ## Nimbus SDK
