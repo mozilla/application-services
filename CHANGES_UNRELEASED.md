@@ -2,6 +2,11 @@
 
 # Unreleased Changes
 
+## Autofill
+
+The main credit-cards table is dropped and recreated to ensure already existing
+databases will continue to work.
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.1.0...main)
 
 ## Autofill
