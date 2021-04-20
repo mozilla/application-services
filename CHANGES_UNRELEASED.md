@@ -4,16 +4,9 @@
 
 ## Autofill
 
-- The main credit-cards is dropped and recreated to ensure already existing
-  databases will continue to work.
+### What's Changed
 
 - Added support to scrub encrypted data to handle lost/corrupted client keys.
   Scrubbed data will be replaced with remote data on the next sync.
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v75.1.0...main)
-
-## Autofill
-
-### What's Changed
-
-- `get_address()` and `get_credit_card()` now throw a NoSuchRecord error instead of SqlError when the GUID is not found
+[Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...main)
