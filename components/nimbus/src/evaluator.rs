@@ -56,6 +56,8 @@ pub fn evaluate_enrollment(
         });
     }
 
+    // XXX reject duplicate use of feature_id before or after this
+
     // Get targeting out of the way - "if let chains" are experimental,
     // otherwise we could improve this.
     if let Some(expr) = &exp.targeting {

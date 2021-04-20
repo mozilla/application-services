@@ -97,6 +97,10 @@ impl NimbusClient {
         Ok(())
     }
 
+    pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
+        self.database_cache.get_feature_config_variables(&feature_id)
+    }
+
     // Note: the contract for this function is that it never blocks on IO.
     pub fn get_experiment_branch(&self, slug: String) -> Result<Option<String>> {
         self.database_cache.get_experiment_branch(&slug)
@@ -193,8 +197,8 @@ impl NimbusClient {
         let settings_client = self.settings_client.lock().unwrap();
         let new_experiments = settings_client.fetch_experiments()?;
         let db = self.db()?;
-        let mut writer = db.write()?;
         write_pending_experiments(&db, &mut writer, new_experiments)?;
+        let mut writer = db.write()?;
         writer.commit()?;
         Ok(())
     }
@@ -313,6 +317,7 @@ pub struct EnrolledExperiment {
     pub user_facing_description: String,
     pub branch_slug: String,
     pub enrollment_id: String,
+    pub feature_value: Option<String>,
 }
 
 /// This is the currently supported major schema version.
@@ -374,7 +379,9 @@ pub struct FeatureConfig {
     pub enabled: bool,
     // There is a nullable `value` field that can contain key-value config options
     // that modify the behaviour of an application feature, but we don't support
-    // it yet and the details are still being finalized, so we ignore it for now.
+    // it yet and the details are still being finalized, so we ignore it for
+    // now.
+    pub value: Option<String>,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️

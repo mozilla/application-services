@@ -324,6 +324,7 @@ mod tests {
                         feature: Some(FeatureConfig {
                             feature_id: "first_switch".to_string(),
                             enabled: false,
+                            value: None,
                         }),
                     },
                     Branch {
@@ -332,6 +333,7 @@ mod tests {
                         feature: Some(FeatureConfig {
                             feature_id: "first_switch".to_string(),
                             enabled: true,
+                            value: None,
                         }),
                     },
                 ],

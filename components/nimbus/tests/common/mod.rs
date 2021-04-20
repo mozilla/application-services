@@ -146,6 +146,7 @@ pub fn experiments_testing_feature_ids() -> String {
                         "ratio": 1,
                         "feature": {
                             "featureId": "aboutmonkeys",
+                            "value": {"hands": "green"},
                             "enabled": false
                         }
                     },
@@ -154,6 +155,7 @@ pub fn experiments_testing_feature_ids() -> String {
                         "ratio":1,
                         "feature": {
                             "featureId": "aboutmonkeys",
+                            "value": {"hands": "red"},
                             "enabled": true
                         },
 
@@ -191,6 +193,7 @@ pub fn experiments_testing_feature_ids() -> String {
                         "ratio": 1,
                         "feature": {
                             "featureId": "aboutwelcome",
+                            "value": {"welcome_string": "hi"},
                             "enabled": false
                         },
                     },
@@ -199,6 +202,7 @@ pub fn experiments_testing_feature_ids() -> String {
                         "ratio":1,
                         "feature": {
                             "featureId": "aboutwelcome",
+                            "value": {"welcome_string": "h"},
                             "enabled": true
                         },
                     }

@@ -429,6 +429,10 @@ pub enum EnrollmentStatus {
         // default it to "" for persisted enrollments where it is missing.
         #[serde(default)]
         feature_id: String,
+        // The `feature_id` field was added later. To avoid a db migration we
+        // default it to "" for persisted enrollments where it is missing.
+        #[serde(default)]
+        feature_value: String,
     },
     NotEnrolled {
         reason: NotEnrolledReason,
@@ -520,6 +524,7 @@ pub fn get_enrollments<'r>(
                     user_facing_description: experiment.user_facing_description,
                     branch_slug: branch.to_string(),
                     enrollment_id: enrollment_id.to_string(),
+
                 });
             } else {
                 log::warn!(
@@ -605,6 +610,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let existing_experiments = map_experiments(&existing_experiments);
         let updated_experiments = map_experiments(&updated_experiments);
         let existing_enrollments = map_enrollments(&existing_enrollments);
+        // XXX maybe create existing_feature_configs here, pass
 
         let mut all_slugs = HashSet::with_capacity(existing_experiments.len());
         all_slugs.extend(existing_experiments.keys());

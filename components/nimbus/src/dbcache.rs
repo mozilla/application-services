@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::get_enrollments;
+use crate::{EnrolledExperiment, enrollment::{EnrolledReason, get_enrollments}};
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, Writer};
 use std::collections::HashMap;
@@ -18,6 +18,7 @@ use std::sync::RwLock;
 struct CachedData {
     pub branches_by_experiment: HashMap<String, String>,
     pub branches_by_feature: HashMap<String, String>,
+    pub feature_value_by_feature: HashMap<String, Option<String>>,
 }
 
 // This is the public cache API. Each NimbusClient can create one of these and
@@ -53,15 +54,18 @@ impl DatabaseCache {
         // code may want to live in the EnrollmentEvolver.
         let mut branches_by_experiment = HashMap::with_capacity(experiments.len());
         let mut branches_by_feature = HashMap::with_capacity(experiments.len());
+        let mut feature_value_by_feature = HashMap::with_capacity(experiments.len());
 
         for e in experiments {
             branches_by_experiment.insert(e.slug, e.branch_slug.clone());
             branches_by_feature.insert(e.feature_ids[0].clone(), e.branch_slug);
+            feature_value_by_feature.insert(e.feature_ids[0].clone(), e.feature_value);
         }
 
         let data = CachedData {
             branches_by_experiment,
             branches_by_feature,
+            feature_value_by_feature,
         };
 
         // Try to commit the change to disk and update the cache as close
@@ -101,6 +105,13 @@ impl DatabaseCache {
         self.get_data(|data| match data.branches_by_feature.get(id) {
             None => data.branches_by_experiment.get(id).cloned(),
             Some(branch_slug) => Some(branch_slug.to_owned()),
+        })
+    }
+
+    pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
+        self.get_data(|data| match data.feature_value_by_feature.get(feature_id) {
+            None => None,
+            Some(feature_value) => feature_value.to_owned(),
         })
     }
 }

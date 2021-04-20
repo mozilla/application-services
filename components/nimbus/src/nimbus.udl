@@ -40,6 +40,7 @@ dictionary Branch {
 
 dictionary FeatureConfig {
     string feature_id;
+    string? value;
     boolean enabled;
 };
 
@@ -101,6 +102,9 @@ interface NimbusClient {
     // the minimum amount of work to achieve that.
     [Throws=NimbusError]
     void initialize();
+
+    [Throws=NimbusError]
+    string? get_feature_config_variables(string feature_id);
 
     // Returns the branch allocated for a given feature_id or experiment_slug.
     // Search first by feature_id, then by experiment_slug, returning the
