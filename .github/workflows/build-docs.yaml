@@ -1,22 +1,12 @@
 name: Build and Deploy
 on:   
-  push:
-    branches:
-      - main
   schedule:
     - cron: '0 1 * * *'
 jobs:
-  build-and-deploy:
+  build-and-deploy-docs:
     runs-on: ubuntu-latest
-    name: Check     
-    steps:
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Get a-s repository
+    steps: 
+      - name: Get repository and install Rust dependencies
         run: |
           echo `env`
           git init .
@@ -24,9 +14,9 @@ jobs:
           git pull origin main
           git submodule init
           git submodule update --recursive
-          
-      - name: Generate developer docs with mdbook  
-        run: |
+          echo 'rust.targets=linux-x86-64' > local.properties
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
           cargo install mdbook mdbook-mermaid mdbook-open-on-gh
           ./tools/build-book.sh
  
@@ -49,9 +39,17 @@ jobs:
           mkdir -p build/docs/rust-docs
           cp -rf target/doc/* build/docs/rust-docs
           
-      - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v3
-        with:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: gh-pages # The branch the action should deploy to.
-          FOLDER: build/docs # The folder the action should deploy.
+      - name: Deploy
+        run: |
+          git config --local user.email "${{ github.actor }}@users.noreply.github.com"
+          git config --local user.name "${{ github.actor }}"
+          git config --local url."https://api:${{ github.token }}@github.com/".insteadOf "https://github.com/"
+          git config --local url."https://ssh:${{ github.token }}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --local url."https://git:${{ github.token }}@github.com/".insteadOf "git@github.com:"
+          git checkout --orphan gh-pages
+          git --work-tree build/docs add --all
+          git --work-tree build/docs commit -m 'Deploy Docs'
+          git push origin HEAD:gh-pages --force
+          rm -r build/docs
+          git checkout -f main 
+          git branch -D gh-pages

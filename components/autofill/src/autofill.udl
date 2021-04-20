@@ -83,7 +83,7 @@ dictionary Address {
 enum Error {
    "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath",
    "Utf8Error", "JsonError", "InvalidSyncPayload", "MissingEncryptionKey",
-   "CryptoError",
+   "CryptoError", "NoSuchRecord",
 };
 
 // We don't really *need* this to be `Threadsafe` because we have a mutex to

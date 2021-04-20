@@ -88,7 +88,6 @@ pub(crate) fn add_internal_address(tx: &Transaction<'_>, address: &InternalAddre
 }
 
 pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddress> {
-    let tx = conn.unchecked_transaction()?;
     let sql = format!(
         "SELECT
             {common_cols},
@@ -97,11 +96,11 @@ pub(crate) fn get_address(conn: &Connection, guid: &Guid) -> Result<InternalAddr
         WHERE guid = :guid",
         common_cols = ADDRESS_COMMON_COLS
     );
-
-    let address = tx.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?))?;
-
-    tx.commit()?;
-    Ok(address)
+    conn.query_row(&sql, &[guid], |row| Ok(InternalAddress::from_row(row)?))
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => Error::NoSuchRecord(guid.to_string()),
+            e => e.into(),
+        })
 }
 
 pub(crate) fn get_all_addresses(conn: &Connection) -> Result<Vec<InternalAddress>> {
@@ -350,6 +349,18 @@ mod tests {
         assert!(delete_result.unwrap());
 
         assert!(get_address(&db, &saved_address.guid).is_err());
+    }
+
+    #[test]
+    fn test_address_missing_guid() {
+        let db = new_mem_db();
+        let guid = Guid::random();
+        let result = get_address(&db, &guid);
+
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            Error::NoSuchRecord(guid.to_string()).to_string()
+        );
     }
 
     #[test]

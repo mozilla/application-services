@@ -244,8 +244,7 @@ mod tests {
             "
             DROP TABLE credit_cards_data;
             CREATE TABLE credit_cards_data (guid TEXT NOT NULL PRIMARY KEY);
-            PRAGMA user_version = 0;
-        ",
+            PRAGMA user_version = 0;",
         )
         .expect("should work");
 
