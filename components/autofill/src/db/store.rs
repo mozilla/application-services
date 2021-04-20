@@ -110,6 +110,10 @@ impl Store {
         self.store_impl.scrub_encrypted_data()?;
         // Force the sync engine to refetch data (only need to do this for the credit cards, since the
         // addresses engine doesn't store encrypted data).
+        //
+        // It would be cleaner to put this inside the StoreImpl code, but that's tricky because
+        // create_engine needs an Arc<StoreImpl> which we have, but StoreImpl doesn't and StoreImpl
+        // can't just create one because AutofillDb.writer doesn't implement Clone.
         crate::sync::credit_card::create_engine(self.store_impl.clone()).reset_local_sync_data()?;
         Ok(())
     }
