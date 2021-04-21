@@ -14,9 +14,8 @@ android {
         minSdkVersion rootProject.ext.build['minSdkVersion']
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
-
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -32,6 +31,12 @@ android {
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
     }
 
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
     // This is required to support new AndroidX support libraries.
     // See mozilla-mobile/android-components#842
     compileOptions {
@@ -42,20 +47,6 @@ android {
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         kotlinOptions {
             jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-        }
-    }
-
-    testOptions {
-        unitTests.all {
-            testLogging {
-                showStandardStreams = true
-            }
-
-            maxHeapSize = "1024m"
-        }
-
-        unitTests {
-            includeAndroidResources = true
         }
     }
 }
@@ -90,7 +81,7 @@ dependencies {
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
 
-    compileOnly "org.mozilla.components:service-glean:$android_components_version"
+    implementation "org.mozilla.components:service-glean:$android_components_version"
     api "org.mozilla.components:support-base:$android_components_version"
     api "org.mozilla.components:support-locale:$android_components_version"
 
@@ -108,8 +99,12 @@ dependencies {
     // causing it to be resolved.  Cloning first dissociates the configuration,
     // avoiding other configurations from being resolved.  Tricky!
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
-    testImplementation 'junit:junit:4.12'
-    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$project.ext.glean_version"
+    testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
+    testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
+    testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
+    testImplementation "org.mockito:mockito-core:$mockito_core_version"
+    testImplementation "org.mozilla.components:support-test:$android_components_version"
+    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 }
 
 // We also do the binding generation here:

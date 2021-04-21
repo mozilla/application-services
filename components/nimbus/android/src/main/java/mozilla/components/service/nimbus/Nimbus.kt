@@ -27,6 +27,7 @@ import mozilla.components.support.base.observer.ObserverRegistry
 //import mozilla.components.support.base.utils.NamedThreadFactory
 import mozilla.components.support.locale.getLocaleTag
 import org.mozilla.experiments.nimbus.AppContext
+import org.mozilla.experiments.nimbus.AvailableExperiment
 import org.mozilla.experiments.nimbus.AvailableRandomizationUnits
 import org.mozilla.experiments.nimbus.Branch
 import org.mozilla.experiments.nimbus.EnrolledExperiment
@@ -57,6 +58,13 @@ interface NimbusApi : Observable<NimbusApi.Observer> {
     fun getActiveExperiments(): List<EnrolledExperiment> = listOf()
 
     /**
+     * Get the list of available experiments
+     *
+     * @return A list of [AvailableExperiment]s
+     */
+    fun getAvailableExperiments(): List<AvailableExperiment> = listOf()
+
+    /**
      * Get the currently enrolled branch for the given experiment
      *
      * @param experimentId The string experiment-id or "slug" for which to retrieve the branch
@@ -74,13 +82,6 @@ interface NimbusApi : Observable<NimbusApi.Observer> {
      * @return A list of [Branch]s
      */
     fun getExperimentBranches(experimentId: String): List<Branch>? = listOf()
-
-    /**
-     * Refreshes the experiments from the endpoint. Should be called at least once after
-     * initialization
-     */
-    @Deprecated("Use fetchExperiments() and applyPendingExperiments()")
-    fun updateExperiments() = Unit
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -294,6 +295,10 @@ class Nimbus(
     override fun getActiveExperiments(): List<EnrolledExperiment> =
         nimbus.getActiveExperiments()
 
+    @WorkerThread
+    override fun getAvailableExperiments(): List<AvailableExperiment> =
+        nimbus.getAvailableExperiments()
+
     override fun getExperimentBranch(experimentId: String): String? {
         recordExposure(experimentId)
         return nimbus.getExperimentBranch(experimentId)
@@ -302,13 +307,6 @@ class Nimbus(
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
         nimbus.getExperimentBranches(experimentId)
-    }
-
-    override fun updateExperiments() {
-        fetchScope.launch {
-            fetchExperimentsOnThisThread()
-            applyPendingExperimentsOnThisThread()
-        }
     }
 
     // Method and apparatus to catch any uncaught exceptions
