@@ -24,7 +24,7 @@ import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import mozilla.components.support.base.log.logger.Logger
 import mozilla.components.support.base.observer.Observable
 import mozilla.components.support.base.observer.ObserverRegistry
-//import mozilla.components.support.base.utils.NamedThreadFactory
+import mozilla.components.support.base.utils.NamedThreadFactory
 import mozilla.components.support.locale.getLocaleTag
 import org.mozilla.experiments.nimbus.AppContext
 import org.mozilla.experiments.nimbus.AvailableExperiment
@@ -239,12 +239,12 @@ class Nimbus(
     // Using two single threaded executors here to enforce synchronization where needed:
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
     private val dbScope: CoroutineScope = CoroutineScope(Executors.newSingleThreadExecutor(
-//        NamedThreadFactory("NimbusDBScope")
+        NamedThreadFactory("NimbusDBScope")
     ).asCoroutineDispatcher())
 
     // An I/O scope is used for getting experiments from the network.
     private val fetchScope: CoroutineScope = CoroutineScope(Executors.newSingleThreadExecutor(
-//        NamedThreadFactory("NimbusFetchScope")
+        NamedThreadFactory("NimbusFetchScope")
     ).asCoroutineDispatcher())
 
     private val nimbus: NimbusClientInterface
