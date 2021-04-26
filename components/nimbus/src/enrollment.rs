@@ -612,8 +612,15 @@ impl<'a> EnrollmentsEvolver<'a> {
         all_slugs.extend(updated_experiments.keys());
         all_slugs.extend(existing_enrollments.keys());
 
+        // make a hash map of feature_id to enrolled_experiment.slug
+
         let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
         for slug in all_slugs {
+
+            // Does this experiment have a feature id that we've already used?
+            // if so, then record a disqualified enrollment then `continue` to the next slug
+            // if not, the do:
+
             let updated_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 existing_experiments.get(slug).copied(),
@@ -624,8 +631,16 @@ impl<'a> EnrollmentsEvolver<'a> {
             if let Some(enrollment) = updated_enrollment {
                 updated_enrollments.push(enrollment);
             }
+
+            // What has changed? If we're still enrolled, do nothing.
+            // If it is new, then add the slug to the feature id.
+            // If not, remove the feature id - it's usable now.
         }
 
+        // this may be in next ticket, though some db writing may want to be here:
+        // transform the hashmap<feature_id, slug> and updated_enrollments to
+        // hashmap<feature_id, feature_config.value> (this last might want to be computed, written to db, getter in
+        // dbcache
         Ok((updated_enrollments, enrollment_events))
     }
 
