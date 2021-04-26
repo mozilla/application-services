@@ -51,11 +51,6 @@ pub fn wipe(engine: &str) -> Result<()> {
     manager.wipe(engine)
 }
 
-pub fn wipe_all() -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
-    manager.wipe_all()
-}
-
 pub fn reset(engine: &str) -> Result<()> {
     let mut manager = MANAGER.lock().unwrap();
     manager.reset(engine)

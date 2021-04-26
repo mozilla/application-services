@@ -4,7 +4,7 @@
 
 use crate::error::*;
 use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
-use crate::{reset, reset_all, wipe, wipe_all};
+use crate::{reset, reset_all, wipe};
 use logins::PasswordStore;
 use places::{
     bookmark_sync::engine::BookmarksEngine, history_sync::engine::HistoryEngine, PlacesApi,
@@ -126,28 +126,6 @@ impl SyncManager {
             }
             _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
         }
-    }
-
-    pub fn wipe_all(&mut self) -> Result<()> {
-        if let Some(logins) = self
-            .logins
-            .upgrade()
-            .as_ref()
-            .map(|l| l.lock().expect("poisoned logins mutex"))
-        {
-            logins.wipe()?;
-        }
-        if let Some(places) = self.places.upgrade() {
-            places.wipe_bookmarks()?;
-            places.wipe_history()?;
-        }
-        if let Some(addresses) = Self::autofill_engine("addresses") {
-            addresses.wipe()?;
-        }
-        if let Some(credit_cards) = Self::autofill_engine("creditcards") {
-            credit_cards.wipe()?;
-        }
-        Ok(())
     }
 
     pub fn reset(&mut self, engine: &str) -> Result<()> {
@@ -585,7 +563,6 @@ impl CommandProcessor for SyncClient {
     fn apply_incoming_command(&self, command: Command) -> anyhow::Result<CommandStatus> {
         let result = match command {
             Command::Wipe(engine) => wipe(&engine),
-            Command::WipeAll => wipe_all(),
             Command::Reset(engine) => reset(&engine),
             Command::ResetAll => reset_all(),
         };

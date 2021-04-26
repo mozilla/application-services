@@ -92,7 +92,6 @@ impl CommandRecord {
     pub fn as_command(&self) -> Option<Command> {
         match self.name.as_str() {
             "wipeEngine" => self.args.get(0).map(|e| Command::Wipe(e.into())),
-            "wipeAll" => Some(Command::WipeAll),
             "resetEngine" => self.args.get(0).map(|e| Command::Reset(e.into())),
             "resetAll" => Some(Command::ResetAll),
             _ => None,
@@ -106,11 +105,6 @@ impl From<Command> for CommandRecord {
             Command::Wipe(engine) => CommandRecord {
                 name: "wipeEngine".into(),
                 args: vec![engine],
-                flow_id: None,
-            },
-            Command::WipeAll => CommandRecord {
-                name: "wipeAll".into(),
-                args: Vec::new(),
                 flow_id: None,
             },
             Command::Reset(engine) => CommandRecord {

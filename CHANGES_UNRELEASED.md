@@ -2,6 +2,10 @@
 
 # Unreleased Changes
 
+## Sync Manager
+
+- Removed support for the wipeAll command (#4006)
+
 ## Autofill
 
 ### What's Changed

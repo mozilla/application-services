@@ -83,8 +83,6 @@ pub struct Settings {
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Command {
-    /// Erases all local data.
-    WipeAll,
     /// Erases all local data for a specific engine.
     Wipe(String),
     /// Resets local sync state for all engines.
