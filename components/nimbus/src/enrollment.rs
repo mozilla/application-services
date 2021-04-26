@@ -2019,7 +2019,7 @@ mod tests {
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
         // We should see the experiment non-enrollments.
-        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 3);
         let not_enrolled_enrollments: Vec<ExperimentEnrollment> =
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
@@ -2032,7 +2032,7 @@ mod tests {
                     )
                 })
                 .collect();
-        assert_eq!(not_enrolled_enrollments.len(), 2);
+        assert_eq!(not_enrolled_enrollments.len(), 3);
 
         // User opts in, and updating should enroll us in 2 experiments.
         set_global_user_participation(&db, &mut writer, true)?;
@@ -2043,8 +2043,8 @@ mod tests {
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 2);
         assert_eq!(events.len(), 2);
-        // We should see 2 experiment enrollments.
-        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+        // We should see 3 experiment enrollments.
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 3);
         let enrolled_enrollments: Vec<ExperimentEnrollment> =
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
@@ -2061,8 +2061,8 @@ mod tests {
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert_eq!(events.len(), 2);
-        // We should see 2 experiment enrolments, this time they're both opt outs
-        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
+        // We should see 3 experiment enrolments, this time they're both opt outs
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 3);
         let disqualified_enrollments: Vec<ExperimentEnrollment> =
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
