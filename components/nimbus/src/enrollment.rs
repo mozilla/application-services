@@ -36,6 +36,7 @@ pub enum NotEnrolledReason {
     NotSelected, // The evaluator bucketing did not choose us.
     NotTargeted, // We are not being targeted for this experiment.
     EnrollmentsPaused, // The experiment enrollment is paused.
+    FeatureAlreadyUnderExperiment { feature_id: String }, // XXX byExperiment: String too? }, // An experiment is already being conducted with one
 }
 
 // These are types we use internally for managing disqualifications.
@@ -868,8 +869,8 @@ mod tests {
                 "slug": "secure-silver",
                 "endDate": null,
                 "branches":[
-                    {"slug": "control", "ratio": 1}, // XXX add feature
-                    {"slug": "treatment","ratio":1}, // XXX add feature
+                    {"slug": "control", "ratio": 1, "featureId": "monkey"},
+                    {"slug": "treatment","ratio":1, "featureId": "monkey"},
                 ],
                 "featureIds": ["monkey"],
                 "channel": "nightly",
@@ -892,6 +893,36 @@ mod tests {
                 "userFacingDescription":"2nd test experiment.",
                 "id":"secure-silver",
                 "last_modified":1_602_197_324_372i64
+            }))
+            .unwrap(),
+            serde_json::from_value(json!({
+                "schemaVersion": "1.0.0",
+                "slug": "another-monkey",
+                "endDate": null,
+                "branches":[
+                    {"slug": "control", "ratio": 1, "featureId": "monkey"},
+                    {"slug": "treatment","ratio":1, "featureId": "monkey"},
+                ],
+                "featureIds": ["monkey"],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "bucketConfig":{
+                    "count":1_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-silver",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"2nd test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"2nd test experiment.",
+                "id":"secure-silver",
+                "last_modified":1_602_197_222_372i64
             }))
             .unwrap(),
         ]
@@ -942,6 +973,31 @@ mod tests {
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].experiment_slug, exp.slug);
         assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_experiment_not_enrolled_feature_under_experiment() -> Result<()> {
+        let test_experiments = get_test_experiments();
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let mut events = vec![];
+        evolver
+            .evolve_enrollment(true, None, Some(&test_experiments[1]), None, &mut events)?
+            .unwrap();
+
+        let enrollment2 = evolver
+            .evolve_enrollment(true, None, Some(&test_experiments[2]), None, &mut events)?
+            .unwrap();
+
+        assert!(matches!(
+            enrollment2.status,
+            EnrollmentStatus::NotEnrolled { .. } // reason: NotEnrolledReason::FeatureAlready..("monkey");
+
+        ));
+        // assert_eq!(events.len(), 1);
+        // assert_eq!(events[0].experiment_slug, exp.slug);
+        // assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
         Ok(())
     }
 
