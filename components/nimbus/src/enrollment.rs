@@ -602,17 +602,22 @@ impl<'a> EnrollmentsEvolver<'a> {
         updated_experiments: &[Experiment],
         existing_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+        // XXX fix up name overrides of params for clarity; check on clippy lint
         let mut enrollment_events = vec![];
         let existing_experiments = map_experiments(&existing_experiments);
         let updated_experiments = map_experiments(&updated_experiments);
-        let existing_enrollments = map_enrollments(&existing_enrollments);
+        let existing_enrollment_map = map_enrollments(&existing_enrollments);
 
         let mut all_slugs = HashSet::with_capacity(existing_experiments.len());
         all_slugs.extend(existing_experiments.keys());
         all_slugs.extend(updated_experiments.keys());
-        all_slugs.extend(existing_enrollments.keys());
+        all_slugs.extend(existing_enrollment_map.keys());
 
         // make a hash map of feature_id to enrolled_experiment.slug
+        // XXX need to make sure updated feature_ids are inserted into this
+        // as we update
+        let locally_enrolled_feature_ids =
+            map_locally_enrolled_feature_ids(existing_enrollments, &existing_experiments);
 
         let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
         for slug in all_slugs {
@@ -625,7 +630,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 is_user_participating,
                 existing_experiments.get(slug).copied(),
                 updated_experiments.get(slug).copied(),
-                existing_enrollments.get(slug).copied(),
+                existing_enrollment_map.get(slug).copied(),
                 &mut enrollment_events,
             )?;
             if let Some(enrollment) = updated_enrollment {
@@ -710,6 +715,25 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
         map_enrollments.insert(e.slug.clone(), e);
     }
     map_enrollments
+}
+
+fn map_locally_enrolled_feature_ids(enrollments: &[ExperimentEnrollment], experiments: &HashMap<String, &Experiment>) -> HashMap<String, String> {
+    // XXX this capacity might cause problems once we allow re than one feature_id per experiment:
+    let mut map_feature_ids_to_experiment_slugs: HashMap<String,String> = HashMap::with_capacity(enrollments.len());
+    for enrollment in enrollments {
+
+        // get experiment for enrollment
+        let experiment = experiments.get(&enrollment.slug.clone()).unwrap(); // XXX unwrap
+
+        // get first feature_id for enrollment
+        let first_feature_id = experiment.feature_ids[0].clone();
+
+        // insert feature_id, slug.clone() into map
+        map_feature_ids_to_experiment_slugs.insert(
+        first_feature_id,
+        enrollment.slug.clone());
+    }
+    map_feature_ids_to_experiment_slugs
 }
 
 pub struct EnrollmentChangeEvent {
