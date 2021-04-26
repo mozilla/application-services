@@ -1007,9 +1007,9 @@ mod tests {
 
         assert!(matches!(
             enrollment2.status,
-            EnrollmentStatus::NotEnrolled { .. } // reason: NotEnrolledReason::FeatureAlready..("monkey");
-
-        ));
+            EnrollmentStatus::NotEnrolled { .. }), // reason: NotEnrolledReason::FeatureAlready..("monkey");
+            "enrollment2.status = {:?}", (enrollment2.status)
+        );
         // assert_eq!(events.len(), 1);
         // assert_eq!(events[0].experiment_slug, exp.slug);
         // assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
