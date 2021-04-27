@@ -69,6 +69,7 @@ impl ExperimentEnrollment {
         available_randomization_units: &AvailableRandomizationUnits,
         app_context: &AppContext,
         experiment: &Experiment,
+        feature_already_under_experiment: bool,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(if !is_user_participating {
@@ -84,6 +85,13 @@ impl ExperimentEnrollment {
                 status: EnrollmentStatus::NotEnrolled {
                     reason: NotEnrolledReason::EnrollmentsPaused,
                 },
+            }
+        } else if feature_already_under_experiment { // XXX
+            Self {
+                slug: experiment.slug.clone(),
+                status: EnrollmentStatus::NotEnrolled {
+                    reason: NotEnrolledReason::FeatureAlreadyUnderExperiment{ feature_id: experiment.get_first_feature_id().clone() }
+                }
             }
         } else {
             let enrollment = evaluate_enrollment(
@@ -626,9 +634,33 @@ impl<'a> EnrollmentsEvolver<'a> {
             // if so, then record a disqualified enrollment then `continue` to the next slug
             // if not, the do:
 
+            let existing_experiment = existing_experiments.get(slug).copied();
+            if existing_experiment != None {
+
+                let unwrapped_experiment = existing_experiment.unwrap(); // XXX use actual Rust idiom here
+
+                if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id()) != None {
+                    // record disqualified enrollment
+                    let non_enrollment = ExperimentEnrollment::from_new_experiment(
+                        is_user_participating,
+                        self.nimbus_id,
+                        self.available_randomization_units,
+                        self.app_context,
+                        unwrapped_experiment,
+                        true,
+                        &mut enrollment_events,
+                    )?;
+
+                    updated_enrollments.push(non_enrollment);
+
+                    // XXX update featureid hashtable
+                    continue;
+                }
+            }
+
             let updated_enrollment = self.evolve_enrollment(
                 is_user_participating,
-                existing_experiments.get(slug).copied(),
+                existing_experiment,
                 updated_experiments.get(slug).copied(),
                 existing_enrollment_map.get(slug).copied(),
                 &mut enrollment_events,
@@ -667,6 +699,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     self.app_context,
                     experiment,
+                    false,
                     out_enrollment_events,
                 )?),
                 // Experiment deleted remotely.
@@ -726,7 +759,7 @@ fn map_locally_enrolled_feature_ids(enrollments: &[ExperimentEnrollment], experi
         let experiment = experiments.get(&enrollment.slug.clone()).unwrap(); // XXX unwrap
 
         // get first feature_id for enrollment
-        let first_feature_id = experiment.feature_ids[0].clone();
+        let first_feature_id = experiment.get_first_feature_id();
 
         // insert feature_id, slug.clone() into map
         map_feature_ids_to_experiment_slugs.insert(
@@ -1020,20 +1053,14 @@ mod tests {
         let test_experiments = get_test_experiments();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
-        let mut events = vec![];
-        evolver
-            .evolve_enrollment(true, None, Some(&test_experiments[1]), None, &mut events)?
-            .unwrap();
-
-        let enrollment2 = evolver
-            .evolve_enrollment(true, None, Some(&test_experiments[2]), None, &mut events)?
-            .unwrap();
+        let (enrollments,..) =
+            evolver.evolve_enrollments(true, &vec![],
+                &test_experiments, &vec![])?;
 
         assert!(matches!(
-            enrollment2.status,
-            EnrollmentStatus::NotEnrolled { .. }), // reason: NotEnrolledReason::FeatureAlready..("monkey");
-            "enrollment2.status = {:?}", (enrollment2.status)
-        );
+            &enrollments[1].status,
+            EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::FeatureAlreadyUnderExperiment { feature_id: } }),
+            "enrollments[1].status = {:?}", (enrollments[2].status));
         // assert_eq!(events.len(), 1);
         // assert_eq!(events[0].experiment_slug, exp.slug);
         // assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
