@@ -611,6 +611,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         updated_experiments: &[Experiment],
         existing_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+
         // XXX fix up name overrides of params for clarity; check on clippy lint
         let mut enrollment_events = vec![];
         let existing_experiments = map_experiments(&existing_experiments);
@@ -622,15 +623,12 @@ impl<'a> EnrollmentsEvolver<'a> {
         all_slugs.extend(updated_experiments.keys());
         all_slugs.extend(existing_enrollment_map.keys());
 
-        // XXX go through here and make sure we're only calling
-        // evolve_enrolment once per update?
-
         // Step 1:
         // make a hash map of feature_id to enrolled_experiment.slug
         // XXX need to make sure updated feature_ids are inserted into this
         // as we update
 
-        let locally_enrolled_feature_ids =
+        let mut locally_enrolled_feature_ids =
             map_locally_enrolled_feature_ids(existing_enrollments, &existing_experiments);
 
         let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
@@ -639,43 +637,64 @@ impl<'a> EnrollmentsEvolver<'a> {
         // remove any feature-ids from the map that were being experimented
         // on, but no longer are, according to the current updates.
 
-        // XXX we're doing more than that here, we're also envolving all new
-        // enrollments.  Is that OK?
         for slug in all_slugs.clone() {
-            let updated_enrollment = self.evolve_enrollment(
+            let _updated_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 existing_experiments.get(slug).copied(),
                 updated_experiments.get(slug).copied(),
                 existing_enrollment_map.get(slug).copied(),
                 &mut enrollment_events,
             )?;
-            if let Some(enrollment) = updated_enrollment {
-                updated_enrollments.push(enrollment);
-                // if enrollment.status != EnrollmentStatus::Enrolled
-            }
+            // if let Some(_enrollment) = updated_enrollment {
+               // What has changed? If we're still enrolled, do nothing.
 
-            // What has changed? If we're still enrolled, do nothing.
-            // If it is new, then add the slug to the feature id.
-            // If not, remove the feature id - it's usable now.
+                // If not, remove the feature id - it's usable now.
+
+                // updated_enrollments.push(enrollment); XXX NOT NEEDED HERE, I
+                //if enrollment.status != EnrollmentStatus::Enrolled
+            // }
         }
 
-        // Step 3: now we can add new experiments that avoiding the features that
+        // Step 3: now we can add new experiments that avoid the features that
         // already being experimented upon.
         for slug in all_slugs {
 
             let updated_experiment = updated_experiments.get(slug).copied();
             if let Some(unwrapped_experiment) = updated_experiment {
-                log::debug!("inside let Some");
+                log::debug!("inside let Some -- we've got some kind of experiment");
 
-                // Does this experiment have a feature id that we've already used?
-                // if so, then record a disqualified enrollment then `continue` to the next slug
+                // If this feature_id is locally free, evolve the enrollment
+                // update the feature_id hashtable
                 if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id()) == None {
-                    // XXX evolve enrollment?
+                    log::debug!("this feature is locally unused");
+                    // XXX evolve enrollment & push
+
+                    let updated_enrollment = self.evolve_enrollment(
+                        is_user_participating,
+                        existing_experiments.get(slug).copied(),
+                        updated_experiments.get(slug).copied(),
+                        existing_enrollment_map.get(slug).copied(),
+                        &mut enrollment_events,
+                    )?;
+
+                    if let Some(enrollment) = updated_enrollment {
+                        log::debug!("updated enrollement was returned; will push");
+                        updated_enrollments.push(enrollment);
+
+                        log::debug!("updating locally_enrolled_feature_ids");
+                        let feature_id = &unwrapped_experiment.get_first_feature_id();
+                        locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
+
+                    }
+               // What has changed? If we're still enrolled, do nothing.
 
                     // XXX update featureid hashtable
 
                 } else {
-                    log::debug!("in locally_enrolled_feature_ids");
+                    // If it's locally already in use.....
+
+                    // Does this experiment have a feature id that we've already used?
+                    log::debug!("already in in locally_enrolled_feature_ids");
                     // record disqualified enrollment
                     let non_enrollment = ExperimentEnrollment::from_new_experiment(
                         is_user_participating,
@@ -1069,6 +1088,8 @@ mod tests {
 
     #[test]
     fn test_evolver_experiment_not_enrolled_feature_under_experiment() -> Result<()> {
+        let _ = env_logger::try_init();
+
         let test_experiments = get_test_experiments();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
@@ -1077,9 +1098,9 @@ mod tests {
                 &test_experiments, &vec![])?;
 
         assert!(matches!(
-            &enrollments[1].status,
+            &enrollments[2].status,
             EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::FeatureAlreadyUnderExperiment { .. } }),
-            "enrollments[0].status should be NotEnrolled with FeatureAlreadyUnderExperiment reason {:?}", (enrollments[1].status));
+            "enrollments[1].status should be NotEnrolled with FeatureAlreadyUnderExperiment reason {:?}", (enrollments[2].status));
 
         // Figure out string reason, length, and other enrollments using following or...
         // assert_eq!(events.len(), 1);
