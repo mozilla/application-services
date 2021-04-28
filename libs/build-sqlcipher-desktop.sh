@@ -34,6 +34,13 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
+  #We need this variable for switching libs based on different macos archs
+  #also keepping the naming consistent with target_arch env on the rust side
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    TARGET_ARCH="aarch64"
+  else
+    TARGET_ARCH="x86_64"
+  fi
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/sqlcipher")
@@ -87,8 +94,6 @@ LIBS="\
   -lcerthi \
   -lcryptohi \
   -lfreebl_static \
-  -lhw-acc-crypto-avx \
-  -lhw-acc-crypto-avx2 \
   -lnspr4 \
   -lnss_static \
   -lnssb \
@@ -99,13 +104,16 @@ LIBS="\
   -lplc4 \
   -lplds4 \
   -lsoftokn_static \
-  -lgcm-aes-x86_c_lib \
 "
 
 if [[ "${TARGET_OS}" == "windows" ]]; then
   LIBS="${LIBS} -lintel-gcm-wrap_c_lib"
 elif [[ "${TARGET_OS}" == "linux" ]]; then
   LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
+elif [[ "${TARGET_OS}" == "macos" ]] && [[ "${TARGET_ARCH}" == "aarch64" ]]; then
+  LIBS="${LIBS} -lgcm-aes-aarch64_c_lib -larmv8_c_lib"
+else
+  LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib"
 fi
 
 BUILD_DIR=$(mktemp -d)

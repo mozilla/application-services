@@ -33,6 +33,13 @@ elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
+  #We need this variable for switching libs based on different macos archs (M1 vs Intel)
+  #also, keeping the naming consistent with target_arch env on the rust side
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    TARGET_ARCH="aarch64"
+  else
+    TARGET_ARCH="x86_64"
+  fi
 elif [[ "$(uname -s)" == "Linux" ]]; then
   # This is a JNA weirdness: "x86-64" rather than "x86_64".
   DIST_DIR=$(abspath "desktop/linux-x86-64/nss")
@@ -98,12 +105,18 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libpkcs7.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
 
-# HW specific.
-# https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163
-cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+#Apple M1 need HW specific libs copied over to successfully build
+if [[ "${TARGET_OS}" == "macos" ]] && [[ "${TARGET_ARCH}" == "aarch64" ]]; then
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
+else
+  # HW specific.
+  # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#159-163
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libhw-acc-crypto-avx2.a" "${DIST_DIR}/lib"
+  cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-x86_c_lib.a" "${DIST_DIR}/lib"
+fi
 # https://searchfox.org/mozilla-central/rev/1eb05019f47069172ba81a6c108a584a409a24ea/security/nss/lib/freebl/freebl.gyp#224-233
 if [[ "${TARGET_OS}" == "windows" ]] || [[ "${TARGET_OS}" == "linux" ]]; then
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libintel-gcm-wrap_c_lib.a" "${DIST_DIR}/lib"
