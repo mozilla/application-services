@@ -13,6 +13,8 @@ SQLCIPHER_SRC_DIR=${1}
 # Whether to cross compile from Linux to a different target.  Really
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
+# This will mimic CARGO_CFG_TARGET_ARCH
+TARGET_ARCH="unknown"
 
 if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
@@ -34,8 +36,8 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/sqlcipher")
   NSS_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
-  #We need this variable for switching libs based on different macos archs
-  #also keepping the naming consistent with target_arch env on the rust side
+  # We need this variable for switching libs based on different macos archs (M1 vs Intel)
+  # Rename to stay consistent with CARGO_CFG_TARGET_ARCH on the rust side
   if [[ "$(uname -m)" == "arm64" ]]; then
     TARGET_ARCH="aarch64"
   else

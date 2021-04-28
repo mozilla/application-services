@@ -15,6 +15,8 @@ NSS_SRC_DIR=${1}
 # Whether to cross compile from Linux to a different target.  Really
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
+# This will stay consistent with CARGO_CFG_TARGET_ARCH
+TARGET_ARCH="unknown"
 
 if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
   echo "Can only cross compile from 'Linux'; 'uname -s' is $(uname -s)"
@@ -33,8 +35,8 @@ elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
-  #We need this variable for switching libs based on different macos archs (M1 vs Intel)
-  #also, keeping the naming consistent with target_arch env on the rust side
+  # We need this variable for switching libs based on different macos archs (M1 vs Intel)
+  # Renaming uname to stay consistent with CARGO_CFG_TARGET_ARCH on the rust side
   if [[ "$(uname -m)" == "arm64" ]]; then
     TARGET_ARCH="aarch64"
   else
@@ -106,7 +108,7 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsmime.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 
-#Apple M1 need HW specific libs copied over to successfully build
+# Apple M1 need HW specific libs copied over to successfully build
 if [[ "${TARGET_OS}" == "macos" ]] && [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
