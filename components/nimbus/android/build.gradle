@@ -82,8 +82,7 @@ dependencies {
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
 
     implementation "org.mozilla.components:service-glean:$android_components_version"
-    api "org.mozilla.components:support-base:$android_components_version"
-    api "org.mozilla.components:support-locale:$android_components_version"
+    implementation "androidx.core:core-ktx:$androidx_core_version"
 
     // Unlike standard Nimbus which builds a standalone package, this version depends
     // on `:full-megazord` for the underlying native library. The full-megazord needs
@@ -101,9 +100,9 @@ dependencies {
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
     testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
+    testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
     testImplementation "org.mockito:mockito-core:$mockito_core_version"
-    testImplementation "org.mozilla.components:support-test:$android_components_version"
     testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 }
 

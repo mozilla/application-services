@@ -5,16 +5,16 @@
 package mozilla.components.service.nimbus
 
 import android.content.Context
+import android.util.Log
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.Response
 import mozilla.components.service.glean.Glean
 import mozilla.components.service.glean.config.Configuration
 import mozilla.components.service.glean.net.ConceptFetchHttpUploader
 import mozilla.components.service.glean.testing.GleanTestRule
-import mozilla.components.support.test.any
-import mozilla.components.support.test.mock
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -22,13 +22,16 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.Mockito
 import org.mockito.Mockito.`when`
 import org.mozilla.experiments.nimbus.EnrolledExperiment
 import org.mozilla.experiments.nimbus.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
+import org.robolectric.RobolectricTestRunner
+import java.util.concurrent.Executors
 
-@RunWith(AndroidJUnit4::class)
+@RunWith(RobolectricTestRunner::class)
 class NimbusTest {
     private val context: Context
         get() = ApplicationProvider.getApplicationContext()
@@ -38,12 +41,26 @@ class NimbusTest {
         channel = "test"
     )
 
+    private val deviceInfo = NimbusDeviceInfo(
+        localeTag = "en-GB"
+    )
+
     private val packageName = context.packageName
+
+    private val nimbusDelegate = NimbusDelegate(
+        dbScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
+        fetchScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
+        logger = { Log.i("NimbusTest", it) },
+        errorReporter = { message, e -> Log.e("NimbusTest", message, e) },
+        observer = null
+    )
 
     private val nimbus = Nimbus(
         context = context,
         appInfo = appInfo,
-        server = null
+        server = null,
+        deviceInfo = deviceInfo,
+        delegate = nimbusDelegate
     )
 
     @get:Rule
@@ -200,20 +217,11 @@ class NimbusTest {
 
     @Test
     fun `buildExperimentContext returns a valid context`() {
-        val expContext = nimbus.buildExperimentContext(context)
+        val expContext = nimbus.buildExperimentContext(context, appInfo, deviceInfo)
         assertEquals(packageName, expContext.appId)
         assertEquals(appInfo.appName, expContext.appName)
         assertEquals(appInfo.channel, expContext.channel)
         // If we could control more of the context here we might be able to better test it
-    }
-
-    @Test
-    fun `NimbusDisabled is empty`() {
-        val nimbus: NimbusApi = NimbusDisabled()
-        nimbus.fetchExperiments()
-        nimbus.applyPendingExperiments()
-        assertTrue("getActiveExperiments should be empty", nimbus.getActiveExperiments().isEmpty())
-        assertEquals(null, nimbus.getExperimentBranch("test-experiment"))
     }
 
     @Test
@@ -225,7 +233,9 @@ class NimbusTest {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
-            server = null
+            server = null,
+            deviceInfo = deviceInfo,
+            delegate = nimbusDelegate
         )
 
         nimbus.setUpTestExperiments("$packageName.nightly", targetedAppInfo)
@@ -243,12 +253,25 @@ class NimbusTest {
         val nimbus = Nimbus(
             context = context,
             appInfo = developmentAppInfo,
-            server = null
+            server = null,
+            deviceInfo = deviceInfo,
+            delegate = nimbusDelegate
         )
 
-        nimbus.setUpTestExperiments("$packageName", targetedAppInfo)
+        nimbus.setUpTestExperiments(packageName, targetedAppInfo)
 
         val available = nimbus.getAvailableExperiments()
         assertTrue(available.isEmpty())
     }
 }
+
+// Mocking utilities, from mozilla.components.support.test
+fun <T> any(): T {
+    Mockito.any<T>()
+    return uninitialized()
+}
+
+@Suppress("UNCHECKED_CAST")
+fun <T> uninitialized(): T = null as T
+
+inline fun <reified T : Any> mock(): T = Mockito.mock(T::class.java)

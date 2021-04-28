@@ -17,15 +17,9 @@ import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import mozilla.components.service.glean.Glean
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
-import mozilla.components.support.base.log.logger.Logger
-import mozilla.components.support.base.observer.Observable
-import mozilla.components.support.base.observer.ObserverRegistry
-import mozilla.components.support.base.utils.NamedThreadFactory
-import mozilla.components.support.locale.getLocaleTag
 import org.mozilla.experiments.nimbus.AppContext
 import org.mozilla.experiments.nimbus.AvailableExperiment
 import org.mozilla.experiments.nimbus.AvailableRandomizationUnits
@@ -38,10 +32,7 @@ import org.mozilla.experiments.nimbus.NimbusClient
 import org.mozilla.experiments.nimbus.NimbusClientInterface
 import org.mozilla.experiments.nimbus.RemoteSettingsConfig
 import java.io.File
-import java.util.Locale
-import java.util.concurrent.Executors
 
-private const val LOG_TAG = "service/Nimbus"
 private const val EXPERIMENT_BUCKET_NAME = "main"
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
@@ -49,7 +40,7 @@ private const val NIMBUS_DATA_DIR: String = "nimbus_data"
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusApi : Observable<NimbusApi.Observer> {
+interface NimbusApi {
     /**
      * Get the list of currently enrolled experiments
      *
@@ -188,15 +179,14 @@ interface NimbusApi : Observable<NimbusApi.Observer> {
  * organizations running conflicting experiments or hitting servers with extra network traffic.
  */
 data class NimbusServerSettings(
-    val url: Uri
+    val url: Uri,
+    val bucket: String = EXPERIMENT_BUCKET_NAME,
+    val collection: String = EXPERIMENT_COLLECTION_NAME
 )
 
-private val logger = Logger(LOG_TAG)
-private typealias ErrorReporter = (e: Throwable) -> Unit
+private typealias ErrorReporter = (message: String, e: Throwable) -> Unit
 
-private val loggingErrorReporter: ErrorReporter = { e: Throwable ->
-    logger.error("Error calling rust", e)
-}
+private typealias LoggerFunction = (message: String) -> Unit
 
 /**
  * This class represents the client application name and channel for filtering purposes
@@ -224,28 +214,42 @@ data class NimbusAppInfo(
     val channel: String
 )
 
+data class NimbusDeviceInfo(
+    val localeTag: String
+)
+
+data class NimbusDelegate(
+    val dbScope: CoroutineScope,
+    val fetchScope: CoroutineScope,
+    val observer: NimbusApi.Observer? = null,
+    val errorReporter: ErrorReporter,
+    val logger: LoggerFunction
+)
+
 /**
  * A implementation of the [NimbusApi] interface backed by the Nimbus SDK.
  */
 @Suppress("LargeClass", "LongParameterList")
-class Nimbus(
+open class Nimbus(
     private val context: Context,
-    private val appInfo: NimbusAppInfo,
+    appInfo: NimbusAppInfo,
     server: NimbusServerSettings?,
-    private val delegate: Observable<NimbusApi.Observer> = ObserverRegistry(),
-    private val errorReporter: ErrorReporter = loggingErrorReporter
-) : NimbusApi, Observable<NimbusApi.Observer> by delegate {
+    deviceInfo: NimbusDeviceInfo,
+    delegate: NimbusDelegate
+) : NimbusApi {
 
     // Using two single threaded executors here to enforce synchronization where needed:
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
-    private val dbScope: CoroutineScope = CoroutineScope(Executors.newSingleThreadExecutor(
-        NamedThreadFactory("NimbusDBScope")
-    ).asCoroutineDispatcher())
+    private val dbScope: CoroutineScope = delegate.dbScope
 
     // An I/O scope is used for getting experiments from the network.
-    private val fetchScope: CoroutineScope = CoroutineScope(Executors.newSingleThreadExecutor(
-        NamedThreadFactory("NimbusFetchScope")
-    ).asCoroutineDispatcher())
+    private val fetchScope: CoroutineScope = delegate.fetchScope
+
+    private val errorReporter = delegate.errorReporter
+
+    private val logger = delegate.logger
+
+    private val observer = delegate.observer
 
     private val nimbus: NimbusClientInterface
 
@@ -268,14 +272,14 @@ class Nimbus(
         val dataDir = File(context.applicationInfo.dataDir, NIMBUS_DATA_DIR)
 
         // Build Nimbus AppContext object to pass into initialize
-        val experimentContext = buildExperimentContext(context)
+        val experimentContext = buildExperimentContext(context, appInfo, deviceInfo)
 
         // Initialize Nimbus
         val remoteSettingsConfig = server?.let {
             RemoteSettingsConfig(
-                serverUrl = server.url.toString(),
-                bucketName = EXPERIMENT_BUCKET_NAME,
-                collectionName = EXPERIMENT_COLLECTION_NAME
+                serverUrl = it.url.toString(),
+                bucketName = it.bucket,
+                collectionName = it.collection
             )
         }
 
@@ -316,10 +320,10 @@ class Nimbus(
             thunk()
         } catch (e: Throwable) {
             try {
-                errorReporter(e)
+                errorReporter("Error in Nimbus Rust", e)
             } catch (e1: Throwable) {
-                logger.error("Exception calling rust", e)
-                logger.error("Exception reporting the exception", e1)
+                logger("Exception calling rust: $e")
+                logger("Exception reporting the exception: $e1")
             }
             null
         }
@@ -347,11 +351,11 @@ class Nimbus(
     internal fun fetchExperimentsOnThisThread() = withCatchAll {
         try {
             nimbus.fetchExperiments()
-            notifyObservers { onExperimentsFetched() }
+            observer?.onExperimentsFetched()
         } catch (e: NimbusErrorException.RequestError) {
-            logger.info("Error fetching experiments from endpoint: $e")
+            errorReporter("Error fetching experiments from endpoint", e)
         } catch (e: NimbusErrorException.ResponseError) {
-            logger.info("Error fetching experiments from endpoint: $e")
+            errorReporter("Error fetching experiments from endpoint", e)
         }
     }
 
@@ -369,7 +373,7 @@ class Nimbus(
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
         } catch (e: NimbusErrorException.InvalidExperimentFormat) {
-            logger.info("Invalid experiment format: $e")
+            errorReporter("Invalid experiment format", e)
         }
     }
 
@@ -378,7 +382,7 @@ class Nimbus(
         nimbus.getActiveExperiments().let {
             if (it.any()) {
                 recordExperimentTelemetry(it)
-                notifyObservers { onUpdatesApplied(it) }
+                observer?.onUpdatesApplied(it)
             }
         }
     }
@@ -507,7 +511,7 @@ class Nimbus(
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun buildExperimentContext(context: Context): AppContext {
+    internal fun buildExperimentContext(context: Context, appInfo: NimbusAppInfo, deviceInfo: NimbusDeviceInfo): AppContext {
         val packageInfo: PackageInfo? = try {
             context.packageManager.getPackageInfo(
                 context.packageName, 0
@@ -527,21 +531,8 @@ class Nimbus(
             debugTag = null,
             deviceManufacturer = Build.MANUFACTURER,
             deviceModel = Build.MODEL,
-            locale = Locale.getDefault().getLocaleTag(),
+            locale = deviceInfo.localeTag,
             os = "Android",
             osVersion = Build.VERSION.RELEASE)
     }
 }
-
-/**
- * An empty implementation of the `NimbusApi` to allow clients who have not enabled Nimbus (either
- * by feature flags, or by not using a server endpoint.
- *
- * Any implementations using this class will report that the user has not been enrolled into any
- * experiments, and will not report anything to Glean. Importantly, any calls to
- * `getExperimentBranch(slug)` will return `null`, i.e. as if the user is not enrolled into the
- * experiment.
- */
-class NimbusDisabled(
-    private val delegate: Observable<NimbusApi.Observer> = ObserverRegistry()
-) : NimbusApi, Observable<NimbusApi.Observer> by delegate
