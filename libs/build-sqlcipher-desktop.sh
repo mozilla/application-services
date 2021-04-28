@@ -112,7 +112,7 @@ if [[ "${TARGET_OS}" == "windows" ]]; then
   LIBS="${LIBS} -lintel-gcm-wrap_c_lib"
 elif [[ "${TARGET_OS}" == "linux" ]]; then
   LIBS="${LIBS} -lintel-gcm-wrap_c_lib -lintel-gcm-s_lib"
-elif [[ "${TARGET_OS}" == "macos" ]] && [[ "${TARGET_ARCH}" == "aarch64" ]]; then
+elif [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   LIBS="${LIBS} -lgcm-aes-aarch64_c_lib -larmv8_c_lib"
 else
   LIBS="${LIBS} -lhw-acc-crypto-avx -lhw-acc-crypto-avx2 -lgcm-aes-x86_c_lib"

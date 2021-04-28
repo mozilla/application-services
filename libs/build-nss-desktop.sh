@@ -109,7 +109,7 @@ cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libsoftokn_static.a" "${DIST_DIR}/lib"
 cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libssl.a" "${DIST_DIR}/lib"
 
 # Apple M1 need HW specific libs copied over to successfully build
-if [[ "${TARGET_OS}" == "macos" ]] && [[ "${TARGET_ARCH}" == "aarch64" ]]; then
+if [[ "${TARGET_ARCH}" == "aarch64" ]]; then
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libarmv8_c_lib.a" "${DIST_DIR}/lib"
   cp -p -L "${NSS_DIST_OBJ_DIR}/lib/libgcm-aes-aarch64_c_lib.a" "${DIST_DIR}/lib"
 else
