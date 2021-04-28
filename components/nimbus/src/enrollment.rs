@@ -87,6 +87,7 @@ impl ExperimentEnrollment {
                 },
             }
         } else if feature_already_under_experiment { // XXX
+            log::debug!("In feature already under exp");
             Self {
                 slug: experiment.slug.clone(),
                 status: EnrollmentStatus::NotEnrolled {
@@ -621,25 +622,60 @@ impl<'a> EnrollmentsEvolver<'a> {
         all_slugs.extend(updated_experiments.keys());
         all_slugs.extend(existing_enrollment_map.keys());
 
+        // XXX go through here and make sure we're only calling
+        // evolve_enrolment once per update?
+
+        // Step 1:
         // make a hash map of feature_id to enrolled_experiment.slug
         // XXX need to make sure updated feature_ids are inserted into this
         // as we update
+
         let locally_enrolled_feature_ids =
             map_locally_enrolled_feature_ids(existing_enrollments, &existing_experiments);
 
         let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
+
+        // Step 2:
+        // remove any feature-ids from the map that were being experimented
+        // on, but no longer are, according to the current updates.
+
+        // XXX we're doing more than that here, we're also envolving all new
+        // enrollments.  Is that OK?
+        for slug in all_slugs.clone() {
+            let updated_enrollment = self.evolve_enrollment(
+                is_user_participating,
+                existing_experiments.get(slug).copied(),
+                updated_experiments.get(slug).copied(),
+                existing_enrollment_map.get(slug).copied(),
+                &mut enrollment_events,
+            )?;
+            if let Some(enrollment) = updated_enrollment {
+                updated_enrollments.push(enrollment);
+                // if enrollment.status != EnrollmentStatus::Enrolled
+            }
+
+            // What has changed? If we're still enrolled, do nothing.
+            // If it is new, then add the slug to the feature id.
+            // If not, remove the feature id - it's usable now.
+        }
+
+        // Step 3: now we can add new experiments that avoiding the features that
+        // already being experimented upon.
         for slug in all_slugs {
 
-            // Does this experiment have a feature id that we've already used?
-            // if so, then record a disqualified enrollment then `continue` to the next slug
-            // if not, the do:
+            let updated_experiment = updated_experiments.get(slug).copied();
+            if let Some(unwrapped_experiment) = updated_experiment {
+                log::debug!("inside let Some");
 
-            let existing_experiment = existing_experiments.get(slug).copied();
-            if existing_experiment != None {
+                // Does this experiment have a feature id that we've already used?
+                // if so, then record a disqualified enrollment then `continue` to the next slug
+                if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id()) == None {
+                    // XXX evolve enrollment?
 
-                let unwrapped_experiment = existing_experiment.unwrap(); // XXX use actual Rust idiom here
+                    // XXX update featureid hashtable
 
-                if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id()) != None {
+                } else {
+                    log::debug!("in locally_enrolled_feature_ids");
                     // record disqualified enrollment
                     let non_enrollment = ExperimentEnrollment::from_new_experiment(
                         is_user_participating,
@@ -652,26 +688,9 @@ impl<'a> EnrollmentsEvolver<'a> {
                     )?;
 
                     updated_enrollments.push(non_enrollment);
-
-                    // XXX update featureid hashtable
                     continue;
                 }
             }
-
-            let updated_enrollment = self.evolve_enrollment(
-                is_user_participating,
-                existing_experiment,
-                updated_experiments.get(slug).copied(),
-                existing_enrollment_map.get(slug).copied(),
-                &mut enrollment_events,
-            )?;
-            if let Some(enrollment) = updated_enrollment {
-                updated_enrollments.push(enrollment);
-            }
-
-            // What has changed? If we're still enrolled, do nothing.
-            // If it is new, then add the slug to the feature id.
-            // If not, remove the feature id - it's usable now.
         }
 
         // this may be in next ticket, though some db writing may want to be here:
@@ -1059,8 +1078,10 @@ mod tests {
 
         assert!(matches!(
             &enrollments[1].status,
-            EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::FeatureAlreadyUnderExperiment { feature_id: } }),
-            "enrollments[1].status = {:?}", (enrollments[2].status));
+            EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::FeatureAlreadyUnderExperiment { .. } }),
+            "enrollments[0].status should be NotEnrolled with FeatureAlreadyUnderExperiment reason {:?}", (enrollments[1].status));
+
+        // Figure out string reason, length, and other enrollments using following or...
         // assert_eq!(events.len(), 1);
         // assert_eq!(events[0].experiment_slug, exp.slug);
         // assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
