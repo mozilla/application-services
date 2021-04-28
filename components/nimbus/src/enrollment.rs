@@ -86,13 +86,16 @@ impl ExperimentEnrollment {
                     reason: NotEnrolledReason::EnrollmentsPaused,
                 },
             }
-        } else if feature_already_under_experiment { // XXX
+        } else if feature_already_under_experiment {
+            // XXX
             log::debug!("In feature already under exp");
             Self {
                 slug: experiment.slug.clone(),
                 status: EnrollmentStatus::NotEnrolled {
-                    reason: NotEnrolledReason::FeatureAlreadyUnderExperiment{ feature_id: experiment.get_first_feature_id().clone() }
-                }
+                    reason: NotEnrolledReason::FeatureAlreadyUnderExperiment {
+                        feature_id: experiment.get_first_feature_id().clone(),
+                    },
+                },
             }
         } else {
             let enrollment = evaluate_enrollment(
@@ -611,7 +614,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         updated_experiments: &[Experiment],
         existing_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
-
         // XXX fix up name overrides of params for clarity; check on clippy lint
         let mut enrollment_events = vec![];
         let existing_experiments = map_experiments(&existing_experiments);
@@ -646,26 +648,27 @@ impl<'a> EnrollmentsEvolver<'a> {
                 &mut enrollment_events,
             )?;
             // if let Some(_enrollment) = updated_enrollment {
-               // What has changed? If we're still enrolled, do nothing.
+            // What has changed? If we're still enrolled, do nothing.
 
-                // If not, remove the feature id - it's usable now.
+            // If not, remove the feature id - it's usable now.
 
-                // updated_enrollments.push(enrollment); XXX NOT NEEDED HERE, I
-                //if enrollment.status != EnrollmentStatus::Enrolled
+            // updated_enrollments.push(enrollment); XXX NOT NEEDED HERE, I
+            //if enrollment.status != EnrollmentStatus::Enrolled
             // }
         }
 
         // Step 3: now we can add new experiments that avoid the features that
         // already being experimented upon.
         for slug in all_slugs {
-
             let updated_experiment = updated_experiments.get(slug).copied();
             if let Some(unwrapped_experiment) = updated_experiment {
                 log::debug!("inside let Some -- we've got some kind of experiment");
 
                 // If this feature_id is locally free, evolve the enrollment
                 // update the feature_id hashtable
-                if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id()) == None {
+                if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id())
+                    == None
+                {
                     log::debug!("this feature is locally unused");
                     // XXX evolve enrollment & push
 
@@ -684,12 +687,10 @@ impl<'a> EnrollmentsEvolver<'a> {
                         log::debug!("updating locally_enrolled_feature_ids");
                         let feature_id = &unwrapped_experiment.get_first_feature_id();
                         locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
-
                     }
-               // What has changed? If we're still enrolled, do nothing.
+                // What has changed? If we're still enrolled, do nothing.
 
-                    // XXX update featureid hashtable
-
+                // XXX update featureid hashtable
                 } else {
                     // If it's locally already in use.....
 
@@ -788,11 +789,14 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
-fn map_locally_enrolled_feature_ids(enrollments: &[ExperimentEnrollment], experiments: &HashMap<String, &Experiment>) -> HashMap<String, String> {
+fn map_locally_enrolled_feature_ids(
+    enrollments: &[ExperimentEnrollment],
+    experiments: &HashMap<String, &Experiment>,
+) -> HashMap<String, String> {
     // XXX this capacity might cause problems once we allow re than one feature_id per experiment:
-    let mut map_feature_ids_to_experiment_slugs: HashMap<String,String> = HashMap::with_capacity(enrollments.len());
+    let mut map_feature_ids_to_experiment_slugs: HashMap<String, String> =
+        HashMap::with_capacity(enrollments.len());
     for enrollment in enrollments {
-
         // get experiment for enrollment
         let experiment = experiments.get(&enrollment.slug.clone()).unwrap(); // XXX unwrap
 
@@ -800,9 +804,7 @@ fn map_locally_enrolled_feature_ids(enrollments: &[ExperimentEnrollment], experi
         let first_feature_id = experiment.get_first_feature_id();
 
         // insert feature_id, slug.clone() into map
-        map_feature_ids_to_experiment_slugs.insert(
-        first_feature_id,
-        enrollment.slug.clone());
+        map_feature_ids_to_experiment_slugs.insert(first_feature_id, enrollment.slug.clone());
     }
     map_feature_ids_to_experiment_slugs
 }
@@ -1093,9 +1095,8 @@ mod tests {
         let test_experiments = get_test_experiments();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
-        let (enrollments,..) =
-            evolver.evolve_enrollments(true, &vec![],
-                &test_experiments, &vec![])?;
+        let (enrollments, ..) =
+            evolver.evolve_enrollments(true, &vec![], &test_experiments, &vec![])?;
 
         assert!(matches!(
             &enrollments[2].status,
