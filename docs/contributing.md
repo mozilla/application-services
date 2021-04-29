@@ -36,8 +36,8 @@ Before submitting a PR:
 - Your patch should include new tests that cover your changes, or be accompanied by explanation for why it doesn't need any. It is your and your reviewer's responsibility to ensure your patch includes adequate tests.
   - Consult the [testing guide](./howtos/testing-a-rust-component.md) for some tips on writing effective tests.
 - Your code should pass all the automated tests before you submit your PR for review.
-  - The simplest way to confirm this is to run `cargo all_tests`, which uses the `./automation/all_tests.sh` script, that runs all test suites and linters for Rust, Kotlin and Swift code.
-    - **Note:** You might choose to avoid running all automated tests to incrementally validate your changes as it can be a long-running process. Instead run a reasonable subset of all tests that will exercise your changes and then run `cargo all_tests` to validate your entire patch before submitting your PR.
+  - Before pushing your changes, run `./automation/tests.py changes`.  This will calculate which components were changed and run test suites against them, as well as linters and formatters.  Because it runs a limited set of tests, it should execute in a fairly reasonable amount of time.
+  - After you open a PR, our CI system will run a full test suite.  It's possible that this step will result in errors not caught with changes mode, so make sure to check the results.
   - "Work in progress" pull requests are welcome, but should be clearly labeled as such and should not be merged until all tests pass and the code has been reviewed.
     - You can label pull requests as "Work in progress" by using the Github PR UI to indicate this PR is a draft ([learn more about draft PRs](https://docs.github.com/en/github/collaborating-with-issues-and-pull-requests/about-pull-requests#draft-pull-requests)).
 - Run `cargo fmt` to ensure your Rust code is correctly formatted. You should run this command after running tests and before pushing changes so that any fixes for failed tests are included.

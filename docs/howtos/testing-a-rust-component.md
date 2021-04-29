@@ -6,7 +6,7 @@ It will be useful to you if you're adding a new component, or working on increas
 coverage of an existing component.
 
 If you are only interested in running the existing test suite, please consult the
-[contributor docs](../contributing.md) and the [all_tests.sh](../../automation/all_tests.sh) script.
+[contributor docs](../contributing.md) and the [tests.py](../../automation/tests.py) script.
 
 ## Unit and Functional Tests
 
