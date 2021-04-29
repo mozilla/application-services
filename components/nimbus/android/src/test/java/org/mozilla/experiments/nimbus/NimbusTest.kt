@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-package mozilla.components.service.nimbus
+package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import android.util.Log
@@ -24,10 +24,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mockito
 import org.mockito.Mockito.`when`
-import org.mozilla.experiments.nimbus.EnrolledExperiment
-import org.mozilla.experiments.nimbus.EnrollmentChangeEvent
-import org.mozilla.experiments.nimbus.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
+import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
+import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.Executors
 
@@ -51,8 +50,7 @@ class NimbusTest {
         dbScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
         fetchScope = CoroutineScope(Executors.newSingleThreadExecutor().asCoroutineDispatcher()),
         logger = { Log.i("NimbusTest", it) },
-        errorReporter = { message, e -> Log.e("NimbusTest", message, e) },
-        observer = null
+        errorReporter = { message, e -> Log.e("NimbusTest", message, e) }
     )
 
     private val nimbus = Nimbus(
@@ -60,6 +58,7 @@ class NimbusTest {
         appInfo = appInfo,
         server = null,
         deviceInfo = deviceInfo,
+        observer = null,
         delegate = nimbusDelegate
     )
 
@@ -240,7 +239,7 @@ class NimbusTest {
 
         nimbus.setUpTestExperiments("$packageName.nightly", targetedAppInfo)
 
-        val available = nimbus.getAvailableExperiments()
+        val available: List<AvailableExperiment> = nimbus.getAvailableExperiments()
         assertEquals(1, available.size)
         assertEquals("test-experiment", available.first().slug)
     }

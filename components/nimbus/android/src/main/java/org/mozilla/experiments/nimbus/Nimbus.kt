@@ -4,7 +4,7 @@
 
 @file:Suppress("TooManyFunctions")
 
-package mozilla.components.service.nimbus
+package org.mozilla.experiments.nimbus
 
 import android.content.Context
 import android.content.pm.PackageInfo
@@ -20,27 +20,34 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mozilla.components.service.glean.Glean
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
-import org.mozilla.experiments.nimbus.AppContext
-import org.mozilla.experiments.nimbus.AvailableExperiment
-import org.mozilla.experiments.nimbus.AvailableRandomizationUnits
-import org.mozilla.experiments.nimbus.Branch
-import org.mozilla.experiments.nimbus.EnrolledExperiment
-import org.mozilla.experiments.nimbus.EnrollmentChangeEvent
-import org.mozilla.experiments.nimbus.EnrollmentChangeEventType
-import org.mozilla.experiments.nimbus.NimbusErrorException
-import org.mozilla.experiments.nimbus.NimbusClient
-import org.mozilla.experiments.nimbus.NimbusClientInterface
-import org.mozilla.experiments.nimbus.RemoteSettingsConfig
+import org.mozilla.experiments.nimbus.internal.AppContext
+import org.mozilla.experiments.nimbus.internal.AvailableExperiment
+import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
+import org.mozilla.experiments.nimbus.internal.Branch
+import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
+import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
+import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
+import org.mozilla.experiments.nimbus.internal.FeatureConfig
+import org.mozilla.experiments.nimbus.internal.NimbusErrorException
+import org.mozilla.experiments.nimbus.internal.NimbusClient
+import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
+import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
 import java.io.File
 
 private const val EXPERIMENT_BUCKET_NAME = "main"
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
 
+// Republish these classes from this package.
+typealias Branch = Branch
+typealias AvailableExperiment = AvailableExperiment
+typealias EnrolledExperiment = EnrolledExperiment
+typealias FeatureConfig = FeatureConfig
+
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusApi {
+interface NimbusInterface {
     /**
      * Get the list of currently enrolled experiments
      *
@@ -214,20 +221,25 @@ data class NimbusAppInfo(
     val channel: String
 )
 
+/**
+ * Small struct for info derived from the device itself.
+ */
 data class NimbusDeviceInfo(
     val localeTag: String
 )
 
+/**
+ * Provide calling apps control how Nimbus fits into it.
+ */
 data class NimbusDelegate(
     val dbScope: CoroutineScope,
     val fetchScope: CoroutineScope,
-    val observer: NimbusApi.Observer? = null,
     val errorReporter: ErrorReporter,
     val logger: LoggerFunction
 )
 
 /**
- * A implementation of the [NimbusApi] interface backed by the Nimbus SDK.
+ * A implementation of the [NimbusInterface] interface backed by the Nimbus SDK.
  */
 @Suppress("LargeClass", "LongParameterList")
 open class Nimbus(
@@ -235,10 +247,9 @@ open class Nimbus(
     appInfo: NimbusAppInfo,
     server: NimbusServerSettings?,
     deviceInfo: NimbusDeviceInfo,
+    private val observer: NimbusInterface.Observer? = null,
     delegate: NimbusDelegate
-) : NimbusApi {
-
-    // Using two single threaded executors here to enforce synchronization where needed:
+) : NimbusInterface {
     // An I/O scope is used for reading or writing from the Nimbus's RKV database.
     private val dbScope: CoroutineScope = delegate.dbScope
 
@@ -248,8 +259,6 @@ open class Nimbus(
     private val errorReporter = delegate.errorReporter
 
     private val logger = delegate.logger
-
-    private val observer = delegate.observer
 
     private val nimbus: NimbusClientInterface
 
