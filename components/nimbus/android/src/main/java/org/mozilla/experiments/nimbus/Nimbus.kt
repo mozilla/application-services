@@ -191,7 +191,7 @@ data class NimbusServerSettings(
     val collection: String = EXPERIMENT_COLLECTION_NAME
 )
 
-private typealias ErrorReporter = (message: String, e: Throwable) -> Unit
+typealias ErrorReporter = (message: String, e: Throwable) -> Unit
 
 private typealias LoggerFunction = (message: String) -> Unit
 
