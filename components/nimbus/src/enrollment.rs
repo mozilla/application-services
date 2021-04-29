@@ -1015,36 +1015,6 @@ mod tests {
                 "last_modified":1_602_197_324_372i64
             }))
             .unwrap(),
-            serde_json::from_value(json!({
-                "schemaVersion": "1.0.0",
-                "slug": "another-monkey",
-                "endDate": null,
-                "branches":[
-                    {"slug": "control", "ratio": 1, "featureId": "monkey"},
-                    {"slug": "treatment","ratio":1, "featureId": "monkey"},
-                ],
-                "featureIds": ["monkey"],
-                "channel": "nightly",
-                "probeSets":[],
-                "startDate":null,
-                "appName":"fenix",
-                "appId":"org.mozilla.fenix",
-                "bucketConfig":{
-                    "count":1_000,
-                    "start":0,
-                    "total":10_000,
-                    "namespace":"secure-silver",
-                    "randomizationUnit":"nimbus_id"
-                },
-                "userFacingName":"2nd test experiment",
-                "referenceBranch":"control",
-                "isEnrollmentPaused":false,
-                "proposedEnrollment":7,
-                "userFacingDescription":"2nd test experiment.",
-                "id":"secure-silver",
-                "last_modified":1_602_197_222_372i64
-            }))
-            .unwrap(),
         ]
     }
 
@@ -2169,7 +2139,7 @@ mod tests {
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
         // We should see the experiment non-enrollments.
-        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 3);
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
         let not_enrolled_enrollments: Vec<ExperimentEnrollment> =
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
@@ -2182,7 +2152,7 @@ mod tests {
                     )
                 })
                 .collect();
-        assert_eq!(not_enrolled_enrollments.len(), 3);
+        assert_eq!(not_enrolled_enrollments.len(), 2);
 
         // User opts in, and updating should enroll us in 2 experiments.
         set_global_user_participation(&db, &mut writer, true)?;
@@ -2193,8 +2163,8 @@ mod tests {
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 2);
         assert_eq!(events.len(), 2);
-        // We should see 3 experiment enrollments.
-        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 3);
+        // We should see 2 experiment enrollments.
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
         let enrolled_enrollments: Vec<ExperimentEnrollment> =
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
@@ -2211,8 +2181,8 @@ mod tests {
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert_eq!(events.len(), 2);
-        // We should see 3 experiment enrolments, this time they're both opt outs
-        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 3);
+        // We should see 2 experiment enrolments, this time they're both opt outs
+        assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
         let disqualified_enrollments: Vec<ExperimentEnrollment> =
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
