@@ -93,7 +93,7 @@ impl ExperimentEnrollment {
                 slug: experiment.slug.clone(),
                 status: EnrollmentStatus::NotEnrolled {
                     reason: NotEnrolledReason::FeatureAlreadyUnderExperiment {
-                        feature_id: experiment.get_first_feature_id().clone(),
+                        feature_id: experiment.get_first_feature_id(),
                     },
                 },
             }
@@ -627,9 +627,6 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         // Step 1:
         // make a hash map of feature_id to enrolled_experiment.slug
-        // XXX need to make sure updated feature_ids are inserted into this
-        // as we update
-
         let mut locally_enrolled_feature_ids =
             map_locally_enrolled_feature_ids(existing_enrollments, &existing_experiments);
 
@@ -638,7 +635,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         // Step 2:
         // remove any feature-ids from the map that were being experimented
         // on, but no longer are, according to the current updates.
-
         for slug in all_slugs.clone() {
             let _updated_enrollment = self.evolve_enrollment(
                 is_user_participating,
@@ -659,18 +655,20 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         // Step 3: now we can add new experiments that avoid the features that
         // already being experimented upon.
+
+        // the previous calls to evolve_enrollments will have prepopulated
+        // so...
+        enrollment_events.clear();
+
         for slug in all_slugs {
             let updated_experiment = updated_experiments.get(slug).copied();
             if let Some(unwrapped_experiment) = updated_experiment {
-                log::debug!("inside let Some -- we've got some kind of experiment");
+                let feature_id = &unwrapped_experiment.get_first_feature_id();
 
                 // If this feature_id is locally free, evolve the enrollment
                 // update the feature_id hashtable
-                if locally_enrolled_feature_ids.get(&unwrapped_experiment.get_first_feature_id())
-                    == None
-                {
+                if locally_enrolled_feature_ids.get(feature_id) == None {
                     log::debug!("this feature is locally unused");
-                    // XXX evolve enrollment & push
 
                     let updated_enrollment = self.evolve_enrollment(
                         is_user_participating,
@@ -681,21 +679,26 @@ impl<'a> EnrollmentsEvolver<'a> {
                     )?;
 
                     if let Some(enrollment) = updated_enrollment {
-                        log::debug!("updated enrollement was returned; will push");
+                        log::debug!(
+                            "updated enrollment was returned from evolve_enrollment; pushing"
+                        );
                         updated_enrollments.push(enrollment);
 
-                        log::debug!("updating locally_enrolled_feature_ids");
-                        let feature_id = &unwrapped_experiment.get_first_feature_id();
+                        log::debug!(
+                            "mapping {}:{} to locally_enrolled_feature_ids",
+                            feature_id,
+                            slug
+                        );
                         locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
                     }
-                // What has changed? If we're still enrolled, do nothing.
-
-                // XXX update featureid hashtable
                 } else {
-                    // If it's locally already in use.....
-
                     // Does this experiment have a feature id that we've already used?
-                    log::debug!("already in in locally_enrolled_feature_ids");
+                    log::debug!(
+                        "feature_id {} already used by experiment, marking {} NotEnrolled",
+                        feature_id,
+                        slug
+                    );
+
                     // record disqualified enrollment
                     let non_enrollment = ExperimentEnrollment::from_new_experiment(
                         is_user_participating,
@@ -707,6 +710,10 @@ impl<'a> EnrollmentsEvolver<'a> {
                         &mut enrollment_events,
                     )?;
 
+                    // XXX out_enrollment_events still has a successful event
+                    // write a test for this, then fix
+
+                    // out_enrollment_events.push
                     updated_enrollments.push(non_enrollment);
                     continue;
                 }
@@ -809,6 +816,7 @@ fn map_locally_enrolled_feature_ids(
     map_feature_ids_to_experiment_slugs
 }
 
+#[derive(Debug)]
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
     pub branch_slug: String,
@@ -1095,18 +1103,66 @@ mod tests {
         let test_experiments = get_test_experiments();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
-        let (enrollments, ..) =
+        let (enrollments, events) =
             evolver.evolve_enrollments(true, &vec![], &test_experiments, &vec![])?;
 
-        assert!(matches!(
-            &enrollments[2].status,
-            EnrollmentStatus::NotEnrolled { reason: NotEnrolledReason::FeatureAlreadyUnderExperiment { .. } }),
-            "enrollments[1].status should be NotEnrolled with FeatureAlreadyUnderExperiment reason {:?}", (enrollments[2].status));
+        assert_eq!(
+            enrollments.len(),
+            3,
+            "There should be exactly 3 ExperimentEnrollments returned"
+        );
 
-        // Figure out string reason, length, and other enrollments using following or...
-        // assert_eq!(events.len(), 1);
-        // assert_eq!(events[0].experiment_slug, exp.slug);
-        // assert_eq!(events[0].change, EnrollmentChangeEventType::Enrollment);
+        // exactly 1 enrollment should have a status of not enrolled: status:
+        // NotEnrolled { reason: FeatureAlreadyUnderExperiment { feature_id:
+        // "monkey" }
+
+        // XXX the .. should be feature_id: "monkey", but i haven't figured out
+        // how to work around the rust compiler yet...
+        let not_enrolleds = enrollments
+            .iter()
+            .filter(|&e| {
+                matches!(
+                    e.status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::FeatureAlreadyUnderExperiment { .. }
+                    }
+                )
+            })
+            .count();
+        assert_eq!(
+            1, not_enrolleds,
+            "exactly one enrollment should have NotEnrolled status"
+        );
+
+        let enrolleds = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(
+            2, enrolleds,
+            "exactly two enrollments should have Enrolled status"
+        );
+
+        log::debug!("events: {:?}", events);
+
+        // XXX is this really true?  don't we want an event for the
+        // NotEnrolled thing (like we do for Disqualified by reason of opt-out,
+        // for example. )
+        assert_eq!(
+            2,
+            events.iter().count(),
+            "There should be exactly 2 enrollment_change_events"
+        );
+
+        let enrolled_events = events
+            .iter()
+            .filter(|&e| matches!(e.change, EnrollmentChangeEventType::Enrollment))
+            .count();
+        assert_eq!(
+            2, enrolled_events,
+            "exactly two events should have Enrolled event types"
+        );
+
         Ok(())
     }
 
