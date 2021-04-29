@@ -11,10 +11,12 @@
 
 ## Nimbus
 
+ - Added bucket and collections to `NimbusServerSettings`, with default values.
+ - Added `getAvailableExperiments()` method exposed by `NimbusClient`.
+
 ### ⚠️ Breaking changes ⚠️
 
-- Moved the `Nimbus` class and its test class from Android Components into this repository. For
-  compatibility with existing integrations, this remains in the same package. These changes are
-  fixed in the [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
+- Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Obsevrer.
+  Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...main)
