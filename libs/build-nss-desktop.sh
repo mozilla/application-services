@@ -15,7 +15,8 @@ NSS_SRC_DIR=${1}
 # Whether to cross compile from Linux to a different target.  Really
 # only intended for automation.
 CROSS_COMPILE_TARGET=${2-}
-# This will stay consistent with CARGO_CFG_TARGET_ARCH
+# We only need this in a couple of places so we'll default to "unknown"
+# Othertimes, it'll match what CARGO_CFG_TARGET_ARCH is on the rust side
 TARGET_ARCH="unknown"
 
 if [[ -n "${CROSS_COMPILE_TARGET}" ]] && [[ "$(uname -s)" != "Linux" ]]; then
@@ -35,8 +36,7 @@ elif [[ -n "${CROSS_COMPILE_TARGET}" ]]; then
 elif [[ "$(uname -s)" == "Darwin" ]]; then
   DIST_DIR=$(abspath "desktop/darwin/nss")
   TARGET_OS="macos"
-  # We need this variable for switching libs based on different macos archs (M1 vs Intel)
-  # Renaming uname to stay consistent with CARGO_CFG_TARGET_ARCH on the rust side
+  # We need to set this variable for switching libs based on different macos archs (M1 vs Intel)
   if [[ "$(uname -m)" == "arm64" ]]; then
     TARGET_ARCH="aarch64"
   else
