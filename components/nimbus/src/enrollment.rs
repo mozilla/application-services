@@ -1070,7 +1070,37 @@ mod tests {
     fn test_evolver_experiment_not_enrolled_feature_under_experiment() -> Result<()> {
         let _ = env_logger::try_init();
 
-        let test_experiments = get_test_experiments();
+        let mut test_experiments = get_test_experiments();
+        test_experiments.push(serde_json::from_value(json!({
+                "schemaVersion": "1.0.0",
+                "slug": "another-monkey",
+                "endDate": null,
+                "branches":[
+                    {"slug": "control", "ratio": 1, "featureId": "monkey"},
+                    {"slug": "treatment","ratio":1, "featureId": "monkey"},
+                ],
+                "featureIds": ["monkey"],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "bucketConfig":{
+                    "count":1_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-silver",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"2nd test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"2nd test experiment.",
+                "id":"secure-silver",
+                "last_modified":1_602_197_222_372i64
+            }))
+            .unwrap(),);
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let (enrollments, events) =
