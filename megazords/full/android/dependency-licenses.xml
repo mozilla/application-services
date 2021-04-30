@@ -102,7 +102,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: cpuid-bool</name>
-    <url>https://github.com/RustCrypto/utils/blob/master/cpuid-bool/LICENSE-APACHE</url>
+    <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: digest</name>

@@ -60,7 +60,7 @@ ALL_TARGETS = ALL_ANDROID_TARGETS + ALL_IOS_TARGETS
 
 # The licenses under which we can compatibly use dependencies,
 # in the order in which we prefer them.
-LICENES_IN_PREFERENCE_ORDER = [
+LICENSES_IN_PREFERENCE_ORDER = [
     # MPL is our own license and is therefore clearly the best :-)
     "MPL-2.0",
     # We like Apache2.0 because of its patent grant clauses, and its
@@ -669,6 +669,19 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
         }
     },
+    # cpuid-bool has been renamed to cpufeatures - it's a transitive dependency, so
+    # we expect this to become unnecessary as the dependent crate updates.
+    "cpuid-bool": {
+        "repository": {
+            "check": "https://github.com/RustCrypto/utils",
+        },
+        "license_url": {
+            "check": None,
+            # Moved in https://github.com/RustCrypto/utils/commit/b2d97b23e721f509fa6004175f3ffdf40d9e7402
+            "fixup": "https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE"
+        },
+    },
+
 }
 
 # Sets of common licence file names, by license type.
@@ -911,7 +924,7 @@ class WorkspaceMetadata(object):
         licenses = set(l.strip()
                        for l in re.split(r"\s*(?:/|\sOR\s)\s*", licenseId))
         # Try to pick the "best" compatible license available.
-        for license in LICENES_IN_PREFERENCE_ORDER:
+        for license in LICENSES_IN_PREFERENCE_ORDER:
             if license in licenses:
                 return license
         raise RuntimeError(
@@ -1087,7 +1100,7 @@ def group_dependencies_for_printing(deps):
     # List groups in the order in which we prefer their license, then in alphabetical order
     # of the dependency names. This ensures a convenient and stable ordering.
     def sort_key(group):
-        for i, license in enumerate(LICENES_IN_PREFERENCE_ORDER):
+        for i, license in enumerate(LICENSES_IN_PREFERENCE_ORDER):
             if group["license"] == license:
                 return (i, [d["name"] for d in group["dependencies"]])
         return (i + 1, [d["name"] for d in group["dependencies"]])
