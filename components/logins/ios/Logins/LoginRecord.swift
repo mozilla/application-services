@@ -182,7 +182,7 @@ open class LoginRecord {
         if let arr = try JSONSerialization.jsonObject(with: jsonArray.data(using: .utf8)!,
                                                       options: []) as? [[String: Any]]
         {
-            return arr.map { (dict) -> LoginRecord in
+            return arr.map { dict -> LoginRecord in
                 LoginRecord(fromJSONDict: dict)
             }
         }
