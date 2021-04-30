@@ -231,7 +231,7 @@ data class NimbusDeviceInfo(
 /**
  * Provide calling apps control how Nimbus fits into it.
  */
-data class NimbusDelegate(
+class NimbusDelegate(
     val dbScope: CoroutineScope,
     val fetchScope: CoroutineScope,
     val errorReporter: ErrorReporter,
