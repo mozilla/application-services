@@ -673,7 +673,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             let slug = updated_experiment.slug;
             let updated_experiment = updated_experiments.get(slug).copied();
 
-            let feature_id = &unwrapped_experiment.get_first_feature_id();
+            let feature_id = updated_experiment.get_first_feature_id();
 
             // If this feature_id is locally free, evolve the enrollment
             // update the feature_id hashtable
