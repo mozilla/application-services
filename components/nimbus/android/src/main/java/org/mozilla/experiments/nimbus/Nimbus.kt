@@ -260,10 +260,10 @@ open class Nimbus(
 
     private val logger = delegate.logger
 
-    private val nimbus: NimbusClientInterface
+    private val nimbusClient: NimbusClientInterface
 
     override var globalUserParticipation: Boolean
-        get() = nimbus.getGlobalUserParticipation()
+        get() = nimbusClient.getGlobalUserParticipation()
         set(active) {
             dbScope.launch {
                 setGlobalUserParticipationOnThisThread(active)
@@ -292,7 +292,7 @@ open class Nimbus(
             )
         }
 
-        nimbus = NimbusClient(
+        nimbusClient = NimbusClient(
             experimentContext,
             dataDir.path,
             remoteSettingsConfig,
@@ -306,20 +306,20 @@ open class Nimbus(
     // see https://jira.mozilla.com/browse/SDK-191
     @WorkerThread
     override fun getActiveExperiments(): List<EnrolledExperiment> =
-        nimbus.getActiveExperiments()
+        nimbusClient.getActiveExperiments()
 
     @WorkerThread
     override fun getAvailableExperiments(): List<AvailableExperiment> =
-        nimbus.getAvailableExperiments()
+        nimbusClient.getAvailableExperiments()
 
     override fun getExperimentBranch(experimentId: String): String? {
         recordExposure(experimentId)
-        return nimbus.getExperimentBranch(experimentId)
+        return nimbusClient.getExperimentBranch(experimentId)
     }
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
-        nimbus.getExperimentBranches(experimentId)
+        nimbusClient.getExperimentBranches(experimentId)
     }
 
     // Method and apparatus to catch any uncaught exceptions
@@ -346,7 +346,7 @@ open class Nimbus(
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll {
-        nimbus.initialize()
+        nimbusClient.initialize()
     }
 
     override fun fetchExperiments() {
@@ -359,7 +359,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun fetchExperimentsOnThisThread() = withCatchAll {
         try {
-            nimbus.fetchExperiments()
+            nimbusClient.fetchExperiments()
             observer?.onExperimentsFetched()
         } catch (e: NimbusErrorException.RequestError) {
             errorReporter("Error fetching experiments from endpoint", e)
@@ -378,7 +378,7 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun applyPendingExperimentsOnThisThread() = withCatchAll {
         try {
-            nimbus.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
+            nimbusClient.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
         } catch (e: NimbusErrorException.InvalidExperimentFormat) {
@@ -388,7 +388,7 @@ open class Nimbus(
 
     @WorkerThread
     private fun postEnrolmentCalculation() {
-        nimbus.getActiveExperiments().let {
+        nimbusClient.getActiveExperiments().let {
             if (it.any()) {
                 recordExperimentTelemetry(it)
                 observer?.onUpdatesApplied(it)
@@ -417,13 +417,13 @@ open class Nimbus(
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setExperimentsLocallyOnThisThread(payload: String) = withCatchAll {
-        nimbus.setExperimentsLocally(payload)
+        nimbusClient.setExperimentsLocally(payload)
     }
 
     @WorkerThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll {
-        val enrolmentChanges = nimbus.setGlobalUserParticipation(active)
+        val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
         if (enrolmentChanges.isNotEmpty()) {
             postEnrolmentCalculation()
         }
@@ -432,7 +432,7 @@ open class Nimbus(
     override fun optOut(experimentId: String) {
         dbScope.launch {
             withCatchAll {
-                nimbus.optOut(experimentId).also(::recordExperimentTelemetryEvents)
+                nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
             }
         }
     }
@@ -443,7 +443,7 @@ open class Nimbus(
         val aru = AvailableRandomizationUnits(clientId = null, dummy = 0)
         dbScope.launch {
             withCatchAll {
-                nimbus.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->
+                nimbusClient.resetTelemetryIdentifiers(aru).also { enrollmentChangeEvents ->
                     recordExperimentTelemetryEvents(enrollmentChangeEvents)
                 }
             }
@@ -453,7 +453,7 @@ open class Nimbus(
     override fun optInWithBranch(experimentId: String, branch: String) {
         dbScope.launch {
             withCatchAll {
-                nimbus.optInWithBranch(experimentId, branch).also(::recordExperimentTelemetryEvents)
+                nimbusClient.optInWithBranch(experimentId, branch).also(::recordExperimentTelemetryEvents)
             }
         }
     }
