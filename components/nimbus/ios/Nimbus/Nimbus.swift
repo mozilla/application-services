@@ -277,37 +277,21 @@ public extension NimbusDisabled {
         return nil
     }
 
-    func initialize() {
-        return
-    }
+    func initialize() {}
 
-    func fetchExperiments() {
-        return
-    }
+    func fetchExperiments() {}
 
-    func applyPendingExperiments() {
-        return
-    }
+    func applyPendingExperiments() {}
 
-    func setExperimentsLocally(_: URL) {
-        return
-    }
+    func setExperimentsLocally(_: URL) {}
 
-    func setExperimentsLocally(_: String) {
-        return
-    }
+    func setExperimentsLocally(_: String) {}
 
-    func optOut(_: String) {
-        return
-    }
+    func optOut(_: String) {}
 
-    func optIn(_: String, branch _: String) {
-        return
-    }
+    func optIn(_: String, branch _: String) {}
 
-    func resetTelemetryIdentifiers() {
-        return
-    }
+    func resetTelemetryIdentifiers() {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
