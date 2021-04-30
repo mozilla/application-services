@@ -1,7 +1,10 @@
+plugins {
+    id "com.jetbrains.python.envs" version "0.0.26"
+}
+
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -11,9 +14,8 @@ android {
         minSdkVersion rootProject.ext.build['minSdkVersion']
         targetSdkVersion rootProject.ext.build['targetSdkVersion']
 
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
-
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
     }
 
     buildTypes {
@@ -29,30 +31,22 @@ android {
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
     }
 
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
     // This is required to support new AndroidX support libraries.
     // See mozilla-mobile/android-components#842
     compileOptions {
-        sourceCompatibility 1.8
-        targetCompatibility 1.8
+        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
+        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
     }
 
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         kotlinOptions {
-            jvmTarget = 1.8
-        }
-    }
-
-    testOptions {
-        unitTests.all {
-            testLogging {
-                showStandardStreams = true
-            }
-
-            maxHeapSize = "1024m"
-        }
-
-        unitTests {
-            includeAndroidResources = true
+            jvmTarget = rootProject.ext.build.jvmTargetCompatibility
         }
     }
 }
@@ -74,10 +68,21 @@ configurations {
     jnaForTest
 }
 
+ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
+ext.gleanGenerateMarkdownDocs = true
+ext.gleanDocsDirectory = "$rootDir/docs/metrics/nimbus"
+apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
+
 dependencies {
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+
+    implementation "androidx.annotation:annotation:$androidx_annotation_version"
+
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
+
+    implementation "org.mozilla.components:service-glean:$android_components_version"
+    implementation "androidx.core:core-ktx:$androidx_core_version"
 
     // Unlike standard Nimbus which builds a standalone package, this version depends
     // on `:full-megazord` for the underlying native library. The full-megazord needs
@@ -93,19 +98,22 @@ dependencies {
     // causing it to be resolved.  Cloning first dissociates the configuration,
     // avoiding other configurations from being resolved.  Tricky!
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
-    testImplementation 'junit:junit:4.12'
+    testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
+    testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
+    testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
+    testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
+    testImplementation "org.mockito:mockito-core:$mockito_core_version"
+    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 }
-
 
 // We also do the binding generation here:
 android.libraryVariants.all { variant ->
+    def uniffiGeneratedPath = "generated/source/uniffi/${variant.name}/java"
     def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
         workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/${uniffiGeneratedPath}"
     }
-    variant.javaCompileProvider.get().dependsOn(t)
-    def sourceSet = variant.sourceSets.find { it.name == variant.name }
-    sourceSet.java.srcDir new File(buildDir, "generated/source/uniffi/${variant.name}/java")
+    variant.registerJavaGeneratingTask(t.get(), new File(buildDir, uniffiGeneratedPath))
 }
 
 evaluationDependsOn(":full-megazord")
