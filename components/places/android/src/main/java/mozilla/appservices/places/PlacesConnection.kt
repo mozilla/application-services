@@ -929,6 +929,11 @@ interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection 
     /**
      * Adds a [HistoryMetadata] record to the storage.
      *
+     * Note that if a corresponding history (moz_places) record already exists, we won't be updating
+     * its title. The title update is expected to happen as part of a call to
+     * [WritableHistoryConnection.noteObservation]. Titles in [HistoryMetadata] and history are expected
+     * to come from the same source (i.e. the page itself).
+     *
      * @param metadata A [HistoryMetadata] record to add. Must not have a set [HistoryMetadata.guid].
      * @return A [HistoryMetadata.guid] of the added record.
      */

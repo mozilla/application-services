@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::ErrorKind;
+use super::InvalidPlaceInfo;
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::Result;
 use crate::msg_types::{HistoryMetadata, HistoryMetadataList};
@@ -127,6 +129,12 @@ fn insert_metadata_in_tx(
     // If HistoryMetadata already has a guid, that's an error.
     assert!(metadata.guid.is_none());
 
+    // NB: in case we already have a moz_places record, and the title we receive in `metadata` is
+    // different from what's stored in places, we are ignoring that difference and won't perform
+    // an UPDATE on moz_places. In practice, these titles should be coming from the same source,
+    // and the sequencing in which these APIs are called (history vs history_metadata) should be
+    // such that history is written first. So these assumptions help keep this logic simpler.
+
     // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
     let places_id = match place_id {
         Some(id) => id,
@@ -141,12 +149,20 @@ fn insert_metadata_in_tx(
             // of urls as they're flowing around.
             let url = Url::parse(&metadata.url)?;
 
+            // Make sure we don't go over our size limits for title.
+            let trimmed_title = match metadata.title {
+                Some(ref title) => {
+                    crate::util::slice_up_to(title.as_str(), super::TITLE_LENGTH_MAX).into()
+                }
+                None => None,
+            };
+
             tx.execute_named_cached(
                 sql,
                 &[
                     (":guid", &guid),
                     (":url", &url.as_str()),
-                    (":title", &metadata.title),
+                    (":title", &trimmed_title),
                 ],
             )?;
             tx.conn().last_insert_rowid()
@@ -206,7 +222,23 @@ fn insert_metadata_in_tx(
 }
 
 pub fn add_metadata(db: &PlacesDb, metadata: HistoryMetadata) -> Result<SyncGuid> {
-    let places_id = db.try_query_one(
+    if metadata.url.len() > super::URL_LENGTH_MAX {
+        return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
+    }
+
+    if let Some(ref url) = metadata.parent_url {
+        if url.len() > super::URL_LENGTH_MAX {
+            return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
+        }
+    }
+
+    // Begin a write transaction (since we should be on the write connection). We do before any other
+    // work (e.g. SELECTs) to avoid racing against other writers. Even though we only have a single application
+    // writer, a sync writer can come in at any time and change data we depend on, such as moz_places
+    // and moz_origins, leaving us in a potentially inconsistent state.
+    let tx = db.begin_transaction()?;
+
+    let places_id = tx.try_query_one(
         "SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url",
         &[(":url", &metadata.url)],
         true,
@@ -214,13 +246,11 @@ pub fn add_metadata(db: &PlacesDb, metadata: HistoryMetadata) -> Result<SyncGuid
 
     // Look up the search query first, maybe it's already stored in the db.
     // Do this before starting a transaction, since it's a SELECT and doesn't need to be part of a tx.
-    // We depend on having a single write connection, so we know a search term won't be inserted by another caller.
-    // NB: there is also a sync writer, but we don't currently sync any of this data.
     let search_query = match &metadata.search_term {
         None => SearchQueryEntry::None,
         Some(term) => {
             let lowercase_term = term.to_lowercase();
-            match db.try_query_one(
+            match tx.try_query_one(
                 "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
                 &[(":term", &lowercase_term)],
                 true,
@@ -235,7 +265,7 @@ pub fn add_metadata(db: &PlacesDb, metadata: HistoryMetadata) -> Result<SyncGuid
         None => ParentDomainEntry::None,
         Some(parent_url) => {
             let parent_url = Url::parse(parent_url)?;
-            match db.try_query_one(
+            match tx.try_query_one(
                 "SELECT id FROM moz_origins WHERE prefix = get_prefix(:url) AND host = get_host_and_port(:url)",
                 &[(":url", &parent_url.as_str())],
                 true
@@ -246,7 +276,6 @@ pub fn add_metadata(db: &PlacesDb, metadata: HistoryMetadata) -> Result<SyncGuid
         }
     };
 
-    let tx = db.begin_transaction()?;
     let result = insert_metadata_in_tx(&tx, places_id, search_query, parent_domain, metadata);
     // Inserting into moz_places has side-effects (temp tables are populated via triggers and need to be flushed).
     // This call "finalizes" these side-effects.
