@@ -616,6 +616,7 @@ impl<'a> EnrollmentsEvolver<'a> {
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         // XXX fix up name overrides of params for clarity; check on clippy lint
         let mut enrollment_events = vec![];
+
         let existing_experiments = map_experiments(&existing_experiments);
         let updated_experiments = map_experiments(&updated_experiments);
         let existing_enrollment_map = map_enrollments(&existing_enrollments);
@@ -630,27 +631,34 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut locally_enrolled_feature_ids =
             map_locally_enrolled_feature_ids(existing_enrollments, &existing_experiments);
 
+        log::debug!("locally_enrolled_feature_ids: {:?}", locally_enrolled_feature_ids);
+
         let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
 
         // Step 2:
         // remove any feature-ids from the map that were being experimented
         // on, but no longer are, according to the current updates.
-        for slug in all_slugs.clone() {
-            let _updated_enrollment = self.evolve_enrollment(
-                is_user_participating,
-                existing_experiments.get(slug).copied(),
-                updated_experiments.get(slug).copied(),
-                existing_enrollment_map.get(slug).copied(),
-                &mut enrollment_events,
-            )?;
-            // if let Some(_enrollment) = updated_enrollment {
-            // What has changed? If we're still enrolled, do nothing.
+        for existing_enrollment in existing_enrollments {
+            if !matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                let slug = &existing_enrollment.slug;
+                let _updated_enrollment = self.evolve_enrollment(
+                    is_user_participating,
+                    existing_experiments.get(slug).copied(),
+                    updated_experiments.get(slug).copied(),
+                    Some(existing_enrollment),
+                    &mut enrollment_events,
+                )?;
 
-            // If not, remove the feature id - it's usable now.
-
-            // updated_enrollments.push(enrollment); XXX NOT NEEDED HERE, I
-            //if enrollment.status != EnrollmentStatus::Enrolled
-            // }
+                if let Some(enrollment) = _updated_enrollment {
+                    if !matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                        // from the enrollment, we look up the experiment that we
+                        // were enrollment from existing experiments
+                        // then get the feature id.
+                        // and remove it from the locally_enrolled_feature_ids
+                        // locally_enrolled_feature_ids.remove(enrollment.get_first_feature_id());
+                    }
+                }
+            }
         }
 
         // Step 3: now we can add new experiments that avoid the features that
@@ -660,68 +668,73 @@ impl<'a> EnrollmentsEvolver<'a> {
         // so...
         enrollment_events.clear();
 
-        for slug in all_slugs {
+        for updated_experiment in updated_experiments.values() {
+        // for slug in all_slugs {
+            let slug = updated_experiment.slug;
             let updated_experiment = updated_experiments.get(slug).copied();
-            if let Some(unwrapped_experiment) = updated_experiment {
-                let feature_id = &unwrapped_experiment.get_first_feature_id();
 
-                // If this feature_id is locally free, evolve the enrollment
-                // update the feature_id hashtable
-                if locally_enrolled_feature_ids.get(feature_id) == None {
-                    log::debug!("this feature is locally unused");
+            let feature_id = &unwrapped_experiment.get_first_feature_id();
 
-                    let updated_enrollment = self.evolve_enrollment(
-                        is_user_participating,
-                        existing_experiments.get(slug).copied(),
-                        updated_experiments.get(slug).copied(),
-                        existing_enrollment_map.get(slug).copied(),
-                        &mut enrollment_events,
-                    )?;
+            // If this feature_id is locally free, evolve the enrollment
+            // update the feature_id hashtable
+            if locally_enrolled_feature_ids.get(feature_id) == None {
+                log::debug!("this feature is locally unused");
 
-                    if let Some(enrollment) = updated_enrollment {
-                        log::debug!(
-                            "updated enrollment {:?} was returned from evolve_enrollment; pushing",
-                            enrollment
-                        );
-                        updated_enrollments.push(enrollment.clone());
+                let updated_enrollment = self.evolve_enrollment(
+                    is_user_participating,
+                    existing_experiments.get(slug).copied(),
+                    Some(updated_experiment),
+                    existing_enrollment_map.get(slug).copied(),
+                    &mut enrollment_events,
+                )?;
 
-                        if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
-                            log::debug!(
-                                "mapping {}:{} to locally_enrolled_feature_ids",
-                                feature_id,
-                                slug
-                            );
-                            locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
-                        }
-
-                    }
-                } else {
-                    // Does this experiment have a feature id that we've already used?
+                if let Some(enrollment) = updated_enrollment {
                     log::debug!(
-                        "feature_id {} already used by experiment, marking {} NotEnrolled",
-                        feature_id,
-                        slug
+                        "updated enrollment {:?} was returned from evolve_enrollment; pushing",
+                        enrollment
                     );
+                    updated_enrollments.push(enrollment.clone());
 
-                    // record disqualified enrollment
-                    let non_enrollment = ExperimentEnrollment::from_new_experiment(
-                        is_user_participating,
-                        self.nimbus_id,
-                        self.available_randomization_units,
-                        self.app_context,
-                        unwrapped_experiment,
-                        true,
-                        &mut enrollment_events,
-                    )?;
+                    // XXX if tests written from Jira acceptance criteria
+                    // don't already capture this, maybe write a test that
+                    // fails if the insertion were not behind this if clause,
+                    if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                        log::debug!(
+                            "mapping {}:{} to locally_enrolled_feature_ids",
+                            feature_id,
+                            slug
+                        );
+                        locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
+                    }
 
-                    // XXX out_enrollment_events still has a successful event
-                    // write a test for this, then fix
-
-                    // out_enrollment_events.push
-                    updated_enrollments.push(non_enrollment);
-                    continue;
                 }
+            } else {
+                // Does this experiment have a feature id that we've already used?
+                log::debug!(
+                    "feature_id {} already used by experiment, marking {} NotEnrolled",
+                    feature_id,
+                    slug
+                );
+
+                // record disqualified enrollment
+                let non_enrollment = ExperimentEnrollment::from_new_experiment(
+                    is_user_participating,
+                    self.nimbus_id,
+                    self.available_randomization_units,
+                    self.app_context,
+                    unwrapped_experiment,
+                    true,
+                    &mut enrollment_events,
+                )?;
+
+                // XXX out_enrollment_events still has a successful event
+                // write a test for this, then fix
+
+                // out_enrollment_events.push
+                updated_enrollments.push(non_enrollment);
+                continue;
             }
+
         }
 
         // this may be in next ticket, though some db writing may want to be here:
@@ -808,14 +821,17 @@ fn map_locally_enrolled_feature_ids(
     let mut map_feature_ids_to_experiment_slugs: HashMap<String, String> =
         HashMap::with_capacity(enrollments.len());
     for enrollment in enrollments {
-        // get experiment for enrollment
-        let experiment = experiments.get(&enrollment.slug.clone()).unwrap(); // XXX unwrap
 
-        // get first feature_id for enrollment
-        let first_feature_id = experiment.get_first_feature_id();
+        if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+            // get experiment for enrollment
+            let experiment = experiments.get(&enrollment.slug.clone()).unwrap(); // XXX unwrap
 
-        // insert feature_id, slug.clone() into map
-        map_feature_ids_to_experiment_slugs.insert(first_feature_id, enrollment.slug.clone());
+            // get first feature_id for enrollment
+            let first_feature_id = experiment.get_first_feature_id();
+
+            // insert feature_id, slug.clone() into map
+            map_feature_ids_to_experiment_slugs.insert(first_feature_id, enrollment.slug.clone());
+        }
     }
     map_feature_ids_to_experiment_slugs
 }
@@ -1106,7 +1122,7 @@ mod tests {
             }))
             .unwrap(),);
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let (enrollments, events) =
             evolver.evolve_enrollments(true, &vec![], &test_experiments, &vec![])?;
 
@@ -2188,7 +2204,7 @@ mod tests {
                 .collect();
         assert_eq!(not_enrolled_enrollments.len(), 2);
 
-        log::debug!("about to call evolve_enrollments for the 2nd time");
+        log::debug!("about to call evolve_enrollments_in_db for the 2nd time");
         // User opts in, and updating should enroll us in 2 experiments.
         set_global_user_participation(&db, &mut writer, true)?;
 
@@ -2206,6 +2222,8 @@ mod tests {
                 .filter(|enr| matches!(enr.status, EnrollmentStatus::Enrolled { .. }))
                 .collect();
         assert_eq!(enrolled_enrollments.len(), 2);
+
+        log::debug!("about to call evolve_enrollments_in_db for the 3rd time");
 
         // Opting out and updating should give us two disqualified enrollments
         set_global_user_participation(&db, &mut writer, false)?;
