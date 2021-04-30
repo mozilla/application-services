@@ -656,7 +656,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         // Step 3: now we can add new experiments that avoid the features that
         // already being experimented upon.
 
-        // the previous calls to evolve_enrollments will have prepopulated
+        // the previous calls to evolve_enrollments will have prepopulated it
         // so...
         enrollment_events.clear();
 
@@ -680,16 +680,20 @@ impl<'a> EnrollmentsEvolver<'a> {
 
                     if let Some(enrollment) = updated_enrollment {
                         log::debug!(
-                            "updated enrollment was returned from evolve_enrollment; pushing"
+                            "updated enrollment {:?} was returned from evolve_enrollment; pushing",
+                            enrollment
                         );
-                        updated_enrollments.push(enrollment);
+                        updated_enrollments.push(enrollment.clone());
 
-                        log::debug!(
-                            "mapping {}:{} to locally_enrolled_feature_ids",
-                            feature_id,
-                            slug
-                        );
-                        locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
+                        if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                            log::debug!(
+                                "mapping {}:{} to locally_enrolled_feature_ids",
+                                feature_id,
+                                slug
+                            );
+                            locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
+                        }
+
                     }
                 } else {
                     // Does this experiment have a feature id that we've already used?
@@ -2184,6 +2188,7 @@ mod tests {
                 .collect();
         assert_eq!(not_enrolled_enrollments.len(), 2);
 
+        log::debug!("about to call evolve_enrollments for the 2nd time");
         // User opts in, and updating should enroll us in 2 experiments.
         set_global_user_participation(&db, &mut writer, true)?;
 
