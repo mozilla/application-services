@@ -3195,7 +3195,7 @@ dependencies = [
  "prost",
  "sync15",
  "sync_manager",
- "tabs_ffi",
+ "tabs",
 ]
 
 [[package]]
@@ -3256,6 +3256,7 @@ dependencies = [
  "error-support",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
+ "lazy_static",
  "log 0.4.11",
  "prost",
  "prost-derive",
@@ -3265,23 +3266,9 @@ dependencies = [
  "sync-guid",
  "sync15",
  "thiserror",
+ "uniffi",
+ "uniffi_build",
  "url",
-]
-
-[[package]]
-name = "tabs_ffi"
-version = "0.1.0"
-dependencies = [
- "base16",
- "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static",
- "log 0.4.11",
- "prost",
- "serde_json",
- "sync15",
- "tabs",
- "url",
- "viaduct",
 ]
 
 [[package]]

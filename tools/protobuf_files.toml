@@ -14,8 +14,5 @@ dir = "../components/push/src/"
 ["manager_msg_types.proto"]
 dir = "../components/sync_manager/src/"
 
-["tabs_msg_types.proto"]
-dir = "../components/tabs/src/"
-
 ["fetch_msg_types.proto"]
 dir = "../components/viaduct/src/"

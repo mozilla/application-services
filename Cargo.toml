@@ -33,7 +33,6 @@ members = [
     "components/sync_manager/ffi",
     "components/sync15",
     "components/tabs",
-    "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
     "components/webext-storage/ffi",
@@ -107,7 +106,6 @@ default-members = [
     "components/sync_manager/ffi",
     "components/sync15",
     "components/tabs",
-    "components/tabs/ffi",
     "components/viaduct",
     "components/webext-storage",
 # Disabled for intermittent failures; see SDK-233 and #3909 for details.

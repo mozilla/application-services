@@ -45,7 +45,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: remote_client.device_name.clone(),
-            device_type: remote_client.device_type.unwrap_or(DeviceType::Mobile),
+            device_type: remote_client.device_type.unwrap_or(DeviceType::Mobile).into(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -54,7 +54,7 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: record.client_name,
-            device_type: DeviceType::Mobile,
+            device_type: DeviceType::Mobile.into(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -161,7 +161,7 @@ impl<'a> SyncEngine for TabsEngine<'a> {
             let local_record = ClientRemoteTabs {
                 client_id: local_id,
                 client_name,
-                device_type,
+                device_type: device_type.into(),
                 remote_tabs: local_tabs.to_vec(),
             };
             let payload = Payload::from_record(local_record.to_record())?;
