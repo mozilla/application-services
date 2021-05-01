@@ -32,6 +32,14 @@ impl TabsStore {
         self.storage.update_local_state(local_state);
     }
 
+    // like remote_tabs, but serves the uniffi layer
+    pub fn get_all(&self) -> Vec<ClientRemoteTabs> {
+        match self.remote_tabs() {
+            Some(list) => list,
+            None => vec![]
+        }
+    }
+
     pub fn remote_tabs(&self) -> Option<Vec<ClientRemoteTabs>> {
         self.storage.get_remote_tabs()
     }

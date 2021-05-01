@@ -1,0 +1,29 @@
+namespace tabs {
+
+};
+
+// TODO should this be [Threadsafe]? this runs into problems, e.g. mem_cached_state: Cell<MemoryCachedState> on TabsStorage
+interface TabsStore {
+    constructor();
+
+    void update_local_state(sequence<RemoteTab> remote_tabs );
+    sequence<ClientRemoteTabs> get_all();
+
+    void register_with_sync_manager();
+};
+
+enum DeviceType { "Desktop", "Mobile", "Tablet", "VR", "TV" };
+
+dictionary RemoteTab {
+    string title;
+    sequence<string> url_history;
+    string? icon;
+    u64 last_used;
+};
+
+dictionary ClientRemoteTabs {
+    string client_id;
+    string client_name;
+    DeviceType device_type;
+    sequence<RemoteTab> remote_tabs;
+};

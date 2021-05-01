@@ -8,7 +8,40 @@ const URI_LENGTH_MAX: usize = 65536;
 const TAB_ENTRIES_LIMIT: usize = 5;
 
 use std::cell::RefCell;
-use sync15::clients::DeviceType;
+
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the inner stuff - needed
+    //        to wrap the RefCell as they aren't `Sync`
+    // RefCell: So we can replace what it holds. Normally you'd use `get_ref()`
+    //          on the mutex and avoid the RefCell entirely, but that requires
+    //          the mutex to be declared as `mut` which is apparently
+    //          impossible in a `lazy_static`
+    // [Arc/Weak]<StoreImpl>: What the sync manager actually needs.
+    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<StoreImpl>>> = Mutex::new(RefCell::new(Weak::new()));
+}
+
+// TODO how to avoid this local type?
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub enum DeviceType {
+    Desktop,
+    Mobile,
+    Tablet,
+    VR,
+    TV,
+}
+
+impl From<sync15::clients::DeviceType> for DeviceType {
+    fn from(device_type: sync15::clients::DeviceType) -> Self {
+        match device_type {
+            sync15::clients::DeviceType::Desktop => DeviceType::Desktop,
+            sync15::clients::DeviceType::Mobile => DeviceType::Mobile,
+            sync15::clients::DeviceType::Tablet => DeviceType::Tablet,
+            sync15::clients::DeviceType::VR => DeviceType::VR,
+            sync15::clients::DeviceType::TV => DeviceType::TV
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct RemoteTab {

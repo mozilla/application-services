@@ -28,7 +28,7 @@ pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut E
 pub extern "C" fn sync_manager_set_tabs(_tabs_handle: u64, error: &mut ExternError) {
     ffi_support::call_with_result(error, || -> MgrResult<()> {
         log::debug!("sync_manager_set_tabs");
-        let api = tabs_ffi::STORES.get_u64(_tabs_handle, |api| -> Result<_, HandleError> {
+        let api = tabs::STORES.get_u64(_tabs_handle, |api| -> Result<_, HandleError> {
             Ok(std::sync::Arc::clone(api))
         })?;
         sync_manager::set_tabs(api);

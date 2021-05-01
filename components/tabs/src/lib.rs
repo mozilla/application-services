@@ -15,11 +15,20 @@ pub mod msg_types {
     include!("mozilla.appservices.remotetabs.protobuf.rs");
 }
 
-pub use crate::storage::{ClientRemoteTabs, RemoteTab};
+pub use crate::storage::{DeviceType, ClientRemoteTabs, RemoteTab};
 pub use crate::sync::engine::TabsEngine;
 pub use crate::sync::store::TabsStore;
 pub use error::{Error, ErrorKind, Result};
 
 // Re-export `DeviceType`, so that it's easier for consumers to make
 // `ClientRemoteTabs` structs without importing `sync15`.
-pub use sync15::clients::DeviceType;
+// pub use sync15::clients::DeviceType;
+
+use ffi_support::ConcurrentHandleMap;
+use std::sync::{Arc, Mutex};
+
+lazy_static::lazy_static! {
+    pub static ref STORES: ConcurrentHandleMap<Arc<Mutex<TabsStore>>> = ConcurrentHandleMap::new();
+}
+
+include!(concat!(env!("OUT_DIR"), "/tabs.uniffi.rs"));
