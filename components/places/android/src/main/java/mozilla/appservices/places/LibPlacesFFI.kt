@@ -211,7 +211,7 @@ internal interface LibPlacesFFI : Library {
 
     fun places_get_history_metadata_since(
         handle: PlacesConnectionHandle,
-        start: Long,
+        since: Long,
         error: RustError.ByReference
     ): RustBuffer.ByValue
 

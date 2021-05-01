@@ -405,11 +405,11 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
-    override suspend fun getHistoryMetadataSince(start: Long): List<HistoryMetadata> {
+    override suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata> {
         readQueryCounters.measure {
             val rustBuffer = rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_get_history_metadata_since(
-                        this.handle.get(), start, error)
+                        this.handle.get(), since, error)
             }
             try {
                 val metadata = MsgTypes.HistoryMetadataList.parseFrom(rustBuffer.asCodedInputStream()!!)
@@ -895,12 +895,12 @@ interface ReadableHistoryMetadataConnection : InterruptibleConnection {
     suspend fun getLatestHistoryMetadataForUrl(url: String): HistoryMetadata?
 
     /**
-     * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is greater or equal to [start].
+     * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is greater or equal to [since].
      *
-     * @param start Timestmap to search by.
+     * @param since Timestmap to search by.
      * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
      */
-    suspend fun getHistoryMetadataSince(start: Long): List<HistoryMetadata>
+    suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata>
 
     /**
      * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is between [start] and [end], inclusive.
