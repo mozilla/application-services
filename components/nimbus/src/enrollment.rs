@@ -953,6 +953,87 @@ mod tests {
         ]
     }
 
+    fn get_feature_conflict_test_experiments() -> Vec<Experiment> {
+        vec![
+            serde_json::from_value(json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold",
+                "endDate": null,
+                "featureIds": ["about_welcome"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"secure-gold",
+                "last_modified":1_602_197_324_372i64
+            }))
+            .unwrap(),
+            serde_json::from_value(json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-silver",
+                "endDate": null,
+                "branches":[
+                    {"slug": "control", "ratio": 1}, // XXX add feature
+                    {"slug": "treatment","ratio":1}, // XXX add feature
+                ],
+                "featureIds": ["about_welcome"],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "bucketConfig":{
+                    // Also enroll everyone.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-silver",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"2nd test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"2nd test experiment.",
+                "id":"secure-silver",
+                "last_modified":1_602_197_324_372i64
+            }))
+            .unwrap(),
+        ]
+    }
+
     fn get_experiment_enrollments<'r>(
         db: &Database,
         reader: &'r impl Readable<'r>,
@@ -1498,6 +1579,31 @@ mod tests {
             .unwrap();
         assert_eq!(enrollment, existing_enrollment);
         assert!(events.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+
+        let existing_experiments: Vec<Experiment> = vec![];
+        let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
+        let updated_experiments = get_feature_conflict_test_experiments();
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        assert_eq!(2, enrollments.len());
+
+        let enrolled1: Vec<ExperimentEnrollment> = enrollments.into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+            .collect();
+        assert_eq!(1, enrolled1.len());
+
         Ok(())
     }
 
