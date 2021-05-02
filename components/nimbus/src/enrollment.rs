@@ -9,7 +9,7 @@ use crate::{AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experim
 use ::uuid::Uuid;
 use serde_derive::*;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -604,28 +604,71 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut enrollment_events = vec![];
         let existing_experiments = map_experiments(&existing_experiments);
         let updated_experiments = map_experiments(&updated_experiments);
+        let mut active_features = map_features(&existing_enrollments, &existing_experiments);
         let existing_enrollments = map_enrollments(&existing_enrollments);
 
-        let mut all_slugs = HashSet::with_capacity(existing_experiments.len());
-        all_slugs.extend(existing_experiments.keys());
-        all_slugs.extend(updated_experiments.keys());
-        all_slugs.extend(existing_enrollments.keys());
+        let mut updated_enrollments = HashMap::with_capacity(updated_experiments.len());
 
-        let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
-        for slug in all_slugs {
+        for existing_enrollment in existing_enrollments.values() {
+            let slug = &existing_enrollment.slug;
+
             let updated_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 existing_experiments.get(slug).copied(),
                 updated_experiments.get(slug).copied(),
-                existing_enrollments.get(slug).copied(),
-                &mut enrollment_events,
+                Some(existing_enrollment),
+                &mut enrollment_events
             )?;
+
             if let Some(enrollment) = updated_enrollment {
-                updated_enrollments.push(enrollment);
+                if matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) &&
+                !matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                    active_features.remove(slug);
+                }
+                updated_enrollments.insert(slug, enrollment);
+            } else if matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                active_features.remove(slug);
             }
         }
 
-        Ok((updated_enrollments, enrollment_events))
+        for updated_experiment in updated_experiments.values() {
+            let slug = &updated_experiment.slug;
+
+            if updated_enrollments.contains_key(&slug) {
+                continue;
+            }
+
+            let feature_id = &updated_experiment.get_first_feature_id();
+            if let Some(other_slug) = active_features.get(feature_id) {
+                if slug != other_slug {
+                    // This feature is being experimented upon, and it isn't the current experiment.
+                    // TODO add FeatureConflict enrollment
+                    updated_enrollments.insert(slug, ExperimentEnrollment {
+                        slug: slug.clone(),
+                        status: EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::NotSelected,
+                        },
+                    });
+                    continue;
+                }
+            }
+
+            let existing_enrollment = existing_enrollments.get(slug).copied();
+            let updated_enrollment = self.evolve_enrollment(
+                is_user_participating,
+                existing_experiments.get(slug).copied(),
+                Some(updated_experiment),
+                existing_enrollment,
+                &mut enrollment_events
+            )?;
+
+            if let Some(enrollment) = updated_enrollment {
+                active_features.insert(feature_id.clone(), slug.clone());
+                updated_enrollments.insert(slug, enrollment);
+            }
+        }
+
+        Ok((updated_enrollments.values().cloned().collect(), enrollment_events))
     }
 
     /// Evolve a single enrollment using the previous and current state of an experiment.
@@ -694,6 +737,19 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
         map_enrollments.insert(e.slug.clone(), e);
     }
     map_enrollments
+}
+
+fn map_features(enrollments: &[ExperimentEnrollment], map_experiments: &HashMap<String, &Experiment>) -> HashMap<String, String> {
+    let mut map = HashMap::with_capacity(enrollments.len());
+    for e in enrollments {
+        if matches!(e.status, EnrollmentStatus::Enrolled {..}) {
+            let slug = e.slug.clone();
+            let experiment = map_experiments.get(&slug).unwrap();
+            let feature_id = experiment.get_first_feature_id();
+            map.insert(feature_id, slug);
+        }
+    }
+    map
 }
 
 pub struct EnrollmentChangeEvent {
