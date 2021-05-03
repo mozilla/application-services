@@ -612,10 +612,20 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         let mut updated_enrollments = HashMap::with_capacity(updated_experiments.len());
 
-        // Step 2. Prune the active_features map.
+        // Step 2. Prune the active_features map, by looking
+        // at only the experiments that are enrolled, and seeing if
+        // they're still enrolled.
         // By the end of this loop we should have a good idea what
         // features we can experiment upon.
         for existing_enrollment in existing_enrollments.values() {
+            // There are enrollments that are not Enrolled.
+            // We're not interested in these for this step.
+            if !matches!(
+                existing_enrollment.status,
+                EnrollmentStatus::Enrolled { .. }
+            ) {
+                continue;
+            }
             let slug = &existing_enrollment.slug;
 
             let updated_enrollment = self.evolve_enrollment(
@@ -629,24 +639,24 @@ impl<'a> EnrollmentsEvolver<'a> {
             if let Some(enrollment) = updated_enrollment {
                 // If we started with an empty hashmap, we should be adding to it here,
                 // plucking feature_id from updated_experiment.
-                if matches!(
-                    existing_enrollment.status,
-                    EnrollmentStatus::Enrolled { .. }
-                ) && !matches!(enrollment.status, EnrollmentStatus::Enrolled { .. })
-                {
+                if !matches!(enrollment.status, EnrollmentStatus::Enrolled { .. }) {
                     active_features.remove(slug);
                 }
                 updated_enrollments.insert(slug, enrollment);
-            } else if matches!(
-                existing_enrollment.status,
-                EnrollmentStatus::Enrolled { .. }
-            ) {
+            } else {
                 active_features.remove(slug);
             }
         }
 
         for updated_experiment in updated_experiments.values() {
             let slug = &updated_experiment.slug;
+
+            // We may have already done the evolve_enrollment in step 2. Guard against doing it again.
+            // Update: Since Step 2 only deals with Enrolled enrollments, and the check below deals
+            // with them, this is redundant.
+            // if updated_enrollments.contains_key(&slug) {
+            //     continue;
+            // }
 
             // Check that the feature id is available.
             // If not, then the enrollment is NotEnrolled; and we continue to the next experiment.
@@ -665,22 +675,17 @@ impl<'a> EnrollmentsEvolver<'a> {
                         },
                     );
                     // So now we know that the experiment is acting on features that are already
-                    // active. So move on.
-                    continue;
+                    // active. So continue to the next experiment. But…
                 }
-                // But… should we continue here too? Because
+                // … perhaps we can continue here too? Because
                 // if the feature is already active,
                 //    …and the experiment it's using is this one,
                 //    …then we don't need to evolve the enrollment, here, because we did it in step 2.
-            }
-
-            // We may have already done the evolve_enrollment in step 2. Guard against doing it again.
-            // XXX I don't know why tests pass when this guard is here, but not at the beginning of this loop.
-            if updated_enrollments.contains_key(&slug) {
                 continue;
             }
 
-            // If we got here, can we prove to ourselves that existing_enrollment is None?
+            // Q: If we got here, can we prove to ourselves that existing_enrollment is None?
+            // A: No, since step 2 only deals with Enrolled enrollments.
             let existing_enrollment = existing_enrollments.get(slug).copied();
             println!("Existing enrollment: {:?}", existing_enrollment);
             let updated_enrollment = self.evolve_enrollment(
