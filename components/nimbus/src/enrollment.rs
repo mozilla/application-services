@@ -604,11 +604,17 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut enrollment_events = vec![];
         let existing_experiments = map_experiments(&existing_experiments);
         let updated_experiments = map_experiments(&updated_experiments);
+        // Step 1. Build an initial active_features to keep track of 
+        // what is being experimented upon.
+        // TODO consider starting with an empty hashmap here.
         let mut active_features = map_features(&existing_enrollments, &existing_experiments);
         let existing_enrollments = map_enrollments(&existing_enrollments);
 
         let mut updated_enrollments = HashMap::with_capacity(updated_experiments.len());
 
+        // Step 2. Prune the active_features map.
+        // By the end of this loop we should have a good idea what 
+        // features we can experiment upon.
         for existing_enrollment in existing_enrollments.values() {
             let slug = &existing_enrollment.slug;
 
@@ -621,6 +627,8 @@ impl<'a> EnrollmentsEvolver<'a> {
             )?;
 
             if let Some(enrollment) = updated_enrollment {
+                // If we started with an empty hashmap, we should be adding to it here,
+                // plucking feature_id from updated_experiment.
                 if matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) &&
                 !matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
                     active_features.remove(slug);
@@ -634,26 +642,39 @@ impl<'a> EnrollmentsEvolver<'a> {
         for updated_experiment in updated_experiments.values() {
             let slug = &updated_experiment.slug;
 
-            if updated_enrollments.contains_key(&slug) {
-                continue;
-            }
-
+            // Check that the feature id is available.
+            // If not, then the enrollment is NotEnrolled; and we continue to the next experiment.
             let feature_id = &updated_experiment.get_first_feature_id();
             if let Some(other_slug) = active_features.get(feature_id) {
                 if slug != other_slug {
                     // This feature is being experimented upon, and it isn't the current experiment.
-                    // TODO add FeatureConflict enrollment
+                    // TODO add FeatureConflict enrollment, or add another NotEnrolledReason.
                     updated_enrollments.insert(slug, ExperimentEnrollment {
                         slug: slug.clone(),
                         status: EnrollmentStatus::NotEnrolled {
                             reason: NotEnrolledReason::NotSelected,
                         },
                     });
+                    // So now we know that the experiment is acting on features that are already 
+                    // active. So move on.
                     continue;
                 }
+                // But… should we continue here too? Because 
+                // if the feature is already active,
+                //    …and the experiment it's using is this one, 
+                //    …then we don't need to evolve the enrollment, here, because we did it in step 2.
+
             }
 
+            // We may have already done the evolve_enrollment in step 2. Guard against doing it again.
+            // XXX I don't know why tests pass when this guard is here, but not at the beginning of this loop.
+            if updated_enrollments.contains_key(&slug) {
+                continue;
+            }
+
+            // If we got here, can we prove to ourselves that existing_enrollment is None?
             let existing_enrollment = existing_enrollments.get(slug).copied();
+            println!("Existing enrollment: {:?}", existing_enrollment);
             let updated_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 existing_experiments.get(slug).copied(),
@@ -663,12 +684,20 @@ impl<'a> EnrollmentsEvolver<'a> {
             )?;
 
             if let Some(enrollment) = updated_enrollment {
-                active_features.insert(feature_id.clone(), slug.clone());
+                if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                    active_features.insert(feature_id.clone(), slug.clone());
+                }
                 updated_enrollments.insert(slug, enrollment);
             }
         }
 
-        Ok((updated_enrollments.values().cloned().collect(), enrollment_events))
+        println!("updated_enrollments: {:?}", updated_enrollments);
+        let updated_enrollments: Vec<ExperimentEnrollment> = updated_enrollments.values().cloned().collect();
+        // TODO map_features could do the mapping between feature_id the FeatureConfig.
+        // TODO stash these in a store.
+        let feature_config = map_features(&updated_enrollments, &updated_experiments);
+        println!("updated features: {:?}", feature_config);
+        Ok((updated_enrollments, enrollment_events))
     }
 
     /// Evolve a single enrollment using the previous and current state of an experiment.
@@ -744,9 +773,11 @@ fn map_features(enrollments: &[ExperimentEnrollment], map_experiments: &HashMap<
     for e in enrollments {
         if matches!(e.status, EnrollmentStatus::Enrolled {..}) {
             let slug = e.slug.clone();
-            let experiment = map_experiments.get(&slug).unwrap();
-            let feature_id = experiment.get_first_feature_id();
-            map.insert(feature_id, slug);
+            if let Some(experiment) = map_experiments.get(&slug) {
+                let feature_id = experiment.get_first_feature_id();
+                // We could map to the FeatureConfig here.
+                map.insert(feature_id, slug);
+            }
         }
     }
     map
@@ -1587,6 +1618,7 @@ mod tests {
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
 
+        // Let's go from no experiments, to some experiments.
         let existing_experiments: Vec<Experiment> = vec![];
         let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
         let updated_experiments = get_feature_conflict_test_experiments();
@@ -1599,10 +1631,78 @@ mod tests {
 
         assert_eq!(2, enrollments.len());
 
-        let enrolled1: Vec<ExperimentEnrollment> = enrollments.into_iter()
+        let enrolled: Vec<ExperimentEnrollment> = enrollments.clone().into_iter()
             .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
             .collect();
-        assert_eq!(1, enrolled1.len());
+        assert_eq!(1, enrolled.len());
+
+        let enrolled1 = enrolled.clone();
+        
+        // Now let's keep the same number of experiments.
+        // We should get the same results as before.
+        let existing_experiments: Vec<Experiment> = updated_experiments;
+        let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
+        let updated_experiments = get_feature_conflict_test_experiments();
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        assert_eq!(2, enrollments.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments.clone().into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+            .collect();
+        assert_eq!(1, enrolled.len());
+        let enrolled2 = enrolled.clone();
+
+        assert_eq!(enrolled1, enrolled2);
+
+        // Let's hold it one more time.
+        let existing_experiments: Vec<Experiment> = updated_experiments;
+        let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
+        let updated_experiments = get_feature_conflict_test_experiments();
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        assert_eq!(2, enrollments.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments.clone().into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+            .collect();
+        assert_eq!(1, enrolled.len());
+        let enrolled3 = enrolled.clone();
+
+        assert_eq!(enrolled2, enrolled3);
+
+        // Ok, no more experiments.
+        let existing_experiments: Vec<Experiment> = updated_experiments;
+        let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
+        let updated_experiments: Vec<Experiment> = vec![];
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        // I think this will be WasEnrolled.
+        assert_eq!(1, enrollments.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments.into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+            .collect();
+        assert_eq!(0, enrolled.len());
+
+        // TODO test if we go if we remove the winning experiment, will the other one
+        // take over? I suspect we can look up the winning slug and filter the experiments.
+        // Or we can hand craft another test_experiments() function.
 
         Ok(())
     }
