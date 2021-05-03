@@ -604,7 +604,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut enrollment_events = vec![];
         let existing_experiments = map_experiments(&existing_experiments);
         let updated_experiments = map_experiments(&updated_experiments);
-        // Step 1. Build an initial active_features to keep track of 
+        // Step 1. Build an initial active_features to keep track of
         // what is being experimented upon.
         // TODO consider starting with an empty hashmap here.
         let mut active_features = map_features(&existing_enrollments, &existing_experiments);
@@ -613,7 +613,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut updated_enrollments = HashMap::with_capacity(updated_experiments.len());
 
         // Step 2. Prune the active_features map.
-        // By the end of this loop we should have a good idea what 
+        // By the end of this loop we should have a good idea what
         // features we can experiment upon.
         for existing_enrollment in existing_enrollments.values() {
             let slug = &existing_enrollment.slug;
@@ -623,18 +623,24 @@ impl<'a> EnrollmentsEvolver<'a> {
                 existing_experiments.get(slug).copied(),
                 updated_experiments.get(slug).copied(),
                 Some(existing_enrollment),
-                &mut enrollment_events
+                &mut enrollment_events,
             )?;
 
             if let Some(enrollment) = updated_enrollment {
                 // If we started with an empty hashmap, we should be adding to it here,
                 // plucking feature_id from updated_experiment.
-                if matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) &&
-                !matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                if matches!(
+                    existing_enrollment.status,
+                    EnrollmentStatus::Enrolled { .. }
+                ) && !matches!(enrollment.status, EnrollmentStatus::Enrolled { .. })
+                {
                     active_features.remove(slug);
                 }
                 updated_enrollments.insert(slug, enrollment);
-            } else if matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) {
+            } else if matches!(
+                existing_enrollment.status,
+                EnrollmentStatus::Enrolled { .. }
+            ) {
                 active_features.remove(slug);
             }
         }
@@ -649,21 +655,23 @@ impl<'a> EnrollmentsEvolver<'a> {
                 if slug != other_slug {
                     // This feature is being experimented upon, and it isn't the current experiment.
                     // TODO add FeatureConflict enrollment, or add another NotEnrolledReason.
-                    updated_enrollments.insert(slug, ExperimentEnrollment {
-                        slug: slug.clone(),
-                        status: EnrollmentStatus::NotEnrolled {
-                            reason: NotEnrolledReason::NotSelected,
+                    updated_enrollments.insert(
+                        slug,
+                        ExperimentEnrollment {
+                            slug: slug.clone(),
+                            status: EnrollmentStatus::NotEnrolled {
+                                reason: NotEnrolledReason::NotSelected,
+                            },
                         },
-                    });
-                    // So now we know that the experiment is acting on features that are already 
+                    );
+                    // So now we know that the experiment is acting on features that are already
                     // active. So move on.
                     continue;
                 }
-                // But… should we continue here too? Because 
+                // But… should we continue here too? Because
                 // if the feature is already active,
-                //    …and the experiment it's using is this one, 
+                //    …and the experiment it's using is this one,
                 //    …then we don't need to evolve the enrollment, here, because we did it in step 2.
-
             }
 
             // We may have already done the evolve_enrollment in step 2. Guard against doing it again.
@@ -680,11 +688,11 @@ impl<'a> EnrollmentsEvolver<'a> {
                 existing_experiments.get(slug).copied(),
                 Some(updated_experiment),
                 existing_enrollment,
-                &mut enrollment_events
+                &mut enrollment_events,
             )?;
 
             if let Some(enrollment) = updated_enrollment {
-                if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
+                if matches!(enrollment.status, EnrollmentStatus::Enrolled { .. }) {
                     active_features.insert(feature_id.clone(), slug.clone());
                 }
                 updated_enrollments.insert(slug, enrollment);
@@ -692,7 +700,8 @@ impl<'a> EnrollmentsEvolver<'a> {
         }
 
         println!("updated_enrollments: {:?}", updated_enrollments);
-        let updated_enrollments: Vec<ExperimentEnrollment> = updated_enrollments.values().cloned().collect();
+        let updated_enrollments: Vec<ExperimentEnrollment> =
+            updated_enrollments.values().cloned().collect();
         // TODO map_features could do the mapping between feature_id the FeatureConfig.
         // TODO stash these in a store.
         let feature_config = map_features(&updated_enrollments, &updated_experiments);
@@ -768,10 +777,13 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
-fn map_features(enrollments: &[ExperimentEnrollment], map_experiments: &HashMap<String, &Experiment>) -> HashMap<String, String> {
+fn map_features(
+    enrollments: &[ExperimentEnrollment],
+    map_experiments: &HashMap<String, &Experiment>,
+) -> HashMap<String, String> {
     let mut map = HashMap::with_capacity(enrollments.len());
     for e in enrollments {
-        if matches!(e.status, EnrollmentStatus::Enrolled {..}) {
+        if matches!(e.status, EnrollmentStatus::Enrolled { .. }) {
             let slug = e.slug.clone();
             if let Some(experiment) = map_experiments.get(&slug) {
                 let feature_id = experiment.get_first_feature_id();
@@ -1631,13 +1643,15 @@ mod tests {
 
         assert_eq!(2, enrollments.len());
 
-        let enrolled: Vec<ExperimentEnrollment> = enrollments.clone().into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .collect();
         assert_eq!(1, enrolled.len());
 
         let enrolled1 = enrolled.clone();
-        
+
         // Now let's keep the same number of experiments.
         // We should get the same results as before.
         let existing_experiments: Vec<Experiment> = updated_experiments;
@@ -1652,8 +1666,10 @@ mod tests {
 
         assert_eq!(2, enrollments.len());
 
-        let enrolled: Vec<ExperimentEnrollment> = enrollments.clone().into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .collect();
         assert_eq!(1, enrolled.len());
         let enrolled2 = enrolled.clone();
@@ -1673,8 +1689,10 @@ mod tests {
 
         assert_eq!(2, enrollments.len());
 
-        let enrolled: Vec<ExperimentEnrollment> = enrollments.clone().into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .collect();
         assert_eq!(1, enrolled.len());
         let enrolled3 = enrolled.clone();
@@ -1695,8 +1713,9 @@ mod tests {
         // I think this will be WasEnrolled.
         assert_eq!(1, enrollments.len());
 
-        let enrolled: Vec<ExperimentEnrollment> = enrollments.into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled {..}))
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .collect();
         assert_eq!(0, enrolled.len());
 
