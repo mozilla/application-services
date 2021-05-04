@@ -79,6 +79,8 @@ impl NimbusClient {
         let mutable_state = Mutex::new(InternalMutableState {
             available_randomization_units,
         });
+
+        log::debug!("NimbusClient constructor, app_context = {:?}", app_context);
         Ok(Self {
             settings_client,
             mutable_state,
