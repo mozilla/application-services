@@ -377,6 +377,8 @@ fn wipe_local_in_tx(db: &PlacesDb) -> Result<()> {
     use crate::frecency::DEFAULT_FRECENCY_SETTINGS;
     db.execute_all(&[
         "DELETE FROM moz_places WHERE foreign_count == 0",
+        "DELETE FROM moz_places_metadata",
+        "DELETE FROM moz_places_metadata_search_queries",
         "DELETE FROM moz_historyvisits",
         "DELETE FROM moz_places_tombstones",
         "DELETE FROM moz_inputhistory AS i WHERE NOT EXISTS(

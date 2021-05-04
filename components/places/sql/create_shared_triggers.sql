@@ -342,7 +342,7 @@ END;
 -- This trigger removes search query entries which no longer have any metadata records that point to them.
 -- Due to SQLite's lack of 'FOR EACH STATEMENT' (only 'FOR EACH ROW' is supported), in case of bulk
 -- deletes of metadata this will perform unnecessary SELECTs.
--- In other places, this is handled by "staging" temp tables. 
+-- In other places, this is handled by "staging" temp tables.
 CREATE TEMP TRIGGER moz_places_metadata_afterdelete_trigger_search_queries
 AFTER DELETE ON moz_places_metadata
 FOR EACH ROW

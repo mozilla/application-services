@@ -319,6 +319,23 @@ mod tests {
     use types::Timestamp;
 
     #[macro_use]
+    macro_rules! assert_table_size {
+        ($conn:expr, $table:expr, $count:expr) => {
+            assert_eq!(
+                $count,
+                $conn
+                    .try_query_one::<i64>(
+                        format!("SELECT count(*) FROM {table}", table = $table).as_str(),
+                        &[],
+                        true
+                    )
+                    .expect("select works")
+                    .expect("got count")
+            );
+        };
+    }
+
+    #[macro_use]
     macro_rules! add_and_assert_history_metadata {
         ($conn:expr, url $url:expr, title $title:expr, created_at $created_at:expr, updated_at $updated_at:expr, total_time $tvt:expr, search_term $search_term:expr, is_media $is_media:expr, parent_url $parent_url:expr, parent_domain $parent_domain:expr) => {
             // Create an object to add.
@@ -832,12 +849,99 @@ mod tests {
         delete_older_than(&conn, now_i64 + 9000).expect("delete older than worked");
 
         // Query places. Records there should not have been affected by the delete above.
-        assert_eq!(
-            2,
-            conn.try_query_one::<i64>("SELECT count(*) FROM moz_places", &[], true)
-                .expect("select works")
-                .expect("got count")
+        assert_table_size!(&conn, "moz_places", 2);
+    }
+
+    #[test]
+    fn test_places_delete_triggers_with_bookmarks() {
+        use crate::storage::bookmarks::{
+            self, BookmarkPosition, BookmarkRootGuid, InsertableBookmark, InsertableItem,
+        };
+
+        // The cleanup functionality lives as a TRIGGER in `create_shared_triggers`.
+        use crate::observation::VisitObservation;
+        use crate::storage::history::{apply_observation, wipe_local};
+        use crate::types::VisitTransition;
+
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        let now: Timestamp = std::time::SystemTime::now().into();
+        let now_i64 = now.0 as i64;
+        let url = Url::parse("https://www.mozilla.org/").unwrap();
+        let parent_url =
+            Url::parse("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox")
+                .unwrap();
+
+        let observation1 = VisitObservation::new(url.clone())
+            .with_at(now)
+            .with_title(Some(String::from("Test page 0")))
+            .with_is_remote(false)
+            .with_visit_type(VisitTransition::Link);
+
+        let observation2 = VisitObservation::new(parent_url.clone())
+            .with_at(now)
+            .with_title(Some(String::from("Test page 1")))
+            .with_is_remote(false)
+            .with_visit_type(VisitTransition::Link);
+
+        apply_observation(&conn, observation1).expect("Should apply visit");
+        apply_observation(&conn, observation2).expect("Should apply visit");
+
+        assert_table_size!(&conn, "moz_bookmarks", 5);
+
+        // add bookmark for the page we have a metadata entry
+        bookmarks::insert_bookmark(
+            &conn,
+            &InsertableItem::Bookmark(InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some(SyncGuid::from("cccccccccccc")),
+                url,
+                title: None,
+            }),
+        )
+        .expect("bookmark insert worked");
+
+        // add another bookmark to the "parent" of our metadata entry
+        bookmarks::insert_bookmark(
+            &conn,
+            &InsertableItem::Bookmark(InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: Some(SyncGuid::from("ccccccccccca")),
+                url: parent_url,
+                title: None,
+            }),
+        )
+        .expect("bookmark insert worked");
+
+        assert_table_size!(&conn, "moz_bookmarks", 7);
+        assert_table_size!(&conn, "moz_origins", 2);
+
+        add_and_assert_history_metadata!(
+            &conn,
+            url "https://www.mozilla.org/",
+            title Some("Test page 0"),
+            created_at now_i64,
+            updated_at now_i64 + 10000,
+            total_time 20000,
+            search_term Some("mozilla firefox"),
+            is_media false,
+            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            parent_domain Some("www.google.com")
         );
+
+        assert_table_size!(&conn, "moz_origins", 2);
+
+        // this somehow deletes 1 origin record, and our metadata
+        wipe_local(&conn).expect("places wipe succeeds");
+
+        assert_table_size!(&conn, "moz_places_metadata", 0);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
     }
 
     #[test]
@@ -997,25 +1101,7 @@ mod tests {
         // now, let's wipe places, and make sure none of the metadata stuff remains.
         wipe_local(&conn).expect("places wipe succeeds");
 
-        let all_metadata = conn
-            .query_rows_and_then_named_cached(
-                COMMON_METADATA_SELECT,
-                rusqlite::named_params! {},
-                HistoryMetadata::from_row,
-            )
-            .expect("select all metadata worked");
-
-        assert_eq!(0, all_metadata.len());
-
-        assert_eq!(
-            0,
-            conn.try_query_one::<i64>(
-                "SELECT count(*) FROM moz_places_metadata_search_queries",
-                &[],
-                true
-            )
-            .expect("select works")
-            .expect("got count")
-        );
+        assert_table_size!(&conn, "moz_places_metadata", 0);
+        assert_table_size!(&conn, "moz_places_metadata_search_queries", 0);
     }
 }
