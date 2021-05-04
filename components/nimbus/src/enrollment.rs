@@ -670,21 +670,21 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         for updated_experiment in updated_experiments.values() {
         // for slug in all_slugs {
-            let slug = updated_experiment.slug;
-            let updated_experiment = updated_experiments.get(slug).copied();
+            let slug = updated_experiment.slug.clone();
+            let updated_experiment = updated_experiments.get(&slug).copied().unwrap() ; // XXX what if None returned?
 
             let feature_id = updated_experiment.get_first_feature_id();
 
             // If this feature_id is locally free, evolve the enrollment
             // update the feature_id hashtable
-            if locally_enrolled_feature_ids.get(feature_id) == None {
+            if locally_enrolled_feature_ids.get(&feature_id) == None {
                 log::debug!("this feature is locally unused");
 
                 let updated_enrollment = self.evolve_enrollment(
                     is_user_participating,
-                    existing_experiments.get(slug).copied(),
+                    existing_experiments.get(&slug).copied(),
                     Some(updated_experiment),
-                    existing_enrollment_map.get(slug).copied(),
+                    existing_enrollment_map.get(&slug).copied(),
                     &mut enrollment_events,
                 )?;
 
@@ -709,12 +709,21 @@ impl<'a> EnrollmentsEvolver<'a> {
 
                 }
             } else {
-                // Does this experiment have a feature id that we've already used?
+                // This experiment has a feature id that we've already used.
                 log::debug!(
                     "feature_id {} already used by experiment, marking {} NotEnrolled",
                     feature_id,
                     slug
                 );
+
+                // XXX if this is a known experiment being updated (see
+                // evolve_enrollment), call on_experiment_updated to ensure
+                // that the disqualified stuff happens.  Maybe need to handle all cases that
+                // evolve_enrollment handles here?
+                //
+                // this above needs to be fixed to make global_opt_out test work again.
+                // and maybe test_updates? Perhaps worth reading test_updates
+                // the code it exercises as a next step before implementing anything above
 
                 // record disqualified enrollment
                 let non_enrollment = ExperimentEnrollment::from_new_experiment(
@@ -722,7 +731,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.nimbus_id,
                     self.available_randomization_units,
                     self.app_context,
-                    unwrapped_experiment,
+                    updated_experiment,
                     true,
                     &mut enrollment_events,
                 )?;
