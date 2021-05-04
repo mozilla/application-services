@@ -156,11 +156,8 @@ commands:
         default: ""
     steps:
       - test-setup
-      # Test with 1. only default features on, 2. all features on, 3. no features on.
-      # This is not perfect (really we want the cartesian product), but is good enough in practice.
-      - run:
-          name: Test (default features, no features, and all features)
-          command: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/all_rust_tests.sh --verbose
+      - run: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/tests.py rust-tests
+      - run: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/tests.py nss-bindings
   dependency-checks:
     steps:
       - run:
@@ -219,8 +216,8 @@ jobs:
       # swiftlint moved? See https://github.com/Homebrew/discussions/discussions/691
       - run: brew update-reset
       - run: brew install swiftlint swiftformat
-      - run: swiftlint --strict
-      - run: swiftformat megazords components/*/ios --lint --swiftversion 4 --verbose
+      - run: ./automation/tests.py swiftlint
+      - run: ./automation/tests.py swiftformat
   Check Rust formatting:
     docker:
       - image: circleci/rust:latest
@@ -228,16 +225,14 @@ jobs:
     steps:
       - full-checkout
       - setup-rust-toolchain
-      - run: rustfmt --version
-      - run: cargo fmt --all -- --check
+      - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
     docker:
       - image: circleci/rust:latest
     steps:
       - test-setup
       - restore-sccache-cache
-      - run: cargo clippy --version
-      - run: bash automation/all_clippy_checks.sh
+      - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
   Generate code coverage:
     docker:
@@ -338,7 +333,7 @@ jobs:
           command: ./libs/verify-ios-environment.sh
       - run:
           name: Run XCode tests
-          command: bash automation/run_ios_tests.sh
+          command: ./automation/tests.py ios-tests
       - store_artifacts:
           path: raw_xcodetest.log
           destination: logs/raw_xcodetest.log
