@@ -87,7 +87,6 @@ impl ExperimentEnrollment {
                 },
             }
         } else if feature_already_under_experiment {
-            // XXX
             log::debug!("In feature already under exp");
             Self {
                 slug: experiment.slug.clone(),
@@ -645,7 +644,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 None => { "XXX this should never happen, I think".to_string() }
             };
 
-            // If this feature_id is locally free, evolve the enrollment
+            // If this feature_i/d is locally free, evolve the enrollment
             // update the feature_id hashtable
             let feature_already_under_experiment = locally_enrolled_feature_ids.get(&feature_id.to_owned()) == None;
 
@@ -662,11 +661,13 @@ impl<'a> EnrollmentsEvolver<'a> {
 
                 if let Some(enrollment) = _updated_enrollment {
                     if !matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
-                        // from the enrollment, we look up the experiment that we
-                        // were enrollment from existing experiments
-                        // then get the feature id.
+                        let feature_id = match existing_experiments.get(&existing_enrollment.slug) {
+                            Some(existing_experiment) => { existing_experiment.get_first_feature_id() }
+                            None => { "XXX this should never happen, I think".to_string() }
+                        };
+
                         // and remove it from the locally_enrolled_feature_ids
-                        // locally_enrolled_feature_ids.remove(enrollment.get_first_feature_id());
+                        locally_enrolled_feature_ids.remove(&feature_id);
                     }
                 }
             }
