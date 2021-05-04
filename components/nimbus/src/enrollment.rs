@@ -639,6 +639,16 @@ impl<'a> EnrollmentsEvolver<'a> {
         // remove any feature-ids from the map that were being experimented
         // on, but no longer are, according to the current updates.
         for existing_enrollment in existing_enrollments {
+
+            let feature_id = match existing_experiments.get(&existing_enrollment.slug) {
+                Some(existing_experiment) => { existing_experiment.get_first_feature_id() }
+                None => { "XXX this should never happen, I think".to_string() }
+            };
+
+            // If this feature_id is locally free, evolve the enrollment
+            // update the feature_id hashtable
+            let feature_already_under_experiment = locally_enrolled_feature_ids.get(&feature_id.to_owned()) == None;
+
             if !matches!(existing_enrollment.status, EnrollmentStatus::Enrolled {..}) {
                 let slug = &existing_enrollment.slug;
                 let _updated_enrollment = self.evolve_enrollment(
@@ -646,6 +656,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     existing_experiments.get(slug).copied(),
                     updated_experiments.get(slug).copied(),
                     Some(existing_enrollment),
+                    feature_already_under_experiment,
                     &mut enrollment_events,
                 )?;
 
@@ -677,72 +688,38 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             // If this feature_id is locally free, evolve the enrollment
             // update the feature_id hashtable
-            if locally_enrolled_feature_ids.get(&feature_id) == None {
-                log::debug!("this feature is locally unused");
+            let feature_already_under_experiment = locally_enrolled_feature_ids.get(&feature_id) == None;
 
-                let updated_enrollment = self.evolve_enrollment(
-                    is_user_participating,
-                    existing_experiments.get(&slug).copied(),
-                    Some(updated_experiment),
-                    existing_enrollment_map.get(&slug).copied(),
-                    &mut enrollment_events,
-                )?;
+            let updated_enrollment = self.evolve_enrollment(
+                is_user_participating,
+                existing_experiments.get(&slug).copied(),
+                Some(updated_experiment),
+                existing_enrollment_map.get(&slug).copied(),
+                feature_already_under_experiment,
+                &mut enrollment_events,
+            )?;
 
-                if let Some(enrollment) = updated_enrollment {
+            if let Some(enrollment) = updated_enrollment {
                     log::debug!(
                         "updated enrollment {:?} was returned from evolve_enrollment; pushing",
                         enrollment
                     );
                     updated_enrollments.push(enrollment.clone());
 
+
                     // XXX if tests written from Jira acceptance criteria
                     // don't already capture this, maybe write a test that
                     // fails if the insertion were not behind this if clause,
-                    if matches!(enrollment.status, EnrollmentStatus::Enrolled {..}) {
-                        log::debug!(
-                            "mapping {}:{} to locally_enrolled_feature_ids",
-                            feature_id,
-                            slug
-                        );
-                        locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
+                    if matches!(enrollment.status, EnrollmentStatus::Enrolled {..})
+                        && !feature_already_under_experiment {
+                            log::debug!(
+                                "mapping {}:{} to locally_enrolled_feature_ids",
+                                feature_id,
+                                slug
+                            );
+                            locally_enrolled_feature_ids.insert(feature_id.clone(), slug.clone());
                     }
-
-                }
-            } else {
-                // This experiment has a feature id that we've already used.
-                log::debug!(
-                    "feature_id {} already used by experiment, marking {} NotEnrolled",
-                    feature_id,
-                    slug
-                );
-
-                // XXX if this is a known experiment being updated (see
-                // evolve_enrollment), call on_experiment_updated to ensure
-                // that the disqualified stuff happens.  Maybe need to handle all cases that
-                // evolve_enrollment handles here?
-                //
-                // this above needs to be fixed to make global_opt_out test work again.
-                // and maybe test_updates? Perhaps worth reading test_updates
-                // the code it exercises as a next step before implementing anything above
-
-                // record disqualified enrollment
-                let non_enrollment = ExperimentEnrollment::from_new_experiment(
-                    is_user_participating,
-                    self.nimbus_id,
-                    self.available_randomization_units,
-                    self.app_context,
-                    updated_experiment,
-                    true,
-                    &mut enrollment_events,
-                )?;
-
-                // XXX out_enrollment_events still has a successful event
-                // write a test for this, then fix
-
-                // out_enrollment_events.push
-                updated_enrollments.push(non_enrollment);
-                continue;
-            }
+            };
 
         }
 
@@ -760,6 +737,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         existing_experiment: Option<&Experiment>,
         updated_experiment: Option<&Experiment>,
         existing_enrollment: Option<&ExperimentEnrollment>,
+        feature_already_under_experiment: bool,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         Ok(
@@ -771,7 +749,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     self.available_randomization_units,
                     self.app_context,
                     experiment,
-                    false,
+                    feature_already_under_experiment,
                     out_enrollment_events,
                 )?),
                 // Experiment deleted remotely.
@@ -1083,7 +1061,7 @@ mod tests {
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let mut events = vec![];
         let enrollment = evolver
-            .evolve_enrollment(true, None, Some(exp), None, &mut events)?
+            .evolve_enrollment(true, None, Some(exp), None, false, &mut events)?
             .unwrap();
         assert!(matches!(
             enrollment.status,
@@ -1203,7 +1181,7 @@ mod tests {
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let mut events = vec![];
         let enrollment = evolver
-            .evolve_enrollment(true, None, Some(&exp), None, &mut events)?
+            .evolve_enrollment(true, None, Some(&exp), None, false,&mut events)?
             .unwrap();
         assert!(matches!(
             enrollment.status,
@@ -1222,7 +1200,7 @@ mod tests {
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let mut events = vec![];
         let enrollment = evolver
-            .evolve_enrollment(false, None, Some(&exp), None, &mut events)?
+            .evolve_enrollment(false, None, Some(&exp), None, false, &mut events)?
             .unwrap();
         assert!(matches!(
             enrollment.status,
@@ -1242,7 +1220,7 @@ mod tests {
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let mut events = vec![];
         let enrollment = evolver
-            .evolve_enrollment(true, None, Some(&exp), None, &mut events)?
+            .evolve_enrollment(true, None, Some(&exp), None, false, &mut events)?
             .unwrap();
         assert!(matches!(
             enrollment.status,
@@ -1272,6 +1250,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1299,7 +1278,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
-                &mut events,
+                false,&mut events,
             )?
             .unwrap();
         assert_eq!(enrollment.status, existing_enrollment.status);
@@ -1326,6 +1305,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1357,6 +1337,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1395,6 +1376,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1440,6 +1422,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1483,6 +1466,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1533,6 +1517,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1575,6 +1560,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1610,6 +1596,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1652,6 +1639,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1687,6 +1675,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1716,6 +1705,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1742,6 +1732,7 @@ mod tests {
                 Some(&exp),
                 Some(&exp),
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1772,6 +1763,7 @@ mod tests {
                 Some(&exp),
                 None,
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1815,6 +1807,7 @@ mod tests {
                 Some(&exp),
                 None,
                 Some(&existing_enrollment),
+                false,
                 &mut events,
             )?
             .unwrap();
@@ -1854,6 +1847,7 @@ mod tests {
             Some(&exp),
             None,
             Some(&existing_enrollment),
+            false,
             &mut events,
         )?;
         assert!(enrollment.is_none());
@@ -1875,7 +1869,7 @@ mod tests {
             },
         };
         let enrollment =
-            evolver.evolve_enrollment(true, None, None, Some(&existing_enrollment), &mut events)?;
+            evolver.evolve_enrollment(true, None, None, Some(&existing_enrollment), false, &mut events)?;
         assert_eq!(enrollment.unwrap(), existing_enrollment);
         assert!(events.is_empty());
         Ok(())
@@ -1895,7 +1889,7 @@ mod tests {
             },
         };
         let enrollment =
-            evolver.evolve_enrollment(true, None, None, Some(&existing_enrollment), &mut events)?;
+            evolver.evolve_enrollment(true, None, None, Some(&existing_enrollment), false, &mut events)?;
         assert!(enrollment.is_none());
         assert!(events.is_empty());
         Ok(())
@@ -1919,6 +1913,7 @@ mod tests {
             None,
             Some(&exp),
             Some(&existing_enrollment),
+            false,
             &mut vec![],
         );
         assert!(res.is_err());
@@ -1929,7 +1924,7 @@ mod tests {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
-        let res = evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, &mut vec![]);
+        let res = evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, false,&mut vec![]);
         assert!(res.is_err());
     }
 
@@ -1939,7 +1934,7 @@ mod tests {
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         evolver
-            .evolve_enrollment(true, None, None, None, &mut vec![])
+            .evolve_enrollment(true, None, None, None, false, &mut vec![])
             .unwrap();
     }
 
