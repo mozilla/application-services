@@ -251,8 +251,12 @@ def run_ios_tests():
     else:
         print("WARNING: skipping iOS tests on non-Darwin host")
 
-def cargo_fmt(fix_issues=False):
-    cmdline = ['cargo', 'fmt', '--all']
+def cargo_fmt(package=None, fix_issues=False):
+    cmdline = ['cargo', 'fmt']
+    if package:
+        cmdline.extend(['--manifest-path', package.manifest_path])
+    else:
+        cmdline.append('--all')
     if not fix_issues:
         cmdline.extend(['--', '--check'])
     run_command(cmdline)
@@ -341,8 +345,9 @@ def calc_steps_change_mode(args):
     branch_changes = BranchChanges(args.base_branch)
     rust_items = list(calc_rust_items(branch_changes,
                                       default_features_only=True))
+    rust_packages = list(set(package for package, _ in rust_items))
 
-    if not branch_changes.paths:
+    if not rust_items:
         print('no changes found.')
         return
 
@@ -363,7 +368,9 @@ def calc_steps_change_mode(args):
     for package, features in rust_items:
         yield Step('clippy for {} ({})'.format(package.name, features.label()),
                    run_clippy, package, features)
-    yield Step('cargo fmt', cargo_fmt, fix_issues=True)
+    for package in rust_packages:
+        yield Step('rustfmt for {}'.format(package.name), cargo_fmt, package,
+                   fix_issues=True)
 
 def main():
     args = parse_args()
