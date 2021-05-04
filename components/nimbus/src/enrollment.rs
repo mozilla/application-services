@@ -557,32 +557,32 @@ impl<'a> EnrollmentsEvolver<'a> {
         &self,
         db: &Database,
         writer: &mut Writer,
-        updated_experiments: &[Experiment],
+        next_experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get the state from the db.
         let is_user_participating = get_global_user_participation(db, writer)?;
         let experiments_store = db.get_store(StoreId::Experiments);
         let enrollments_store = db.get_store(StoreId::Enrollments);
-        let existing_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
-        let existing_enrollments: Vec<ExperimentEnrollment> =
+        let prev_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
+        let prev_enrollments: Vec<ExperimentEnrollment> =
             enrollments_store.collect_all(writer)?;
         // Calculate the changes.
-        let (updated_enrollments, enrollments_change_events) = self.evolve_enrollments(
+        let (next_enrollments, enrollments_change_events) = self.evolve_enrollments(
             is_user_participating,
-            &existing_experiments,
-            updated_experiments,
-            &existing_enrollments,
+            &prev_experiments,
+            next_experiments,
+            &prev_enrollments,
         )?;
-        let updated_enrollments = map_enrollments(&updated_enrollments);
+        let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
         enrollments_store.clear(writer)?;
-        for enrollment in updated_enrollments.values() {
+        for enrollment in next_enrollments.values() {
             enrollments_store.put(writer, &enrollment.slug, *enrollment)?;
         }
         experiments_store.clear(writer)?;
-        for experiment in updated_experiments {
+        for experiment in next_experiments {
             // Sanity check.
-            if !updated_enrollments.contains_key(&experiment.slug) {
+            if !next_enrollments.contains_key(&experiment.slug) {
                 return Err(NimbusError::InternalError(
                     "An experiment must always have an associated enrollment.",
                 ));
@@ -604,13 +604,18 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(&prev_experiments);
         let next_experiments = map_experiments(&next_experiments);
+
         // Step 1. Build an initial active_features to keep track of
         // what is being experimented upon.
-        // TODO consider starting with an empty hashmap here.
+
+        // TODO consider starting with an empty hashmap here; this work may
+        // have significant effects on the structure of this function, so
+        // let's wait on breaking this function up into smaller pieces until
+        // that time.
         let mut active_features = map_features(&prev_enrollments, &prev_experiments);
         let prev_enrollments = map_enrollments(&prev_enrollments);
 
-        let mut updated_enrollments = HashMap::with_capacity(next_experiments.len());
+        let mut next_enrollments = HashMap::with_capacity(next_experiments.len());
 
         // Step 2. Prune the active_features map, by looking
         // at only the experiments that are enrolled, and seeing if
@@ -618,20 +623,21 @@ impl<'a> EnrollmentsEvolver<'a> {
         // By the end of this loop we should have a good idea what
         // features we can experiment upon.
         // One consequence of needing the active_features map pruned is that
-        // we have to loop twice.  XXX we could may be get rid of the continues
-        // by splitting into two lists, but it's unclear that it's worth the effort (if even possible)
+        // we have to loop twice.
+
+        // XXX we might be able to get rid of the `continue`s by splitting
+        // something into two lists to iterate over, but it's unclear that
+        // it's worth the effort (if even possible).  Evaluate this after
+        // we've done the TODO suggesting starting with an empty hashmap.
         for prev_enrollment in prev_enrollments.values() {
             // There are enrollments that are not Enrolled.
             // We're not interested in these for this step.
-            if !matches!(
-                prev_enrollment.status,
-                EnrollmentStatus::Enrolled { .. }
-            ) {
+            if !matches!(prev_enrollment.status, EnrollmentStatus::Enrolled { .. }) {
                 continue;
             }
             let slug = &prev_enrollment.slug;
 
-            let updated_enrollment = self.evolve_enrollment(
+            let next_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
@@ -639,13 +645,17 @@ impl<'a> EnrollmentsEvolver<'a> {
                 &mut enrollment_events,
             )?;
 
-            if let Some(enrollment) = updated_enrollment {
+            if let Some(enrollment) = next_enrollment {
                 // If we started with an empty hashmap, we should be adding to it here,
                 // plucking feature_id from updated_experiment.
                 if !matches!(enrollment.status, EnrollmentStatus::Enrolled { .. }) {
+                    // WTF this should be a feature_id -- write the TODO tests
+                    // at the bottom of the test that James has written to
+                    // catch problems in step 2 before fixing this, and
+                    // and in the else clause as well.
                     active_features.remove(slug);
                 }
-                updated_enrollments.insert(slug, enrollment);
+                next_enrollments.insert(slug, enrollment);
             } else {
                 // XXX maybe consider the case where some transient failure
                 // put us here
@@ -655,24 +665,25 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         // Step 3 evolve the enrollments with the existing and updated
         // data, including the now-current active-feature-map
-        for updated_experiment in next_experiments.values() {
-            let slug = &updated_experiment.slug;
+        for next_experiment in next_experiments.values() {
+            let slug = &next_experiment.slug;
 
-            // We may have already done the evolve_enrollment in step 2. Guard against doing it again.
-            // Update: Since Step 2 only deals with Enrolled enrollments, and the check below deals
-            // with them, this is redundant.
-            // if updated_enrollments.contains_key(&slug) {
-            //     continue;
+            // We may have already done the evolve_enrollment in step 2. Guard
+            // against doing it again.  Update: Since Step 2 only deals with
+            // Enrolled enrollments, and the check below deals with them, this
+            // is redundant.  if updated_enrollments.contains_key(&slug)
+            // {continue;
             // }
 
-            // Check that the feature id is available.
-            // If not, then declare the enrollment as NotEnrolled; and we continue to the next experiment.
-            let feature_id = &updated_experiment.get_first_feature_id();
+            // Check that the feature id is available.  If not, then declare
+            // the enrollment as NotEnrolled; and we continue to the next
+            // experiment.
+            let feature_id = &next_experiment.get_first_feature_id();
             if let Some(other_slug) = active_features.get(feature_id) {
                 if slug != other_slug {
                     // This feature is being experimented upon, and it isn't the current experiment.
                     // TODO add FeatureConflict enrollment, or add another NotEnrolledReason.
-                    updated_enrollments.insert(
+                    next_enrollments.insert(
                         slug,
                         ExperimentEnrollment {
                             slug: slug.clone(),
@@ -695,43 +706,47 @@ impl<'a> EnrollmentsEvolver<'a> {
             // A: No, since step 2 only deals with Enrolled enrollments.
             let prev_enrollment = prev_enrollments.get(slug).copied();
             println!("Existing enrollment: {:?}", prev_enrollment);
-            let updated_enrollment = self.evolve_enrollment(
+            let next_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
-                Some(updated_experiment),
+                Some(next_experiment),
                 prev_enrollment,
                 &mut enrollment_events,
             )?;
 
-            if let Some(next_enrollment) = updated_enrollment {
+            if let Some(next_enrollment) = next_enrollment {
                 if matches!(next_enrollment.status, EnrollmentStatus::Enrolled { .. }) {
                     active_features.insert(feature_id.clone(), slug.clone());
                 }
-                updated_enrollments.insert(slug, next_enrollment);
+                next_enrollments.insert(slug, next_enrollment);
             }
         }
 
-        println!("updated_enrollments: {:?}", updated_enrollments);
+        println!("next_enrollments: {:?}", next_enrollments);
         let updated_enrollments: Vec<ExperimentEnrollment> =
-            updated_enrollments.values().cloned().collect();
-        // TODO map_features could do the mapping between feature_id the FeatureConfig.
+            next_enrollments.values().cloned().collect();
+        // TODO map_features could do the mapping between feature_id and the
+        // FeatureConfig here.
         // TODO stash these in a store.
         let feature_config = map_features(&updated_enrollments, &next_experiments);
         println!("updated features: {:?}", feature_config);
         Ok((updated_enrollments, enrollment_events))
     }
 
-    /// Evolve a single enrollment using the previous and current state of an experiment.
+    /// Evolve a single enrollment using the previous and current state of an experiment
+    /// and maybe garbage collect at least a subset of invalid experiments.
+    /// XXX Need to verify this beheavior, as it would mean this function could
+    /// have a side effect
     fn evolve_enrollment(
         &self,
         is_user_participating: bool,
-        existing_experiment: Option<&Experiment>,
-        updated_experiment: Option<&Experiment>,
-        existing_enrollment: Option<&ExperimentEnrollment>,
+        prev_experiment: Option<&Experiment>,
+        next_experiment: Option<&Experiment>,
+        prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
         Ok(
-            match (existing_experiment, updated_experiment, existing_enrollment) {
+            match (prev_experiment, next_experiment, prev_enrollment) {
                 // New experiment.
                 (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
                     is_user_participating,
