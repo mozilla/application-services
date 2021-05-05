@@ -4,7 +4,9 @@
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
-use crate::{AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment};
+use crate::{
+    AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig,
+};
 
 use ::uuid::Uuid;
 use serde_derive::*;
@@ -36,6 +38,7 @@ pub enum NotEnrolledReason {
     NotSelected, // The evaluator bucketing did not choose us.
     NotTargeted, // We are not being targeted for this experiment.
     EnrollmentsPaused, // The experiment enrollment is paused.
+    FeatureConflict, // The experiment used a feature that was already under experiment.
 }
 
 // These are types we use internally for managing disqualifications.
@@ -603,22 +606,19 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut enrollment_events = vec![];
         let prev_experiments = map_experiments(&prev_experiments);
         let next_experiments = map_experiments(&next_experiments);
+        let prev_enrollments = map_enrollments(&prev_enrollments);
 
         // Step 1. Build an initial active_features to keep track of
-        // what is being experimented upon.
-
-        // TODO consider starting with an empty hashmap here; this work may
-        // have significant effects on the structure of this function, so
-        // let's wait on breaking this function up into smaller pieces until
-        // that time.
-        let mut active_features = map_features(&prev_enrollments, &prev_experiments);
-        let prev_enrollments = map_enrollments(&prev_enrollments);
+        // the features that are being experimented upon.
+        let mut active_features = HashMap::with_capacity(next_experiments.len());
 
         let mut next_enrollments = HashMap::with_capacity(next_experiments.len());
 
-        // Step 2. Prune the active_features map, by looking
-        // at only the experiments that are enrolled, and seeing if
-        // they're still enrolled.
+        // Step 2.
+        // Evolve the experiments with existing enrollments first.
+        // This lets us build up the active_features, the map of features
+        // that are already under experiment.
+
         // By the end of this loop we should have a good idea what
         // features we can experiment upon.
         // One consequence of needing the active_features map pruned is that
@@ -629,9 +629,12 @@ impl<'a> EnrollmentsEvolver<'a> {
         // it's worth the effort (if even possible).  Evaluate this after
         // we've done the TODO suggesting starting with an empty hashmap.
         for prev_enrollment in prev_enrollments.values() {
-            // There are enrollments that are not Enrolled.
-            // We're not interested in these for this step.
-            if !matches!(prev_enrollment.status, EnrollmentStatus::Enrolled { .. }) {
+            if matches!(
+                prev_enrollment.status,
+                EnrollmentStatus::NotEnrolled {
+                    reason: NotEnrolledReason::FeatureConflict
+                }
+            ) {
                 continue;
             }
             let slug = &prev_enrollment.slug;
@@ -645,20 +648,11 @@ impl<'a> EnrollmentsEvolver<'a> {
             )?;
 
             if let Some(enrollment) = next_enrollment {
-                // If we started with an empty hashmap, we should be adding to it here,
-                // plucking feature_id from updated_experiment.
-                if !matches!(enrollment.status, EnrollmentStatus::Enrolled { .. }) {
-                    // WTF this should be a feature_id -- write the TODO tests
-                    // at the bottom of the test that James has written to
-                    // catch problems in step 2 before fixing this, and
-                    // and in the else clause as well.
-                    active_features.remove(slug);
+                // We get the FeatureConfig out of the enrollment.
+                if let Some(feature) = get_feature_config(&enrollment, &next_experiments) {
+                    active_features.insert(feature.feature_id.clone(), feature);
                 }
                 next_enrollments.insert(slug, enrollment);
-            } else {
-                // XXX maybe consider the case where some transient failure
-                // put us here
-                active_features.remove(slug);
             }
         }
 
@@ -667,29 +661,19 @@ impl<'a> EnrollmentsEvolver<'a> {
         for next_experiment in next_experiments.values() {
             let slug = &next_experiment.slug;
 
-            // We may have already done the evolve_enrollment in step 2. Guard
-            // against doing it again.  Update: Since Step 2 only deals with
-            // Enrolled enrollments, and the check below deals with them, this
-            // is redundant.
-            //
-            // if updated_enrollments.contains_key(&slug) {
-            //    continue;
-            // }
-
             // Check that the feature id is available.  If not, then declare
             // the enrollment as NotEnrolled; and we continue to the next
             // experiment.
             let feature_id = &next_experiment.get_first_feature_id();
-            if let Some(other_slug) = active_features.get(feature_id) {
-                if slug != other_slug {
-                    // This feature is being experimented upon, and it isn't the current experiment.
-                    // TODO add FeatureConflict enrollment, or add another NotEnrolledReason.
+            if let Some(enrolled_feature) = active_features.get(feature_id) {
+                if slug != &enrolled_feature.slug {
+                    // This feature is being experimented upon, and but not with the current experiment.
                     next_enrollments.insert(
                         slug,
                         ExperimentEnrollment {
                             slug: slug.clone(),
                             status: EnrollmentStatus::NotEnrolled {
-                                reason: NotEnrolledReason::NotSelected,
+                                reason: NotEnrolledReason::FeatureConflict,
                             },
                         },
                     );
@@ -703,35 +687,50 @@ impl<'a> EnrollmentsEvolver<'a> {
                 continue;
             }
 
-            // Q: If we got here, can we prove to ourselves that existing_enrollment is None?
-            // A: No, since step 2 only deals with Enrolled enrollments.
+            // If we got here, then the feature is not already active.
+            // But we evolved all the enrollments in step 2, (except the feature conflicted ones)
+            // so we should be mindful that we don't evolve them a second time.
             let prev_enrollment = prev_enrollments.get(slug).copied();
-            println!("previous enrollment: {:?}", prev_enrollment);
-            let next_enrollment = self.evolve_enrollment(
-                is_user_participating,
-                prev_experiments.get(slug).copied(),
-                Some(next_experiment),
-                prev_enrollment,
-                &mut enrollment_events,
-            )?;
 
-            if let Some(next_enrollment) = next_enrollment {
-                if matches!(next_enrollment.status, EnrollmentStatus::Enrolled { .. }) {
-                    active_features.insert(feature_id.clone(), slug.clone());
+            if prev_enrollment.is_none()
+                || matches!(
+                    prev_enrollment.unwrap().status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::FeatureConflict
+                    }
+                )
+            {
+                let next_enrollment = self.evolve_enrollment(
+                    is_user_participating,
+                    prev_experiments.get(slug).copied(),
+                    Some(next_experiment),
+                    prev_enrollment,
+                    &mut enrollment_events,
+                )?;
+
+                if let Some(enrollment) = next_enrollment {
+                    // We get the FeatureConfig out of the enrollment.
+                    // This is copied from above. We should consider making this a function.
+                    if let Some(feature) = get_feature_config(&enrollment, &next_experiments) {
+                        active_features.insert(feature.feature_id.clone(), feature);
+                    }
+                    next_enrollments.insert(slug, enrollment);
                 }
-                next_enrollments.insert(slug, next_enrollment);
             }
         }
 
-        println!("next_enrollments: {:?}", next_enrollments);
         let updated_enrollments: Vec<ExperimentEnrollment> =
             next_enrollments.values().cloned().collect();
-        // TODO map_features could do the mapping between feature_id and the
-        // FeatureConfig here.
-        // TODO stash these in a store.
-        let feature_config = map_features(&updated_enrollments, &next_experiments);
-        println!("updated features: {:?}", feature_config);
-        Ok((updated_enrollments, enrollment_events))
+
+        // Check that we can generate the active feature map from the new enrollments and new experiments.
+        let updated_active_features = map_features(&updated_enrollments, &next_experiments);
+        if active_features != updated_active_features {
+            Err(NimbusError::InternalError(
+                "Next enrollment calculation error",
+            ))
+        } else {
+            Ok((updated_enrollments, enrollment_events))
+        }
     }
 
     /// Evolve a single enrollment using the previous and current state of an experiment
@@ -803,22 +802,63 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
-fn map_features(
+/// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
+/// `EnrolledFeatureConfig` structs.
+pub fn map_features(
     enrollments: &[ExperimentEnrollment],
-    map_experiments: &HashMap<String, &Experiment>,
-) -> HashMap<String, String> {
+    experiments: &HashMap<String, &Experiment>,
+) -> HashMap<String, EnrolledFeatureConfig> {
     let mut map = HashMap::with_capacity(enrollments.len());
     for e in enrollments {
-        if matches!(e.status, EnrollmentStatus::Enrolled { .. }) {
-            let slug = e.slug.clone();
-            if let Some(experiment) = map_experiments.get(&slug) {
-                let feature_id = experiment.get_first_feature_id();
-                // We could map to the FeatureConfig here.
-                map.insert(feature_id, slug);
-            }
+        if let Some(feature) = get_feature_config(e, experiments) {
+            map.insert(feature.feature_id.clone(), feature);
         }
     }
     map
+}
+
+fn get_feature_config(
+    enrollment: &ExperimentEnrollment,
+    experiments: &HashMap<String, &Experiment>,
+) -> Option<EnrolledFeatureConfig> {
+    let branch_name = match &enrollment.status {
+        EnrollmentStatus::Enrolled { branch, .. } => branch.clone(),
+        _ => return None,
+    };
+
+    let slug = &enrollment.slug;
+
+    let experiment = match experiments.get(slug).copied() {
+        Some(exp) => exp,
+        _ => return None,
+    };
+
+    let branches = &experiment.branches;
+    let feature_id = &experiment.get_first_feature_id();
+
+    let feature = match branches.iter().find(|b| b.slug == branch_name) {
+        Some(branch) => branch.feature.clone(),
+        _ => None,
+    }
+    .unwrap_or_default();
+
+    Some(EnrolledFeatureConfig {
+        feature,
+        slug: slug.clone(),
+        branch: branch_name,
+        feature_id: feature_id.clone(),
+    })
+}
+
+/// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
+/// By design, we don't want to store it on the disk. Instead we calculate it from experiments
+/// and enrollments.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnrolledFeatureConfig {
+    feature: FeatureConfig,
+    slug: String,
+    branch: String,
+    feature_id: String,
 }
 
 pub struct EnrollmentChangeEvent {
