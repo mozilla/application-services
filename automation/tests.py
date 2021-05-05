@@ -58,7 +58,7 @@ def yellow_text(text):
     return '\033[93m{}\033[0m'.format(text)
 
 def get_output(cmdline, **kwargs):
-    output = subprocess.check_output(cmdline, encoding='utf8', **kwargs)
+    output = subprocess.check_output(cmdline, **kwargs).decode('utf8')
     return output.strip()
 
 def run_command(cmdline, **kwargs):
