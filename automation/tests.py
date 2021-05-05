@@ -65,6 +65,16 @@ def run_command(cmdline, **kwargs):
     print(yellow_text(' '.join(shlex.quote(str(part)) for part in cmdline)))
     subprocess.check_call(cmdline, **kwargs)
 
+def path_is_relative_to(path, other):
+    """
+    Implementation of Path.is_relative_to() which was only added in python 3.9
+    """
+    try:
+        path.relative_to(other)
+        return True
+    except ValueError:
+        return False
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -115,7 +125,7 @@ class RustPackage:
         return bool(self.cargo_metadata.get('features').get('default'))
 
     def has_changes(self, branch_changes):
-        return any(p.is_relative_to(self.directory)
+        return any(path_is_relative_to(p, self.directory)
                    for p in branch_changes.paths)
 
 class RustFeatures(Enum):
