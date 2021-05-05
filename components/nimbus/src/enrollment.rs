@@ -671,8 +671,10 @@ impl<'a> EnrollmentsEvolver<'a> {
             // We may have already done the evolve_enrollment in step 2. Guard
             // against doing it again.  Update: Since Step 2 only deals with
             // Enrolled enrollments, and the check below deals with them, this
-            // is redundant.  if updated_enrollments.contains_key(&slug)
-            // {continue;
+            // is redundant.
+            //
+            // if updated_enrollments.contains_key(&slug) {
+            //    continue;
             // }
 
             // Check that the feature id is available.  If not, then declare
@@ -705,7 +707,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             // Q: If we got here, can we prove to ourselves that existing_enrollment is None?
             // A: No, since step 2 only deals with Enrolled enrollments.
             let prev_enrollment = prev_enrollments.get(slug).copied();
-            println!("Existing enrollment: {:?}", prev_enrollment);
+            println!("previous enrollment: {:?}", prev_enrollment);
             let next_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
@@ -1654,6 +1656,8 @@ mod tests {
 
     #[test]
     fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
+        let _ = env_logger::try_init();
+
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
 
@@ -1681,6 +1685,7 @@ mod tests {
 
         // Now let's keep the same number of experiments.
         // We should get the same results as before.
+        // This time we're testing with a non-empty starting condition.
         let existing_experiments: Vec<Experiment> = updated_experiments;
         let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
         let updated_experiments = get_feature_conflict_test_experiments();
@@ -1699,11 +1704,15 @@ mod tests {
             .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .collect();
         assert_eq!(1, enrolled.len());
-        let enrolled2 = enrolled.clone();
+        let enrolled2 = enrolled;
 
         assert_eq!(enrolled1, enrolled2);
 
         // Let's hold it one more time.
+        //
+        // XXXdmose I understand why we did this twice, but what's the point
+        // of doing it a third time?  To prove idempotency for this set of
+        // state transitions?
         let existing_experiments: Vec<Experiment> = updated_experiments;
         let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
         let updated_experiments = get_feature_conflict_test_experiments();
@@ -1722,7 +1731,7 @@ mod tests {
             .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .collect();
         assert_eq!(1, enrolled.len());
-        let enrolled3 = enrolled.clone();
+        let enrolled3 = enrolled;
 
         assert_eq!(enrolled2, enrolled3);
 
@@ -1737,8 +1746,14 @@ mod tests {
             &existing_enrollments,
         )?;
 
-        // I think this will be WasEnrolled.
-        assert_eq!(1, enrollments.len());
+        // There should be one WasEnrolled; the NotEnrolled will have been
+        // discarded.
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
+            .collect();
+        assert_eq!(1, enrolled.len());
 
         let enrolled: Vec<ExperimentEnrollment> = enrollments
             .into_iter()
