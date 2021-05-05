@@ -1,0 +1,112 @@
+namespace logins {
+
+    [Throws=LoginsError]
+    string open_and_get_salt(string path, [ByRef] string encryption_key);
+
+    [Throws=LoginsError]
+    void open_and_migrate_to_plaintext_header(string path, [ByRef] string encryption_key, [ByRef] string salt);
+};
+
+
+// Converted from mozilla.appservices.logins.protobuf.rs
+dictionary PasswordInfo {
+    string id;
+    string hostname;
+    string password;
+    string username;
+    string? http_realm;
+    string? form_submit_url;
+    string username_field;
+    string password_field;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+};
+
+// Converted from mozilla.appservices.logins.protobuf.rs
+dictionary PasswordInfos {
+    sequence<PasswordInfo> infos;
+};
+
+dictionary MigrationMetrics {
+    MigrationPhaseMetrics fixup_phase;
+    MigrationPhaseMetrics insert_phase;
+    u64 num_processed;
+    u64 num_succeeded;
+    u64 num_failed;
+    u64 total_duration;
+    sequence<string> errors;
+};
+
+dictionary MigrationPhaseMetrics {
+    u64 num_processed;
+    u64 num_succeeded;
+    u64 num_failed;
+    u64 total_duration;
+    sequence<string> errors;
+};
+
+[Error]
+enum LoginsError {
+    "Unexpected",
+    "SyncAuthInvalid",
+    "MismatchedLock",
+    "NoSuchRecord",
+    "IdCollision",
+    "InvalidRecord",
+    "InvalidKey",
+    "RequestFailed",
+    "Interrupted"
+};
+
+interface PasswordStore {
+    [Throws=LoginsError]
+    constructor(string path, [ByRef] string encryption_key);
+
+    [Name=new_with_salt, Throws=LoginsError]
+    constructor(string path, [ByRef] string encryption_key, [ByRef] string salt);
+
+    [Throws=LoginsError]
+    void check_valid_with_no_dupes(PasswordInfo pass_info);
+
+    [Throws=LoginsError]
+    string add(PasswordInfo pass_info);
+
+    [Throws=LoginsError]
+    boolean delete([ByRef] string id);
+
+    [Throws=LoginsError]
+    void wipe();
+    [Throws=LoginsError]
+    void wipe_local();
+    [Throws=LoginsError]
+    void reset();
+
+    [Throws=LoginsError]
+    void disable_mem_security();
+
+    [Throws=LoginsError]
+    void rekey_database([ByRef] string new_encryption_key);
+
+    [Throws=LoginsError]
+    void touch([ByRef] string id);
+
+    [Throws=LoginsError]
+    sequence<PasswordInfo> list();
+
+    [Throws=LoginsError]
+    sequence<PasswordInfo> get_by_base_domain([ByRef] string base_domain);
+
+    [Throws=LoginsError]
+    sequence<PasswordInfo> potential_dupes_ignoring_username(PasswordInfo pass_info);
+
+    [Throws=LoginsError]
+    PasswordInfo? get([ByRef] string id);
+
+    [Throws=LoginsError]
+    void update(PasswordInfo pass_info);
+
+    [Throws=LoginsError]
+    MigrationMetrics import_multiple(sequence<PasswordInfo> pass_infos);
+};

@@ -1,11 +1,6 @@
-plugins {
-    id "com.jetbrains.python.envs" version "0.0.26"
-}
-
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'com.google.protobuf'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -33,18 +28,6 @@ android {
         // we can actually find it during tests. (Unfortunately, each project
         // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
-
-        main {
-            proto {
-                srcDir '../src'
-            }
-        }
-    }
-
-    testOptions {
-        unitTests {
-            includeAndroidResources = true
-        }
     }
 
     // This is required to support new AndroidX support libraries.
@@ -78,39 +61,12 @@ configurations {
     jnaForTest
 }
 
-protobuf {
-    protoc {
-        artifact = 'com.google.protobuf:protoc:3.11.4'
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.builtins {
-                java {
-                    option "lite"
-                }
-            }
-        }
-    }
-}
-
-// Needs to happen before `dependencies` in order for the variables
-// exposed by the plugin to be available for this project.
-ext.gleanGenerateMarkdownDocs = true
-ext.gleanDocsDirectory = "$rootDir/docs/metrics/logins"
-apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
-
 dependencies {
-    // Part of the public API.
-    api project(':sync15')
-
     jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
     implementation "net.java.dev.jna:jna:$jna_version@aar"
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    implementation "org.mozilla.components:service-glean:$android_components_version"
-
-    implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
     api project(":full-megazord")
     implementation project(":native-support")
 
@@ -123,14 +79,25 @@ dependencies {
     // avoiding other configurations from being resolved.  Tricky!
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
     testImplementation 'junit:junit:4.12'
-    testImplementation 'org.robolectric:robolectric:4.2.1'
+    testImplementation 'org.robolectric:robolectric:3.8'
     testImplementation 'org.mockito:mockito-core:2.21.0'
-    testImplementation 'androidx.test:core-ktx:1.2.0'
-    testImplementation 'androidx.work:work-testing:2.2.0'
-    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$project.ext.glean_version"
 
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+}
+
+// We do the uniffi binding generation here:
+android.libraryVariants.all { variant ->
+    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
+        workingDir project.rootDir
+        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/logins.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+
+        inputs.file '../src/logins.udl'
+        outputs.dir "${buildDir}/generated/source/uniffi/${variant.name}/java/"
+    }
+    variant.javaCompileProvider.get().dependsOn(t)
+    def sourceSet = variant.sourceSets.find { it.name == variant.name }
+    sourceSet.java.srcDirs += new File(buildDir, "generated/source/uniffi/${variant.name}/java")
 }
 
 evaluationDependsOn(":full-megazord")
@@ -142,7 +109,7 @@ afterEvaluate {
             productFlavor += "${it.name.capitalize()}"
         }
         def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+        tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
 
         // For unit tests.
         tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
@@ -150,4 +117,5 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
+
 ext.configurePublish()

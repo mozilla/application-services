@@ -227,8 +227,9 @@
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
 use crate::error::*;
-use crate::msg_types::PasswordInfo;
+//use crate::msg_types::PasswordInfo;
 use crate::util;
+use crate::PasswordInfo;
 use rusqlite::Row;
 use serde_derive::*;
 use std::time::{self, SystemTime};
@@ -922,6 +923,7 @@ impl Login {
         delta
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

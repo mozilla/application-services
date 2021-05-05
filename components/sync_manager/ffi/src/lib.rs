@@ -25,15 +25,16 @@ pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut E
 }
 
 #[no_mangle]
-pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, error: &mut ExternError) {
-    ffi_support::call_with_result(error, || -> MgrResult<()> {
-        log::debug!("sync_manager_set_logins");
-        let api = logins_ffi::STORES.get_u64(_logins_handle, |api| -> Result<_, HandleError> {
-            Ok(std::sync::Arc::clone(api))
-        })?;
-        sync_manager::set_logins(api);
-        Ok(())
-    })
+pub extern "C" fn sync_manager_set_logins(_logins_handle: u64, _error: &mut ExternError) {
+    // SAM_TODO: logins_ffi will be going away
+    // ffi_support::call_with_result(error, || -> MgrResult<()> {
+    //     log::debug!("sync_manager_set_logins");
+    //     let api = logins_ffi::STORES.get_u64(_logins_handle, |api| -> Result<_, HandleError> {
+    //         Ok(std::sync::Arc::clone(api))
+    //     })?;
+    //     sync_manager::set_logins(api);
+    //     Ok(())
+    // })
 }
 
 #[no_mangle]
