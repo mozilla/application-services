@@ -564,8 +564,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let experiments_store = db.get_store(StoreId::Experiments);
         let enrollments_store = db.get_store(StoreId::Enrollments);
         let prev_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
-        let prev_enrollments: Vec<ExperimentEnrollment> =
-            enrollments_store.collect_all(writer)?;
+        let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
         // Calculate the changes.
         let (next_enrollments, enrollments_change_events) = self.evolve_enrollments(
             is_user_participating,
@@ -747,46 +746,44 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
-        Ok(
-            match (prev_experiment, next_experiment, prev_enrollment) {
-                // New experiment.
-                (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
+        Ok(match (prev_experiment, next_experiment, prev_enrollment) {
+            // New experiment.
+            (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
+                is_user_participating,
+                self.nimbus_id,
+                self.available_randomization_units,
+                self.app_context,
+                experiment,
+                out_enrollment_events,
+            )?),
+            // Experiment deleted remotely.
+            (Some(_), None, Some(enrollment)) => {
+                enrollment.on_experiment_ended(out_enrollment_events)
+            }
+            // Known experiment.
+            (Some(_), Some(experiment), Some(enrollment)) => {
+                Some(enrollment.on_experiment_updated(
                     is_user_participating,
                     self.nimbus_id,
                     self.available_randomization_units,
                     self.app_context,
                     experiment,
                     out_enrollment_events,
-                )?),
-                // Experiment deleted remotely.
-                (Some(_), None, Some(enrollment)) => {
-                    enrollment.on_experiment_ended(out_enrollment_events)
-                }
-                // Known experiment.
-                (Some(_), Some(experiment), Some(enrollment)) => {
-                    Some(enrollment.on_experiment_updated(
-                        is_user_participating,
-                        self.nimbus_id,
-                        self.available_randomization_units,
-                        self.app_context,
-                        experiment,
-                        out_enrollment_events,
-                    )?)
-                }
-                (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),
-                (None, Some(_), Some(_)) => {
-                    return Err(NimbusError::InternalError(
-                        "New experiment but enrollment already exists.",
-                    ))
-                }
-                (Some(_), None, None) | (Some(_), Some(_), None) => {
-                    return Err(NimbusError::InternalError(
-                        "Experiment in the db did not have an associated enrollment record.",
-                    ))
-                }
-                (None, None, None) => unreachable!(),
-            },
-        )
+                )?)
+            }
+            (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),
+            (None, Some(_), Some(_)) => {
+                return Err(NimbusError::InternalError(
+                    "New experiment but enrollment already exists.",
+                ))
+            }
+            (Some(_), None, None) | (Some(_), Some(_), None) => {
+                return Err(NimbusError::InternalError(
+                    "Experiment in the db did not have an associated enrollment record.",
+                ))
+            }
+            (None, None, None) => unreachable!(),
+        })
     }
 }
 
