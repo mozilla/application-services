@@ -69,11 +69,7 @@ def path_is_relative_to(path, other):
     """
     Implementation of Path.is_relative_to() which was only added in python 3.9
     """
-    try:
-        path.relative_to(other)
-        return True
-    except ValueError:
-        return False
+    return str(path.resolve()).startswith(str(other.resolve()))
 
 def parse_args():
     parser = argparse.ArgumentParser(
