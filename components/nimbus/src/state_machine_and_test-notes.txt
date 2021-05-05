@@ -1,0 +1,24 @@
+Step 2 calls evolve_enrollment for prev_enrollments: Some(enrollment).status == EnrollmentStatus::Enrolled
+pX nX pE
+0  0  1! - garbage collection
+1  0  1! - unsure about Disqualified state.
+0  1  1
+1  1  1
+
+Step 3 calls evolve_enrollment for next_experiments: Some(experiment) that are status !=
+::Enrolled
+0  1  0
+1  1  0
+
+do we garbage collect for non ::Enrolled enrollments (None, None, Some(enrollment))
+
+invalid
+0  0  0
+1  0  0
+
+
+unit tests for on_experiment_ended all different enrollment statuses
+integration tests for all 8 evolve_experiment tuples on evolve_experiments
+
+
+integration tests that generates lots of experiments & lots of enrollments
