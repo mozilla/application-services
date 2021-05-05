@@ -1885,9 +1885,6 @@ mod tests {
 
         log::debug!("events: {:?}", events);
 
-        // XXX is this really true?  don't we want an event for the
-        // NotEnrolled thing (like we do for Disqualified by reason of opt-out,
-        // for example. )
         assert_eq!(
             2,
             events.iter().count(),
