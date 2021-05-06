@@ -17,7 +17,7 @@
 
  - Added bucket and collections to `NimbusServerSettings`, with default values.
  - Added `getAvailableExperiments()` method exposed by `NimbusClient`.
-
+ - At most one local experiment will be enrolled for any given `featureId`.
 ### ⚠️ Breaking changes ⚠️
 
 - Moved the `Nimbus` class and its test class from Android Components into this repository. Existing integrations should pass a delegate in to provide Nimbus with a thread to do I/O and networking on, and an Obsevrer.
