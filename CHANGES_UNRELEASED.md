@@ -4,7 +4,7 @@
 
 ## History Metadata Storage
 
-- Introduced a new metadata storage API, part of libplaces. Currently only has Android bindings.
+- Introduced a new experimental metadata storage API, part of libplaces. Currently only has Android bindings.
 
 ## Sync Manager
 
