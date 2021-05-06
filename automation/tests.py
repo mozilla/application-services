@@ -276,6 +276,13 @@ def swift_format():
     else:
         print("WARNING: skipping swiftformat on non-Darwin host")
 
+def check_for_fmt_changes(branch_changes):
+    print()
+    if branch_changes.has_unstanged_changes():
+        print("cargo fmt made changes.  Make sure to check and commit them.")
+    else:
+        print("All checks passed!")
+
 class Step:
     """
     Represents a single step of the testing process
@@ -377,6 +384,7 @@ def calc_steps_change_mode(args):
     for package in rust_packages:
         yield Step('rustfmt for {}'.format(package.name), cargo_fmt, package,
                    fix_issues=True)
+    yield Step('Check for changes', check_for_fmt_changes, branch_changes)
 
 def main():
     args = parse_args()
