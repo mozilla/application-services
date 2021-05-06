@@ -198,7 +198,8 @@ def touch_changed_paths(branch_changes):
     rebuilt, but leaves the rest of the files alone.
     """
     for path in branch_changes.paths:
-        path.touch()
+        if path.exists():
+            path.touch()
 
 def print_rust_environment():
     print('platform: {}'.format(platform.uname()))
