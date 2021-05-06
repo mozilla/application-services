@@ -615,7 +615,7 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut next_enrollments = HashMap::with_capacity(next_experiments.len());
 
         // Step 2.
-        // Evolve the experiments with existing enrollments first (except for
+        // Evolve the experiments with previous enrollments first (except for
         // those that already have a feature conflict).  While we're doing so,
         // start building up active_features, the map of feature_ids under
         // experiment to EnrolledFeatureConfigs, and next_enrollments.
@@ -735,8 +735,8 @@ impl<'a> EnrollmentsEvolver<'a> {
 
     /// Evolve a single enrollment using the previous and current state of an experiment
     /// and maybe garbage collect at least a subset of invalid experiments.
-    /// XXX Need to verify this beheavior, as it would mean this function could
-    /// have a side effect
+    /// XXX Need to verify this behavior, as it would mean this function could
+    /// have a side effect.
     fn evolve_enrollment(
         &self,
         is_user_participating: bool,
@@ -809,11 +809,16 @@ pub fn map_features(
     experiments: &HashMap<String, &Experiment>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
     let mut map = HashMap::with_capacity(enrollments.len());
-    for e in enrollments {
-        if let Some(feature) = get_feature_config(e, experiments) {
-            map.insert(feature.feature_id.clone(), feature);
-        }
+    for enrolled_feature_config in enrollments
+        .iter()
+        .filter_map(|e| get_feature_config(e, experiments))
+    {
+        map.insert(
+            enrolled_feature_config.feature_id.clone(),
+            enrolled_feature_config,
+        );
     }
+
     map
 }
 
