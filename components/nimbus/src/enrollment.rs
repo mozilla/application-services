@@ -2708,4 +2708,21 @@ mod test_schema_bw_compat {
             matches!(enroll.status, EnrollmentStatus::Enrolled{ ref feature_id, ..} if feature_id == "some_control")
         );
     }
+
+    // In SDK-260 we added a FeatureConflict variant to the NotEnrolledReason
+    // schema.
+    #[test]
+    fn test_not_enrolled_reason_schema_with_feature_conflict() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        let non_enrollment: ExperimentEnrollment = serde_json::from_value(json!({
+            "slug": "secure-gold",
+            "status": {"NotEnrolled": {
+                "reason": "FeatureConflict",
+            }}
+        }))
+        .unwrap();
+        assert!(
+            matches!(non_enrollment.status, EnrollmentStatus::NotEnrolled{ ref reason, ..} if reason == &NotEnrolledReason::FeatureConflict)
+        );
+    }
 }
