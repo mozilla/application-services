@@ -1914,8 +1914,7 @@ mod tests {
         let test_experiments = get_test_experiments();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
-        let (enrollments, _) =
-            evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
+        let (enrollments, _) = evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
 
         let enrolleds = enrollments
             .iter()
