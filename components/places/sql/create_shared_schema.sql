@@ -261,16 +261,11 @@ CREATE TABLE IF NOT EXISTS moz_places_metadata (
     key_presses INTEGER,
 
     FOREIGN KEY(place_id) REFERENCES moz_places(id) ON DELETE CASCADE,
-
     FOREIGN KEY(search_query_id) REFERENCES moz_places_metadata_search_queries(id) ON DELETE CASCADE,
-
-
     FOREIGN KEY(parent_domain_id) REFERENCES moz_origins(id) ON DELETE CASCADE
 );
-CREATE UNIQUE INDEX IF NOT EXISTS guid_uniqueindex ON moz_places_metadata(guid);
 
 CREATE TABLE IF NOT EXISTS moz_places_metadata_search_queries (
     id INTEGER PRIMARY KEY,
     term TEXT NOT NULL UNIQUE
 );
-CREATE UNIQUE INDEX IF NOT EXISTS term_uniqueindex ON moz_places_metadata_search_queries(term);
