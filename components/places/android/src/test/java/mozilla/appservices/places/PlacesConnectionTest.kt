@@ -3,6 +3,7 @@
 
 package mozilla.appservices.places
 
+import kotlinx.coroutines.runBlocking
 import androidx.test.core.app.ApplicationProvider
 import mozilla.appservices.Megazord
 import mozilla.components.service.glean.testing.GleanTestRule
@@ -426,5 +427,78 @@ class PlacesConnectionTest {
                 title = "example4")
 
         db.getBookmarksTree(folderGUID, false)
+    }
+
+    @Test
+    fun testHistoryMetadataBasics() = runBlocking {
+        val currentTime = System.currentTimeMillis()
+
+        assertEquals(0, db.getHistoryMetadataSince(0L).size)
+        assertEquals(0, db.queryHistoryMetadata("test", 100).size)
+
+        val meta2 = HistoryMetadata(
+            guid = null,
+            url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
+            title = "Are All Wireless Earbuds As Evil As AirPods? - iFixit",
+            createdAt = currentTime + 1000,
+            updatedAt = currentTime + 2000,
+            totalViewTime = 2000,
+            searchTerm = "repairable wireless headset",
+            isMedia = false,
+            parentUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit"
+        )
+        db.addHistoryMetadata(meta2)
+        // title
+        assertEquals(1, db.queryHistoryMetadata("airpods", 100).size)
+        // url
+        assertEquals(1, db.queryHistoryMetadata("35377", 100).size)
+        // search term
+        assertEquals(1, db.queryHistoryMetadata("headset", 100).size)
+
+        val meta3 = HistoryMetadata(
+            guid = null,
+            url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
+            title = "Тайна валдайской дачи Путина - YouTube",
+            createdAt = currentTime + 1500,
+            updatedAt = currentTime + 1700,
+            totalViewTime = 200,
+            searchTerm = "путин валдай",
+            isMedia = true,
+            parentUrl = "https://yandex.ru/query?путин+валдай"
+        )
+        db.addHistoryMetadata(meta3)
+
+        val meta4 = HistoryMetadata(
+            guid = null,
+            url = "https://www.youtube.com/watch?v=fdf4r43g",
+            title = null,
+            createdAt = currentTime + 1000,
+            updatedAt = currentTime + 1000,
+            totalViewTime = 200,
+            searchTerm = null,
+            isMedia = true,
+            parentUrl = null
+        )
+        val guid4 = db.addHistoryMetadata(meta4)
+
+        assertEquals(2, db.queryHistoryMetadata("youtube", 100).size)
+        assertEquals(1, db.queryHistoryMetadata("youtube", 1).size)
+
+        assertEquals(3, db.getHistoryMetadataSince(0L).size)
+
+        assertEquals(1, db.getHistoryMetadataBetween(currentTime + 1001, currentTime + 1999).size)
+        assertEquals(2, db.getHistoryMetadataBetween(currentTime + 1000, currentTime + 1999).size)
+        assertEquals(3, db.getHistoryMetadataBetween(currentTime + 1000, currentTime + 2000).size)
+
+        assertEquals(2, db.getHistoryMetadataSince(currentTime + 1700).size)
+        assertEquals(1, db.getHistoryMetadataSince(currentTime + 1701).size)
+
+        db.updateHistoryMetadata(guid4, 1337)
+        val updatedMeta4 = db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")!!
+        assertEquals(1337, updatedMeta4.totalViewTime)
+
+        db.deleteOlderThan(currentTime + 3000)
+
+        assertEquals(0, db.getHistoryMetadataSince(0L).size)
     }
 }

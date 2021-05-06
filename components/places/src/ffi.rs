@@ -143,6 +143,8 @@ implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
 implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfosWithBound);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
+implement_into_ffi_by_protobuf!(msg_types::HistoryMetadata);
+implement_into_ffi_by_protobuf!(msg_types::HistoryMetadataList);
 implement_into_ffi_by_delegation!(
     crate::storage::bookmarks::PublicNode,
     msg_types::BookmarkNode

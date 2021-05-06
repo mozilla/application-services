@@ -261,6 +261,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
 open class PlacesReaderConnection internal constructor(connHandle: Long) :
         PlacesConnection(connHandle),
         ReadableHistoryConnection,
+        ReadableHistoryMetadataConnection,
         ReadableBookmarksConnection {
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
         val resultBuffer = rustCall { error ->
@@ -389,6 +390,66 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override suspend fun getLatestHistoryMetadataForUrl(url: String): HistoryMetadata? {
+        val rustBuffer = rustCall { error ->
+            LibPlacesFFI.INSTANCE.places_get_latest_history_metadata_for_url(
+                this.handle.get(), url, error
+            )
+        }
+        try {
+            return rustBuffer.asCodedInputStream()?.let { stream ->
+                HistoryMetadata.fromMessage(MsgTypes.HistoryMetadata.parseFrom(stream))
+            }
+        } finally {
+            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuffer)
+        }
+    }
+
+    override suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata> {
+        readQueryCounters.measure {
+            val rustBuffer = rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_get_history_metadata_since(
+                        this.handle.get(), since, error)
+            }
+            try {
+                val metadata = MsgTypes.HistoryMetadataList.parseFrom(rustBuffer.asCodedInputStream()!!)
+                return HistoryMetadata.fromCollectionMessage(metadata)
+            } finally {
+                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuffer)
+            }
+        }
+    }
+
+    override suspend fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata> {
+        readQueryCounters.measure {
+            val rustBuffer = rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_get_history_metadata_between(
+                        this.handle.get(), start, end, error)
+            }
+            try {
+                val metadata = MsgTypes.HistoryMetadataList.parseFrom(rustBuffer.asCodedInputStream()!!)
+                return HistoryMetadata.fromCollectionMessage(metadata)
+            } finally {
+                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuffer)
+            }
+        }
+    }
+
+    override suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata> {
+        readQueryCounters.measure {
+            val rustBuffer = rustCall { error ->
+                LibPlacesFFI.INSTANCE.places_query_history_metadata(
+                        this.handle.get(), query, limit, error)
+            }
+            try {
+                val metadata = MsgTypes.HistoryMetadataList.parseFrom(rustBuffer.asCodedInputStream()!!)
+                return HistoryMetadata.fromCollectionMessage(metadata)
+            } finally {
+                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuffer)
+            }
+        }
+    }
+
     override fun getBookmark(guid: String): BookmarkTreeNode? {
         readQueryCounters.measure {
             val rustBuf = rustCall { err ->
@@ -497,6 +558,7 @@ fun visitTransitionSet(l: List<VisitType>): Int {
 class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
         PlacesReaderConnection(connHandle),
         WritableHistoryConnection,
+        WritableHistoryMetadataConnection,
         WritableBookmarksConnection {
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
     val apiRef = WeakReference(api)
@@ -579,6 +641,45 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
             rustCall { error ->
                 val existedByte = LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
                 existedByte.toInt() != 0
+            }
+        }
+    }
+
+    override suspend fun addHistoryMetadata(metadata: HistoryMetadata): String {
+        val builder = MsgTypes.HistoryMetadata.newBuilder()
+            .setUrl(metadata.url)
+            .setCreatedAt(metadata.createdAt)
+            .setUpdatedAt(metadata.updatedAt)
+            .setTotalViewTime(metadata.totalViewTime)
+            .setIsMedia(metadata.isMedia)
+
+        // These are optional.
+        metadata.title?.let { builder.setTitle(it) }
+        metadata.searchTerm?.let { builder.setSearchTerm(it) }
+        metadata.parentUrl?.let { builder.setParentUrl(it) }
+
+        val buf = builder.build()
+        val (nioBuf, len) = buf.toNioDirectBuffer()
+        return writeQueryCounters.measure {
+            rustCallForString { error ->
+                val ptr = Native.getDirectBufferPointer(nioBuf)
+                LibPlacesFFI.INSTANCE.places_add_history_metadata(this.handle.get(), ptr, len, error)
+            }
+        }
+    }
+
+    override suspend fun updateHistoryMetadata(guid: String, totalViewTime: Int) {
+        return writeQueryCounters.measure {
+            rustCall { err ->
+                LibPlacesFFI.INSTANCE.places_update_history_metadata(this.handle.get(), guid, totalViewTime, err)
+            }
+        }
+    }
+
+    override suspend fun deleteOlderThan(olderThan: Long) {
+        return writeQueryCounters.measure {
+            rustCall { err ->
+                LibPlacesFFI.INSTANCE.places_metadata_delete_older_than(this.handle.get(), olderThan, err)
             }
         }
     }
@@ -779,6 +880,78 @@ interface InterruptibleConnection : AutoCloseable {
      * Interrupt ongoing operations running on a separate thread.
      */
     fun interrupt()
+}
+
+/**
+ * This interface exposes the 'read' part of the [HistoryMetadata] storage API.
+ */
+interface ReadableHistoryMetadataConnection : InterruptibleConnection {
+    /**
+     * Returns the most recent [HistoryMetadata] for the provided [url].
+     *
+     * @param url Url to search by.
+     * @return [HistoryMetadata] if there's a matching record, `null` otherwise.
+     */
+    suspend fun getLatestHistoryMetadataForUrl(url: String): HistoryMetadata?
+
+    /**
+     * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is greater or equal to [since].
+     *
+     * @param since Timestmap to search by.
+     * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
+     */
+    suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata>
+
+    /**
+     * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is between [start] and [end], inclusive.
+     *
+     * @param start A `start` timestamp.
+     * @param end An `end` timestamp.
+     * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
+     */
+    suspend fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata>
+
+    /**
+     * Searches through [HistoryMetadata] by [query], matching records by [HistoryMetadata.url],
+     * [HistoryMetadata.title] and [HistoryMetadata.searchTerm].
+     *
+     * @param query A search query.
+     * @param limit A maximum number of records to return.
+     * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
+     */
+    suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata>
+}
+
+/**
+ * This interface exposes the 'write' part of the [HistoryMetadata] storage API.
+ */
+interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection {
+    /**
+     * Adds a [HistoryMetadata] record to the storage.
+     *
+     * Note that if a corresponding history (moz_places) record already exists, we won't be updating
+     * its title. The title update is expected to happen as part of a call to
+     * [WritableHistoryConnection.noteObservation]. Titles in [HistoryMetadata] and history are expected
+     * to come from the same source (i.e. the page itself).
+     *
+     * @param metadata A [HistoryMetadata] record to add. Must not have a set [HistoryMetadata.guid].
+     * @return A [HistoryMetadata.guid] of the added record.
+     */
+    suspend fun addHistoryMetadata(metadata: HistoryMetadata): String
+
+    /**
+     * Updates a [HistoryMetadata] based on [guid].
+     *
+     * @param totalViewTime A new [HistoryMetadata.totalViewTime].
+     */
+    suspend fun updateHistoryMetadata(guid: String, totalViewTime: Int)
+
+    /**
+     * Deletes [HistoryMetadata] with [HistoryMetadata.updatedAt] older than [olderThan].
+     *
+     * @param olderThan A timestamp to delete records by. Exclusive.
+     */
+    suspend fun deleteOlderThan(olderThan: Long)
 }
 
 interface ReadableHistoryConnection : InterruptibleConnection {
@@ -1145,6 +1318,72 @@ data class SearchResult(
         }
         internal fun fromCollectionMessage(msg: MsgTypes.SearchResultList): List<SearchResult> {
             return msg.resultsList.map {
+                fromMessage(it)
+            }
+        }
+    }
+}
+
+/**
+ * Represents a history metadata record, which describes metadata for a history visit, such as metadata
+ * about the page itself as well as metadata about how the page was opened.
+ *
+ * @property guid A global unique ID assigned to a saved record.
+ * @property url A url of the page.
+ * @property title A title of the page.
+ * @property createdAt When this metadata record was created.
+ * @property updatedAt The last time this record was updated.
+ * @property totalViewTime Total time the user viewed the page associated with this record.
+ * @property searchTerm An optional search term if this record was created as part of a search by the user.
+ * @property isMedia A boolean describing if the page associated with this record is considered a media page.
+ * @property parentUrl An optional parent url if this record was created in response to a user opening a page in a new tab.
+ */
+data class HistoryMetadata(
+    val guid: String?,
+    val url: String,
+    val title: String?,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val totalViewTime: Int,
+    val searchTerm: String?,
+    val isMedia: Boolean,
+    val parentUrl: String?
+) {
+    /**
+    * Used when going from Kotlin -> Rust.
+    */
+    internal fun toJSON(): JSONObject {
+        val o = JSONObject()
+        // NB: we're not processing a `guid` here. The only time when a metadata record is passed into this
+        // API from Kotlin code is when we're adding a new one, in which case a `guid` will be generated
+        // by the Rust code at the moment we're storing this record.
+        o.put("url", this.url)
+        this.title?.let { o.put("title", it) }
+        o.put("created_at", this.createdAt)
+        o.put("updated_at", this.updatedAt)
+        o.put("total_view_time", this.totalViewTime)
+        this.searchTerm?.let { o.put("search_term", it) }
+        o.put("is_media", this.isMedia)
+        this.parentUrl?.let { o.put("parent_url", it) }
+        return o
+    }
+
+    companion object {
+        internal fun fromMessage(msg: MsgTypes.HistoryMetadata): HistoryMetadata {
+            return HistoryMetadata(
+                guid = msg.guid,
+                url = msg.url,
+                title = msg.title,
+                createdAt = msg.createdAt,
+                updatedAt = msg.updatedAt,
+                totalViewTime = msg.totalViewTime,
+                searchTerm = msg.searchTerm,
+                isMedia = msg.isMedia,
+                parentUrl = msg.parentUrl
+            )
+        }
+        internal fun fromCollectionMessage(msg: MsgTypes.HistoryMetadataList): List<HistoryMetadata> {
+            return msg.metadataList.map {
                 fromMessage(it)
             }
         }

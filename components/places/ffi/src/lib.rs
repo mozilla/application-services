@@ -13,7 +13,7 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
 };
 use places::error::*;
-use places::msg_types::{BookmarkNodeList, SearchResultList};
+use places::msg_types::{BookmarkNodeList, HistoryMetadata, SearchResultList};
 use places::storage::bookmarks;
 use places::types::VisitTransitionSet;
 use places::{storage, ConnectionType, PlacesApi, PlacesDb};
@@ -456,7 +456,7 @@ pub extern "C" fn places_get_visit_page_with_bound(
     exclude_types: i32,
     error: &mut ExternError,
 ) -> ByteBuffer {
-    log::debug!("places_get_visit_page");
+    log::debug!("places_get_visit_page_with_bound");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         storage::history::get_visit_page_with_bound(
             conn,
@@ -466,6 +466,102 @@ pub extern "C" fn places_get_visit_page_with_bound(
             VisitTransitionSet::from_u16(exclude_types as u16)
                 .expect("Bug: Invalid VisitTransitionSet"),
         )
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_get_latest_history_metadata_for_url(
+    handle: u64,
+    url: FfiStr<'_>,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_latest_history_metadata_for_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let url = parse_url(url.as_str())?;
+        let metadata = storage::history_metadata::get_latest_for_url(conn, &url)?;
+        Ok(metadata)
+    })
+}
+
+/// # Safety
+/// Deref pointer, thus unsafe
+#[no_mangle]
+pub unsafe extern "C" fn places_add_history_metadata(
+    handle: u64,
+    data: *const u8,
+    len: i32,
+    error: &mut ExternError,
+) -> *mut c_char {
+    log::debug!("places_add_history_metadata");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let buffer = get_buffer(data, len);
+        let metadata: HistoryMetadata = prost::Message::decode(buffer)?;
+        let guid = storage::history_metadata::add_metadata(conn, metadata)?;
+        Ok(guid.into_string())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_update_history_metadata(
+    handle: u64,
+    guid: FfiStr<'_>,
+    total_view_time: i32,
+    error: &mut ExternError,
+) {
+    log::debug!("places_update_history_metadata");
+    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
+        let guid = SyncGuid::from_string(guid.into_string());
+        storage::history_metadata::update_metadata(conn, &guid, total_view_time)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_metadata_delete_older_than(
+    handle: u64,
+    older_than: i64,
+    error: &mut ExternError,
+) {
+    log::debug!("places_metadata_delete_older_than");
+    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
+        storage::history_metadata::delete_older_than(conn, older_than)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_get_history_metadata_between(
+    handle: u64,
+    start: i64,
+    end: i64,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_history_metadata_between");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history_metadata::get_between(conn, start, end)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_get_history_metadata_since(
+    handle: u64,
+    start: i64,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_history_metadata_since");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history_metadata::get_since(conn, start)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn places_query_history_metadata(
+    handle: u64,
+    query: FfiStr<'_>,
+    limit: i64,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("places_get_history_metadata_since");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        storage::history_metadata::query(conn, query.as_str(), limit)
     })
 }
 
