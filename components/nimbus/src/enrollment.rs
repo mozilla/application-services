@@ -1144,6 +1144,39 @@ mod tests {
         ]
     }
 
+    fn get_conflicting_experiment() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "another-monkey",
+            "endDate": null,
+            "branches":[
+                {"slug": "control", "ratio": 1, "featureId": "monkey"},
+                {"slug": "treatment","ratio":1, "featureId": "monkey"},
+            ],
+            "featureIds": ["monkey"],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "bucketConfig":{
+                "count":1_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"2nd test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "id":"secure-silver",
+            "last_modified":1_602_197_222_372i64
+        }))
+        .unwrap()
+    }
+
     fn get_experiment_enrollments<'r>(
         db: &Database,
         reader: &'r impl Readable<'r>,
@@ -1799,44 +1832,7 @@ mod tests {
             .collect();
         assert_eq!(0, enrolled.len());
 
-        // TODO test if we go if we remove the winning experiment, will the other one
-        // take over? I suspect we can look up the winning slug and filter the experiments.
-        // Or we can hand craft another test_experiments() function.
-
         Ok(())
-    }
-
-    fn get_conflicting_experiment() -> Experiment {
-        serde_json::from_value(json!({
-            "schemaVersion": "1.0.0",
-            "slug": "another-monkey",
-            "endDate": null,
-            "branches":[
-                {"slug": "control", "ratio": 1, "featureId": "monkey"},
-                {"slug": "treatment","ratio":1, "featureId": "monkey"},
-            ],
-            "featureIds": ["monkey"],
-            "channel": "nightly",
-            "probeSets":[],
-            "startDate":null,
-            "appName":"fenix",
-            "appId":"org.mozilla.fenix",
-            "bucketConfig":{
-                "count":1_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-silver",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"2nd test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"2nd test experiment.",
-            "id":"secure-silver",
-            "last_modified":1_602_197_222_372i64
-        }))
-        .unwrap()
     }
 
     #[test]
@@ -1856,12 +1852,6 @@ mod tests {
             "There should be exactly 3 ExperimentEnrollments returned"
         );
 
-        // exactly 1 enrollment should have a status of not enrolled: status:
-        // NotEnrolled { reason: FeatureAlreadyUnderExperiment { feature_id:
-        // "monkey" }
-
-        // XXX the .. should be feature_id: "monkey", but i haven't figured out
-        // how to work around the rust compiler yet...
         let not_enrolleds = enrollments
             .iter()
             .filter(|&e| {
