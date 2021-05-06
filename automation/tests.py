@@ -58,12 +58,18 @@ def yellow_text(text):
     return '\033[93m{}\033[0m'.format(text)
 
 def get_output(cmdline, **kwargs):
-    output = subprocess.check_output(cmdline, encoding='utf8', **kwargs)
+    output = subprocess.check_output(cmdline, **kwargs).decode('utf8')
     return output.strip()
 
 def run_command(cmdline, **kwargs):
     print(yellow_text(' '.join(shlex.quote(str(part)) for part in cmdline)))
     subprocess.check_call(cmdline, **kwargs)
+
+def path_is_relative_to(path, other):
+    """
+    Implementation of Path.is_relative_to() which was only added in python 3.9
+    """
+    return str(path.resolve()).startswith(str(other.resolve()))
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -115,7 +121,7 @@ class RustPackage:
         return bool(self.cargo_metadata.get('features').get('default'))
 
     def has_changes(self, branch_changes):
-        return any(p.is_relative_to(self.directory)
+        return any(path_is_relative_to(p, self.directory)
                    for p in branch_changes.paths)
 
 class RustFeatures(Enum):
@@ -192,7 +198,8 @@ def touch_changed_paths(branch_changes):
     rebuilt, but leaves the rest of the files alone.
     """
     for path in branch_changes.paths:
-        path.touch()
+        if path.exists():
+            path.touch()
 
 def print_rust_environment():
     print('platform: {}'.format(platform.uname()))
@@ -269,6 +276,13 @@ def swift_format():
         ])
     else:
         print("WARNING: skipping swiftformat on non-Darwin host")
+
+def check_for_fmt_changes(branch_changes):
+    print()
+    if branch_changes.has_unstanged_changes():
+        print("cargo fmt made changes.  Make sure to check and commit them.")
+    else:
+        print("All checks passed!")
 
 class Step:
     """
@@ -371,6 +385,7 @@ def calc_steps_change_mode(args):
     for package in rust_packages:
         yield Step('rustfmt for {}'.format(package.name), cargo_fmt, package,
                    fix_issues=True)
+    yield Step('Check for changes', check_for_fmt_changes, branch_changes)
 
 def main():
     args = parse_args()
