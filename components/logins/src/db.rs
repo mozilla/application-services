@@ -450,17 +450,18 @@ impl LoginDb {
             });
         rows.collect::<Result<_>>()
     }
-
+    /// Follows try_query_row and returns None instead of erroing if no such row exists
     pub fn get_by_id(&self, id: &str) -> Result<Option<LoginRecord>> {
-        let login = self
-            .try_query_row(
-                &GET_BY_GUID_SQL,
-                &[(":guid", &id as &dyn ToSql)],
-                Login::from_row,
-                true,
-            )?
-            .unwrap();
-        Ok(Some(login.into()))
+        let login = self.try_query_row(
+            &GET_BY_GUID_SQL,
+            &[(":guid", &id as &dyn ToSql)],
+            Login::from_row,
+            true,
+        );
+        match login.unwrap() {
+            None => Ok(None),
+            Some(login) => Ok(Some(login.into())),
+        }
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
@@ -787,8 +788,7 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn check_valid_with_no_dupes(&self, record: LoginRecord) -> Result<()> {
-        let login: Login = record.into();
+    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
         login.check_valid()?;
         self.check_for_dupes(&login)
     }
