@@ -9,8 +9,8 @@ namespace logins {
 
 
 // Converted from mozilla.appservices.logins.protobuf.rs
-dictionary PasswordInfo {
-    string id;
+dictionary LoginRecord {
+    string guid;
     string hostname;
     string password;
     string username;
@@ -22,11 +22,6 @@ dictionary PasswordInfo {
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
-};
-
-// Converted from mozilla.appservices.logins.protobuf.rs
-dictionary PasswordInfos {
-    sequence<PasswordInfo> infos;
 };
 
 dictionary MigrationMetrics {
@@ -68,10 +63,10 @@ interface PasswordStore {
     constructor(string path, [ByRef] string encryption_key, [ByRef] string salt);
 
     [Throws=LoginsError]
-    void check_valid_with_no_dupes(PasswordInfo pass_info);
+    void check_valid_with_no_dupes(LoginRecord record);
 
     [Throws=LoginsError]
-    string add(PasswordInfo pass_info);
+    string add(LoginRecord record);
 
     [Throws=LoginsError]
     boolean delete([ByRef] string id);
@@ -93,20 +88,29 @@ interface PasswordStore {
     void touch([ByRef] string id);
 
     [Throws=LoginsError]
-    sequence<PasswordInfo> list();
+    sequence<LoginRecord> list();
 
     [Throws=LoginsError]
-    sequence<PasswordInfo> get_by_base_domain([ByRef] string base_domain);
+    sequence<LoginRecord> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsError]
-    sequence<PasswordInfo> potential_dupes_ignoring_username(PasswordInfo pass_info);
+    sequence<LoginRecord> potential_dupes_ignoring_username(LoginRecord record);
 
     [Throws=LoginsError]
-    PasswordInfo? get([ByRef] string id);
+    LoginRecord? get([ByRef] string id);
 
     [Throws=LoginsError]
-    void update(PasswordInfo pass_info);
+    void update(LoginRecord record);
 
     [Throws=LoginsError]
-    MigrationMetrics import_multiple(sequence<PasswordInfo> pass_infos);
+    MigrationMetrics import_multiple(sequence<LoginRecord> record);
+
+    // Methods NOT ported over from ffi/lib.rs
+
+    // Q1: sync15_passwords_sync(), do we still need to call sync in stores.rs?
+    //  - Or should we be relying on Sync Manager for this
+    //  - If not, we can get rid of parse_url and this method
+
+    // Q2: sync15_passwords_new_interrupt_handle(), do we still need interrupts from stores.rs
+    //  - This is similar to the above question with sync manager, if we don't we can ax all these methods
 };

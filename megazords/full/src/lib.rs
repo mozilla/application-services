@@ -11,7 +11,7 @@ use std::os::raw::c_char;
 pub use autofill;
 pub use crashtest;
 pub use fxa_client;
-//pub use logins_ffi;
+pub use logins;
 pub use nimbus;
 pub use places_ffi;
 pub use push_ffi;

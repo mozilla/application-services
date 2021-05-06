@@ -4,7 +4,7 @@
 use crate::db::{LoginDb, MigrationMetrics};
 use crate::error::*;
 use crate::login::Login;
-use crate::PasswordInfo;
+use crate::LoginRecord;
 use std::cell::Cell;
 use std::path::Path;
 use sync15::{EngineSyncAssociation, MemoryCachedState};
@@ -41,17 +41,16 @@ impl PasswordStore {
         })
     }
 
-    pub fn list(&self) -> Result<Vec<PasswordInfo>> {
+    pub fn list(&self) -> Result<Vec<LoginRecord>> {
         let logins = self.db.get_all()?.into_iter().map(|x| x.into()).collect();
         Ok(logins)
     }
 
-    pub fn get(&self, id: &str) -> Result<Option<PasswordInfo>> {
-        let pass_info = self.db.get_by_id(id)?.unwrap().into();
-        Ok(Some(pass_info))
+    pub fn get(&self, id: &str) -> Result<Option<LoginRecord>> {
+        self.db.get_by_id(id)
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<PasswordInfo>> {
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<LoginRecord>> {
         let logins = self
             .db
             .get_by_base_domain(base_domain)?
@@ -63,9 +62,9 @@ impl PasswordStore {
 
     pub fn potential_dupes_ignoring_username(
         &self,
-        pass_info: PasswordInfo,
-    ) -> Result<Vec<PasswordInfo>> {
-        let login = pass_info.into();
+        record: LoginRecord,
+    ) -> Result<Vec<LoginRecord>> {
+        let login = record.into();
         let logins = self
             .db
             .potential_dupes_ignoring_username(&login)?
@@ -99,19 +98,19 @@ impl PasswordStore {
         Ok(())
     }
 
-    pub fn update(&self, pass_info: PasswordInfo) -> Result<()> {
-        let login: Login = pass_info.into();
+    pub fn update(&self, record: LoginRecord) -> Result<()> {
+        let login: Login = record.into();
         self.db.update(login)
     }
 
-    pub fn add(&self, pass_info: PasswordInfo) -> Result<String> {
+    pub fn add(&self, record: LoginRecord) -> Result<String> {
         // Just return the record's ID (which we may have generated).
-        let login: Login = pass_info.into();
+        let login: Login = record.into();
         self.db.add(login).map(|record| record.guid.into_string())
     }
 
-    pub fn import_multiple(&self, pass_infos: Vec<PasswordInfo>) -> Result<MigrationMetrics> {
-        let logins: Vec<Login> = pass_infos.into_iter().map(PasswordInfo::into).collect();
+    pub fn import_multiple(&self, records: Vec<LoginRecord>) -> Result<MigrationMetrics> {
+        let logins: Vec<Login> = records.into_iter().map(LoginRecord::into).collect();
         self.db.import_multiple(&logins)
     }
 
@@ -129,15 +128,15 @@ impl PasswordStore {
         &self.db.db
     }
 
-    pub fn check_valid_with_no_dupes(&self, pass_info: PasswordInfo) -> Result<()> {
-        let login: Login = pass_info.into();
-        self.db.check_valid_with_no_dupes(&login)
+    pub fn check_valid_with_no_dupes(&self, record: LoginRecord) -> Result<()> {
+        self.db.check_valid_with_no_dupes(record)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+    //xxx - TODO - Convert these to leverage/expect LoginRecord as this breaks right now
     //use crate::util;
     //use more_asserts::*;
     //use std::time::SystemTime;

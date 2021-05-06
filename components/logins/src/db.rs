@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
+use crate::login::{LocalLogin, Login, LoginRecord, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
 use crate::update_plan::UpdatePlan;
 use crate::util;
@@ -451,13 +451,16 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
-        self.try_query_row(
-            &GET_BY_GUID_SQL,
-            &[(":guid", &id as &dyn ToSql)],
-            Login::from_row,
-            true,
-        )
+    pub fn get_by_id(&self, id: &str) -> Result<Option<LoginRecord>> {
+        let login = self
+            .try_query_row(
+                &GET_BY_GUID_SQL,
+                &[(":guid", &id as &dyn ToSql)],
+                Login::from_row,
+                true,
+            )?
+            .unwrap();
+        Ok(Some(login.into()))
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
@@ -784,9 +787,10 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
+    pub fn check_valid_with_no_dupes(&self, record: LoginRecord) -> Result<()> {
+        let login: Login = record.into();
         login.check_valid()?;
-        self.check_for_dupes(login)
+        self.check_for_dupes(&login)
     }
 
     pub fn fixup_and_check_for_dupes(&self, login: Login) -> Result<Login> {

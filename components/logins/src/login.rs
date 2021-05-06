@@ -227,9 +227,7 @@
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
 use crate::error::*;
-//use crate::msg_types::PasswordInfo;
 use crate::util;
-use crate::PasswordInfo;
 use rusqlite::Row;
 use serde_derive::*;
 use std::time::{self, SystemTime};
@@ -279,6 +277,26 @@ pub struct Login {
 
     #[serde(default)]
     pub times_used: i64,
+}
+
+/// This struct is identical to the Login struct on purpose
+/// and is strictly for going over via FFI
+/// it was converted from the protobuf
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct LoginRecord {
+    #[serde(rename = "id")]
+    pub guid: std::string::String,
+    pub hostname: std::string::String,
+    pub password: std::string::String,
+    pub username: std::string::String,
+    pub http_realm: ::std::option::Option<std::string::String>,
+    pub form_submit_url: ::std::option::Option<std::string::String>,
+    pub username_field: std::string::String,
+    pub password_field: std::string::String,
+    pub times_used: i64,
+    pub time_created: i64,
+    pub time_last_used: i64,
+    pub time_password_changed: i64,
 }
 
 // Quiet clippy, since this function is passed to deserialiaze_with...
@@ -547,10 +565,10 @@ impl Login {
     }
 }
 
-impl From<Login> for PasswordInfo {
+impl From<Login> for LoginRecord {
     fn from(login: Login) -> Self {
         Self {
-            id: login.guid.into_string(),
+            guid: login.guid.into_string(),
             hostname: login.hostname,
             password: login.password,
             username: login.username,
@@ -566,10 +584,10 @@ impl From<Login> for PasswordInfo {
     }
 }
 
-impl From<PasswordInfo> for Login {
-    fn from(info: PasswordInfo) -> Self {
+impl From<LoginRecord> for Login {
+    fn from(info: LoginRecord) -> Self {
         Self {
-            guid: Guid::from_string(info.id),
+            guid: Guid::from_string(info.guid),
             hostname: info.hostname,
             password: info.password,
             username: info.username,
