@@ -1806,41 +1806,46 @@ mod tests {
         Ok(())
     }
 
+    fn get_conflicting_experiment() -> Experiment {
+        let experiment = serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "another-monkey",
+            "endDate": null,
+            "branches":[
+                {"slug": "control", "ratio": 1, "featureId": "monkey"},
+                {"slug": "treatment","ratio":1, "featureId": "monkey"},
+            ],
+            "featureIds": ["monkey"],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "bucketConfig":{
+                "count":1_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"2nd test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "id":"secure-silver",
+            "last_modified":1_602_197_222_372i64
+        }))
+        .unwrap();
+        experiment
+    }
+
     #[test]
     fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         let _ = env_logger::try_init();
 
         let mut test_experiments = get_test_experiments();
-        test_experiments.push(serde_json::from_value(json!({
-                "schemaVersion": "1.0.0",
-                "slug": "another-monkey",
-                "endDate": null,
-                "branches":[
-                    {"slug": "control", "ratio": 1, "featureId": "monkey"},
-                    {"slug": "treatment","ratio":1, "featureId": "monkey"},
-                ],
-                "featureIds": ["monkey"],
-                "channel": "nightly",
-                "probeSets":[],
-                "startDate":null,
-                "appName":"fenix",
-                "appId":"org.mozilla.fenix",
-                "bucketConfig":{
-                    "count":1_000,
-                    "start":0,
-                    "total":10_000,
-                    "namespace":"secure-silver",
-                    "randomizationUnit":"nimbus_id"
-                },
-                "userFacingName":"2nd test experiment",
-                "referenceBranch":"control",
-                "isEnrollmentPaused":false,
-                "proposedEnrollment":7,
-                "userFacingDescription":"2nd test experiment.",
-                "id":"secure-silver",
-                "last_modified":1_602_197_222_372i64
-            }))
-            .unwrap(),);
+        test_experiments.push(get_conflicting_experiment());
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let (enrollments, events) =
@@ -1898,6 +1903,60 @@ mod tests {
         assert_eq!(
             2, enrolled_events,
             "exactly two events should have Enrolled event types"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_feature_id_reuse() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let test_experiments = get_test_experiments();
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let (enrollments, _) =
+            evolver.evolve_enrollments(true, &vec![], &test_experiments, &vec![])?;
+
+        let enrolleds = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(
+            2, enrolleds,
+            "exactly two enrollments should have Enrolled status"
+        );
+
+        let conflicting_experiment = get_conflicting_experiment();
+        let (enrollments, events) = evolver.evolve_enrollments(
+            true,
+            &test_experiments,
+            &[test_experiments[0].clone(), conflicting_experiment.clone()],
+            &enrollments,
+        )?;
+
+        log::debug!("events = {:?}", events);
+
+        assert_eq!(events.len(), 2);
+
+        // we didn't include test_experiments[1] in next_experiments above,
+        // so it should have been unenrolled...
+        assert_eq!(events[0].experiment_slug, test_experiments[1].slug);
+        assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
+
+        // ...which will have gotten rid of the thing that otherwise would have
+        // conflicted with conflicting_experiment, allowing it to have now
+        // been enrolled.
+        assert_eq!(events[1].experiment_slug, conflicting_experiment.slug);
+        assert_eq!(events[1].change, EnrollmentChangeEventType::Enrollment);
+
+        let enrolleds = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(
+            2, enrolleds,
+            "exactly two enrollments should have Enrolled status"
         );
 
         Ok(())
