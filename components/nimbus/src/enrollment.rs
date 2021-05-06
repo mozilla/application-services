@@ -1807,7 +1807,7 @@ mod tests {
     }
 
     fn get_conflicting_experiment() -> Experiment {
-        let experiment = serde_json::from_value(json!({
+        serde_json::from_value(json!({
             "schemaVersion": "1.0.0",
             "slug": "another-monkey",
             "endDate": null,
@@ -1836,8 +1836,7 @@ mod tests {
             "id":"secure-silver",
             "last_modified":1_602_197_222_372i64
         }))
-        .unwrap();
-        experiment
+        .unwrap()
     }
 
     #[test]
@@ -1849,7 +1848,7 @@ mod tests {
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let (enrollments, events) =
-            evolver.evolve_enrollments(true, &vec![], &test_experiments, &vec![])?;
+            evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
 
         assert_eq!(
             enrollments.len(),
@@ -1916,7 +1915,7 @@ mod tests {
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let (enrollments, _) =
-            evolver.evolve_enrollments(true, &vec![], &test_experiments, &vec![])?;
+            evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
 
         let enrolleds = enrollments
             .iter()
