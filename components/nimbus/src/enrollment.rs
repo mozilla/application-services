@@ -615,19 +615,11 @@ impl<'a> EnrollmentsEvolver<'a> {
         let mut next_enrollments = HashMap::with_capacity(next_experiments.len());
 
         // Step 2.
-        // Evolve the experiments with existing enrollments first.
-        // This lets us build up the active_features, the map of features
-        // that are already under experiment.
+        // Evolve the experiments with existing enrollments first (except for
+        // those that already have a feature conflict).  While we're doing so,
+        // start building up active_features, the map of feature_ids under
+        // experiment to EnrolledFeatureConfigs, and next_enrollments.
 
-        // By the end of this loop we should have a good idea what
-        // features we can experiment upon.
-        // One consequence of needing the active_features map pruned is that
-        // we have to loop twice.
-
-        // XXX we might be able to get rid of the `continue`s by splitting
-        // something into two lists to iterate over, but it's unclear that
-        // it's worth the effort (if even possible).  Evaluate this after
-        // we've done the TODO suggesting starting with an empty hashmap.
         for prev_enrollment in prev_enrollments.values() {
             if matches!(
                 prev_enrollment.status,
@@ -649,15 +641,15 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             if let Some(enrollment) = next_enrollment {
                 // We get the FeatureConfig out of the enrollment.
-                if let Some(feature) = get_feature_config(&enrollment, &next_experiments) {
-                    active_features.insert(feature.feature_id.clone(), feature);
+                if let Some(enrolled_feature) = get_feature_config(&enrollment, &next_experiments) {
+                    active_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
                 }
                 next_enrollments.insert(slug, enrollment);
             }
         }
 
-        // Step 3 evolve the enrollments with the existing and updated
-        // data, including the now-current active-feature-map
+        // Step 3 evolve the remaining enrollments with the previous and
+        // next data.
         for next_experiment in next_experiments.values() {
             let slug = &next_experiment.slug;
 
@@ -677,18 +669,21 @@ impl<'a> EnrollmentsEvolver<'a> {
                             },
                         },
                     );
-                    // So now we know that the experiment is acting on features that are already
-                    // active. So continue to the next experiment. But…
+                    // So now we know that the experiment is acting on
+                    // features that are already active. So continue to
+                    // the next experiment. But…
                 }
                 // … perhaps we can continue here too? Because
                 // if the feature is already active,
                 //    …and the experiment it's using is this one,
-                //    …then we don't need to evolve the enrollment, here, because we did it in step 2.
+                //    …then we don't need to evolve the enrollment here,
+                //     because we did it in step 2.
                 continue;
             }
 
             // If we got here, then the feature is not already active.
-            // But we evolved all the enrollments in step 2, (except the feature conflicted ones)
+            // But we evolved all the existing enrollments in step 2,
+            // (except the feature conflicted ones)
             // so we should be mindful that we don't evolve them a second time.
             let prev_enrollment = prev_enrollments.get(slug).copied();
 
@@ -711,8 +706,11 @@ impl<'a> EnrollmentsEvolver<'a> {
                 if let Some(enrollment) = next_enrollment {
                     // We get the FeatureConfig out of the enrollment.
                     // This is copied from above. We should consider making this a function.
-                    if let Some(feature) = get_feature_config(&enrollment, &next_experiments) {
-                        active_features.insert(feature.feature_id.clone(), feature);
+                    if let Some(enrolled_feature) =
+                        get_feature_config(&enrollment, &next_experiments)
+                    {
+                        active_features
+                            .insert(enrolled_feature.feature_id.clone(), enrolled_feature);
                     }
                     next_enrollments.insert(slug, enrollment);
                 }
@@ -722,7 +720,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         let updated_enrollments: Vec<ExperimentEnrollment> =
             next_enrollments.values().cloned().collect();
 
-        // Check that we can generate the active feature map from the new enrollments and new experiments.
+        // Check that we generate the active feature map from the new
+        // enrollments and new experiments.  Perhaps this should just be an
+        // assert.
         let updated_active_features = map_features(&updated_enrollments, &next_experiments);
         if active_features != updated_active_features {
             Err(NimbusError::InternalError(
