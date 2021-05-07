@@ -96,6 +96,9 @@ use sql_support::ConnExt;
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
 /// which adds a metadata table and changes timestamps to be in milliseconds
 pub const VERSION: i64 = 4;
+/// Version where we switched from sqlcipher to a plaintext database.
+pub const SQLCIPHER_SWITCHOVER_VERSION: i64 = 4;
+// TODO: write code to encrypt the username/password fields and bump this to 5
 
 /// Every column shared by both tables except for `id`
 ///
@@ -252,8 +255,14 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
 }
 
 // https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
-fn upgrade(db: &Connection, from: i64) -> Result<()> {
+fn upgrade(_db: &Connection, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
+    if from < SQLCIPHER_SWITCHOVER_VERSION {
+        return Err(ErrorKind::InvalidDatabaseFile(
+            "sqlcipher -> plaintext migration needed".into(),
+        )
+        .into());
+    }
     if from == VERSION {
         return Ok(());
     }
@@ -261,25 +270,9 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
         from, 0,
         "Upgrading from user_version = 0 should already be handled (in `init`)"
     );
-    if from < 3 {
-        // These indices were added in v3 (apparently)
-        db.execute_all(&[
-            CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
-            CREATE_DELETED_HOSTNAME_INDEX_SQL,
-        ])?;
-    }
-    if from < 4 {
-        // This is the update from the firefox-ios schema to our schema.
-        // The `loginsSyncMeta` table was added in v4, and we moved
-        // from using microseconds to milliseconds for `timeCreated`,
-        // `timeLastUsed`, and `timePasswordChanged`.
-        db.execute_all(&[
-            CREATE_META_TABLE_SQL,
-            UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL,
-            UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL,
-            &*SET_VERSION_SQL,
-        ])?;
-    }
+
+    // Schema upgrades that should happen after the sqlcipher -> plaintext migration go here
+
     Ok(())
 }
 
@@ -304,5 +297,66 @@ pub(crate) fn drop(db: &Connection) -> Result<()> {
         "DROP TABLE IF EXISTS loginsSyncMeta",
         "PRAGMA user_version = 0",
     ])?;
+    Ok(())
+}
+
+// Run schema upgrades for a SQLCipher database.  This will bring the database up to version 5
+// which is required before migrating it to a plaintext database.
+pub(crate) fn upgrade_sqlcipher_db(db: &mut Connection, _encryption_key: &str) -> Result<()> {
+    let user_version = db.query_one::<i64>("PRAGMA user_version")?;
+
+    if user_version == 0 {
+        // This logic is largely taken from firefox-ios. AFAICT at some point
+        // they went from having schema versions tracked using a table named
+        // `tableList` to using `PRAGMA user_version`. This leads to the
+        // following logic:
+        //
+        // - If `tableList` exists, we're hopelessly far in the past
+        //
+        // - If `tableList` doesn't exist and `PRAGMA user_version` is 0, it's
+        //   the first time through
+        //
+        // In either case, we're not going to be able to migrate any data.  Return an error which
+        // signals to the calling code that we can't migrate and therefore we should just delete
+        // the sqlcipher db and start fresh.
+        return Err(ErrorKind::InvalidDatabaseFile(
+            "can't migrate to plaintext when user_version is 0".into(),
+        )
+        .into());
+    }
+    log::debug!(
+        "Upgrading schema from {} to {} to prep for plaintext migration",
+        user_version,
+        SQLCIPHER_SWITCHOVER_VERSION
+    );
+    if user_version >= SQLCIPHER_SWITCHOVER_VERSION {
+        // This is a weird case that shouldn't happen in practice, since as soon as we upgrade the
+        // schema we immediately export it to plaintext then delete the sqlcipher file.  But if we
+        // somehow get here, it seems reasonable to try to continue on with the process, in theory
+        // we should be able to export to plaintext.
+        return Ok(());
+    }
+    let tx = db.transaction()?;
+    if user_version < 3 {
+        // These indices were added in v3 (apparently)
+        tx.execute_all(&[
+            CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
+            CREATE_DELETED_HOSTNAME_INDEX_SQL,
+        ])?;
+    }
+    if user_version < 4 {
+        // This is the update from the firefox-ios schema to our schema.
+        // The `loginsSyncMeta` table was added in v4, and we moved
+        // from using microseconds to milliseconds for `timeCreated`,
+        // `timeLastUsed`, and `timePasswordChanged`.
+        tx.execute_all(&[
+            CREATE_META_TABLE_SQL,
+            UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL,
+            UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL,
+            &*SET_VERSION_SQL,
+        ])?;
+    }
+    tx.execute("PRAGMA user_version = ?", &[SQLCIPHER_SWITCHOVER_VERSION])?;
+    tx.commit()?;
     Ok(())
 }
