@@ -80,6 +80,9 @@ interface NimbusInterface {
      */
     fun getExperimentBranches(experimentId: String): List<Branch>? = listOf()
 
+    @AnyThread
+    fun getVariables(featureId: String): Variables = NullVariables.instance
+
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
      *
@@ -322,6 +325,12 @@ open class Nimbus(
         recordExposure(experimentId)
         return nimbusClient.getExperimentBranch(experimentId)
     }
+
+    override fun getVariables(featureId: String): Variables =
+        withCatchAll {
+            val json = JSONObject("{}")
+            JSONVariables(context = context, json = json)
+        } ?: NullVariables.instance
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
