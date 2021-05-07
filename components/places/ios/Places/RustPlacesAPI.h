@@ -208,3 +208,45 @@ void places_connection_destroy(PlacesConnectionHandle conn,
 
 void places_api_destroy(PlacesAPIHandle api,
                         PlacesRustError *_Nonnull out_err);
+
+// MARK: History metadata storage
+PlacesRustBuffer places_get_latest_history_metadata_for_url(
+                                                PlacesConnectionHandle handle,
+                                                char const *_Nonnull url,
+                                                PlacesRustError *_Nonnull out_err);
+
+PlacesRustBuffer places_get_history_metadata_between(
+                                                     PlacesConnectionHandle handle,
+                                                     int64_t start,
+                                                     int64_t end,
+                                                     PlacesRustError *_Nonnull out_err);
+
+PlacesRustBuffer places_get_history_metadata_since(
+                                                   PlacesConnectionHandle handle,
+                                                   int64_t since,
+                                                   PlacesRustError *_Nonnull out_err);
+
+
+PlacesRustBuffer places_query_history_metadata(
+                                               PlacesConnectionHandle handle,
+                                               char const *_Nonnull query,
+                                               int32_t limit,
+                                               PlacesRustError *_Nonnull out_err);
+
+char *_Nonnull places_add_history_metadata(
+                                           PlacesConnectionHandle handle,
+                                           uint8_t const *_Nonnull data,
+                                           int32_t len,
+                                           PlacesRustError *_Nonnull out_err);
+
+void places_update_history_metadata(
+                                    PlacesConnectionHandle handle,
+                                    char const *_Nonnull guid,
+                                    int32_t totalViewTime,
+                                    PlacesRustError *_Nonnull out_err);
+
+void places_metadata_delete_older_than(
+                                       PlacesConnectionHandle handle,
+                                       int64_t olderThan,
+                                       PlacesRustError *_Nonnull out_err);
+

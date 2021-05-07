@@ -516,6 +516,59 @@ public class PlacesReadConnection {
         }
     }
 
+    // MARK: History Metadata
+
+    open func getLatestHistoryMetadataForUrl(url: String) throws -> HistoryMetadata? {
+        return try queue.sync {
+            try self.checkApi()
+            let buffer = try PlacesError.unwrap { error in
+                places_get_latest_history_metadata_for_url(self.handle, url, error)
+            }
+            if buffer.data == nil {
+                return nil
+            }
+            defer { places_destroy_bytebuffer(buffer) }
+            let msg = try MsgTypes_HistoryMetadata(serializedData: Data(placesRustBuffer: buffer))
+            return unpackMetadataProtobuf(msg: msg)
+        }
+    }
+
+    open func getHistoryMetadataSince(since: Int64) throws -> [HistoryMetadata] {
+        return try queue.sync {
+            try self.checkApi()
+            let buffer = try PlacesError.unwrap { error in
+                places_get_history_metadata_since(self.handle, since, error)
+            }
+            defer { places_destroy_bytebuffer(buffer) }
+            let msg = try MsgTypes_HistoryMetadataList(serializedData: Data(placesRustBuffer: buffer))
+            return unpackMetadataListProtobuf(msg: msg)
+        }
+    }
+
+    open func getHistoryMetadataBetween(start: Int64, end: Int64) throws -> [HistoryMetadata] {
+        return try queue.sync {
+            try self.checkApi()
+            let buffer = try PlacesError.unwrap { error in
+                places_get_history_metadata_between(self.handle, start, end, error)
+            }
+            defer { places_destroy_bytebuffer(buffer) }
+            let msg = try MsgTypes_HistoryMetadataList(serializedData: Data(placesRustBuffer: buffer))
+            return unpackMetadataListProtobuf(msg: msg)
+        }
+    }
+
+    open func queryHistoryMetadata(query: String, limit: Int32) throws -> [HistoryMetadata] {
+        return try queue.sync {
+            try self.checkApi()
+            let buffer = try PlacesError.unwrap { error in
+                places_query_history_metadata(self.handle, query, limit, error)
+            }
+            defer { places_destroy_bytebuffer(buffer) }
+            let msg = try MsgTypes_HistoryMetadataList(serializedData: Data(placesRustBuffer: buffer))
+            return unpackMetadataListProtobuf(msg: msg)
+        }
+    }
+
     /**
      * Attempt to interrupt a long-running operation which may be
      * happening concurrently. If the operation is interrupted,
@@ -830,6 +883,49 @@ public class PlacesWriteConnection: PlacesReadConnection {
             msg.position = pos
         }
         return msg
+    }
+
+    // MARK: History Metadata
+
+    open func addHistoryMetadata(metadata: HistoryMetadata) throws -> String {
+        return try queue.sync {
+            try self.checkApi()
+
+            var msg = MsgTypes_HistoryMetadata()
+            msg.url = metadata.url
+            msg.createdAt = metadata.createdAt
+            msg.updatedAt = metadata.updatedAt
+            msg.totalViewTime = metadata.totalViewTime
+            msg.isMedia = metadata.isMedia
+
+            if let t = metadata.title {
+                msg.title = t
+            }
+            if let p = metadata.parentUrl {
+                msg.parentURL = p
+            }
+            if let s = metadata.searchTerm {
+                msg.searchTerm = s
+            }
+
+            let data = try! msg.serializedData()
+            let size = Int32(data.count)
+            return try data.withUnsafeBytes { bytes -> String in
+                let idStr = try PlacesError.unwrap { error in
+                    places_add_history_metadata(self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error)
+                }
+                return String(freeingPlacesString: idStr)
+            }
+        }
+    }
+
+    open func updateHistoryMetadata(guid: String, totalViewTime: Int32) throws {
+        return try queue.sync {
+            try self.checkApi()
+            try PlacesError.unwrap { error in
+                places_update_history_metadata(self.handle, guid, totalViewTime, error)
+            }
+        }
     }
 }
 

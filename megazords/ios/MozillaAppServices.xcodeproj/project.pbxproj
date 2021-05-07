@@ -97,6 +97,7 @@
 		CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFB1EAF22EF708B0001E20F /* ResultError.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D9FA8C542644A170008344BF /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
 		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
 		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
 		EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* LoginsTests.swift */; };
@@ -249,6 +250,7 @@
 		CED443CC23CD13E5007E5FA6 /* FxAccountDeviceConstellation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FxAccountDeviceConstellation.swift; sourceTree = "<group>"; };
 		CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistedFirefoxAccount.swift; sourceTree = "<group>"; };
 		CEFB1EAF22EF708B0001E20F /* ResultError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultError.swift; sourceTree = "<group>"; };
+		D9FA8C532644A170008344BF /* HistoryMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryMetadata.swift; sourceTree = "<group>"; };
 		EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftProtobuf.framework; path = ../../Carthage/Build/iOS/SwiftProtobuf.framework; sourceTree = "<group>"; };
 		EB879D7A221234EB00753DC9 /* MozillaAppServicesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MozillaAppServicesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB879D7E221234EB00753DC9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -516,6 +518,7 @@
 				CD85A44C22361E880099BFA9 /* Extensions */,
 				CD85A44F22361E880099BFA9 /* Bookmark.swift */,
 				CD85A45022361E880099BFA9 /* Errors */,
+				D9FA8C532644A170008344BF /* HistoryMetadata.swift */,
 			);
 			name = Places;
 			path = ../../components/places/ios/Places;
@@ -831,6 +834,7 @@
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
 				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
+				D9FA8C542644A170008344BF /* HistoryMetadata.swift in Sources */,
 				BF1A87AC25064A8100FED88E /* MemoryUnit.swift in Sources */,
 				BF1A87BE25064A9400FED88E /* HttpPingUploader.swift in Sources */,
 				BF1A87CF25064AC000FED88E /* Utils.swift in Sources */,
