@@ -648,7 +648,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             }
         }
 
-        // Step 3 evolve the remaining enrollments with the previous and
+        // Step 3. Evolve the remaining enrollments with the previous and
         // next data.
         for next_experiment in next_experiments.values() {
             let slug = &next_experiment.slug;
