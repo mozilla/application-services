@@ -2,9 +2,10 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::get_enrollments;
+use crate::enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig};
 use crate::error::{NimbusError, Result};
-use crate::persistence::{Database, Writer};
+use crate::persistence::{Database, StoreId, Writer};
+use crate::{enrollment::ExperimentEnrollment, Experiment};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -17,7 +18,7 @@ use std::sync::RwLock;
 // recreated every time the cache is updated.
 struct CachedData {
     pub branches_by_experiment: HashMap<String, String>,
-    pub branches_by_feature: HashMap<String, String>,
+    pub features_by_feature_id: HashMap<String, EnrolledFeatureConfig>,
 }
 
 // This is the public cache API. Each NimbusClient can create one of these and
@@ -43,7 +44,7 @@ impl DatabaseCache {
     pub fn commit_and_update(&self, db: &Database, writer: Writer) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
-        let experiments = get_enrollments(&db, &writer)?;
+        let enrollments = get_enrollments(&db, &writer)?;
 
         // Build the new hashmaps.  Note that this is somewhat temporary, is
         // likely to change when the full FeatureConfig stuff is implemented.
@@ -51,17 +52,22 @@ impl DatabaseCache {
         // one feature_id per experiment, meaning that we ignore everything
         // except the first feature_id in the array.  Some of the multi-feature
         // code may want to live in the EnrollmentEvolver.
-        let mut branches_by_experiment = HashMap::with_capacity(experiments.len());
-        let mut branches_by_feature = HashMap::with_capacity(experiments.len());
+        let mut branches_by_experiment = HashMap::with_capacity(enrollments.len());
 
-        for e in experiments {
+        for e in enrollments {
             branches_by_experiment.insert(e.slug, e.branch_slug.clone());
-            branches_by_feature.insert(e.feature_ids[0].clone(), e.branch_slug);
         }
+
+        let enrollments: Vec<ExperimentEnrollment> =
+            db.get_store(StoreId::Enrollments).collect_all(&writer)?;
+        let experiments: Vec<Experiment> =
+            db.get_store(StoreId::Experiments).collect_all(&writer)?;
+
+        let features_by_feature_id = map_features_by_feature_id(&enrollments, &experiments);
 
         let data = CachedData {
             branches_by_experiment,
-            branches_by_feature,
+            features_by_feature_id,
         };
 
         // Try to commit the change to disk and update the cache as close
@@ -98,9 +104,19 @@ impl DatabaseCache {
     }
 
     pub fn get_experiment_branch(&self, id: &str) -> Result<Option<String>> {
-        self.get_data(|data| match data.branches_by_feature.get(id) {
+        self.get_data(|data| match data.features_by_feature_id.get(id) {
             None => data.branches_by_experiment.get(id).cloned(),
-            Some(branch_slug) => Some(branch_slug.to_owned()),
+            Some(feature) => Some(feature.branch.clone()),
+        })
+    }
+
+    pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
+        self.get_data(|data| {
+            if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
+                Some(enrolled_feature.feature.value.clone())
+            } else {
+                None
+            }
         })
     }
 }

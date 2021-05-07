@@ -35,8 +35,8 @@ pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
-use std::path::PathBuf;
 use std::sync::Mutex;
+use std::{collections::HashMap, path::PathBuf};
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -100,6 +100,11 @@ impl NimbusClient {
     // Note: the contract for this function is that it never blocks on IO.
     pub fn get_experiment_branch(&self, slug: String) -> Result<Option<String>> {
         self.database_cache.get_experiment_branch(&slug)
+    }
+
+    pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
+        self.database_cache
+            .get_feature_config_variables(&feature_id)
     }
 
     pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<Branch>> {
@@ -373,8 +378,20 @@ pub struct FeatureConfig {
     pub feature_id: String,
     pub enabled: bool,
     // There is a nullable `value` field that can contain key-value config options
-    // that modify the behaviour of an application feature, but we don't support
-    // it yet and the details are still being finalized, so we ignore it for now.
+    // that modify the behaviour of an application feature. Uniffi doesn't quite support
+    // serde_json yet.
+    #[serde(default = "default_value")]
+    pub value: String,
+}
+
+fn default_value() -> String {
+    "{}".into()
+}
+
+#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
+pub struct FeatureVariables {
+    #[serde(flatten)]
+    pub variables: HashMap<String, serde_json::Value>,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -818,5 +835,47 @@ mod test_schema_bw_compat {
         assert_eq!(exp.app_name, Some("fenix".to_string()));
         assert_eq!(exp.app_id, Some("org.mozilla.fenix".to_string()));
         assert_eq!(exp.channel, Some("nightly".to_string()));
+    }
+}
+
+#[cfg(test)]
+mod test_schema_deserialization {
+    use super::*;
+
+    use serde_json::{json, Value};
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    #[serde(rename_all = "camelCase")]
+    pub struct FeatureConfigProposed {
+        pub enabled: bool,
+        pub feature_id: String,
+        #[serde(default)]
+        pub value: Value,
+    }
+
+    #[test]
+    fn test_deserialize_untyped_json() -> Result<()> {
+        let without_value = serde_json::from_value::<FeatureConfigProposed>(json!(
+            {
+                "featureId": "some_control",
+                "enabled": true,
+            }
+        ))?;
+
+        log::debug!("default value: {:?}", without_value);
+
+        let with_value = serde_json::from_value::<FeatureConfigProposed>(json!(
+            {
+                "featureId": "some_control",
+                "enabled": true,
+                "value": {
+                    "color": "blue",
+                },
+            }
+        ))?;
+
+        assert_eq!(with_value.value.get("color").unwrap(), "blue");
+
+        Ok(())
     }
 }

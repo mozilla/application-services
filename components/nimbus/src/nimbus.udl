@@ -41,6 +41,7 @@ dictionary Branch {
 dictionary FeatureConfig {
     string feature_id;
     boolean enabled;
+    string value;
 };
 
 dictionary RemoteSettingsConfig {

@@ -823,7 +823,7 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
 
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
 /// `EnrolledFeatureConfig` structs.
-pub fn map_features(
+fn map_features(
     enrollments: &[ExperimentEnrollment],
     experiments: &HashMap<String, &Experiment>,
 ) -> HashMap<String, EnrolledFeatureConfig> {
@@ -839,6 +839,13 @@ pub fn map_features(
     }
 
     map
+}
+
+pub fn map_features_by_feature_id(
+    enrollments: &[ExperimentEnrollment],
+    experiments: &[Experiment],
+) -> HashMap<String, EnrolledFeatureConfig> {
+    map_features(enrollments, &map_experiments(experiments))
 }
 
 fn get_feature_config(
@@ -879,10 +886,10 @@ fn get_feature_config(
 /// and enrollments.
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnrolledFeatureConfig {
-    feature: FeatureConfig,
-    slug: String,
-    branch: String,
-    feature_id: String,
+    pub feature: FeatureConfig,
+    pub slug: String,
+    pub branch: String,
+    pub feature_id: String,
 }
 
 #[derive(Debug)]
