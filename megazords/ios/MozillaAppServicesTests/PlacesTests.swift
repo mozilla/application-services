@@ -252,4 +252,91 @@ class PlacesTests: XCTestCase {
             "childGUIDs": [newFolderGUID, sepGUID],
         ], checkChildren: .onlyGUIDs)
     }
+
+    // MARK: history metadata tests
+
+    func testHistoryMetadataBasics() {
+        let currentTime = Int64(Date().timeIntervalSince1970 * 1000)
+        let db = api.getWriter()
+
+        XCTAssertNil(try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org"))
+
+        let meta = HistoryMetadata(
+            guid: nil,
+            url: "http://www.mozilla.org",
+            title: nil,
+            createdAt: currentTime,
+            updatedAt: currentTime,
+            totalViewTime: 1000,
+            searchTerm: nil,
+            isMedia: false,
+            parentUrl: nil
+        )
+        _ = try! db.addHistoryMetadata(metadata: meta)
+
+        let dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertNotNil(dbMeta)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.url)
+        XCTAssertEqual(nil, dbMeta!.title)
+        XCTAssertEqual(nil, dbMeta!.parentUrl)
+        XCTAssertEqual(nil, dbMeta!.searchTerm)
+        XCTAssertEqual(false, dbMeta!.isMedia)
+        XCTAssertEqual(1000, dbMeta!.totalViewTime)
+
+        let meta2 = HistoryMetadata(
+            guid: nil,
+            url: "http://www.mozilla.org/another/",
+            title: "Some title",
+            createdAt: currentTime,
+            updatedAt: currentTime + 1000,
+            totalViewTime: 2000,
+            searchTerm: "another firefox",
+            isMedia: true,
+            parentUrl: "https://www.google.com/search?client=firefox-b-d&q=another+firefox"
+        )
+        let dbMeta2Guid = try! db.addHistoryMetadata(metadata: meta2)
+
+        let dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
+        XCTAssertNotNil(dbMeta2)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.url)
+        XCTAssertEqual("Some title", dbMeta2!.title)
+        XCTAssertEqual("www.google.com", dbMeta2!.parentUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.searchTerm)
+        XCTAssertEqual(true, dbMeta2!.isMedia)
+        XCTAssertEqual(2000, dbMeta2!.totalViewTime)
+
+        var list = try! db.getHistoryMetadataSince(since: currentTime)
+        XCTAssertEqual(2, list.count)
+        list = try! db.getHistoryMetadataSince(since: currentTime + 1)
+        XCTAssertEqual(1, list.count)
+        list = try! db.getHistoryMetadataSince(since: currentTime + 2000)
+        XCTAssertEqual(0, list.count)
+
+        list = try! db.getHistoryMetadataBetween(start: currentTime, end: currentTime)
+        XCTAssertEqual(1, list.count)
+        list = try! db.getHistoryMetadataBetween(start: currentTime + 1, end: currentTime + 2)
+        XCTAssertEqual(0, list.count)
+        list = try! db.getHistoryMetadataBetween(start: currentTime, end: currentTime + 1000)
+        XCTAssertEqual(2, list.count)
+        list = try! db.getHistoryMetadataBetween(start: currentTime, end: currentTime + 999)
+        XCTAssertEqual(1, list.count)
+        list = try! db.getHistoryMetadataBetween(start: currentTime + 1, end: currentTime + 1000)
+        XCTAssertEqual(1, list.count)
+        list = try! db.getHistoryMetadataBetween(start: currentTime + 1, end: currentTime + 999)
+        XCTAssertEqual(0, list.count)
+
+        // by search term
+        list = try! db.queryHistoryMetadata(query: "firefox", limit: 100)
+        XCTAssertEqual(1, list.count)
+        // by url
+        list = try! db.queryHistoryMetadata(query: "mozilla", limit: 100)
+        XCTAssertEqual(2, list.count)
+        // by title
+        list = try! db.queryHistoryMetadata(query: "title", limit: 100)
+        XCTAssertEqual(1, list.count)
+
+        try! db.updateHistoryMetadata(guid: dbMeta2Guid, totalViewTime: 5000)
+        let updatedMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
+        XCTAssertEqual(5000, updatedMeta2!.totalViewTime)
+    }
 }
