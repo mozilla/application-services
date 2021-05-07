@@ -4,12 +4,14 @@
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
-use crate::{AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment};
+use crate::{
+    AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig,
+};
 
 use ::uuid::Uuid;
 use serde_derive::*;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -22,8 +24,10 @@ const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 360
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
-    Qualified, // A normal enrollment as per the experiment's rules.
-    OptIn,     // Explicit opt-in.
+    /// A normal enrollment as per the experiment's rules.
+    Qualified,
+    /// Explicit opt-in.
+    OptIn,
 }
 
 // These are types we use internally for managing non-enrollments.
@@ -32,10 +36,16 @@ pub enum EnrolledReason {
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum NotEnrolledReason {
-    OptOut,      // The user opted-out of experiments before we ever got enrolled to this one.
-    NotSelected, // The evaluator bucketing did not choose us.
-    NotTargeted, // We are not being targeted for this experiment.
-    EnrollmentsPaused, // The experiment enrollment is paused.
+    /// The user opted-out of experiments before we ever got enrolled to this one.
+    OptOut,
+    /// The evaluator bucketing did not choose us.
+    NotSelected,
+    /// We are not being targeted for this experiment.
+    NotTargeted,
+    /// The experiment enrollment is paused.
+    EnrollmentsPaused,
+    /// The experiment used a feature that was already under experiment.
+    FeatureConflict,
 }
 
 // These are types we use internally for managing disqualifications.
@@ -44,9 +54,12 @@ pub enum NotEnrolledReason {
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DisqualifiedReason {
-    Error,       // There was an error.
-    OptOut,      // The user opted-out from this experiment or experiments in general.
-    NotTargeted, // The targeting has changed for an experiment.
+    /// There was an error.
+    Error,
+    /// The user opted-out from this experiment or experiments in general.
+    OptOut,
+    /// The targeting has changed for an experiment.
+    NotTargeted,
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
@@ -557,32 +570,31 @@ impl<'a> EnrollmentsEvolver<'a> {
         &self,
         db: &Database,
         writer: &mut Writer,
-        updated_experiments: &[Experiment],
+        next_experiments: &[Experiment],
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         // Get the state from the db.
         let is_user_participating = get_global_user_participation(db, writer)?;
         let experiments_store = db.get_store(StoreId::Experiments);
         let enrollments_store = db.get_store(StoreId::Enrollments);
-        let existing_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
-        let existing_enrollments: Vec<ExperimentEnrollment> =
-            enrollments_store.collect_all(writer)?;
+        let prev_experiments: Vec<Experiment> = experiments_store.collect_all(writer)?;
+        let prev_enrollments: Vec<ExperimentEnrollment> = enrollments_store.collect_all(writer)?;
         // Calculate the changes.
-        let (updated_enrollments, enrollments_change_events) = self.evolve_enrollments(
+        let (next_enrollments, enrollments_change_events) = self.evolve_enrollments(
             is_user_participating,
-            &existing_experiments,
-            updated_experiments,
-            &existing_enrollments,
+            &prev_experiments,
+            next_experiments,
+            &prev_enrollments,
         )?;
-        let updated_enrollments = map_enrollments(&updated_enrollments);
+        let next_enrollments = map_enrollments(&next_enrollments);
         // Write the changes to the Database.
         enrollments_store.clear(writer)?;
-        for enrollment in updated_enrollments.values() {
+        for enrollment in next_enrollments.values() {
             enrollments_store.put(writer, &enrollment.slug, *enrollment)?;
         }
         experiments_store.clear(writer)?;
-        for experiment in updated_experiments {
+        for experiment in next_experiments {
             // Sanity check.
-            if !updated_enrollments.contains_key(&experiment.slug) {
+            if !next_enrollments.contains_key(&experiment.slug) {
                 return Err(NimbusError::InternalError(
                     "An experiment must always have an associated enrollment.",
                 ));
@@ -597,86 +609,199 @@ impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn evolve_enrollments(
         &self,
         is_user_participating: bool,
-        existing_experiments: &[Experiment],
-        updated_experiments: &[Experiment],
-        existing_enrollments: &[ExperimentEnrollment],
+        prev_experiments: &[Experiment],
+        next_experiments: &[Experiment],
+        prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
-        let existing_experiments = map_experiments(&existing_experiments);
-        let updated_experiments = map_experiments(&updated_experiments);
-        let existing_enrollments = map_enrollments(&existing_enrollments);
+        let prev_experiments = map_experiments(&prev_experiments);
+        let next_experiments = map_experiments(&next_experiments);
+        let prev_enrollments = map_enrollments(&prev_enrollments);
 
-        let mut all_slugs = HashSet::with_capacity(existing_experiments.len());
-        all_slugs.extend(existing_experiments.keys());
-        all_slugs.extend(updated_experiments.keys());
-        all_slugs.extend(existing_enrollments.keys());
+        // Step 1. Build an initial active_features to keep track of
+        // the features that are being experimented upon.
+        let mut active_features = HashMap::with_capacity(next_experiments.len());
 
-        let mut updated_enrollments = Vec::with_capacity(all_slugs.len());
-        for slug in all_slugs {
-            let updated_enrollment = self.evolve_enrollment(
+        let mut next_enrollments = HashMap::with_capacity(next_experiments.len());
+
+        // Step 2.
+        // Evolve the experiments with previous enrollments first (except for
+        // those that already have a feature conflict).  While we're doing so,
+        // start building up active_features, the map of feature_ids under
+        // experiment to EnrolledFeatureConfigs, and next_enrollments.
+
+        for prev_enrollment in prev_enrollments.values() {
+            if matches!(
+                prev_enrollment.status,
+                EnrollmentStatus::NotEnrolled {
+                    reason: NotEnrolledReason::FeatureConflict
+                }
+            ) {
+                continue;
+            }
+            let slug = &prev_enrollment.slug;
+
+            let next_enrollment = self.evolve_enrollment(
                 is_user_participating,
-                existing_experiments.get(slug).copied(),
-                updated_experiments.get(slug).copied(),
-                existing_enrollments.get(slug).copied(),
+                prev_experiments.get(slug).copied(),
+                next_experiments.get(slug).copied(),
+                Some(prev_enrollment),
                 &mut enrollment_events,
             )?;
-            if let Some(enrollment) = updated_enrollment {
-                updated_enrollments.push(enrollment);
+
+            if let Some(enrollment) = next_enrollment {
+                // We get the FeatureConfig out of the enrollment.
+                if let Some(enrolled_feature) = get_feature_config(&enrollment, &next_experiments) {
+                    active_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
+                }
+                next_enrollments.insert(slug, enrollment);
             }
         }
 
-        Ok((updated_enrollments, enrollment_events))
+        // Step 3. Evolve the remaining enrollments with the previous and
+        // next data.
+        for next_experiment in next_experiments.values() {
+            let slug = &next_experiment.slug;
+
+            // Check that the feature id is available.  If not, then declare
+            // the enrollment as NotEnrolled; and we continue to the next
+            // experiment.
+            let feature_id = &next_experiment.get_first_feature_id();
+            if let Some(enrolled_feature) = active_features.get(feature_id) {
+                if slug != &enrolled_feature.slug {
+                    // This feature is already in use by another experiment.
+                    next_enrollments.insert(
+                        slug,
+                        ExperimentEnrollment {
+                            slug: slug.clone(),
+                            status: EnrollmentStatus::NotEnrolled {
+                                reason: NotEnrolledReason::FeatureConflict,
+                            },
+                        },
+                    );
+                    // So now we know that the experiment is acting on
+                    // features that are already active. So continue to
+                    // the next experiment. But…
+                }
+                // … perhaps we can continue here too? Because
+                // if the feature is already active,
+                //    …and the experiment it's using is this one,
+                //    …then we don't need to evolve the enrollment here,
+                //     because we did it in step 2.
+                continue;
+            }
+
+            // If we got here, then the feature is not already active.
+            // But we evolved all the existing enrollments in step 2,
+            // (except the feature conflicted ones)
+            // so we should be mindful that we don't evolve them a second time.
+            let prev_enrollment = prev_enrollments.get(slug).copied();
+
+            if prev_enrollment.is_none()
+                || matches!(
+                    prev_enrollment.unwrap().status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::FeatureConflict
+                    }
+                )
+            {
+                let next_enrollment = self.evolve_enrollment(
+                    is_user_participating,
+                    prev_experiments.get(slug).copied(),
+                    Some(next_experiment),
+                    prev_enrollment,
+                    &mut enrollment_events,
+                )?;
+
+                if let Some(enrollment) = next_enrollment {
+                    // We get the FeatureConfig out of the enrollment.
+                    // This is copied from above. We should consider making this a function.
+                    if let Some(enrolled_feature) =
+                        get_feature_config(&enrollment, &next_experiments)
+                    {
+                        active_features
+                            .insert(enrolled_feature.feature_id.clone(), enrolled_feature);
+                    }
+                    next_enrollments.insert(slug, enrollment);
+                }
+            }
+        }
+
+        let updated_enrollments: Vec<ExperimentEnrollment> =
+            next_enrollments.values().cloned().collect();
+
+        // Check that we generate the active feature map from the new
+        // enrollments and new experiments.  Perhaps this should just be an
+        // assert.
+        let updated_active_features = map_features(&updated_enrollments, &next_experiments);
+        if active_features != updated_active_features {
+            Err(NimbusError::InternalError(
+                "Next enrollment calculation error",
+            ))
+        } else {
+            Ok((updated_enrollments, enrollment_events))
+        }
     }
 
-    /// Evolve a single enrollment using the previous and current state of an experiment.
+    /// Evolve a single enrollment using the previous and current state of an
+    /// experiment and maybe garbage collect at least a subset of invalid
+    /// experiments.
+    ///
+    /// XXX need to verify the exact set of gc-related side-effects and
+    /// document them here.
+    ///
+    /// Returns an Option-wrapped version of the updated enrollment.  None
+    /// means that the enrollment has been/should be discarded.
     fn evolve_enrollment(
         &self,
         is_user_participating: bool,
-        existing_experiment: Option<&Experiment>,
-        updated_experiment: Option<&Experiment>,
-        existing_enrollment: Option<&ExperimentEnrollment>,
+        prev_experiment: Option<&Experiment>,
+        next_experiment: Option<&Experiment>,
+        prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
-        Ok(
-            match (existing_experiment, updated_experiment, existing_enrollment) {
-                // New experiment.
-                (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
+        Ok(match (prev_experiment, next_experiment, prev_enrollment) {
+            // New experiment.
+            (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
+                is_user_participating,
+                self.nimbus_id,
+                self.available_randomization_units,
+                self.app_context,
+                experiment,
+                out_enrollment_events,
+            )?),
+            // Experiment deleted remotely.
+            (Some(_), None, Some(enrollment)) => {
+                enrollment.on_experiment_ended(out_enrollment_events)
+            }
+            // Known experiment.
+            (Some(_), Some(experiment), Some(enrollment)) => {
+                Some(enrollment.on_experiment_updated(
                     is_user_participating,
                     self.nimbus_id,
                     self.available_randomization_units,
                     self.app_context,
                     experiment,
                     out_enrollment_events,
-                )?),
-                // Experiment deleted remotely.
-                (Some(_), None, Some(enrollment)) => {
-                    enrollment.on_experiment_ended(out_enrollment_events)
-                }
-                // Known experiment.
-                (Some(_), Some(experiment), Some(enrollment)) => {
-                    Some(enrollment.on_experiment_updated(
-                        is_user_participating,
-                        self.nimbus_id,
-                        self.available_randomization_units,
-                        self.app_context,
-                        experiment,
-                        out_enrollment_events,
-                    )?)
-                }
-                (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),
-                (None, Some(_), Some(_)) => {
-                    return Err(NimbusError::InternalError(
-                        "New experiment but enrollment already exists.",
-                    ))
-                }
-                (Some(_), None, None) | (Some(_), Some(_), None) => {
-                    return Err(NimbusError::InternalError(
-                        "Experiment in the db did not have an associated enrollment record.",
-                    ))
-                }
-                (None, None, None) => unreachable!(),
-            },
-        )
+                )?)
+            }
+            (None, None, Some(enrollment)) => enrollment.maybe_garbage_collect(),
+            (None, Some(_), Some(_)) => {
+                return Err(NimbusError::InternalError(
+                    "New experiment but enrollment already exists.",
+                ))
+            }
+            (Some(_), None, None) | (Some(_), Some(_), None) => {
+                return Err(NimbusError::InternalError(
+                    "Experiment in the db did not have an associated enrollment record.",
+                ))
+            }
+            (None, None, None) => {
+                return Err(NimbusError::InternalError(
+                    "evolve_experiment called with nothing that could evolve or be evolved",
+                ))
+            }
+        })
     }
 }
 
@@ -696,6 +821,71 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
+/// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
+/// `EnrolledFeatureConfig` structs.
+pub fn map_features(
+    enrollments: &[ExperimentEnrollment],
+    experiments: &HashMap<String, &Experiment>,
+) -> HashMap<String, EnrolledFeatureConfig> {
+    let mut map = HashMap::with_capacity(enrollments.len());
+    for enrolled_feature_config in enrollments
+        .iter()
+        .filter_map(|e| get_feature_config(e, experiments))
+    {
+        map.insert(
+            enrolled_feature_config.feature_id.clone(),
+            enrolled_feature_config,
+        );
+    }
+
+    map
+}
+
+fn get_feature_config(
+    enrollment: &ExperimentEnrollment,
+    experiments: &HashMap<String, &Experiment>,
+) -> Option<EnrolledFeatureConfig> {
+    let branch_name = match &enrollment.status {
+        EnrollmentStatus::Enrolled { branch, .. } => branch.clone(),
+        _ => return None,
+    };
+
+    let slug = &enrollment.slug;
+
+    let experiment = match experiments.get(slug).copied() {
+        Some(exp) => exp,
+        _ => return None,
+    };
+
+    let branches = &experiment.branches;
+    let feature_id = &experiment.get_first_feature_id();
+
+    let feature = match branches.iter().find(|b| b.slug == branch_name) {
+        Some(branch) => branch.feature.clone(),
+        _ => None,
+    }
+    .unwrap_or_default();
+
+    Some(EnrolledFeatureConfig {
+        feature,
+        slug: slug.clone(),
+        branch: branch_name,
+        feature_id: feature_id.clone(),
+    })
+}
+
+/// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
+/// By design, we don't want to store it on the disk. Instead we calculate it from experiments
+/// and enrollments.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnrolledFeatureConfig {
+    feature: FeatureConfig,
+    slug: String,
+    branch: String,
+    feature_id: String,
+}
+
+#[derive(Debug)]
 pub struct EnrollmentChangeEvent {
     pub experiment_slug: String,
     pub branch_slug: String,
@@ -868,8 +1058,22 @@ mod tests {
                 "slug": "secure-silver",
                 "endDate": null,
                 "branches":[
-                    {"slug": "control", "ratio": 1}, // XXX add feature
-                    {"slug": "treatment","ratio":1}, // XXX add feature
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": true,
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": false,
+                        }
+                    },
                 ],
                 "featureIds": ["monkey"],
                 "channel": "nightly",
@@ -895,6 +1099,120 @@ mod tests {
             }))
             .unwrap(),
         ]
+    }
+
+    fn get_feature_conflict_test_experiments() -> Vec<Experiment> {
+        vec![
+            serde_json::from_value(json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold",
+                "endDate": null,
+                "featureIds": ["about_welcome"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"secure-gold",
+                "last_modified":1_602_197_324_372i64
+            }))
+            .unwrap(),
+            serde_json::from_value(json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-silver",
+                "endDate": null,
+                "branches":[
+                    {"slug": "control", "ratio": 1}, // XXX add feature
+                    {"slug": "treatment","ratio":1}, // XXX add feature
+                ],
+                "featureIds": ["about_welcome"],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "bucketConfig":{
+                    // Also enroll everyone.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-silver",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"2nd test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"2nd test experiment.",
+                "id":"secure-silver",
+                "last_modified":1_602_197_324_372i64
+            }))
+            .unwrap(),
+        ]
+    }
+
+    fn get_conflicting_experiment() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "another-monkey",
+            "endDate": null,
+            "branches":[
+                {"slug": "control", "ratio": 1, "featureId": "monkey"},
+                {"slug": "treatment","ratio":1, "featureId": "monkey"},
+            ],
+            "featureIds": ["monkey"],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "bucketConfig":{
+                "count":1_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"2nd test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "id":"secure-silver",
+            "last_modified":1_602_197_222_372i64
+        }))
+        .unwrap()
     }
 
     fn get_experiment_enrollments<'r>(
@@ -1442,6 +1760,231 @@ mod tests {
             .unwrap();
         assert_eq!(enrollment, existing_enrollment);
         assert!(events.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_feature_can_have_only_one_experiment() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+
+        // Let's go from no experiments, to some experiments.
+        let existing_experiments: Vec<Experiment> = vec![];
+        let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
+        let updated_experiments = get_feature_conflict_test_experiments();
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        assert_eq!(2, enrollments.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+        assert_eq!(1, enrolled.len());
+
+        let enrolled1 = enrolled;
+
+        // Now let's keep the same number of experiments.
+        // We should get the same results as before.
+        // This time we're testing with a non-empty starting condition.
+        let existing_experiments: Vec<Experiment> = updated_experiments;
+        let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
+        let updated_experiments = get_feature_conflict_test_experiments();
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        assert_eq!(2, enrollments.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+        assert_eq!(1, enrolled.len());
+        let enrolled2 = enrolled;
+
+        assert_eq!(enrolled1, enrolled2);
+
+        // Let's hold it one more time.
+        //
+        // XXXdmose I understand why we did this twice, but what's the point
+        // of doing it a third time?  To prove idempotency for this set of
+        // state transitions?
+        let existing_experiments: Vec<Experiment> = updated_experiments;
+        let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
+        let updated_experiments = get_feature_conflict_test_experiments();
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        assert_eq!(2, enrollments.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+        assert_eq!(1, enrolled.len());
+        let enrolled3 = enrolled;
+
+        assert_eq!(enrolled2, enrolled3);
+
+        // Ok, no more experiments.
+        let existing_experiments: Vec<Experiment> = updated_experiments;
+        let existing_enrollments: Vec<ExperimentEnrollment> = enrollments;
+        let updated_experiments: Vec<Experiment> = vec![];
+        let (enrollments, _events) = evolver.evolve_enrollments(
+            true,
+            &existing_experiments,
+            &updated_experiments,
+            &existing_enrollments,
+        )?;
+
+        // There should be one WasEnrolled; the NotEnrolled will have been
+        // discarded.
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .clone()
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
+            .collect();
+        assert_eq!(1, enrolled.len());
+
+        let enrolled: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+        assert_eq!(0, enrolled.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let mut test_experiments = get_test_experiments();
+        test_experiments.push(get_conflicting_experiment());
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
+
+        assert_eq!(
+            enrollments.len(),
+            3,
+            "There should be exactly 3 ExperimentEnrollments returned"
+        );
+
+        let not_enrolleds = enrollments
+            .iter()
+            .filter(|&e| {
+                matches!(
+                    e.status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::FeatureConflict
+                    }
+                )
+            })
+            .count();
+        assert_eq!(
+            1, not_enrolleds,
+            "exactly one enrollment should have NotEnrolled status"
+        );
+
+        let enrolled_count = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(
+            2, enrolled_count,
+            "exactly two enrollments should have Enrolled status"
+        );
+
+        log::debug!("events: {:?}", events);
+
+        assert_eq!(
+            2,
+            events.iter().count(),
+            "There should be exactly 2 enrollment_change_events"
+        );
+
+        let enrolled_events = events
+            .iter()
+            .filter(|&e| matches!(e.change, EnrollmentChangeEventType::Enrollment))
+            .count();
+        assert_eq!(
+            2, enrolled_events,
+            "exactly two events should have Enrolled event types"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_feature_id_reuse() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let test_experiments = get_test_experiments();
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let (enrollments, _) = evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
+
+        let enrolled_count = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(
+            2, enrolled_count,
+            "exactly two enrollments should have Enrolled status"
+        );
+
+        let conflicting_experiment = get_conflicting_experiment();
+        let (enrollments, events) = evolver.evolve_enrollments(
+            true,
+            &test_experiments,
+            &[test_experiments[0].clone(), conflicting_experiment.clone()],
+            &enrollments,
+        )?;
+
+        log::debug!("events = {:?}", events);
+
+        assert_eq!(events.len(), 2);
+
+        // we didn't include test_experiments[1] in next_experiments above,
+        // so it should have been unenrolled...
+        assert_eq!(events[0].experiment_slug, test_experiments[1].slug);
+        assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
+
+        // ...which will have gotten rid of the thing that otherwise would have
+        // conflicted with conflicting_experiment, allowing it to have now
+        // been enrolled.
+        assert_eq!(events[1].experiment_slug, conflicting_experiment.slug);
+        assert_eq!(events[1].change, EnrollmentChangeEventType::Enrollment);
+
+        let enrolled_count = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(
+            2, enrolled_count,
+            "exactly two enrollments should have Enrolled status"
+        );
+
         Ok(())
     }
 
@@ -2196,6 +2739,23 @@ mod test_schema_bw_compat {
         .unwrap();
         assert!(
             matches!(enroll.status, EnrollmentStatus::Enrolled{ ref feature_id, ..} if feature_id == "some_control")
+        );
+    }
+
+    // In SDK-260 we added a FeatureConflict variant to the NotEnrolledReason
+    // schema.
+    #[test]
+    fn test_not_enrolled_reason_schema_with_feature_conflict() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        let non_enrollment: ExperimentEnrollment = serde_json::from_value(json!({
+            "slug": "secure-gold",
+            "status": {"NotEnrolled": {
+                "reason": "FeatureConflict",
+            }}
+        }))
+        .unwrap();
+        assert!(
+            matches!(non_enrollment.status, EnrollmentStatus::NotEnrolled{ ref reason, ..} if reason == &NotEnrolledReason::FeatureConflict)
         );
     }
 }
