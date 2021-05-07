@@ -24,8 +24,10 @@ const PREVIOUS_ENROLLMENTS_GC_TIME: Duration = Duration::from_secs(30 * 24 * 360
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum EnrolledReason {
-    Qualified, // A normal enrollment as per the experiment's rules.
-    OptIn,     // Explicit opt-in.
+    /// A normal enrollment as per the experiment's rules.
+    Qualified,
+    /// Explicit opt-in.
+    OptIn,
 }
 
 // These are types we use internally for managing non-enrollments.
@@ -34,11 +36,16 @@ pub enum EnrolledReason {
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum NotEnrolledReason {
-    OptOut,      // The user opted-out of experiments before we ever got enrolled to this one.
-    NotSelected, // The evaluator bucketing did not choose us.
-    NotTargeted, // We are not being targeted for this experiment.
-    EnrollmentsPaused, // The experiment enrollment is paused.
-    FeatureConflict, // The experiment used a feature that was already under experiment.
+    /// The user opted-out of experiments before we ever got enrolled to this one.
+    OptOut,
+    /// The evaluator bucketing did not choose us.
+    NotSelected,
+    /// We are not being targeted for this experiment.
+    NotTargeted,
+    /// The experiment enrollment is paused.
+    EnrollmentsPaused,
+    /// The experiment used a feature that was already under experiment.
+    FeatureConflict,
 }
 
 // These are types we use internally for managing disqualifications.
@@ -47,9 +54,12 @@ pub enum NotEnrolledReason {
 // ⚠️ in `mod test_schema_bw_compat` below, and may require a DB migration. ⚠️
 #[derive(Deserialize, Serialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DisqualifiedReason {
-    Error,       // There was an error.
-    OptOut,      // The user opted-out from this experiment or experiments in general.
-    NotTargeted, // The targeting has changed for an experiment.
+    /// There was an error.
+    Error,
+    /// The user opted-out from this experiment or experiments in general.
+    OptOut,
+    /// The targeting has changed for an experiment.
+    NotTargeted,
 }
 
 // Every experiment has an ExperimentEnrollment, even when we aren't enrolled.
@@ -659,7 +669,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             let feature_id = &next_experiment.get_first_feature_id();
             if let Some(enrolled_feature) = active_features.get(feature_id) {
                 if slug != &enrolled_feature.slug {
-                    // This feature is being experimented upon, and but not with the current experiment.
+                    // This feature is already in use by another experiment.
                     next_enrollments.insert(
                         slug,
                         ExperimentEnrollment {
@@ -733,10 +743,15 @@ impl<'a> EnrollmentsEvolver<'a> {
         }
     }
 
-    /// Evolve a single enrollment using the previous and current state of an experiment
-    /// and maybe garbage collect at least a subset of invalid experiments.
-    /// XXX Need to verify this behavior, as it would mean this function could
-    /// have a side effect.
+    /// Evolve a single enrollment using the previous and current state of an
+    /// experiment and maybe garbage collect at least a subset of invalid
+    /// experiments.
+    ///
+    /// XXX need to verify the exact set of gc-related side-effects and
+    /// document them here.
+    ///
+    /// Returns an Option-wrapped version of the updated enrollment.  None
+    /// means that the enrollment has been/should be discarded.
     fn evolve_enrollment(
         &self,
         is_user_participating: bool,
@@ -781,7 +796,11 @@ impl<'a> EnrollmentsEvolver<'a> {
                     "Experiment in the db did not have an associated enrollment record.",
                 ))
             }
-            (None, None, None) => unreachable!(),
+            (None, None, None) => {
+                return Err(NimbusError::InternalError(
+                    "evolve_experiment called with nothing that could evolve or be evolved",
+                ))
+            }
         })
     }
 }
