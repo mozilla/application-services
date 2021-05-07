@@ -48,6 +48,9 @@ pub enum ErrorKind {
     #[error("Invalid path: {0:?}")]
     InvalidPath(OsString),
 
+    #[error("Invalid database file: {0}")]
+    InvalidDatabaseFile(String),
+
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),
 
@@ -98,6 +101,7 @@ impl Error {
             ErrorKind::JsonError(_) => "JsonError",
             ErrorKind::UrlParseError(_) => "UrlParseError",
             ErrorKind::InvalidPath(_) => "InvalidPath",
+            ErrorKind::InvalidDatabaseFile(_) => "InvalidDatabaseFile",
             ErrorKind::SqlError(_) => "SqlError",
             ErrorKind::Interrupted(_) => "Interrupted",
             ErrorKind::InvalidLogin(desc) => match desc {

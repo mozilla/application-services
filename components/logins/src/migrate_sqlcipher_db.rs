@@ -14,16 +14,21 @@ pub fn migrate_sqlcipher_db_to_plaintext(
     old_db_path: impl AsRef<Path>,
     new_db_path: impl AsRef<Path>,
     old_encryption_key: &str,
-    _new_encryption_key: &str, // TODO: send this to schema::init() to encrypt the username/password fields
+    new_encryption_key: &str,
     salt: Option<&str>,
 ) -> Result<()> {
     let mut db = Connection::open(old_db_path)?;
-    init_sqlcipher_db(&mut db, old_encryption_key, salt)?;
+    init_sqlcipher_db(&mut db, old_encryption_key, salt, new_encryption_key)?;
     sqlcipher_export(&mut db, new_db_path)?;
     Ok(())
 }
 
-fn init_sqlcipher_db(db: &mut Connection, encryption_key: &str, salt: Option<&str>) -> Result<()> {
+fn init_sqlcipher_db(
+    db: &mut Connection,
+    encryption_key: &str,
+    salt: Option<&str>,
+    new_encryption_key: &str,
+) -> Result<()> {
     // Most of this code was copied from the old LoginDB::with_connection() method.
     db.set_pragma("key", encryption_key)?
         .set_pragma("secure_delete", true)?;
@@ -43,9 +48,7 @@ fn init_sqlcipher_db(db: &mut Connection, encryption_key: &str, salt: Option<&st
     // do this on Android, or allow caller to configure it.
     db.set_pragma("temp_store", 2)?;
 
-    let tx = db.transaction()?;
-    schema::init(&tx)?;
-    tx.commit()?;
+    schema::upgrade_sqlcipher_db(db, new_encryption_key)?;
     Ok(())
 }
 
