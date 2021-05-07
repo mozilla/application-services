@@ -1058,8 +1058,22 @@ mod tests {
                 "slug": "secure-silver",
                 "endDate": null,
                 "branches":[
-                    {"slug": "control", "ratio": 1}, // XXX add feature
-                    {"slug": "treatment","ratio":1}, // XXX add feature
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": true,
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": false,
+                        }
+                    },
                 ],
                 "featureIds": ["monkey"],
                 "channel": "nightly",
@@ -1892,12 +1906,12 @@ mod tests {
             "exactly one enrollment should have NotEnrolled status"
         );
 
-        let enrolleds = enrollments
+        let enrolled_count = enrollments
             .iter()
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .count();
         assert_eq!(
-            2, enrolleds,
+            2, enrolled_count,
             "exactly two enrollments should have Enrolled status"
         );
 
@@ -1930,12 +1944,12 @@ mod tests {
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
         let (enrollments, _) = evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
 
-        let enrolleds = enrollments
+        let enrolled_count = enrollments
             .iter()
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .count();
         assert_eq!(
-            2, enrolleds,
+            2, enrolled_count,
             "exactly two enrollments should have Enrolled status"
         );
 
@@ -1962,12 +1976,12 @@ mod tests {
         assert_eq!(events[1].experiment_slug, conflicting_experiment.slug);
         assert_eq!(events[1].change, EnrollmentChangeEventType::Enrollment);
 
-        let enrolleds = enrollments
+        let enrolled_count = enrollments
             .iter()
             .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
             .count();
         assert_eq!(
-            2, enrolleds,
+            2, enrolled_count,
             "exactly two enrollments should have Enrolled status"
         );
 
