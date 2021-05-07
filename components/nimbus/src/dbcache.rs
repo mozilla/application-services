@@ -65,6 +65,12 @@ impl DatabaseCache {
 
         let features_by_feature_id = map_features_by_feature_id(&enrollments, &experiments);
 
+        // This is where testing tools would override i.e. replace experimental feature configurations.
+        // i.e. testing tools would cause custom feature configs to be stored in a Store.
+        // Here, we get those overrides out of the store, and merge it with this map.
+
+        // This is where rollouts (promoted experiments on a given feature) will be merged in to the feature variables.
+
         let data = CachedData {
             branches_by_experiment,
             features_by_feature_id,
