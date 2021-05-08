@@ -841,6 +841,153 @@ mod test_schema_bw_compat {
         assert_eq!(exp.app_id, Some("org.mozilla.fenix".to_string()));
         assert_eq!(exp.channel, Some("nightly".to_string()));
     }
+
+    #[test]fn test_drop_experiments_wo_feature_id() -> Result<()> {
+    let experiment_with_feature = json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold",
+                "endDate": null,
+                "featureIds": ["about_welcome"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"secure-gold",
+                "last_modified":1_602_197_324_372i64
+            });
+
+        let experiment_without_feature = json!(
+            {
+                "schemaVersion": "1.0.0",
+                "slug": "no-features",
+                "endDate": null,
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                    }
+                ],
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"no-features",
+                "last_modified":1_602_197_324_372i64
+            });
+
+           use tempdir::TempDir;
+
+
+        let mock_client_id = "client-1".to_string();
+
+        let tmp_dir = TempDir::new("test_drop_experiments_wo_feature_id")?;
+        let client = NimbusClient::new(
+            AppContext::default(),
+            tmp_dir.path(),
+            None,
+            AvailableRandomizationUnits {
+                client_id: Some(mock_client_id),
+                ..AvailableRandomizationUnits::default()
+            },
+        )?;
+
+        let _ = env_logger::try_init();
+
+        // Write two experiments to the database, one with a feature and one
+        // without.
+        let db = client.db()?;
+        let mut writer = db.write()?;
+        let experiment_store = db.get_store(StoreId::Experiments);
+
+        experiment_store.put(
+            &mut writer,
+            "secure-gold",
+            &experiment_with_feature,
+        )?;
+
+        experiment_store.put(
+            &mut writer,
+            "no-features",
+            &experiment_without_feature,
+        )?;
+
+        // db.get_store(StoreId::Enrollments).put(
+        //     &mut writer,
+        //     &mock_exp_slug,
+        //     &ExperimentEnrollment {
+        //         slug: mock_exp_slug.clone(),
+        //         status: EnrollmentStatus::new_enrolled(
+        //             EnrolledReason::Qualified,
+        //             &mock_exp_branch,
+        //             &mock_feature_id,
+        //         ),
+        //     },
+        // )?;
+        writer.commit()?;
+
+        client.initialize()?;
+
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+
+        // We should have been disqualified from the enrolled experiment.
+        assert_eq!(experiments.len(), 1);
+
+        log::debug!("experiments = {:?}", experiments);
+
+        Ok(())
+    }
+
+
 }
 
 #[cfg(test)]
