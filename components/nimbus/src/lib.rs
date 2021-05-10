@@ -349,7 +349,7 @@ pub struct Experiment {
     pub branches: Vec<Branch>,
     // The `feature_ids` field was added later. For compatibility with exising experiments
     // and to avoid a db migration, we default it to an empty list when it is missing.
-    #[serde(default)]
+    //#[serde(default)]
     pub feature_ids: Vec<String>,
     pub targeting: Option<String>,
     pub start_date: Option<String>, // TODO: Use a date format here
