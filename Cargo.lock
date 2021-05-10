@@ -1609,6 +1609,7 @@ dependencies = [
  "error-support",
  "ffi-support 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "interrupt-support",
+ "jwcrypto",
  "lazy_static",
  "log 0.4.14",
  "more-asserts",

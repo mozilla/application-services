@@ -90,15 +90,15 @@
 
 use crate::error::*;
 use lazy_static::lazy_static;
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction, NO_PARAMS};
 use sql_support::ConnExt;
+use crate::encryption::EncryptorDecryptor;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
 /// which adds a metadata table and changes timestamps to be in milliseconds
-pub const VERSION: i64 = 4;
+pub const VERSION: i64 = 5;
 /// Version where we switched from sqlcipher to a plaintext database.
-pub const SQLCIPHER_SWITCHOVER_VERSION: i64 = 4;
-// TODO: write code to encrypt the username/password fields and bump this to 5
+pub const SQLCIPHER_SWITCHOVER_VERSION: i64 = 5;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -119,8 +119,8 @@ pub const SQLCIPHER_SWITCHOVER_VERSION: i64 = 4;
 /// `timePasswordChanged`/`timeCreated` timestamps.
 pub const COMMON_COLS: &str = "
     guid,
-    username,
-    password,
+    usernameEnc,
+    passwordEnc,
     hostname,
     httpRealm,
     formSubmitURL,
@@ -144,8 +144,8 @@ const COMMON_SQL: &str = "
     timeCreated         INTEGER NOT NULL,
     timeLastUsed        INTEGER,
     timePasswordChanged INTEGER NOT NULL,
-    username            TEXT,
-    password            TEXT NOT NULL,
+    usernameEnc         TEXT,
+    passwordEnc         TEXT NOT NULL,
     guid                TEXT NOT NULL UNIQUE
 ";
 
@@ -206,6 +206,22 @@ const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &str = "
     SET timeCreated = timeCreated / 1000,
         timeLastUsed = timeLastUsed / 1000,
         timePasswordChanged = timePasswordChanged / 1000
+";
+
+const RENAME_LOCAL_USERNAME: &str = "
+    ALTER TABLE loginsL RENAME username to usernameEnc
+";
+
+const RENAME_LOCAL_PASSWORD: &str = "
+    ALTER TABLE loginsL RENAME password to passwordEnc
+";
+
+const RENAME_MIRROR_USERNAME: &str = "
+    ALTER TABLE loginsM RENAME username to usernameEnc
+";
+
+const RENAME_MIRROR_PASSWORD: &str = "
+    ALTER TABLE loginsM RENAME password to passwordEnc
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
@@ -302,7 +318,7 @@ pub(crate) fn drop(db: &Connection) -> Result<()> {
 
 // Run schema upgrades for a SQLCipher database.  This will bring the database up to version 5
 // which is required before migrating it to a plaintext database.
-pub(crate) fn upgrade_sqlcipher_db(db: &mut Connection, _encryption_key: &str) -> Result<()> {
+pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
 
     if user_version == 0 {
@@ -321,8 +337,7 @@ pub(crate) fn upgrade_sqlcipher_db(db: &mut Connection, _encryption_key: &str) -
         // the sqlcipher db and start fresh.
         return Err(ErrorKind::InvalidDatabaseFile(
             "can't migrate to plaintext when user_version is 0".into(),
-        )
-        .into());
+        ).into());
     }
     log::debug!(
         "Upgrading schema from {} to {} to prep for plaintext migration",
@@ -353,10 +368,46 @@ pub(crate) fn upgrade_sqlcipher_db(db: &mut Connection, _encryption_key: &str) -
             CREATE_META_TABLE_SQL,
             UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL,
             UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL,
-            &*SET_VERSION_SQL,
         ])?;
     }
-    tx.execute("PRAGMA user_version = ?", &[SQLCIPHER_SWITCHOVER_VERSION])?;
+    if user_version < 5 {
+        // encrypt the username/password data
+        let encryptor = EncryptorDecryptor::new(encryption_key)?;
+        let encrypt_username_and_password = |table_name: &str| -> Result<()> {
+            // Encrypt the username and password field for all rows.
+            let mut select_stmt = tx.prepare(
+                &format!("SELECT guid, username, password FROM {}", table_name))?;
+            let mut update_stmt = tx.prepare(
+                &format!("UPDATE {} SET username=?, password=? WHERE guid=?", table_name))?;
+            // Use raw rows to avoid extra copying since we're looping over an entire table
+            let mut rows = select_stmt.query(NO_PARAMS)?;
+            while let Some(row) = rows.next()? {
+                update_stmt.execute(rusqlite::params![
+                    encryptor.encrypt(row.get_raw_checked(1)?.as_str().unwrap())?,
+                    encryptor.encrypt(row.get_raw_checked(2)?.as_str().unwrap())?,
+                    row.get_raw_checked(0)?.as_str().unwrap(),
+                ])?;
+            }
+            Ok(())
+        };
+
+        encrypt_username_and_password("loginsL")?;
+        encrypt_username_and_password("loginsM")?;
+
+        // rename the fields
+        tx.execute_all(&[
+            RENAME_LOCAL_USERNAME,
+            RENAME_LOCAL_PASSWORD,
+            RENAME_MIRROR_USERNAME,
+            RENAME_MIRROR_PASSWORD,
+        ])?;
+
+        // self.execute_named_cached(
+        //     "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
+        //     named_params! { ":guid": guid },
+        // )?;
+    }
+    tx.execute(&format!("PRAGMA user_version = {version}", version = SQLCIPHER_SWITCHOVER_VERSION), NO_PARAMS)?;
     tx.commit()?;
     Ok(())
 }

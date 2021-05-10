@@ -85,12 +85,24 @@ fn sqlcipher_export(conn: &mut Connection, new_db_path: impl AsRef<Path>) -> Res
 mod tests {
     use super::*;
     use crate::db::LoginDb;
-    use crate::login::{LocalLogin, MirrorLogin, SyncStatus};
+    use crate::encryption::EncryptorDecryptor;
+    use rusqlite::types::ValueRef;
     use std::path::PathBuf;
     use std::time;
     use sync15::ServerTimestamp;
 
     static TEST_SALT: &str = "01010101010101010101010101010101";
+    lazy_static::lazy_static! {
+        static ref TEST_KEY: String = EncryptorDecryptor::new_test_key();
+        static ref TEST_ENCRYPTOR: EncryptorDecryptor = EncryptorDecryptor::new(&TEST_KEY).unwrap();
+    }
+
+    fn decrypt(value: &str) -> String {
+        TEST_ENCRYPTOR.decrypt(value).unwrap()
+    }
+    fn encrypt(value: &str) -> String {
+        TEST_ENCRYPTOR.encrypt(value).unwrap()
+    }
 
     fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
         let mut db = Connection::open(db_path).unwrap();
@@ -102,8 +114,14 @@ mod tests {
         }
         let tx = db.transaction().unwrap();
         schema::init(&tx).unwrap();
+        // Manually migrate back to schema v4 and insert some data
         tx.execute_batch(
-            "INSERT INTO loginsL(guid, username, password, hostname,
+            "
+            ALTER TABLE loginsL RENAME usernameEnc to username;
+            ALTER TABLE loginsL RENAME passwordEnc to password;
+            ALTER TABLE loginsM RENAME usernameEnc to username;
+            ALTER TABLE loginsM RENAME passwordEnc to password;
+            INSERT INTO loginsL(guid, username, password, hostname,
             httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
             timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
             VALUES ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
@@ -112,9 +130,13 @@ mod tests {
             usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
             is_overridden, server_modified)
             VALUES ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
-            '', '', 1000, 1000, 1, 10, 0, 1000);",
-            ).unwrap();
-        tx.commit().unwrap()
+            '', '', 1000, 1000, 1, 10, 0, 1000);
+            PRAGMA user_version = 4;
+            ",
+        ).unwrap();
+        tx.commit().unwrap();
+        // Run the sqlcipher DB upgrade again;
+        schema::upgrade_sqlcipher_db(&mut db, &TEST_KEY).unwrap();
     }
 
     struct TestPaths {
@@ -135,55 +157,43 @@ mod tests {
     }
 
     fn check_migrated_data(db: &LoginDb) {
-        let local = db.query_row_and_then(
-            &format!("SELECT {}, local_modified, is_deleted, sync_status FROM loginsL WHERE guid = 'a'", &schema::COMMON_COLS),
-            NO_PARAMS,
-            |row| LocalLogin::from_row(row),
-        ).unwrap();
-        assert_eq!(local.login.username, "test");
-        assert_eq!(local.login.password, "password");
-        assert_eq!(local.login.hostname, "https://www.example.com");
-        assert_eq!(local.login.http_realm, None);
+        let mut stmt = db.prepare("SELECT * FROM loginsL where guid = 'a'").unwrap();
+        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let row = rows.next().unwrap().unwrap();
+        assert_eq!(decrypt(row.get_raw("usernameEnc").as_str().unwrap()), "test");
+        assert_eq!(decrypt(row.get_raw("passwordEnc").as_str().unwrap()), "password");
+        assert_eq!(row.get_raw("hostname").as_str().unwrap(), "https://www.example.com");
+        assert_eq!(row.get_raw("httpRealm"), ValueRef::Null);
         assert_eq!(
-            local.login.form_submit_url,
-            Some("https://www.example.com".to_string())
+            row.get_raw("formSubmitUrl").as_str().unwrap(),
+            "https://www.example.com"
         );
-        assert_eq!(local.login.username_field, "username");
-        assert_eq!(local.login.password_field, "password");
-        assert_eq!(local.login.time_created, 1000);
-        assert_eq!(local.login.time_last_used, 1000);
-        assert_eq!(local.login.time_password_changed, 1);
-        assert_eq!(local.login.times_used, 10);
-        assert_eq!(
-            local.local_modified,
-            time::UNIX_EPOCH + time::Duration::from_millis(1000)
-        );
-        assert_eq!(local.is_deleted, false);
-        assert_eq!(local.sync_status, SyncStatus::New);
+        assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "username");
+        assert_eq!(row.get_raw("passwordField").as_str().unwrap(), "password");
+        assert_eq!(row.get_raw("timeCreated").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_raw("timeLastUsed").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_raw("timePasswordChanged").as_i64().unwrap(), 1);
+        assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
+        assert_eq!(row.get_raw("local_modified").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_raw("is_deleted").as_i64().unwrap(), 0);
+        assert_eq!(row.get_raw("sync_status").as_i64().unwrap(), 2);
 
-        let mirror = db
-            .query_row_and_then(
-                &format!(
-                    "SELECT {}, is_overridden, server_modified FROM loginsM WHERE guid = 'b'",
-                    &schema::COMMON_COLS
-                ),
-                NO_PARAMS,
-                |row| MirrorLogin::from_row(row),
-            )
-            .unwrap();
-        assert_eq!(mirror.login.username, "test");
-        assert_eq!(mirror.login.password, "password");
-        assert_eq!(mirror.login.hostname, "https://www.example.com");
-        assert_eq!(mirror.login.http_realm, Some("Test Realm".to_string()));
-        assert_eq!(mirror.login.form_submit_url, None);
-        assert_eq!(mirror.login.username_field, "");
-        assert_eq!(mirror.login.password_field, "");
-        assert_eq!(mirror.login.time_created, 1000);
-        assert_eq!(mirror.login.time_last_used, 1000);
-        assert_eq!(mirror.login.time_password_changed, 1);
-        assert_eq!(mirror.login.times_used, 10);
-        assert_eq!(mirror.is_overridden, false);
-        assert_eq!(mirror.server_modified, ServerTimestamp::from_millis(1000));
+        let mut stmt = db.prepare("SELECT * FROM loginsM where guid = 'b'").unwrap();
+        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let row = rows.next().unwrap().unwrap();
+        assert_eq!(decrypt(row.get_raw("usernameEnc").as_str().unwrap()), "test");
+        assert_eq!(decrypt(row.get_raw("passwordEnc").as_str().unwrap()), "password");
+        assert_eq!(row.get_raw("hostname").as_str().unwrap(), "https://www.example.com");
+        assert_eq!(row.get_raw("httpRealm").as_str().unwrap(), "Test Realm");
+        assert_eq!(row.get_raw("formSubmitUrl"), ValueRef::Null);
+        assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "");
+        assert_eq!(row.get_raw("passwordField").as_str().unwrap(), "");
+        assert_eq!(row.get_raw("timeCreated").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_raw("timeLastUsed").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_raw("timePasswordChanged").as_i64().unwrap(), 1);
+        assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
+        assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 0);
+        assert_eq!(row.get_raw("server_modified").as_i64().unwrap(), 1000);
     }
 
     #[test]
