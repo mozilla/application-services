@@ -13,7 +13,7 @@ struct Nimbus_SampleApp: App {
         // Initialize the Nimbus SDK
         nimbus.initialize()
 
-        //TODO: Set experiments locally
+        // TODO: Set experiments locally
 
         // Apply any experiment updates, either set locally or fetched
         // during the previous run of the application

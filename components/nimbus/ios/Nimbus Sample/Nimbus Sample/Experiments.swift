@@ -22,7 +22,7 @@ public enum Experiments {
         // From the URL we construct the `NimbusServerSettings` struct to
         // inform the Nimbus SDK of the endpoint.
         let nimbusServerSettings = NimbusServerSettings(
-            url:  nimbusEndpointUrl
+            url: nimbusEndpointUrl
         )
 
         // The NimbusAppSettings represent the application parameters that

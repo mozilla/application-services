@@ -14,7 +14,6 @@ struct NimbusButtonCardFeature: View {
 
 private extension NimbusButtonCardFeature {
     var nimbusButton: some View {
-
         let nimbus = Experiments.shared
 
         let buttonColorName = nimbus.getExperimentBranch(featureId: "nimbus-button-card-feature")
