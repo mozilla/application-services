@@ -355,28 +355,9 @@ impl Database {
         let mut result = Vec::new();
         let reader = self.rkv.read()?;
         let mut iter = self.get_store(store_id).store.iter_start(&reader)?;
-
-        // XXX if we choose to go with this approach, need to copy it into the
-        // non-test version of collect_all as well...
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                let unserialized = serde_json::from_str::<T>(&data);
-                match unserialized {
-                    Ok(value) => result.push(value),
-                    Err(e) => {
-                        // If there is an error, we won't push this onto the
-                        // result Vec, but we won't blow up the entire
-                        // deserialization either.  Searching the error string
-                        // is fragile, but I haven't yet found an alternative.
-                        // It's also unfortunate that there doesn't seem to be
-                        // a way to display the record that was dropped. :-(
-                        if e.to_string().contains("missing field") {
-                            log::warn!("collect_all: discarded one record while deserializing with: {:?}", e);
-                        } else {
-                            return Err(NimbusError::JSONError(e));
-                        }
-                    }
-                };
+                result.push(serde_json::from_str::<T>(&data)?);
             }
         }
         Ok(result)

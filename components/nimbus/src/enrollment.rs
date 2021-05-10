@@ -440,7 +440,7 @@ pub enum EnrollmentStatus {
         branch: String,
         // The `feature_id` field was added later. To avoid a db migration we
         // default it to "" for persisted enrollments where it is missing.
-        //#[serde(default)]
+        #[serde(default)]
         feature_id: String,
     },
     NotEnrolled {
