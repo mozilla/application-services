@@ -17,7 +17,7 @@ pub use crate::internal::error::*;
 
 // Originally exposed manually via LoginsStorageException.kt.
 #[derive(Debug, thiserror::Error)]
-pub enum LoginsError {
+pub enum LoginsStorageError {
     // In the .kt, this was actually the base-class and lots of Android code
     // caught this exception when they want *any* exception.
     // To confuse further, it was also thrown as a generic 'unexpected' exception.
@@ -26,9 +26,8 @@ pub enum LoginsError {
     // we end up with.
     // XXX - TODO - work out the base-class story so the above remains true.
     //LoginsStorage(String),
-    // XXX - these are probably all static strings, so maybe `&'static str`?
     #[error("Unexpected error: {0}")]
-    Unexpected(String),
+    UnexpectedLoginsStorageError(String),
 
     // This indicates that the sync authentication is invalid, likely due to having
     // expired.
@@ -38,7 +37,7 @@ pub enum LoginsError {
     // This is thrown if `lock()`/`unlock()` pairs don't match up.
     // NOTE: This can be removed once we drop sqlcipher
     #[error("MismatchedLock error: {0}")]
-    MismatchedLock(String),
+    MismatchedLock(&'static str),
 
     // This is thrown if `update()` is performed with a record whose ID
     // does not exist.
@@ -93,8 +92,8 @@ pub enum InvalidLoginReason {
 }
 
 // And port of the error conversion stuff that was in ffi.rs.
-impl From<Error> for LoginsError {
-    fn from(e: Error) -> LoginsError {
+impl From<Error> for LoginsStorageError {
+    fn from(e: Error) -> LoginsStorageError {
         use sync15::ErrorKind as Sync15ErrorKind;
 
         let label = e.label().to_string();
@@ -104,40 +103,43 @@ impl From<Error> for LoginsError {
                 log::error!("Sync error {:?}", e);
                 match e.kind() {
                     Sync15ErrorKind::TokenserverHttpError(401)
-                    | Sync15ErrorKind::BadKeyLength(..) => LoginsError::SyncAuthInvalid(label),
-                    Sync15ErrorKind::RequestError(_) => LoginsError::RequestFailed(label),
-                    _ => LoginsError::Unexpected(label),
+                    | Sync15ErrorKind::BadKeyLength(..) => {
+                        LoginsStorageError::SyncAuthInvalid(label)
+                    }
+                    Sync15ErrorKind::RequestError(_) => LoginsStorageError::RequestFailed(label),
+                    _ => LoginsStorageError::UnexpectedLoginsStorageError(label),
                 }
             }
             ErrorKind::DuplicateGuid(id) => {
                 log::error!("Guid already exists: {}", id);
-                LoginsError::IdCollision(label)
+                LoginsStorageError::IdCollision(label)
             }
             ErrorKind::NoSuchRecord(id) => {
                 log::error!("No record exists with id {}", id);
-                LoginsError::NoSuchRecord(label)
+                LoginsStorageError::NoSuchRecord(label)
             }
             ErrorKind::InvalidLogin(desc) => {
                 log::error!("Invalid login: {}", desc);
                 match desc {
                     InvalidLogin::EmptyOrigin => {
-                        LoginsError::InvalidRecord(label, InvalidLoginReason::EmptyOrigin)
+                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::EmptyOrigin)
                     }
                     InvalidLogin::EmptyPassword => {
-                        LoginsError::InvalidRecord(label, InvalidLoginReason::EmptyPassword)
+                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::EmptyPassword)
                     }
                     InvalidLogin::DuplicateLogin => {
-                        LoginsError::InvalidRecord(label, InvalidLoginReason::DuplicateLogin)
+                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::DuplicateLogin)
                     }
                     InvalidLogin::BothTargets => {
-                        LoginsError::InvalidRecord(label, InvalidLoginReason::BothTargets)
+                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::BothTargets)
                     }
                     InvalidLogin::NoTarget => {
-                        LoginsError::InvalidRecord(label, InvalidLoginReason::NoTarget)
+                        LoginsStorageError::InvalidRecord(label, InvalidLoginReason::NoTarget)
                     }
-                    InvalidLogin::IllegalFieldValue { .. } => {
-                        LoginsError::InvalidRecord(label, InvalidLoginReason::IllegalFieldValue)
-                    }
+                    InvalidLogin::IllegalFieldValue { .. } => LoginsStorageError::InvalidRecord(
+                        label,
+                        InvalidLoginReason::IllegalFieldValue,
+                    ),
                 }
             }
             // We can't destructure `err` without bringing in the libsqlite3_sys crate
@@ -146,31 +148,31 @@ impl From<Error> for LoginsError {
                 if err.code == rusqlite::ErrorCode::NotADatabase =>
             {
                 log::error!("Not a database / invalid key error");
-                LoginsError::InvalidKey(label)
+                LoginsStorageError::InvalidKey(label)
             }
 
             ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
                 if err.code == rusqlite::ErrorCode::OperationInterrupted =>
             {
                 log::warn!("Operation interrupted (SQL)");
-                LoginsError::Interrupted(label)
+                LoginsStorageError::Interrupted(label)
             }
 
             ErrorKind::Interrupted(_) => {
                 log::warn!("Operation interrupted (Outside SQL)");
-                LoginsError::Interrupted(label)
+                LoginsStorageError::Interrupted(label)
             }
 
             ErrorKind::InvalidSalt => {
                 log::error!("Invalid salt provided");
                 // In the old world, this had an error code (7) but no Kotlin
                 // error type, meaning it got the "base" error.
-                LoginsError::Unexpected(label)
+                LoginsStorageError::UnexpectedLoginsStorageError(label)
             }
 
             err => {
-                log::error!("Unexpected error: {:?}", err);
-                LoginsError::Unexpected(label)
+                log::error!("UnexpectedLoginsStorageError error: {:?}", err);
+                LoginsStorageError::UnexpectedLoginsStorageError(label)
             }
         }
     }

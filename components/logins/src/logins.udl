@@ -1,9 +1,9 @@
 namespace logins {
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     string open_and_get_salt(string path, [ByRef] string encryption_key);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void open_and_migrate_to_plaintext_header(string path, [ByRef] string encryption_key, [ByRef] string salt);
 };
 
@@ -43,8 +43,8 @@ dictionary MigrationPhaseMetrics {
 };
 
 [Error]
-enum LoginsError {
-    "Unexpected",
+enum LoginsStorageError {
+    "UnexpectedLoginsStorageError",
     "SyncAuthInvalid",
     "MismatchedLock",
     "NoSuchRecord",
@@ -56,53 +56,53 @@ enum LoginsError {
 };
 
 interface PasswordStore {
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     constructor(string path, [ByRef] string encryption_key);
 
-    [Name=new_with_salt, Throws=LoginsError]
+    [Name=new_with_salt, Throws=LoginsStorageError]
     constructor(string path, [ByRef] string encryption_key, [ByRef] string salt);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void check_valid_with_no_dupes(LoginRecord record);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     string add(LoginRecord record);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     boolean delete([ByRef] string id);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void wipe();
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void wipe_local();
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void reset();
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void disable_mem_security();
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void rekey_database([ByRef] string new_encryption_key);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void touch([ByRef] string id);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     sequence<LoginRecord> list();
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     sequence<LoginRecord> get_by_base_domain([ByRef] string base_domain);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     sequence<LoginRecord> potential_dupes_ignoring_username(LoginRecord record);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     LoginRecord? get([ByRef] string id);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     void update(LoginRecord record);
 
-    [Throws=LoginsError]
+    [Throws=LoginsStorageError]
     MigrationMetrics import_multiple(sequence<LoginRecord> record);
 
     // Methods NOT ported over from ffi/lib.rs
@@ -110,7 +110,4 @@ interface PasswordStore {
     // Q1: sync15_passwords_sync(), do we still need to call sync in stores.rs?
     //  - Or should we be relying on Sync Manager for this
     //  - If not, we can get rid of parse_url and this method
-
-    // Q2: sync15_passwords_new_interrupt_handle(), do we still need interrupts from stores.rs
-    //  - This is similar to the above question with sync manager, if we don't we can ax all these methods
 };

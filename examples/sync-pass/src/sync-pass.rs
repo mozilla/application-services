@@ -155,7 +155,7 @@ fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(store: &PasswordStore) -> Result<Vec<Guid>> {
+fn show_all(store: &PasswordStore) -> Result<Vec<String>> {
     let records = store.list()?;
 
     let mut table = prettytable::Table::new();
@@ -280,7 +280,7 @@ fn main() -> Result<()> {
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
-    let store = PasswordStore::new(db_path, Some(encryption_key))?;
+    let store = PasswordStore::new(db_path, encryption_key)?;
 
     log::info!("Store has {} passwords", store.list()?.len());
 
@@ -293,7 +293,7 @@ fn main() -> Result<()> {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
-                if let Err(e) = store.add(record) {
+                if let Err(e) = store.add(record.into()) {
                     log::warn!("Failed to create record! {}", e);
                 }
             }
@@ -318,8 +318,8 @@ fn main() -> Result<()> {
                         log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
-                        let mut login = match store.get(&id) {
-                            Ok(Some(login)) => login,
+                        let login_record = match store.get(&id) {
+                            Ok(Some(login_record)) => login_record,
                             Ok(None) => {
                                 log::warn!("No such login!");
                                 continue
@@ -329,8 +329,8 @@ fn main() -> Result<()> {
                                 continue;
                             }
                         };
-                        update_login(&mut login);
-                        if let Err(e) = store.update(login) {
+                        update_login(&mut login_record.clone().into());
+                        if let Err(e) = store.update(login_record) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }

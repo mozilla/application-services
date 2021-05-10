@@ -5,7 +5,6 @@ plugins {
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'com.google.protobuf'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -34,13 +33,7 @@ android {
         // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
 
-        main {
-            proto {
-                srcDir '../src'
-            }
-        }
     }
-
     testOptions {
         unitTests {
             includeAndroidResources = true
@@ -76,21 +69,6 @@ configurations {
     // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
     // Success!
     jnaForTest
-}
-
-protobuf {
-    protoc {
-        artifact = 'com.google.protobuf:protoc:3.11.4'
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.builtins {
-                java {
-                    option "lite"
-                }
-            }
-        }
-    }
 }
 
 // Needs to happen before `dependencies` in order for the variables
@@ -131,6 +109,20 @@ dependencies {
 
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+}
+
+// We do the uniffi binding generation here:
+android.libraryVariants.all { variant ->
+    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
+        workingDir project.rootDir
+        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/logins.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
+
+        inputs.file '../src/logins.udl'
+        outputs.dir "${buildDir}/generated/source/uniffi/${variant.name}/java/"
+    }
+    variant.javaCompileProvider.get().dependsOn(t)
+    def sourceSet = variant.sourceSets.find { it.name == variant.name }
+    sourceSet.java.srcDirs += new File(buildDir, "generated/source/uniffi/${variant.name}/java")
 }
 
 evaluationDependsOn(":full-megazord")

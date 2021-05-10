@@ -1,13 +1,16 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, MigrationMetrics};
+use crate::db::{LoginDb, LoginStore, MigrationMetrics};
 use crate::error::*;
 use crate::login::Login;
 use crate::LoginRecord;
 use std::cell::Cell;
 use std::path::Path;
-use sync15::{EngineSyncAssociation, MemoryCachedState};
+use sync15::{
+    sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
+    Sync15StorageClientInit,
+};
 
 // This store is a bundle of state to manage the login DB and to help the
 // SyncEngine.
@@ -116,6 +119,49 @@ impl PasswordStore {
 
     pub fn disable_mem_security(&self) -> Result<()> {
         self.db.disable_mem_security()
+    }
+
+    pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
+        self.db.new_interrupt_handle()
+    }
+
+    /// A convenience wrapper around sync_multiple.
+    pub fn sync(
+        &self,
+        storage_init: &Sync15StorageClientInit,
+        root_sync_key: &KeyBundle,
+    ) -> Result<telemetry::SyncTelemetryPing> {
+        // migrate our V1 state - this needn't live for long.
+        self.db.migrate_global_state()?;
+
+        let mut disk_cached_state = self.db.get_global_state()?;
+        let mut mem_cached_state = self.mem_cached_state.take();
+        let store = LoginStore::new(&self.db);
+
+        let mut result = sync_multiple(
+            &[&store],
+            &mut disk_cached_state,
+            &mut mem_cached_state,
+            storage_init,
+            root_sync_key,
+            &store.scope,
+            None,
+        );
+        // We always update the state - sync_multiple does the right thing
+        // if it needs to be dropped (ie, they will be None or contain Nones etc)
+        self.db.set_global_state(&disk_cached_state)?;
+
+        // for b/w compat reasons, we do some dances with the result.
+        // XXX - note that this means telemetry isn't going to be reported back
+        // to the app - we need to check with lockwise about whether they really
+        // need these failures to be reported or whether we can loosen this.
+        if let Err(e) = result.result {
+            return Err(e.into());
+        }
+        match result.engine_results.remove("passwords") {
+            None | Some(Ok(())) => Ok(result.telemetry),
+            Some(Err(e)) => Err(e.into()),
+        }
     }
 
     pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
