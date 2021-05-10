@@ -51,6 +51,9 @@ pub enum ErrorKind {
     #[error("Invalid database file: {0}")]
     InvalidDatabaseFile(String),
 
+    #[error("Crypto Error: {0}")]
+    CryptoError(#[from] jwcrypto::JwCryptoError),
+
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),
 
@@ -64,6 +67,7 @@ error_support::define_error! {
         (JsonError, serde_json::Error),
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),
+        (CryptoError, jwcrypto::JwCryptoError),
         (InvalidLogin, InvalidLogin),
         (Interrupted, interrupt_support::Interrupted),
         (ProtobufDecodeError, prost::DecodeError),
@@ -103,6 +107,7 @@ impl Error {
             ErrorKind::InvalidPath(_) => "InvalidPath",
             ErrorKind::InvalidDatabaseFile(_) => "InvalidDatabaseFile",
             ErrorKind::SqlError(_) => "SqlError",
+            ErrorKind::CryptoError(_) => "CryptoError",
             ErrorKind::Interrupted(_) => "Interrupted",
             ErrorKind::InvalidLogin(desc) => match desc {
                 InvalidLogin::EmptyOrigin => "InvalidLogin::EmptyOrigin",
