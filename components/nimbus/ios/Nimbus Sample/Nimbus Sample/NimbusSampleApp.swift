@@ -5,7 +5,7 @@
 import SwiftUI
 
 @main
-struct Nimbus_SampleApp: App {
+struct NimbusSampleApp: App {
     init() {
         // Retrieve the singleton instance
         let nimbus = Experiments.shared

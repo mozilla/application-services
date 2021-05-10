@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AC807DCC2616199400805D46 /* Nimbus_SampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DCB2616199400805D46 /* Nimbus_SampleApp.swift */; };
+		AC807DCC2616199400805D46 /* NimbusSampleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DCB2616199400805D46 /* NimbusSampleApp.swift */; };
 		AC807DCE2616199400805D46 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DCD2616199400805D46 /* ContentView.swift */; };
 		AC807DD02616199500805D46 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AC807DCF2616199500805D46 /* Assets.xcassets */; };
 		AC807DD32616199500805D46 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AC807DD22616199500805D46 /* Preview Assets.xcassets */; };
@@ -38,16 +38,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		AC807DC82616199400805D46 /* Nimbus Sample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Nimbus Sample.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AC807DCB2616199400805D46 /* Nimbus_SampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nimbus_SampleApp.swift; sourceTree = "<group>"; };
+		AC807DC82616199400805D46 /* NimbusSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NimbusSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC807DCB2616199400805D46 /* NimbusSampleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusSampleApp.swift; sourceTree = "<group>"; };
 		AC807DCD2616199400805D46 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AC807DCF2616199500805D46 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AC807DD22616199500805D46 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		AC807DD42616199500805D46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		AC807DD92616199500805D46 /* Nimbus SampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Nimbus SampleTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC807DD92616199500805D46 /* NimbusSampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NimbusSampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC807DDD2616199500805D46 /* Nimbus_SampleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nimbus_SampleTests.swift; sourceTree = "<group>"; };
 		AC807DDF2616199500805D46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		AC807DE42616199500805D46 /* Nimbus SampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Nimbus SampleUITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC807DE42616199500805D46 /* NimbusSampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NimbusSampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AC807DE82616199500805D46 /* Nimbus_SampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nimbus_SampleUITests.swift; sourceTree = "<group>"; };
 		AC807DEA2616199500805D46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AC9406EC261E4DA800DC1F04 /* NimbusLogoFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusLogoFeature.swift; sourceTree = "<group>"; };
@@ -100,9 +100,9 @@
 		AC807DC92616199400805D46 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				AC807DC82616199400805D46 /* Nimbus Sample.app */,
-				AC807DD92616199500805D46 /* Nimbus SampleTests.xctest */,
-				AC807DE42616199500805D46 /* Nimbus SampleUITests.xctest */,
+				AC807DC82616199400805D46 /* NimbusSample.app */,
+				AC807DD92616199500805D46 /* NimbusSampleTests.xctest */,
+				AC807DE42616199500805D46 /* NimbusSampleUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -110,7 +110,7 @@
 		AC807DCA2616199400805D46 /* Nimbus Sample */ = {
 			isa = PBXGroup;
 			children = (
-				AC807DCB2616199400805D46 /* Nimbus_SampleApp.swift */,
+				AC807DCB2616199400805D46 /* NimbusSampleApp.swift */,
 				AC807DCD2616199400805D46 /* ContentView.swift */,
 				AC807DCF2616199500805D46 /* Assets.xcassets */,
 				AC807DD42616199500805D46 /* Info.plist */,
@@ -163,9 +163,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AC807DC72616199400805D46 /* Nimbus Sample */ = {
+		AC807DC72616199400805D46 /* NimbusSample */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AC807DED2616199500805D46 /* Build configuration list for PBXNativeTarget "Nimbus Sample" */;
+			buildConfigurationList = AC807DED2616199500805D46 /* Build configuration list for PBXNativeTarget "NimbusSample" */;
 			buildPhases = (
 				AC807DC42616199400805D46 /* Sources */,
 				AC807DC52616199400805D46 /* Frameworks */,
@@ -175,16 +175,16 @@
 			);
 			dependencies = (
 			);
-			name = "Nimbus Sample";
+			name = NimbusSample;
 			packageProductDependencies = (
 			);
 			productName = "Nimbus Sample";
-			productReference = AC807DC82616199400805D46 /* Nimbus Sample.app */;
+			productReference = AC807DC82616199400805D46 /* NimbusSample.app */;
 			productType = "com.apple.product-type.application";
 		};
-		AC807DD82616199500805D46 /* Nimbus SampleTests */ = {
+		AC807DD82616199500805D46 /* NimbusSampleTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AC807DF02616199500805D46 /* Build configuration list for PBXNativeTarget "Nimbus SampleTests" */;
+			buildConfigurationList = AC807DF02616199500805D46 /* Build configuration list for PBXNativeTarget "NimbusSampleTests" */;
 			buildPhases = (
 				AC807DD52616199500805D46 /* Sources */,
 				AC807DD62616199500805D46 /* Frameworks */,
@@ -195,14 +195,14 @@
 			dependencies = (
 				AC807DDB2616199500805D46 /* PBXTargetDependency */,
 			);
-			name = "Nimbus SampleTests";
+			name = NimbusSampleTests;
 			productName = "Nimbus SampleTests";
-			productReference = AC807DD92616199500805D46 /* Nimbus SampleTests.xctest */;
+			productReference = AC807DD92616199500805D46 /* NimbusSampleTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		AC807DE32616199500805D46 /* Nimbus SampleUITests */ = {
+		AC807DE32616199500805D46 /* NimbusSampleUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AC807DF32616199500805D46 /* Build configuration list for PBXNativeTarget "Nimbus SampleUITests" */;
+			buildConfigurationList = AC807DF32616199500805D46 /* Build configuration list for PBXNativeTarget "NimbusSampleUITests" */;
 			buildPhases = (
 				AC807DE02616199500805D46 /* Sources */,
 				AC807DE12616199500805D46 /* Frameworks */,
@@ -213,9 +213,9 @@
 			dependencies = (
 				AC807DE62616199500805D46 /* PBXTargetDependency */,
 			);
-			name = "Nimbus SampleUITests";
+			name = NimbusSampleUITests;
 			productName = "Nimbus SampleUITests";
-			productReference = AC807DE42616199500805D46 /* Nimbus SampleUITests.xctest */;
+			productReference = AC807DE42616199500805D46 /* NimbusSampleUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -240,7 +240,7 @@
 					};
 				};
 			};
-			buildConfigurationList = AC807DC32616199400805D46 /* Build configuration list for PBXProject "Nimbus Sample" */;
+			buildConfigurationList = AC807DC32616199400805D46 /* Build configuration list for PBXProject "NimbusSample" */;
 			compatibilityVersion = "Xcode 9.3";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -255,9 +255,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AC807DC72616199400805D46 /* Nimbus Sample */,
-				AC807DD82616199500805D46 /* Nimbus SampleTests */,
-				AC807DE32616199500805D46 /* Nimbus SampleUITests */,
+				AC807DC72616199400805D46 /* NimbusSample */,
+				AC807DD82616199500805D46 /* NimbusSampleTests */,
+				AC807DE32616199500805D46 /* NimbusSampleUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -296,7 +296,7 @@
 				AC9406ED261E4DA800DC1F04 /* NimbusLogoFeature.swift in Sources */,
 				AC807DCE2616199400805D46 /* ContentView.swift in Sources */,
 				ACF91E282638874A00D4626F /* NimbusButtonCardFeature.swift in Sources */,
-				AC807DCC2616199400805D46 /* Nimbus_SampleApp.swift in Sources */,
+				AC807DCC2616199400805D46 /* NimbusSampleApp.swift in Sources */,
 				AC94070126209B8000DC1F04 /* Experiments.swift in Sources */,
 				AC9406F2261E4E6600DC1F04 /* NimbusTagLineFeature.swift in Sources */,
 			);
@@ -323,12 +323,12 @@
 /* Begin PBXTargetDependency section */
 		AC807DDB2616199500805D46 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = AC807DC72616199400805D46 /* Nimbus Sample */;
+			target = AC807DC72616199400805D46 /* NimbusSample */;
 			targetProxy = AC807DDA2616199500805D46 /* PBXContainerItemProxy */;
 		};
 		AC807DE62616199500805D46 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = AC807DC72616199400805D46 /* Nimbus Sample */;
+			target = AC807DC72616199400805D46 /* NimbusSample */;
 			targetProxy = AC807DE52616199500805D46 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -519,7 +519,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nimbus Sample.app/Nimbus Sample";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NimbusSample.app/NimbusSample";
 			};
 			name = Debug;
 		};
@@ -540,7 +540,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Nimbus Sample.app/Nimbus Sample";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/NimbusSample.app/NimbusSample";
 			};
 			name = Release;
 		};
@@ -585,7 +585,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AC807DC32616199400805D46 /* Build configuration list for PBXProject "Nimbus Sample" */ = {
+		AC807DC32616199400805D46 /* Build configuration list for PBXProject "NimbusSample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AC807DEB2616199500805D46 /* Debug */,
@@ -594,7 +594,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AC807DED2616199500805D46 /* Build configuration list for PBXNativeTarget "Nimbus Sample" */ = {
+		AC807DED2616199500805D46 /* Build configuration list for PBXNativeTarget "NimbusSample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AC807DEE2616199500805D46 /* Debug */,
@@ -603,7 +603,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AC807DF02616199500805D46 /* Build configuration list for PBXNativeTarget "Nimbus SampleTests" */ = {
+		AC807DF02616199500805D46 /* Build configuration list for PBXNativeTarget "NimbusSampleTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AC807DF12616199500805D46 /* Debug */,
@@ -612,7 +612,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AC807DF32616199500805D46 /* Build configuration list for PBXNativeTarget "Nimbus SampleUITests" */ = {
+		AC807DF32616199500805D46 /* Build configuration list for PBXNativeTarget "NimbusSampleUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AC807DF42616199500805D46 /* Debug */,

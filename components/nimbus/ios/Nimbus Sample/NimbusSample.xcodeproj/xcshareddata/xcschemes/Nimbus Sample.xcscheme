@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AC807DC72616199400805D46"
-               BuildableName = "Nimbus Sample.app"
-               BlueprintName = "Nimbus Sample"
-               ReferencedContainer = "container:Nimbus Sample.xcodeproj">
+               BuildableName = "NimbusSample.app"
+               BlueprintName = "NimbusSample"
+               ReferencedContainer = "container:NimbusSample.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AC807DD82616199500805D46"
-               BuildableName = "Nimbus SampleTests.xctest"
-               BlueprintName = "Nimbus SampleTests"
-               ReferencedContainer = "container:Nimbus Sample.xcodeproj">
+               BuildableName = "NimbusSampleTests.xctest"
+               BlueprintName = "NimbusSampleTests"
+               ReferencedContainer = "container:NimbusSample.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -43,9 +43,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AC807DE32616199500805D46"
-               BuildableName = "Nimbus SampleUITests.xctest"
-               BlueprintName = "Nimbus SampleUITests"
-               ReferencedContainer = "container:Nimbus Sample.xcodeproj">
+               BuildableName = "NimbusSampleUITests.xctest"
+               BlueprintName = "NimbusSampleUITests"
+               ReferencedContainer = "container:NimbusSample.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -65,9 +65,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AC807DC72616199400805D46"
-            BuildableName = "Nimbus Sample.app"
-            BlueprintName = "Nimbus Sample"
-            ReferencedContainer = "container:Nimbus Sample.xcodeproj">
+            BuildableName = "NimbusSample.app"
+            BlueprintName = "NimbusSample"
+            ReferencedContainer = "container:NimbusSample.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -82,9 +82,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "AC807DC72616199400805D46"
-            BuildableName = "Nimbus Sample.app"
-            BlueprintName = "Nimbus Sample"
-            ReferencedContainer = "container:Nimbus Sample.xcodeproj">
+            BuildableName = "NimbusSample.app"
+            BlueprintName = "NimbusSample"
+            ReferencedContainer = "container:NimbusSample.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

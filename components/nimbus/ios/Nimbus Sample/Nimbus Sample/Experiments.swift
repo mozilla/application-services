@@ -60,7 +60,7 @@ public enum Experiments {
                 errorReporter: nimbusErrorReporter
             )
         } catch {
-            print("Something went wrong durning NimbusApi creation")
+            print("Something went wrong during NimbusApi creation")
 
             // Nimbus provides a no-op implementation which can be
             // substituted to effectively disable Nimbus.
