@@ -35,8 +35,9 @@ pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
+use serde_json::{Map, Value};
 use std::sync::Mutex;
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
 use uuid::Uuid;
 
@@ -102,7 +103,7 @@ impl NimbusClient {
         self.database_cache.get_experiment_branch(&slug)
     }
 
-    pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
+    pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<Map<String, Value>>> {
         self.database_cache
             .get_feature_config_variables(&feature_id)
     }
@@ -380,18 +381,8 @@ pub struct FeatureConfig {
     // There is a nullable `value` field that can contain key-value config options
     // that modify the behaviour of an application feature. Uniffi doesn't quite support
     // serde_json yet.
-    #[serde(default = "default_value")]
-    pub value: String,
-}
-
-fn default_value() -> String {
-    "{}".into()
-}
-
-#[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
-pub struct FeatureVariables {
-    #[serde(flatten)]
-    pub variables: HashMap<String, serde_json::Value>,
+    #[serde(default)]
+    pub value: Map<String, Value>,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -842,7 +833,7 @@ mod test_schema_bw_compat {
 mod test_schema_deserialization {
     use super::*;
 
-    use serde_json::{json, Value};
+    use serde_json::{json, Value, Map};
 
     #[derive(Deserialize, Serialize, Debug, Clone)]
     #[serde(rename_all = "camelCase")]
@@ -850,7 +841,7 @@ mod test_schema_deserialization {
         pub enabled: bool,
         pub feature_id: String,
         #[serde(default)]
-        pub value: Value,
+        pub value: Map<String, Value>,
     }
 
     #[test]

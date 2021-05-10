@@ -6,6 +6,7 @@ use crate::enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFea
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{enrollment::ExperimentEnrollment, Experiment};
+use serde_json::{Map, Value};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
@@ -116,7 +117,7 @@ impl DatabaseCache {
         })
     }
 
-    pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
+    pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<Map<String, Value>>> {
         self.get_data(|data| {
             if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
                 Some(enrolled_feature.feature.value.clone())
