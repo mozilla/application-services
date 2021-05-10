@@ -11,8 +11,8 @@
 		AC807DCE2616199400805D46 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DCD2616199400805D46 /* ContentView.swift */; };
 		AC807DD02616199500805D46 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AC807DCF2616199500805D46 /* Assets.xcassets */; };
 		AC807DD32616199500805D46 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AC807DD22616199500805D46 /* Preview Assets.xcassets */; };
-		AC807DDE2616199500805D46 /* Nimbus_SampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DDD2616199500805D46 /* Nimbus_SampleTests.swift */; };
-		AC807DE92616199500805D46 /* Nimbus_SampleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DE82616199500805D46 /* Nimbus_SampleUITests.swift */; };
+		AC807DDE2616199500805D46 /* NimbusSampleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DDD2616199500805D46 /* NimbusSampleTests.swift */; };
+		AC807DE92616199500805D46 /* NimbusSampleUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC807DE82616199500805D46 /* NimbusSampleUITests.swift */; };
 		AC9406ED261E4DA800DC1F04 /* NimbusLogoFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9406EC261E4DA800DC1F04 /* NimbusLogoFeature.swift */; };
 		AC9406F2261E4E6600DC1F04 /* NimbusTagLineFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC9406F1261E4E6600DC1F04 /* NimbusTagLineFeature.swift */; };
 		AC94070126209B8000DC1F04 /* Experiments.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC94070026209B8000DC1F04 /* Experiments.swift */; };
@@ -45,10 +45,10 @@
 		AC807DD22616199500805D46 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		AC807DD42616199500805D46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AC807DD92616199500805D46 /* NimbusSampleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NimbusSampleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AC807DDD2616199500805D46 /* Nimbus_SampleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nimbus_SampleTests.swift; sourceTree = "<group>"; };
+		AC807DDD2616199500805D46 /* NimbusSampleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusSampleTests.swift; sourceTree = "<group>"; };
 		AC807DDF2616199500805D46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AC807DE42616199500805D46 /* NimbusSampleUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NimbusSampleUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		AC807DE82616199500805D46 /* Nimbus_SampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Nimbus_SampleUITests.swift; sourceTree = "<group>"; };
+		AC807DE82616199500805D46 /* NimbusSampleUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusSampleUITests.swift; sourceTree = "<group>"; };
 		AC807DEA2616199500805D46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AC9406EC261E4DA800DC1F04 /* NimbusLogoFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusLogoFeature.swift; sourceTree = "<group>"; };
 		AC9406F1261E4E6600DC1F04 /* NimbusTagLineFeature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusTagLineFeature.swift; sourceTree = "<group>"; };
@@ -89,9 +89,9 @@
 		AC807DBF2616199400805D46 = {
 			isa = PBXGroup;
 			children = (
-				AC807DCA2616199400805D46 /* Nimbus Sample */,
-				AC807DDC2616199500805D46 /* Nimbus SampleTests */,
-				AC807DE72616199500805D46 /* Nimbus SampleUITests */,
+				AC807DCA2616199400805D46 /* NimbusSample */,
+				AC807DDC2616199500805D46 /* NimbusSampleTests */,
+				AC807DE72616199500805D46 /* NimbusSampleUITests */,
 				AC807DC92616199400805D46 /* Products */,
 				AC9406F6261E4FD700DC1F04 /* Frameworks */,
 			);
@@ -107,7 +107,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		AC807DCA2616199400805D46 /* Nimbus Sample */ = {
+		AC807DCA2616199400805D46 /* NimbusSample */ = {
 			isa = PBXGroup;
 			children = (
 				AC807DCB2616199400805D46 /* NimbusSampleApp.swift */,
@@ -120,7 +120,7 @@
 				AC9406F1261E4E6600DC1F04 /* NimbusTagLineFeature.swift */,
 				AC94070026209B8000DC1F04 /* Experiments.swift */,
 			);
-			path = "Nimbus Sample";
+			path = NimbusSample;
 			sourceTree = "<group>";
 		};
 		AC807DD12616199500805D46 /* Preview Content */ = {
@@ -131,22 +131,22 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		AC807DDC2616199500805D46 /* Nimbus SampleTests */ = {
+		AC807DDC2616199500805D46 /* NimbusSampleTests */ = {
 			isa = PBXGroup;
 			children = (
-				AC807DDD2616199500805D46 /* Nimbus_SampleTests.swift */,
+				AC807DDD2616199500805D46 /* NimbusSampleTests.swift */,
 				AC807DDF2616199500805D46 /* Info.plist */,
 			);
-			path = "Nimbus SampleTests";
+			path = NimbusSampleTests;
 			sourceTree = "<group>";
 		};
-		AC807DE72616199500805D46 /* Nimbus SampleUITests */ = {
+		AC807DE72616199500805D46 /* NimbusSampleUITests */ = {
 			isa = PBXGroup;
 			children = (
-				AC807DE82616199500805D46 /* Nimbus_SampleUITests.swift */,
+				AC807DE82616199500805D46 /* NimbusSampleUITests.swift */,
 				AC807DEA2616199500805D46 /* Info.plist */,
 			);
-			path = "Nimbus SampleUITests";
+			path = NimbusSampleUITests;
 			sourceTree = "<group>";
 		};
 		AC9406F6261E4FD700DC1F04 /* Frameworks */ = {
@@ -306,7 +306,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AC807DDE2616199500805D46 /* Nimbus_SampleTests.swift in Sources */,
+				AC807DDE2616199500805D46 /* NimbusSampleTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -314,7 +314,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AC807DE92616199500805D46 /* Nimbus_SampleUITests.swift in Sources */,
+				AC807DE92616199500805D46 /* NimbusSampleUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -369,7 +369,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_BITCODE = YES;
+				ENABLE_BITCODE = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -431,7 +431,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				ENABLE_BITCODE = YES;
+				ENABLE_BITCODE = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -459,11 +459,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_ASSET_PATHS = "\"Nimbus Sample/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"NimbusSample/Preview Content\"";
 				DEVELOPMENT_TEAM = G9EAK7RA89;
-				ENABLE_BITCODE = YES;
+				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = "Nimbus Sample/Info.plist";
+				INFOPLIST_FILE = NimbusSample/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -484,11 +484,11 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_ASSET_PATHS = "\"Nimbus Sample/Preview Content\"";
+				DEVELOPMENT_ASSET_PATHS = "\"NimbusSample/Preview Content\"";
 				DEVELOPMENT_TEAM = G9EAK7RA89;
-				ENABLE_BITCODE = YES;
+				ENABLE_BITCODE = NO;
 				ENABLE_PREVIEWS = YES;
-				INFOPLIST_FILE = "Nimbus Sample/Info.plist";
+				INFOPLIST_FILE = NimbusSample/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

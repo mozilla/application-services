@@ -5,10 +5,10 @@
 //  Created by Travis Long on 4/1/21.
 //
 
-@testable import Nimbus_Sample
+@testable import NimbusSample
 import XCTest
 
-class Nimbus_SampleTests: XCTestCase {
+class NimbusSampleTests: XCTestCase {
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
     }
