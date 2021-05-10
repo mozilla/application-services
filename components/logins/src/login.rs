@@ -23,17 +23,14 @@
 //!   treat this it as an opaque identifier. It should be left blank when adding a new record,
 //!   in which case a new id will be automatically generated.
 //!
-//! - `hostname`:  The origin at which this login can be used, as a string.
+//! - `origin`:  The origin at which this login can be used, as a string.
 //!
 //!   The login should only be used on sites that match this origin (for whatever definition
 //!   of "matches" makes sense at the application level, e.g. eTLD+1 matching).
 //!   This field is required, must be a valid origin in punycode format, and must not be
 //!   set to the empty string.
 //!
-//!   **YES, THIS FIELD IS CONFUSINGLY NAMED. IT SHOULD BE A FULL ORIGIN, NOT A HOSTNAME.
-//!   WE INTEND TO RENAME THIS TO `origin` IN A FUTURE RELEASE.**
-//!
-//!   Examples of valid `hostname` values include:
+//!   Examples of valid `origin` values include:
 //!   - "https://site.com"
 //!   - "http://site.com:1234"
 //!   - "ftp://ftp.site.com"
@@ -71,11 +68,11 @@
 //!
 //!   If this field is set to the empty string, this indicates a wildcard match on realm.
 //!
-//!   This field must not be present if `formSubmitURL` is set, since they indicate different types
-//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formSubmitURL`
+//!   This field must not be present if `formActionURL` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionURL`
 //!   must be present.
 //!
-//! - `formSubmitURL`:  The target origin of forms in which this login can be used, if any, as a string.
+//! - `formActionURL`:  The target origin of forms in which this login can be used, if any, as a string.
 //!
 //!   If present, the login should only be used in forms whose target submission URL matches this origin.
 //!   This field must be a valid origin or one of the following special cases:
@@ -87,7 +84,7 @@
 //!   RENAME THIS TO `formActionOrigin` IN A FUTURE RELEASE.**
 //!
 //!   This field must not be present if `httpRealm` is set, since they indicate different types of login
-//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formSubmitURL` must be present.
+//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionURL` must be present.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync) then the
 //!   logins store will attempt to coerce it into valid data by:
@@ -104,21 +101,21 @@
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formSubmitURL` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `formActionURL` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formSubmitURL' is not present
+//!   - setting to the empty string if 'formActionURL' is not present
 //!
 //! - `passwordField`:  The name of the form field into which the 'password' should be filled, if any.
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formSubmitURL` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `formActionURL` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formSubmitURL' is not present
+//!   - setting to the empty string if 'formActionURL' is not present
 //!
 //! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
 //!
@@ -241,13 +238,13 @@ pub struct Login {
     #[serde(rename = "id")]
     pub guid: Guid,
 
-    pub hostname: String,
+    pub origin: String,
 
-    // rename_all = "camelCase" by default will do formSubmitUrl, but we can just
+    // rename_all = "camelCase" by default will do formActionURL, but we can just
     // override this one field.
-    #[serde(rename = "formSubmitURL")]
+    #[serde(rename = "formActionURL")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub form_submit_url: Option<String>,
+    pub form_action_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_realm: Option<String>,
@@ -286,11 +283,11 @@ pub struct Login {
 pub struct LoginRecord {
     #[serde(rename = "id")]
     pub guid: std::string::String,
-    pub hostname: std::string::String,
+    pub origin: std::string::String,
     pub password: std::string::String,
     pub username: std::string::String,
     pub http_realm: ::std::option::Option<std::string::String>,
-    pub form_submit_url: ::std::option::Option<std::string::String>,
+    pub form_action_url: ::std::option::Option<std::string::String>,
     pub username_field: std::string::String,
     pub password_field: std::string::String,
     pub times_used: i64,
@@ -426,7 +423,7 @@ impl Login {
             };
         };
 
-        if self.hostname.is_empty() {
+        if self.origin.is_empty() {
             throw!(InvalidLogin::EmptyOrigin);
         }
 
@@ -434,15 +431,15 @@ impl Login {
             throw!(InvalidLogin::EmptyPassword);
         }
 
-        if self.form_submit_url.is_some() && self.http_realm.is_some() {
+        if self.form_action_url.is_some() && self.http_realm.is_some() {
             get_fixed_or_throw!(InvalidLogin::BothTargets)?.http_realm = None;
         }
 
-        if self.form_submit_url.is_none() && self.http_realm.is_none() {
+        if self.form_action_url.is_none() && self.http_realm.is_none() {
             throw!(InvalidLogin::NoTarget);
         }
 
-        let form_submit_url = self.form_submit_url.clone().unwrap_or_default();
+        let form_action_url = self.form_action_url.clone().unwrap_or_default();
         let http_realm = maybe_fixed
             .as_ref()
             .unwrap_or(self)
@@ -451,9 +448,9 @@ impl Login {
             .unwrap_or_default();
 
         let field_data = [
-            ("formSubmitUrl", &form_submit_url),
+            ("formActionURL", &form_action_url),
             ("httpRealm", &http_realm),
-            ("hostname", &self.hostname),
+            ("origin", &self.origin),
             ("usernameField", &self.username_field),
             ("passwordField", &self.password_field),
             ("username", &self.username),
@@ -488,25 +485,25 @@ impl Login {
         }
 
         // Check we can parse the origin, then use the normalized version of it.
-        if let Some(fixed) = Login::validate_and_fixup_origin(&self.hostname)? {
+        if let Some(fixed) = Login::validate_and_fixup_origin(&self.origin)? {
             get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                 field_info: "Origin is not normalized".into()
             })?
-            .hostname = fixed;
+            .origin = fixed;
         }
 
-        match &maybe_fixed.as_ref().unwrap_or(self).form_submit_url {
+        match &maybe_fixed.as_ref().unwrap_or(self).form_action_url {
             None => {
                 if !self.username_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "usernameField must be empty when formSubmitURL is null".into()
+                        field_info: "usernameField must be empty when formActionURL is null".into()
                     })?
                     .username_field
                     .clear();
                 }
                 if !self.password_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "passwordField must be empty when formSubmitURL is null".into()
+                        field_info: "passwordField must be empty when formActionURL is null".into()
                     })?
                     .password_field
                     .clear();
@@ -520,14 +517,14 @@ impl Login {
                     if fixup {
                         maybe_fixed
                             .get_or_insert_with(|| self.clone())
-                            .form_submit_url = Some("".into());
+                            .form_action_url = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
                     if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "formActionOrigin is not normalized".into()
                         })?
-                        .form_submit_url = Some(fixed);
+                        .form_action_url = Some(fixed);
                     }
                 }
             }
@@ -542,10 +539,10 @@ impl Login {
             password: row.get("password")?,
             username: string_or_default(row, "username")?,
 
-            hostname: row.get("hostname")?,
+            origin: row.get("hostname")?,
             http_realm: row.get("httpRealm")?,
 
-            form_submit_url: row.get("formSubmitURL")?,
+            form_action_url: row.get("formSubmitURL")?,
 
             username_field: string_or_default(row, "usernameField")?,
             password_field: string_or_default(row, "passwordField")?,
@@ -569,11 +566,11 @@ impl From<Login> for LoginRecord {
     fn from(login: Login) -> Self {
         Self {
             guid: login.guid.into_string(),
-            hostname: login.hostname,
+            origin: login.origin,
             password: login.password,
             username: login.username,
             http_realm: login.http_realm,
-            form_submit_url: login.form_submit_url,
+            form_action_url: login.form_action_url,
             username_field: login.username_field,
             password_field: login.password_field,
             times_used: login.times_used,
@@ -588,11 +585,11 @@ impl From<LoginRecord> for Login {
     fn from(info: LoginRecord) -> Self {
         Self {
             guid: Guid::from_string(info.guid),
-            hostname: info.hostname,
+            origin: info.origin,
             password: info.password,
             username: info.username,
             http_realm: info.http_realm,
-            form_submit_url: info.form_submit_url,
+            form_action_url: info.form_action_url,
             username_field: info.username_field,
             password_field: info.password_field,
             times_used: info.times_used,
@@ -795,11 +792,11 @@ impl_login_setter!(set_mirror, mirror, MirrorLogin);
 #[derive(Debug, Default, Clone)]
 pub(crate) struct LoginDelta {
     // "non-commutative" fields
-    pub hostname: Option<String>,
+    pub origin: Option<String>,
     pub password: Option<String>,
     pub username: Option<String>,
     pub http_realm: Option<String>,
-    pub form_submit_url: Option<String>,
+    pub form_action_url: Option<String>,
 
     pub time_created: Option<i64>,
     pub time_last_used: Option<i64>,
@@ -832,11 +829,11 @@ impl LoginDelta {
     #[allow(clippy::cognitive_complexity)] // Looks like clippy considers this after macro-expansion...
     pub fn merge(self, mut b: LoginDelta, b_is_newer: bool) -> LoginDelta {
         let mut merged = self;
-        merge_field!(merged, b, b_is_newer, hostname);
+        merge_field!(merged, b, b_is_newer, origin);
         merge_field!(merged, b, b_is_newer, password);
         merge_field!(merged, b, b_is_newer, username);
         merge_field!(merged, b, b_is_newer, http_realm);
-        merge_field!(merged, b, b_is_newer, form_submit_url);
+        merge_field!(merged, b, b_is_newer, form_action_url);
 
         merge_field!(merged, b, b_is_newer, time_created);
         merge_field!(merged, b, b_is_newer, time_last_used);
@@ -862,7 +859,7 @@ macro_rules! apply_field {
 
 impl Login {
     pub(crate) fn apply_delta(&mut self, mut delta: LoginDelta) {
-        apply_field!(self, delta, hostname);
+        apply_field!(self, delta, origin);
 
         apply_field!(self, delta, password);
         apply_field!(self, delta, username);
@@ -879,8 +876,8 @@ impl Login {
             self.http_realm = if realm.is_empty() { None } else { Some(realm) };
         }
 
-        if let Some(url) = delta.form_submit_url.take() {
-            self.form_submit_url = if url.is_empty() { None } else { Some(url) };
+        if let Some(url) = delta.form_action_url.take() {
+            self.form_action_url = if url.is_empty() { None } else { Some(url) };
         }
 
         self.times_used += delta.times_used;
@@ -889,16 +886,16 @@ impl Login {
     pub(crate) fn delta(&self, older: &Login) -> LoginDelta {
         let mut delta = LoginDelta::default();
 
-        if self.form_submit_url != older.form_submit_url {
-            delta.form_submit_url = Some(self.form_submit_url.clone().unwrap_or_default());
+        if self.form_action_url != older.form_action_url {
+            delta.form_action_url = Some(self.form_action_url.clone().unwrap_or_default());
         }
 
         if self.http_realm != older.http_realm {
             delta.http_realm = Some(self.http_realm.clone().unwrap_or_default());
         }
 
-        if self.hostname != older.hostname {
-            delta.hostname = Some(self.hostname.clone());
+        if self.origin != older.origin {
+            delta.origin = Some(self.origin.clone());
         }
         if self.username != older.username {
             delta.username = Some(self.username.clone());
@@ -951,8 +948,8 @@ mod tests {
         let bad_timestamp = 18446732429235952000u64;
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
-            "formSubmitURL": "https://www.example.com/submit",
-            "hostname": "https://www.example.com",
+            "formActionURL": "https://www.example.com/submit",
+            "origin": "https://www.example.com",
             "username": "test",
             "password": "test",
             "timeCreated": bad_timestamp,
@@ -972,8 +969,8 @@ mod tests {
         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
         let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
-            "formSubmitURL": "https://www.example.com/submit",
-            "hostname": "https://www.example.com",
+            "formActionURL": "https://www.example.com/submit",
+            "origin": "https://www.example.com",
             "username": "test",
             "password": "test",
             "timeCreated": now64 - 100,
@@ -997,7 +994,7 @@ mod tests {
     fn test_url_fixups() -> Result<()> {
         // Start with URLs which are all valid and already normalized.
         for input in &[
-            // The list of valid hostnames documented at the top of this file.
+            // The list of valid origins documented at the top of this file.
             "https://site.com",
             "http://site.com:1234",
             "ftp://ftp.site.com",
@@ -1055,15 +1052,15 @@ mod tests {
         }
 
         let valid_login = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
-        let login_with_empty_hostname = Login {
-            hostname: "".into(),
+        let login_with_empty_origin = Login {
+            origin: "".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1071,7 +1068,7 @@ mod tests {
         };
 
         let login_with_empty_password = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "".into(),
@@ -1079,21 +1076,21 @@ mod tests {
         };
 
         let login_with_form_submit_and_http_realm = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            form_submit_url: Some("https://www.example.com".into()),
+            form_action_url: Some("https://www.example.com".into()),
             password: "test".into(),
             ..Login::default()
         };
 
         let login_without_form_submit_or_http_realm = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             password: "test".into(),
             ..Login::default()
         };
 
         let login_with_null_http_realm = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.\0com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1101,7 +1098,7 @@ mod tests {
         };
 
         let login_with_null_username = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "\0".into(),
             password: "test".into(),
@@ -1109,15 +1106,15 @@ mod tests {
         };
 
         let login_with_null_password = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "username".into(),
             password: "test\0".into(),
             ..Login::default()
         };
 
-        let login_with_newline_hostname = Login {
-            hostname: "\rhttps://www.example.com".into(),
+        let login_with_newline_origin = Login {
+            origin: "\rhttps://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1125,7 +1122,7 @@ mod tests {
         };
 
         let login_with_newline_username_field = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1134,7 +1131,7 @@ mod tests {
         };
 
         let login_with_newline_realm = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("foo\nbar".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1142,7 +1139,7 @@ mod tests {
         };
 
         let login_with_newline_password = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test\n".into(),
@@ -1150,7 +1147,7 @@ mod tests {
         };
 
         let login_with_period_username_field = Login {
-            hostname: "https://www.example.com".into(),
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1158,24 +1155,24 @@ mod tests {
             ..Login::default()
         };
 
-        let login_with_period_form_submit_url = Login {
-            form_submit_url: Some(".".into()),
-            hostname: "https://www.example.com".into(),
+        let login_with_period_form_action_url = Login {
+            form_action_url: Some(".".into()),
+            origin: "https://www.example.com".into(),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
-        let login_with_javascript_form_submit_url = Login {
-            form_submit_url: Some("javascript:".into()),
-            hostname: "https://www.example.com".into(),
+        let login_with_javascript_form_action_url = Login {
+            form_action_url: Some("javascript:".into()),
+            origin: "https://www.example.com".into(),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
         let login_with_malformed_origin_parens = Login {
-            hostname: " (".into(),
+            origin: " (".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1183,23 +1180,23 @@ mod tests {
         };
 
         let login_with_host_unicode = Login {
-            hostname: "http://💖.com".into(),
+            origin: "http://💖.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
-        let login_with_hostname_trailing_slash = Login {
-            hostname: "https://www.example.com/".into(),
+        let login_with_origin_trailing_slash = Login {
+            origin: "https://www.example.com/".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
-        let login_with_hostname_expanded_ipv6 = Login {
-            hostname: "https://[0:0:0:0:0:0:1:1]".into(),
+        let login_with_origin_expanded_ipv6 = Login {
+            origin: "https://[0:0:0:0:0:0:1:1]".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1207,7 +1204,7 @@ mod tests {
         };
 
         let login_with_unknown_protocol = Login {
-            hostname: "moz-proxy://127.0.0.1:8888".into(),
+            origin: "moz-proxy://127.0.0.1:8888".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1221,7 +1218,7 @@ mod tests {
                 expected_err: "",
             },
             TestCase {
-                login: login_with_empty_hostname,
+                login: login_with_empty_origin,
                 should_err: true,
                 expected_err: "Invalid login: Origin is empty",
             },
@@ -1233,12 +1230,12 @@ mod tests {
             TestCase {
                 login: login_with_form_submit_and_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Both `formSubmitUrl` and `httpRealm` are present",
+                expected_err: "Invalid login: Both `formActionUrl` and `httpRealm` are present",
             },
             TestCase {
                 login: login_without_form_submit_or_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Neither `formSubmitUrl` or `httpRealm` are present",
+                expected_err: "Invalid login: Neither `formActionUrl` or `httpRealm` are present",
             },
             TestCase {
                 login: login_with_null_http_realm,
@@ -1256,9 +1253,9 @@ mod tests {
                 expected_err: "Invalid login: Login has illegal field: `password` contains Nul",
             },
             TestCase {
-                login: login_with_newline_hostname,
+                login: login_with_newline_origin,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal field: `hostname` contains newline",
+                expected_err: "Invalid login: Login has illegal field: `origin` contains newline",
             },
             TestCase {
                 login: login_with_newline_realm,
@@ -1283,12 +1280,12 @@ mod tests {
                 expected_err: "Invalid login: Login has illegal field: `usernameField` is a period",
             },
             TestCase {
-                login: login_with_period_form_submit_url,
+                login: login_with_period_form_action_url,
                 should_err: false,
                 expected_err: "",
             },
             TestCase {
-                login: login_with_javascript_form_submit_url,
+                login: login_with_javascript_form_action_url,
                 should_err: false,
                 expected_err: "",
             },
@@ -1303,12 +1300,12 @@ mod tests {
                 expected_err: "Invalid login: Login has illegal field: Origin is not normalized",
             },
             TestCase {
-                login: login_with_hostname_trailing_slash,
+                login: login_with_origin_trailing_slash,
                 should_err: true,
                 expected_err: "Invalid login: Login has illegal field: Origin is not normalized",
             },
             TestCase {
-                login: login_with_hostname_expanded_ipv6,
+                login: login_with_origin_expanded_ipv6,
                 should_err: true,
                 expected_err: "Invalid login: Login has illegal field: Origin is not normalized",
             },
@@ -1347,45 +1344,45 @@ mod tests {
         struct TestCase {
             login: Login,
             fixedup_host: Option<&'static str>,
-            fixedup_form_submit_url: Option<String>,
+            fixedup_form_action_url: Option<String>,
         }
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
         let login_with_full_url = Login {
-            hostname: "http://example.com/foo?query=wtf#bar".into(),
-            form_submit_url: Some("http://example.com/foo?query=wtf#bar".into()),
+            origin: "http://example.com/foo?query=wtf#bar".into(),
+            form_action_url: Some("http://example.com/foo?query=wtf#bar".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
         let login_with_host_unicode = Login {
-            hostname: "http://😍.com".into(),
-            form_submit_url: Some("http://😍.com".into()),
+            origin: "http://😍.com".into(),
+            form_action_url: Some("http://😍.com".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
         let login_with_period_fsu = Login {
-            hostname: "https://example.com".into(),
-            form_submit_url: Some(".".into()),
+            origin: "https://example.com".into(),
+            form_action_url: Some(".".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
         let login_with_empty_fsu = Login {
-            hostname: "https://example.com".into(),
-            form_submit_url: Some("".into()),
+            origin: "https://example.com".into(),
+            form_action_url: Some("".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
         let login_with_form_submit_and_http_realm = Login {
-            hostname: "https://www.example.com".into(),
-            form_submit_url: Some("https://www.example.com".into()),
-            // If both http_realm and form_submit_url are specified, we drop
+            origin: "https://www.example.com".into(),
+            form_action_url: Some("https://www.example.com".into()),
+            // If both http_realm and form_action_url are specified, we drop
             // the former when fixing up. So for this test we must have an
             // invalid value in http_realm to ensure we don't validate a value
             // we end up dropping.
@@ -1398,27 +1395,27 @@ mod tests {
             TestCase {
                 login: login_with_full_url,
                 fixedup_host: "http://example.com".into(),
-                fixedup_form_submit_url: Some("http://example.com".into()),
+                fixedup_form_action_url: Some("http://example.com".into()),
             },
             TestCase {
                 login: login_with_host_unicode,
                 fixedup_host: "http://xn--r28h.com".into(),
-                fixedup_form_submit_url: Some("http://xn--r28h.com".into()),
+                fixedup_form_action_url: Some("http://xn--r28h.com".into()),
             },
             TestCase {
                 login: login_with_period_fsu,
-                fixedup_form_submit_url: Some("".into()),
+                fixedup_form_action_url: Some("".into()),
                 ..TestCase::default()
             },
             TestCase {
                 login: login_with_form_submit_and_http_realm,
-                fixedup_form_submit_url: Some("https://www.example.com".into()),
+                fixedup_form_action_url: Some("https://www.example.com".into()),
                 ..TestCase::default()
             },
             TestCase {
                 login: login_with_empty_fsu,
                 // Should still be empty.
-                fixedup_form_submit_url: Some("".into()),
+                fixedup_form_action_url: Some("".into()),
                 ..TestCase::default()
             },
         ];
@@ -1426,11 +1423,11 @@ mod tests {
         for tc in &test_cases {
             let login = tc.login.clone().fixup().expect("should work");
             if let Some(expected) = tc.fixedup_host {
-                assert_eq!(login.hostname, expected, "hostname not fixed in {:#?}", tc);
+                assert_eq!(login.origin, expected, "origin not fixed in {:#?}", tc);
             }
             assert_eq!(
-                login.form_submit_url, tc.fixedup_form_submit_url,
-                "form_submit_url not fixed in {:#?}",
+                login.form_action_url, tc.fixedup_form_action_url,
+                "form_action_url not fixed in {:#?}",
                 tc,
             );
             login.check_valid().unwrap_or_else(|e| {
@@ -1450,7 +1447,7 @@ mod tests {
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
-            "hostname": "https://www.example.com",
+            "origin": "https://www.example.com",
             "username": "test",
             "password": "test",
             "usernameField": "invalid"
@@ -1476,7 +1473,7 @@ mod tests {
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
-            "hostname": "https://www.example.com",
+            "origin": "https://www.example.com",
             "username": "test",
             "password": "test",
             "passwordField": "invalid"

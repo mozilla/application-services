@@ -55,9 +55,9 @@ pub enum InvalidLogin {
     EmptyPassword,
     #[error("Login already exists")]
     DuplicateLogin,
-    #[error("Both `formSubmitUrl` and `httpRealm` are present")]
+    #[error("Both `formActionUrl` and `httpRealm` are present")]
     BothTargets,
-    #[error("Neither `formSubmitUrl` or `httpRealm` are present")]
+    #[error("Neither `formActionUrl` or `httpRealm` are present")]
     NoTarget,
     #[error("Login has illegal field: {field_info}")]
     IllegalFieldValue { field_info: String },

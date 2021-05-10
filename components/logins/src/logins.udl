@@ -11,11 +11,11 @@ namespace logins {
 // Converted from mozilla.appservices.logins.protobuf.rs
 dictionary LoginRecord {
     string guid;
-    string hostname;
+    string origin;
     string password;
     string username;
     string? http_realm;
-    string? form_submit_url;
+    string? form_action_url;
     string username_field;
     string password_field;
     i64 times_used;

@@ -11,10 +11,10 @@ open class LoginRecord {
     /// will be emitted.
     public var id: String
 
-    /// This record's hostname. Required. Attempting to insert
-    /// or update a record to have a blank hostname, will result in a
+    /// This record's origin. Required. Attempting to insert
+    /// or update a record to have a blank origin, will result in a
     /// `LoginsStoreError.InvalidLogin`.
-    public var hostname: String
+    public var origin: String
 
     /// This record's password. Required. Attempting to insert
     /// or update a record to have a blank password, will result in a
@@ -26,17 +26,17 @@ open class LoginRecord {
 
     /// The challenge string for HTTP Basic authentication.
     ///
-    /// Exactly one of `httpRealm` or `formSubmitURL` is allowed to be present,
+    /// Exactly one of `httpRealm` or `formActionURL` is allowed to be present,
     /// and attempting to insert or update a record to have both or neither will
     /// result in an `LoginsStoreError.InvalidLogin`.
     public var httpRealm: String?
 
     /// The submission URL for the form where this login may be entered.
     ///
-    /// As mentioned above, exactly one of `httpRealm` or `formSubmitURL` is allowed
+    /// As mentioned above, exactly one of `httpRealm` or `formActionURL` is allowed
     /// to be present, and attempting to insert or update a record to have
     /// both or neither will result in an `LoginsStoreError.InvalidLogin`.
-    public var formSubmitURL: String?
+    public var formActionURL: String?
 
     /// A lower bound on the number of times this record has been "used".
     ///
@@ -76,7 +76,7 @@ open class LoginRecord {
         var dict: [String: Any] = [
             "id": id,
             "password": password,
-            "hostname": hostname,
+            "origin": origin,
 
             "timesUsed": timesUsed,
             "timeCreated": timeCreated,
@@ -92,8 +92,8 @@ open class LoginRecord {
             dict["httpRealm"] = httpRealm
         }
 
-        if let formSubmitURL = self.formSubmitURL {
-            dict["formSubmitURL"] = formSubmitURL
+        if let formActionURL = self.formActionURL {
+            dict["formActionURL"] = formActionURL
         }
 
         return dict
@@ -102,7 +102,7 @@ open class LoginRecord {
     internal func toProtobuf() -> MsgTypes_PasswordInfo {
         var buf = MsgTypes_PasswordInfo()
         buf.id = id
-        buf.hostname = hostname
+        buf.origin = origin
         buf.password = password
         buf.username = username
         buf.timesUsed = Int64(timesUsed)
@@ -114,8 +114,8 @@ open class LoginRecord {
         if let h = httpRealm {
             buf.httpRealm = h
         }
-        if let f = formSubmitURL {
-            buf.formSubmitURL = f
+        if let f = formActionURL {
+            buf.formActionURL = f
         }
 
         return buf
@@ -128,11 +128,11 @@ open class LoginRecord {
         self.init(
             id: dict["id"] as? String ?? "",
             password: dict["password"] as? String ?? "",
-            hostname: dict["hostname"] as? String ?? "",
+            origin: dict["origin"] as? String ?? "",
 
             username: dict["username"] as? String ?? "",
 
-            formSubmitURL: dict["formSubmitURL"] as? String,
+            formActionURL: dict["formActionURL"] as? String,
             httpRealm: dict["httpRealm"] as? String,
 
             timesUsed: (dict["timesUsed"] as? Int) ?? 0,
@@ -147,9 +147,9 @@ open class LoginRecord {
 
     init(id: String,
          password: String,
-         hostname: String,
+         origin: String,
          username: String,
-         formSubmitURL: String?,
+         formActionURL: String?,
          httpRealm: String?,
          timesUsed: Int?,
          timeLastUsed: Int64?,
@@ -160,9 +160,9 @@ open class LoginRecord {
     {
         self.id = id
         self.password = password
-        self.hostname = hostname
+        self.origin = origin
         self.username = username
-        self.formSubmitURL = formSubmitURL
+        self.formActionURL = formActionURL
         self.httpRealm = httpRealm
         self.timesUsed = timesUsed ?? 0
         self.timeLastUsed = timeLastUsed ?? 0
@@ -194,9 +194,9 @@ internal func unpackProtobufInfo(msg: MsgTypes_PasswordInfo) -> LoginRecord {
     return LoginRecord(
         id: msg.id,
         password: msg.password,
-        hostname: msg.hostname,
+        origin: msg.origin,
         username: msg.username,
-        formSubmitURL: msg.hasFormSubmitURL ? msg.formSubmitURL : nil,
+        formActionURL: msg.hasformActionURL ? msg.formActionURL : nil,
         httpRealm: msg.hasHTTPRealm ? msg.httpRealm : nil,
         timesUsed: Int(msg.timesUsed),
         timeLastUsed: msg.timeLastUsed,

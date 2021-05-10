@@ -368,11 +368,11 @@ impl LoginDb {
     // for each one if they exist)... I can't think of how to write that query, though.
     fn find_dupe(&self, l: &Login) -> Result<Option<Login>> {
         let form_submit_host_port = l
-            .form_submit_url
+            .form_action_url
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
         let args = named_params! {
-            ":hostname": l.hostname,
+            ":hostname": l.origin,
             ":http_realm": l.http_realm,
             ":username": l.username,
             ":form_submit": form_submit_host_port,
@@ -380,7 +380,7 @@ impl LoginDb {
         let mut query = format!(
             "SELECT {common}
              FROM loginsL
-             WHERE hostname IS :hostname
+             WHERE hostname IS :origin
                AND httpRealm IS :http_realm
                AND username IS :username",
             common = schema::COMMON_COLS,
@@ -423,13 +423,13 @@ impl LoginDb {
                 let login = r
                     .as_ref()
                     .ok()
-                    .and_then(|login| Url::parse(&login.hostname).ok());
+                    .and_then(|login| Url::parse(&login.origin).ok());
                 let this_host = login.as_ref().and_then(|url| url.host());
                 match (&base_host, this_host) {
                     (Host::Domain(base), Some(Host::Domain(look))) => {
                         // a fairly long-winded way of saying
-                        // `login.hostname == base_domain ||
-                        //  login.hostname.ends_with('.' + base_domain);`
+                        // `login.origin == base_domain ||
+                        //  login.origin.ends_with('.' + base_domain);`
                         let mut rev_input = base.chars().rev();
                         let mut rev_host = look.chars().rev();
                         loop {
@@ -554,9 +554,9 @@ impl LoginDb {
         let rows_changed = self.execute_named(
             &sql,
             named_params! {
-                ":hostname": login.hostname,
+                ":hostname": login.origin,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_submit_url,
+                ":form_submit_url": login.form_action_url,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":username": login.username,
@@ -670,9 +670,9 @@ impl LoginDb {
             match self.execute_named_cached(
                 &sql,
                 named_params! {
-                    ":hostname": login.hostname,
+                    ":hostname": login.origin,
                     ":http_realm": login.http_realm,
-                    ":form_submit_url": login.form_submit_url,
+                    ":form_submit_url": login.form_action_url,
                     ":username_field": login.username_field,
                     ":password_field": login.password_field,
                     ":username": login.username,
@@ -773,11 +773,11 @@ impl LoginDb {
         self.db.execute_named(
             &sql,
             named_params! {
-                ":hostname": login.hostname,
+                ":hostname": login.origin,
                 ":username": login.username,
                 ":password": login.password,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_submit_url,
+                ":form_submit_url": login.form_action_url,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":guid": login.guid,
@@ -827,7 +827,7 @@ impl LoginDb {
                 SELECT 1 FROM loginsM
                 WHERE is_overridden = 0
                     AND guid <> :guid
-                    AND hostname = :hostname
+                    AND hostname = :origin
                     AND NULLIF(username, '') = :username
                     AND (
                         formSubmitURL = :form_submit
@@ -837,10 +837,10 @@ impl LoginDb {
              )",
             named_params! {
                 ":guid": &login.guid,
-                ":hostname": &login.hostname,
+                ":hostname": &login.origin,
                 ":username": &login.username,
                 ":http_realm": login.http_realm.as_ref(),
-                ":form_submit": login.form_submit_url.as_ref(),
+                ":form_submit": login.form_action_url.as_ref(),
             },
             |row| row.get(0),
         )?)
@@ -875,9 +875,9 @@ impl LoginDb {
         }
         let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
         let params = named_params! {
-            ":hostname": &login.hostname,
+            ":hostname": &login.origin,
             ":http_realm": login.http_realm.as_ref(),
-            ":form_submit": login.form_submit_url.as_ref(),
+            ":form_submit": login.form_action_url.as_ref(),
         };
         // Needs to be two lines for borrow checker
         let rows = stmt.query_and_then_named(params, Login::from_row)?;
@@ -1368,8 +1368,8 @@ mod tests {
                     (
                         sync15::Payload::from_json(serde_json::json!({
                             "id": "dummy_000003",
-                            "formSubmitURL": "https://www.example.com/submit",
-                            "hostname": "https://www.example.com",
+                            "formActionURL": "https://www.example.com/submit",
+                            "origin": "https://www.example.com",
                             "username": "test",
                             "password": "test",
                         }))
@@ -1392,8 +1392,8 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_submit_url: Some("https://www.example.com".into()),
-            hostname: "https://www.example.com".into(),
+            form_action_url: Some("https://www.example.com".into()),
+            origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test".into(),
@@ -1404,8 +1404,8 @@ mod tests {
         let unique_login_guid = Guid::empty();
         let unique_login = Login {
             guid: unique_login_guid.clone(),
-            form_submit_url: None,
-            hostname: "https://www.example.com".into(),
+            form_action_url: None,
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
@@ -1414,8 +1414,8 @@ mod tests {
 
         let duplicate_login = Login {
             guid: Guid::empty(),
-            form_submit_url: Some("https://www.example.com".into()),
-            hostname: "https://www.example.com".into(),
+            form_action_url: Some("https://www.example.com".into()),
+            origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test2".into(),
@@ -1424,8 +1424,8 @@ mod tests {
 
         let updated_login = Login {
             guid: unique_login_guid,
-            form_submit_url: None,
-            hostname: "https://www.example.com".into(),
+            form_action_url: None,
+            origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test4".into(),
@@ -1440,15 +1440,15 @@ mod tests {
 
         let test_cases = [
             TestCase {
-                // unique_login should not error because it does not share the same hostname,
-                // username, and formSubmitURL or httpRealm with the pre-existing login
+                // unique_login should not error because it does not share the same origin,
+                // username, and formActionURL or httpRealm with the pre-existing login
                 // (login with guid "dummy_000001").
                 login: unique_login,
                 should_err: false,
                 expected_err: "",
             },
             TestCase {
-                // duplicate_login has the same hostname, username, and formSubmitURL as a pre-existing
+                // duplicate_login has the same origin, username, and formActionURL as a pre-existing
                 // login (guid "dummy_000001") and duplicate_login has no guid value, i.e. its guid
                 // doesn't match with that of a pre-existing record so it can't be considered update,
                 // so it should error.
@@ -1481,8 +1481,8 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_submit_url: Some("http://😍.com".into()),
-            hostname: "http://😍.com".into(),
+            form_action_url: Some("http://😍.com".into()),
+            origin: "http://😍.com".into(),
             http_realm: None,
             username: "😍".into(),
             username_field: "😍".into(),
@@ -1495,8 +1495,8 @@ mod tests {
             .get_by_id("dummy_000001")
             .expect("should work")
             .expect("should get a record");
-        assert_eq!(fetched.hostname, "http://xn--r28h.com");
-        assert_eq!(fetched.form_submit_url.unwrap(), "http://xn--r28h.com");
+        assert_eq!(fetched.origin, "http://xn--r28h.com");
+        assert_eq!(fetched.form_action_url.unwrap(), "http://xn--r28h.com");
         assert_eq!(fetched.username, "😍");
         assert_eq!(fetched.username_field, "😍");
         assert_eq!(fetched.password, "😍");
@@ -1508,8 +1508,8 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_submit_url: None,
-            hostname: "http://😍.com".into(),
+            form_action_url: None,
+            origin: "http://😍.com".into(),
             http_realm: Some("😍😍".into()),
             username: "😍".into(),
             password: "😍".into(),
@@ -1520,7 +1520,7 @@ mod tests {
             .get_by_id("dummy_000001")
             .expect("should work")
             .expect("should get a record");
-        assert_eq!(fetched.hostname, "http://xn--r28h.com");
+        assert_eq!(fetched.origin, "http://xn--r28h.com");
         assert_eq!(fetched.http_realm.unwrap(), "😍😍");
     }
 
@@ -1529,7 +1529,7 @@ mod tests {
             .get_by_base_domain(query)
             .unwrap()
             .into_iter()
-            .map(|l| l.hostname)
+            .map(|l| l.origin)
             .collect::<Vec<String>>();
         results.sort_unstable();
         let mut sorted = expected.to_owned();
@@ -1546,7 +1546,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         for h in good.iter().chain(bad.iter()) {
             db.add(Login {
-                hostname: (*h).into(),
+                origin: (*h).into(),
                 http_realm: Some((*h).into()),
                 password: "test".into(),
                 ..Login::default()
@@ -1629,7 +1629,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         let _login = db
             .add(Login {
-                hostname: "https://www.example.com".into(),
+                origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
                 username: "test_user".into(),
                 password: "test_password".into(),
@@ -1659,7 +1659,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         let login1 = db
             .add(Login {
-                hostname: "https://www.example.com".into(),
+                origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
                 username: "test_user_1".into(),
                 password: "test_password_1".into(),
@@ -1669,7 +1669,7 @@ mod tests {
 
         let login2 = db
             .add(Login {
-                hostname: "https://www.example2.com".into(),
+                origin: "https://www.example2.com".into(),
                 http_realm: Some("https://www.example2.com".into()),
                 username: "test_user_1".into(),
                 password: "test_password_2".into(),
@@ -1726,7 +1726,7 @@ mod tests {
         // Adding login to trigger non-empty table error
         let login = db
             .add(Login {
-                hostname: "https://www.example.com".into(),
+                origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
                 username: "test_user_1".into(),
                 password: "test_password_1".into(),
@@ -1748,8 +1748,8 @@ mod tests {
         let valid_login_guid1: Guid = Guid::random();
         let valid_login1 = Login {
             guid: valid_login_guid1,
-            form_submit_url: Some("https://www.example.com".into()),
-            hostname: "https://www.example.com".into(),
+            form_action_url: Some("https://www.example.com".into()),
+            origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test".into(),
@@ -1758,8 +1758,8 @@ mod tests {
         let valid_login_guid2: Guid = Guid::random();
         let valid_login2 = Login {
             guid: valid_login_guid2,
-            form_submit_url: Some("https://www.example2.com".into()),
-            hostname: "https://www.example2.com".into(),
+            form_action_url: Some("https://www.example2.com".into()),
+            origin: "https://www.example2.com".into(),
             http_realm: None,
             username: "test2".into(),
             password: "test2".into(),
@@ -1768,8 +1768,8 @@ mod tests {
         let valid_login_guid3: Guid = Guid::random();
         let valid_login3 = Login {
             guid: valid_login_guid3,
-            form_submit_url: Some("https://www.example3.com".into()),
-            hostname: "https://www.example3.com".into(),
+            form_action_url: Some("https://www.example3.com".into()),
+            origin: "https://www.example3.com".into(),
             http_realm: None,
             username: "test3".into(),
             password: "test3".into(),
@@ -1778,8 +1778,8 @@ mod tests {
         let duplicate_login_guid: Guid = Guid::random();
         let duplicate_login = Login {
             guid: duplicate_login_guid,
-            form_submit_url: Some("https://www.example.com".into()),
-            hostname: "https://www.example.com".into(),
+            form_action_url: Some("https://www.example.com".into()),
+            origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test2".into(),

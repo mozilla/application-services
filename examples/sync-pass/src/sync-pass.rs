@@ -20,8 +20,8 @@ use anyhow::Result;
 fn read_login() -> Login {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
-    let form_submit_url = prompt_string("form_submit_url");
-    let hostname = prompt_string("hostname").unwrap_or_default();
+    let form_action_url = prompt_string("form_action_url");
+    let origin = prompt_string("origin").unwrap_or_default();
     let http_realm = prompt_string("http_realm");
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
@@ -31,9 +31,9 @@ fn read_login() -> Login {
         password,
         username_field,
         password_field,
-        form_submit_url,
+        form_action_url,
         http_realm,
-        hostname,
+        origin,
         ..Login::default()
     };
 
@@ -64,7 +64,7 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
 fn update_login(record: &mut Login) {
     update_string("username", &mut record.username, ", leave blank to keep");
     update_string("password", &mut record.password, ", leave blank to keep");
-    update_string("hostname", &mut record.hostname, ", leave blank to keep");
+    update_string("origin", &mut record.origin, ", leave blank to keep");
 
     update_string(
         "username_field",
@@ -78,12 +78,12 @@ fn update_login(record: &mut Login) {
     );
 
     if prompt_bool(&format!(
-        "edit form_submit_url? (now {}) [yN]",
-        string_opt_or(&record.form_submit_url, "(none)")
+        "edit form_action_url? (now {}) [yN]",
+        string_opt_or(&record.form_action_url, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.form_submit_url = prompt_string("form_submit_url");
+        record.form_action_url = prompt_string("form_action_url");
     }
 
     if prompt_bool(&format!(
@@ -189,8 +189,8 @@ fn show_all(store: &PasswordStore) -> Result<Vec<String>> {
             &rec.username,
             Fd->&rec.password,
 
-            &rec.hostname,
-            string_opt_or(&rec.form_submit_url, ""),
+            &rec.origin,
+            string_opt_or(&rec.form_action_url, ""),
             string_opt_or(&rec.http_realm, ""),
 
             &rec.username_field,
