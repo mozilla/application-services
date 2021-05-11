@@ -10,9 +10,9 @@ use crate::error::{NimbusError, Result};
 // it must be noted that the rkv documentation explicitly says "To use rkv in
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
-use core::iter::Iterator;
-use crate::enrollment::{EnrollmentStatus,ExperimentEnrollment};
+use crate::enrollment::{EnrollmentStatus, ExperimentEnrollment};
 use crate::Experiment;
+use core::iter::Iterator;
 use rkv::{StoreError, StoreOptions};
 use std::collections::HashSet;
 use std::fs;
@@ -237,7 +237,7 @@ impl Database {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
                 return Ok(());
-            },
+            }
             Some(1) => {
                 log::debug!("Upgrading from version 1 to version 2");
                 // XXX how do we handle errors?
@@ -249,8 +249,7 @@ impl Database {
                 let reader = self.read()?;
                 let enrollments: Vec<ExperimentEnrollment> =
                     self.enrollment_store.collect_all(&reader)?;
-                let experiments: Vec<Experiment> =
-                    self.experiment_store.collect_all(&reader)?;
+                let experiments: Vec<Experiment> = self.experiment_store.collect_all(&reader)?;
                 // XXX do we need to commit here?
 
                 let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
@@ -286,7 +285,8 @@ impl Database {
                     .collect();
 
                 let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
-                    .union(&slugs_without_experiment_feature_ids).collect();
+                    .union(&slugs_without_experiment_feature_ids)
+                    .collect();
 
                 // filter out experiments to be dropped
                 let updated_experiments: Vec<Experiment> = experiments
@@ -303,14 +303,14 @@ impl Database {
 
                 // rewrite stores
                 for experiment in updated_experiments {
-                    self.experiment_store.put(
-                        &mut writer,&experiment.slug, &experiment)?;
+                    self.experiment_store
+                        .put(&mut writer, &experiment.slug, &experiment)?;
                 }
                 for enrollment in updated_enrollments {
-                    self.enrollment_store.put(
-                        &mut writer,&enrollment.slug,&enrollment)?;
+                    self.enrollment_store
+                        .put(&mut writer, &enrollment.slug, &enrollment)?;
                 }
-            },
+            }
             None => {
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
@@ -334,6 +334,7 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
+        log::debug!("transaction commited");
         Ok(())
     }
 
