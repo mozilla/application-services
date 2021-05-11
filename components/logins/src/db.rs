@@ -33,6 +33,8 @@ pub struct MigrationPhaseMetrics {
     pub(crate) num_processed: u64,
     pub(crate) num_succeeded: u64,
     pub(crate) num_failed: u64,
+    // Once https://github.com/mozilla/uniffi-rs/pull/434 lands we might
+    // want to make this a `Duration`?
     pub(crate) total_duration: u64,
     pub(crate) errors: Vec<String>,
 }
@@ -44,6 +46,8 @@ pub struct MigrationMetrics {
     pub(crate) num_processed: u64,
     pub(crate) num_succeeded: u64,
     pub(crate) num_failed: u64,
+    // Once https://github.com/mozilla/uniffi-rs/pull/434 lands we might
+    // want to make this a `Duration`?
     pub(crate) total_duration: u64,
     pub(crate) errors: Vec<String>,
 }
@@ -450,18 +454,16 @@ impl LoginDb {
             });
         rows.collect::<Result<_>>()
     }
-    /// Follows try_query_row and returns None instead of erroing if no such row exists
+    /// Follows try_query_row and returns None instead of erroring if no such row exists
     pub fn get_by_id(&self, id: &str) -> Result<Option<LoginRecord>> {
-        let login = self.try_query_row(
-            &GET_BY_GUID_SQL,
-            &[(":guid", &id as &dyn ToSql)],
-            Login::from_row,
-            true,
-        );
-        match login.unwrap() {
-            None => Ok(None),
-            Some(login) => Ok(Some(login.into())),
-        }
+        Ok(self
+            .try_query_row(
+                &GET_BY_GUID_SQL,
+                &[(":guid", &id as &dyn ToSql)],
+                Login::from_row,
+                true,
+            )?
+            .map(|login| login.into()))
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {

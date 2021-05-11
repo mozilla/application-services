@@ -11,21 +11,13 @@ macro_rules! throw {
 }
 
 /* We have some internal errors that we use that we don't want to expose that we'll keep
-    See fxa_crate for another example of using an internal module
+    See `fxa-client` for another example of using an internal error module.
 */
 pub use crate::internal::error::*;
 
 // Originally exposed manually via LoginsStorageException.kt.
 #[derive(Debug, thiserror::Error)]
 pub enum LoginsStorageError {
-    // In the .kt, this was actually the base-class and lots of Android code
-    // caught this exception when they want *any* exception.
-    // To confuse further, it was also thrown as a generic 'unexpected' exception.
-    // For now, let's keep those things distinct, but for parity with the old
-    // code we should see if we can replace Unexpected with whatever base-class
-    // we end up with.
-    // XXX - TODO - work out the base-class story so the above remains true.
-    //LoginsStorage(String),
     #[error("Unexpected error: {0}")]
     UnexpectedLoginsStorageError(String),
 
@@ -91,7 +83,8 @@ pub enum InvalidLoginReason {
     IllegalFieldValue,
 }
 
-// And port of the error conversion stuff that was in ffi.rs.
+// A port of the error conversion stuff that was in ffi.rs - it turns our
+// "internal" errors into "public" ones.
 impl From<Error> for LoginsStorageError {
     fn from(e: Error) -> LoginsStorageError {
         use sync15::ErrorKind as Sync15ErrorKind;
