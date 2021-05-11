@@ -11,7 +11,10 @@ use crate::error::{NimbusError, Result};
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
 use core::iter::Iterator;
+use crate::enrollment::{EnrollmentStatus,ExperimentEnrollment};
+use crate::Experiment;
 use rkv::{StoreError, StoreOptions};
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -21,7 +24,7 @@ use std::path::Path;
 //
 // ⚠️ Warning : Altering the type of `DB_VERSION` would itself require a DB migration. ⚠️
 const DB_KEY_DB_VERSION: &str = "db_version";
-const DB_VERSION: u16 = 1;
+const DB_VERSION: u16 = 2;
 
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
@@ -227,13 +230,87 @@ impl Database {
     }
 
     fn maybe_upgrade(&self) -> Result<()> {
+        log::debug!("entered maybe upgrade");
         let mut writer = self.rkv.write()?;
         let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
         match db_version {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
                 return Ok(());
-            }
+            },
+            Some(1) => {
+                log::debug!("Upgrading from version 1 to version 2");
+                // XXX how do we handle errors?
+                // XXX Do we need to do anything extra for mutex & or
+                // transaction?
+
+                // iterate enrollments, with collect_all.
+                // XXX later shift it to collect_all_json
+                let reader = self.read()?;
+                let enrollments: Vec<ExperimentEnrollment> =
+                    self.enrollment_store.collect_all(&reader)?;
+                let experiments: Vec<Experiment> =
+                    self.experiment_store.collect_all(&reader)?;
+                // XXX do we need to commit here?
+
+                let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
+                    .iter()
+                    .filter_map(
+                            |e| {
+                        if matches!(e.status, EnrollmentStatus::Enrolled {ref feature_id, ..} if feature_id.is_empty()) {
+                            log::warn!("Enrollment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
+                            Some(e.slug.to_owned())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                // find slugs and split apart those missing
+                // feature_ids Vec
+                //
+                // XXX and later feature_id on branches, and
+                // feature fields)
+
+                let slugs_without_experiment_feature_ids: HashSet<String> = experiments
+                    .iter()
+                    .filter_map(
+                            |e| {
+                        if e.feature_ids.is_empty() {
+                        log::warn!("Experiment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
+                            Some(e.slug.to_owned())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
+                    .union(&slugs_without_experiment_feature_ids).collect();
+
+                // filter out experiments to be dropped
+                let updated_experiments: Vec<Experiment> = experiments
+                    .into_iter()
+                    .filter(|e| !slugs_to_discard.contains(&e.slug))
+                    .collect();
+
+                // filter out enrollments to be dropped
+                let updated_enrollments: Vec<ExperimentEnrollment> = enrollments
+                    .into_iter()
+                    .filter(|e| !slugs_to_discard.contains(&e.slug))
+                    .collect();
+                log::debug!("updated enrollments = {:?}", updated_enrollments);
+
+                // rewrite stores
+                for experiment in updated_experiments {
+                    self.experiment_store.put(
+                        &mut writer,&experiment.slug, &experiment)?;
+                }
+                for enrollment in updated_enrollments {
+                    self.enrollment_store.put(
+                        &mut writer,&enrollment.slug,&enrollment)?;
+                }
+            },
             None => {
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
