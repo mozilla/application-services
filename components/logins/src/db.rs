@@ -368,7 +368,7 @@ impl LoginDb {
     // for each one if they exist)... I can't think of how to write that query, though.
     fn find_dupe(&self, l: &Login) -> Result<Option<Login>> {
         let form_submit_host_port = l
-            .form_action_url
+            .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
         let args = named_params! {
@@ -556,7 +556,7 @@ impl LoginDb {
             named_params! {
                 ":hostname": login.origin,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_action_url,
+                ":form_submit_url": login.form_action_origin,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":username": login.username,
@@ -672,7 +672,7 @@ impl LoginDb {
                 named_params! {
                     ":hostname": login.origin,
                     ":http_realm": login.http_realm,
-                    ":form_submit_url": login.form_action_url,
+                    ":form_submit_url": login.form_action_origin,
                     ":username_field": login.username_field,
                     ":password_field": login.password_field,
                     ":username": login.username,
@@ -777,7 +777,7 @@ impl LoginDb {
                 ":username": login.username,
                 ":password": login.password,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_action_url,
+                ":form_submit_url": login.form_action_origin,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":guid": login.guid,
@@ -840,7 +840,7 @@ impl LoginDb {
                 ":hostname": &login.origin,
                 ":username": &login.username,
                 ":http_realm": login.http_realm.as_ref(),
-                ":form_submit": login.form_action_url.as_ref(),
+                ":form_submit": login.form_action_origin.as_ref(),
             },
             |row| row.get(0),
         )?)
@@ -877,7 +877,7 @@ impl LoginDb {
         let params = named_params! {
             ":hostname": &login.origin,
             ":http_realm": login.http_realm.as_ref(),
-            ":form_submit": login.form_action_url.as_ref(),
+            ":form_submit": login.form_action_origin.as_ref(),
         };
         // Needs to be two lines for borrow checker
         let rows = stmt.query_and_then_named(params, Login::from_row)?;
@@ -1368,7 +1368,7 @@ mod tests {
                     (
                         sync15::Payload::from_json(serde_json::json!({
                             "id": "dummy_000003",
-                            "formActionURL": "https://www.example.com/submit",
+                            "formActionOrigin": "https://www.example.com/submit",
                             "origin": "https://www.example.com",
                             "username": "test",
                             "password": "test",
@@ -1392,7 +1392,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_action_url: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
             origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
@@ -1404,7 +1404,7 @@ mod tests {
         let unique_login_guid = Guid::empty();
         let unique_login = Login {
             guid: unique_login_guid.clone(),
-            form_action_url: None,
+            form_action_origin: None,
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
@@ -1414,7 +1414,7 @@ mod tests {
 
         let duplicate_login = Login {
             guid: Guid::empty(),
-            form_action_url: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
             origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
@@ -1424,7 +1424,7 @@ mod tests {
 
         let updated_login = Login {
             guid: unique_login_guid,
-            form_action_url: None,
+            form_action_origin: None,
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
@@ -1441,14 +1441,14 @@ mod tests {
         let test_cases = [
             TestCase {
                 // unique_login should not error because it does not share the same origin,
-                // username, and formActionURL or httpRealm with the pre-existing login
+                // username, and formActionOrigin or httpRealm with the pre-existing login
                 // (login with guid "dummy_000001").
                 login: unique_login,
                 should_err: false,
                 expected_err: "",
             },
             TestCase {
-                // duplicate_login has the same origin, username, and formActionURL as a pre-existing
+                // duplicate_login has the same origin, username, and formActionOrigin as a pre-existing
                 // login (guid "dummy_000001") and duplicate_login has no guid value, i.e. its guid
                 // doesn't match with that of a pre-existing record so it can't be considered update,
                 // so it should error.
@@ -1481,7 +1481,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_action_url: Some("http://😍.com".into()),
+            form_action_origin: Some("http://😍.com".into()),
             origin: "http://😍.com".into(),
             http_realm: None,
             username: "😍".into(),
@@ -1496,7 +1496,7 @@ mod tests {
             .expect("should work")
             .expect("should get a record");
         assert_eq!(fetched.origin, "http://xn--r28h.com");
-        assert_eq!(fetched.form_action_url.unwrap(), "http://xn--r28h.com");
+        assert_eq!(fetched.form_action_origin.unwrap(), "http://xn--r28h.com");
         assert_eq!(fetched.username, "😍");
         assert_eq!(fetched.username_field, "😍");
         assert_eq!(fetched.password, "😍");
@@ -1508,7 +1508,7 @@ mod tests {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
-            form_action_url: None,
+            form_action_origin: None,
             origin: "http://😍.com".into(),
             http_realm: Some("😍😍".into()),
             username: "😍".into(),
@@ -1748,7 +1748,7 @@ mod tests {
         let valid_login_guid1: Guid = Guid::random();
         let valid_login1 = Login {
             guid: valid_login_guid1,
-            form_action_url: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
             origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
@@ -1758,7 +1758,7 @@ mod tests {
         let valid_login_guid2: Guid = Guid::random();
         let valid_login2 = Login {
             guid: valid_login_guid2,
-            form_action_url: Some("https://www.example2.com".into()),
+            form_action_origin: Some("https://www.example2.com".into()),
             origin: "https://www.example2.com".into(),
             http_realm: None,
             username: "test2".into(),
@@ -1768,7 +1768,7 @@ mod tests {
         let valid_login_guid3: Guid = Guid::random();
         let valid_login3 = Login {
             guid: valid_login_guid3,
-            form_action_url: Some("https://www.example3.com".into()),
+            form_action_origin: Some("https://www.example3.com".into()),
             origin: "https://www.example3.com".into(),
             http_realm: None,
             username: "test3".into(),
@@ -1778,7 +1778,7 @@ mod tests {
         let duplicate_login_guid: Guid = Guid::random();
         let duplicate_login = Login {
             guid: duplicate_login_guid,
-            form_action_url: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
             origin: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),

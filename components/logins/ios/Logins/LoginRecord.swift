@@ -26,17 +26,17 @@ open class LoginRecord {
 
     /// The challenge string for HTTP Basic authentication.
     ///
-    /// Exactly one of `httpRealm` or `formActionURL` is allowed to be present,
+    /// Exactly one of `httpRealm` or `formActionOrigin` is allowed to be present,
     /// and attempting to insert or update a record to have both or neither will
     /// result in an `LoginsStoreError.InvalidLogin`.
     public var httpRealm: String?
 
     /// The submission URL for the form where this login may be entered.
     ///
-    /// As mentioned above, exactly one of `httpRealm` or `formActionURL` is allowed
+    /// As mentioned above, exactly one of `httpRealm` or `formActionOrigin` is allowed
     /// to be present, and attempting to insert or update a record to have
     /// both or neither will result in an `LoginsStoreError.InvalidLogin`.
-    public var formActionURL: String?
+    public var formActionOrigin: String?
 
     /// A lower bound on the number of times this record has been "used".
     ///
@@ -92,8 +92,8 @@ open class LoginRecord {
             dict["httpRealm"] = httpRealm
         }
 
-        if let formActionURL = self.formActionURL {
-            dict["formActionURL"] = formActionURL
+        if let formActionOrigin = self.formActionOrigin {
+            dict["formActionOrigin"] = formActionOrigin
         }
 
         return dict
@@ -114,8 +114,8 @@ open class LoginRecord {
         if let h = httpRealm {
             buf.httpRealm = h
         }
-        if let f = formActionURL {
-            buf.formActionURL = f
+        if let f = formActionOrigin {
+            buf.formActionOrigin = f
         }
 
         return buf
@@ -132,7 +132,7 @@ open class LoginRecord {
 
             username: dict["username"] as? String ?? "",
 
-            formActionURL: dict["formActionURL"] as? String,
+            formActionOrigin: dict["formActionOrigin"] as? String,
             httpRealm: dict["httpRealm"] as? String,
 
             timesUsed: (dict["timesUsed"] as? Int) ?? 0,
@@ -149,7 +149,7 @@ open class LoginRecord {
          password: String,
          origin: String,
          username: String,
-         formActionURL: String?,
+         formActionOrigin: String?,
          httpRealm: String?,
          timesUsed: Int?,
          timeLastUsed: Int64?,
@@ -162,7 +162,7 @@ open class LoginRecord {
         self.password = password
         self.origin = origin
         self.username = username
-        self.formActionURL = formActionURL
+        self.formActionOrigin = formActionOrigin
         self.httpRealm = httpRealm
         self.timesUsed = timesUsed ?? 0
         self.timeLastUsed = timeLastUsed ?? 0
@@ -196,7 +196,7 @@ internal func unpackProtobufInfo(msg: MsgTypes_PasswordInfo) -> LoginRecord {
         password: msg.password,
         origin: msg.origin,
         username: msg.username,
-        formActionURL: msg.hasformActionURL ? msg.formActionURL : nil,
+        formActionOrigin: msg.hasformActionOrigin ? msg.formActionOrigin : nil,
         httpRealm: msg.hasHTTPRealm ? msg.httpRealm : nil,
         timesUsed: Int(msg.timesUsed),
         timeLastUsed: msg.timeLastUsed,

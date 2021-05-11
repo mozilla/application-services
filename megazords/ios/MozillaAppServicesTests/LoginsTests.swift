@@ -51,7 +51,7 @@ class LoginsTests: XCTestCase {
             password: "hunter2",
             origin: "https://www.example.com",
             username: "cooluser33",
-            formActionURL: "https://www.example.com/login",
+            formActionOrigin: "https://www.example.com/login",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,
@@ -63,15 +63,15 @@ class LoginsTests: XCTestCase {
 
         let record0 = try! storage.get(id: id0)!
         XCTAssertNil(record0.httpRealm)
-        // We fixed up the formActionURL to just be the origin part of the url.
-        XCTAssertEqual(record0.formActionURL, "https://www.example.com")
+        // We fixed up the formActionOrigin to just be the origin part of the url.
+        XCTAssertEqual(record0.formActionOrigin, "https://www.example.com")
 
         let id1 = try! storage.add(login: LoginRecord(
             id: "",
             password: "hunter3",
             origin: "https://www.example2.com",
             username: "cooluser44",
-            formActionURL: nil,
+            formActionOrigin: nil,
             httpRealm: "Something Something",
             timesUsed: nil,
             timeLastUsed: nil,
@@ -83,7 +83,7 @@ class LoginsTests: XCTestCase {
 
         let record1 = try! storage.get(id: id1)!
 
-        XCTAssertNil(record1.formActionURL)
+        XCTAssertNil(record1.formActionOrigin)
         XCTAssertEqual(record1.httpRealm, "Something Something")
     }
 
@@ -96,7 +96,7 @@ class LoginsTests: XCTestCase {
             password: "hunter5",
             origin: "https://www.example5.com",
             username: "cooluser55",
-            formActionURL: "https://www.example5.com",
+            formActionOrigin: "https://www.example5.com",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,
@@ -111,7 +111,7 @@ class LoginsTests: XCTestCase {
             password: "hunter3",
             origin: "https://www.example5.com",
             username: "cooluser55",
-            formActionURL: "https://www.example5.com",
+            formActionOrigin: "https://www.example5.com",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,
@@ -126,7 +126,7 @@ class LoginsTests: XCTestCase {
             password: "hunter3",
             origin: "https://www.example6.com",
             username: "\0cooluser56",
-            formActionURL: "https://www.example6.com",
+            formActionOrigin: "https://www.example6.com",
             httpRealm: nil,
             timesUsed: nil,
             timeLastUsed: nil,

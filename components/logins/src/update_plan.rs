@@ -123,7 +123,7 @@ impl UpdatePlan {
             stmt.execute_named(named_params! {
                 ":server_modified": *timestamp,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_action_url,
+                ":form_submit_url": login.form_action_origin,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":password": login.password,
@@ -187,7 +187,7 @@ impl UpdatePlan {
                 ":is_overridden": *is_overridden,
                 ":server_modified": *timestamp,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_action_url,
+                ":form_submit_url": login.form_action_origin,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":password": login.password,
@@ -230,7 +230,7 @@ impl UpdatePlan {
             stmt.execute_named(named_params! {
                 ":local_modified": local_ms,
                 ":http_realm": l.login.http_realm,
-                ":form_submit_url": l.login.form_action_url,
+                ":form_submit_url": l.login.form_action_origin,
                 ":username_field": l.login.username_field,
                 ":password_field": l.login.password_field,
                 ":password": l.login.password,

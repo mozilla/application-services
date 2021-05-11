@@ -20,7 +20,7 @@ use anyhow::Result;
 fn read_login() -> Login {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
-    let form_action_url = prompt_string("form_action_url");
+    let form_action_origin = prompt_string("form_action_origin");
     let origin = prompt_string("origin").unwrap_or_default();
     let http_realm = prompt_string("http_realm");
     let username_field = prompt_string("username_field").unwrap_or_default();
@@ -31,7 +31,7 @@ fn read_login() -> Login {
         password,
         username_field,
         password_field,
-        form_action_url,
+        form_action_origin,
         http_realm,
         origin,
         ..Login::default()
@@ -78,12 +78,12 @@ fn update_login(record: &mut Login) {
     );
 
     if prompt_bool(&format!(
-        "edit form_action_url? (now {}) [yN]",
-        string_opt_or(&record.form_action_url, "(none)")
+        "edit form_action_origin? (now {}) [yN]",
+        string_opt_or(&record.form_action_origin, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.form_action_url = prompt_string("form_action_url");
+        record.form_action_origin = prompt_string("form_action_origin");
     }
 
     if prompt_bool(&format!(
@@ -190,7 +190,7 @@ fn show_all(store: &PasswordStore) -> Result<Vec<String>> {
             Fd->&rec.password,
 
             &rec.origin,
-            string_opt_or(&rec.form_action_url, ""),
+            string_opt_or(&rec.form_action_origin, ""),
             string_opt_or(&rec.http_realm, ""),
 
             &rec.username_field,

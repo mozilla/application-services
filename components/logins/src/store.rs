@@ -191,7 +191,7 @@ mod test {
     fn assert_logins_equiv(a: &LoginRecord, b: &LoginRecord) {
         assert_eq!(b.guid, a.guid);
         assert_eq!(b.origin, a.origin);
-        assert_eq!(b.form_action_url, a.form_action_url);
+        assert_eq!(b.form_action_origin, a.form_action_origin);
         assert_eq!(b.http_realm, a.http_realm);
         assert_eq!(b.username, a.username);
         assert_eq!(b.password, a.password);
@@ -209,7 +209,7 @@ mod test {
         let a_login = Login {
             guid: "aaaaaaaaaaaa".into(),
             origin: "https://www.example.com".into(),
-            form_action_url: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
             username: "coolperson21".into(),
             password: "p4ssw0rd".into(),
             username_field: "user_input".into(),

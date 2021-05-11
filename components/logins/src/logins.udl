@@ -15,7 +15,7 @@ dictionary LoginRecord {
     string password;
     string username;
     string? http_realm;
-    string? form_action_url;
+    string? form_action_origin;
     string username_field;
     string password_field;
     i64 times_used;

@@ -12,8 +12,8 @@ pub fn assert_logins_equiv(a: &Login, b: &Login) {
     assert_eq!(b.guid, a.guid, "id mismatch");
     assert_eq!(b.origin, a.origin, "origin mismatch");
     assert_eq!(
-        b.form_action_url, a.form_action_url,
-        "form_action_url mismatch"
+        b.form_action_origin, a.form_action_origin,
+        "form_action_origin mismatch"
     );
     assert_eq!(b.http_realm, a.http_realm, "http_realm mismatch");
     assert_eq!(b.username, a.username, "username mismatch");
@@ -93,7 +93,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
         Login {
             guid: l0id.into(),
             origin: "http://www.example.com".into(),
-            form_action_url: Some("http://login.example.com".into()),
+            form_action_origin: Some("http://login.example.com".into()),
             username: "cool_username".into(),
             password: "hunter2".into(),
             username_field: "uname".into(),
@@ -200,7 +200,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         Login {
             guid: l0id.into(),
             origin: "http://www.example.com".into(),
-            form_action_url: Some("http://login.example.com".into()),
+            form_action_origin: Some("http://login.example.com".into()),
             username: "cool_username".into(),
             password: "hunter2".into(),
             username_field: "uname".into(),

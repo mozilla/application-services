@@ -68,11 +68,11 @@
 //!
 //!   If this field is set to the empty string, this indicates a wildcard match on realm.
 //!
-//!   This field must not be present if `formActionURL` is set, since they indicate different types
-//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionURL`
+//!   This field must not be present if `formActionOrigin` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionOrigin`
 //!   must be present.
 //!
-//! - `formActionURL`:  The target origin of forms in which this login can be used, if any, as a string.
+//! - `formActionOrigin`:  The target origin of forms in which this login can be used, if any, as a string.
 //!
 //!   If present, the login should only be used in forms whose target submission URL matches this origin.
 //!   This field must be a valid origin or one of the following special cases:
@@ -84,7 +84,7 @@
 //!   RENAME THIS TO `formActionOrigin` IN A FUTURE RELEASE.**
 //!
 //!   This field must not be present if `httpRealm` is set, since they indicate different types of login
-//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionURL` must be present.
+//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionOrigin` must be present.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync) then the
 //!   logins store will attempt to coerce it into valid data by:
@@ -101,21 +101,21 @@
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formActionURL` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `formActionOrigin` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formActionURL' is not present
+//!   - setting to the empty string if 'formActionOrigin' is not present
 //!
 //! - `passwordField`:  The name of the form field into which the 'password' should be filled, if any.
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formActionURL` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `formActionOrigin` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formActionURL' is not present
+//!   - setting to the empty string if 'formActionOrigin' is not present
 //!
 //! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
 //!
@@ -240,11 +240,11 @@ pub struct Login {
 
     pub origin: String,
 
-    // rename_all = "camelCase" by default will do formActionURL, but we can just
+    // rename_all = "camelCase" by default will do formActionOrigin, but we can just
     // override this one field.
-    #[serde(rename = "formActionURL")]
+    #[serde(rename = "formActionOrigin")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub form_action_url: Option<String>,
+    pub form_action_origin: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_realm: Option<String>,
@@ -287,7 +287,7 @@ pub struct LoginRecord {
     pub password: std::string::String,
     pub username: std::string::String,
     pub http_realm: ::std::option::Option<std::string::String>,
-    pub form_action_url: ::std::option::Option<std::string::String>,
+    pub form_action_origin: ::std::option::Option<std::string::String>,
     pub username_field: std::string::String,
     pub password_field: std::string::String,
     pub times_used: i64,
@@ -431,15 +431,15 @@ impl Login {
             throw!(InvalidLogin::EmptyPassword);
         }
 
-        if self.form_action_url.is_some() && self.http_realm.is_some() {
+        if self.form_action_origin.is_some() && self.http_realm.is_some() {
             get_fixed_or_throw!(InvalidLogin::BothTargets)?.http_realm = None;
         }
 
-        if self.form_action_url.is_none() && self.http_realm.is_none() {
+        if self.form_action_origin.is_none() && self.http_realm.is_none() {
             throw!(InvalidLogin::NoTarget);
         }
 
-        let form_action_url = self.form_action_url.clone().unwrap_or_default();
+        let form_action_origin = self.form_action_origin.clone().unwrap_or_default();
         let http_realm = maybe_fixed
             .as_ref()
             .unwrap_or(self)
@@ -448,7 +448,7 @@ impl Login {
             .unwrap_or_default();
 
         let field_data = [
-            ("formActionURL", &form_action_url),
+            ("formActionOrigin", &form_action_origin),
             ("httpRealm", &http_realm),
             ("origin", &self.origin),
             ("usernameField", &self.username_field),
@@ -492,18 +492,20 @@ impl Login {
             .origin = fixed;
         }
 
-        match &maybe_fixed.as_ref().unwrap_or(self).form_action_url {
+        match &maybe_fixed.as_ref().unwrap_or(self).form_action_origin {
             None => {
                 if !self.username_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "usernameField must be empty when formActionURL is null".into()
+                        field_info: "usernameField must be empty when formActionOrigin is null"
+                            .into()
                     })?
                     .username_field
                     .clear();
                 }
                 if !self.password_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "passwordField must be empty when formActionURL is null".into()
+                        field_info: "passwordField must be empty when formActionOrigin is null"
+                            .into()
                     })?
                     .password_field
                     .clear();
@@ -517,14 +519,14 @@ impl Login {
                     if fixup {
                         maybe_fixed
                             .get_or_insert_with(|| self.clone())
-                            .form_action_url = Some("".into());
+                            .form_action_origin = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
                     if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "formActionOrigin is not normalized".into()
                         })?
-                        .form_action_url = Some(fixed);
+                        .form_action_origin = Some(fixed);
                     }
                 }
             }
@@ -542,7 +544,7 @@ impl Login {
             origin: row.get("hostname")?,
             http_realm: row.get("httpRealm")?,
 
-            form_action_url: row.get("formSubmitURL")?,
+            form_action_origin: row.get("formSubmitURL")?,
 
             username_field: string_or_default(row, "usernameField")?,
             password_field: string_or_default(row, "passwordField")?,
@@ -570,7 +572,7 @@ impl From<Login> for LoginRecord {
             password: login.password,
             username: login.username,
             http_realm: login.http_realm,
-            form_action_url: login.form_action_url,
+            form_action_origin: login.form_action_origin,
             username_field: login.username_field,
             password_field: login.password_field,
             times_used: login.times_used,
@@ -589,7 +591,7 @@ impl From<LoginRecord> for Login {
             password: info.password,
             username: info.username,
             http_realm: info.http_realm,
-            form_action_url: info.form_action_url,
+            form_action_origin: info.form_action_origin,
             username_field: info.username_field,
             password_field: info.password_field,
             times_used: info.times_used,
@@ -796,7 +798,7 @@ pub(crate) struct LoginDelta {
     pub password: Option<String>,
     pub username: Option<String>,
     pub http_realm: Option<String>,
-    pub form_action_url: Option<String>,
+    pub form_action_origin: Option<String>,
 
     pub time_created: Option<i64>,
     pub time_last_used: Option<i64>,
@@ -833,7 +835,7 @@ impl LoginDelta {
         merge_field!(merged, b, b_is_newer, password);
         merge_field!(merged, b, b_is_newer, username);
         merge_field!(merged, b, b_is_newer, http_realm);
-        merge_field!(merged, b, b_is_newer, form_action_url);
+        merge_field!(merged, b, b_is_newer, form_action_origin);
 
         merge_field!(merged, b, b_is_newer, time_created);
         merge_field!(merged, b, b_is_newer, time_last_used);
@@ -876,8 +878,8 @@ impl Login {
             self.http_realm = if realm.is_empty() { None } else { Some(realm) };
         }
 
-        if let Some(url) = delta.form_action_url.take() {
-            self.form_action_url = if url.is_empty() { None } else { Some(url) };
+        if let Some(url) = delta.form_action_origin.take() {
+            self.form_action_origin = if url.is_empty() { None } else { Some(url) };
         }
 
         self.times_used += delta.times_used;
@@ -886,8 +888,8 @@ impl Login {
     pub(crate) fn delta(&self, older: &Login) -> LoginDelta {
         let mut delta = LoginDelta::default();
 
-        if self.form_action_url != older.form_action_url {
-            delta.form_action_url = Some(self.form_action_url.clone().unwrap_or_default());
+        if self.form_action_origin != older.form_action_origin {
+            delta.form_action_origin = Some(self.form_action_origin.clone().unwrap_or_default());
         }
 
         if self.http_realm != older.http_realm {
@@ -948,7 +950,7 @@ mod tests {
         let bad_timestamp = 18446732429235952000u64;
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
-            "formActionURL": "https://www.example.com/submit",
+            "formActionOrigin": "https://www.example.com/submit",
             "origin": "https://www.example.com",
             "username": "test",
             "password": "test",
@@ -969,7 +971,7 @@ mod tests {
         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
         let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
-            "formActionURL": "https://www.example.com/submit",
+            "formActionOrigin": "https://www.example.com/submit",
             "origin": "https://www.example.com",
             "username": "test",
             "password": "test",
@@ -1078,7 +1080,7 @@ mod tests {
         let login_with_form_submit_and_http_realm = Login {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            form_action_url: Some("https://www.example.com".into()),
+            form_action_origin: Some("https://www.example.com".into()),
             password: "test".into(),
             ..Login::default()
         };
@@ -1155,16 +1157,16 @@ mod tests {
             ..Login::default()
         };
 
-        let login_with_period_form_action_url = Login {
-            form_action_url: Some(".".into()),
+        let login_with_period_form_action_origin = Login {
+            form_action_origin: Some(".".into()),
             origin: "https://www.example.com".into(),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
 
-        let login_with_javascript_form_action_url = Login {
-            form_action_url: Some("javascript:".into()),
+        let login_with_javascript_form_action_origin = Login {
+            form_action_origin: Some("javascript:".into()),
             origin: "https://www.example.com".into(),
             username: "test".into(),
             password: "test".into(),
@@ -1230,12 +1232,13 @@ mod tests {
             TestCase {
                 login: login_with_form_submit_and_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Both `formActionUrl` and `httpRealm` are present",
+                expected_err: "Invalid login: Both `formActionOrigin` and `httpRealm` are present",
             },
             TestCase {
                 login: login_without_form_submit_or_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Neither `formActionUrl` or `httpRealm` are present",
+                expected_err:
+                    "Invalid login: Neither `formActionOrigin` or `httpRealm` are present",
             },
             TestCase {
                 login: login_with_null_http_realm,
@@ -1280,12 +1283,12 @@ mod tests {
                 expected_err: "Invalid login: Login has illegal field: `usernameField` is a period",
             },
             TestCase {
-                login: login_with_period_form_action_url,
+                login: login_with_period_form_action_origin,
                 should_err: false,
                 expected_err: "",
             },
             TestCase {
-                login: login_with_javascript_form_action_url,
+                login: login_with_javascript_form_action_origin,
                 should_err: false,
                 expected_err: "",
             },
@@ -1344,13 +1347,13 @@ mod tests {
         struct TestCase {
             login: Login,
             fixedup_host: Option<&'static str>,
-            fixedup_form_action_url: Option<String>,
+            fixedup_form_action_origin: Option<String>,
         }
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
         let login_with_full_url = Login {
             origin: "http://example.com/foo?query=wtf#bar".into(),
-            form_action_url: Some("http://example.com/foo?query=wtf#bar".into()),
+            form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
@@ -1358,7 +1361,7 @@ mod tests {
 
         let login_with_host_unicode = Login {
             origin: "http://😍.com".into(),
-            form_action_url: Some("http://😍.com".into()),
+            form_action_origin: Some("http://😍.com".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
@@ -1366,14 +1369,14 @@ mod tests {
 
         let login_with_period_fsu = Login {
             origin: "https://example.com".into(),
-            form_action_url: Some(".".into()),
+            form_action_origin: Some(".".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
         };
         let login_with_empty_fsu = Login {
             origin: "https://example.com".into(),
-            form_action_url: Some("".into()),
+            form_action_origin: Some("".into()),
             username: "test".into(),
             password: "test".into(),
             ..Login::default()
@@ -1381,8 +1384,8 @@ mod tests {
 
         let login_with_form_submit_and_http_realm = Login {
             origin: "https://www.example.com".into(),
-            form_action_url: Some("https://www.example.com".into()),
-            // If both http_realm and form_action_url are specified, we drop
+            form_action_origin: Some("https://www.example.com".into()),
+            // If both http_realm and form_action_origin are specified, we drop
             // the former when fixing up. So for this test we must have an
             // invalid value in http_realm to ensure we don't validate a value
             // we end up dropping.
@@ -1395,27 +1398,27 @@ mod tests {
             TestCase {
                 login: login_with_full_url,
                 fixedup_host: "http://example.com".into(),
-                fixedup_form_action_url: Some("http://example.com".into()),
+                fixedup_form_action_origin: Some("http://example.com".into()),
             },
             TestCase {
                 login: login_with_host_unicode,
                 fixedup_host: "http://xn--r28h.com".into(),
-                fixedup_form_action_url: Some("http://xn--r28h.com".into()),
+                fixedup_form_action_origin: Some("http://xn--r28h.com".into()),
             },
             TestCase {
                 login: login_with_period_fsu,
-                fixedup_form_action_url: Some("".into()),
+                fixedup_form_action_origin: Some("".into()),
                 ..TestCase::default()
             },
             TestCase {
                 login: login_with_form_submit_and_http_realm,
-                fixedup_form_action_url: Some("https://www.example.com".into()),
+                fixedup_form_action_origin: Some("https://www.example.com".into()),
                 ..TestCase::default()
             },
             TestCase {
                 login: login_with_empty_fsu,
                 // Should still be empty.
-                fixedup_form_action_url: Some("".into()),
+                fixedup_form_action_origin: Some("".into()),
                 ..TestCase::default()
             },
         ];
@@ -1426,8 +1429,8 @@ mod tests {
                 assert_eq!(login.origin, expected, "origin not fixed in {:#?}", tc);
             }
             assert_eq!(
-                login.form_action_url, tc.fixedup_form_action_url,
-                "form_action_url not fixed in {:#?}",
+                login.form_action_origin, tc.fixedup_form_action_origin,
+                "form_action_origin not fixed in {:#?}",
                 tc,
             );
             login.check_valid().unwrap_or_else(|e| {
