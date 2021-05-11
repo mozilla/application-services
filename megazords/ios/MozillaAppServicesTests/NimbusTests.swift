@@ -267,9 +267,15 @@ class NimbusTests: XCTestCase {
               "branches": [
                 {
                   "slug": "test-branch",
-                  "ratio": 1
+                  "ratio": 1,
+                  "feature": {
+                    "featureId": "test-feature",
+                    "enabled": true,
+                    "value": {}
+                  }
                 }
               ],
+              "featureIds": ["test-feature"],
               "probeSets": [],
               "startDate": null,
               "appName": "NimbusUnitTest",
@@ -293,8 +299,12 @@ class NimbusTests: XCTestCase {
         """)
         try nimbus.applyPendingExperimentsOnThisThread()
 
-        // Record the exposure event in Glean
-        nimbus.recordExposure(experimentId: "test-experiment")
+        // Record the valid exposure event in Glean
+        nimbus.recordExposureEvent(featureId: "test-feature")
+
+        // We will also attempt to record an invalid feature exposure to ensure it doesn't
+        // get recorded
+        nimbus.recordExposureEvent(featureId: "not-a-feature")
 
         XCTAssertTrue(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
         let enrollmentEvents = try GleanMetrics.NimbusEvents.exposure.testGetValue()

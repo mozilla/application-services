@@ -48,9 +48,9 @@ private extension Nimbus {
 
 // Glean integration
 internal extension Nimbus {
-    func recordExposure(experimentId: String) {
+    func recordExposure(_ featureId: String) {
         let activeExperiments = getActiveExperiments()
-        if let experiment = activeExperiments.first(where: { $0.slug == experimentId }) {
+        if let experiment = activeExperiments.first(where: { $0.featureIds.contains(featureId) }) {
             GleanMetrics.NimbusEvents.exposure.record(extra: [
                 .experiment: experiment.slug,
                 .branch: experiment.branchSlug,
@@ -190,6 +190,10 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
         return JSONVariables(with: json)
     }
+
+    public func recordExposureEvent(featureId: String) {
+        recordExposure(featureId)
+    }
 }
 
 extension Nimbus: NimbusUserConfiguration {
@@ -315,6 +319,8 @@ public extension NimbusDisabled {
     func optIn(_: String, branch _: String) {}
 
     func resetTelemetryIdentifiers() {}
+
+    func recordExposureEvent(featureId: String) {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
