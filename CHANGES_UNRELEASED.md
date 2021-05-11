@@ -6,9 +6,13 @@
 
 - Introduced a new metadata storage API, part of libplaces. Currently only has Android bindings.
 
+---
+
 ## Sync Manager
 
 - Removed support for the wipeAll command (#4006)
+
+---
 
 ## Autofill
 
@@ -17,10 +21,12 @@
 - Added support to scrub encrypted data to handle lost/corrupted client keys.
   Scrubbed data will be replaced with remote data on the next sync.
 
+---
+
 ## Nimbus
 
- - Added bucket and collections to `NimbusServerSettings`, with default values.
- - Added `getAvailableExperiments()` method exposed by `NimbusClient`.
+- Added bucket and collections to `NimbusServerSettings`, with default values.
+- Added `getAvailableExperiments()` method exposed by `NimbusClient`.
 
 ### ⚠️ Breaking changes ⚠️
 
@@ -28,3 +34,16 @@
   Fixed in the complementary [android-components#10144](https://github.com/mozilla-mobile/android-components/pull/10144)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...main)
+
+---
+
+## Logins
+
+### ⚠️ Breaking changes ⚠️
+
+'hostname' and 'formSubmitURL' were misnomers for what was actually required for those fields [Discussion here](https://github.com/mozilla/application-services/issues/1984)
+
+What Changed:
+
+> - Changed all instances of hostname to origin
+> - Changed all instances of formSubmitURL to formActionOrigin
