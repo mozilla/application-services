@@ -50,6 +50,7 @@ android {
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         kotlinOptions {
             jvmTarget = rootProject.ext.build.jvmTargetCompatibility
+            freeCompilerArgs += "-Xopt-in=kotlin.ExperimentalUnsignedTypes"
         }
     }
 }
@@ -88,7 +89,6 @@ dependencies {
 
     implementation "org.mozilla.components:service-glean:$android_components_version"
 
-    implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
     api project(":full-megazord")
     implementation project(":native-support")
 
@@ -122,7 +122,7 @@ android.libraryVariants.all { variant ->
     }
     variant.javaCompileProvider.get().dependsOn(t)
     def sourceSet = variant.sourceSets.find { it.name == variant.name }
-    sourceSet.java.srcDirs += new File(buildDir, "generated/source/uniffi/${variant.name}/java")
+    sourceSet.kotlin.srcDirs += new File(buildDir, "generated/source/uniffi/${variant.name}/java")
 }
 
 evaluationDependsOn(":full-megazord")
