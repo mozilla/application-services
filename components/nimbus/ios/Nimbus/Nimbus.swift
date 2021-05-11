@@ -183,6 +183,13 @@ extension Nimbus: NimbusFeatureConfiguration {
             }
         }
     }
+
+    public func getVariables(featureId: String) -> Variables {
+        guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
+            return NilVariables.instance
+        }
+        return JSONVariables(with: json)
+    }
 }
 
 extension Nimbus: NimbusUserConfiguration {
@@ -287,6 +294,10 @@ public extension NimbusDisabled {
 
     func getExperimentBranch(featureId _: String) -> String? {
         return nil
+    }
+
+    func getVariables(featureId _: String) -> Variables {
+        return NilVariables.instance
     }
 
     func initialize() {}
