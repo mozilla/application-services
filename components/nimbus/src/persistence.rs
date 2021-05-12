@@ -527,40 +527,78 @@ mod tests {
     }
 
     fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
+        vec![json!({
+            "schemaVersion": "1.0.0",
+            "slug": "missing_feature_ids_array", // change when cloning
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "abc", // change when cloning
+                        "enabled": false
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "abc", // change when cloning
+                        "enabled": true
+                    }
+                }
+            ],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"missing-feature-ids-array", // change when cloning
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"missing_feature_ids_array", // change when cloning
+            "last_modified":1_602_197_324_372i64
+        })]
+    }
+
+    fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "missing_feature_ids_array", // change when cloning
+                "slug": "no-feature-ids-at-all",
                 "endDate": null,
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
-                        "feature": {
-                            "featureId": "abc", // change when cloning
-                            "enabled": false
-                        }
                     },
                     {
                         "slug": "treatment",
-                        "ratio":1,
-                        "feature": {
-                            "featureId": "abc", // change when cloning
-                            "enabled": true
-                        }
+                        "ratio": 1,
                     }
                 ],
-                "channel": "nightly",
                 "probeSets":[],
                 "startDate":null,
-                "appName": "fenix",
-                "appId": "org.mozilla.fenix",
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
                 "bucketConfig":{
                     // Setup to enroll everyone by default.
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"missing-feature-ids-array", // change when cloning
+                    "namespace":"secure-gold",
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -568,7 +606,7 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"missing_feature_ids_array", // change when cloning
+                "id":"no-feature-ids-at-all",
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -616,44 +654,6 @@ mod tests {
                 "last_modified":1_602_197_324_372i64
             }),
         ]
-    }
-
-    fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
-        vec![json!({
-            "schemaVersion": "1.0.0",
-            "slug": "no-feature-ids-at-all",
-            "endDate": null,
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                },
-                {
-                    "slug": "treatment",
-                    "ratio": 1,
-                }
-            ],
-            "probeSets":[],
-            "startDate":null,
-            "appName":"fenix",
-            "appId":"org.mozilla.fenix",
-            "channel":"nightly",
-            "bucketConfig":{
-                // Setup to enroll everyone by default.
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold",
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"no-feature-ids-at-all",
-            "last_modified":1_602_197_324_372i64
-        })]
     }
 
     fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
