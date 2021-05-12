@@ -614,7 +614,6 @@ mod tests {
                 "schemaVersion": "1.0.0",
                 "slug": "missing-featureids-array", // change when cloning
                 "endDate": null,
-                "featureIds": ["about_welcome"], // change when cloning
                 "branches":[
                     {
                         "slug": "control",
