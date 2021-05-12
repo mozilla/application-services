@@ -184,10 +184,19 @@ class NimbusTest {
                   "schemaVersion": "1.0.0",
                   "slug": "test-experiment",
                   "endDate": null,
+                  "featureIds": ["about_welcome"],
                   "branches": [
                     {
                       "slug": "test-branch",
-                      "ratio": 1
+                      "ratio": 1,
+                      "feature": {
+                          "featureId": "about_welcome",
+                          "enabled": false,
+                          "value": {
+                            "text": "OK then",
+                            "number": 42
+                          }
+                      }
                     }
                   ],
                   "probeSets": [],
@@ -221,6 +230,18 @@ class NimbusTest {
         assertEquals(appInfo.appName, expContext.appName)
         assertEquals(appInfo.channel, expContext.channel)
         // If we could control more of the context here we might be able to better test it
+    }
+
+    @Test
+    fun `Receiving JSON features`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        val json = nimbus.getFeatureConfigVariablesJson("about_welcome")
+        assertNotNull(json)
+        assertEquals(42, json!!["number"])
+        assertEquals("OK then", json["text"])
     }
 
     @Test

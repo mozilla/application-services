@@ -19,15 +19,15 @@ import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import mozilla.components.service.glean.Glean
+import org.json.JSONObject
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.AppContext
 import org.mozilla.experiments.nimbus.internal.AvailableExperiment
 import org.mozilla.experiments.nimbus.internal.AvailableRandomizationUnits
-import org.mozilla.experiments.nimbus.internal.Branch
 import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
-import org.mozilla.experiments.nimbus.internal.FeatureConfig
+import org.mozilla.experiments.nimbus.internal.ExperimentBranch
 import org.mozilla.experiments.nimbus.internal.NimbusErrorException
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
@@ -39,10 +39,9 @@ private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
 
 // Republish these classes from this package.
-typealias Branch = Branch
+typealias Branch = ExperimentBranch
 typealias AvailableExperiment = AvailableExperiment
 typealias EnrolledExperiment = EnrolledExperiment
-typealias FeatureConfig = FeatureConfig
 
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
@@ -311,6 +310,13 @@ open class Nimbus(
     @WorkerThread
     override fun getAvailableExperiments(): List<AvailableExperiment> =
         nimbusClient.getAvailableExperiments()
+
+    @AnyThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun getFeatureConfigVariablesJson(featureId: String) =
+        withCatchAll {
+            nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
+        }
 
     override fun getExperimentBranch(experimentId: String): String? {
         recordExposure(experimentId)
