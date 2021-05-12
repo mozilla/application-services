@@ -531,7 +531,7 @@ mod tests {
             "schemaVersion": "1.0.0",
             "slug": "secure-gold", // change when cloning
             "endDate": null,
-            "featureIds": ["abc"],
+            "featureIds": ["abc"], // change when cloning
             "branches":[
                 {
                     "slug": "control",
@@ -575,6 +575,50 @@ mod tests {
 
     fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "empty-feature-ids-array", // change when cloning
+                "endDate": null,
+                "featureIds": [""], // change when cloning
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "def", // change when cloning
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "def", // change when cloning
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"empty-feature-ids-array", // change when cloning
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"empty-feature-ids-array", // change when cloning
+                "last_modified":1_602_197_324_372i64
+            }),
             json!({
                 "schemaVersion": "1.0.0",
                 "slug": "no-feature-ids-at-all",
@@ -688,7 +732,7 @@ mod tests {
 
         // write a bunch of invalid experiments
         let invalid_feature_experiments = &get_invalid_feature_experiments();
-        assert_eq!(2, invalid_feature_experiments.len());
+        assert_eq!(3, invalid_feature_experiments.len());
 
         for experiment in invalid_feature_experiments {
             log::debug!("experiment = {:?}", experiment);
