@@ -609,8 +609,23 @@ mod tests {
             "id":"no-feature-ids-at-all",
             "last_modified":1_602_197_324_372i64
         })]
+
     }
 
+    fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
+        vec![json!({
+                "slug": "no-features",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                            }
+                    }
+            })]
+    }
 
     #[test]
     /// Migrating v1 to v2 involves finding enrollments and experiments that
@@ -634,20 +649,8 @@ mod tests {
         );
 
         let experiment_without_feature = &get_invalid_feature_experiments()[0];
-        let enrollment_without_feature = json!(
-            {
-                "slug": "no-features",
-                "status":
-                    {
-                        "Enrolled":
-                            {
-                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
-                                "reason": "Qualified",
-                                "branch": "control",
-                            }
-                    }
-            }
-        );
+        let enrollment_without_feature = &get_invalid_feature_enrollments()[0];
+
 
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
         let rkv = Database::open_rkv(&tmp_dir)?;
@@ -668,7 +671,7 @@ mod tests {
         experiment_store.put(&mut writer, experiment_without_feature["slug"].as_str().unwrap(), experiment_without_feature)?;
 
         enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
-        enrollment_store.put(&mut writer, "no-features", &enrollment_without_feature)?;
+        enrollment_store.put(&mut writer, enrollment_without_feature["slug"].as_str().unwrap(), enrollment_without_feature)?;
 
         writer.commit()?;
 
