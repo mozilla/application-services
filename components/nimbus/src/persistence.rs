@@ -448,6 +448,8 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use tempdir::TempDir;
+    use serde_json::json;
+
 
     use super::*;
 
@@ -523,15 +525,11 @@ mod tests {
         assert_ne!(fs::metadata(&db_file)?.len(), garbage_len);
         Ok(())
     }
-    #[test]
-    /// Migrating v1 to v2 involves finding enrollments and experiments that
-    /// don't contain all the feature_id stuff they should and discuarding.
-    fn test_migrate_v1_to_v2() -> Result<()> {
-        use serde_json::json;
 
-        let experiment_with_feature = json!({
+    fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
+        vec![json!({
             "schemaVersion": "1.0.0",
-            "slug": "secure-gold",
+            "slug": "valid-featuer-experiment",
             "endDate": null,
             "featureIds": ["about_welcome"],
             "branches":[
@@ -572,28 +570,13 @@ mod tests {
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
             "id":"secure-gold",
             "last_modified":1_602_197_324_372i64
-        });
+        })]
+    }
 
-        let enrollment_with_feature = json!(
-            {
-                "slug": "secure-gold",
-                "status":
-                    {
-                        "Enrolled":
-                            {
-                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
-                                "reason": "Qualified",
-                                "branch": "control",
-                                "feature_id": "about_welcome"
-                            }
-                        }
-                    }
-        );
-
-        let experiment_without_feature = json!(
-        {
+        fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
+        vec![json!({
             "schemaVersion": "1.0.0",
-            "slug": "no-features",
+            "slug": "no-feature-ids-at-all",
             "endDate": null,
             "branches":[
                 {
@@ -623,10 +606,34 @@ mod tests {
             "isEnrollmentPaused":false,
             "proposedEnrollment":7,
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"no-features",
+            "id":"no-feature-ids-at-all",
             "last_modified":1_602_197_324_372i64
-        });
+        })]
+    }
 
+
+    #[test]
+    /// Migrating v1 to v2 involves finding enrollments and experiments that
+    /// don't contain all the feature_id stuff they should and discuarding.
+    fn test_migrate_v1_to_v2() -> Result<()> {
+        let experiment_with_feature = &get_valid_feature_experiments()[0];
+        let enrollment_with_feature = json!(
+            {
+                "slug": "secure-gold",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": "about_welcome"
+                            }
+                        }
+                    }
+        );
+
+        let experiment_without_feature = &get_invalid_feature_experiments()[0];
         let enrollment_without_feature = json!(
             {
                 "slug": "no-features",
@@ -657,8 +664,8 @@ mod tests {
         // without.
         meta_store.put(&mut writer, "db_version", &1)?;
 
-        experiment_store.put(&mut writer, "secure-gold", &experiment_with_feature)?;
-        experiment_store.put(&mut writer, "no-features", &experiment_without_feature)?;
+        experiment_store.put(&mut writer, experiment_with_feature["slug"].as_str().unwrap(), experiment_with_feature)?;
+        experiment_store.put(&mut writer, experiment_without_feature["slug"].as_str().unwrap(), experiment_without_feature)?;
 
         enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
         enrollment_store.put(&mut writer, "no-features", &enrollment_without_feature)?;
