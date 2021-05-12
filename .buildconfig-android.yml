@@ -1,4 +1,4 @@
-libraryVersion: 75.2.0
+libraryVersion: 76.0.0
 groupId: org.mozilla.appservices
 projects:
   autofill:

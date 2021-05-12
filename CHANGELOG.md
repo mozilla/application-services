@@ -1,3 +1,9 @@
+# v76.0.0 (_2021-05-12_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...v76.0.0)
+
+
+
 # v75.2.0 (_2021-04-20_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.1.0...v75.2.0)
