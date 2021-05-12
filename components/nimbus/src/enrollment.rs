@@ -1026,7 +1026,11 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "some_control",
-                            "enabled": false
+                            "enabled": false,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            }
                         }
                     },
                     {
@@ -1034,7 +1038,11 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "some_control",
-                            "enabled": true
+                            "enabled": true,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            }
                         }
                     }
                 ],
@@ -1115,13 +1123,17 @@ mod tests {
                 "slug": "secure-gold",
                 "endDate": null,
                 "featureIds": ["about_welcome"],
-                "branches":[
+                "branches": [
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
                             "featureId": "about_welcome",
-                            "enabled": false
+                            "enabled": false,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            },
                         }
                     },
                     {
@@ -1129,7 +1141,11 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "about_welcome",
-                            "enabled": true
+                            "enabled": true,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            },
                         }
                     }
                 ],
@@ -1159,9 +1175,31 @@ mod tests {
                 "schemaVersion": "1.0.0",
                 "slug": "secure-silver",
                 "endDate": null,
-                "branches":[
-                    {"slug": "control", "ratio": 1}, // XXX add feature
-                    {"slug": "treatment","ratio":1}, // XXX add feature
+                "branches": [
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": false,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            },
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "about_welcome",
+                            "enabled": true,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            },
+                        }
+                    }
                 ],
                 "featureIds": ["about_welcome"],
                 "channel": "nightly",
@@ -1798,6 +1836,21 @@ mod tests {
         assert_eq!(1, enrolled.len());
 
         let enrolled1 = enrolled;
+
+        // Test to ensure that features are being de-serialized and copied into EnrolledFeatureConfig and mapped
+        // properly to the feature id.
+        let features = map_features_by_feature_id(&enrollments, &updated_experiments);
+        assert_eq!(features.len(), 1);
+        assert!(features.contains_key("about_welcome"));
+
+        let enrolled_feature = features.get("about_welcome").unwrap();
+        assert_eq!(
+            serde_json::Value::Object(enrolled_feature.feature.value.clone()),
+            json!({ "text": "OK then", "number": 42})
+        );
+
+        let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
+        assert_eq!(string, "{\"number\":42,\"text\":\"OK then\"}");
 
         // Now let's keep the same number of experiments.
         // We should get the same results as before.
