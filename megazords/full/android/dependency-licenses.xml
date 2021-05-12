@@ -417,10 +417,6 @@ the details of which are reproduced below.
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
-    <name>MIT License: rusqlite</name>
-    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
-  </license>
-  <license>
     <name>MIT License: matches</name>
     <url>https://github.com/SimonSapin/rust-std-candidates/blob/master/LICENSE</url>
   </license>
@@ -431,6 +427,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: ordered-float</name>
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: rusqlite</name>
+    <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: textwrap</name>
