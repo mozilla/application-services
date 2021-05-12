@@ -104,10 +104,4 @@ interface PasswordStore {
 
     [Throws=LoginsStorageError]
     MigrationMetrics import_multiple(sequence<LoginRecord> record);
-
-    // Methods NOT ported over from ffi/lib.rs
-
-    // Q1: sync15_passwords_sync(), do we still need to call sync in stores.rs?
-    //  - Or should we be relying on Sync Manager for this
-    //  - If not, we can get rid of parse_url and this method
 };

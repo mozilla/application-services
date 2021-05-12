@@ -30,22 +30,22 @@ use url::{Host, Url};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationPhaseMetrics {
-    pub num_processed: u64,
-    pub num_succeeded: u64,
-    pub num_failed: u64,
-    pub total_duration: u64,
-    pub errors: Vec<String>,
+    pub(crate) num_processed: u64,
+    pub(crate) num_succeeded: u64,
+    pub(crate) num_failed: u64,
+    pub(crate) total_duration: u64,
+    pub(crate) errors: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationMetrics {
-    pub fixup_phase: MigrationPhaseMetrics,
-    pub insert_phase: MigrationPhaseMetrics,
-    pub num_processed: u64,
-    pub num_succeeded: u64,
-    pub num_failed: u64,
-    pub total_duration: u64,
-    pub errors: Vec<String>,
+    pub(crate) fixup_phase: MigrationPhaseMetrics,
+    pub(crate) insert_phase: MigrationPhaseMetrics,
+    pub(crate) num_processed: u64,
+    pub(crate) num_succeeded: u64,
+    pub(crate) num_failed: u64,
+    pub(crate) total_duration: u64,
+    pub(crate) errors: Vec<String>,
 }
 
 pub struct LoginDb {

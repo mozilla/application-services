@@ -33,18 +33,6 @@ interface LoginsStorage : AutoCloseable {
     fun unlock(encryptionKey: String)
 
     /**
-     * Unlock (open) the database, using a byte string as the key.
-     * This is equivalent to calling unlock() after hex-encoding the bytes (lower
-     * case hexadecimal characters are used).
-     *
-     * @throws [MismatchedLockException] if the database is already unlocked
-     * @throws [InvalidKeyException] if the encryption key is wrong, or the db is corrupt
-     * @throws [LoginsStorageErrorException] if there was some other error opening the database
-     */
-    @Throws(LoginsStorageErrorException::class)
-    fun unlock(encryptionKey: ByteArray)
-
-    /**
      * Returns true if the database is locked, false otherwise.
      */
     fun isLocked(): Boolean
@@ -60,30 +48,20 @@ interface LoginsStorage : AutoCloseable {
     fun ensureUnlocked(encryptionKey: String)
 
     /**
-     * Equivalent to `unlock(encryptionKey)`, but does not throw in the case
-     * that the database is already unlocked.
-     *
-     * @throws [InvalidKeyException] if the encryption key is wrong, or the db is corrupt
-     * @throws [LoginsStorageErrorException] if there was some other error opening the database
-     */
-    @Throws(LoginsStorageErrorException::class)
-    fun ensureUnlocked(encryptionKey: ByteArray)
-
-    /**
      * Equivalent to `lock()`, but does not throw in the case that
      * the database is already unlocked. Never throws.
      */
     fun ensureLocked()
 
-    /**
-     * Synchronize the logins storage layer with a remote layer.
-     *
-     * @throws [SyncAuthInvalidException] if authentication needs to be refreshed
-     * @throws [RequestFailedException] if there was a network error during connection.
-     * @throws [LoginsStorageErrorException] On unexpected errors (IO failure, rust panics, etc)
-     */
-    @Throws(LoginsStorageErrorException::class)
-    fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing
+    // /**
+    //  * Synchronize the logins storage layer with a remote layer.
+    //  *
+    //  * @throws [SyncAuthInvalidException] if authentication needs to be refreshed
+    //  * @throws [RequestFailedException] if there was a network error during connection.
+    //  * @throws [LoginsStorageErrorException] On unexpected errors (IO failure, rust panics, etc)
+    //  */
+    // @Throws(LoginsStorageErrorException::class)
+    // fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing
 
     /**
      * Delete all locally stored login sync metadata (last sync timestamps, etc).
@@ -186,7 +164,7 @@ interface LoginsStorage : AutoCloseable {
      * @throws [LoginsStorageErrorException] On unexpected errors (IO failure, rust panics, etc)
      */
     @Throws(LoginsStorageErrorException::class)
-    fun importLogins(logins: Array<LoginRecord>): JSONObject
+    fun importLogins(logins: List<LoginRecord>): MigrationMetrics
 
     /**
      * Updates the fields in the provided record.
@@ -241,12 +219,6 @@ interface LoginsStorage : AutoCloseable {
      */
     @Throws(LoginsStorageErrorException::class)
     fun rekeyDatabase(newEncryptionKey: String)
-
-    /**
-     * Change the key on an existing encrypted database.
-     */
-    @Throws(LoginsStorageErrorException::class)
-    fun rekeyDatabase(newEncryptionKey: ByteArray)
 
     /**
      * Get the list of potential duplciates of `login`, with the exception of the

@@ -282,7 +282,7 @@ pub struct Login {
 /// This struct is identical to the Login struct on purpose
 /// and is strictly for going over via FFI
 /// it was converted from the protobuf
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub struct LoginRecord {
     #[serde(rename = "id")]
     pub guid: std::string::String,

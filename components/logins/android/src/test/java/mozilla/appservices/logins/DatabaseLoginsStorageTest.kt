@@ -93,76 +93,23 @@ class DatabaseLoginsStorageTest {
         }
     }
 
-    @Test
-    fun testUnlockHex() {
-        val store = createTestStore()
-        val key = "0123456789abcdef"
-        // This is a little awkward because kotlin/java Byte is signed, and so the literals
-        // above 128 (above 0x80) can't be part of a `listOf<Byte>()` (there's UByte, but it's
-        // both experimental and very unclear that JNA would do anything sane with it).
-        val keyBytes = listOf(0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef)
-                .map { it.toByte() }
-                .toByteArray()
+    // @Test
+    // fun testSyncException() {
+    //     val test = getTestStore()
+    //     test.ensureUnlocked(encryptionKey)
+    //     // Make sure we throw the right exception for invalid info.
+    //     expectException(LoginsStorageErrorException.SyncAuthInvalid::class.java) {
+    //         // Provide a real URL for the tokenserver, or we give back an unexpected error about it being an invalid URL
+    //         test.sync(SyncUnlockInfo(
+    //                 kid = "",
+    //                 fxaAccessToken = "",
+    //                 syncKey = "",
+    //                 tokenserverURL = "https://asdf.com"
+    //         ))
+    //     }
 
-        store.unlock(keyBytes)
-
-        store.add(LoginRecord(
-                guid = "aaaaaaaaaaaa",
-                hostname = "https://www.example.com",
-                httpRealm = "Something",
-                username = "Foobar2000",
-                password = "hunter2",
-                usernameField = "users_name",
-                passwordField = "users_password",
-                formSubmitUrl = "",
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
-        ))
-
-        store.lock()
-        // Ensure that it's equivalent to encrypting with the hex encoded string.
-        store.unlock(key)
-
-        assertNotNull(store.get("aaaaaaaaaaaa"))
-
-        store.lock()
-        // Check that the wrong key fails
-        try {
-            store.unlock(listOf<Byte>(0x01, 0x02, 0x03).toByteArray())
-            fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidKey) {
-            // All good.
-        }
-        assert(store.isLocked())
-        // Make sure that ensureUnlocked works when locked or unlocked
-        store.ensureUnlocked(keyBytes)
-        assert(!store.isLocked())
-
-        store.ensureUnlocked(keyBytes)
-        assert(!store.isLocked())
-
-        finishAndClose(store)
-    }
-
-    @Test
-    fun testSyncException() {
-        val test = getTestStore()
-        test.ensureUnlocked(encryptionKey)
-        // Make sure we throw the right exception for invalid info.
-        expectException(LoginsStorageErrorException.SyncAuthInvalid::class.java) {
-            // Provide a real URL for the tokenserver, or we give back an unexpected error about it being an invalid URL
-            test.sync(SyncUnlockInfo(
-                    kid = "",
-                    fxaAccessToken = "",
-                    syncKey = "",
-                    tokenserverURL = "https://asdf.com"
-            ))
-        }
-
-        finishAndClose(test)
-    }
+    //     finishAndClose(test)
+    // }
 
     @Test
     fun testMetricsGathering() {
@@ -179,7 +126,7 @@ class DatabaseLoginsStorageTest {
 
         store.lock()
         try {
-            store.unlock(listOf<Byte>(0x01, 0x02, 0x03).toByteArray())
+            store.unlock("wrongkey")
             fail("Should have thrown")
         } catch (e: LoginsStorageErrorException.InvalidKey) {
             // All good.
@@ -280,7 +227,7 @@ class DatabaseLoginsStorageTest {
         expectException(LoginsStorageErrorException::class.java) { test.delete("aaaaaaaaaaaa") }
         expectException(LoginsStorageErrorException::class.java) { test.touch("bbbbbbbbbbbb") }
         expectException(LoginsStorageErrorException::class.java) { test.wipe() }
-        expectException(LoginsStorageErrorException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
+        // expectException(LoginsStorageErrorException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
         expectException(LoginsStorageErrorException::class.java) {
             @Suppress("DEPRECATION")
             test.reset()
@@ -393,11 +340,11 @@ class DatabaseLoginsStorageTest {
                     username = "MyUsername",
                     usernameField = "",
                     passwordField = "",
-                                    formSubmitUrl = "",
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
+                    formSubmitUrl = "",
+                    timesUsed = 0,
+                    timeCreated = 0,
+                    timeLastUsed = 0,
+                    timePasswordChanged = 0
             ))
         }
 
