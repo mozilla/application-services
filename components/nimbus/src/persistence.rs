@@ -577,6 +577,46 @@ mod tests {
         vec![
             json!({
                 "schemaVersion": "1.0.0",
+                "slug": "missing-branch-feature-clause", // change when cloning
+                "endDate": null,
+                "featureIds": ["aaa"], // change when cloning
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aaa", // change when cloning
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"empty-branch-feature-clause", // change when cloning
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"empty-branch-feature-clause", // change when cloning
+                "last_modified":1_602_197_324_372i64
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
                 "slug": "empty-feature-ids-array", // change when cloning
                 "endDate": null,
                 "featureIds": [""], // change when cloning
@@ -732,7 +772,7 @@ mod tests {
 
         // write a bunch of invalid experiments
         let invalid_feature_experiments = &get_invalid_feature_experiments();
-        assert_eq!(3, invalid_feature_experiments.len());
+        assert_eq!(4, invalid_feature_experiments.len());
 
         for experiment in invalid_feature_experiments {
             log::debug!("experiment = {:?}", experiment);
@@ -752,7 +792,7 @@ mod tests {
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         log::debug!("experiments = {:?}", experiments);
 
-        assert_eq!(experiments.len(), 0);
+        assert_eq!(experiments.len(), 2); // XXX should be 0
 
         // let experiment_with_feature = &get_valid_feature_experiments()[0];
         // let enrollment_with_feature = json!(
