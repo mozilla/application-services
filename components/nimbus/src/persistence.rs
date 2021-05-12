@@ -529,8 +529,9 @@ mod tests {
     fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
         vec![json!({
             "schemaVersion": "1.0.0",
-            "slug": "missing_feature_ids_array", // change when cloning
+            "slug": "secure-gold", // change when cloning
             "endDate": null,
+            "featureIds": ["abc"],
             "branches":[
                 {
                     "slug": "control",
@@ -559,7 +560,7 @@ mod tests {
                 "count":10_000,
                 "start":0,
                 "total":10_000,
-                "namespace":"missing-feature-ids-array", // change when cloning
+                "namespace":"secure-gold", // change when cloning
                 "randomizationUnit":"nimbus_id"
             },
             "userFacingName":"Diagnostic test experiment",
@@ -567,7 +568,7 @@ mod tests {
             "isEnrollmentPaused":false,
             "proposedEnrollment":7,
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"missing_feature_ids_array", // change when cloning
+            "id":"secure-gold", // change when cloning
             "last_modified":1_602_197_324_372i64
         })]
     }
@@ -598,7 +599,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"secure-gold",
+                    "namespace":"no-feature-ids-at-all",
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -611,7 +612,7 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "valid-feature-experiment", // change when cloning
+                "slug": "missing-featureids-array", // change when cloning
                 "endDate": null,
                 "featureIds": ["about_welcome"], // change when cloning
                 "branches":[
@@ -706,6 +707,8 @@ mod tests {
         // All of the invalid experiments should have been discarded during
         // migration; leaving us with none.
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        log::debug!("experiments = {:?}", experiments);
+
         assert_eq!(experiments.len(), 0);
 
         // let experiment_with_feature = &get_valid_feature_experiments()[0];
