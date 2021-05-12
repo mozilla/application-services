@@ -523,170 +523,168 @@ mod tests {
         assert_ne!(fs::metadata(&db_file)?.len(), garbage_len);
         Ok(())
     }
-}
+    #[test]
+    /// Migrating v1 to v2 involves finding enrollments and experiments that
+    /// don't contain all the feature_id stuff they should and discuarding.
+    fn test_migrate_v1_to_v2() -> Result<()> {
+        use serde_json::json;
 
-#[test]
-/// Migrating v1 to v2 involves finding enrollments and experiments that
-/// don't contain all the feature_id stuff they should and discuarding.
-fn test_migrate_v1_to_v2() -> Result<()> {
-    use serde_json::json;
-    use tempdir::TempDir;
-
-    let experiment_with_feature = json!({
-        "schemaVersion": "1.0.0",
-        "slug": "secure-gold",
-        "endDate": null,
-        "featureIds": ["about_welcome"],
-        "branches":[
-            {
-                "slug": "control",
-                "ratio": 1,
-                "feature": {
-                    "featureId": "about_welcome",
-                    "enabled": false
-                }
-            },
-            {
-                "slug": "treatment",
-                "ratio":1,
-                "feature": {
-                    "featureId": "about_welcome",
-                    "enabled": true
-                }
-            }
-        ],
-        "channel": "nightly",
-        "probeSets":[],
-        "startDate":null,
-        "appName": "fenix",
-        "appId": "org.mozilla.fenix",
-        "bucketConfig":{
-            // Setup to enroll everyone by default.
-            "count":10_000,
-            "start":0,
-            "total":10_000,
-            "namespace":"secure-gold",
-            "randomizationUnit":"nimbus_id"
-        },
-        "userFacingName":"Diagnostic test experiment",
-        "referenceBranch":"control",
-        "isEnrollmentPaused":false,
-        "proposedEnrollment":7,
-        "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-        "id":"secure-gold",
-        "last_modified":1_602_197_324_372i64
-    });
-
-    let enrollment_with_feature = json!(
-        {
+        let experiment_with_feature = json!({
+            "schemaVersion": "1.0.0",
             "slug": "secure-gold",
-            "status":
+            "endDate": null,
+            "featureIds": ["about_welcome"],
+            "branches":[
                 {
-                    "Enrolled":
-                        {
-                            "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
-                            "reason": "Qualified",
-                            "branch": "control",
-                            "feature_id": "about_welcome"
-                        }
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": false
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": true
                     }
                 }
-    );
-
-    let experiment_without_feature = json!(
-    {
-        "schemaVersion": "1.0.0",
-        "slug": "no-features",
-        "endDate": null,
-        "branches":[
-            {
-                "slug": "control",
-                "ratio": 1,
+            ],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
             },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        });
+
+        let enrollment_with_feature = json!(
             {
-                "slug": "treatment",
-                "ratio": 1,
-            }
-        ],
-        "probeSets":[],
-        "startDate":null,
-        "appName":"fenix",
-        "appId":"org.mozilla.fenix",
-        "channel":"nightly",
-        "bucketConfig":{
-            // Setup to enroll everyone by default.
-            "count":10_000,
-            "start":0,
-            "total":10_000,
-            "namespace":"secure-gold",
-            "randomizationUnit":"nimbus_id"
-        },
-        "userFacingName":"Diagnostic test experiment",
-        "referenceBranch":"control",
-        "isEnrollmentPaused":false,
-        "proposedEnrollment":7,
-        "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-        "id":"no-features",
-        "last_modified":1_602_197_324_372i64
-    });
-
-    let enrollment_without_feature = json!(
-        {
-            "slug": "no-features",
-            "status":
-                {
-                    "Enrolled":
-                        {
-                            "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
-                            "reason": "Qualified",
-                            "branch": "control",
+                "slug": "secure-gold",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": "about_welcome"
+                            }
                         }
+                    }
+        );
+
+        let experiment_without_feature = json!(
+        {
+            "schemaVersion": "1.0.0",
+            "slug": "no-features",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                },
+                {
+                    "slug": "treatment",
+                    "ratio": 1,
                 }
-        }
-    );
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "channel":"nightly",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"no-features",
+            "last_modified":1_602_197_324_372i64
+        });
 
-    let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
-    let rkv = Database::open_rkv(&tmp_dir)?;
-    let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-    let experiment_store =
-        SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-    let enrollment_store =
-        SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-    let mut writer = rkv.write()?;
+        let enrollment_without_feature = json!(
+            {
+                "slug": "no-features",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                            }
+                    }
+            }
+        );
 
-    let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
 
-    // Write two experiments to the database, one with a feature and one
-    // without.
-    meta_store.put(&mut writer, "db_version", &1)?;
+        let _ = env_logger::try_init();
 
-    experiment_store.put(&mut writer, "secure-gold", &experiment_with_feature)?;
-    experiment_store.put(&mut writer, "no-features", &experiment_without_feature)?;
+        // Write two experiments to the database, one with a feature and one
+        // without.
+        meta_store.put(&mut writer, "db_version", &1)?;
 
-    enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
-    enrollment_store.put(&mut writer, "no-features", &enrollment_without_feature)?;
+        experiment_store.put(&mut writer, "secure-gold", &experiment_with_feature)?;
+        experiment_store.put(&mut writer, "no-features", &experiment_without_feature)?;
 
-    writer.commit()?;
+        enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
+        enrollment_store.put(&mut writer, "no-features", &enrollment_without_feature)?;
 
-    let db = Database::new(&tmp_dir)?;
+        writer.commit()?;
 
-    let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-    //log::debug!("experiments = {:?}", experiments);
+        let db = Database::new(&tmp_dir)?;
 
-    // The experiment without features should have been discarded, leaving
-    // us with only one.
-    assert_eq!(experiments.len(), 1);
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        //log::debug!("experiments = {:?}", experiments);
 
-    let enrollments = db
-        .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
-        .unwrap();
-    log::debug!("enrollments = {:?}", enrollments);
+        // The experiment without features should have been discarded, leaving
+        // us with only one.
+        assert_eq!(experiments.len(), 1);
 
-    // The enrollment without features should have been discarded, leaving
-    // us with only one.
-    assert_eq!(enrollments.len(), 1);
+        let enrollments = db
+            .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+            .unwrap();
+        log::debug!("enrollments = {:?}", enrollments);
 
-    Ok(())
+        // The enrollment without features should have been discarded, leaving
+        // us with only one.
+        assert_eq!(enrollments.len(), 1);
+
+        Ok(())
+    }
 }
 
 // TODO: Add unit tests
