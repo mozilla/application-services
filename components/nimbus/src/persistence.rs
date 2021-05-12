@@ -529,15 +529,15 @@ mod tests {
     fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
         vec![json!({
             "schemaVersion": "1.0.0",
-            "slug": "valid-featuer-experiment",
+            "slug": "valid-feature-experiment", // change when cloning
             "endDate": null,
-            "featureIds": ["about_welcome"],
+            "featureIds": ["about_welcome"], // change when cloning
             "branches":[
                 {
                     "slug": "control",
                     "ratio": 1,
                     "feature": {
-                        "featureId": "about_welcome",
+                        "featureId": "about_welcome", // change when cloning
                         "enabled": false
                     }
                 },
@@ -545,7 +545,7 @@ mod tests {
                     "slug": "treatment",
                     "ratio":1,
                     "feature": {
-                        "featureId": "about_welcome",
+                        "featureId": "about_welcome", // change when cloning
                         "enabled": true
                     }
                 }
@@ -560,7 +560,7 @@ mod tests {
                 "count":10_000,
                 "start":0,
                 "total":10_000,
-                "namespace":"secure-gold",
+                "namespace":"valid-feature-experiment", // change when cloning
                 "randomizationUnit":"nimbus_id"
             },
             "userFacingName":"Diagnostic test experiment",
@@ -568,7 +568,7 @@ mod tests {
             "isEnrollmentPaused":false,
             "proposedEnrollment":7,
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold",
+            "id":"valid-feature-experiment", // change when cloning
             "last_modified":1_602_197_324_372i64
         })]
     }
@@ -608,7 +608,8 @@ mod tests {
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
             "id":"no-feature-ids-at-all",
             "last_modified":1_602_197_324_372i64
-        })]
+        }),
+        ]
 
     }
 
