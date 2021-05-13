@@ -239,6 +239,7 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
+                return Ok(());
                 log::debug!("Upgrading from version 1 to version 2");
                 // XXX how do we handle errors?
                 // XXX Do we need to do anything extra for mutex & or
@@ -247,10 +248,11 @@ impl Database {
                 // iterate enrollments, with collect_all.
                 // XXX later shift it to collect_all_json
                 let reader = self.read()?;
+                log::debug!("about to do collect_alls");
                 let enrollments: Vec<ExperimentEnrollment> =
                     self.enrollment_store.collect_all(&reader)?;
                 let experiments: Vec<Experiment> = self.experiment_store.collect_all(&reader)?;
-                // XXX do we need to commit here?
+                log::debug!("past initial collect_alls");
 
                 let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
                     .iter()
@@ -576,48 +578,47 @@ mod tests {
 
     fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
-            // XXX commented out until we fix the migrator to use try_collect_all
-            //   json!({
-            //     "schemaVersion": "1.0.0",
-            //     "slug": "branch-feature-empty-obj", // change when cloning
-            //     "endDate": null,
-            //     "featureIds": ["bbb"], // change when cloning
-            //     "branches":[
-            //         {
-            //             "slug": "control",
-            //             "ratio": 1,
-            //             "feature": {
-            //                 "featureId": "bbb", // change when cloning
-            //                 "enabled": false
-            //             }
-            //         },
-            //         {
-            //             "slug": "treatment",
-            //             "ratio":1,
-            //             "feature": {}
-            //         }
-            //     ],
-            //     "channel": "nightly",
-            //     "probeSets":[],
-            //     "startDate":null,
-            //     "appName": "fenix",
-            //     "appId": "org.mozilla.fenix",
-            //     "bucketConfig":{
-            //         // Setup to enroll everyone by default.
-            //         "count":10_000,
-            //         "start":0,
-            //         "total":10_000,
-            //         "namespace":"branch-feature-empty-obj", // change when cloning
-            //         "randomizationUnit":"nimbus_id"
-            //     },
-            //     "userFacingName":"Diagnostic test experiment",
-            //     "referenceBranch":"control",
-            //     "isEnrollmentPaused":false,
-            //     "proposedEnrollment":7,
-            //     "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            //     "id":"branch-feature-empty-obj", // change when cloning
-            //     "last_modified":1_602_197_324_372i64
-            // }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-empty-obj", // change when cloning
+                "endDate": null,
+                "featureIds": ["bbb"], // change when cloning
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "bbb", // change when cloning
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {}
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-empty-obj", // change when cloning
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"branch-feature-empty-obj", // change when cloning
+                "last_modified":1_602_197_324_372i64
+            }),
             json!({
                 "schemaVersion": "1.0.0",
                 "slug": "missing-branch-feature-clause", // change when cloning
@@ -656,6 +657,49 @@ mod tests {
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
                 "id":"empty-branch-feature-clause", // change when cloning
+                "last_modified":1_602_197_324_372i64
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-feature-id-missing", // change when cloning
+                "endDate": null,
+                "featureIds": ["ccc"], // change when cloning
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "ccc", // change when cloning
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-feature-id-missing", // change when cloning
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"branch-feature-feature-id-missing", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -815,7 +859,7 @@ mod tests {
 
         // write a bunch of invalid experiments
         let invalid_feature_experiments = &get_invalid_feature_experiments();
-        assert_eq!(4, invalid_feature_experiments.len());
+        assert_eq!(6, invalid_feature_experiments.len());
 
         for experiment in invalid_feature_experiments {
             log::debug!("experiment = {:?}", experiment);
@@ -829,6 +873,8 @@ mod tests {
         writer.commit()?;
 
         let db = Database::new(&tmp_dir)?;
+
+        return Ok(());
 
         // All of the invalid experiments should have been discarded during
         // migration; leaving us with none.
