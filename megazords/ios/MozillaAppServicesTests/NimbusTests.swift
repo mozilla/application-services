@@ -38,7 +38,11 @@ class NimbusTests: XCTestCase {
                         "ratio": 1,
                         "feature": {
                             "featureId": "aboutwelcome",
-                            "enabled": false
+                            "enabled": false,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            }
                         }
                     },
                     {
@@ -46,7 +50,11 @@ class NimbusTests: XCTestCase {
                         "ratio": 1,
                         "feature": {
                             "featureId": "aboutwelcome",
-                            "enabled": true
+                            "enabled": true,
+                            "value": {
+                                "text": "OK then",
+                                "number": 42
+                            }
                         }
                     }
                 ],
@@ -105,6 +113,14 @@ class NimbusTests: XCTestCase {
 
         let experiments = nimbus.getActiveExperiments()
         XCTAssertEqual(experiments.count, 1)
+
+        let json = nimbus.getFeatureConfigVariablesJson(featureId: "aboutwelcome")
+        if let json = json {
+            XCTAssertEqual(json["text"] as? String, "OK then")
+            XCTAssertEqual(json["number"] as? Int, 42)
+        } else {
+            XCTAssertNotNil(json)
+        }
 
         try nimbus.setExperimentsLocallyOnThisThread(emptyExperimentJSON())
         try nimbus.applyPendingExperimentsOnThisThread()

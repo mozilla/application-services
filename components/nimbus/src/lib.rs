@@ -35,6 +35,7 @@ pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
+use serde_json::{Map, Value};
 use std::path::PathBuf;
 use std::sync::Mutex;
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
@@ -102,12 +103,17 @@ impl NimbusClient {
         self.database_cache.get_experiment_branch(&slug)
     }
 
-    pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<Branch>> {
+    pub fn get_feature_config_variables(&self, feature_id: String) -> Result<Option<String>> {
+        self.database_cache
+            .get_feature_config_variables(&feature_id)
+    }
+
+    pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<ExperimentBranch>> {
         Ok(self
             .get_all_experiments()?
-            .iter()
+            .into_iter()
             .find(|e| e.slug == slug)
-            .map(|e| e.branches.clone())
+            .map(|e| e.branches.into_iter().map(|b| b.into()).collect())
             .ok_or(NimbusError::NoSuchExperiment(slug))?)
     }
 
@@ -373,8 +379,10 @@ pub struct FeatureConfig {
     pub feature_id: String,
     pub enabled: bool,
     // There is a nullable `value` field that can contain key-value config options
-    // that modify the behaviour of an application feature, but we don't support
-    // it yet and the details are still being finalized, so we ignore it for now.
+    // that modify the behaviour of an application feature. Uniffi doesn't quite support
+    // serde_json yet.
+    #[serde(default)]
+    pub value: Map<String, Value>,
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -408,8 +416,13 @@ pub struct AvailableExperiment {
     pub slug: String,
     pub user_facing_name: String,
     pub user_facing_description: String,
-    pub branches: Vec<Branch>,
+    pub branches: Vec<ExperimentBranch>,
     pub reference_branch: Option<String>,
+}
+
+pub struct ExperimentBranch {
+    pub slug: String,
+    pub ratio: i32,
 }
 
 impl From<Experiment> for AvailableExperiment {
@@ -418,8 +431,17 @@ impl From<Experiment> for AvailableExperiment {
             slug: exp.slug,
             user_facing_name: exp.user_facing_name,
             user_facing_description: exp.user_facing_description,
-            branches: exp.branches,
+            branches: exp.branches.into_iter().map(|b| b.into()).collect(),
             reference_branch: exp.reference_branch,
+        }
+    }
+}
+
+impl From<Branch> for ExperimentBranch {
+    fn from(branch: Branch) -> Self {
+        Self {
+            slug: branch.slug,
+            ratio: branch.ratio,
         }
     }
 }
@@ -818,5 +840,75 @@ mod test_schema_bw_compat {
         assert_eq!(exp.app_name, Some("fenix".to_string()));
         assert_eq!(exp.app_id, Some("org.mozilla.fenix".to_string()));
         assert_eq!(exp.channel, Some("nightly".to_string()));
+    }
+}
+
+#[cfg(test)]
+mod test_schema_deserialization {
+    use super::*;
+
+    use serde_json::{json, Map, Value};
+
+    #[derive(Deserialize, Serialize, Debug, Clone)]
+    #[serde(rename_all = "camelCase")]
+    pub struct FeatureConfigProposed {
+        pub enabled: bool,
+        pub feature_id: String,
+        #[serde(default)]
+        pub value: Map<String, Value>,
+    }
+
+    #[test]
+    fn test_deserialize_untyped_json() -> Result<()> {
+        let without_value = serde_json::from_value::<FeatureConfig>(json!(
+            {
+                "featureId": "some_control",
+                "enabled": true,
+            }
+        ))?;
+
+        let with_object_value = serde_json::from_value::<FeatureConfig>(json!(
+            {
+                "featureId": "some_control",
+                "enabled": true,
+                "value": {
+                    "color": "blue",
+                },
+            }
+        ))?;
+
+        assert_eq!(
+            serde_json::to_string(&without_value.value)?,
+            "{}".to_string()
+        );
+        assert_eq!(
+            serde_json::to_string(&with_object_value.value)?,
+            "{\"color\":\"blue\"}"
+        );
+        assert_eq!(with_object_value.value.get("color").unwrap(), "blue");
+
+        let rejects_scalar_value = serde_json::from_value::<FeatureConfig>(json!(
+            {
+                "featureId": "some_control",
+                "enabled": true,
+                "value": 1,
+            }
+        ))
+        .is_err();
+
+        assert!(rejects_scalar_value);
+
+        let rejects_array_value = serde_json::from_value::<FeatureConfig>(json!(
+            {
+                "featureId": "some_control",
+                "enabled": true,
+                "value": [1, 2, 3],
+            }
+        ))
+        .is_err();
+
+        assert!(rejects_array_value);
+
+        Ok(())
     }
 }

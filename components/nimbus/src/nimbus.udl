@@ -28,19 +28,13 @@ dictionary AvailableExperiment {
     string slug;
     string user_facing_name;
     string user_facing_description;
-    sequence<Branch> branches;
+    sequence<ExperimentBranch> branches;
     string? reference_branch;
 };
 
-dictionary Branch {
+dictionary ExperimentBranch {
     string slug;
-    i32 ratio; // ideally would be u32, but kotlin considers unsigned experimental - see SDK-175.
-    FeatureConfig? feature;
-};
-
-dictionary FeatureConfig {
-    string feature_id;
-    boolean enabled;
+    i32 ratio;
 };
 
 dictionary RemoteSettingsConfig {
@@ -110,9 +104,12 @@ interface NimbusClient {
     [Throws=NimbusError]
     string? get_experiment_branch(string id);
 
+    [Throws=NimbusError]
+    string? get_feature_config_variables(string feature_id);
+
     // Returns a list of experiment branches for a given experiment ID.
     [Throws=NimbusError]
-    sequence<Branch> get_experiment_branches(string experiment_slug);
+    sequence<ExperimentBranch> get_experiment_branches(string experiment_slug);
 
     // Returns a list of experiments this user is enrolled in.
     [Throws=NimbusError]

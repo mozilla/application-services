@@ -17,6 +17,7 @@ import mozilla.components.service.glean.net.ConceptFetchHttpUploader
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -184,10 +185,19 @@ class NimbusTest {
                   "schemaVersion": "1.0.0",
                   "slug": "test-experiment",
                   "endDate": null,
+                  "featureIds": ["about_welcome"],
                   "branches": [
                     {
                       "slug": "test-branch",
-                      "ratio": 1
+                      "ratio": 1,
+                      "feature": {
+                          "featureId": "about_welcome",
+                          "enabled": false,
+                          "value": {
+                            "text": "OK then",
+                            "number": 42
+                          }
+                      }
                     }
                   ],
                   "probeSets": [],
@@ -221,6 +231,21 @@ class NimbusTest {
         assertEquals(appInfo.appName, expContext.appName)
         assertEquals(appInfo.channel, expContext.channel)
         // If we could control more of the context here we might be able to better test it
+    }
+
+    @Test
+    fun `Smoke test— receiving JSON features`() {
+        nimbus.setUpTestExperiments(packageName, appInfo)
+        // The test experiment has exactly one branch with 100% enrollment
+        // We should be able to get feature variables for the feature in this
+        // experiment.
+        val json = nimbus.getFeatureConfigVariablesJson("about_welcome")
+        assertNotNull(json)
+        assertEquals(42, json!!["number"])
+        assertEquals("OK then", json["text"])
+
+        val json2 = nimbus.getFeatureConfigVariablesJson("non-existent-feature")
+        assertNull(json2)
     }
 
     @Test
