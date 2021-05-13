@@ -946,20 +946,53 @@ mod tests {
         ]
     }
 
-    // fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
-    //     vec![json!({
-    //         "slug": "no-features",
-    //         "status":
-    //             {
-    //                 "Enrolled":
-    //                     {
-    //                         "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
-    //                         "reason": "Qualified",
-    //                         "branch": "control",
+    // fn get_valid_feature_enrollments() -> Vec<serde_json::Value> {
+    //     vec![json!(
+    //         {
+    //             "slug": "secure-gold",
+    //             "status":
+    //                 {
+    //                     "Enrolled":
+    //                         {
+    //                             "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189083", // change on cloning
+    //                             "reason": "Qualified",
+    //                             "branch": "control",
+    //                             "feature_id": "about_welcome" // change on cloning
+    //                         }
     //                     }
-    //             }
-    //     })]
+    //                 }
+    //     )]
     // }
+
+    fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
+        vec![
+            json!({
+                "slug": "feature-id-missing",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                            }
+                    }
+            }),
+            json!({
+                "slug": "feature-id-empty",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189086",// XXXX should be client id?
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": ""
+                            }
+                        }
+            }),
+        ]
+    }
 
     #[test]
     /// Migrating v1 to v2 involves finding enrollments and experiments that
@@ -993,8 +1026,6 @@ mod tests {
 
         let db = Database::new(&tmp_dir)?;
 
-        // return Ok(());
-
         // All of the invalid experiments should have been discarded during
         // migration; leaving us with none.
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
@@ -1002,22 +1033,10 @@ mod tests {
 
         assert_eq!(experiments.len(), 4); // XXX drive to 0
 
+        // XXX various enrollment snippets below here to be cleaned up soon
+
         // let experiment_with_feature = &get_valid_feature_experiments()[0];
-        // let enrollment_with_feature = json!(
-        //     {
-        //         "slug": "secure-gold",
-        //         "status":
-        //             {
-        //                 "Enrolled":
-        //                     {
-        //                         "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
-        //                         "reason": "Qualified",
-        //                         "branch": "control",
-        //                         "feature_id": "about_welcome"
-        //                     }
-        //                 }
-        //             }
-        // );
+        // let enrollment_with_feature = &get_valid_feature_enrollment()[0];
         // let enrollment_without_feature = &get_invalid_feature_enrollments()[0];
         // let enrollment_store =
         //     SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
