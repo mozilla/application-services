@@ -204,7 +204,10 @@ impl SingleStore {
                         // It's also unfortunate that there doesn't seem to be
                         // a way to display the record that was dropped. :-(
                         if e.to_string().contains("missing field") {
-                            log::warn!("collect_all: discarded one record while deserializing with: {:?}", e);
+                            log::warn!(
+                                "collect_all: discarded one record while deserializing with: {:?}",
+                                e
+                            );
                         } else {
                             return Err(NimbusError::JSONError(e));
                         }
@@ -286,7 +289,8 @@ impl Database {
                 log::debug!("about to do collect_alls");
                 let enrollments: Vec<ExperimentEnrollment> =
                     self.enrollment_store.try_collect_all(&reader)?;
-                let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
+                let experiments: Vec<Experiment> =
+                    self.experiment_store.try_collect_all(&reader)?;
                 log::debug!("past initial collect_alls");
 
                 let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
