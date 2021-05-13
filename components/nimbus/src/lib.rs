@@ -887,29 +887,25 @@ mod test_schema_deserialization {
         );
         assert_eq!(with_object_value.value.get("color").unwrap(), "blue");
 
-        let rejects_scalar_value = match serde_json::from_value::<FeatureConfig>(json!(
+        let rejects_scalar_value = serde_json::from_value::<FeatureConfig>(json!(
             {
                 "featureId": "some_control",
                 "enabled": true,
                 "value": 1,
             }
-        )) {
-            Ok(_) => false,
-            _ => true,
-        };
+        ))
+        .is_err();
 
         assert!(rejects_scalar_value);
 
-        let rejects_array_value = match serde_json::from_value::<FeatureConfig>(json!(
+        let rejects_array_value = serde_json::from_value::<FeatureConfig>(json!(
             {
                 "featureId": "some_control",
                 "enabled": true,
-                "value": [1,2,3],
+                "value": [1, 2, 3],
             }
-        )) {
-            Ok(_) => false,
-            _ => true,
-        };
+        ))
+        .is_err();
 
         assert!(rejects_array_value);
 
