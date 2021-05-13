@@ -327,10 +327,10 @@ open class Nimbus(
     }
 
     override fun getVariables(featureId: String): Variables =
-        withCatchAll {
-            val json = JSONObject("{}")
-            JSONVariables(context = context, json = json)
-        } ?: NullVariables.instance
+        getFeatureConfigVariablesJson(featureId)?.let { json ->
+            JSONVariables(context, json)
+        }
+        ?: NullVariables.instance
 
     @WorkerThread
     override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {

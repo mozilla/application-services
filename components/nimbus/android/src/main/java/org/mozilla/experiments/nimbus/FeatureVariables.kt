@@ -71,7 +71,7 @@ private fun Context.getResource(resName: String, defType: String): Int? {
 }
 
 /**
- * A thin wrapper around the JSON produced by the `get_feature_variables_json(feature_id)` call, useful
+ * A thin wrapper around the JSON produced by the `get_feature_config_variables_json(feature_id)` call, useful
  * for configuring a feature, but without needing the developer to know about experiment specifics.
  */
 class JSONVariables(
@@ -94,10 +94,7 @@ class JSONVariables(
 // returns `null`.
 private inline fun <reified T> JSONObject.value(key: String): T? {
     if (!this.isNull(key)) {
-        val value = this.get(key)
-        if (value is T) {
-            return value
-        }
+        return this.get(key) as? T
     }
     return null
 }
