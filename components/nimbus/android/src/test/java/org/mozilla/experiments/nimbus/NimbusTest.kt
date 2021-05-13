@@ -167,7 +167,11 @@ class NimbusTest {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Record the exposure event in Glean
-        nimbus.recordExposureOnThisThread("test-experiment")
+        nimbus.recordExposureOnThisThread("test-feature")
+
+        // Attempt to record an event for a non-existent or feature we are not enrolled in an
+        // experiment in to ensure nothing is recorded.
+        nimbus.recordExposureOnThisThread("not-a-feature")
 
         // Use the Glean test API to check the recorded event
         assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
@@ -200,6 +204,7 @@ class NimbusTest {
                       }
                     }
                   ],
+                  "featureIds": ["test-feature"],
                   "probeSets": [],
                   "startDate": null,
                   "appName": "${appInfo.appName}",

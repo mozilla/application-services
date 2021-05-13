@@ -157,6 +157,26 @@ interface NimbusInterface {
     fun resetTelemetryIdentifiers() = Unit
 
     /**
+     * Records the `exposure` event in telemetry.
+     *
+     * This is a manual function to accomplish the same purpose as passing `true` as the
+     * `recordExposureEvent` property of the `getVariables` function. It is intended to be used
+     * when requesting feature variables must occur at a different time than the actual user's
+     * exposure to the feature within the app.
+     *
+     * In the case where the use of this function is required, then the `getVariables` function
+     * should be called with `false` so that the exposure event is not recorded when the variables
+     * are fetched.
+     *
+     * This function is safe to call even when there is no active experiment for the feature. The SDK
+     * will ensure that an event is only recorded for active experiments.
+     *
+     * @param featureId string representing the id of the feature for which to record the exposure
+     *     event.
+     */
+    fun recordExposureEvent(featureId: String) = Unit
+
+    /**
      * Control the opt out for all experiments at once. This is likely a user action.
      */
     var globalUserParticipation: Boolean
@@ -470,6 +490,10 @@ open class Nimbus(
         }
     }
 
+    override fun recordExposureEvent(featureId: String) {
+        recordExposure(featureId)
+    }
+
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetry(experiments: List<EnrolledExperiment>) {
         // Call Glean.setExperimentActive() for each active experiment.
@@ -510,9 +534,9 @@ open class Nimbus(
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun recordExposure(experimentId: String) {
+    internal fun recordExposure(featureId: String) {
         dbScope.launch {
-            recordExposureOnThisThread(experimentId)
+            recordExposureOnThisThread(featureId)
         }
     }
 
@@ -520,9 +544,9 @@ open class Nimbus(
     // for a "control" branch) is applied or shown to the user.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @WorkerThread
-    internal fun recordExposureOnThisThread(experimentId: String) = withCatchAll {
+    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
-        activeExperiments.find { it.slug == experimentId }?.also { experiment ->
+        activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
             NimbusEvents.exposure.record(mapOf(
                 NimbusEvents.exposureKeys.experiment to experiment.slug,
                 NimbusEvents.exposureKeys.branch to experiment.branchSlug,
