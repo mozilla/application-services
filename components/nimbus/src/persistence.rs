@@ -199,18 +199,11 @@ impl SingleStore {
                     Err(e) => {
                         // If there is an error, we won't push this onto the
                         // result Vec, but we won't blow up the entire
-                        // deserialization either.  Searching the error string
-                        // is fragile, but I haven't yet found an alternative.
-                        // It's also unfortunate that there doesn't seem to be
-                        // a way to display the record that was dropped. :-(
-                        if e.to_string().contains("missing field") {
-                            log::warn!(
-                                "collect_all: discarded one record while deserializing with: {:?}",
-                                e
-                            );
-                        } else {
-                            return Err(NimbusError::JSONError(e));
-                        }
+                        // deserialization either.
+                        log::warn!(
+                            "try_collect_all: discarded a record while deserializing with: {:?}",
+                            e
+                        );
                     }
                 };
             }
@@ -490,7 +483,6 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use serde_json::json;
-    use sha2::digest::InvalidOutputSize;
     use tempdir::TempDir;
 
     use super::*;
@@ -568,52 +560,52 @@ mod tests {
         Ok(())
     }
 
-    fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
-        vec![json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold", // change when cloning
-            "endDate": null,
-            "featureIds": ["abc"], // change when cloning
-            "branches":[
-                {
-                    "slug": "control",
-                    "ratio": 1,
-                    "feature": {
-                        "featureId": "abc", // change when cloning
-                        "enabled": false
-                    }
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                    "feature": {
-                        "featureId": "abc", // change when cloning
-                        "enabled": true
-                    }
-                }
-            ],
-            "channel": "nightly",
-            "probeSets":[],
-            "startDate":null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig":{
-                // Setup to enroll everyone by default.
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold", // change when cloning
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedEnrollment":7,
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold", // change when cloning
-            "last_modified":1_602_197_324_372i64
-        })]
-    }
+    // fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
+    //     vec![json!({
+    //         "schemaVersion": "1.0.0",
+    //         "slug": "secure-gold", // change when cloning
+    //         "endDate": null,
+    //         "featureIds": ["abc"], // change when cloning
+    //         "branches":[
+    //             {
+    //                 "slug": "control",
+    //                 "ratio": 1,
+    //                 "feature": {
+    //                     "featureId": "abc", // change when cloning
+    //                     "enabled": false
+    //                 }
+    //             },
+    //             {
+    //                 "slug": "treatment",
+    //                 "ratio":1,
+    //                 "feature": {
+    //                     "featureId": "abc", // change when cloning
+    //                     "enabled": true
+    //                 }
+    //             }
+    //         ],
+    //         "channel": "nightly",
+    //         "probeSets":[],
+    //         "startDate":null,
+    //         "appName": "fenix",
+    //         "appId": "org.mozilla.fenix",
+    //         "bucketConfig":{
+    //             // Setup to enroll everyone by default.
+    //             "count":10_000,
+    //             "start":0,
+    //             "total":10_000,
+    //             "namespace":"secure-gold", // change when cloning
+    //             "randomizationUnit":"nimbus_id"
+    //         },
+    //         "userFacingName":"Diagnostic test experiment",
+    //         "referenceBranch":"control",
+    //         "isEnrollmentPaused":false,
+    //         "proposedEnrollment":7,
+    //         "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+    //         "id":"secure-gold", // change when cloning
+    //         "last_modified":1_602_197_324_372i64
+    //     })]
+    // }
 
     fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
@@ -954,20 +946,20 @@ mod tests {
         ]
     }
 
-    fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
-        vec![json!({
-            "slug": "no-features",
-            "status":
-                {
-                    "Enrolled":
-                        {
-                            "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
-                            "reason": "Qualified",
-                            "branch": "control",
-                        }
-                }
-        })]
-    }
+    // fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
+    //     vec![json!({
+    //         "slug": "no-features",
+    //         "status":
+    //             {
+    //                 "Enrolled":
+    //                     {
+    //                         "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+    //                         "reason": "Qualified",
+    //                         "branch": "control",
+    //                     }
+    //             }
+    //     })]
+    // }
 
     #[test]
     /// Migrating v1 to v2 involves finding enrollments and experiments that
