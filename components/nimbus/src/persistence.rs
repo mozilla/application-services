@@ -271,7 +271,7 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
-                log::debug!("Upgrading from version 1 to version 2");
+                log::info!("Upgrading from version 1 to version 2");
                 // XXX how do we handle errors?
                 // XXX Do we need to do anything extra for mutex & or
                 // transaction?
