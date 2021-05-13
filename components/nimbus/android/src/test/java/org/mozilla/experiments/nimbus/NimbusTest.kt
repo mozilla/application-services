@@ -17,6 +17,7 @@ import mozilla.components.service.glean.net.ConceptFetchHttpUploader
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -233,15 +234,18 @@ class NimbusTest {
     }
 
     @Test
-    fun `Receiving JSON features`() {
-        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
-        // because recordExposure checks for active experiments before recording.
+    fun `Smoke test— receiving JSON features`() {
         nimbus.setUpTestExperiments(packageName, appInfo)
-
+        // The test experiment has exactly one branch with 100% enrollment
+        // We should be able to get feature variables for the feature in this
+        // experiment.
         val json = nimbus.getFeatureConfigVariablesJson("about_welcome")
         assertNotNull(json)
         assertEquals(42, json!!["number"])
         assertEquals("OK then", json["text"])
+
+        val json2 = nimbus.getFeatureConfigVariablesJson("non-existent-feature")
+        assertNull(json2)
     }
 
     @Test

@@ -175,8 +175,9 @@ extension Nimbus: NimbusFeatureConfiguration {
     internal func getFeatureConfigVariablesJson(featureId: String) -> [String: Any]? {
         return catchAll {
             if let string = try nimbusClient.getFeatureConfigVariables(featureId: featureId),
-                   let data = string.data(using: .utf8) {
-                return try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
+               let data = string.data(using: .utf8)
+            {
+                return try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any]
             } else {
                 return nil
             }
