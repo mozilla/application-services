@@ -179,6 +179,42 @@ impl SingleStore {
         }
     }
 
+    /// Fork of collect_all that simply drops records that fail to read
+    /// rather than returning an Err up the stack in lieu of any records at
+    /// all.  This likely wants to be just a parameter to collect_all, but
+    /// for now....
+    ///
+    pub fn try_collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
+    where
+        R: Readable<'r>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de>,
+    {
+        let mut result = Vec::new();
+        let mut iter = self.store.iter_start(reader)?;
+        while let Some(Ok((_, data))) = iter.next() {
+            if let rkv::Value::Json(data) = data {
+                let unserialized = serde_json::from_str::<T>(&data);
+                match unserialized {
+                    Ok(value) => result.push(value),
+                    Err(e) => {
+                        // If there is an error, we won't push this onto the
+                        // result Vec, but we won't blow up the entire
+                        // deserialization either.  Searching the error string
+                        // is fragile, but I haven't yet found an alternative.
+                        // It's also unfortunate that there doesn't seem to be
+                        // a way to display the record that was dropped. :-(
+                        if e.to_string().contains("missing field") {
+                            log::warn!("collect_all: discarded one record while deserializing with: {:?}", e);
+                        } else {
+                            return Err(NimbusError::JSONError(e));
+                        }
+                    }
+                };
+            }
+        }
+        Ok(result)
+    }
+
     pub fn collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
     where
         R: Readable<'r>,
@@ -239,7 +275,6 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
-                return Ok(());
                 log::debug!("Upgrading from version 1 to version 2");
                 // XXX how do we handle errors?
                 // XXX Do we need to do anything extra for mutex & or
@@ -250,8 +285,8 @@ impl Database {
                 let reader = self.read()?;
                 log::debug!("about to do collect_alls");
                 let enrollments: Vec<ExperimentEnrollment> =
-                    self.enrollment_store.collect_all(&reader)?;
-                let experiments: Vec<Experiment> = self.experiment_store.collect_all(&reader)?;
+                    self.enrollment_store.try_collect_all(&reader)?;
+                let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
                 log::debug!("past initial collect_alls");
 
                 let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
@@ -962,14 +997,14 @@ mod tests {
 
         let db = Database::new(&tmp_dir)?;
 
-        return Ok(());
+        // return Ok(());
 
         // All of the invalid experiments should have been discarded during
         // migration; leaving us with none.
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         log::debug!("experiments = {:?}", experiments);
 
-        assert_eq!(experiments.len(), 2); // XXX should be 0
+        assert_eq!(experiments.len(), 4); // XXX drive to 0
 
         // let experiment_with_feature = &get_valid_feature_experiments()[0];
         // let enrollment_with_feature = json!(
