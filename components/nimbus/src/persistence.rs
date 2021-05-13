@@ -995,7 +995,7 @@ mod tests {
     }
 
     #[test]
-    /// Migrating v1 to v2 involves finding enrollments and experiments that
+    /// Migrating v1 to v2 involves finding enrollments that
     /// don't contain all the feature_id stuff they should and discuarding.
     fn test_migrate_v1_to_v2_enrollment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
@@ -1057,6 +1057,9 @@ mod tests {
         Ok(())
     }
 
+    /// Migrating v1 to v2 involves finding experiments that
+    /// don't contain all the feature_id stuff they should and discuarding.
+    #[test]
     fn test_migrate_v1_to_v2_experiment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2_enrollment_discarding")?;
