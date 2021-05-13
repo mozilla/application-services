@@ -997,9 +997,69 @@ mod tests {
     #[test]
     /// Migrating v1 to v2 involves finding enrollments and experiments that
     /// don't contain all the feature_id stuff they should and discuarding.
-    fn test_migrate_v1_to_v2() -> Result<()> {
+    fn test_migrate_v1_to_v2_enrollment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
+
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
+
+        meta_store.put(&mut writer, "db_version", &1)?;
+
+        // write invalid enrollments
+        let invalid_feature_enrollments = &get_invalid_feature_enrollments();
+        assert_eq!(2, invalid_feature_enrollments.len());
+
+        for enrollment in invalid_feature_enrollments {
+            log::debug!("enrollment = {:?}", enrollment);
+            enrollment_store.put(
+                &mut writer,
+                enrollment["slug"].as_str().unwrap(),
+                enrollment,
+            )?;
+        }
+
+        writer.commit()?;
+
+        let db = Database::new(&tmp_dir)?;
+
+        // The enrollments with invalid feature_ids should have been discarded
+        // during migration; leaving us with none.
+        let enrollments = db
+            .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+            .unwrap();
+        log::debug!("enrollments = {:?}", enrollments);
+
+        assert_eq!(enrollments.len(), 0);
+
+        // let experiment_with_feature = &get_valid_feature_experiments()[0];
+        // let enrollment_with_feature = &get_valid_feature_enrollment()[0];
+        // let enrollment_without_feature = &get_invalid_feature_enrollments()[0];
+        // let enrollment_store =
+        //     SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+
+        // experiment_store.put(&mut writer, experiment_with_feature["slug"].as_str().unwrap(), experiment_with_feature)?;
+        // enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
+        // enrollment_store.put(&mut writer, enrollment_without_feature["slug"].as_str().unwrap(), enrollment_without_feature)?;
+
+        // let enrollments = db
+        //     .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+        //     .unwrap();
+        // log::debug!("enrollments = {:?}", enrollments);
+
+        // The enrollment without features should have been discarded, leaving
+        // us with only one.
+        // assert_eq!(enrollments.len(), 1);
+
+        Ok(())
+    }
+
+    fn test_migrate_v1_to_v2_experiment_discarding() -> Result<()> {
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_v1_to_v2_enrollment_discarding")?;
 
         let rkv = Database::open_rkv(&tmp_dir)?;
         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
@@ -1026,33 +1086,12 @@ mod tests {
 
         let db = Database::new(&tmp_dir)?;
 
-        // All of the invalid experiments should have been discarded during
-        // migration; leaving us with none.
+        // All of the experiments with invalid FeatureConfig related stuff
+        // should have been discarded during migration; leaving us with none.
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         log::debug!("experiments = {:?}", experiments);
 
         assert_eq!(experiments.len(), 4); // XXX drive to 0
-
-        // XXX various enrollment snippets below here to be cleaned up soon
-
-        // let experiment_with_feature = &get_valid_feature_experiments()[0];
-        // let enrollment_with_feature = &get_valid_feature_enrollment()[0];
-        // let enrollment_without_feature = &get_invalid_feature_enrollments()[0];
-        // let enrollment_store =
-        //     SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-
-        // experiment_store.put(&mut writer, experiment_with_feature["slug"].as_str().unwrap(), experiment_with_feature)?;
-        // enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
-        // enrollment_store.put(&mut writer, enrollment_without_feature["slug"].as_str().unwrap(), enrollment_without_feature)?;
-
-        // let enrollments = db
-        //     .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
-        //     .unwrap();
-        // log::debug!("enrollments = {:?}", enrollments);
-
-        // The enrollment without features should have been discarded, leaving
-        // us with only one.
-        // assert_eq!(enrollments.len(), 1);
 
         Ok(())
     }
