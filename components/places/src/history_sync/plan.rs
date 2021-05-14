@@ -334,7 +334,7 @@ mod tests {
             "SELECT sync_status, sync_change_counter
                      FROM moz_places
                      WHERE url = :url;",
-            &[(":url", &url.clone().into_string())],
+            &[(":url", &String::from(url.clone()))],
             |row| {
                 Ok((
                     SyncStatus::from_u8(row.get::<_, u8>(0)?),

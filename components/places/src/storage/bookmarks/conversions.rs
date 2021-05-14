@@ -71,7 +71,7 @@ impl From<PublicNode> for msg_types::BookmarkNode {
             date_added: Some(n.date_added.0 as i64),
             last_modified: Some(n.last_modified.0 as i64),
             title: n.title,
-            url: n.url.map(url::Url::into_string),
+            url: n.url.map(String::from),
             parent_guid: n.parent_guid.map(|g| g.into_string()),
             position: Some(n.position),
             child_guids: n.child_guids.map_or(vec![], |child_guids| {

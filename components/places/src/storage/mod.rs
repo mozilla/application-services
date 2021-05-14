@@ -140,7 +140,7 @@ pub fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInf
       WHERE url_hash = hash(:page_url) AND url = :page_url";
     Ok(db.try_query_row(
         sql,
-        &[(":page_url", &url.clone().into_string())],
+        &[(":page_url", &String::from(url.clone()))],
         FetchedPageInfo::from_row,
         true,
     )?)

@@ -1576,13 +1576,11 @@ mod tests {
     fn test_bookmark_url_for_keyword() -> Result<()> {
         let conn = new_mem_connection();
 
-        let url = Url::parse("http://example.com")
-            .expect("valid url")
-            .into_string();
+        let url = Url::parse("http://example.com").expect("valid url");
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
-            &[(":url", &url)],
+            &[(":url", &String::from(url))],
         )
         .expect("should work");
         let place_id = conn.last_insert_rowid();

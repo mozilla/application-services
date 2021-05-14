@@ -64,7 +64,7 @@ pub struct VisitObservation {
 impl VisitObservation {
     pub fn new(url: Url) -> Self {
         VisitObservation {
-            url: url.into_string(),
+            url: url.into(),
             title: None,
             visit_type: None,
             is_error: None,
@@ -115,7 +115,7 @@ impl VisitObservation {
     }
 
     pub fn with_referrer(mut self, v: impl Into<Option<Url>>) -> Self {
-        self.referrer = v.into().map(Url::into_string);
+        self.referrer = v.into().map(Url::into);
         self
     }
 

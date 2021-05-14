@@ -338,9 +338,7 @@ mod tests {
                 (":guid", &guid),
                 (
                     ":url",
-                    &Url::parse("http://example.com")
-                        .expect("valid url")
-                        .into_string(),
+                    &String::from(Url::parse("http://example.com").expect("valid url")),
                 ),
             ],
         )
@@ -376,9 +374,7 @@ mod tests {
                 (":guid", &guid),
                 (
                     ":url",
-                    &Url::parse("http://example.com")
-                        .expect("valid url")
-                        .into_string(),
+                    &String::from(Url::parse("http://example.com").expect("valid url")),
                 ),
                 (":sync_status", &SyncStatus::Normal),
             ],
@@ -462,24 +458,20 @@ mod tests {
         // create the place.
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let guid1 = SyncGuid::random();
-        let url1 = Url::parse("http://example.com")
-            .expect("valid url")
-            .into_string();
+        let url1 = Url::parse("http://example.com").expect("valid url");
         let guid2 = SyncGuid::random();
-        let url2 = Url::parse("http://example2.com")
-            .expect("valid url")
-            .into_string();
+        let url2 = Url::parse("http://example2.com").expect("valid url");
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid1), (":url", &url1)],
+            &[(":guid", &guid1), (":url", &String::from(url1))],
         )
         .expect("should work");
         let place_id1 = conn.last_insert_rowid();
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES (:guid, :url, hash(:url))",
-            &[(":guid", &guid2), (":url", &url2)],
+            &[(":guid", &guid2), (":url", &String::from(url2))],
         )
         .expect("should work");
         let place_id2 = conn.last_insert_rowid();
@@ -522,13 +514,11 @@ mod tests {
         // create the place.
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
 
-        let url = Url::parse("http://example.com")
-            .expect("valid url")
-            .into_string();
+        let url = Url::parse("http://example.com").expect("valid url");
 
         conn.execute_named_cached(
             "INSERT INTO moz_places (guid, url, url_hash) VALUES ('fake_guid___', :url, hash(:url))",
-            &[(":url", &url)],
+            &[(":url", &String::from(url))],
         )
         .expect("should work");
         let place_id = conn.last_insert_rowid();
