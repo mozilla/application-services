@@ -560,52 +560,52 @@ mod tests {
         Ok(())
     }
 
-    // fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
-    //     vec![json!({
-    //         "schemaVersion": "1.0.0",
-    //         "slug": "secure-gold", // change when cloning
-    //         "endDate": null,
-    //         "featureIds": ["abc"], // change when cloning
-    //         "branches":[
-    //             {
-    //                 "slug": "control",
-    //                 "ratio": 1,
-    //                 "feature": {
-    //                     "featureId": "abc", // change when cloning
-    //                     "enabled": false
-    //                 }
-    //             },
-    //             {
-    //                 "slug": "treatment",
-    //                 "ratio":1,
-    //                 "feature": {
-    //                     "featureId": "abc", // change when cloning
-    //                     "enabled": true
-    //                 }
-    //             }
-    //         ],
-    //         "channel": "nightly",
-    //         "probeSets":[],
-    //         "startDate":null,
-    //         "appName": "fenix",
-    //         "appId": "org.mozilla.fenix",
-    //         "bucketConfig":{
-    //             // Setup to enroll everyone by default.
-    //             "count":10_000,
-    //             "start":0,
-    //             "total":10_000,
-    //             "namespace":"secure-gold", // change when cloning
-    //             "randomizationUnit":"nimbus_id"
-    //         },
-    //         "userFacingName":"Diagnostic test experiment",
-    //         "referenceBranch":"control",
-    //         "isEnrollmentPaused":false,
-    //         "proposedEnrollment":7,
-    //         "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-    //         "id":"secure-gold", // change when cloning
-    //         "last_modified":1_602_197_324_372i64
-    //     })]
-    // }
+    fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
+        vec![json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold", // change when cloning
+            "endDate": null,
+            "featureIds": ["abc"], // change when cloning
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "abc", // change when cloning
+                        "enabled": false
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "abc", // change when cloning
+                        "enabled": true
+                    }
+                }
+            ],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold", // change when cloning
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold", // change when cloning
+            "last_modified":1_602_197_324_372i64
+        })]
+    }
 
     fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
@@ -1095,6 +1095,70 @@ mod tests {
         log::debug!("experiments = {:?}", experiments);
 
         assert_eq!(experiments.len(), 4); // XXX drive to 0
+
+        Ok(())
+    }
+
+    // XXX if we manage to round trip from structures, can we seed the other tests
+    // this way too?
+    #[test]
+    fn test_migrate_v1_to_v2_experiment_round_tripping() -> Result<()> {
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
+
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
+
+        meta_store.put(&mut writer, "db_version", &1)?;
+
+        // write a bunch of valid experiments
+        let valid_feature_experiments = &get_valid_feature_experiments();
+        assert_eq!(1, valid_feature_experiments.len());
+
+        for experiment in valid_feature_experiments {
+            log::debug!("experiment = {:?}", experiment);
+            experiment_store.put(
+                &mut writer,
+                experiment["slug"].as_str().unwrap(),
+                experiment,
+            )?;
+        }
+        log::debug!("experiments written but not committed");
+
+        writer.commit()?;
+
+        let db = Database::open_rkv(&tmp_dir)?;
+        log::debug!("got db");
+
+        let experiment_store =
+            SingleStore::new(db.open_single("experiments", StoreOptions::create())?);
+
+        let reader = db.read()?;
+        log::debug!("got reader");
+
+        // XXX get the store from THIS db!  Also, see if the other tests are
+        // doing the wrong thing here.
+        let mut iter = experiment_store.store.iter_start(&reader)?;
+        log::debug!("about to start while loop, not sure if we have the right store");
+        while let Some(Ok((_, data))) = iter.next() {
+            log::debug!("in while loop");
+            if let rkv::Value::Json(data) = data {
+                assert_eq!(valid_feature_experiments[0],serde_json::from_str::<serde_json::Value>(data).unwrap());
+                log::debug!("data = {:?}", data);
+            }
+        }
+
+        // All of the experiments with invalid FeatureConfig related stuff
+        // should have been discarded during migration; leaving us with none.
+        // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        // log::debug!("experiments = {:?}", experiments);
+
+        // // XXX assert whole struct equality
+
+        // assert_eq!(experiments.len(), 1);
 
         Ok(())
     }
