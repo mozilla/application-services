@@ -363,7 +363,7 @@ impl Login {
                     u.set_query(None);
                     let _ = u.set_username("");
                     let _ = u.set_password(None);
-                    let mut href = u.into_string();
+                    let mut href = String::from(u);
                     // We always store without the trailing "/" which Urls have.
                     if href.ends_with('/') {
                         href.pop().expect("url must have a length");

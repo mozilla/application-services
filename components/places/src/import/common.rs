@@ -60,7 +60,7 @@ pub mod sql_fns {
             return Ok(None);
         }
         if let Ok(url) = Url::parse(&href) {
-            Ok(Some(url.into_string()))
+            Ok(Some(url.into()))
         } else {
             Ok(None)
         }

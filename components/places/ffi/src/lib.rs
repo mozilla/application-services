@@ -777,7 +777,7 @@ pub unsafe extern "C" fn bookmarks_get_url_for_keyword(
     log::debug!("bookmarks_get_url_for_keyword");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let url = bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str())?;
-        Ok(url.map(url::Url::into_string))
+        Ok(url.map(String::from))
     })
 }
 

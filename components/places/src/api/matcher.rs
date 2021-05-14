@@ -94,7 +94,7 @@ pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Strin
     // Doing it like this lets us move the result, avoiding a copy (which almost
     // certainly doesn't matter but whatever)
     if let Some(res) = results.into_iter().next() {
-        Ok(Some(res.url.into_string()))
+        Ok(Some(res.url.into()))
     } else {
         Ok(None)
     }
@@ -342,7 +342,7 @@ impl SearchResult {
 impl From<SearchResult> for SearchResultMessage {
     fn from(res: SearchResult) -> Self {
         Self {
-            url: res.url.into_string(),
+            url: res.url.into(),
             title: res.title,
             frecency: res.frecency,
             reasons: res

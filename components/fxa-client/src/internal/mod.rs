@@ -151,7 +151,7 @@ impl FirefoxAccount {
 
     /// Get the Sync Token Server endpoint URL.
     pub fn get_token_server_endpoint_url(&self) -> Result<String> {
-        Ok(self.state.config.token_server_endpoint_url()?.into_string())
+        Ok(self.state.config.token_server_endpoint_url()?.into())
     }
 
     /// Get the pairing URL to navigate to on the Auth side (typically
@@ -165,7 +165,7 @@ impl FirefoxAccount {
         if self.state.config.content_url()? == Url::parse(config::CONTENT_URL_CHINA)? {
             return Ok("https://firefox.com.cn/pair".to_owned());
         }
-        Ok(self.state.config.pair_url()?.into_string())
+        Ok(self.state.config.pair_url()?.into())
     }
 
     /// Get the "connection succeeded" page URL.
@@ -176,7 +176,7 @@ impl FirefoxAccount {
         let mut url = self.state.config.connect_another_device_url()?;
         url.query_pairs_mut()
             .append_pair("showSuccessMessage", "true");
-        Ok(url.into_string())
+        Ok(url.into())
     }
 
     /// Get the "manage account" page URL.
@@ -214,7 +214,7 @@ impl FirefoxAccount {
         url.query_pairs_mut()
             .append_pair("uid", &profile.uid)
             .append_pair("email", &profile.email);
-        Ok(url.into_string())
+        Ok(url.into())
     }
 
     fn get_refresh_token(&self) -> Result<&str> {

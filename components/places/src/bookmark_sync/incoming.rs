@@ -106,7 +106,7 @@ impl<'a> IncomingApplicator<'a> {
 
         let url = unpack_optional_str("bmkUri", b, &mut validity);
         let url = match self.maybe_store_href(url) {
-            Ok(u) => (Some(u.into_string())),
+            Ok(u) => (Some(String::from(u))),
             Err(e) => {
                 log::warn!("Incoming bookmark has an invalid URL: {:?}", e);
                 // The bookmark has an invalid URL, so we can't apply it.
@@ -365,7 +365,7 @@ impl<'a> IncomingApplicator<'a> {
                 (":dateAdded", &date_added),
                 (":title", &maybe_truncate_title(&title)),
                 (":validity", &validity),
-                (":url", &url.map(Url::into_string)),
+                (":url", &url.map(String::from)),
             ],
         )?;
         Ok(())
