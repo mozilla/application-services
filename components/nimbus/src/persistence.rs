@@ -1139,6 +1139,24 @@ mod tests {
         let reader = db.read()?;
         log::debug!("got reader");
 
+        // XXX use colllect_all,  but maybe judst
+        // for schema 1.5 stuff? Like should split this into two tests, becuase...
+
+        // To use collect_all we need to be operating on a nimbusclient
+        // database, not an RKV one, and I suspect what we end up with be
+        // two simpler tests
+
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        log::debug!("experiments = {:?}", experiments);
+
+        // XXX deserialize and assert here
+
+        return Ok(());
+
+        // XXX maybe also the do the stuff below for all records, including
+        // older ones that don't perfect match our current struycts
+
+
         // XXX get the store from THIS db!  Also, see if the other tests are
         // doing the wrong thing here.
         let mut iter = experiment_store.store.iter_start(&reader)?;
