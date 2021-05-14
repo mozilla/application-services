@@ -10,11 +10,13 @@ the details of which are reproduced below.
 * [MIT License: aho-corasick, byteorder, memchr, termcolor](#mit-license-aho-corasick-byteorder-memchr-termcolor)
 * [MIT License: atty](#mit-license-atty)
 * [MIT License: bincode](#mit-license-bincode)
+* [MIT License: bitvec, wyz](#mit-license-bitvec-wyz)
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: cargo_metadata](#mit-license-cargo_metadata)
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: clap](#mit-license-clap)
 * [MIT License: dashmap](#mit-license-dashmap)
+* [MIT License: funty](#mit-license-funty)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
@@ -29,9 +31,11 @@ the details of which are reproduced below.
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
 * [MIT License: ordered-float](#mit-license-ordered-float)
 * [MIT License: oslog](#mit-license-oslog)
+* [MIT License: radium](#mit-license-radium)
 * [MIT License: rusqlite](#mit-license-rusqlite)
 * [MIT License: schannel](#mit-license-schannel)
 * [MIT License: slab](#mit-license-slab)
+* [MIT License: tap](#mit-license-tap)
 * [MIT License: textwrap](#mit-license-textwrap)
 * [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core-tracing-futures)
 * [MIT License: tower-service](#mit-license-tower-service)
@@ -449,6 +453,7 @@ The following text applies to code linked from these dependencies:
 [android_log-sys](https://github.com/nercury/android_log-sys-rs),
 [android_logger](https://github.com/Nercury/android_logger-rs),
 [anyhow](https://github.com/dtolnay/anyhow),
+[arrayvec](https://github.com/bluss/arrayvec),
 [askama](https://github.com/djc/askama),
 [askama_derive](https://github.com/djc/askama),
 [askama_escape](https://github.com/djc/askama),
@@ -462,11 +467,10 @@ The following text applies to code linked from these dependencies:
 [chrono](https://github.com/chronotope/chrono),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
-[cpuid-bool](https://github.com/RustCrypto/utils),
+[cpufeatures](https://github.com/RustCrypto/utils),
 [crc32fast](https://github.com/srijs/rust-crc32fast),
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
-[dtoa](https://github.com/dtolnay/dtoa),
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
 [env_logger](https://github.com/sebasmagri/env_logger/),
@@ -477,6 +481,7 @@ The following text applies to code linked from these dependencies:
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),
 [foreign-types](https://github.com/sfackler/foreign-types),
+[form_urlencoded](https://github.com/servo/rust-url),
 [futures-channel](https://github.com/rust-lang/futures-rs),
 [futures-core](https://github.com/rust-lang/futures-rs),
 [futures-io](https://github.com/rust-lang/futures-rs),
@@ -504,6 +509,7 @@ The following text applies to code linked from these dependencies:
 [jna](https://github.com/java-native-access/jna),
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
 [lazy_static](https://github.com/rust-lang-nursery/lazy-static.rs),
+[lexical-core](https://github.com/Alexhuszagh/rust-lexical/tree/master/lexical-core),
 [libc](https://github.com/rust-lang/libc),
 [lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
 [lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
@@ -562,9 +568,9 @@ The following text applies to code linked from these dependencies:
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
-[thread_local](https://github.com/Amanieu/thread_local-rs),
 [time](https://github.com/time-rs/time),
 [tinyvec](https://github.com/Lokathor/tinyvec),
+[tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
 [unicase](https://github.com/seanmonstar/unicase),
@@ -907,6 +913,37 @@ SOFTWARE.
 
 ```
 -------------
+## MIT License: bitvec, wyz
+
+The following text applies to code linked from these dependencies:
+[bitvec](https://github.com/myrrlyn/bitvec),
+[wyz](https://github.com/myrrlyn/wyz)
+
+```
+MIT License
+
+Copyright (c) 2018 myrrlyn (Alexander Payne)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
 ## MIT License: bytes
 
 The following text applies to code linked from these dependencies:
@@ -1043,6 +1080,36 @@ The following text applies to code linked from these dependencies:
 MIT License
 
 Copyright (c) 2019 Acrimon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
+## MIT License: funty
+
+The following text applies to code linked from these dependencies:
+[funty](https://github.com/myrrlyn/funty)
+
+```
+MIT License
+
+Copyright (c) 2020 myrrlyn (Alexander Payne)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1498,6 +1565,36 @@ SOFTWARE.
 
 ```
 -------------
+## MIT License: radium
+
+The following text applies to code linked from these dependencies:
+[radium](https://github.com/mystor/radium)
+
+```
+MIT License
+
+Copyright (c) 2019 kneecaw (Nika Layzell)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+```
+-------------
 ## MIT License: rusqlite
 
 The following text applies to code linked from these dependencies:
@@ -1545,7 +1642,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ## MIT License: slab
 
 The following text applies to code linked from these dependencies:
-[slab](https://github.com/carllerche/slab)
+[slab](https://github.com/tokio-rs/slab)
 
 ```
 Copyright (c) 2019 Carl Lerche
@@ -1573,6 +1670,36 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tap
+
+The following text applies to code linked from these dependencies:
+[tap](https://github.com/myrrlyn/tap)
+
+```
+MIT License
+
+Copyright (c) 2017 Elliot Linder <darfink@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ```
 -------------
