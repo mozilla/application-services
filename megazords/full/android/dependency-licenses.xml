@@ -53,6 +53,10 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/anyhow/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: arrayvec</name>
+    <url>https://github.com/bluss/arrayvec/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: askama</name>
     <url>https://github.com/djc/askama/blob/main/LICENSE-APACHE</url>
   </license>
@@ -101,7 +105,7 @@ the details of which are reproduced below.
     <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: cpuid-bool</name>
+    <name>Apache License 2.0: cpufeatures</name>
     <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
   </license>
   <license>
@@ -127,6 +131,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: ffi-support</name>
     <url>https://raw.githubusercontent.com/mozilla/application-services/main/components/support/ffi/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: form_urlencoded</name>
+    <url>https://github.com/servo/rust-url/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: getrandom</name>
+    <url>https://github.com/rust-random/getrandom/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: getrandom</name>
@@ -179,6 +191,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: lazy_static</name>
     <url>https://github.com/rust-lang-nursery/lazy-static.rs/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: lexical-core</name>
+    <url>https://github.com/Alexhuszagh/rust-lexical/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: libc</name>
@@ -329,12 +345,12 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
-    <name>Apache License 2.0: thread_local</name>
-    <url>https://github.com/Amanieu/thread_local-rs/blob/master/LICENSE-APACHE</url>
-  </license>
-  <license>
     <name>Apache License 2.0: tinyvec</name>
     <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: tinyvec_macros</name>
+    <url>https://github.com/Soveu/tinyvec_macros/blob/master/LICENSE-APACHE.md</url>
   </license>
   <license>
     <name>Apache License 2.0: toml</name>
@@ -342,7 +358,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: typenum</name>
-    <url>https://github.com/paholg/typenum/blob/main/LICENSE</url>
+    <url>https://github.com/paholg/typenum/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: unicode-bidi</name>
@@ -393,6 +409,14 @@ the details of which are reproduced below.
     <url>https://github.com/servo/bincode/blob/master/LICENSE.md</url>
   </license>
   <license>
+    <name>MIT License: bitvec</name>
+    <url>https://github.com/bitvecto-rs/bitvec/blob/develop/LICENSE.txt</url>
+  </license>
+  <license>
+    <name>MIT License: wyz</name>
+    <url>https://github.com/myrrlyn/wyz/blob/main/LICENSE.txt</url>
+  </license>
+  <license>
     <name>MIT License: bytes</name>
     <url>https://github.com/tokio-rs/bytes/blob/master/LICENSE</url>
   </license>
@@ -407,6 +431,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: clap</name>
     <url>https://github.com/clap-rs/clap/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: funty</name>
+    <url>https://github.com/myrrlyn/funty/blob/master/LICENSE.txt</url>
   </license>
   <license>
     <name>MIT License: generic-array</name>
@@ -425,12 +453,24 @@ the details of which are reproduced below.
     <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
   </license>
   <license>
+    <name>MIT License: nom</name>
+    <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
+  </license>
+  <license>
     <name>MIT License: ordered-float</name>
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
   </license>
   <license>
+    <name>MIT License: radium</name>
+    <url>https://github.com/bitvecto-rs/radium/blob/master/LICENSE.txt</url>
+  </license>
+  <license>
     <name>MIT License: rusqlite</name>
     <url>https://github.com/rusqlite/rusqlite/blob/master/LICENSE</url>
+  </license>
+  <license>
+    <name>MIT License: tap</name>
+    <url>https://github.com/myrrlyn/tap/blob/main/LICENSE.txt</url>
   </license>
   <license>
     <name>MIT License: textwrap</name>

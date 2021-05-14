@@ -260,6 +260,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/rust-lang/futures-rs/master/LICENSE-APACHE",
         }
     },
+    "typenum": {
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "LICENSE-APACHE",
+        }
+    },
     # These packages do not include their license file in their release distributions,
     # so we have to fetch it over the network. Each has been manually checked and resolved
     # to a final URL from which the file can be fetched (typically based on the *name* of
@@ -284,6 +293,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/thomcc/rust-base16/master/LICENSE-CC0",
         }
     },
+    "bitvec": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/bitvecto-rs/bitvec/develop/LICENSE.txt",
+        },
+    },
     "failure_derive": {
         "repository": {
             "check": "https://github.com/rust-lang-nursery/failure",
@@ -292,6 +310,15 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/rust-lang-nursery/failure/master/LICENSE-APACHE",
         }
+    },
+    "funty": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/myrrlyn/funty/master/LICENSE.txt",
+        },
     },
     "fxhash": {
         "license": {
@@ -404,6 +431,15 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
         },
     },
+    "radium": {
+        "license": {
+            "check": "MIT"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/bitvecto-rs/radium/master/LICENSE.txt",
+        }
+    },
     "security-framework": {
         "repository": {
             "check": "https://github.com/kornelski/rust-security-framework",
@@ -430,6 +466,15 @@ PACKAGE_METADATA_FIXUPS = {
             "check": None,
             "fixup": "https://www.apache.org/licenses/LICENSE-2.0.txt",
         },
+    },
+    "tinyvec_macros": {
+        "license": {
+            "check": "MIT OR Apache-2.0 OR Zlib"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/Soveu/tinyvec_macros/master/LICENSE-APACHE.md",
+        }
     },
     "url_serde": {
         "repository": {
@@ -469,6 +514,15 @@ PACKAGE_METADATA_FIXUPS = {
         "license_file": {
             "check": None,
             "fixup": "https://raw.githubusercontent.com/retep998/winapi-rs/0.3/LICENSE-MIT",
+        },
+    },
+    "wyz": {
+        "license": {
+            "check": "MIT",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/myrrlyn/wyz/main/LICENSE.txt",
         },
     },
     # These packages do not make it easy to infer a URL at which their license can be read,
@@ -669,19 +723,6 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
         }
     },
-    # cpuid-bool has been renamed to cpufeatures - it's a transitive dependency, so
-    # we expect this to become unnecessary as the dependent crate updates.
-    "cpuid-bool": {
-        "repository": {
-            "check": "https://github.com/RustCrypto/utils",
-        },
-        "license_url": {
-            "check": None,
-            # Moved in https://github.com/RustCrypto/utils/commit/b2d97b23e721f509fa6004175f3ffdf40d9e7402
-            "fixup": "https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE"
-        },
-    },
-
 }
 
 # Sets of common licence file names, by license type.
