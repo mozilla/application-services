@@ -450,8 +450,6 @@ The following text applies to code linked from these dependencies:
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
-[const-random-macro](https://github.com/tkaitchuck/constrandom),
-[const-random](https://github.com/tkaitchuck/constrandom),
 [core-foundation-sys](https://github.com/servo/core-foundation-rs),
 [core-foundation](https://github.com/servo/core-foundation-rs),
 [cpuid-bool](https://github.com/RustCrypto/utils),
