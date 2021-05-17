@@ -5,7 +5,7 @@ Kotlin and Swift was a manual process and each component had its own
 hand-written FFI layer and foreign-language bindings.
 
 As we've gained more experience with building components in this way, we've
-started to automated bindings generation and capture best practices in a
+started to automate bindings generation and capture best practices in a
 tool called [UniFFI](https://mozilla.github.io/uniffi-rs/), which is the
 currently recommended approach when [adding a new component from scratch](
 ./adding-a-new-component.md).
@@ -141,7 +141,7 @@ UniFFI scaffolding generator, as described in ["adding a new component"](adding-
 
 Now, edit `./lib.rs` so that it matches the interface defined in the `.udl` file as closely
 as possible. If the `.udl` has an `interface Example` then `lib.rs` should contain a
-`pub struct Example`, if the `.udl` contains an `enum ExampleItems` then `lib.rs` should
+`pub struct Example`, if the `.udl` contains an `enum ExampleItem` then `lib.rs` should
 contain a `pub enum ExampleItem`, and so-on.
 
 The details of this step will depend heavily on the specific crate, but some tips include:
@@ -176,8 +176,8 @@ the structured messages that can be passed over the FFI, and you should see that
 to various types of structured data that the component wants to receive from, or return to,
 the foreign-language code.
 
-Find the places in your `.udl` interface the correspond to these message types and make sure
-they you've got a similarly-shaped `dictionary` or `enum` for each one. You should find that
+Find the places in your `.udl` interface that correspond to these message types and make sure
+that you've got a similarly-shaped `dictionary` or `enum` for each one. You should find that
 representing this structured data in UDL is simpler than protobuf in many cases - for example
 many of our `.protobuf` files need to use a separate `ExampleStructs` message in order to
 pass a list of `ExampleStruct` messages over the FFI, but in UniFFI this is represented
@@ -199,7 +199,7 @@ Once you have replaced all uses of the `msg_types` structs in the Rust code:
 * Remote `prost` and `prost-derive` from the crate's dependencies.
 * Delete the crate from the list in `/tools/protobuf_files.toml`.
 
-If it happen to find that you've deleted the last crate from the list in `protobuf_files.toml`,
+If you happen to find that you've deleted the last crate from the list in `protobuf_files.toml`,
 congratulations! You've successfully removed protocol buffers from this repo entirely, and should
 file a bug to track the complete removal of protobuf from our tooling and dependency chain.
 
