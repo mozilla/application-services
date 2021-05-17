@@ -369,7 +369,7 @@ fn run_sync(
     }
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
-    let engines: Vec<Box<dyn SyncEngine>> = vec![
+    let mut engines: Vec<Box<dyn SyncEngine>> = vec![
         store.create_addresses_sync_engine(),
         store.create_credit_cards_sync_engine(),
     ];

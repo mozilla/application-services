@@ -9,7 +9,6 @@ use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
 };
-use std::cell::RefCell;
 use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
@@ -47,7 +46,7 @@ pub struct ConfigSyncEngine<T> {
     pub(crate) config: EngineConfig,
     pub(crate) store: Arc<Store>,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
-    local_enc_key: RefCell<Option<String>>,
+    local_enc_key: Option<String>,
 }
 
 impl<T> ConfigSyncEngine<T> {
@@ -60,7 +59,7 @@ impl<T> ConfigSyncEngine<T> {
             config,
             store,
             storage_impl,
-            local_enc_key: RefCell::new(None),
+            local_enc_key: None,
         }
     }
     fn put_meta(&self, conn: &Connection, tail: &str, value: &dyn ToSql) -> Result<()> {
@@ -91,8 +90,8 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         self.config.collection.into()
     }
 
-    fn set_local_encryption_key(&self, key: &str) -> anyhow::Result<()> {
-        self.local_enc_key.replace(Some(key.to_string()));
+    fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
+        self.local_enc_key = Some(key.to_string());
         Ok(())
     }
 
@@ -114,12 +113,8 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
         let timestamp = inbound.timestamp;
         let num_incoming = inbound.changes.len() as u32;
         let tx = db.writer.unchecked_transaction()?;
-        let incoming_impl = self
-            .storage_impl
-            .get_incoming_impl(&self.local_enc_key.borrow())?;
-        let outgoing_impl = self
-            .storage_impl
-            .get_outgoing_impl(&self.local_enc_key.borrow())?;
+        let incoming_impl = self.storage_impl.get_incoming_impl(&self.local_enc_key)?;
+        let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
 
         // The first step in the "apply incoming" process for syncing autofill records.
         incoming_impl.stage_incoming(&tx, inbound.changes, &signal)?;
@@ -166,9 +161,7 @@ impl<T: SyncRecord + std::fmt::Debug> SyncEngine for ConfigSyncEngine<T> {
             &(new_timestamp.as_millis() as i64),
         )?;
         let tx = db.writer.unchecked_transaction()?;
-        let outgoing_impl = self
-            .storage_impl
-            .get_outgoing_impl(&self.local_enc_key.borrow())?;
+        let outgoing_impl = self.storage_impl.get_outgoing_impl(&self.local_enc_key)?;
         outgoing_impl.finish_synced_items(&tx, records_synced)?;
         tx.commit()?;
         Ok(())
@@ -263,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_credit_card_engine_sync_finished() -> Result<()> {
-        let credit_card_engine = create_engine();
+        let mut credit_card_engine = create_engine();
         let test_key = crate::encryption::create_key().unwrap();
         credit_card_engine
             .set_local_encryption_key(&test_key)
