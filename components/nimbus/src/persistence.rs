@@ -482,6 +482,7 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
+    use assert_json_diff::assert_json_eq;
     use serde_json::json;
     use tempdir::TempDir;
 
@@ -567,50 +568,121 @@ mod tests {
     // practical given the time we've got.
     //
     fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
-        vec![json!({
-            "schemaVersion": "1.0.0",
-            "slug": "secure-gold", // change when cloning
-            "endDate": null,
-            "featureIds": ["abc"], // change when cloning
-            "branches":[
-                {
+        vec![
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold", // change when cloning
+                "endDate": null,
+                "featureIds": ["abc"], // change when cloning
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "abc", // change when cloning
+                            "enabled": false
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "abc", // change when cloning
+                            "enabled": true
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold", // change when cloning
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedDuration": 21,
+                "proposedEnrollment":7,
+                "targeting": "true",
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.5.0",
+                "slug": "ppop-mobile-test",
+                "id": "ppop-mobile-test",
+                "arguments": {},
+                "application": "org.mozilla.firefox_beta",
+                "appName": "fenix",
+                "appId": "org.mozilla.firefox_beta",
+                "channel": "beta",
+                "userFacingName": "[ppop] Mobile test",
+                "userFacingDescription": "test",
+                "isEnrollmentPaused": false,
+                "bucketConfig": {
+                    "randomizationUnit": "nimbus_id",
+                    "namespace": "fenix-default-browser-4",
+                    "start": 0,
+                    "count": 10000,
+                    "total": 10000
+                },
+                "probeSets": [],
+                "outcomes": [],
+                "branches": [
+                    {
+                    "slug": "default_browser_newtab_banner",
+                    "ratio": 100,
+                    "feature": {
+                        "featureId": "fenix-default-browser",
+                        "enabled": true,
+                        "value": {}
+                    }
+                    },
+                    {
+                    "slug": "default_browser_settings_menu",
+                    "ratio": 100,
+                    "feature": {
+                        "featureId": "fenix-default-browser",
+                        "enabled": true,
+                        "value": {}
+                    }
+                    },
+                    {
+                    "slug": "default_browser_toolbar_menu",
+                    "ratio": 100,
+                    "feature": {
+                        "featureId": "fenix-default-browser",
+                        "enabled": true,
+                        "value": {}
+                    }
+                    },
+                    {
                     "slug": "control",
                     "ratio": 1,
                     "feature": {
-                        "featureId": "abc", // change when cloning
-                        "enabled": false
+                        "featureId": "fenix-default-browser",
+                        "enabled": false,
+                        "value": {}
                     }
-                },
-                {
-                    "slug": "treatment",
-                    "ratio":1,
-                    "feature": {
-                        "featureId": "abc", // change when cloning
-                        "enabled": true
                     }
-                }
-            ],
-            "channel": "nightly",
-            "probeSets":[],
-            "startDate":null,
-            "appName": "fenix",
-            "appId": "org.mozilla.fenix",
-            "bucketConfig":{
-                // Setup to enroll everyone by default.
-                "count":10_000,
-                "start":0,
-                "total":10_000,
-                "namespace":"secure-gold", // change when cloning
-                "randomizationUnit":"nimbus_id"
-            },
-            "userFacingName":"Diagnostic test experiment",
-            "referenceBranch":"control",
-            "isEnrollmentPaused":false,
-            "proposedDuration": 21,
-            "proposedEnrollment":7,
-            "targeting": "true",
-            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-        })]
+                ],
+                "targeting": "true",
+                "startDate": "2021-05-10T12:38:49.699091Z",
+                "endDate": null,
+                "proposedDuration": 28,
+                "proposedEnrollment": 7,
+                "referenceBranch": "control",
+                "featureIds": [
+                    "fenix-default-browser"
+                ]
+            }),
+        ]
     }
     /// Each of this should uniquely reference a single experiment returned
     /// from get_valid_feature_experiments
@@ -975,7 +1047,7 @@ mod tests {
                     {
                         "Enrolled":
                             {
-                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189086",// XXXX should be client id?
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189086",
                                 "reason": "Qualified",
                                 "branch": "control",
                                 "feature_id": ""
@@ -1110,12 +1182,6 @@ mod tests {
 
         // write valid experiments
         let valid_feature_experiments = &get_valid_feature_experiments();
-        assert_eq!(1, valid_feature_experiments.len());
-
-        // ... and enrollments
-        let valid_feature_enrollments = &get_valid_feature_enrollments();
-        assert_eq!(1, valid_feature_enrollments.len());
-
         for experiment in valid_feature_experiments {
             log::debug!("experiment = {:?}", experiment);
             experiment_store.put(
@@ -1125,6 +1191,9 @@ mod tests {
             )?;
         }
 
+        // ... and enrollments
+        let valid_feature_enrollments = &get_valid_feature_enrollments();
+        assert_eq!(1, valid_feature_enrollments.len());
         for enrollment in valid_feature_enrollments {
             log::debug!("enrollment = {:?}", enrollment);
             enrollment_store.put(
@@ -1147,8 +1216,8 @@ mod tests {
             .map(|e| serde_json::to_value::<Experiment>(e).unwrap())
             .collect();
 
-        assert_eq!(valid_feature_experiments, &db_experiments,
-            "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+        assert_json_eq!(valid_feature_experiments, &db_experiments);
+        // "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
         log::debug!("db_experiments = {:?}", db_experiments);
 
         let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
