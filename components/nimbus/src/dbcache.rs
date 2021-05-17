@@ -2,10 +2,13 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::{FeatureExposure, enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig}};
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{enrollment::ExperimentEnrollment, Experiment};
+use crate::{
+    enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig},
+    FeatureExposure,
+};
 use std::collections::HashMap;
 use std::sync::RwLock;
 
