@@ -189,7 +189,7 @@ extension Nimbus: NimbusFeatureConfiguration {
             return NilVariables.instance
         }
         if sendExposureEvent {
-            self.recordExposureEvent(featureId: featureId)
+            recordExposureEvent(featureId: featureId)
         }
         return JSONVariables(with: json)
     }
@@ -201,7 +201,7 @@ extension Nimbus: NimbusFeatureConfiguration {
     }
 
     internal func recordExposureEventOnThisThread(featureId: String) throws {
-        guard let exposure = try self.nimbusClient.getFeatureExposure(featureId: featureId) else {
+        guard let exposure = try nimbusClient.getFeatureExposure(featureId: featureId) else {
             return
         }
 
@@ -317,11 +317,11 @@ public extension NimbusDisabled {
         return nil
     }
 
-    func getVariables(featureId _: String, sendExposureEvent: Bool = true) -> Variables {
+    func getVariables(featureId _: String, sendExposureEvent _: Bool = true) -> Variables {
         return NilVariables.instance
     }
 
-    func recordExposureEvent(featureId: String) {}
+    func recordExposureEvent(featureId _: String) {}
 
     func initialize() {}
 

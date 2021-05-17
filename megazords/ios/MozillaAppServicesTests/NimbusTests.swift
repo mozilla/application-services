@@ -235,7 +235,6 @@ class NimbusTests: XCTestCase {
         XCTAssert(branch == "treatment" || branch == "control", "Experiment branch must match")
     }
 
-
     func testRecordExperimentEvents() throws {
         let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus

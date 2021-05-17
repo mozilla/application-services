@@ -24,7 +24,6 @@ public protocol NimbusFeatureConfiguration {
     ///
     func getExperimentBranch(featureId: String) -> String?
 
-
     /// Get a group of variables which can configure some or all of this feature, and optionally
     /// record the exposure of the user to an experiment.
     ///
