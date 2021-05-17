@@ -612,6 +612,25 @@ mod tests {
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
         })]
     }
+    /// Each of this should uniquely reference a single experiment returned
+    /// from get_valid_feature_experiments
+    fn get_valid_feature_enrollments() -> Vec<serde_json::Value> {
+        vec![json!(
+            {
+                "slug": "secure-gold",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189083", // change on cloning
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": "abc" // change on cloning
+                            }
+                        }
+                    }
+        )]
+    }
 
     fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
@@ -936,24 +955,6 @@ mod tests {
         ]
     }
 
-    // fn get_valid_feature_enrollments() -> Vec<serde_json::Value> {
-    //     vec![json!(
-    //         {
-    //             "slug": "secure-gold",
-    //             "status":
-    //                 {
-    //                     "Enrolled":
-    //                         {
-    //                             "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189083", // change on cloning
-    //                             "reason": "Qualified",
-    //                             "branch": "control",
-    //                             "feature_id": "about_welcome" // change on cloning
-    //                         }
-    //                     }
-    //                 }
-    //     )]
-    // }
-
     fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
         vec![
             json!({
@@ -1092,23 +1093,28 @@ mod tests {
     // XXX if we manage to round trip from structures, can we seed the other tests
     // this way too?
     #[test]
-    fn test_migrate_v1_to_v2_experiment_round_tripping_1() -> Result<()> {
+    fn test_migrate_v1_to_v2_round_tripping_1() -> Result<()> {
         let _ = env_logger::try_init();
-        let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
+        let tmp_dir = TempDir::new("migrate_round_tripping")?;
 
         let rkv = Database::open_rkv(&tmp_dir)?;
         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
         let experiment_store =
             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+
         let mut writer = rkv.write()?;
 
         meta_store.put(&mut writer, "db_version", &1)?;
 
-        // write a bunch of valid experiments
+        // write valid experiments
         let valid_feature_experiments = &get_valid_feature_experiments();
         assert_eq!(1, valid_feature_experiments.len());
 
-        // XXX handle the enrollments too
+        // ... and enrollments
+        let valid_feature_enrollments = &get_valid_feature_enrollments();
+        assert_eq!(1, valid_feature_enrollments.len());
 
         for experiment in valid_feature_experiments {
             log::debug!("experiment = {:?}", experiment);
@@ -1118,14 +1124,22 @@ mod tests {
                 experiment,
             )?;
         }
+
+        for enrollment in valid_feature_enrollments {
+            log::debug!("enrollment = {:?}", enrollment);
+            enrollment_store.put(
+                &mut writer,
+                enrollment["slug"].as_str().unwrap(),
+                enrollment,
+            )?;
+        }
+
         writer.commit()?;
 
         // force an upgrade & read in the upgraded database
-        let db = Database::new(&tmp_dir);
+        let db = Database::new(&tmp_dir).unwrap();
 
-        // XXX should we check this here too or in round_tripping too
-
-        let experiments = db?.collect_all::<Experiment>(StoreId::Experiments)?;
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
         // XXX is identical ordering guaranteed here?  try with 3 experiments &
         // some other test?
         let db_experiments: Vec<serde_json::Value> = experiments
@@ -1134,8 +1148,20 @@ mod tests {
             .collect();
 
         assert_eq!(valid_feature_experiments, &db_experiments,
-            "original json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+            "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
         log::debug!("db_experiments = {:?}", db_experiments);
+
+        let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
+        // XXX is identical ordering guaranteed here?  try with 3 experiments &
+        // some other test?
+        let db_enrollments: Vec<serde_json::Value> = enrollments
+            .into_iter()
+            .map(|e| serde_json::to_value::<ExperimentEnrollment>(e).unwrap())
+            .collect();
+
+        assert_eq!(valid_feature_enrollments, &db_enrollments,
+            "original enrollment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+        log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())
     }
