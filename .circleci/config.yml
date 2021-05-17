@@ -61,8 +61,8 @@ commands:
           name: Install Rust
           command: |
             RUSTUP_PLATFORM=x86_64-apple-darwin
-            RUSTUP_VERSION=1.23.1
-            RUSTUP_SHA256=39101feb178a7e3e4443b09b36338e794a9e00385e5f44a2f7789aefb91354a9
+            RUSTUP_VERSION=1.24.1
+            RUSTUP_SHA256=d53e8000c8663e1704a2071f7042be917bc90cbc89c11e11c5dfdcb35b84c00e
             curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"
             echo "${RUSTUP_SHA256} *rustup-init" | shasum -a 256 -c -
             chmod +x rustup-init
@@ -97,6 +97,7 @@ commands:
             - libs/<<parameters.platform>>
   build-desktop-libs:
     steps:
+      - run: sudo apt-get update
       - run: sudo apt-get install tcl
       - run:
           name: Install NSS build system dependencies
@@ -207,10 +208,19 @@ commands:
           path: /tmp/sccache.log
           destination: logs/sccache.log
 
-jobs:
-  Check Swift formatting:
+executors:
+  # Where possible we want to run jobs using docker, because it's cheaper.
+  # Unfortunately some of our jobs can only run successfully on macos.
+  docker:
+    docker:
+      - image: cimg/rust:1.50.0
+  macos:
     macos:
       xcode: "12.3.0"
+
+jobs:
+  Check Swift formatting:
+    executor: macos
     steps:
       - full-checkout
       # swiftlint moved? See https://github.com/Homebrew/discussions/discussions/691
@@ -219,24 +229,21 @@ jobs:
       - run: ./automation/tests.py swiftlint
       - run: ./automation/tests.py swiftformat
   Check Rust formatting:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: small
     steps:
       - full-checkout
       - setup-rust-toolchain
       - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     steps:
       - test-setup
       - restore-sccache-cache
       - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
   Generate code coverage:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: large
     steps:
       - test-setup
@@ -251,8 +258,7 @@ jobs:
           name: Upload to codecov.io
           command: bash <(curl -s https://codecov.io/bash) -f lcov.info
   Check Protobuf files are up-to-date:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: small
     steps:
       - full-checkout
@@ -268,16 +274,14 @@ jobs:
           command: sh automation/lint_bash_scripts.sh
   Check Rust dependencies:
     # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
-    macos:
-      xcode: "12.3.0"
+    executor: macos
     steps:
       - install-rust
       - setup-rust-toolchain
       - full-checkout
       - dependency-checks
   Rust tests:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
@@ -286,8 +290,7 @@ jobs:
       - save-sccache-cache
   # These run periodically (driven by cron).
   Rust tests - beta:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: large
     steps:
       - restore-sccache-cache
@@ -295,16 +298,14 @@ jobs:
           rust-version: "beta"
       - save-sccache-cache
   Rust benchmarks:
-    docker:
-      - image: circleci/rust:latest
+    executor: docker
     resource_class: large
     steps:
       - restore-sccache-cache
       - bench-all
       - save-sccache-cache
   iOS build and test:
-    macos:
-      xcode: "12.3.0"
+    executor: macos
     steps:
       # We do not use the ssccache cache helper commands as
       # the macOS cache is in a different folder.
@@ -387,8 +388,7 @@ jobs:
           paths:
             - MozillaAppServices.framework.zip
   Carthage release:
-    macos:
-      xcode: "12.3.0"
+    executor: macos
     steps:
       - full-checkout
       - attach_workspace:
@@ -402,6 +402,7 @@ jobs:
             echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
             unzip "${GHR}.zip"
             ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
+
 workflows:
   version: 2
   swiftlint:
