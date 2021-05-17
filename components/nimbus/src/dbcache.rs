@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use crate::enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig};
+use crate::{FeatureExposure, enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig}};
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{enrollment::ExperimentEnrollment, Experiment};
@@ -121,6 +121,16 @@ impl DatabaseCache {
             if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
                 let string = serde_json::to_string(&enrolled_feature.feature.value).unwrap();
                 Some(string)
+            } else {
+                None
+            }
+        })
+    }
+
+    pub fn get_feature_exposure(&self, feature_id: &str) -> Result<Option<FeatureExposure>> {
+        self.get_data(|data| {
+            if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
+                Some(enrolled_feature.into())
             } else {
                 None
             }

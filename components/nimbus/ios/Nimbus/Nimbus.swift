@@ -48,7 +48,7 @@ private extension Nimbus {
 
 // Glean integration
 internal extension Nimbus {
-    func recordExposure(experimentId: String) {
+    func recordExperimentExposure(experimentId: String) {
         let activeExperiments = getActiveExperiments()
         if let experiment = activeExperiments.first(where: { $0.slug == experimentId }) {
             GleanMetrics.NimbusEvents.exposure.record(extra: [
@@ -184,11 +184,32 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
     }
 
-    public func getVariables(featureId: String) -> Variables {
+    public func getVariables(featureId: String, sendExposureEvent: Bool = true) -> Variables {
         guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
             return NilVariables.instance
         }
+        if sendExposureEvent {
+            self.recordExposureEvent(featureId: featureId)
+        }
         return JSONVariables(with: json)
+    }
+
+    public func recordExposureEvent(featureId: String) {
+        catchAll(dbQueue) {
+            try self.recordExposureEventOnThisThread(featureId: featureId)
+        }
+    }
+
+    internal func recordExposureEventOnThisThread(featureId: String) throws {
+        guard let exposure = try self.nimbusClient.getFeatureExposure(featureId: featureId) else {
+            return
+        }
+
+        GleanMetrics.NimbusEvents.exposure.record(extra: [
+            .experiment: exposure.experimentSlug,
+            .branch: exposure.branchSlug,
+            .enrollmentId: exposure.enrollmentId,
+        ])
     }
 }
 
@@ -296,9 +317,11 @@ public extension NimbusDisabled {
         return nil
     }
 
-    func getVariables(featureId _: String) -> Variables {
+    func getVariables(featureId _: String, sendExposureEvent: Bool = true) -> Variables {
         return NilVariables.instance
     }
+
+    func recordExposureEvent(featureId: String) {}
 
     func initialize() {}
 

@@ -80,8 +80,29 @@ interface NimbusInterface {
      */
     fun getExperimentBranches(experimentId: String): List<Branch>? = listOf()
 
+    /**
+     * Get a group of variables which can configure some or all of this feature, and optionally
+     * record the exposure of the user to an experiment.
+     *
+     * If the client is not enrolled in any experiments, then a `Variables` object contains
+     * no variables is returned.
+     *
+     * @param featureId The identifier of the feature that is under experiment.
+     * @param sendExposureEvent Flag to specify if the exposure event. This defaults to true, but is
+     * useful if calling this method multiple times with the same feature id.
+     *
+     * @return a `Variables` object to give type safe access to some or all of the variables used
+     * to configure this object.
+     */
     @AnyThread
-    fun getVariables(featureId: String): Variables = NullVariables.instance
+    fun getVariables(featureId: String, sendExposureEvent: Boolean = true): Variables = NullVariables.instance
+
+    /**
+     * Manually record the exposure of the user to an experiment for this featureId. If the client is
+     * not enrolled in an experiment for this feature, no event is sent.
+     */
+    @AnyThread
+    fun recordExposureEvent(featureId: String)
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -304,39 +325,6 @@ open class Nimbus(
         )
     }
 
-    // This is currently not available from the main thread.
-    // see https://jira.mozilla.com/browse/SDK-191
-    @WorkerThread
-    override fun getActiveExperiments(): List<EnrolledExperiment> =
-        nimbusClient.getActiveExperiments()
-
-    @WorkerThread
-    override fun getAvailableExperiments(): List<AvailableExperiment> =
-        nimbusClient.getAvailableExperiments()
-
-    @AnyThread
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun getFeatureConfigVariablesJson(featureId: String) =
-        withCatchAll {
-            nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
-        }
-
-    override fun getExperimentBranch(experimentId: String): String? {
-        recordExposure(experimentId)
-        return nimbusClient.getExperimentBranch(experimentId)
-    }
-
-    override fun getVariables(featureId: String): Variables =
-        getFeatureConfigVariablesJson(featureId)?.let { json ->
-            JSONVariables(context, json)
-        }
-        ?: NullVariables.instance
-
-    @WorkerThread
-    override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
-        nimbusClient.getExperimentBranches(experimentId)
-    }
-
     // Method and apparatus to catch any uncaught exceptions
     @SuppressWarnings("TooGenericExceptionCaught")
     private fun <R> withCatchAll(thunk: () -> R) =
@@ -362,6 +350,42 @@ open class Nimbus(
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun initializeOnThisThread() = withCatchAll {
         nimbusClient.initialize()
+    }
+
+    // This is currently not available from the main thread.
+    // see https://jira.mozilla.com/browse/SDK-191
+    @WorkerThread
+    override fun getActiveExperiments(): List<EnrolledExperiment> =
+        nimbusClient.getActiveExperiments()
+
+    @WorkerThread
+    override fun getAvailableExperiments(): List<AvailableExperiment> =
+        nimbusClient.getAvailableExperiments()
+
+    @AnyThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun getFeatureConfigVariablesJson(featureId: String) =
+        withCatchAll {
+            nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
+        }
+
+    override fun getExperimentBranch(experimentId: String): String? {
+        recordExperimentExposure(experimentId)
+        return nimbusClient.getExperimentBranch(experimentId)
+    }
+
+    override fun getVariables(featureId: String, sendExposureEvent: Boolean): Variables =
+        getFeatureConfigVariablesJson(featureId)?.let { json ->
+            if (sendExposureEvent) {
+                this.recordExposureEvent(featureId)
+            }
+            JSONVariables(context, json)
+        }
+        ?: NullVariables.instance
+
+    @WorkerThread
+    override fun getExperimentBranches(experimentId: String): List<Branch>? = withCatchAll {
+        nimbusClient.getExperimentBranches(experimentId)
     }
 
     override fun fetchExperiments() {
@@ -512,10 +536,9 @@ open class Nimbus(
         }
     }
 
-    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun recordExposure(experimentId: String) {
+    override fun recordExposureEvent(featureId: String) {
         dbScope.launch {
-            recordExposureOnThisThread(experimentId)
+            recordExposureEventOnThisThread(featureId)
         }
     }
 
@@ -523,7 +546,27 @@ open class Nimbus(
     // for a "control" branch) is applied or shown to the user.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @WorkerThread
-    internal fun recordExposureOnThisThread(experimentId: String) = withCatchAll {
+    internal fun recordExposureEventOnThisThread(featureId: String) = withCatchAll {
+        nimbusClient.getFeatureExposure(featureId)?.let { experiment ->
+            NimbusEvents.exposure.record(mapOf(
+                NimbusEvents.exposureKeys.experiment to experiment.experimentSlug,
+                NimbusEvents.exposureKeys.branch to experiment.branchSlug,
+                NimbusEvents.exposureKeys.enrollmentId to experiment.enrollmentId
+            ))
+        }
+    }
+
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun recordExperimentExposure(experimentId: String) {
+        dbScope.launch {
+            recordExperimentExposureOnThisThread(experimentId)
+        }
+    }
+    // The exposure event should be recorded when the expected treatment (or no-treatment, such as
+    // for a "control" branch) is applied or shown to the user.
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    @WorkerThread
+    internal fun recordExperimentExposureOnThisThread(experimentId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
         activeExperiments.find { it.slug == experimentId }?.also { experiment ->
             NimbusEvents.exposure.record(mapOf(

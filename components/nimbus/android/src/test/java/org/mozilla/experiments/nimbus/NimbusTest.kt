@@ -167,7 +167,7 @@ class NimbusTest {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Record the exposure event in Glean
-        nimbus.recordExposureOnThisThread("test-experiment")
+        nimbus.recordExperimentExposureOnThisThread("test-experiment")
 
         // Use the Glean test API to check the recorded event
         assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())

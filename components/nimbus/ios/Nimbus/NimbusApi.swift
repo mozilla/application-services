@@ -24,11 +24,26 @@ public protocol NimbusFeatureConfiguration {
     ///
     func getExperimentBranch(featureId: String) -> String?
 
-    /// Get the variables needed to configure the feature given by `featureId`.
+
+    /// Get a group of variables which can configure some or all of this feature, and optionally
+    /// record the exposure of the user to an experiment.
     ///
-    /// - Parameter featureId The string feature id that identifies to the feature under experiment.
-    /// - Returns a `Variables` object used to configure the feature.
-    func getVariables(featureId: String) -> Variables
+    /// If the client is not enrolled in any experiments, then a `Variables` object contains
+    /// no variables is returned.
+    ///
+    /// - Parameters:
+    ///  - featureId The identifier of the feature that is under experiment.
+    ///  - sendExposureEvent Flag to specify if the exposure event. This defaults to true, but is
+    /// useful if calling this method multiple times with the same feature id.
+    ///
+    /// - Returns: a `Variables` object to give type safe access to some or all of the variables used
+    /// to configure this object.
+    ///
+    func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables
+
+    /// Manually record the exposure of the user to an experiment for this featureId. If the client is
+    /// not enrolled in an experiment for this feature, no event is sent.
+    func recordExposureEvent(featureId: String)
 }
 
 public protocol NimbusStartup {

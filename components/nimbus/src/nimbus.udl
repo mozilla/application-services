@@ -65,6 +65,13 @@ enum EnrollmentChangeEventType {
     "Unenrollment",
 };
 
+dictionary FeatureExposure {
+    string experiment_slug;
+    string branch_slug;
+    string enrollment_id;
+    string feature_id;
+};
+
 [Error]
 enum NimbusError {
     "InvalidPersistedData", "RkvError", "IOError",
@@ -106,6 +113,9 @@ interface NimbusClient {
 
     [Throws=NimbusError]
     string? get_feature_config_variables(string feature_id);
+
+    [Throws=NimbusError]
+    FeatureExposure? get_feature_exposure(string feature_id);
 
     // Returns a list of experiment branches for a given experiment ID.
     [Throws=NimbusError]

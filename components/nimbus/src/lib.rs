@@ -108,6 +108,10 @@ impl NimbusClient {
             .get_feature_config_variables(&feature_id)
     }
 
+    pub fn get_feature_exposure(&self, feature_id: String) -> Result<Option<FeatureExposure>> {
+        self.database_cache.get_feature_exposure(&feature_id)
+    }
+
     pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<ExperimentBranch>> {
         Ok(self
             .get_all_experiments()?
@@ -488,6 +492,13 @@ impl AvailableRandomizationUnits {
             RandomizationUnit::ClientId => self.client_id.as_deref(),
         }
     }
+}
+
+pub struct FeatureExposure {
+    feature_id: String,
+    enrollment_id: String,
+    experiment_slug: String,
+    branch_slug: String,
 }
 
 #[cfg(feature = "uniffi-bindings")]

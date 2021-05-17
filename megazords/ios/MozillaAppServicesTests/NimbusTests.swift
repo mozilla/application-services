@@ -189,6 +189,53 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("enrollment-id", experimentData.extra["enrollmentId"], "Enrollment id must match")
     }
 
+    func testGetVariables() throws {
+        let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
+        try nimbus.applyPendingExperimentsOnThisThread()
+
+        let variables = nimbus.getVariables(featureId: "aboutwelcome", sendExposureEvent: false)
+        XCTAssertEqual(variables.getString("text")!, "OK then")
+        XCTAssertEqual(variables.getInt("number")!, 42)
+
+        try nimbus.recordExposureEventOnThisThread(featureId: "aboutwelcome")
+
+        XCTAssertTrue(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
+        let enrollmentEvents = try GleanMetrics.NimbusEvents.exposure.testGetValue()
+        XCTAssertEqual(1, enrollmentEvents.count, "Event count must match")
+        let enrollmentEventExtras = enrollmentEvents.first!.extra
+        XCTAssertEqual("secure-gold", enrollmentEventExtras!["experiment"], "Experiment slug must match")
+        let branch = enrollmentEventExtras!["branch"]
+
+        XCTAssert(branch == "treatment" || branch == "control", "Experiment branch must match")
+    }
+
+    func testGetVariablesAutoRecordExposure() throws {
+        let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
+        let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
+
+        try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
+        try nimbus.applyPendingExperimentsOnThisThread()
+
+        let variables = nimbus.getVariables(featureId: "aboutwelcome")
+        XCTAssertEqual(variables.getString("text")!, "OK then")
+        XCTAssertEqual(variables.getInt("number")!, 42)
+
+        Thread.sleep(until: Date(timeIntervalSinceNow: 1.0))
+
+        XCTAssertTrue(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
+        let enrollmentEvents = try GleanMetrics.NimbusEvents.exposure.testGetValue()
+        XCTAssertEqual(1, enrollmentEvents.count, "Event count must match")
+        let enrollmentEventExtras = enrollmentEvents.first!.extra
+        XCTAssertEqual("secure-gold", enrollmentEventExtras!["experiment"], "Experiment slug must match")
+        let branch = enrollmentEventExtras!["branch"]
+
+        XCTAssert(branch == "treatment" || branch == "control", "Experiment branch must match")
+    }
+
+
     func testRecordExperimentEvents() throws {
         let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
@@ -252,7 +299,7 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("test-enrollment-id", disqualificationEventExtras!["enrollment_id"], "Disqualification event enrollment id must match")
     }
 
-    func testRecordExposure() throws {
+    func testRecordExperimentExposure() throws {
         let appSettings = NimbusAppSettings(appName: "NimbusUnitTest", channel: "test")
         let nimbus = try Nimbus.create(nil, appSettings: appSettings, dbPath: createDatabasePath()) as! Nimbus
 
@@ -294,7 +341,7 @@ class NimbusTests: XCTestCase {
         try nimbus.applyPendingExperimentsOnThisThread()
 
         // Record the exposure event in Glean
-        nimbus.recordExposure(experimentId: "test-experiment")
+        nimbus.recordExperimentExposure(experimentId: "test-experiment")
 
         XCTAssertTrue(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
         let enrollmentEvents = try GleanMetrics.NimbusEvents.exposure.testGetValue()

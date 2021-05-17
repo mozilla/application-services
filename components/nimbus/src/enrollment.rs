@@ -1,7 +1,7 @@
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
-use crate::error::{NimbusError, Result};
+use crate::{FeatureExposure, error::{NimbusError, Result}};
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
 use crate::{
@@ -852,8 +852,12 @@ fn get_feature_config(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
 ) -> Option<EnrolledFeatureConfig> {
-    let branch_name = match &enrollment.status {
-        EnrollmentStatus::Enrolled { branch, .. } => branch.clone(),
+    let (branch_name, enrollment_id) = match &enrollment.status {
+        EnrollmentStatus::Enrolled {
+            branch,
+            enrollment_id,
+            ..
+        } => (branch.clone(), enrollment_id.to_string()),
         _ => return None,
     };
 
@@ -878,6 +882,7 @@ fn get_feature_config(
         slug: slug.clone(),
         branch: branch_name,
         feature_id: feature_id.clone(),
+        enrollment_id,
     })
 }
 
@@ -890,6 +895,18 @@ pub struct EnrolledFeatureConfig {
     pub slug: String,
     pub branch: String,
     pub feature_id: String,
+    pub enrollment_id: String,
+}
+
+impl From<&EnrolledFeatureConfig> for FeatureExposure {
+    fn from(f: &EnrolledFeatureConfig) -> Self {
+        FeatureExposure {
+            feature_id: f.feature_id.clone(),
+            experiment_slug: f.slug.clone(),
+            branch_slug: f.branch.clone(),
+            enrollment_id: f.enrollment_id.clone(),
+        }
+    } 
 }
 
 #[derive(Debug)]
