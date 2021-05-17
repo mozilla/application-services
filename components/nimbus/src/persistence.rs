@@ -1156,17 +1156,22 @@ mod tests {
         // number we got back here.
 
         // assert_eq
+        let db = Database::new(&tmp_dir)?;
         // XXX should we check this here too or in round_tripping too
-        // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-        // log::debug!("experiments = {:?}", experiments);
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        // FIXME NEXT assert_eq!(experiments[0], serde_json::to_string::<Experiment>(&experiments[0]).unwrap());
+        log::debug!("experiments = {:?}", experiments);
 
         Ok(())
     }
 
     // XXX if we manage to round trip from structures, can we seed the other tests
     // this way too?
-    //     #[test]
 
+    // XXX verify that the reasoning written here still applies after
+    // round_tripping_1 is completed and before turning the following stuff
+    // into a working test.
+    //
     // Analogous to round_tripping_1, but we want to do push these experiments
     // through the Rust structure layer in our test itself, both during reading
     // and writing, since that will be a more realistic exercising of stuff.
@@ -1175,6 +1180,7 @@ mod tests {
     // versions of the structures, which is why it's important to have both
     // tests.
 
+    #[test]
     fn test_migrate_v1_to_v2_experiment_round_tripping_2() -> Result<()> {
         return Ok(());
         let _ = env_logger::try_init();
