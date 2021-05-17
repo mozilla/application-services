@@ -560,6 +560,12 @@ mod tests {
         Ok(())
     }
 
+    // XXX secure-gold has some fields. We should also have experiments all
+    // current fields, minimum set of current fields (eg all optional fields
+    // not given) and maybe similar for some older schema version, eg 1.0?  In
+    // some ideal world, we'd cover all the different versions, but that's not
+    // practical given the time we've got.
+    //
     fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
         vec![json!({
             "schemaVersion": "1.0.0",
@@ -600,9 +606,10 @@ mod tests {
             "userFacingName":"Diagnostic test experiment",
             "referenceBranch":"control",
             "isEnrollmentPaused":false,
+            "proposedDuration": 21,
             "proposedEnrollment":7,
+            "targeting": "true",
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "last_modified":1_602_197_324_372i64
         })]
     }
 
@@ -646,7 +653,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -685,7 +691,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -727,7 +732,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -770,7 +774,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -804,7 +807,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -846,7 +848,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -889,7 +890,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
             json!({
                 "schemaVersion": "1.0.0",
@@ -932,7 +932,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "last_modified":1_602_197_324_372i64
             }),
         ]
     }
@@ -1090,13 +1089,10 @@ mod tests {
         Ok(())
     }
 
-
-
     // XXX if we manage to round trip from structures, can we seed the other tests
     // this way too?
     #[test]
     fn test_migrate_v1_to_v2_experiment_round_tripping_1() -> Result<()> {
-
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
 
@@ -1116,7 +1112,6 @@ mod tests {
 
         for experiment in valid_feature_experiments {
             log::debug!("experiment = {:?}", experiment);
-            // ----> XXX need to extract id as key, remove from the thing to be put
             experiment_store.put(
                 &mut writer,
                 experiment["slug"].as_str().unwrap(),
@@ -1142,11 +1137,17 @@ mod tests {
         // iterate through the experiments
         let mut iter = experiment_store.store.iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
+            // XXX figure out what we do re (some) optional fields such as
+            // proposedDuraton, where non-existance in in the incoming JSON
+            // maps to a Null property in the upgraded JSON.
 
             // deserialize the experiment and assert that it's equal to the
             // thing we put into the db
             if let rkv::Value::Json(data) = data {
-                assert_eq!(valid_feature_experiments[0],serde_json::from_str::<serde_json::Value>(data).unwrap());
+                assert_eq!(
+                    valid_feature_experiments[0],
+                    serde_json::from_str::<serde_json::Value>(data).unwrap()
+                );
                 log::debug!("data = {:?}", data);
             }
         }
@@ -1159,92 +1160,102 @@ mod tests {
         // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         // log::debug!("experiments = {:?}", experiments);
 
-
-
         Ok(())
     }
 
     // XXX if we manage to round trip from structures, can we seed the other tests
     // this way too?
-//     #[test]
-//     fn test_migrate_v1_to_v2_experiment_round_tripping_2() -> Result<()> {
-//         let _ = env_logger::try_init();
-//         let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
+    //     #[test]
 
-//         let rkv = Database::open_rkv(&tmp_dir)?;
-//         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-//         let experiment_store =
-//             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-//         let mut writer = rkv.write()?;
+    // Analogous to round_tripping_1, but we want to do push these experiments
+    // through the Rust structure layer in our test itself, both during reading
+    // and writing, since that will be a more realistic exercising of stuff.
+    // Note that in this test, we can only really exercise the current schema
+    // version, since the older schema versions were implemented with older
+    // versions of the structures, which is why it's important to have both
+    // tests.
 
-//         meta_store.put(&mut writer, "db_version", &1)?;
+    fn test_migrate_v1_to_v2_experiment_round_tripping_2() -> Result<()> {
+        return Ok(());
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
 
-//         // write a bunch of valid experiments
-//         let valid_feature_experiments = &get_valid_feature_experiments();
-//         assert_eq!(1, valid_feature_experiments.len());
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
 
-//         for experiment in valid_feature_experiments {
-//             log::debug!("experiment = {:?}", experiment);
-//             experiment_store.put(
-//                 &mut writer,
-//                 experiment["slug"].as_str().unwrap(),
-//                 experiment,
-//             )?;
-//         }
-//         log::debug!("experiments written but not committed");
+        meta_store.put(&mut writer, "db_version", &1)?;
 
-//         writer.commit()?;
+        // write a bunch of valid experiments
+        let valid_feature_experiments = &get_valid_feature_experiments();
+        assert_eq!(1, valid_feature_experiments.len());
 
-//         let db = Database::open_rkv(&tmp_dir)?;
-//         log::debug!("got db");
+        for experiment in valid_feature_experiments {
+            log::debug!("experiment = {:?}", experiment);
+            experiment_store.put(
+                &mut writer,
+                experiment["slug"].as_str().unwrap(),
+                experiment,
+            )?;
+        }
+        log::debug!("experiments written but not committed");
 
-//         let experiment_store =
-//             SingleStore::new(db.open_single("experiments", StoreOptions::create())?);
+        writer.commit()?;
 
-//         let reader = db.read()?;
-//         log::debug!("got reader");
+        let db = Database::open_rkv(&tmp_dir)?;
+        log::debug!("got db");
 
-//         // XXX use colllect_all,  but maybe judst
-//         // for schema 1.5 stuff? Like should split this into two tests, becuase...
+        let experiment_store =
+            SingleStore::new(db.open_single("experiments", StoreOptions::create())?);
 
-//         // To use collect_all we need to be operating on a nimbusclient
-//         // database, not an RKV one, and I suspect what we end up with be
-//         // two simpler tests
+        let reader = db.read()?;
+        log::debug!("got reader");
 
-//         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-//         log::debug!("experiments = {:?}", experiments);
+        // XXX use colllect_all,  but maybe judst
+        // for schema 1.5 stuff? Like should split this into two tests, becuase...
 
-//         // XXX deserialize and assert here
+        // To use collect_all we need to be operating on a nimbusclient
+        // database, not an RKV one, and I suspect what we end up with be
+        // two simpler tests
 
-//         return Ok(());
+        // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        // log::debug!("experiments = {:?}", experiments);
 
-//         // XXX maybe also the do the stuff below for all records, including
-//         // older ones that don't perfect match our current struycts
+        // XXX deserialize and assert here
 
+        return Ok(());
 
-//         // XXX get the store from THIS db!  Also, see if the other tests are
-//         // doing the wrong thing here.
-//         let mut iter = experiment_store.store.iter_start(&reader)?;
-//         log::debug!("about to start while loop, not sure if we have the right store");
-//         while let Some(Ok((_, data))) = iter.next() {
-//             log::debug!("in while loop");
-//             if let rkv::Value::Json(data) = data {
-//                 assert_eq!(valid_feature_experiments[0],serde_json::from_str::<serde_json::Value>(data).unwrap());
-//                 log::debug!("data = {:?}", data);
-//             }
-//         }
+        // XXX maybe also the do the stuff below for all records, including
+        // older ones that don't perfect match our current struycts
 
-//         // All of the experiments with invalid FeatureConfig related stuff
-//         // should have been discarded during migration; leaving us with none.
-//         // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-//         // log::debug!("experiments = {:?}", experiments);
+        // XXX get the store from THIS db!  Also, see if the other tests are
+        // doing the wrong thing here.
+        let mut iter = experiment_store.store.iter_start(&reader)?;
+        log::debug!("about to start while loop, not sure if we have the right store");
+        while let Some(Ok((_, data))) = iter.next() {
+            log::debug!("in while loop");
+            if let rkv::Value::Json(data) = data {
+                assert_eq!(
+                    valid_feature_experiments[0],
+                    serde_json::from_str::<serde_json::Value>(data).unwrap()
+                );
+                log::debug!("data = {:?}", data);
+            }
+        }
 
-//         // // XXX assert whole struct equality
+        // All of the experiments with invalid FeatureConfig related stuff
+        // should have been discarded during migration; leaving us with none.
+        // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        // log::debug!("experiments = {:?}", experiments);
 
-//         // assert_eq!(experiments.len(), 1);
+        // // XXX assert whole struct equality
 
-//         Ok(())
-//     }
+        // assert_eq!(experiments.len(), 1);
+
+        Ok(())
+    }
 }
 
 // TODO: Add unit tests
