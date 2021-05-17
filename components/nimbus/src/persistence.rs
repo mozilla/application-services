@@ -1118,55 +1118,27 @@ mod tests {
                 experiment,
             )?;
         }
-        log::debug!("experiments written but not committed");
-
         writer.commit()?;
 
-        // force an upgrade
-        let _ = Database::new(&tmp_dir);
+        // force an upgrade & read in the upgraded database
+        let db = Database::new(&tmp_dir);
 
-        // read in the upgraded database
-        let db = Database::open_rkv(&tmp_dir)?;
-        let experiment_store =
-            SingleStore::new(db.open_single("experiments", StoreOptions::create())?);
-        let reader = db.read()?;
-
-        // XXX maybe also the do the stuff below for all records, including
-        // older ones that don't perfect match our current struycts
-
-        // iterate through the experiments
-        let mut iter = experiment_store.store.iter_start(&reader)?;
-        while let Some(Ok((_, data))) = iter.next() {
-            // XXX figure out what we do re (some) optional fields such as
-            // proposedDuraton, where non-existance in in the incoming JSON
-            // maps to a Null property in the upgraded JSON.
-
-            // deserialize the experiment and assert that it's equal to the
-            // thing we put into the db
-            if let rkv::Value::Json(data) = data {
-                assert_eq!(
-                    valid_feature_experiments[0],
-                    serde_json::from_str::<serde_json::Value>(data).unwrap()
-                );
-                log::debug!("data = {:?}", data);
-            }
-        }
-
-        // XXX assert that the number of records written to the db is the same
-        // number we got back here.
-
-        // assert_eq
-        let db = Database::new(&tmp_dir)?;
         // XXX should we check this here too or in round_tripping too
-        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-        // FIXME NEXT assert_eq!(experiments[0], serde_json::to_string::<Experiment>(&experiments[0]).unwrap());
-        log::debug!("experiments = {:?}", experiments);
+
+        let experiments = db?.collect_all::<Experiment>(StoreId::Experiments)?;
+        // XXX is identical ordering guaranteed here?  try with 3 experiments &
+        // some other test?
+        let db_experiments: Vec<serde_json::Value> = experiments
+            .into_iter()
+            .map(|e| serde_json::to_value::<Experiment>(e).unwrap())
+            .collect();
+
+        assert_eq!(valid_feature_experiments, &db_experiments,
+            "original json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+        log::debug!("db_experiments = {:?}", db_experiments);
 
         Ok(())
     }
-
-    // XXX if we manage to round trip from structures, can we seed the other tests
-    // this way too?
 
     // XXX verify that the reasoning written here still applies after
     // round_tripping_1 is completed and before turning the following stuff
