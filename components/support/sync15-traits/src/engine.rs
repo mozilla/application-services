@@ -79,7 +79,7 @@ pub trait SyncEngine {
     /// This will panic if called by an engine that doesn't have explicit
     /// support for local encryption keys as that implies a degree of confusion
     /// which shouldn't be possible to ignore.
-    fn set_local_encryption_key(&self, _key: &str) -> Result<()> {
+    fn set_local_encryption_key(&mut self, _key: &str) -> Result<()> {
         unimplemented!("This engine does not support local encryption");
     }
 
