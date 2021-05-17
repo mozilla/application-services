@@ -145,6 +145,9 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
     } else if from == 1 {
         // Alter cc_number_enc using the 12-step generalized procedure described here:
         // https://sqlite.org/lang_altertable.html
+        // Note that all our triggers are TEMP triggers so do not exist when
+        // this is called (except possibly by tests which do things like
+        // downgrade the version after they are created etc.)
         db.execute_batch(
             "
             CREATE TABLE new_credit_cards_data (
@@ -167,12 +170,9 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
             SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
                 time_created, time_last_used, time_last_modified, times_used, sync_change_counter
             FROM credit_cards_data;
-            DROP TRIGGER credit_cards_tombstones_afterinsert_trigger;
             DROP TABLE credit_cards_data;
             ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
             ")?;
-        // NOTE: at this point several triggers have been droped and not recreated, but that's okay
-        // because they will be recreated when we execute CREATE_SHARED_TRIGGERS_SQL
     }
     Ok(())
 }
@@ -265,6 +265,10 @@ mod tests {
         // Go back to version 0 of the credit_cards_data table and insert a row
         db.execute_batch(
             "
+            -- This trigger exists because the DB is fully initialized - but
+            -- in the normal case, we run the upgrade code before we've created
+            -- the temp triggers etc.
+            DROP TRIGGER credit_cards_tombstones_afterinsert_trigger;
             DROP TABLE credit_cards_data;
             CREATE TABLE credit_cards_data (
                 guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
