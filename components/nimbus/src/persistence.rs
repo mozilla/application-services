@@ -602,7 +602,6 @@ mod tests {
             "isEnrollmentPaused":false,
             "proposedEnrollment":7,
             "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            "id":"secure-gold", // change when cloning
             "last_modified":1_602_197_324_372i64
         })]
     }
@@ -647,7 +646,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"branch-feature-empty-obj", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -687,7 +685,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"empty-branch-feature-clause", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -730,7 +727,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"branch-feature-feature-id-missing", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -774,7 +770,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"empty-feature-ids-array", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -809,7 +804,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"no-feature-ids-at-all",
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -852,7 +846,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"valid-feature-experiment", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -896,7 +889,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"branch-feature-feature-id-empty", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
             json!({
@@ -940,7 +932,6 @@ mod tests {
                 "isEnrollmentPaused":false,
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-                "id":"branch_feature_value_missing", // change when cloning
                 "last_modified":1_602_197_324_372i64
             }),
         ]
@@ -1099,10 +1090,13 @@ mod tests {
         Ok(())
     }
 
+
+
     // XXX if we manage to round trip from structures, can we seed the other tests
     // this way too?
     #[test]
     fn test_migrate_v1_to_v2_experiment_round_tripping_1() -> Result<()> {
+
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
 
@@ -1148,13 +1142,11 @@ mod tests {
         // iterate through the experiments
         let mut iter = experiment_store.store.iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
+
             // deserialize the experiment and assert that it's equal to the
             // thing we put into the db
             if let rkv::Value::Json(data) = data {
-                assert_eq!(
-                    valid_feature_experiments[0],
-                    serde_json::from_str::<serde_json::Value>(data).unwrap()
-                );
+                assert_eq!(valid_feature_experiments[0],serde_json::from_str::<serde_json::Value>(data).unwrap());
                 log::debug!("data = {:?}", data);
             }
         }
@@ -1167,89 +1159,92 @@ mod tests {
         // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         // log::debug!("experiments = {:?}", experiments);
 
+
+
         Ok(())
     }
 
     // XXX if we manage to round trip from structures, can we seed the other tests
     // this way too?
-    //     #[test]
-    //     fn test_migrate_v1_to_v2_experiment_round_tripping_2() -> Result<()> {
-    //         let _ = env_logger::try_init();
-    //         let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
+//     #[test]
+//     fn test_migrate_v1_to_v2_experiment_round_tripping_2() -> Result<()> {
+//         let _ = env_logger::try_init();
+//         let tmp_dir = TempDir::new("migrate_experiment_round_tripping")?;
 
-    //         let rkv = Database::open_rkv(&tmp_dir)?;
-    //         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-    //         let experiment_store =
-    //             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-    //         let mut writer = rkv.write()?;
+//         let rkv = Database::open_rkv(&tmp_dir)?;
+//         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+//         let experiment_store =
+//             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+//         let mut writer = rkv.write()?;
 
-    //         meta_store.put(&mut writer, "db_version", &1)?;
+//         meta_store.put(&mut writer, "db_version", &1)?;
 
-    //         // write a bunch of valid experiments
-    //         let valid_feature_experiments = &get_valid_feature_experiments();
-    //         assert_eq!(1, valid_feature_experiments.len());
+//         // write a bunch of valid experiments
+//         let valid_feature_experiments = &get_valid_feature_experiments();
+//         assert_eq!(1, valid_feature_experiments.len());
 
-    //         for experiment in valid_feature_experiments {
-    //             log::debug!("experiment = {:?}", experiment);
-    //             experiment_store.put(
-    //                 &mut writer,
-    //                 experiment["slug"].as_str().unwrap(),
-    //                 experiment,
-    //             )?;
-    //         }
-    //         log::debug!("experiments written but not committed");
+//         for experiment in valid_feature_experiments {
+//             log::debug!("experiment = {:?}", experiment);
+//             experiment_store.put(
+//                 &mut writer,
+//                 experiment["slug"].as_str().unwrap(),
+//                 experiment,
+//             )?;
+//         }
+//         log::debug!("experiments written but not committed");
 
-    //         writer.commit()?;
+//         writer.commit()?;
 
-    //         let db = Database::open_rkv(&tmp_dir)?;
-    //         log::debug!("got db");
+//         let db = Database::open_rkv(&tmp_dir)?;
+//         log::debug!("got db");
 
-    //         let experiment_store =
-    //             SingleStore::new(db.open_single("experiments", StoreOptions::create())?);
+//         let experiment_store =
+//             SingleStore::new(db.open_single("experiments", StoreOptions::create())?);
 
-    //         let reader = db.read()?;
-    //         log::debug!("got reader");
+//         let reader = db.read()?;
+//         log::debug!("got reader");
 
-    //         // XXX use colllect_all,  but maybe judst
-    //         // for schema 1.5 stuff? Like should split this into two tests, becuase...
+//         // XXX use colllect_all,  but maybe judst
+//         // for schema 1.5 stuff? Like should split this into two tests, becuase...
 
-    //         // To use collect_all we need to be operating on a nimbusclient
-    //         // database, not an RKV one, and I suspect what we end up with be
-    //         // two simpler tests
+//         // To use collect_all we need to be operating on a nimbusclient
+//         // database, not an RKV one, and I suspect what we end up with be
+//         // two simpler tests
 
-    //         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-    //         log::debug!("experiments = {:?}", experiments);
+//         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+//         log::debug!("experiments = {:?}", experiments);
 
-    //         // XXX deserialize and assert here
+//         // XXX deserialize and assert here
 
-    //         return Ok(());
+//         return Ok(());
 
-    //         // XXX maybe also the do the stuff below for all records, including
-    //         // older ones that don't perfect match our current struycts
+//         // XXX maybe also the do the stuff below for all records, including
+//         // older ones that don't perfect match our current struycts
 
-    //         // XXX get the store from THIS db!  Also, see if the other tests are
-    //         // doing the wrong thing here.
-    //         let mut iter = experiment_store.store.iter_start(&reader)?;
-    //         log::debug!("about to start while loop, not sure if we have the right store");
-    //         while let Some(Ok((_, data))) = iter.next() {
-    //             log::debug!("in while loop");
-    //             if let rkv::Value::Json(data) = data {
-    //                 assert_eq!(valid_feature_experiments[0],serde_json::from_str::<serde_json::Value>(data).unwrap());
-    //                 log::debug!("data = {:?}", data);
-    //             }
-    //         }
 
-    //         // All of the experiments with invalid FeatureConfig related stuff
-    //         // should have been discarded during migration; leaving us with none.
-    //         // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-    //         // log::debug!("experiments = {:?}", experiments);
+//         // XXX get the store from THIS db!  Also, see if the other tests are
+//         // doing the wrong thing here.
+//         let mut iter = experiment_store.store.iter_start(&reader)?;
+//         log::debug!("about to start while loop, not sure if we have the right store");
+//         while let Some(Ok((_, data))) = iter.next() {
+//             log::debug!("in while loop");
+//             if let rkv::Value::Json(data) = data {
+//                 assert_eq!(valid_feature_experiments[0],serde_json::from_str::<serde_json::Value>(data).unwrap());
+//                 log::debug!("data = {:?}", data);
+//             }
+//         }
 
-    //         // // XXX assert whole struct equality
+//         // All of the experiments with invalid FeatureConfig related stuff
+//         // should have been discarded during migration; leaving us with none.
+//         // let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+//         // log::debug!("experiments = {:?}", experiments);
 
-    //         // assert_eq!(experiments.len(), 1);
+//         // // XXX assert whole struct equality
 
-    //         Ok(())
-    //     }
+//         // assert_eq!(experiments.len(), 1);
+
+//         Ok(())
+//     }
 }
 
 // TODO: Add unit tests
