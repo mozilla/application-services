@@ -495,10 +495,10 @@ impl AvailableRandomizationUnits {
 }
 
 pub struct FeatureExposure {
-    feature_id: String,
-    enrollment_id: String,
-    experiment_slug: String,
-    branch_slug: String,
+    pub feature_id: String,
+    pub enrollment_id: String,
+    pub experiment_slug: String,
+    pub branch_slug: String,
 }
 
 #[cfg(feature = "uniffi-bindings")]
