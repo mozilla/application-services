@@ -1005,11 +1005,11 @@ mod test_schema_bw_compat {
         let db = Database::new(&tmp_dir)?;
 
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
-        //log::debug!("experiments = {:?}", experiments);
+        log::debug!("experiments = {:?}", experiments);
 
         // The experiment without features should have been discarded, leaving
         // us with only one.
-        //assert_eq!(experiments.len(), 1);
+        assert_eq!(experiments.len(), 1);
 
         let enrollments = db
             .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
