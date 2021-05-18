@@ -95,8 +95,6 @@ protobuf {
 
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
-ext.gleanGenerateMarkdownDocs = true
-ext.gleanDocsDirectory = "$rootDir/docs/metrics/logins"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 dependencies {

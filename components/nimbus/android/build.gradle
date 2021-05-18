@@ -69,8 +69,6 @@ configurations {
 }
 
 ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
-ext.gleanGenerateMarkdownDocs = true
-ext.gleanDocsDirectory = "$rootDir/docs/metrics/nimbus"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 dependencies {

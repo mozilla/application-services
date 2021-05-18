@@ -90,9 +90,6 @@ protobuf {
     }
 }
 
-// Generate markdown docs for the collected metrics.
-ext.gleanGenerateMarkdownDocs = true
-ext.gleanDocsDirectory = "$rootDir/docs/metrics/places"
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 dependencies {
