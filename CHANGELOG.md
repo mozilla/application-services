@@ -1,4 +1,6 @@
-# v76.1.0 (_2021-05-17_)
+# v76.0.1 (_2021-05-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.0...v76.0.1)
 
 ## Autofill
 
