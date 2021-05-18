@@ -109,10 +109,7 @@ impl SettingsClient for Client {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let path = format!(
-            "buckets/main/collections/{}/records",
-            &self.collection_name
-        );
+        let path = format!("buckets/main/collections/{}/records", &self.collection_name);
         let url = self.base_url.join(&path)?;
         let req = Request::get(url);
         let resp = self.make_request(req)?;
