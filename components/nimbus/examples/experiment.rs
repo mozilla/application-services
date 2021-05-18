@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::io::prelude::*;
 
 const DEFAULT_BASE_URL: &str = "https://firefox.settings.services.mozilla.com";
-const DEFAULT_BUCKET_NAME: &str = "main";
 const DEFAULT_COLLECTION_NAME: &str = "messaging-experiments";
 fn main() -> Result<()> {
     // We set the logging level to be `warn` here, meaning that only
@@ -170,12 +169,6 @@ fn main() -> Result<()> {
         .unwrap_or_else(|| "no-client-id-specified".to_string());
     log::info!("Client ID is {}", client_id);
 
-    let bucket_name = match config.get("bucket_name") {
-        Some(v) => v.as_str().unwrap(),
-        _ => DEFAULT_BUCKET_NAME,
-    };
-    log::info!("Bucket name is {}", bucket_name);
-
     let collection_name =
         matches
             .value_of("collection")
@@ -198,7 +191,6 @@ fn main() -> Result<()> {
     // initiate the optional config
     let config = RemoteSettingsConfig {
         server_url: server_url.to_string(),
-        bucket_name: bucket_name.to_string(),
         collection_name: collection_name.to_string(),
     };
 

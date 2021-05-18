@@ -39,7 +39,6 @@ dictionary ExperimentBranch {
 
 dictionary RemoteSettingsConfig {
     string server_url;
-    string bucket_name;
     string collection_name;
 };
 

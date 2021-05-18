@@ -34,7 +34,6 @@ import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
 import java.io.File
 
-private const val EXPERIMENT_BUCKET_NAME = "main"
 private const val EXPERIMENT_COLLECTION_NAME = "nimbus-mobile-experiments"
 private const val NIMBUS_DATA_DIR: String = "nimbus_data"
 
@@ -189,7 +188,6 @@ interface NimbusInterface {
  */
 data class NimbusServerSettings(
     val url: Uri,
-    val bucket: String = EXPERIMENT_BUCKET_NAME,
     val collection: String = EXPERIMENT_COLLECTION_NAME
 )
 
@@ -289,7 +287,6 @@ open class Nimbus(
         val remoteSettingsConfig = server?.let {
             RemoteSettingsConfig(
                 serverUrl = it.url.toString(),
-                bucketName = it.bucket,
                 collectionName = it.collection
             )
         }

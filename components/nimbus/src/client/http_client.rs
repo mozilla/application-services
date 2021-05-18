@@ -28,7 +28,6 @@ const HEADER_RETRY_AFTER: &str = "Retry-After";
 pub struct Client {
     base_url: Url,
     collection_name: String,
-    bucket_name: String,
     remote_state: Cell<RemoteState>,
 }
 
@@ -47,7 +46,6 @@ impl Client {
         let base_url = Url::parse(&config.server_url)?;
         Ok(Self {
             base_url,
-            bucket_name: config.bucket_name,
             collection_name: config.collection_name,
             remote_state: Cell::new(RemoteState::Ok),
         })
@@ -111,10 +109,7 @@ impl SettingsClient for Client {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let path = format!(
-            "buckets/{}/collections/{}/records",
-            &self.bucket_name, &self.collection_name
-        );
+        let path = format!("buckets/main/collections/{}/records", &self.collection_name);
         let url = self.base_url.join(&path)?;
         let req = Request::get(url);
         let resp = self.make_request(req)?;
@@ -283,7 +278,6 @@ mod tests {
         .create();
         let config = RemoteSettingsConfig {
             server_url: mockito::server_url(),
-            bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
         let http_client = Client::new(config).unwrap();
@@ -356,7 +350,6 @@ mod tests {
         .create();
         let config = RemoteSettingsConfig {
             server_url: mockito::server_url(),
-            bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
         let http_client = Client::new(config).unwrap();
@@ -379,7 +372,6 @@ mod tests {
         .create();
         let config = RemoteSettingsConfig {
             server_url: mockito::server_url(),
-            bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
         let http_client = Client::new(config).unwrap();
@@ -402,7 +394,6 @@ mod tests {
         .create();
         let config = RemoteSettingsConfig {
             server_url: mockito::server_url(),
-            bucket_name: "main".to_string(),
             collection_name: "messaging-experiments".to_string(),
         };
         let mut http_client = Client::new(config).unwrap();
