@@ -23,9 +23,37 @@ import Foundation
 ///
 /// This may become the basis of a generated-from-manifest solution.
 public protocol Variables {
+    /// Finds a string typed value for this key. If none exists, `null` is returned.
+    ///
+    /// N.B. the `key` and type `String` should be listed in the experiment manifest.
     func getString(_ key: String) -> String?
+
+    /// Finds a integer typed value for this key. If none exists, `null` is returned.
+    ///
+    /// N.B. the `key` and type `Int` should be listed in the experiment manifest.
     func getInt(_ key: String) -> Int?
+
+    /// Finds a boolean typed value for this key. If none exists, `null` is returned.
+    ///
+    /// N.B. the `key` and type `String` should be listed in the experiment manifest.
     func getBool(_ key: String) -> Bool?
+
+    /// Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
+    /// exists, or no resource named with that value exists, then `null` is returned.
+    ///
+    /// N.B. the `key` and type `Image` should be listed in the experiment manifest. The
+    /// names of the drawable resources should also be listed.
+    func getImage(_ key: String) -> UIImage?
+
+    /// Uses `getString(key: String)` to find the name of a string resource. If a value exists, and
+    /// a string resource exists with that name, then returns the string from the resource. If no
+    /// such resource exists, then return the string value as the text.
+    ///
+    /// For strings, this is almost always the right choice.
+    ///
+    /// N.B. the `key` and type `LocalizedString` should be listed in the experiment manifest. The
+    /// names of the string resources should also be listed.
+    func getText(_ key: String) -> String?
 
     // Get a child configuration object.
     func getVariables(_ key: String) -> Variables?
@@ -42,13 +70,45 @@ public extension Variables {
     }
 }
 
+protocol VariablesWithBundle: Variables {
+    var bundle: Bundle { get }
+}
+
+extension VariablesWithBundle {
+    func getImage(_ key: String) -> UIImage? {
+        return lookup(key, transform: asDrawableResource)
+    }
+
+    func getText(_ key: String) -> String? {
+        return lookup(key, transform: asStringResource)
+    }
+
+    private func lookup<T>(_ key: String, transform: (String) -> T?) -> T? {
+        guard let value = getString(key) else {
+            return nil
+        }
+        return transform(value)
+    }
+
+    func asDrawableResource(name: String) -> UIImage? {
+        return UIImage(named: name, in: bundle, compatibleWith: nil)
+    }
+
+    func asStringResource(name: String) -> String? {
+        // TODO: what about strings with in a table?
+        return bundle.localizedString(forKey: name, value: nil, table: nil)
+    }
+}
+
 /// A thin wrapper around the JSON produced by the `get_feature_variables_json(feature_id)` call, useful
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
-internal class JSONVariables: Variables {
+internal class JSONVariables: VariablesWithBundle {
     private let json: [String: Any]
+    internal let bundle: Bundle
 
-    init(with json: [String: Any]) {
+    init(with json: [String: Any], in bundle: Bundle = Bundle.main) {
         self.json = json
+        self.bundle = bundle
     }
 
     // These `get*` methods get values from the wrapped JSON object, and transform them using the
@@ -92,6 +152,14 @@ class NilVariables: Variables {
     }
 
     func getBool(_: String) -> Bool? {
+        return nil
+    }
+
+    func getImage(_: String) -> UIImage? {
+        return nil
+    }
+
+    func getText(_: String) -> String? {
         return nil
     }
 
