@@ -319,8 +319,10 @@ impl Database {
                             return Some(e.slug.to_owned());
                         }
 
-                        if e.feature_ids.is_empty() {
-                        log::warn!("{:?} experiment missing feature_ids; experiment & enrollment will be discarded", &e.slug);
+                        let feature_ids_arrays_with_empty_strings =
+                            e.feature_ids.iter().find(|id| id.is_empty());
+                        if e.feature_ids.is_empty() || feature_ids_arrays_with_empty_strings != None {
+                            log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
                             Some(e.slug.to_owned())
                         } else {
                             None
@@ -841,7 +843,7 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "empty-feature-ids-array", // change when cloning
+                "slug": "feature-ids-array-has-empty_string", // change when cloning
                 "endDate": null,
                 "featureIds": [""], // change when cloning
                 "branches":[
@@ -874,7 +876,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"empty-feature-ids-array", // change when cloning
+                    "namespace":"feature-ids-array-has-empty-string", // change when cloning
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -885,8 +887,9 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "no-feature-ids-at-all", // XXX should we also test "" featureIds?
+                "slug": "missing-feature-ids-in-branch",
                 "endDate": null,
+                "featureIds": ["abc"],
                 "branches":[
                     {
                         "slug": "control",
