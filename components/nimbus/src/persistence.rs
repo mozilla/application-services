@@ -1239,12 +1239,21 @@ mod tests {
             })
             .collect();
 
-        assert_json_eq!(&orig_enrollments, &db_enrollments); //,
-                                                             // "original enrollment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+        assert_json_eq!(&orig_enrollments, &db_enrollments);
         log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())
     }
+
+    // XXX Decide what we do if there is an error while upgrading, and test for
+    // it
+
+    // XXX write a test that tests that only the invalids get discard discarded
+    // from combined lists of both valid and invalid enrollments and experiments.
+
+    // XXX Write test to ensure that anytime one of (enrollment, experiment)
+    // an invalid featureAPI issue, both the experiment and the enrollment are
+    // removed from their respective stores so we don't have any weird orphans
 }
 
 // TODO: Add unit tests
