@@ -485,7 +485,7 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use serde_json::json;
     use tempdir::TempDir;
-
+    use std::collections::HashMap;
     use super::*;
 
     #[test]
@@ -616,7 +616,6 @@ mod tests {
             json!({
                 "schemaVersion": "1.5.0",
                 "slug": "ppop-mobile-test",
-                "id": "ppop-mobile-test",
                 "arguments": {},
                 "application": "org.mozilla.firefox_beta",
                 "appName": "fenix",
@@ -1059,7 +1058,7 @@ mod tests {
 
     #[test]
     /// Migrating v1 to v2 involves finding enrollments that
-    /// don't contain all the feature_id stuff they should and discuarding.
+    /// don't contain all the feature_id stuff they should and discarding.
     fn test_migrate_v1_to_v2_enrollment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
@@ -1097,25 +1096,6 @@ mod tests {
         log::debug!("enrollments = {:?}", enrollments);
 
         assert_eq!(enrollments.len(), 0);
-
-        // let experiment_with_feature = &get_valid_feature_experiments()[0];
-        // let enrollment_with_feature = &get_valid_feature_enrollment()[0];
-        // let enrollment_without_feature = &get_invalid_feature_enrollments()[0];
-        // let enrollment_store =
-        //     SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-
-        // experiment_store.put(&mut writer, experiment_with_feature["slug"].as_str().unwrap(), experiment_with_feature)?;
-        // enrollment_store.put(&mut writer, "secure-gold", &enrollment_with_feature)?;
-        // enrollment_store.put(&mut writer, enrollment_without_feature["slug"].as_str().unwrap(), enrollment_without_feature)?;
-
-        // let enrollments = db
-        //     .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
-        //     .unwrap();
-        // log::debug!("enrollments = {:?}", enrollments);
-
-        // The enrollment without features should have been discarded, leaving
-        // us with only one.
-        // assert_eq!(enrollments.len(), 1);
 
         Ok(())
     }
@@ -1208,28 +1188,58 @@ mod tests {
         // force an upgrade & read in the upgraded database
         let db = Database::new(&tmp_dir).unwrap();
 
-        let experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
-        // XXX is identical ordering guaranteed here?  try with 3 experiments &
-        // some other test?
-        let db_experiments: Vec<serde_json::Value> = experiments
+        let db_experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
+        // XXX hoist into build_map function
+        let db_experiment_map: HashMap<String, serde_json::Value> = db_experiments
             .into_iter()
-            .map(|e| serde_json::to_value::<Experiment>(e).unwrap())
+            .map(|e| {
+                let e_json = serde_json::to_value::<Experiment>(e).unwrap();
+                let mut e_slug: String = String::new();
+                e_slug.push_str(e_json.get("slug").unwrap().as_str().unwrap());
+                (e_slug, e_json)
+            })
             .collect();
 
-        assert_json_eq!(valid_feature_experiments, &db_experiments);
+        // XXX hoist into build_map function
+        let orig_experiment_map: HashMap<String, serde_json::Value> = valid_feature_experiments
+            .iter()
+            .map(|e_ref| {
+                let e = e_ref.clone();
+                let mut e_slug: String = String::new();
+                e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
+                (e_slug, e)
+            }).collect();
+
+        assert_json_eq!(&orig_experiment_map, &db_experiment_map);
         // "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
-        log::debug!("db_experiments = {:?}", db_experiments);
+        log::debug!("db_experiments = {:?}", &db_experiment_map);
 
-        let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
-        // XXX is identical ordering guaranteed here?  try with 3 experiments &
-        // some other test?
-        let db_enrollments: Vec<serde_json::Value> = enrollments
+        let
+        enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
+
+        // XXX hoist into build_map function
+        let db_enrollments: HashMap<String, serde_json::Value> = enrollments
             .into_iter()
-            .map(|e| serde_json::to_value::<ExperimentEnrollment>(e).unwrap())
+            .map(|e| {
+                let e_json = serde_json::to_value::<ExperimentEnrollment>(e).unwrap();
+                let mut e_slug: String = String::new();
+                e_slug.push_str(e_json.get("slug").unwrap().as_str().unwrap());
+                (e_slug, e_json)
+            })
             .collect();
 
-        assert_eq!(valid_feature_enrollments, &db_enrollments,
-            "original enrollment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+        // XXX hoist into build_map function
+        let orig_enrollments: HashMap<String, serde_json::Value> = valid_feature_enrollments
+            .iter()
+            .map(|e_ref| {
+                let e = e_ref.clone();
+                let mut e_slug: String = String::new();
+                e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
+                (e_slug, e)
+            }).collect();
+
+        assert_json_eq!(&orig_enrollments, &db_enrollments); //,
+            // "original enrollment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
         log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())
