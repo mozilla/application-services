@@ -482,11 +482,11 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use assert_json_diff::assert_json_eq;
     use serde_json::json;
-    use tempdir::TempDir;
     use std::collections::HashMap;
-    use super::*;
+    use tempdir::TempDir;
 
     #[test]
     fn test_db_upgrade_no_version() -> Result<()> {
@@ -1208,14 +1208,14 @@ mod tests {
                 let mut e_slug: String = String::new();
                 e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
                 (e_slug, e)
-            }).collect();
+            })
+            .collect();
 
         assert_json_eq!(&orig_experiment_map, &db_experiment_map);
         // "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
         log::debug!("db_experiments = {:?}", &db_experiment_map);
 
-        let
-        enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
+        let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
 
         // XXX hoist into build_map function
         let db_enrollments: HashMap<String, serde_json::Value> = enrollments
@@ -1236,10 +1236,11 @@ mod tests {
                 let mut e_slug: String = String::new();
                 e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
                 (e_slug, e)
-            }).collect();
+            })
+            .collect();
 
         assert_json_eq!(&orig_enrollments, &db_enrollments); //,
-            // "original enrollment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
+                                                             // "original enrollment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
         log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())
