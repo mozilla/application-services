@@ -14,6 +14,8 @@
 		394D6C622600E64E008F9CE5 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394D6C612600E64E008F9CE5 /* NimbusCreate.swift */; };
 		395992B625FBC91500E3185F /* NimbusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B525FBC91500E3185F /* NimbusTests.swift */; };
 		395992B825FBE40300E3185F /* NimbusApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B725FBE40300E3185F /* NimbusApi.swift */; };
+		398A4149264986E200AA22F1 /* FeatureVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 398A4148264986E200AA22F1 /* FeatureVariables.swift */; };
+		39C13795264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */; };
 		9908639E25F9CC5F00032083 /* crashtest.udl in Sources */ = {isa = PBXBuildFile; fileRef = 9908639B25F9CC3600032083 /* crashtest.udl */; };
 		990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
@@ -167,6 +169,8 @@
 		394D6C612600E64E008F9CE5 /* NimbusCreate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusCreate.swift; sourceTree = "<group>"; };
 		395992B525FBC91500E3185F /* NimbusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusTests.swift; sourceTree = "<group>"; };
 		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
+		398A4148264986E200AA22F1 /* FeatureVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureVariables.swift; sourceTree = "<group>"; };
+		39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusFeatureVariablesTests.swift; sourceTree = "<group>"; };
 		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../src/crashtest.udl; sourceTree = "<group>"; };
 		9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_crashtest-Bridging-Header.h"; sourceTree = "<group>"; };
 		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
@@ -292,6 +296,7 @@
 				394A809725F94E1300FAF26F /* Nimbus.swift */,
 				395992B725FBE40300E3185F /* NimbusApi.swift */,
 				394D6C612600E64E008F9CE5 /* NimbusCreate.swift */,
+				398A4148264986E200AA22F1 /* FeatureVariables.swift */,
 			);
 			name = Nimbus;
 			path = ../../components/nimbus/ios/Nimbus;
@@ -626,6 +631,7 @@
 				CE34DB3C23D0C9640027AD63 /* FxAccountManagerTests.swift */,
 				EB879D8A22123FD900753DC9 /* LoginsTests.swift */,
 				CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */,
+				39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */,
 				395992B525FBC91500E3185F /* NimbusTests.swift */,
 				CE3A2F37225BDE5300EA569C /* PlacesTests.swift */,
 			);
@@ -827,6 +833,7 @@
 				BF1A87BA25064A8100FED88E /* StringMetric.swift in Sources */,
 				99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */,
 				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
+				398A4149264986E200AA22F1 /* FeatureVariables.swift in Sources */,
 				BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */,
 				CD02CF3922568BCC00124DA2 /* SyncUnlockInfo.swift in Sources */,
 				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
@@ -873,6 +880,7 @@
 			files = (
 				CE3A2F38225BDE5300EA569C /* PlacesTests.swift in Sources */,
 				CEB1A06823D8A42D005BD4DD /* FxAccountMocks.swift in Sources */,
+				39C13795264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift in Sources */,
 				CD4CFDD3221DFA5100EB3B33 /* LogTest.swift in Sources */,
 				EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */,
 				CE90D1BB23D7570A00FD9A5F /* FxAccountManagerTests.swift in Sources */,

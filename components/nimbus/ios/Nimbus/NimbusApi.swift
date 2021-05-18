@@ -14,7 +14,7 @@ import Foundation
 /// enrollment will mostly use `NimbusUserConfiguration` methods. Application developers integrating
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
-public protocol NimbusApi: class, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
+public protocol NimbusApi: AnyObject, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
 
 public protocol NimbusFeatureConfiguration {
     /// Get the currently enrolled branch for the given experiment
@@ -23,6 +23,12 @@ public protocol NimbusFeatureConfiguration {
     /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
     ///
     func getExperimentBranch(featureId: String) -> String?
+
+    /// Get the variables needed to configure the feature given by `featureId`.
+    ///
+    /// - Parameter featureId The string feature id that identifies to the feature under experiment.
+    /// - Returns a `Variables` object used to configure the feature.
+    func getVariables(featureId: String) -> Variables
 }
 
 public protocol NimbusStartup {

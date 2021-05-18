@@ -6,7 +6,7 @@
 
 ### What's New
 
- - Android gains a `nimbus.getVariables(featureId: String)` and a new wrapper around JSON data coming straight from Remote Settings.
+ - Both Android and iOS gain a `nimbus.getVariables(featureId: String)` and a new wrapper around JSON data coming straight from Remote Settings.
  - Application features can only have a maximum of one experiment running at a time.
 
 ### What's Changed
