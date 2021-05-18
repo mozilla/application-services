@@ -277,12 +277,10 @@ impl Database {
                 // iterate enrollments, with collect_all.
                 // XXX later shift it to collect_all_json
                 let reader = self.read()?;
-                log::debug!("about to do collect_alls");
                 let enrollments: Vec<ExperimentEnrollment> =
                     self.enrollment_store.try_collect_all(&reader)?;
                 let experiments: Vec<Experiment> =
                     self.experiment_store.try_collect_all(&reader)?;
-                log::debug!("past initial collect_alls");
 
                 let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
                     .iter()
@@ -314,8 +312,14 @@ impl Database {
                             return Some(e.slug.to_owned());
                         }
 
+                        // let features_without_value_props = e.branches.iter().find(|b| b.feature != None && b.feature.unwrap().get("value") == None );
+                        // if features_without_value_props != None {
+                        //     log::warn!("{:?} experiment has feature missing a value prop; experiment & enrollment will be discarded", &e.slug);
+                        //     return Some(e.slug.to_owned());
+                        // }
+
                         if e.feature_ids.is_empty() {
-                        log::warn!("Experiment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
+                        log::warn!("{:?} experiment missing feature_ids; experiment & enrollment will be discarded", &e.slug);
                             Some(e.slug.to_owned())
                         } else {
                             None
@@ -586,7 +590,7 @@ mod tests {
                         "feature": {
                             "featureId": "abc", // change when cloning
                             "enabled": false,
-                            "value": {}
+                            "value": {"color": "green"}
                         }
                     },
                     {
@@ -723,7 +727,8 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "bbb", // change when cloning
-                            "enabled": false
+                            "enabled": false,
+                            "value": {}
                         }
                     },
                     {
@@ -766,7 +771,8 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "aaa", // change when cloning
-                            "enabled": true
+                            "enabled": true,
+                            "value": {},
                         }
                     }
                 ],
@@ -800,14 +806,16 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "ccc", // change when cloning
-                            "enabled": false
+                            "enabled": false,
+                            "value": {}
                         }
                     },
                     {
                         "slug": "treatment",
                         "ratio":1,
                         "feature": {
-                            "enabled": true
+                            "enabled": true,
+                            "value": {}
                         }
                     }
                 ],
@@ -841,7 +849,8 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "def", // change when cloning
-                            "enabled": false
+                            "enabled": false,
+                            "value": {},
                         }
                     },
                     {
@@ -849,7 +858,8 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "def", // change when cloning
-                            "enabled": true
+                            "enabled": true,
+                            "value": {}
                         }
                     }
                 ],
@@ -874,16 +884,24 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "no-feature-ids-at-all",
+                "slug": "no-feature-ids-at-all", // XXX should we also test "" featureIds?
                 "endDate": null,
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
                     },
                     {
                         "slug": "treatment",
                         "ratio": 1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
                     }
                 ],
                 "probeSets":[],
@@ -915,7 +933,8 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "about_welcome", // change when cloning
-                            "enabled": false
+                            "enabled": false,
+                            "value": {}
                         }
                     },
                     {
@@ -923,7 +942,8 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "about_welcome", // change when cloning
-                            "enabled": true
+                            "enabled": true,
+                            "value": {}
                         }
                     }
                 ],
@@ -957,7 +977,8 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "", // change when cloning
-                            "enabled": false
+                            "enabled": false,
+                            "value": {},
                         }
                     },
                     {
@@ -965,7 +986,8 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "", // change when cloning
-                            "enabled": true
+                            "enabled": true,
+                            "value": {},
                         }
                     }
                 ],
@@ -988,48 +1010,54 @@ mod tests {
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
             }),
-            json!({
-                "schemaVersion": "1.0.0",
-                "slug": "branch-feature-value-missing", // change when cloning // XXX verify that we really to discard these and that there aren't any live experiments with have this problem.  If so, clean up all remaining experiments in this list
-                "endDate": null,
-                "featureIds": ["ggg"], // change when cloning
-                "branches":[
-                    {
-                        "slug": "control",
-                        "ratio": 1,
-                        "feature": {
-                            "featureId": "ggg", // change when cloning
-                            "enabled": false
-                        }
-                    },
-                    {
-                        "slug": "treatment",
-                        "ratio":1,
-                        "feature": {
-                            "featureId": "ggg", // change when cloning
-                            "enabled": true
-                        }
-                    }
-                ],
-                "channel": "nightly",
-                "probeSets":[],
-                "startDate":null,
-                "appName": "fenix",
-                "appId": "org.mozilla.fenix",
-                "bucketConfig":{
-                    // Setup to enroll everyone by default.
-                    "count":10_000,
-                    "start":0,
-                    "total":10_000,
-                    "namespace":"branch_feature_value_missing", // change when cloning
-                    "randomizationUnit":"nimbus_id"
-                },
-                "userFacingName":"Diagnostic test experiment",
-                "referenceBranch":"control",
-                "isEnrollmentPaused":false,
-                "proposedEnrollment":7,
-                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            }),
+            // XXX We should probably just allow branch-feature-values to be
+            // non-existent and delete this clause, because the value field itself can
+            // be {}, and the FeatureConfig definition of `value` (see enrollment.rs) uses
+            // #[serde(default)] on (presumably to cope with the {}).  @jhugman, your thoughts?
+            //
+            // json!({
+            //     "schemaVersion": "1.0.0",
+            //     "slug": "branch-feature-value-missing", // change when cloning // XXX verify that we really to discard these and that there aren't any live experiments with have this problem.  If so, clean up all remaining experiments in this list
+            //     "endDate": null,
+            //     "featureIds": ["ggg"], // change when cloning
+            //     "branches":[
+            //         {
+            //             "slug": "control",
+            //             "ratio": 1,
+            //             "feature": {
+            //                 "featureId": "ggg", // change when cloning
+            //                 "enabled": false,
+            //                 "valud": {}
+            //             }
+            //         },
+            //         {
+            //             "slug": "treatment",
+            //             "ratio":1,
+            //             "feature": {
+            //                 "featureId": "ggg", // change when cloning
+            //                 "enabled": true
+            //             }
+            //         }
+            //     ],
+            //     "channel": "nightly",
+            //     "probeSets":[],
+            //     "startDate":null,
+            //     "appName": "fenix",
+            //     "appId": "org.mozilla.fenix",
+            //     "bucketConfig":{
+            //         // Setup to enroll everyone by default.
+            //         "count":10_000,
+            //         "start":0,
+            //         "total":10_000,
+            //         "namespace":"branch_feature_value_missing", // change when cloning
+            //         "randomizationUnit":"nimbus_id"
+            //     },
+            //     "userFacingName":"Diagnostic test experiment",
+            //     "referenceBranch":"control",
+            //     "isEnrollmentPaused":false,
+            //     "proposedEnrollment":7,
+            //     "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            // }),
         ]
     }
 
@@ -1083,7 +1111,7 @@ mod tests {
         assert_eq!(2, invalid_feature_enrollments.len());
 
         for enrollment in invalid_feature_enrollments {
-            log::debug!("enrollment = {:?}", enrollment);
+            //log::debug!("enrollment = {:?}", enrollment);
             enrollment_store.put(
                 &mut writer,
                 enrollment["slug"].as_str().unwrap(),
@@ -1124,10 +1152,10 @@ mod tests {
 
         // write a bunch of invalid experiments
         let invalid_feature_experiments = &get_invalid_feature_experiments();
-        assert_eq!(8, invalid_feature_experiments.len());
+        assert_eq!(7, invalid_feature_experiments.len());
 
         for experiment in invalid_feature_experiments {
-            log::debug!("experiment = {:?}", experiment);
+            // log::debug!("experiment = {:?}", experiment);
             experiment_store.put(
                 &mut writer,
                 experiment["slug"].as_str().unwrap(),
@@ -1144,7 +1172,7 @@ mod tests {
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         log::debug!("experiments = {:?}", experiments);
 
-        assert_eq!(experiments.len(), 3); // XXX drive to 0
+        assert_eq!(experiments.len(), 0);
 
         Ok(())
     }
@@ -1170,7 +1198,7 @@ mod tests {
         // write valid experiments
         let valid_feature_experiments = &get_valid_feature_experiments();
         for experiment in valid_feature_experiments {
-            log::debug!("experiment = {:?}", experiment);
+            // log::debug!("experiment = {:?}", experiment);
             experiment_store.put(
                 &mut writer,
                 experiment["slug"].as_str().unwrap(),
@@ -1182,7 +1210,7 @@ mod tests {
         let valid_feature_enrollments = &get_valid_feature_enrollments();
         assert_eq!(1, valid_feature_enrollments.len());
         for enrollment in valid_feature_enrollments {
-            log::debug!("enrollment = {:?}", enrollment);
+            // log::debug!("enrollment = {:?}", enrollment);
             enrollment_store.put(
                 &mut writer,
                 enrollment["slug"].as_str().unwrap(),
@@ -1248,7 +1276,7 @@ mod tests {
             .collect();
 
         assert_json_eq!(&orig_enrollments, &db_enrollments);
-        log::debug!("db_enrollments = {:?}", db_enrollments);
+        // log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())
     }
