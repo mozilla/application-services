@@ -312,6 +312,13 @@ impl Database {
                             return Some(e.slug.to_owned());
                         }
 
+                        let feature_objs_with_empty_feature_ids =
+                            e.branches.iter().find(|b| b.feature != None && b.feature.as_ref().unwrap().feature_id.is_empty());
+                        if feature_objs_with_empty_feature_ids != None {
+                            log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                            return Some(e.slug.to_owned());
+                        }
+
                         if e.feature_ids.is_empty() {
                         log::warn!("{:?} experiment missing feature_ids; experiment & enrollment will be discarded", &e.slug);
                             Some(e.slug.to_owned())
