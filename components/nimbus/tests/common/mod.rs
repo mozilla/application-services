@@ -18,7 +18,6 @@ pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
 
     let config = RemoteSettingsConfig {
         server_url: url.as_str().to_string(),
-        bucket_name: "doesn't matter".to_string(),
         collection_name: "doesn't matter".to_string(),
     };
     let aru = Default::default();

@@ -4,9 +4,6 @@
 
 import Foundation
 
-private let remoteSettingsBucket = "main"
-private let remoteSettingsCollection = "nimbus-mobile-experiments"
-
 private let logTag = "Nimbus.swift"
 private let logger = Logger(tag: logTag)
 
@@ -45,11 +42,9 @@ public extension Nimbus {
 
         let context = Nimbus.buildExperimentContext(appSettings)
         let remoteSettings = server.map { server -> RemoteSettingsConfig in
-            let url = server.url.absoluteString
-            return RemoteSettingsConfig(
-                serverUrl: url,
-                bucketName: remoteSettingsBucket,
-                collectionName: remoteSettingsCollection
+            RemoteSettingsConfig(
+                serverUrl: server.url.absoluteString,
+                collectionName: server.collection
             )
         }
         let nimbusClient = try NimbusClient(

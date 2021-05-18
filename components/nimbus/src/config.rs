@@ -15,6 +15,5 @@
 #[derive(Debug, Clone)]
 pub struct RemoteSettingsConfig {
     pub server_url: String,
-    pub bucket_name: String,
     pub collection_name: String,
 }
