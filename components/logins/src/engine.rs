@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
@@ -24,12 +25,17 @@ pub struct LoginsSyncEngine<'a> {
     // Note that once uniffi'd, these lifetimes will go and it will be an Arc<PasswordStore>
     pub store: &'a PasswordStore,
     pub scope: sql_support::SqlInterruptScope,
+    encdec: Option<EncryptorDecryptor>,
 }
 
 impl<'a> LoginsSyncEngine<'a> {
     pub fn new(store: &'a PasswordStore) -> Self {
         let scope = store.db.begin_interrupt_scope();
-        Self { store, scope }
+        Self {
+            store,
+            scope,
+            encdec: None,
+        }
     }
 
     fn reconcile(
@@ -106,6 +112,7 @@ impl<'a> LoginsSyncEngine<'a> {
         records: &[(sync15::Payload, ServerTimestamp)],
         telem: &mut telemetry::EngineIncoming,
         scope: &SqlInterruptScope,
+        encdec: &EncryptorDecryptor,
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
@@ -115,7 +122,7 @@ impl<'a> LoginsSyncEngine<'a> {
                     throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
                 }
                 seen_ids.insert(incoming.0.id.clone());
-                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1) {
+                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, encdec) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
                         log::error!("Failed to deserialize record {:?}: {}", incoming.0.id, e);
@@ -200,6 +207,7 @@ impl<'a> LoginsSyncEngine<'a> {
         &self,
         st: ServerTimestamp,
         scope: &SqlInterruptScope,
+        encdec: &EncryptorDecryptor,
     ) -> Result<OutgoingChangeset> {
         // Taken from iOS. Arbitrarily large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
@@ -217,8 +225,9 @@ impl<'a> LoginsSyncEngine<'a> {
                 Payload::new_tombstone(row.get::<_, String>("guid")?)
                     .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
-                let login = Login::from_row(row)?;
-                Payload::from_record(login)?.with_sortindex(DEFAULT_SORTINDEX)
+                Login::from_row(row)?
+                    .to_payload(encdec)?
+                    .with_sortindex(DEFAULT_SORTINDEX)
             })
         })?;
         outgoing.changes = rows.collect::<Result<_>>()?;
@@ -231,16 +240,18 @@ impl<'a> LoginsSyncEngine<'a> {
         inbound: IncomingChangeset,
         telem: &mut telemetry::Engine,
         scope: &SqlInterruptScope,
+        encdec: &EncryptorDecryptor,
     ) -> Result<OutgoingChangeset> {
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
+        let data =
+            self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope, encdec)?;
         let plan = {
             let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
             telem.incoming(incoming_telemetry);
             result
         }?;
         self.execute_plan(plan, scope)?;
-        self.fetch_outgoing(inbound.timestamp, scope)
+        self.fetch_outgoing(inbound.timestamp, scope, encdec)
     }
 
     fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
@@ -351,6 +362,11 @@ impl<'a> SyncEngine for LoginsSyncEngine<'a> {
         "passwords".into()
     }
 
+    fn set_local_encryption_key(&mut self, key: &str) -> anyhow::Result<()> {
+        self.encdec = Some(EncryptorDecryptor::new(key)?);
+        Ok(())
+    }
+
     fn apply_incoming(
         &self,
         inbound: Vec<IncomingChangeset>,
@@ -358,7 +374,11 @@ impl<'a> SyncEngine for LoginsSyncEngine<'a> {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "logins only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
-        Ok(self.do_apply_incoming(inbound, telem, &self.scope)?)
+        let encdec = match &self.encdec {
+            Some(encdec) => encdec,
+            None => throw!(ErrorKind::EncryptionKeyMissing),
+        };
+        Ok(self.do_apply_incoming(inbound, telem, &self.scope, &encdec)?)
     }
 
     fn sync_finished(
@@ -413,49 +433,204 @@ impl<'a> SyncEngine for LoginsSyncEngine<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::test_utils::insert_login;
+    use crate::encryption::test_utils::{decrypt, TEST_ENCRYPTOR};
+    use crate::login::test_utils::login;
     use crate::store::PasswordStore;
+    use std::collections::HashMap;
+
+    // Wrap sync functions for easier testing
+    fn run_fetch_login_data(
+        store: &PasswordStore,
+        records: &[(sync15::Payload, ServerTimestamp)],
+    ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
+        let engine = LoginsSyncEngine::new(&store);
+        let scope = store.db.begin_interrupt_scope();
+        let mut telem = sync15::telemetry::EngineIncoming::new();
+        (
+            engine
+                .fetch_login_data(records, &mut telem, &scope, &TEST_ENCRYPTOR)
+                .unwrap(),
+            telem,
+        )
+    }
+
+    fn run_fetch_outgoing(store: &PasswordStore) -> OutgoingChangeset {
+        let engine = LoginsSyncEngine::new(&store);
+        engine
+            .fetch_outgoing(
+                sync15::ServerTimestamp(10000),
+                &store.db.begin_interrupt_scope(),
+                &TEST_ENCRYPTOR,
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn test_fetch_login_data() {
+        // Test some common cases with fetch_login data
+        let store = PasswordStore::new_in_memory().unwrap();
+        insert_login(&store.db, "updated_remotely", None, Some("password"));
+        insert_login(&store.db, "deleted_remotely", None, Some("password"));
+        insert_login(
+            &store.db,
+            "three_way_merge",
+            Some("new-local-password"),
+            Some("password"),
+        );
+
+        let (res, _) = run_fetch_login_data(
+            &store,
+            &[
+                (
+                    sync15::Payload::new_tombstone("deleted_remotely"),
+                    sync15::ServerTimestamp(10000),
+                ),
+                (
+                    login("added_remotely", "password")
+                        .to_payload(&TEST_ENCRYPTOR)
+                        .unwrap(),
+                    sync15::ServerTimestamp(10000),
+                ),
+                (
+                    login("updated_remotely", "new-password")
+                        .to_payload(&TEST_ENCRYPTOR)
+                        .unwrap(),
+                    sync15::ServerTimestamp(10000),
+                ),
+                (
+                    login("three_way_merge", "new-remote-password")
+                        .to_payload(&TEST_ENCRYPTOR)
+                        .unwrap(),
+                    sync15::ServerTimestamp(10000),
+                ),
+            ],
+        );
+        // For simpler testing, extract/decrypt passwords and put them in a hash map
+        #[derive(Debug, PartialEq)]
+        struct SyncPasswords {
+            local: Option<String>,
+            mirror: Option<String>,
+            inbound: Option<String>,
+        }
+        let extracted_passwords: HashMap<String, SyncPasswords> = res
+            .into_iter()
+            .map(|sync_login_data| {
+                let mut guids_seen = HashSet::new();
+                let passwords = SyncPasswords {
+                    local: sync_login_data.local.map(|local_login| {
+                        guids_seen.insert(local_login.login.guid.to_string());
+                        decrypt(&local_login.login.password_enc)
+                    }),
+                    mirror: sync_login_data.mirror.map(|mirror_login| {
+                        guids_seen.insert(mirror_login.login.guid.to_string());
+                        decrypt(&mirror_login.login.password_enc)
+                    }),
+                    inbound: sync_login_data.inbound.0.map(|login| {
+                        guids_seen.insert(login.guid.to_string());
+                        decrypt(&login.password_enc)
+                    }),
+                };
+                (guids_seen.into_iter().next().unwrap(), passwords)
+            })
+            .collect();
+
+        assert_eq!(extracted_passwords.len(), 4);
+        assert_eq!(
+            extracted_passwords.get("added_remotely").unwrap(),
+            &SyncPasswords {
+                local: None,
+                mirror: None,
+                inbound: Some("password".into()),
+            }
+        );
+        assert_eq!(
+            extracted_passwords.get("updated_remotely").unwrap(),
+            &SyncPasswords {
+                local: None,
+                mirror: Some("password".into()),
+                inbound: Some("new-password".into()),
+            }
+        );
+        assert_eq!(
+            extracted_passwords.get("deleted_remotely").unwrap(),
+            &SyncPasswords {
+                local: None,
+                mirror: Some("password".into()),
+                inbound: None,
+            }
+        );
+        assert_eq!(
+            extracted_passwords.get("three_way_merge").unwrap(),
+            &SyncPasswords {
+                local: Some("new-local-password".into()),
+                mirror: Some("password".into()),
+                inbound: Some("new-remote-password".into()),
+            }
+        );
+    }
+
+    #[test]
+    fn test_fetch_outgoing() {
+        let store = PasswordStore::new_in_memory().unwrap();
+        insert_login(&store.db, "changed", Some("new-password"), Some("password"));
+        insert_login(&store.db, "unchanged", None, Some("password"));
+        insert_login(&store.db, "added", Some("password"), None);
+        insert_login(&store.db, "deleted", None, Some("password"));
+        store.db.delete("deleted").unwrap();
+
+        let changeset = run_fetch_outgoing(&store);
+        let changes: HashMap<String, &Payload> = changeset
+            .changes
+            .iter()
+            .map(|p| (p.id.to_string(), p))
+            .collect();
+        assert_eq!(changes.len(), 3);
+        assert_eq!(changes["added"].data.get("password").unwrap(), "password");
+        assert_eq!(
+            changes["changed"].data.get("password").unwrap(),
+            "new-password"
+        );
+        assert!(changes["deleted"].deleted);
+        assert!(!changes["added"].deleted);
+        assert!(!changes["changed"].deleted);
+    }
 
     #[test]
     fn test_bad_record() {
         let store = PasswordStore::new_in_memory().unwrap();
-        let engine = LoginsSyncEngine::new(&store);
-        let scope = store.db.begin_interrupt_scope();
-        let mut telem = sync15::telemetry::EngineIncoming::new();
-        let res = engine
-            .fetch_login_data(
-                &[
-                    // tombstone
-                    (
-                        sync15::Payload::new_tombstone("dummy_000001"),
-                        sync15::ServerTimestamp(10000),
-                    ),
-                    // invalid
-                    (
-                        sync15::Payload::from_json(serde_json::json!({
-                            "id": "dummy_000002",
-                            "garbage": "data",
-                            "etc": "not a login"
-                        }))
-                        .unwrap(),
-                        sync15::ServerTimestamp(10000),
-                    ),
-                    // valid
-                    (
-                        sync15::Payload::from_json(serde_json::json!({
-                            "id": "dummy_000003",
-                            "formSubmitURL": "https://www.example.com/submit",
-                            "hostname": "https://www.example.com",
-                            "usernameEnc": "test",
-                            "passwordEnc": "test",
-                        }))
-                        .unwrap(),
-                        sync15::ServerTimestamp(10000),
-                    ),
-                ],
-                &mut telem,
-                &scope,
-            )
-            .unwrap();
+        let (res, telem) = run_fetch_login_data(
+            &store,
+            &[
+                // tombstone
+                (
+                    sync15::Payload::new_tombstone("dummy_000001"),
+                    sync15::ServerTimestamp(10000),
+                ),
+                // invalid
+                (
+                    sync15::Payload::from_json(serde_json::json!({
+                        "id": "dummy_000002",
+                        "garbage": "data",
+                        "etc": "not a login"
+                    }))
+                    .unwrap(),
+                    sync15::ServerTimestamp(10000),
+                ),
+                // valid
+                (
+                    sync15::Payload::from_json(serde_json::json!({
+                        "id": "dummy_000003",
+                        "formSubmitURL": "https://www.example.com/submit",
+                        "hostname": "https://www.example.com",
+                        "username": "test",
+                        "password": "test",
+                    }))
+                    .unwrap(),
+                    sync15::ServerTimestamp(10000),
+                ),
+            ],
+        );
         assert_eq!(telem.get_failed(), 1);
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].guid, "dummy_000001");

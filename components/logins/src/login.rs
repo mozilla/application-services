@@ -226,6 +226,7 @@
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::msg_types::PasswordInfo;
 use crate::util;
@@ -236,9 +237,31 @@ use sync15::ServerTimestamp;
 use sync_guid::Guid;
 use url::Url;
 
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Default)]
+pub struct Login {
+    pub guid: Guid,
+    pub hostname: String,
+    pub form_submit_url: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_enc: String,
+    pub password_enc: String,
+    pub username_field: String,
+    pub password_field: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+}
+
+// Login entry from a server payload
+//
+// This struct is used for fetching/sending login records to the server.  The differences between
+// this and Login is that the username/passwords are plaintext rather than encrypted.  We normally
+// encrypt those fields with the local encryption key, which isn't going to work with shared data
+// on the server.  Instead, the entire payload is encrypted using a separate encryption scheme.
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct Login {
+struct LoginPayload {
     #[serde(rename = "id")]
     pub guid: Guid,
 
@@ -254,9 +277,9 @@ pub struct Login {
     pub http_realm: Option<String>,
 
     #[serde(default)]
-    pub username_enc: String,
+    pub username: String,
 
-    pub password_enc: String,
+    pub password: String,
 
     #[serde(default)]
     pub username_field: String,
@@ -299,6 +322,45 @@ fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
 }
 
 impl Login {
+    pub fn from_payload(
+        sync_payload: sync15::Payload,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<Self> {
+        let p: LoginPayload = sync_payload.into_record()?;
+
+        Ok(Login {
+            guid: p.guid,
+            hostname: p.hostname,
+            form_submit_url: p.form_submit_url,
+            http_realm: p.http_realm,
+            username_enc: encdec.encrypt(&p.username)?,
+            password_enc: encdec.encrypt(&p.password)?,
+            username_field: p.username_field,
+            password_field: p.password_field,
+            time_created: p.time_created,
+            time_password_changed: p.time_password_changed,
+            time_last_used: p.time_last_used,
+            times_used: p.times_used,
+        })
+    }
+
+    pub fn to_payload(&self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
+        Ok(sync15::Payload::from_record(LoginPayload {
+            guid: self.guid.clone(),
+            hostname: self.hostname.clone(),
+            form_submit_url: self.form_submit_url.clone(),
+            http_realm: self.http_realm.clone(),
+            username: encdec.decrypt(&self.username_enc)?,
+            password: encdec.decrypt(&self.password_enc)?,
+            username_field: self.username_field.clone(),
+            password_field: self.password_field.clone(),
+            time_created: self.time_created,
+            time_password_changed: self.time_password_changed,
+            time_last_used: self.time_last_used,
+            times_used: self.times_used,
+        })?)
+    }
+
     #[inline]
     pub fn guid(&self) -> &Guid {
         &self.guid
@@ -697,6 +759,7 @@ impl_login!(MirrorLogin {
 });
 
 // Stores data needed to do a 3-way merge
+#[derive(Debug)]
 pub(crate) struct SyncLoginData {
     pub guid: Guid,
     pub local: Option<LocalLogin>,
@@ -716,17 +779,16 @@ impl SyncLoginData {
         &self.guid
     }
 
-    // Note: fetch_login_data in db.rs assumes that this can only fail with a deserialization error. Currently, this is true,
-    // but you'll need to adjust that function if you make this return another type of Result.
     pub fn from_payload(
         payload: sync15::Payload,
         ts: ServerTimestamp,
-    ) -> std::result::Result<Self, serde_json::Error> {
+        encdec: &EncryptorDecryptor,
+    ) -> Result<Self> {
         let guid = payload.id.clone();
         let login: Option<Login> = if payload.is_tombstone() {
             None
         } else {
-            let record: Login = payload.into_record()?;
+            let record = Login::from_payload(payload, encdec)?;
             // If we can fixup incoming records from sync, do so.
             // But if we can't then keep the invalid data.
             record.maybe_fixup().unwrap_or(None).or(Some(record))
@@ -925,10 +987,31 @@ impl Login {
         delta
     }
 }
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::*;
+    use crate::encryption::test_utils::encrypt;
+
+    // Factory function to make a new login
+    //
+    // It uses the guid to create a unique hostname/form_submit_url
+    pub fn login(guid: &str, password: &str) -> Login {
+        Login {
+            guid: guid.into(),
+            form_submit_url: Some(format!("https://{}.example.com", guid)),
+            hostname: format!("https://{}.example.com", guid),
+            username_enc: encrypt("user"),
+            password_enc: encrypt(password),
+            ..Default::default()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::encrypt;
+    use crate::encryption::test_utils::{decrypt, encrypt, TEST_ENCRYPTOR};
 
     #[test]
     fn test_invalid_payload_timestamps() {
@@ -938,18 +1021,19 @@ mod tests {
             "id": "123412341234",
             "formSubmitURL": "https://www.example.com/submit",
             "hostname": "https://www.example.com",
-            "usernameEnc": encrypt("test"),
-            "passwordEnc": encrypt("test"),
+            "username": "test",
+            "password": "test",
             "timeCreated": bad_timestamp,
             "timeLastUsed": "some other garbage",
             "timePasswordChanged": -30, // valid i64 but negative
         }))
         .unwrap();
-        let login = SyncLoginData::from_payload(bad_payload, ServerTimestamp::default())
-            .unwrap()
-            .inbound
-            .0
-            .unwrap();
+        let login =
+            SyncLoginData::from_payload(bad_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
+                .unwrap()
+                .inbound
+                .0
+                .unwrap();
         assert_eq!(login.time_created, 0);
         assert_eq!(login.time_last_used, 0);
         assert_eq!(login.time_password_changed, 0);
@@ -959,19 +1043,20 @@ mod tests {
             "id": "123412341234",
             "formSubmitURL": "https://www.example.com/submit",
             "hostname": "https://www.example.com",
-            "usernameEnc": encrypt("test"),
-            "passwordEnc": encrypt("test"),
+            "username": "test",
+            "password": "test",
             "timeCreated": now64 - 100,
             "timeLastUsed": now64 - 50,
             "timePasswordChanged": now64 - 25,
         }))
         .unwrap();
 
-        let login = SyncLoginData::from_payload(good_payload, ServerTimestamp::default())
-            .unwrap()
-            .inbound
-            .0
-            .unwrap();
+        let login =
+            SyncLoginData::from_payload(good_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
+                .unwrap()
+                .inbound
+                .0
+                .unwrap();
 
         assert_eq!(login.time_created, now64 - 100);
         assert_eq!(login.time_last_used, now64 - 50);
@@ -1435,28 +1520,68 @@ mod tests {
     }
 
     #[test]
+    fn test_payload_to_login() {
+        let payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+            "id": "123412341234",
+            "httpRealm": "test",
+            "hostname": "https://www.example.com",
+            "username": "user",
+            "password": "password",
+        }))
+        .unwrap();
+        let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
+        assert_eq!(login.guid, "123412341234");
+        assert_eq!(login.http_realm, Some("test".to_string()));
+        assert_eq!(login.hostname, "https://www.example.com");
+        assert_eq!(decrypt(&login.username_enc), "user");
+        assert_eq!(decrypt(&login.password_enc), "password");
+    }
+
+    #[test]
+    fn test_login_to_payload() {
+        let login = Login {
+            guid: "123412341234".into(),
+            http_realm: Some("test".into()),
+            hostname: "https://www.example.com".into(),
+            username_enc: encrypt("user"),
+            password_enc: encrypt("password"),
+            ..Default::default()
+        };
+        let payload = login.to_payload(&TEST_ENCRYPTOR).unwrap();
+
+        assert_eq!(payload.id, "123412341234");
+        assert_eq!(payload.deleted, false);
+        assert_eq!(payload.data["httpRealm"], "test".to_string());
+        assert_eq!(payload.data["hostname"], "https://www.example.com");
+        assert_eq!(payload.data["username"], "user");
+        assert_eq!(payload.data["password"], "password");
+        assert!(!payload.data.contains_key("formSubmitURL"));
+    }
+
+    #[test]
     fn test_username_field_requires_a_form_target() {
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
             "hostname": "https://www.example.com",
-            "usernameEnc": encrypt("test"),
-            "passwordEnc": encrypt("test"),
+            "username": "test",
+            "password": "test",
             "usernameField": "invalid"
         }))
         .unwrap();
 
-        let login: Login = bad_payload.clone().into_record().unwrap();
+        let login = Login::from_payload(bad_payload.clone(), &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.username_field, "invalid");
         assert!(login.check_valid().is_err());
         assert_eq!(login.fixup().unwrap().username_field, "");
 
         // Incoming sync data gets fixed automatically.
-        let login = SyncLoginData::from_payload(bad_payload, ServerTimestamp::default())
-            .unwrap()
-            .inbound
-            .0
-            .unwrap();
+        let login =
+            SyncLoginData::from_payload(bad_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
+                .unwrap()
+                .inbound
+                .0
+                .unwrap();
         assert_eq!(login.username_field, "");
     }
 
@@ -1466,13 +1591,13 @@ mod tests {
             "id": "123412341234",
             "httpRealm": "test",
             "hostname": "https://www.example.com",
-            "usernameEnc": encrypt("test"),
-            "passwordEnc": encrypt("test"),
+            "username": "test",
+            "password": "test",
             "passwordField": "invalid"
         }))
         .unwrap();
 
-        let login: Login = bad_payload.into_record().unwrap();
+        let login = Login::from_payload(bad_payload, &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.password_field, "invalid");
         assert!(login.check_valid().is_err());
         assert_eq!(login.fixup().unwrap().password_field, "");

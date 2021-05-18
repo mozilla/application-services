@@ -33,6 +33,9 @@ pub enum ErrorKind {
     #[error("The provided salt is invalid")]
     InvalidSalt,
 
+    #[error("local encryption key not set")]
+    EncryptionKeyMissing,
+
     #[error("Error synchronizing: {0}")]
     SyncAdapterError(#[from] sync15::Error),
 
@@ -101,6 +104,7 @@ impl Error {
             ErrorKind::NoSuchRecord(_) => "NoSuchRecord",
             ErrorKind::NonEmptyTable => "NonEmptyTable",
             ErrorKind::InvalidSalt => "InvalidSalt",
+            ErrorKind::EncryptionKeyMissing => "EncryptionKeyMissing",
             ErrorKind::SyncAdapterError(_) => "SyncAdapterError",
             ErrorKind::JsonError(_) => "JsonError",
             ErrorKind::UrlParseError(_) => "UrlParseError",

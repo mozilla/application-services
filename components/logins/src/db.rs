@@ -2,6 +2,26 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+/// Logins DB handling
+///
+/// The logins database works differently than other components because "mirror" and "local" mean
+/// different things.  At some point we should probably refactor to make it match them, but here's
+/// how it works for now:
+///
+///   - loginsM is the mirror table, which means it stores what we believe is on the server.  This
+///     means either the last record we fetched from the server or the last record we uploaded.
+///   - loginsL is the local table, which means it stores local changes have not been sent to the
+///     server.
+///   - When we want to fetch a record, we need to look in both loginsL and loginsM for the data.
+///     If a record is in both tables, then we prefer the loginsL data.  GET_BY_GUID_SQL contains a
+///     clever UNION query to accomplish this.
+///   - If a record is in both the local and mirror tables, we call the local record the "overlay"
+///     and set the is_overridden flag on the mirror record.
+///   - When we sync, the presence of a record in loginsL means that there was a local change that
+///     we need to send to the the server and/or reconcile it with incoming changes from the
+///     server.
+///   - After we sync, we move all records from loginsL to loginsM, overwriting any previous data.
+///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::error::*;
 use crate::login::{Login, SyncStatus};
 use crate::schema;
@@ -851,6 +871,101 @@ lazy_static! {
     );
     static ref CLONE_SINGLE_MIRROR_SQL: String =
         format!("{} WHERE guid = :guid", &*CLONE_ENTIRE_MIRROR_SQL,);
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::*;
+    use crate::login::test_utils::login;
+    use sync15::ServerTimestamp;
+
+    // Insert a login into the local and/or mirror tables.
+    //
+    // local_login and mirror_login are specifed as Some(password_string)
+    pub fn insert_login(
+        db: &LoginDb,
+        guid: &str,
+        local_login: Option<&str>,
+        mirror_login: Option<&str>,
+    ) {
+        if let Some(password) = mirror_login {
+            add_mirror(
+                &db,
+                &login(guid, password),
+                &ServerTimestamp(util::system_time_ms_i64(std::time::SystemTime::now())),
+                local_login.is_some(),
+            )
+            .unwrap();
+        }
+        if let Some(password) = local_login {
+            db.add(login(guid, password)).unwrap();
+        }
+    }
+
+    pub fn add_mirror(
+        db: &LoginDb,
+        login: &Login,
+        server_modified: &ServerTimestamp,
+        is_overridden: bool,
+    ) -> Result<()> {
+        let sql = "
+            INSERT OR IGNORE INTO loginsM (
+                is_overridden,
+                server_modified,
+
+                httpRealm,
+                formSubmitURL,
+                usernameField,
+                passwordField,
+                passwordEnc,
+                hostname,
+                usernameEnc,
+
+                timesUsed,
+                timeLastUsed,
+                timePasswordChanged,
+                timeCreated,
+
+                guid
+            ) VALUES (
+                :is_overridden,
+                :server_modified,
+
+                :http_realm,
+                :form_submit_url,
+                :username_field,
+                :password_field,
+                :password_enc,
+                :hostname,
+                :username_enc,
+
+                :times_used,
+                :time_last_used,
+                :time_password_changed,
+                :time_created,
+
+                :guid
+            )";
+        let mut stmt = db.prepare_cached(&sql)?;
+
+        stmt.execute_named(named_params! {
+            ":is_overridden": is_overridden,
+            ":server_modified": server_modified.as_millis(),
+            ":http_realm": login.http_realm,
+            ":form_submit_url": login.form_submit_url,
+            ":username_field": login.username_field,
+            ":password_field": login.password_field,
+            ":password_enc": login.password_enc,
+            ":hostname": login.hostname,
+            ":username_enc": login.username_enc,
+            ":times_used": login.times_used,
+            ":time_last_used": login.time_last_used,
+            ":time_password_changed": login.time_password_changed,
+            ":time_created": login.time_created,
+            ":guid": login.guid_str(),
+        })?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
