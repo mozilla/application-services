@@ -312,12 +312,6 @@ impl Database {
                             return Some(e.slug.to_owned());
                         }
 
-                        // let features_without_value_props = e.branches.iter().find(|b| b.feature != None && b.feature.unwrap().get("value") == None );
-                        // if features_without_value_props != None {
-                        //     log::warn!("{:?} experiment has feature missing a value prop; experiment & enrollment will be discarded", &e.slug);
-                        //     return Some(e.slug.to_owned());
-                        // }
-
                         if e.feature_ids.is_empty() {
                         log::warn!("{:?} experiment missing feature_ids; experiment & enrollment will be discarded", &e.slug);
                             Some(e.slug.to_owned())
@@ -1013,7 +1007,11 @@ mod tests {
             // XXX We should probably just allow branch-feature-values to be
             // non-existent and delete this clause, because the value field itself can
             // be {}, and the FeatureConfig definition of `value` (see enrollment.rs) uses
-            // #[serde(default)] on (presumably to cope with the {}).  @jhugman, your thoughts?
+            // #[serde(default)] on (presumably to cope with the {}).
+            //
+            // It's also not clear how one would easily tell the two cases apart
+            // in the migrator code anyhow without removing the
+            // #[serde(default)].  @jhugman, your thoughts?
             //
             // json!({
             //     "schemaVersion": "1.0.0",
