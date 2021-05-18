@@ -1,3 +1,11 @@
+# v76.0.1 (_2021-05-18_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.0...v76.0.1)
+
+## Autofill
+
+Fixed an error migrating from version 1 to version 2 of the database.
+
 # v76.0.0 (_2021-05-12_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v75.2.0...v76.0.0)

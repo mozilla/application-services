@@ -13,4 +13,4 @@
 
  - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...main)
