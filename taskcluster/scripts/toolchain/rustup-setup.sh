@@ -19,8 +19,8 @@ export RUST_LOG='sccache=info'
 # Rust
 set -eux; \
     RUSTUP_PLATFORM='x86_64-unknown-linux-gnu'; \
-    RUSTUP_VERSION='1.23.1'; \
-    RUSTUP_SHA256='ed7773edaf1d289656bdec2aacad12413b38ad0193fff54b2231f5140a4b07c5'; \
+    RUSTUP_VERSION='1.24.1'; \
+    RUSTUP_SHA256='fb3a7425e3f10d51f0480ac3cdb3e725977955b2ba21c9bdac35309563b115e8'; \
     curl -sfSL --retry 5 --retry-delay 10 -O "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${RUSTUP_PLATFORM}/rustup-init"; \
     echo "${RUSTUP_SHA256} *rustup-init" | sha256sum -c -; \
     chmod +x rustup-init; \
