@@ -616,8 +616,8 @@ mod tests {
             json!({
                 "schemaVersion": "1.5.0",
                 "slug": "ppop-mobile-test",
-                "arguments": {},
-                "application": "org.mozilla.firefox_beta",
+                // "arguments": {}, // DEPRECATED
+                // "application": "org.mozilla.firefox_beta", // DEPRECATED
                 "appName": "fenix",
                 "appId": "org.mozilla.firefox_beta",
                 "channel": "beta",
@@ -632,7 +632,7 @@ mod tests {
                     "total": 10000
                 },
                 "probeSets": [],
-                "outcomes": [],
+                // "outcomes": [], NOT CURRENTLY (YET?) IMPLEMENTED
                 "branches": [
                     {
                     "slug": "default_browser_newtab_banner",
