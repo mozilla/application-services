@@ -273,8 +273,6 @@ impl Database {
             Some(1) => {
                 log::info!("Upgrading from version 1 to version 2");
                 // XXX how do we handle errors?
-                // XXX Do we need to do anything extra for mutex & or
-                // transaction?
 
                 // iterate enrollments, with collect_all.
                 // XXX later shift it to collect_all_json
@@ -305,10 +303,17 @@ impl Database {
                 // XXX and later feature_id on branches, and
                 // feature fields)
 
-                let slugs_without_experiment_feature_ids: HashSet<String> = experiments
+                let slugs_with_experiment_issues: HashSet<String> = experiments
                     .iter()
                     .filter_map(
                             |e| {
+
+                        let branches_without_feature_props = e.branches.iter().find(|b| b.feature == None);
+                        if branches_without_feature_props != None {
+                            log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                            return Some(e.slug.to_owned());
+                        }
+
                         if e.feature_ids.is_empty() {
                         log::warn!("Experiment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
                             Some(e.slug.to_owned())
@@ -319,7 +324,7 @@ impl Database {
                     .collect();
 
                 let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
-                    .union(&slugs_without_experiment_feature_ids)
+                    .union(&slugs_with_experiment_issues)
                     .collect();
 
                 // filter out experiments to be dropped
@@ -580,7 +585,8 @@ mod tests {
                         "ratio": 1,
                         "feature": {
                             "featureId": "abc", // change when cloning
-                            "enabled": false
+                            "enabled": false,
+                            "value": {}
                         }
                     },
                     {
@@ -588,7 +594,8 @@ mod tests {
                         "ratio":1,
                         "feature": {
                             "featureId": "abc", // change when cloning
-                            "enabled": true
+                            "enabled": true,
+                            "value": {}
                         }
                     }
                 ],
@@ -1093,7 +1100,7 @@ mod tests {
         let enrollments = db
             .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
             .unwrap();
-        log::debug!("enrollments = {:?}", enrollments);
+        //log::debug!("enrollments = {:?}", enrollments);
 
         assert_eq!(enrollments.len(), 0);
 
@@ -1137,7 +1144,7 @@ mod tests {
         let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
         log::debug!("experiments = {:?}", experiments);
 
-        assert_eq!(experiments.len(), 4); // XXX drive to 0
+        assert_eq!(experiments.len(), 3); // XXX drive to 0
 
         Ok(())
     }
@@ -1200,6 +1207,7 @@ mod tests {
             })
             .collect();
 
+        // XXX add comment about why we're using hashmaps -- because iter is non-deterministic order
         // XXX hoist into build_map function
         let orig_experiment_map: HashMap<String, serde_json::Value> = valid_feature_experiments
             .iter()
@@ -1213,7 +1221,7 @@ mod tests {
 
         assert_json_eq!(&orig_experiment_map, &db_experiment_map);
         // "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
-        log::debug!("db_experiments = {:?}", &db_experiment_map);
+        // log::debug!("db_experiments = {:?}", &db_experiment_map);
 
         let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
 
