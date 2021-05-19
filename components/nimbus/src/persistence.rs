@@ -1136,23 +1136,13 @@ mod tests {
 
         let rkv = Database::open_rkv(&tmp_dir)?;
         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-        let enrollment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
         let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let enrollment_store =
             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
         let mut writer = rkv.write()?;
 
         meta_store.put(&mut writer, "db_version", &old_version)?;
-
-        // write out the enrollments
-        for enrollment_json in enrollments_json {
-            //log::debug!("enrollment = {:?}", enrollment);
-            enrollment_store.put(
-                &mut writer,
-                enrollment_json["slug"].as_str().unwrap(),
-                enrollment_json,
-            )?;
-        }
 
         // write out the experiments
         for experiment_json in experiments_json {
@@ -1161,6 +1151,16 @@ mod tests {
                 &mut writer,
                 experiment_json["slug"].as_str().unwrap(),
                 experiment_json,
+            )?;
+        }
+
+        // write out the enrollments
+        for enrollment_json in enrollments_json {
+            //log::debug!("enrollment = {:?}", enrollment);
+            enrollment_store.put(
+                &mut writer,
+                enrollment_json["slug"].as_str().unwrap(),
+                enrollment_json,
             )?;
         }
 
@@ -1237,24 +1237,24 @@ mod tests {
 
         // write valid experiments
         let valid_feature_experiments = &get_valid_feature_experiments();
-        for experiment in valid_feature_experiments {
+        for experiment_json in valid_feature_experiments {
             // log::debug!("experiment = {:?}", experiment);
             experiment_store.put(
                 &mut writer,
-                experiment["slug"].as_str().unwrap(),
-                experiment,
+                experiment_json["slug"].as_str().unwrap(),
+                experiment_json,
             )?;
         }
 
         // ... and enrollments
         let valid_feature_enrollments = &get_valid_feature_enrollments();
         assert_eq!(1, valid_feature_enrollments.len());
-        for enrollment in valid_feature_enrollments {
+        for enrollment_json in valid_feature_enrollments {
             // log::debug!("enrollment = {:?}", enrollment);
             enrollment_store.put(
                 &mut writer,
-                enrollment["slug"].as_str().unwrap(),
-                enrollment,
+                enrollment_json["slug"].as_str().unwrap(),
+                enrollment_json,
             )?;
         }
 
