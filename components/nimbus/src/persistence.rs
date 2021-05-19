@@ -1316,9 +1316,6 @@ mod tests {
         Ok(())
     }
 
-    // XXX Decide what we do if there is an error while upgrading, and test for
-    // it
-
     // XXX Write test to ensure that anytime one of (enrollment, experiment)
     // an invalid featureAPI issue, both the experiment and the enrollment are
     // removed from their respective stores so we don't have any weird orphans
