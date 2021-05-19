@@ -202,6 +202,7 @@ impl SingleStore {
                             "try_collect_all: discarded a record while deserializing with: {:?}",
                             e
                         );
+                        log::warn!(" data that failed to deserialize: {:?}", data);
                     }
                 };
             }
