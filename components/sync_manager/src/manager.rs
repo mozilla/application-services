@@ -364,6 +364,13 @@ impl SyncManager {
             engines.push(cc);
         }
 
+        // tell engines about the local encryption key.
+        for engine in engines.iter_mut() {
+            if let Some(key) = params.local_encryption_keys.get(&*engine.collection_name()) {
+                engine.set_local_encryption_key(key)?
+            }
+        }
+
         let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
 
         let client_init = sync15::Sync15StorageClientInit {
@@ -376,13 +383,6 @@ impl SyncManager {
         } else {
             Some(&params.engines_to_change_state)
         };
-
-        // tell engines about the local encryption key.
-        for engine in &engine_refs {
-            if let Some(key) = params.local_encryption_keys.get(&*engine.collection_name()) {
-                engine.set_local_encryption_key(key)?
-            }
-        }
 
         let settings = Settings {
             fxa_device_id: params.fxa_device_id,
