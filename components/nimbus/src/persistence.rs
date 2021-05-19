@@ -1165,6 +1165,7 @@ mod tests {
         }
 
         writer.commit()?;
+        log::debug!("create_old_database committed");
 
         Ok(())
     }
