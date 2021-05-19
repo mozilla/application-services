@@ -346,7 +346,7 @@ impl SyncManager {
 
         if let Some(le) = ls.as_ref() {
             assert!(logins_sync, "Should have already checked");
-            engines.push(Box::new(logins::LoginStore::new(&le.db)));
+            engines.push(Box::new(logins::LoginsSyncEngine::new(&le.db)));
         }
 
         if let Some(tbs) = ts.as_ref() {

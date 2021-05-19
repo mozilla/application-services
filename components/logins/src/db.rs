@@ -1225,12 +1225,12 @@ impl LoginDb {
     }
 }
 
-pub struct LoginStore<'a> {
+pub struct LoginsSyncEngine<'a> {
     pub db: &'a LoginDb,
     pub scope: sql_support::SqlInterruptScope,
 }
 
-impl<'a> LoginStore<'a> {
+impl<'a> LoginsSyncEngine<'a> {
     pub fn new(db: &'a LoginDb) -> Self {
         Self {
             db,
@@ -1239,7 +1239,7 @@ impl<'a> LoginStore<'a> {
     }
 }
 
-impl<'a> SyncEngine for LoginStore<'a> {
+impl<'a> SyncEngine for LoginsSyncEngine<'a> {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "passwords".into()
     }

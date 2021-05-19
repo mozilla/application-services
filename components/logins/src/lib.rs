@@ -19,7 +19,7 @@ mod ffi;
 
 // Mostly exposed for the sync manager.
 pub use crate::db::LoginDb;
-pub use crate::db::LoginStore;
+pub use crate::db::LoginsSyncEngine;
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
