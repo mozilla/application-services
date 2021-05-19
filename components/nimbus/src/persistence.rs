@@ -1126,25 +1126,41 @@ mod tests {
 
     /// Create a database with an old database version number, and
     /// populate it with the given experiments and enrollments.
-    fn create_old_database(tmp_dir: &TempDir, old_version: u16,
-                            experiments_json: &[serde_json::Value]) -> Result<()> {
+    fn create_old_database(
+        tmp_dir: &TempDir,
+        old_version: u16,
+        experiments_json: &[serde_json::Value],
+        enrollments_json: &[serde_json::Value],
+    ) -> Result<()> {
         let _ = env_logger::try_init();
 
         let rkv = Database::open_rkv(&tmp_dir)?;
         let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
         let experiment_store =
             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
         let mut writer = rkv.write()?;
 
+        // write out the enrollments
+        for enrollment_json in enrollments_json {
+            //log::debug!("enrollment = {:?}", enrollment);
+            enrollment_store.put(
+                &mut writer,
+                enrollment_json["slug"].as_str().unwrap(),
+                enrollment_json,
+            )?;
+        }
+
         meta_store.put(&mut writer, "db_version", &old_version)?;
 
         // write out the experiments
-        for experiment in experiments_json {
+        for enrollment_json in experiments_json {
             // log::debug!("experiment = {:?}", experiment);
             experiment_store.put(
                 &mut writer,
-                experiment["slug"].as_str().unwrap(),
-                experiment,
+                enrollment_json["slug"].as_str().unwrap(),
+                enrollment_json,
             )?;
         }
 
@@ -1160,29 +1176,10 @@ mod tests {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
 
-        let rkv = Database::open_rkv(&tmp_dir)?;
-        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-        let enrollment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-        let mut writer = rkv.write()?;
-
-        meta_store.put(&mut writer, "db_version", &1)?;
-
         // write invalid enrollments
         let invalid_feature_enrollments = &get_invalid_feature_enrollments();
-        assert_eq!(2, invalid_feature_enrollments.len());
 
-        for enrollment in invalid_feature_enrollments {
-            //log::debug!("enrollment = {:?}", enrollment);
-            enrollment_store.put(
-                &mut writer,
-                enrollment["slug"].as_str().unwrap(),
-                enrollment,
-            )?;
-        }
-
-        writer.commit()?;
-
+        create_old_database(&tmp_dir, 1, &[], invalid_feature_enrollments)?;
         let db = Database::new(&tmp_dir)?;
 
         // The enrollments with invalid feature_ids should have been discarded
@@ -1208,7 +1205,7 @@ mod tests {
         let invalid_feature_experiments = &get_invalid_feature_experiments();
         assert_eq!(7, invalid_feature_experiments.len());
 
-        create_old_database(&tmp_dir, 1, invalid_feature_experiments)?;
+        create_old_database(&tmp_dir, 1, invalid_feature_experiments, &[])?;
 
         let db = Database::new(&tmp_dir)?;
 
@@ -1263,6 +1260,7 @@ mod tests {
 
         writer.commit()?;
 
+        // create_old_database(tmp_dir, 1, valid_feature_experiments, valid_feature_enrollments)?;
         // force an upgrade & read in the upgraded database
         let db = Database::new(&tmp_dir).unwrap();
 
