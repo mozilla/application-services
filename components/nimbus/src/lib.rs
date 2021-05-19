@@ -31,10 +31,6 @@ use evaluator::is_experiment_available;
 #[allow(unused_imports)]
 use enrollment::EnrollmentChangeEventType;
 
-// Also test-only
-#[allow(unused_imports)]
-use enrollment::ExperimentEnrollment;
-
 pub use matcher::AppContext;
 use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
@@ -848,7 +844,7 @@ mod test_schema_bw_compat {
 
     #[test]
     /// Migrating v1 to v2 involves finding enrollments and experiments that
-    /// don't contain all the feature_id stuff they should and discuarding.
+    /// don't contain all the feature_id stuff they should and discarding.
     fn test_migrate_v1_to_v2() -> Result<()> {
         let experiment_with_feature = json!({
             "schemaVersion": "1.0.0",
@@ -964,6 +960,7 @@ mod test_schema_bw_compat {
         );
 
         use tempdir::TempDir;
+        use enrollment::ExperimentEnrollment;
 
         let mock_client_id = "client-1".to_string();
 
