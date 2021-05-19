@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, LoginStore, MigrationMetrics};
+use crate::db::{LoginDb, LoginsSyncEngine, MigrationMetrics};
 use crate::error::*;
 use crate::login::Login;
 use std::cell::Cell;
@@ -125,15 +125,15 @@ impl PasswordStore {
 
         let mut disk_cached_state = self.db.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.take();
-        let store = LoginStore::new(&self.db);
+        let engine = LoginsSyncEngine::new(&self.db);
 
         let mut result = sync_multiple(
-            &[&store],
+            &[&engine],
             &mut disk_cached_state,
             &mut mem_cached_state,
             storage_init,
             root_sync_key,
-            &store.scope,
+            &engine.scope,
             None,
         );
         // We always update the state - sync_multiple does the right thing
