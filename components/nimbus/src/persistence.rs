@@ -274,7 +274,10 @@ impl Database {
                 match self.migrate_v1_to_v2(&mut writer) {
                     Ok(_) => (),
                     Err(e) => {
-                        log::error!("Error migrating database v1 to v2: {:?}.  Wiping everything.", e);
+                        log::error!(
+                            "Error migrating database v1 to v2: {:?}.  Wiping everything.",
+                            e
+                        );
 
                         // XXX I feel like I must be missing something obvious
                         // here, but how to test this clause doesn't jump out
@@ -332,8 +335,7 @@ impl Database {
         let reader = self.read()?;
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
-        let experiments: Vec<Experiment> =
-            self.experiment_store.try_collect_all(&reader)?;
+        let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
 
         // figure out which enrollments have records that need to be dropped
         // and log that we're going to drop them and why
