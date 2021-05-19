@@ -1262,8 +1262,7 @@ mod tests {
             .into_iter()
             .map(|e| {
                 let e_json = serde_json::to_value::<Experiment>(e).unwrap();
-                let mut e_slug: String = String::new();
-                e_slug.push_str(e_json.get("slug").unwrap().as_str().unwrap());
+                let e_slug = e.slug.clone();
                 (e_slug, e_json)
             })
             .collect();
