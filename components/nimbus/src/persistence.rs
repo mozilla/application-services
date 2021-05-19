@@ -1234,7 +1234,12 @@ mod tests {
         // ... and enrollments
         let valid_feature_enrollments = &get_valid_feature_enrollments();
 
-        create_old_database(&tmp_dir, 1, valid_feature_experiments, valid_feature_enrollments)?;
+        create_old_database(
+            &tmp_dir,
+            1,
+            valid_feature_experiments,
+            valid_feature_enrollments,
+        )?;
 
         // force an upgrade & read in the upgraded database
         let db = Database::new(&tmp_dir).unwrap();
