@@ -1124,6 +1124,35 @@ mod tests {
         ]
     }
 
+    /// Create a database with an old database version number, and
+    /// populate it with the given experiments and enrollments.
+    fn create_old_database(tmp_dir: &TempDir, old_version: u16,
+                            experiments_json: &[serde_json::Value]) -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
+
+        meta_store.put(&mut writer, "db_version", &old_version)?;
+
+        // write out the experiments
+        for experiment in experiments_json {
+            // log::debug!("experiment = {:?}", experiment);
+            experiment_store.put(
+                &mut writer,
+                experiment["slug"].as_str().unwrap(),
+                experiment,
+            )?;
+        }
+
+        writer.commit()?;
+
+        Ok(())
+    }
+
     #[test]
     /// Migrating v1 to v2 involves finding enrollments that
     /// don't contain all the feature stuff they should and discarding.
@@ -1175,28 +1204,11 @@ mod tests {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2_enrollment_discarding")?;
 
-        let rkv = Database::open_rkv(&tmp_dir)?;
-        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-        let experiment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-        let mut writer = rkv.write()?;
-
-        meta_store.put(&mut writer, "db_version", &1)?;
-
         // write a bunch of invalid experiments
         let invalid_feature_experiments = &get_invalid_feature_experiments();
         assert_eq!(7, invalid_feature_experiments.len());
 
-        for experiment in invalid_feature_experiments {
-            // log::debug!("experiment = {:?}", experiment);
-            experiment_store.put(
-                &mut writer,
-                experiment["slug"].as_str().unwrap(),
-                experiment,
-            )?;
-        }
-
-        writer.commit()?;
+        create_old_database(&tmp_dir, 1, invalid_feature_experiments)?;
 
         let db = Database::new(&tmp_dir)?;
 
@@ -1261,8 +1273,8 @@ mod tests {
         let db_experiment_map: HashMap<String, serde_json::Value> = db_experiments
             .into_iter()
             .map(|e| {
-                let e_json = serde_json::to_value::<Experiment>(e).unwrap();
-                let e_slug = e.slug.clone();
+                let e_json = serde_json::to_value::<Experiment>(e.clone()).unwrap();
+                let e_slug = e.slug;
                 (e_slug, e_json)
             })
             .collect();
