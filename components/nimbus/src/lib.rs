@@ -959,8 +959,8 @@ mod test_schema_bw_compat {
             }
         );
 
-        use tempdir::TempDir;
         use enrollment::ExperimentEnrollment;
+        use tempdir::TempDir;
 
         let mock_client_id = "client-1".to_string();
 

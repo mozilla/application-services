@@ -181,9 +181,7 @@ impl SingleStore {
 
     /// Fork of collect_all that simply drops records that fail to read
     /// rather than simply returning an error up the stack.  This likely
-    /// wants to be just a parameter to collect_all, but
-    /// for now....
-    ///
+    /// wants to be just a parameter to collect_all, but for now....
     pub fn try_collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
     where
         R: Readable<'r>,
@@ -283,9 +281,8 @@ impl Database {
                         // here, but how to test this clause doesn't jump out
                         // at me.  The ways I've thought of so far to cause
                         // errors would either be caught in open_rkv or one of
-                        // the other clauses in this function, or
-                        // discarded with a warning in try_collect_all.
-                        // Suggestions?
+                        // the other clauses in this function, or discarded
+                        // with a warning in try_collect_all.
                         self.meta_store.clear(&mut writer)?;
                         self.experiment_store.clear(&mut writer)?;
                         self.enrollment_store.clear(&mut writer)?;
@@ -329,9 +326,8 @@ impl Database {
         log::info!("Upgrading from version 1 to version 2");
 
         // use try_collect_all to read everything except records that serde
-        // returns deserialization errors on.
-        //
-        // XXX better error logging from try_collect_all would be wonderful
+        // returns deserialization errors on.  Some logging of those errors
+        // happens, but it's not ideal.
         let reader = self.read()?;
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
@@ -602,12 +598,9 @@ mod tests {
         Ok(())
     }
 
-    // XXX secure-gold has some fields. We should also have experiments all
-    // current fields, minimum set of current fields (eg all optional fields
-    // not given) and maybe similar for some older schema version, eg 1.0?  In
-    // some ideal world, we'd cover all the different versions, but that's not
-    // practical given the time we've got.
-    //
+    // XXX secure-gold has some fields. Ideally, we would also have an
+    // experiment with all current fields set, and another with almost no
+    // optional fields set
     fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
         vec![
             json!({
@@ -1044,17 +1037,20 @@ mod tests {
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
             }),
             // XXX We should probably just allow branch-feature-values to be
-            // non-existent and delete this clause, because the value field itself can
-            // be {}, and the FeatureConfig definition of `value` (see enrollment.rs) uses
-            // #[serde(default)] on (presumably to cope with the {}).
+            // non-existent and delete this clause, because the value field
+            // itself can be {}, and the FeatureConfig definition of `value`
+            // (see enrollment.rs) uses #[serde(default)] on (presumably to
+            // cope with the {}).  I believe this strategy should be fine,
+            // regardless of what branch-feature-values are out there in the
+            // wild.
             //
-            // It's also not clear how one would easily tell the two cases apart
-            // in the migrator code anyhow without removing the
+            // It's also not clear how one would easily tell the two cases
+            // apart in the migrator code anyhow without removing the
             // #[serde(default)].  @jhugman, your thoughts?
             //
             // json!({
             //     "schemaVersion": "1.0.0",
-            //     "slug": "branch-feature-value-missing", // change when cloning // XXX verify that we really to discard these and that there aren't any live experiments with have this problem.  If so, clean up all remaining experiments in this list
+            //     "slug": "branch-feature-value-missing", // change when cloning
             //     "endDate": null,
             //     "featureIds": ["ggg"], // change when cloning
             //     "branches":[
@@ -1064,7 +1060,7 @@ mod tests {
             //             "feature": {
             //                 "featureId": "ggg", // change when cloning
             //                 "enabled": false,
-            //                 "valud": {}
+            //                 "value": {}
             //             }
             //         },
             //         {
@@ -1130,7 +1126,7 @@ mod tests {
 
     #[test]
     /// Migrating v1 to v2 involves finding enrollments that
-    /// don't contain all the feature_id stuff they should and discarding.
+    /// don't contain all the feature stuff they should and discarding.
     fn test_migrate_v1_to_v2_enrollment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
@@ -1173,7 +1169,7 @@ mod tests {
     }
 
     /// Migrating v1 to v2 involves finding experiments that
-    /// don't contain all the feature_id stuff they should and discuarding.
+    /// don't contain all the feature stuff they should and discarding.
     #[test]
     fn test_migrate_v1_to_v2_experiment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
@@ -1259,7 +1255,9 @@ mod tests {
         let db = Database::new(&tmp_dir).unwrap();
 
         let db_experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
-        // XXX hoist into build_map function
+        // XXX hoist into build_map function (we build maps because they
+        // compensate for the fact that iters don't return things in a
+        // deterministic order).
         let db_experiment_map: HashMap<String, serde_json::Value> = db_experiments
             .into_iter()
             .map(|e| {
@@ -1270,7 +1268,6 @@ mod tests {
             })
             .collect();
 
-        // XXX add comment about why we're using hashmaps -- because iter is non-deterministic order
         // XXX hoist into build_map function
         let orig_experiment_map: HashMap<String, serde_json::Value> = valid_feature_experiments
             .iter()
@@ -1282,8 +1279,9 @@ mod tests {
             })
             .collect();
 
+        // The original json should be the same as data that's gone through
+        // migration, put into the rust structs again, and pulled back out.
         assert_json_eq!(&orig_experiment_map, &db_experiment_map);
-        // "original experiment json should be the same as data that's gone through migration, put into the rust structs again, and pulled back out.");
         // log::debug!("db_experiments = {:?}", &db_experiment_map);
 
         let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
@@ -1310,15 +1308,18 @@ mod tests {
             })
             .collect();
 
+        // The original json should be the same as data that's gone through
+        // migration, put into the rust structs again, and pulled back out.
         assert_json_eq!(&orig_enrollments, &db_enrollments);
         // log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())
     }
 
-    // XXX Write test to ensure that anytime one of (enrollment, experiment)
-    // an invalid featureAPI issue, both the experiment and the enrollment are
-    // removed from their respective stores so we don't have any weird orphans
+    // XXX Ideally, we would also write test to ensure that anytime one of
+    // (enrollment, experiment) an invalid featureAPI issue, both the
+    // experiment and the enrollment are removed from their respective stores
+    // so we don't have any weird orphans
 }
 
 // TODO: Add unit tests
