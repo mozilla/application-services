@@ -1272,8 +1272,7 @@ mod tests {
             .iter()
             .map(|e_ref| {
                 let e = e_ref.clone();
-                let mut e_slug: String = String::new();
-                e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
+                let e_slug = e.get("slug").unwrap().as_str().unwrap().to_string();
                 (e_slug, e)
             })
             .collect();
