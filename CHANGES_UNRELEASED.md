@@ -13,4 +13,12 @@
 
  - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
 
+### ⚠️ Breaking changes ⚠️
+- The experiment database will be migrating from version 1 to version 2 on
+  first run.  Various kinds of incorrectly specified feature and featureId
+  related fields will be detected, and any related experiments/enrollments will
+  be discarded.  If there is an error during the database upgrade, the database
+  will be wiped, since losing existing enrollments is still less bad than
+  having the database in an unknown inconsistent state.
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...main)
