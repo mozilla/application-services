@@ -167,7 +167,7 @@ class NimbusTest {
         nimbus.setUpTestExperiments(packageName, appInfo)
 
         // Record the exposure event in Glean
-        nimbus.recordExposureOnThisThread("test-feature")
+        nimbus.recordExposureOnThisThread("about_welcome")
 
         // Attempt to record an event for a non-existent or feature we are not enrolled in an
         // experiment in to ensure nothing is recorded.
@@ -204,7 +204,6 @@ class NimbusTest {
                       }
                     }
                   ],
-                  "featureIds": ["test-feature"],
                   "probeSets": [],
                   "startDate": null,
                   "appName": "${appInfo.appName}",
@@ -239,7 +238,7 @@ class NimbusTest {
     }
 
     @Test
-    fun `Smoke test— receiving JSON features`() {
+    fun `Smoke test receiving JSON features`() {
         nimbus.setUpTestExperiments(packageName, appInfo)
         // The test experiment has exactly one branch with 100% enrollment
         // We should be able to get feature variables for the feature in this

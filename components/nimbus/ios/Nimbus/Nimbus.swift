@@ -49,8 +49,16 @@ private extension Nimbus {
 // Glean integration
 internal extension Nimbus {
     func recordExposure(_ featureId: String) {
+        // First we need a list of the active experiments that are enrolled.
         let activeExperiments = getActiveExperiments()
+
+        // Next, we search for any experiment that has a matching featureId. This depends on the
+        // fact that we can only be enrolled in a single experiment per feature, so there should
+        // only ever be zero or one experiments for a given featureId.
         if let experiment = activeExperiments.first(where: { $0.featureIds.contains(featureId) }) {
+            // Finally, if we do have an experiment for the given featureId, we will record the
+            // exposure event in Glean. This is to protect against accidentally recording an event
+            // for an experiment without an active enrollment.
             GleanMetrics.NimbusEvents.exposure.record(extra: [
                 .experiment: experiment.slug,
                 .branch: experiment.branchSlug,
@@ -184,10 +192,15 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
     }
 
-    public func getVariables(featureId: String) -> Variables {
+    public func getVariables(featureId: String, recordExposureEvent: Bool) -> Variables {
         guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
             return NilVariables.instance
         }
+
+        if recordExposureEvent {
+            recordExposure(featureId)
+        }
+
         return JSONVariables(with: json)
     }
 
@@ -300,7 +313,7 @@ public extension NimbusDisabled {
         return nil
     }
 
-    func getVariables(featureId _: String) -> Variables {
+    func getVariables(featureId _: String, recordExposureEvent _: Bool) -> Variables {
         return NilVariables.instance
     }
 
@@ -320,7 +333,7 @@ public extension NimbusDisabled {
 
     func resetTelemetryIdentifiers() {}
 
-    func recordExposureEvent(featureId: String) {}
+    func recordExposureEvent(featureId _: String) {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil
