@@ -276,6 +276,13 @@ impl Database {
                     Err(e) => {
                         log::error!("Error migrating database v1 to v2: {:?}.  Wiping everything.", e);
 
+                        // XXX I feel like I must be missing something obvious
+                        // here, but how to test this clause doesn't jump out
+                        // at me.  The ways I've thought of so far to cause
+                        // errors would either be caught in open_rkv or one of
+                        // the other clauses in this function, or
+                        // discarded with a warning in try_collect_all.
+                        // Suggestions?
                         self.meta_store.clear(&mut writer)?;
                         self.experiment_store.clear(&mut writer)?;
                         self.enrollment_store.clear(&mut writer)?;
