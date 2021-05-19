@@ -1142,6 +1142,8 @@ mod tests {
             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
         let mut writer = rkv.write()?;
 
+        meta_store.put(&mut writer, "db_version", &old_version)?;
+
         // write out the enrollments
         for enrollment_json in enrollments_json {
             //log::debug!("enrollment = {:?}", enrollment);
@@ -1152,15 +1154,13 @@ mod tests {
             )?;
         }
 
-        meta_store.put(&mut writer, "db_version", &old_version)?;
-
         // write out the experiments
-        for enrollment_json in experiments_json {
+        for experiment_json in experiments_json {
             // log::debug!("experiment = {:?}", experiment);
             experiment_store.put(
                 &mut writer,
-                enrollment_json["slug"].as_str().unwrap(),
-                enrollment_json,
+                experiment_json["slug"].as_str().unwrap(),
+                experiment_json,
             )?;
         }
 
