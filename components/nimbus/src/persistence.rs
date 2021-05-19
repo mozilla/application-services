@@ -180,8 +180,8 @@ impl SingleStore {
     }
 
     /// Fork of collect_all that simply drops records that fail to read
-    /// rather than returning an Err up the stack in lieu of any records at
-    /// all.  This likely wants to be just a parameter to collect_all, but
+    /// rather than simply returning an error up the stack.  This likely
+    /// wants to be just a parameter to collect_all, but
     /// for now....
     ///
     pub fn try_collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
@@ -271,95 +271,7 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
-                log::info!("Upgrading from version 1 to version 2");
-                // XXX how do we handle errors?
-
-                // iterate enrollments, with collect_all.
-                // XXX later shift it to collect_all_json
-                let reader = self.read()?;
-                let enrollments: Vec<ExperimentEnrollment> =
-                    self.enrollment_store.try_collect_all(&reader)?;
-                let experiments: Vec<Experiment> =
-                    self.experiment_store.try_collect_all(&reader)?;
-
-                let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
-                    .iter()
-                    .filter_map(
-                            |e| {
-                        if matches!(e.status, EnrollmentStatus::Enrolled {ref feature_id, ..} if feature_id.is_empty()) {
-                            log::warn!("Enrollment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
-                            Some(e.slug.to_owned())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                // find slugs and split apart those missing
-                // feature_ids Vec
-                //
-                // XXX and later feature_id on branches, and
-                // feature fields)
-
-                let slugs_with_experiment_issues: HashSet<String> = experiments
-                    .iter()
-                    .filter_map(
-                            |e| {
-
-                        let branches_without_feature_props = e.branches.iter().find(|b| b.feature == None);
-                        if branches_without_feature_props != None {
-                            log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
-                            return Some(e.slug.to_owned());
-                        }
-
-                        let feature_objs_with_empty_feature_ids =
-                            e.branches.iter().find(|b| b.feature != None && b.feature.as_ref().unwrap().feature_id.is_empty());
-                        if feature_objs_with_empty_feature_ids != None {
-                            log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
-                            return Some(e.slug.to_owned());
-                        }
-
-                        let feature_ids_arrays_with_empty_strings =
-                            e.feature_ids.iter().find(|id| id.is_empty());
-                        if e.feature_ids.is_empty() || feature_ids_arrays_with_empty_strings != None {
-                            log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
-                            Some(e.slug.to_owned())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
-                    .union(&slugs_with_experiment_issues)
-                    .collect();
-
-                // filter out experiments to be dropped
-                let updated_experiments: Vec<Experiment> = experiments
-                    .into_iter()
-                    .filter(|e| !slugs_to_discard.contains(&e.slug))
-                    .collect();
-
-                // filter out enrollments to be dropped
-                let updated_enrollments: Vec<ExperimentEnrollment> = enrollments
-                    .into_iter()
-                    .filter(|e| !slugs_to_discard.contains(&e.slug))
-                    .collect();
-                log::debug!("updated enrollments = {:?}", updated_enrollments);
-
-                // rewrite stores
-                self.experiment_store.clear(&mut writer)?;
-                for experiment in updated_experiments {
-                    self.experiment_store
-                        .put(&mut writer, &experiment.slug, &experiment)?;
-                }
-
-                self.enrollment_store.clear(&mut writer)?;
-                for enrollment in updated_enrollments {
-                    self.enrollment_store
-                        .put(&mut writer, &enrollment.slug, &enrollment)?;
-                }
-                log::debug!("exiting v1 to v2 specific section of maybe_upgrade");
+                self.migrate_v1_to_v2(&mut writer)?;
             }
             None => {
                 // The "first" version of the database (= no version number) had un-migratable data
@@ -385,6 +297,105 @@ impl Database {
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
         log::debug!("transaction commited");
+        Ok(())
+    }
+
+    /// Migrates a v1 database to v2
+    ///
+    /// Note that any Err returns (including stuff propagated up via the ?
+    /// operator) will cause maybe_update to assume that this is unrecoverable
+    /// and wipe the database, removing people from any existing enrollments
+    /// and blowing away their experiment history.
+    fn migrate_v1_to_v2(&self, mut writer: &mut Writer) -> Result<()> {
+        log::info!("Upgrading from version 1 to version 2");
+
+        // use try_collect_all to read everything except records that serde
+        // returns deserialization errors on.
+        //
+        // XXX better error logging from try_collect_all would be wonderful
+        let reader = self.read()?;
+        let enrollments: Vec<ExperimentEnrollment> =
+            self.enrollment_store.try_collect_all(&reader)?;
+        let experiments: Vec<Experiment> =
+            self.experiment_store.try_collect_all(&reader)?;
+
+        // figure out which enrollments have records that need to be dropped
+        // and log that we're going to drop them and why
+        let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
+            .iter()
+            .filter_map(
+                    |e| {
+                if matches!(e.status, EnrollmentStatus::Enrolled {ref feature_id, ..} if feature_id.is_empty()) {
+                    log::warn!("Enrollment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // figure out which experiments have records that need to be dropped
+        // and log that we're going to drop them and why
+        let slugs_with_experiment_issues: HashSet<String> = experiments
+            .iter()
+            .filter_map(
+                    |e| {
+
+                let branches_without_feature_props = e.branches.iter().find(|b| b.feature == None);
+                if branches_without_feature_props != None {
+                    log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                    return Some(e.slug.to_owned());
+                }
+
+                let feature_objs_with_empty_feature_ids =
+                    e.branches.iter().find(|b| b.feature != None && b.feature.as_ref().unwrap().feature_id.is_empty());
+                if feature_objs_with_empty_feature_ids != None {
+                    log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                    return Some(e.slug.to_owned());
+                }
+
+                let feature_ids_arrays_with_empty_strings =
+                    e.feature_ids.iter().find(|id| id.is_empty());
+                if e.feature_ids.is_empty() || feature_ids_arrays_with_empty_strings != None {
+                    log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
+            .union(&slugs_with_experiment_issues)
+            .collect();
+
+        // filter out experiments to be dropped
+        let updated_experiments: Vec<Experiment> = experiments
+            .into_iter()
+            .filter(|e| !slugs_to_discard.contains(&e.slug))
+            .collect();
+        log::debug!("updated experiments = {:?}", updated_experiments);
+
+        // filter out enrollments to be dropped
+        let updated_enrollments: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| !slugs_to_discard.contains(&e.slug))
+            .collect();
+        log::debug!("updated enrollments = {:?}", updated_enrollments);
+
+        // rewrite both stores
+        self.experiment_store.clear(&mut writer)?;
+        for experiment in updated_experiments {
+            self.experiment_store
+                .put(&mut writer, &experiment.slug, &experiment)?;
+        }
+
+        self.enrollment_store.clear(&mut writer)?;
+        for enrollment in updated_enrollments {
+            self.enrollment_store
+                .put(&mut writer, &enrollment.slug, &enrollment)?;
+        }
+        log::debug!("exiting migrate_v1_to_v2");
+
         Ok(())
     }
 
