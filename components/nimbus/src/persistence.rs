@@ -271,7 +271,16 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
-                self.migrate_v1_to_v2(&mut writer)?;
+                match self.migrate_v1_to_v2(&mut writer) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        log::error!("Error migrating database v1 to v2: {:?}.  Wiping everything.", e);
+
+                        self.meta_store.clear(&mut writer)?;
+                        self.experiment_store.clear(&mut writer)?;
+                        self.enrollment_store.clear(&mut writer)?;
+                    }
+                };
             }
             None => {
                 // The "first" version of the database (= no version number) had un-migratable data
@@ -1196,8 +1205,6 @@ mod tests {
         Ok(())
     }
 
-    // XXX if we manage to round trip from structures, can we seed the other tests
-    // this way too?
     #[test]
     fn test_migrate_v1_to_v2_round_tripping_1() -> Result<()> {
         let _ = env_logger::try_init();
@@ -1302,9 +1309,6 @@ mod tests {
 
     // XXX Decide what we do if there is an error while upgrading, and test for
     // it
-
-    // XXX write a test that tests that only the invalids get discard discarded
-    // from combined lists of both valid and invalid enrollments and experiments.
 
     // XXX Write test to ensure that anytime one of (enrollment, experiment)
     // an invalid featureAPI issue, both the experiment and the enrollment are
