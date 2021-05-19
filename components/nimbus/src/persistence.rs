@@ -329,6 +329,10 @@ impl Database {
         // returns deserialization errors on.  Some logging of those errors
         // happens, but it's not ideal.
         let reader = self.read()?;
+
+        // XXX write a test later to see if need to gc any enrollments that
+        // don't have experiments because the experiments were discarded
+
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
         let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
@@ -671,40 +675,40 @@ mod tests {
                 // "outcomes": [], NOT CURRENTLY (YET?) IMPLEMENTED
                 "branches": [
                     {
-                    "slug": "default_browser_newtab_banner",
-                    "ratio": 100,
-                    "feature": {
-                        "featureId": "fenix-default-browser",
-                        "enabled": true,
-                        "value": {}
-                    }
+                        "slug": "default_browser_newtab_banner",
+                        "ratio": 100,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": true,
+                            "value": {}
+                        }
                     },
                     {
-                    "slug": "default_browser_settings_menu",
-                    "ratio": 100,
-                    "feature": {
-                        "featureId": "fenix-default-browser",
-                        "enabled": true,
-                        "value": {}
-                    }
+                        "slug": "default_browser_settings_menu",
+                        "ratio": 100,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": true,
+                            "value": {}
+                        }
                     },
                     {
-                    "slug": "default_browser_toolbar_menu",
-                    "ratio": 100,
-                    "feature": {
-                        "featureId": "fenix-default-browser",
-                        "enabled": true,
-                        "value": {}
-                    }
+                        "slug": "default_browser_toolbar_menu",
+                        "ratio": 100,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": true,
+                            "value": {}
+                        }
                     },
                     {
-                    "slug": "control",
-                    "ratio": 1,
-                    "feature": {
-                        "featureId": "fenix-default-browser",
-                        "enabled": false,
-                        "value": {}
-                    }
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": false,
+                            "value": {}
+                        }
                     }
                 ],
                 "targeting": "true",
@@ -1139,14 +1143,14 @@ mod tests {
         let experiment_store =
             SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
         let enrollment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
         let mut writer = rkv.write()?;
 
         meta_store.put(&mut writer, "db_version", &old_version)?;
 
         // write out the experiments
         for experiment_json in experiments_json {
-            // log::debug!("experiment = {:?}", experiment);
+            // log::debug!("experiment_json = {:?}", experiment_json);
             experiment_store.put(
                 &mut writer,
                 experiment_json["slug"].as_str().unwrap(),
@@ -1156,7 +1160,7 @@ mod tests {
 
         // write out the enrollments
         for enrollment_json in enrollments_json {
-            //log::debug!("enrollment = {:?}", enrollment);
+            // log::debug!("enrollment_json = {:?}", enrollment_json);
             enrollment_store.put(
                 &mut writer,
                 enrollment_json["slug"].as_str().unwrap(),
@@ -1225,43 +1229,13 @@ mod tests {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_round_tripping")?;
 
-        let rkv = Database::open_rkv(&tmp_dir)?;
-        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
-        let experiment_store =
-            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
-        let enrollment_store =
-            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
-
-        let mut writer = rkv.write()?;
-
-        meta_store.put(&mut writer, "db_version", &1)?;
-
-        // write valid experiments
+        // write valid experiments & enrollments
         let valid_feature_experiments = &get_valid_feature_experiments();
-        for experiment_json in valid_feature_experiments {
-            // log::debug!("experiment = {:?}", experiment);
-            experiment_store.put(
-                &mut writer,
-                experiment_json["slug"].as_str().unwrap(),
-                experiment_json,
-            )?;
-        }
-
         // ... and enrollments
         let valid_feature_enrollments = &get_valid_feature_enrollments();
-        assert_eq!(1, valid_feature_enrollments.len());
-        for enrollment_json in valid_feature_enrollments {
-            // log::debug!("enrollment = {:?}", enrollment);
-            enrollment_store.put(
-                &mut writer,
-                enrollment_json["slug"].as_str().unwrap(),
-                enrollment_json,
-            )?;
-        }
 
-        writer.commit()?;
+        create_old_database(&tmp_dir, 1, valid_feature_experiments, valid_feature_enrollments)?;
 
-        // create_old_database(tmp_dir, 1, valid_feature_experiments, valid_feature_enrollments)?;
         // force an upgrade & read in the upgraded database
         let db = Database::new(&tmp_dir).unwrap();
 
