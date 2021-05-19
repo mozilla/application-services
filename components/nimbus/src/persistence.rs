@@ -269,6 +269,13 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
+
+                // XXX I feel like I must be missing something obvious here,
+                // but how to test the error-handling in this clause doesn't
+                // jump out at me.  The ways I've thought of so far to cause
+                // errors would either be caught in open_rkv or one of the
+                // other clauses in this function, or discarded with a warning
+                // in try_collect_all.
                 match self.migrate_v1_to_v2(&mut writer) {
                     Ok(_) => (),
                     Err(e) => {
@@ -277,15 +284,7 @@ impl Database {
                             e
                         );
 
-                        // XXX I feel like I must be missing something obvious
-                        // here, but how to test this clause doesn't jump out
-                        // at me.  The ways I've thought of so far to cause
-                        // errors would either be caught in open_rkv or one of
-                        // the other clauses in this function, or discarded
-                        // with a warning in try_collect_all.
-                        self.meta_store.clear(&mut writer)?;
-                        self.experiment_store.clear(&mut writer)?;
-                        self.enrollment_store.clear(&mut writer)?;
+                        self.clear_all_db_stores_except_updates(&mut writer)?;
                     }
                 };
             }
@@ -299,9 +298,7 @@ impl Database {
             }
             _ => {
                 log::error!("Unknown database version. Wiping everything.");
-                self.meta_store.clear(&mut writer)?;
-                self.experiment_store.clear(&mut writer)?;
-                self.enrollment_store.clear(&mut writer)?;
+                self.clear_all_db_stores_except_updates(&mut writer)?;
             }
         }
         // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
@@ -313,6 +310,13 @@ impl Database {
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
         log::debug!("transaction commited");
+        Ok(())
+    }
+
+    fn clear_all_db_stores_except_updates(&self, writer: &mut rkv::Writer<rkv::backend::SafeModeRwTransaction>) -> Result<(), NimbusError> {
+        self.meta_store.clear(writer)?;
+        self.experiment_store.clear(writer)?;
+        self.enrollment_store.clear(writer)?;
         Ok(())
     }
 
@@ -605,19 +609,19 @@ mod tests {
     // XXX secure-gold has some fields. Ideally, we would also have an
     // experiment with all current fields set, and another with almost no
     // optional fields set
-    fn get_valid_feature_experiments() -> Vec<serde_json::Value> {
+    fn db_v1_experiments_with_non_empty_features() -> Vec<serde_json::Value> {
         vec![
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "secure-gold", // change when cloning
+                "slug": "secure-gold", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["abc"], // change when cloning
+                "featureIds": ["abc"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
-                            "featureId": "abc", // change when cloning
+                            "featureId": "abc", // change when copy/pasting to make experiments
                             "enabled": false,
                             "value": {"color": "green"}
                         }
@@ -626,7 +630,7 @@ mod tests {
                         "slug": "treatment",
                         "ratio":1,
                         "feature": {
-                            "featureId": "abc", // change when cloning
+                            "featureId": "abc", // change when copy/pasting to make experiments
                             "enabled": true,
                             "value": {}
                         }
@@ -642,7 +646,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"secure-gold", // change when cloning
+                    "namespace":"secure-gold", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -724,8 +728,8 @@ mod tests {
         ]
     }
     /// Each of this should uniquely reference a single experiment returned
-    /// from get_valid_feature_experiments
-    fn get_valid_feature_enrollments() -> Vec<serde_json::Value> {
+    /// from get_db_v1_experiments_with_non_empty_features()
+    fn get_db_v1_enrollments_with_non_empty_features() -> Vec<serde_json::Value> {
         vec![json!(
             {
                 "slug": "secure-gold",
@@ -733,7 +737,7 @@ mod tests {
                     {
                         "Enrolled":
                             {
-                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189083", // change on cloning
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189083", // change when copy/pasting to make new
                                 "reason": "Qualified",
                                 "branch": "control",
                                 "feature_id": "abc" // change on cloning
@@ -743,19 +747,19 @@ mod tests {
         )]
     }
 
-    fn get_invalid_feature_experiments() -> Vec<serde_json::Value> {
+    fn get_db_v1_experiments_with_missing_feature_fields() -> Vec<serde_json::Value> {
         vec![
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "branch-feature-empty-obj", // change when cloning
+                "slug": "branch-feature-empty-obj", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["bbb"], // change when cloning
+                "featureIds": ["bbb"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
-                            "featureId": "bbb", // change when cloning
+                            "featureId": "bbb", // change when copy/pasting to make experiments
                             "enabled": false,
                             "value": {}
                         }
@@ -776,7 +780,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"branch-feature-empty-obj", // change when cloning
+                    "namespace":"branch-feature-empty-obj", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -787,9 +791,9 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "missing-branch-feature-clause", // change when cloning
+                "slug": "missing-branch-feature-clause", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["aaa"], // change when cloning
+                "featureIds": ["aaa"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
@@ -799,7 +803,7 @@ mod tests {
                         "slug": "treatment",
                         "ratio":1,
                         "feature": {
-                            "featureId": "aaa", // change when cloning
+                            "featureId": "aaa", // change when copy/pasting to make experiments
                             "enabled": true,
                             "value": {},
                         }
@@ -815,7 +819,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"empty-branch-feature-clause", // change when cloning
+                    "namespace":"empty-branch-feature-clause", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -826,15 +830,15 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "branch-feature-feature-id-missing", // change when cloning
+                "slug": "branch-feature-feature-id-missing", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["ccc"], // change when cloning
+                "featureIds": ["ccc"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
-                            "featureId": "ccc", // change when cloning
+                            "featureId": "ccc", // change when copy/pasting to make experiments
                             "enabled": false,
                             "value": {}
                         }
@@ -858,7 +862,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"branch-feature-feature-id-missing", // change when cloning
+                    "namespace":"branch-feature-feature-id-missing", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -869,15 +873,15 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "feature-ids-array-has-empty_string", // change when cloning
+                "slug": "feature-ids-array-has-empty_string", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": [""], // change when cloning
+                "featureIds": [""], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
-                            "featureId": "def", // change when cloning
+                            "featureId": "def", // change when copy/pasting to make experiments
                             "enabled": false,
                             "value": {},
                         }
@@ -886,7 +890,7 @@ mod tests {
                         "slug": "treatment",
                         "ratio":1,
                         "feature": {
-                            "featureId": "def", // change when cloning
+                            "featureId": "def", // change when copy/pasting to make experiments
                             "enabled": true,
                             "value": {}
                         }
@@ -902,7 +906,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"feature-ids-array-has-empty-string", // change when cloning
+                    "namespace":"feature-ids-array-has-empty-string", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -955,14 +959,14 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "missing-featureids-array", // change when cloning
+                "slug": "missing-featureids-array", // change when copy/pasting to make experiments
                 "endDate": null,
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
-                            "featureId": "about_welcome", // change when cloning
+                            "featureId": "about_welcome", // change when copy/pasting to make experiments
                             "enabled": false,
                             "value": {}
                         }
@@ -971,7 +975,7 @@ mod tests {
                         "slug": "treatment",
                         "ratio":1,
                         "feature": {
-                            "featureId": "about_welcome", // change when cloning
+                            "featureId": "about_welcome", // change when copy/pasting to make experiments
                             "enabled": true,
                             "value": {}
                         }
@@ -987,7 +991,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"valid-feature-experiment", // change when cloning
+                    "namespace":"valid-feature-experiment", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -998,15 +1002,15 @@ mod tests {
             }),
             json!({
                 "schemaVersion": "1.0.0",
-                "slug": "branch-feature-feature-id-empty", // change when cloning
+                "slug": "branch-feature-feature-id-empty", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": [""], // change when cloning
+                "featureIds": [""], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
                         "feature": {
-                            "featureId": "", // change when cloning
+                            "featureId": "", // change when copy/pasting to make experiments
                             "enabled": false,
                             "value": {},
                         }
@@ -1015,7 +1019,7 @@ mod tests {
                         "slug": "treatment",
                         "ratio":1,
                         "feature": {
-                            "featureId": "", // change when cloning
+                            "featureId": "", // change when copy/pasting to make experiments
                             "enabled": true,
                             "value": {},
                         }
@@ -1031,7 +1035,7 @@ mod tests {
                     "count":10_000,
                     "start":0,
                     "total":10_000,
-                    "namespace":"branch-feature-feature-id-empty", // change when cloning
+                    "namespace":"branch-feature-feature-id-empty", // change when copy/pasting to make experiments
                     "randomizationUnit":"nimbus_id"
                 },
                 "userFacingName":"Diagnostic test experiment",
@@ -1054,15 +1058,15 @@ mod tests {
             //
             // json!({
             //     "schemaVersion": "1.0.0",
-            //     "slug": "branch-feature-value-missing", // change when cloning
+            //     "slug": "branch-feature-value-missing", // change when copy/pasting to make experiments
             //     "endDate": null,
-            //     "featureIds": ["ggg"], // change when cloning
+            //     "featureIds": ["ggg"], // change when copy/pasting to make experiments
             //     "branches":[
             //         {
             //             "slug": "control",
             //             "ratio": 1,
             //             "feature": {
-            //                 "featureId": "ggg", // change when cloning
+            //                 "featureId": "ggg", // change when copy/pasting to make experiments
             //                 "enabled": false,
             //                 "value": {}
             //             }
@@ -1071,7 +1075,7 @@ mod tests {
             //             "slug": "treatment",
             //             "ratio":1,
             //             "feature": {
-            //                 "featureId": "ggg", // change when cloning
+            //                 "featureId": "ggg", // change when copy/pasting to make experiments
             //                 "enabled": true
             //             }
             //         }
@@ -1086,7 +1090,7 @@ mod tests {
             //         "count":10_000,
             //         "start":0,
             //         "total":10_000,
-            //         "namespace":"branch_feature_value_missing", // change when cloning
+            //         "namespace":"branch_feature_value_missing", // change when copy/pasting to make experiments
             //         "randomizationUnit":"nimbus_id"
             //     },
             //     "userFacingName":"Diagnostic test experiment",
@@ -1098,7 +1102,7 @@ mod tests {
         ]
     }
 
-    fn get_invalid_feature_enrollments() -> Vec<serde_json::Value> {
+    fn get_v1_enrollments_with_missing_feature_ids() -> Vec<serde_json::Value> {
         vec![
             json!({
                 "slug": "feature-id-missing",
@@ -1177,14 +1181,14 @@ mod tests {
     #[test]
     /// Migrating v1 to v2 involves finding enrollments that
     /// don't contain all the feature stuff they should and discarding.
-    fn test_migrate_v1_to_v2_enrollment_discarding() -> Result<()> {
+    fn test_migrate_db_v1_to_db_v2_enrollment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
 
         // write invalid enrollments
-        let invalid_feature_enrollments = &get_invalid_feature_enrollments();
+        let db_v1_enrollments_with_missing_feature_ids = &get_v1_enrollments_with_missing_feature_ids();
 
-        create_old_database(&tmp_dir, 1, &[], invalid_feature_enrollments)?;
+        create_old_database(&tmp_dir, 1, &[], db_v1_enrollments_with_missing_feature_ids)?;
         let db = Database::new(&tmp_dir)?;
 
         // The enrollments with invalid feature_ids should have been discarded
@@ -1202,15 +1206,14 @@ mod tests {
     /// Migrating v1 to v2 involves finding experiments that
     /// don't contain all the feature stuff they should and discarding.
     #[test]
-    fn test_migrate_v1_to_v2_experiment_discarding() -> Result<()> {
+    fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
-        let tmp_dir = TempDir::new("migrate_v1_to_v2_enrollment_discarding")?;
+        let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2_enrollment_discarding")?;
 
         // write a bunch of invalid experiments
-        let invalid_feature_experiments = &get_invalid_feature_experiments();
-        assert_eq!(7, invalid_feature_experiments.len());
+        let db_v1_experiments_with_missing_feature_fields= &get_db_v1_experiments_with_missing_feature_fields();
 
-        create_old_database(&tmp_dir, 1, invalid_feature_experiments, &[])?;
+        create_old_database(&tmp_dir, 1, db_v1_experiments_with_missing_feature_fields, &[])?;
 
         let db = Database::new(&tmp_dir)?;
 
@@ -1225,20 +1228,20 @@ mod tests {
     }
 
     #[test]
-    fn test_migrate_v1_to_v2_round_tripping_1() -> Result<()> {
+    fn test_migrate_db_v1_to_db_v2_round_tripping() -> Result<()> {
         let _ = env_logger::try_init();
         let tmp_dir = TempDir::new("migrate_round_tripping")?;
 
         // write valid experiments & enrollments
-        let valid_feature_experiments = &get_valid_feature_experiments();
+        let db_v1_experiments_with_non_empty_features = &db_v1_experiments_with_non_empty_features();
         // ... and enrollments
-        let valid_feature_enrollments = &get_valid_feature_enrollments();
+        let db1_v1_enrollments_with_non_empty_features = &get_db_v1_enrollments_with_non_empty_features();
 
         create_old_database(
             &tmp_dir,
             1,
-            valid_feature_experiments,
-            valid_feature_enrollments,
+            db_v1_experiments_with_non_empty_features,
+            db1_v1_enrollments_with_non_empty_features,
         )?;
 
         // force an upgrade & read in the upgraded database
@@ -1258,7 +1261,7 @@ mod tests {
             .collect();
 
         // XXX hoist into build_map function
-        let orig_experiment_map: HashMap<String, serde_json::Value> = valid_feature_experiments
+        let orig_experiment_map: HashMap<String, serde_json::Value> = db_v1_experiments_with_non_empty_features
             .iter()
             .map(|e_ref| {
                 let e = e_ref.clone();
@@ -1286,7 +1289,7 @@ mod tests {
             .collect();
 
         // XXX hoist into build_map function
-        let orig_enrollments: HashMap<String, serde_json::Value> = valid_feature_enrollments
+        let orig_enrollments: HashMap<String, serde_json::Value> = db1_v1_enrollments_with_non_empty_features
             .iter()
             .map(|e_ref| {
                 let e = e_ref.clone();
