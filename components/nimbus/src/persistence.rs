@@ -363,23 +363,12 @@ impl Database {
             .iter()
             .filter_map(
                     |e| {
-
-                let branches_without_feature_props = e.branches.iter().find(|b| b.feature == None);
-                if branches_without_feature_props != None {
+                let branch_with_empty_feature_ids =
+                    e.branches.iter().find(|b| b.feature.is_none() || b.feature.as_ref().unwrap().feature_id.is_empty());
+                if branch_with_empty_feature_ids.is_some() {
                     log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
-                    return Some(e.slug.to_owned());
-                }
-
-                let feature_objs_with_empty_feature_ids =
-                    e.branches.iter().find(|b| b.feature != None && b.feature.as_ref().unwrap().feature_id.is_empty());
-                if feature_objs_with_empty_feature_ids != None {
-                    log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
-                    return Some(e.slug.to_owned());
-                }
-
-                let feature_ids_arrays_with_empty_strings =
-                    e.feature_ids.iter().find(|id| id.is_empty());
-                if e.feature_ids.is_empty() || feature_ids_arrays_with_empty_strings != None {
+                    Some(e.slug.to_owned())
+                } else if e.feature_ids.is_empty() || e.feature_ids.contains(&empty_string) {
                     log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
                     Some(e.slug.to_owned())
                 } else {
