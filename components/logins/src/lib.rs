@@ -10,6 +10,7 @@ mod error;
 mod login;
 
 mod db;
+mod engine;
 pub mod schema;
 mod store;
 mod update_plan;
@@ -19,7 +20,7 @@ mod ffi;
 
 // Mostly exposed for the sync manager.
 pub use crate::db::LoginDb;
-pub use crate::db::LoginsSyncEngine;
+pub use crate::engine::LoginsSyncEngine;
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
