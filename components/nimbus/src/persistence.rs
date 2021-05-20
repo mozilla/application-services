@@ -525,7 +525,6 @@ impl Database {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert_json_diff::assert_json_eq;
     use serde_json::json;
     use std::collections::HashMap;
     use tempdir::TempDir;
@@ -1224,7 +1223,7 @@ mod tests {
 
         // The original json should be the same as data that's gone through
         // migration, put into the rust structs again, and pulled back out.
-        assert_json_eq!(&orig_experiment_map, &db_experiment_map);
+        assert_eq!(&orig_experiment_map, &db_experiment_map);
         // log::debug!("db_experiments = {:?}", &db_experiment_map);
 
         let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
@@ -1254,7 +1253,7 @@ mod tests {
 
         // The original json should be the same as data that's gone through
         // migration, put into the rust structs again, and pulled back out.
-        assert_json_eq!(&orig_enrollments, &db_enrollments);
+        assert_eq!(&orig_enrollments, &db_enrollments);
         // log::debug!("db_enrollments = {:?}", db_enrollments);
 
         Ok(())

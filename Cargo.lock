@@ -131,16 +131,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assert-json-diff"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "50f1c3703dd33532d7f0ca049168930e9099ecac238e23cf932f3a69c42f06da"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "atty"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1755,7 +1745,7 @@ version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a634720d366bcbce30fb05871a35da229cef101ad0b2ea4e46cf5abf031a273"
 dependencies = [
- "assert-json-diff 1.1.0",
+ "assert-json-diff",
  "colored",
  "difference",
  "httparse",
@@ -1825,7 +1815,6 @@ name = "nimbus-sdk"
 version = "0.10.0"
 dependencies = [
  "anyhow",
- "assert-json-diff 2.0.1",
  "clap",
  "env_logger",
  "hex",
