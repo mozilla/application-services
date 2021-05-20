@@ -315,10 +315,7 @@ impl Database {
         Ok(())
     }
 
-    fn clear_experiments_and_enrollments(
-        &self,
-        writer: &mut Writer,
-    ) -> Result<(), NimbusError> {
+    fn clear_experiments_and_enrollments(&self, writer: &mut Writer) -> Result<(), NimbusError> {
         self.experiment_store.clear(writer)?;
         self.enrollment_store.clear(writer)?;
         Ok(())
@@ -1385,9 +1382,11 @@ mod tests {
         let tmp_dir = TempDir::new("test_drop_experiments_wo_feature_id")?;
         let _ = env_logger::try_init();
 
-        create_old_database(&tmp_dir, 1,
+        create_old_database(
+            &tmp_dir,
+            1,
             &[experiment_with_feature, experiment_without_feature],
-            &[enrollment_with_feature, enrollment_without_feature]
+            &[enrollment_with_feature, enrollment_without_feature],
         )?;
 
         let db = Database::new(&tmp_dir)?;
