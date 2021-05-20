@@ -1184,14 +1184,14 @@ mod tests {
         let db_v1_experiments_with_non_empty_features =
             &db_v1_experiments_with_non_empty_features();
         // ... and enrollments
-        let db1_v1_enrollments_with_non_empty_features =
+        let db_v1_enrollments_with_non_empty_features =
             &get_db_v1_enrollments_with_non_empty_features();
 
         create_old_database(
             &tmp_dir,
             1,
             db_v1_experiments_with_non_empty_features,
-            db1_v1_enrollments_with_non_empty_features,
+            db_v1_enrollments_with_non_empty_features,
         )?;
 
         // force an upgrade & read in the upgraded database
@@ -1241,7 +1241,7 @@ mod tests {
 
         // XXX hoist into build_map function
         let orig_enrollments: HashMap<String, serde_json::Value> =
-            db1_v1_enrollments_with_non_empty_features
+            db_v1_enrollments_with_non_empty_features
                 .iter()
                 .map(|e_ref| {
                     let e = e_ref.clone();
