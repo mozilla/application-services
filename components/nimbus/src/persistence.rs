@@ -283,10 +283,10 @@ impl Database {
                         // again, rather than potentially repeating the upgrade
                         // over and over at each embedding client restart.
                         log::error!(
-                            "Error migrating database v1 to v2: {:?}.  Wiping everything.",
+                            "Error migrating database v1 to v2: {:?}.  Wiping experiments and enrollments",
                             e
                         );
-                        self.clear_all_db_stores_except_updates(&mut writer)?;
+                        self.clear_experiments_and_enrollments(&mut writer)?;
                     }
                 };
             }
@@ -295,12 +295,12 @@ impl Database {
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
                 // since nimbus wasn't really shipped to production at the time anyway.
-                self.experiment_store.clear(&mut writer)?;
-                self.enrollment_store.clear(&mut writer)?;
+                self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
                 log::error!("Unknown database version. Wiping everything.");
-                self.clear_all_db_stores_except_updates(&mut writer)?;
+                self.clear_experiments_and_enrollments(&mut writer)?;
+                self.meta_store.clear(&mut writer)?;
             }
         }
         // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
@@ -315,11 +315,10 @@ impl Database {
         Ok(())
     }
 
-    fn clear_all_db_stores_except_updates(
+    fn clear_experiments_and_enrollments(
         &self,
-        writer: &mut rkv::Writer<rkv::backend::SafeModeRwTransaction>,
+        writer: &mut Writer,
     ) -> Result<(), NimbusError> {
-        self.meta_store.clear(writer)?;
         self.experiment_store.clear(writer)?;
         self.enrollment_store.clear(writer)?;
         Ok(())
@@ -345,7 +344,7 @@ impl Database {
         // were discarded either during try_collect_all (these wouldn't have been
         // detected during the filtering phase) or during the filtering phase
         // itself.  The test needs to run evolve_experiments, as that should
-        // simply discard such orphans.
+        // correctly drop any orphans, even if the migrators aren't perfect.
 
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
@@ -675,7 +674,7 @@ mod tests {
                     "total": 10000
                 },
                 "probeSets": [],
-                // "outcomes": [], NOT CURRENTLY (YET?) IMPLEMENTED
+                // "outcomes": [], analysis specific, no need to round-trip
                 "branches": [
                     {
                         "slug": "default_browser_newtab_banner",
@@ -1123,11 +1122,13 @@ mod tests {
     }
 
     #[test]
-    /// Migrating v1 to v2 involves finding enrollments that
+    /// Migrating db v1 to db v2 involves finding enrollments that
     /// don't contain all the feature stuff they should and discarding.
+    /// It will also discard other experiments/enrollments with required
+    /// headers that are missing.
     fn test_migrate_db_v1_to_db_v2_enrollment_discarding() -> Result<()> {
         let _ = env_logger::try_init();
-        let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
+        let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2")?;
 
         // write invalid enrollments
         let db_v1_enrollments_with_missing_feature_ids =
@@ -1258,6 +1259,154 @@ mod tests {
         // migration, put into the rust structs again, and pulled back out.
         assert_eq!(&orig_enrollments, &db_enrollments);
         // log::debug!("db_enrollments = {:?}", db_enrollments);
+
+        Ok(())
+    }
+
+    /// Migrating db_v1 to db_v2 involves finding enrollments and experiments that
+    /// don't contain all the feature_id stuff they should and discarding.
+    #[test]
+    fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
+        let experiment_with_feature = json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "endDate": null,
+            "featureIds": ["about_welcome"],
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": false
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": true
+                    }
+                }
+            ],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        });
+
+        let enrollment_with_feature = json!(
+            {
+                "slug": "secure-gold",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": "about_welcome"
+                            }
+                        }
+                    }
+        );
+
+        let experiment_without_feature = json!(
+        {
+            "schemaVersion": "1.0.0",
+            "slug": "no-features",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                },
+                {
+                    "slug": "treatment",
+                    "ratio": 1,
+                }
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "channel":"nightly",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"no-features",
+            "last_modified":1_602_197_324_372i64
+        });
+
+        let enrollment_without_feature = json!(
+            {
+                "slug": "no-features",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                            }
+                    }
+            }
+        );
+
+        use tempdir::TempDir;
+
+        let tmp_dir = TempDir::new("test_drop_experiments_wo_feature_id")?;
+        let _ = env_logger::try_init();
+
+        create_old_database(&tmp_dir, 1,
+            &[experiment_with_feature, experiment_without_feature],
+            &[enrollment_with_feature, enrollment_without_feature]
+        )?;
+
+        let db = Database::new(&tmp_dir)?;
+
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        log::debug!("experiments = {:?}", experiments);
+
+        // The experiment without features should have been discarded, leaving
+        // us with only one.
+        assert_eq!(experiments.len(), 1);
+
+        let enrollments = db
+            .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+            .unwrap();
+        log::debug!("enrollments = {:?}", enrollments);
+
+        // The enrollment without features should have been discarded, leaving
+        // us with only one.
+        assert_eq!(enrollments.len(), 1);
 
         Ok(())
     }
