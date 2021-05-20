@@ -1036,61 +1036,6 @@ mod tests {
                 "proposedEnrollment":7,
                 "userFacingDescription":"This is a test experiment for diagnostic purposes.",
             }),
-            // XXX We should probably just allow branch-feature-values to be
-            // non-existent and delete this clause, because the value field
-            // itself can be {}, and the FeatureConfig definition of `value`
-            // (see enrollment.rs) uses #[serde(default)] on (presumably to
-            // cope with the {}).  I believe this strategy should be fine,
-            // regardless of what branch-feature-values are out there in the
-            // wild.
-            //
-            // It's also not clear how one would easily tell the two cases
-            // apart in the migrator code anyhow without removing the
-            // #[serde(default)].  @jhugman, your thoughts?
-            //
-            // json!({
-            //     "schemaVersion": "1.0.0",
-            //     "slug": "branch-feature-value-missing", // change when copy/pasting to make experiments
-            //     "endDate": null,
-            //     "featureIds": ["ggg"], // change when copy/pasting to make experiments
-            //     "branches":[
-            //         {
-            //             "slug": "control",
-            //             "ratio": 1,
-            //             "feature": {
-            //                 "featureId": "ggg", // change when copy/pasting to make experiments
-            //                 "enabled": false,
-            //                 "value": {}
-            //             }
-            //         },
-            //         {
-            //             "slug": "treatment",
-            //             "ratio":1,
-            //             "feature": {
-            //                 "featureId": "ggg", // change when copy/pasting to make experiments
-            //                 "enabled": true
-            //             }
-            //         }
-            //     ],
-            //     "channel": "nightly",
-            //     "probeSets":[],
-            //     "startDate":null,
-            //     "appName": "fenix",
-            //     "appId": "org.mozilla.fenix",
-            //     "bucketConfig":{
-            //         // Setup to enroll everyone by default.
-            //         "count":10_000,
-            //         "start":0,
-            //         "total":10_000,
-            //         "namespace":"branch_feature_value_missing", // change when copy/pasting to make experiments
-            //         "randomizationUnit":"nimbus_id"
-            //     },
-            //     "userFacingName":"Diagnostic test experiment",
-            //     "referenceBranch":"control",
-            //     "isEnrollmentPaused":false,
-            //     "proposedEnrollment":7,
-            //     "userFacingDescription":"This is a test experiment for diagnostic purposes.",
-            // }),
         ]
     }
 
