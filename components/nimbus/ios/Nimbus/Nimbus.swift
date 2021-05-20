@@ -47,10 +47,18 @@ private extension Nimbus {
 }
 
 // Glean integration
-internal extension Nimbus {
-    func recordExposure(experimentId: String) {
+extension Nimbus: NimbusTelemetryConfiguration {
+    public func recordExposureEvent(featureId: String) {
+        // First we need a list of the active experiments that are enrolled.
         let activeExperiments = getActiveExperiments()
-        if let experiment = activeExperiments.first(where: { $0.slug == experimentId }) {
+
+        // Next, we search for any experiment that has a matching featureId. This depends on the
+        // fact that we can only be enrolled in a single experiment per feature, so there should
+        // only ever be zero or one experiments for a given featureId.
+        if let experiment = activeExperiments.first(where: { $0.featureIds.contains(featureId) }) {
+            // Finally, if we do have an experiment for the given featureId, we will record the
+            // exposure event in Glean. This is to protect against accidentally recording an event
+            // for an experiment without an active enrollment.
             GleanMetrics.NimbusEvents.exposure.record(extra: [
                 .experiment: experiment.slug,
                 .branch: experiment.branchSlug,
@@ -59,7 +67,7 @@ internal extension Nimbus {
         }
     }
 
-    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
+    internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
         // We need to update the experiment enrollment annotations in Glean
         // regardless of whether we recieved any events. Calling the
         // `setExperimentActive` function multiple times with the same
@@ -77,7 +85,7 @@ internal extension Nimbus {
         }
     }
 
-    func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
+    internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
         for experiment in experiments {
             Glean.shared.setExperimentActive(
                 experimentId: experiment.slug,
@@ -87,7 +95,7 @@ internal extension Nimbus {
         }
     }
 
-    func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
+    internal func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
         for event in events {
             switch event.change {
             case .enrollment:
@@ -184,10 +192,15 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
     }
 
-    public func getVariables(featureId: String) -> Variables {
+    public func getVariables(featureId: String, recordExposureEvent: Bool = true) -> Variables {
         guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
             return NilVariables.instance
         }
+
+        if recordExposureEvent {
+            self.recordExposureEvent(featureId: featureId)
+        }
+
         return JSONVariables(with: json)
     }
 }
@@ -296,7 +309,7 @@ public extension NimbusDisabled {
         return nil
     }
 
-    func getVariables(featureId _: String) -> Variables {
+    func getVariables(featureId _: String, recordExposureEvent _: Bool) -> Variables {
         return NilVariables.instance
     }
 
@@ -315,6 +328,8 @@ public extension NimbusDisabled {
     func optIn(_: String, branch _: String) {}
 
     func resetTelemetryIdentifiers() {}
+
+    func recordExposureEvent(featureId _: String) {}
 
     func getExperimentBranches(_: String) -> [Branch]? {
         return nil

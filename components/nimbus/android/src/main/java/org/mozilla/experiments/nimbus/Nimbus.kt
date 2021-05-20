@@ -79,8 +79,23 @@ interface NimbusInterface {
      */
     fun getExperimentBranches(experimentId: String): List<Branch>? = listOf()
 
+    /**
+     * Get the variables needed to configure the feature given by `featureId`.
+     *
+     * @param featureId The string feature id that identifies to the feature under experiment.
+     *
+     * @param recordExposureEvent Passing `true` to this parameter will record the exposure event
+     *      automatically if the client is enrolled in an experiment for the given [featureId].
+     *      Passing `false` here indicates that the application will manually record the exposure
+     *      event by calling the `recordExposureEvent` function at the time of the exposure to the
+     *      feature.
+     *
+     * See [recordExposureEvent] for more information on manually recording the event.
+     *
+     * @return a [Variables] object used to configure the feature.
+     */
     @AnyThread
-    fun getVariables(featureId: String): Variables = NullVariables.instance
+    fun getVariables(featureId: String, recordExposureEvent: Boolean = true): Variables = NullVariables.instance
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -155,6 +170,34 @@ interface NimbusInterface {
      *  consuming application, such as by opting out of (or in to) submitting telemetry.
      */
     fun resetTelemetryIdentifiers() = Unit
+
+    /**
+     * Records the `exposure` event in telemetry.
+     *
+     * This is a manual function to accomplish the same purpose as passing `true` as the
+     * `recordExposureEvent` property of the [getVariables] function. It is intended to be used
+     * when requesting feature variables must occur at a different time than the actual user's
+     * exposure to the feature within the app.
+     *
+     * Examples:
+     * * If the [Variables] are needed at a different time than when the exposure to the feature
+     *   actually happens, such as constructing a menu happening at a different time than the user
+     *   seeing the menu.
+     * * If [getVariables] is required to be called multiple times for the same feature and it is
+     *   desired to only record the exposure once, such as if [getVariables] were called with every
+     *   keystroke.
+     *
+     * In the case where the use of this function is required, then the [getVariables] function
+     * should be called with `false` so that the exposure event is not recorded when the variables
+     * are fetched.
+     *
+     * This function is safe to call even when there is no active experiment for the feature. The SDK
+     * will ensure that an event is only recorded for active experiments.
+     *
+     * @param featureId string representing the id of the feature for which to record the exposure
+     *     event.
+     */
+    fun recordExposureEvent(featureId: String) = Unit
 
     /**
      * Control the opt out for all experiments at once. This is likely a user action.
@@ -319,12 +362,14 @@ open class Nimbus(
         }
 
     override fun getExperimentBranch(experimentId: String): String? {
-        recordExposure(experimentId)
         return nimbusClient.getExperimentBranch(experimentId)
     }
 
-    override fun getVariables(featureId: String): Variables =
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
         getFeatureConfigVariablesJson(featureId)?.let { json ->
+            if (recordExposureEvent) {
+                recordExposure(featureId)
+            }
             JSONVariables(context, json)
         }
         ?: NullVariables.instance
@@ -470,6 +515,10 @@ open class Nimbus(
         }
     }
 
+    override fun recordExposureEvent(featureId: String) {
+        recordExposure(featureId)
+    }
+
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     internal fun recordExperimentTelemetry(experiments: List<EnrolledExperiment>) {
         // Call Glean.setExperimentActive() for each active experiment.
@@ -510,9 +559,9 @@ open class Nimbus(
     }
 
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
-    internal fun recordExposure(experimentId: String) {
+    internal fun recordExposure(featureId: String) {
         dbScope.launch {
-            recordExposureOnThisThread(experimentId)
+            recordExposureOnThisThread(featureId)
         }
     }
 
@@ -520,9 +569,9 @@ open class Nimbus(
     // for a "control" branch) is applied or shown to the user.
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
     @WorkerThread
-    internal fun recordExposureOnThisThread(experimentId: String) = withCatchAll {
+    internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
-        activeExperiments.find { it.slug == experimentId }?.also { experiment ->
+        activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
             NimbusEvents.exposure.record(mapOf(
                 NimbusEvents.exposureKeys.experiment to experiment.slug,
                 NimbusEvents.exposureKeys.branch to experiment.branchSlug,

@@ -16,6 +16,7 @@ import mozilla.components.service.glean.config.Configuration
 import mozilla.components.service.glean.net.ConceptFetchHttpUploader
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -166,10 +167,13 @@ class NimbusTest {
         // because recordExposure checks for active experiments before recording.
         nimbus.setUpTestExperiments(packageName, appInfo)
 
-        // Record the exposure event in Glean
-        nimbus.recordExposureOnThisThread("test-experiment")
+        // Assert that there are no events to start with
+        assertFalse("There must not be any pre-existing events", NimbusEvents.exposure.testHasValue())
 
-        // Use the Glean test API to check the recorded event
+        // Record a valid exposure event in Glean that matches the featureId from the test experiment
+        nimbus.recordExposureOnThisThread("about_welcome")
+
+        // Use the Glean test API to check that the valid event is present
         assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
         val enrollmentEvents = NimbusEvents.exposure.testGetValue()
         assertEquals("Event count must match", enrollmentEvents.count(), 1)
@@ -177,6 +181,20 @@ class NimbusTest {
         assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
         assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+
+        // Attempt to record an event for a non-existent or feature we are not enrolled in an
+        // experiment in to ensure nothing is recorded.
+        nimbus.recordExposureOnThisThread("not-a-feature")
+
+        // Verify the invalid event was ignored by checking again that the valid event is still the only
+        // event, and that it hasn't changed any of its extra properties.
+        assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
+        val enrollmentEventsTryTwo = NimbusEvents.exposure.testGetValue()
+        assertEquals("Event count must match", enrollmentEventsTryTwo.count(), 1)
+        val enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first().extra!!
+        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtrasTryTwo["experiment"])
+        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtrasTryTwo["branch"])
+        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtrasTryTwo["enrollment_id"])
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
@@ -234,7 +252,7 @@ class NimbusTest {
     }
 
     @Test
-    fun `Smoke test— receiving JSON features`() {
+    fun `Smoke test receiving JSON features`() {
         nimbus.setUpTestExperiments(packageName, appInfo)
         // The test experiment has exactly one branch with 100% enrollment
         // We should be able to get feature variables for the feature in this
