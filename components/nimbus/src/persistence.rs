@@ -202,7 +202,10 @@ impl SingleStore {
                             "try_collect_all: discarded a record while deserializing with: {:?}",
                             e
                         );
-                        log::warn!("try_collect_all:   data that failed to deserialize: {:?}", data);
+                        log::warn!(
+                            "try_collect_all:   data that failed to deserialize: {:?}",
+                            data
+                        );
                     }
                 };
             }
@@ -270,7 +273,6 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
-
                 // XXX I feel like I must be missing something obvious here,
                 // but how to test the error-handling in this clause doesn't
                 // jump out at me.  The ways I've thought of so far to cause
@@ -314,7 +316,10 @@ impl Database {
         Ok(())
     }
 
-    fn clear_all_db_stores_except_updates(&self, writer: &mut rkv::Writer<rkv::backend::SafeModeRwTransaction>) -> Result<(), NimbusError> {
+    fn clear_all_db_stores_except_updates(
+        &self,
+        writer: &mut rkv::Writer<rkv::backend::SafeModeRwTransaction>,
+    ) -> Result<(), NimbusError> {
         self.meta_store.clear(writer)?;
         self.experiment_store.clear(writer)?;
         self.enrollment_store.clear(writer)?;
@@ -1123,7 +1128,8 @@ mod tests {
         let tmp_dir = TempDir::new("migrate_v1_to_v2")?;
 
         // write invalid enrollments
-        let db_v1_enrollments_with_missing_feature_ids = &get_v1_enrollments_with_missing_feature_ids();
+        let db_v1_enrollments_with_missing_feature_ids =
+            &get_v1_enrollments_with_missing_feature_ids();
 
         create_old_database(&tmp_dir, 1, &[], db_v1_enrollments_with_missing_feature_ids)?;
         let db = Database::new(&tmp_dir)?;
@@ -1148,9 +1154,15 @@ mod tests {
         let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2_enrollment_discarding")?;
 
         // write a bunch of invalid experiments
-        let db_v1_experiments_with_missing_feature_fields= &get_db_v1_experiments_with_missing_feature_fields();
+        let db_v1_experiments_with_missing_feature_fields =
+            &get_db_v1_experiments_with_missing_feature_fields();
 
-        create_old_database(&tmp_dir, 1, db_v1_experiments_with_missing_feature_fields, &[])?;
+        create_old_database(
+            &tmp_dir,
+            1,
+            db_v1_experiments_with_missing_feature_fields,
+            &[],
+        )?;
 
         let db = Database::new(&tmp_dir)?;
 
@@ -1170,9 +1182,11 @@ mod tests {
         let tmp_dir = TempDir::new("migrate_round_tripping")?;
 
         // write valid experiments & enrollments
-        let db_v1_experiments_with_non_empty_features = &db_v1_experiments_with_non_empty_features();
+        let db_v1_experiments_with_non_empty_features =
+            &db_v1_experiments_with_non_empty_features();
         // ... and enrollments
-        let db1_v1_enrollments_with_non_empty_features = &get_db_v1_enrollments_with_non_empty_features();
+        let db1_v1_enrollments_with_non_empty_features =
+            &get_db_v1_enrollments_with_non_empty_features();
 
         create_old_database(
             &tmp_dir,
@@ -1198,14 +1212,15 @@ mod tests {
             .collect();
 
         // XXX hoist into build_map function
-        let orig_experiment_map: HashMap<String, serde_json::Value> = db_v1_experiments_with_non_empty_features
-            .iter()
-            .map(|e_ref| {
-                let e = e_ref.clone();
-                let e_slug = e.get("slug").unwrap().as_str().unwrap().to_string();
-                (e_slug, e)
-            })
-            .collect();
+        let orig_experiment_map: HashMap<String, serde_json::Value> =
+            db_v1_experiments_with_non_empty_features
+                .iter()
+                .map(|e_ref| {
+                    let e = e_ref.clone();
+                    let e_slug = e.get("slug").unwrap().as_str().unwrap().to_string();
+                    (e_slug, e)
+                })
+                .collect();
 
         // The original json should be the same as data that's gone through
         // migration, put into the rust structs again, and pulled back out.
@@ -1226,15 +1241,16 @@ mod tests {
             .collect();
 
         // XXX hoist into build_map function
-        let orig_enrollments: HashMap<String, serde_json::Value> = db1_v1_enrollments_with_non_empty_features
-            .iter()
-            .map(|e_ref| {
-                let e = e_ref.clone();
-                let mut e_slug: String = String::new();
-                e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
-                (e_slug, e)
-            })
-            .collect();
+        let orig_enrollments: HashMap<String, serde_json::Value> =
+            db1_v1_enrollments_with_non_empty_features
+                .iter()
+                .map(|e_ref| {
+                    let e = e_ref.clone();
+                    let mut e_slug: String = String::new();
+                    e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
+                    (e_slug, e)
+                })
+                .collect();
 
         // The original json should be the same as data that's gone through
         // migration, put into the rust structs again, and pulled back out.
