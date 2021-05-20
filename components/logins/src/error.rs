@@ -62,6 +62,9 @@ pub enum ErrorKind {
 
     #[error("Protobuf decode error: {0}")]
     ProtobufDecodeError(#[from] prost::DecodeError),
+
+    #[error("IOError: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 error_support::define_error! {
@@ -74,6 +77,7 @@ error_support::define_error! {
         (InvalidLogin, InvalidLogin),
         (Interrupted, interrupt_support::Interrupted),
         (ProtobufDecodeError, prost::DecodeError),
+        (IOError, std::io::Error),
     }
 }
 
@@ -122,6 +126,7 @@ impl Error {
                 InvalidLogin::IllegalFieldValue { .. } => "InvalidLogin::IllegalFieldValue",
             },
             ErrorKind::ProtobufDecodeError(_) => "BufDecodeError",
+            ErrorKind::IOError(_) => "IOError",
         }
     }
 }

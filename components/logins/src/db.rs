@@ -24,6 +24,7 @@
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::error::*;
 use crate::login::{Login, SyncStatus};
+use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
 use crate::util;
 use lazy_static::lazy_static;
@@ -94,28 +95,63 @@ impl LoginDb {
         Self::with_connection(Connection::open(path)?)
     }
 
-    pub fn open_in_memory() -> Result<Self> {
-        Self::with_connection(Connection::open_in_memory()?)
+    // Open a dabase, after potentially migrating from a sqlcipher database.  This method handles
+    // the migration process:
+    //
+    //    - If there's not a file at sqlcipher_path, then we skip the migratnion
+    //    - If there is a file, then we attempt the migration and delete the file afterwards.
+    //
+    //  The salt arg is for IOS and other systems where the salt is stored externally.
+    //
+    pub fn open_with_sqlcipher_migration(
+        path: impl AsRef<Path>,
+        new_encryption_key: &str,
+        sqlcipher_path: impl AsRef<Path>,
+        sqlcipher_key: &str,
+        salt: Option<&str>,
+    ) -> Result<Self> {
+        let path = path.as_ref();
+        let sqlcipher_path = sqlcipher_path.as_ref();
+
+        if sqlcipher_path.exists() {
+            log::info!(
+                "Migrating sqlcipher DB: {} -> {}",
+                sqlcipher_path.display(),
+                path.display()
+            );
+            let result = migrate_sqlcipher_db_to_plaintext(
+                &sqlcipher_path,
+                &path,
+                sqlcipher_key,
+                new_encryption_key,
+                salt,
+            );
+
+            if let Err(e) = result {
+                log::error!("Error migrating sqlcipher DB: {}", e);
+                // Delete both the old and new paths (if they exist)
+                log::warn!("Re-creating database from scratch");
+                if sqlcipher_path.exists() {
+                    std::fs::remove_file(sqlcipher_path)?;
+                }
+                if path.exists() {
+                    std::fs::remove_file(&path)?;
+                }
+            } else {
+                log::info!("Deleting old sqlcipher DB after migration");
+                if sqlcipher_path.exists() {
+                    std::fs::remove_file(sqlcipher_path)?;
+                }
+            }
+        } else {
+            log::debug!("SQLCipher DB not found, skipping migration");
+        }
+
+        Self::with_connection(Connection::open(&path)?)
     }
 
-    // Migrate from a sqlcipher encrypted database to a plaintext database with individual fields
-    // encrypted
-    //
-    // The salt arg is for IOS and other systems where the salt is stored externally.
-    pub fn migrate_sqlcipher_db_to_plaintext(
-        old_db_path: impl AsRef<Path>,
-        new_db_path: impl AsRef<Path>,
-        old_encryption_key: &str,
-        new_encryption_key: &str,
-        salt: Option<&str>,
-    ) -> Result<()> {
-        crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext(
-            old_db_path,
-            new_db_path,
-            old_encryption_key,
-            new_encryption_key,
-            salt,
-        )
+    pub fn open_in_memory() -> Result<Self> {
+        Self::with_connection(Connection::open_in_memory()?)
     }
 
     pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
