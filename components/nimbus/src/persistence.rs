@@ -324,7 +324,7 @@ impl Database {
     /// Migrates a v1 database to v2
     ///
     /// Note that any Err returns from this function (including stuff
-    /// propagated up via the ?  operator) will cause maybe_update (our caller)
+    /// propagated up via the ? operator) will cause maybe_update (our caller)
     /// to assume that this is unrecoverable and wipe the database, removing
     /// people from any existing enrollments and blowing away their experiment
     /// history.
