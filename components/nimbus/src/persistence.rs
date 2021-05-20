@@ -344,7 +344,8 @@ impl Database {
         // enrollments that don't have experiments because the experiments
         // were discarded either during try_collect_all (these wouldn't have been
         // detected during the filtering phase) or during the filtering phase
-        // itself.
+        // itself.  The test needs to run evolve_experiments, as that should
+        // simply discard such orphans.
 
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
