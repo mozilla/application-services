@@ -273,20 +273,19 @@ impl Database {
                 return Ok(());
             }
             Some(1) => {
-                // XXX I feel like I must be missing something obvious here,
-                // but how to test the error-handling in this clause doesn't
-                // jump out at me.  The ways I've thought of so far to cause
-                // errors would either be caught in open_rkv or one of the
-                // other clauses in this function, or discarded with a warning
-                // in try_collect_all.
                 match self.migrate_v1_to_v2(&mut writer) {
                     Ok(_) => (),
                     Err(e) => {
+                        // The idea here is that it's better to leave an
+                        // individual install with a clean empty database
+                        // than in an unknown inconsistent state, because it
+                        // allows them to start participating in experiments
+                        // again, rather than potentially repeating the upgrade
+                        // over and over at each embedding client restart.
                         log::error!(
                             "Error migrating database v1 to v2: {:?}.  Wiping everything.",
                             e
                         );
-
                         self.clear_all_db_stores_except_updates(&mut writer)?;
                     }
                 };
@@ -332,7 +331,7 @@ impl Database {
     /// propagated up via the ? operator) will cause maybe_update (our caller)
     /// to assume that this is unrecoverable and wipe the database, removing
     /// people from any existing enrollments and blowing away their experiment
-    /// history.
+    /// history, so that they don't get left in an inconsistent state.
     fn migrate_v1_to_v2(&self, mut writer: &mut Writer) -> Result<()> {
         log::info!("Upgrading from version 1 to version 2");
 
@@ -341,8 +340,9 @@ impl Database {
         // happens, but it's not ideal.
         let reader = self.read()?;
 
-        // XXX write a test later to see if we need to gc any enrollments that
-        // don't have experiments because the experiments were discarded
+        // XXX write a test to verify that we don't need to gc any
+        // enrollments that don't have experiments because the experiments
+        // were discarded
 
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
