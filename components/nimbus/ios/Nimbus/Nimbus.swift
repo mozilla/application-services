@@ -47,8 +47,8 @@ private extension Nimbus {
 }
 
 // Glean integration
-internal extension Nimbus {
-    func recordExposure(_ featureId: String) {
+extension Nimbus: NimbusTelemetryConfiguration {
+    public func recordExposureEvent(featureId: String) {
         // First we need a list of the active experiments that are enrolled.
         let activeExperiments = getActiveExperiments()
 
@@ -67,7 +67,7 @@ internal extension Nimbus {
         }
     }
 
-    func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
+    internal func postEnrollmentCalculation(_ events: [EnrollmentChangeEvent]) {
         // We need to update the experiment enrollment annotations in Glean
         // regardless of whether we recieved any events. Calling the
         // `setExperimentActive` function multiple times with the same
@@ -85,7 +85,7 @@ internal extension Nimbus {
         }
     }
 
-    func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
+    internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
         for experiment in experiments {
             Glean.shared.setExperimentActive(
                 experimentId: experiment.slug,
@@ -95,7 +95,7 @@ internal extension Nimbus {
         }
     }
 
-    func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
+    internal func recordExperimentEvents(_ events: [EnrollmentChangeEvent]) {
         for event in events {
             switch event.change {
             case .enrollment:
@@ -192,20 +192,16 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
     }
 
-    public func getVariables(featureId: String, recordExposureEvent: Bool) -> Variables {
+    public func getVariables(featureId: String, recordExposureEvent: Bool = true) -> Variables {
         guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
             return NilVariables.instance
         }
 
         if recordExposureEvent {
-            recordExposure(featureId)
+            self.recordExposureEvent(featureId: featureId)
         }
 
         return JSONVariables(with: json)
-    }
-
-    public func recordExposureEvent(featureId: String) {
-        recordExposure(featureId)
     }
 }
 

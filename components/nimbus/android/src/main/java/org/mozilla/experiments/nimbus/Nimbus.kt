@@ -95,7 +95,7 @@ interface NimbusInterface {
      * @return a [Variables] object used to configure the feature.
      */
     @AnyThread
-    fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables.instance
+    fun getVariables(featureId: String, recordExposureEvent: Boolean = true): Variables = NullVariables.instance
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.

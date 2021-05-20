@@ -37,7 +37,9 @@ public protocol NimbusFeatureConfiguration {
     ///
     /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String, recordExposureEvent: Bool) -> Variables
+}
 
+public protocol NimbusTelemetryConfiguration {
     /// Records the `exposure` event in telemetry.
     ///
     /// This is a manual function to accomplish the same purpose as passing `true` as the

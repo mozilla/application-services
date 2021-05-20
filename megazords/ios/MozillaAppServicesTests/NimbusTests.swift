@@ -299,13 +299,13 @@ class NimbusTests: XCTestCase {
         """)
         try nimbus.applyPendingExperimentsOnThisThread()
 
-        // Record the valid exposure event in Glean
+        // Assert that there are no events to start with
+        XCTAssertFalse(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
+
+        // Record a valid exposure event in Glean that matches the featureId from the test experiment
         nimbus.recordExposureEvent(featureId: "test-feature")
 
-        // We will also attempt to record an invalid feature exposure to ensure it doesn't
-        // get recorded
-        nimbus.recordExposureEvent(featureId: "not-a-feature")
-
+        // Use the Glean test API to check that the valid event is present
         XCTAssertTrue(GleanMetrics.NimbusEvents.exposure.testHasValue(), "Event must have a value")
         let enrollmentEvents = try GleanMetrics.NimbusEvents.exposure.testGetValue()
         XCTAssertEqual(1, enrollmentEvents.count, "Event count must match")
@@ -313,6 +313,19 @@ class NimbusTests: XCTestCase {
         XCTAssertEqual("test-experiment", enrollmentEventExtras!["experiment"], "Experiment slug must match")
         XCTAssertEqual("test-branch", enrollmentEventExtras!["branch"], "Experiment branch must match")
         XCTAssertNotNil(enrollmentEventExtras!["enrollment_id"], "Experiment enrollment id must not be nil")
+
+        // Attempt to record an event for a non-existent or feature we are not enrolled in an
+        // experiment in to ensure nothing is recorded.
+        nimbus.recordExposureEvent(featureId: "not-a-feature")
+
+        // Verify the invalid event was ignored by checking again that the valid event is still the only
+        // event, and that it hasn't changed any of its extra properties.
+        let enrollmentEventsTryTwo = try GleanMetrics.NimbusEvents.exposure.testGetValue()
+        XCTAssertEqual(1, enrollmentEventsTryTwo.count, "Event count must match")
+        let enrollmentEventExtrasTryTwo = enrollmentEventsTryTwo.first!.extra
+        XCTAssertEqual("test-experiment", enrollmentEventExtrasTryTwo!["experiment"], "Experiment slug must match")
+        XCTAssertEqual("test-branch", enrollmentEventExtrasTryTwo!["branch"], "Experiment branch must match")
+        XCTAssertNotNil(enrollmentEventExtrasTryTwo!["enrollment_id"], "Experiment enrollment id must not be nil")
     }
 }
 
