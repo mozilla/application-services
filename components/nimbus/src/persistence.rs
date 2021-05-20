@@ -10,8 +10,11 @@ use crate::error::{NimbusError, Result};
 // it must be noted that the rkv documentation explicitly says "To use rkv in
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
+use crate::enrollment::{EnrollmentStatus, ExperimentEnrollment};
+use crate::Experiment;
 use core::iter::Iterator;
 use rkv::{StoreError, StoreOptions};
+use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
 
@@ -21,7 +24,7 @@ use std::path::Path;
 //
 // ⚠️ Warning : Altering the type of `DB_VERSION` would itself require a DB migration. ⚠️
 const DB_KEY_DB_VERSION: &str = "db_version";
-const DB_VERSION: u16 = 1;
+const DB_VERSION: u16 = 2;
 
 // Inspired by Glean - use a feature to choose between the backends.
 // Select the LMDB-powered storage backend when the feature is not activated.
@@ -176,6 +179,40 @@ impl SingleStore {
         }
     }
 
+    /// Fork of collect_all that simply drops records that fail to read
+    /// rather than simply returning an error up the stack.  This likely
+    /// wants to be just a parameter to collect_all, but for now....
+    pub fn try_collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
+    where
+        R: Readable<'r>,
+        T: serde::Serialize + for<'de> serde::Deserialize<'de>,
+    {
+        let mut result = Vec::new();
+        let mut iter = self.store.iter_start(reader)?;
+        while let Some(Ok((_, data))) = iter.next() {
+            if let rkv::Value::Json(data) = data {
+                let unserialized = serde_json::from_str::<T>(&data);
+                match unserialized {
+                    Ok(value) => result.push(value),
+                    Err(e) => {
+                        // If there is an error, we won't push this onto the
+                        // result Vec, but we won't blow up the entire
+                        // deserialization either.
+                        log::warn!(
+                            "try_collect_all: discarded a record while deserializing with: {:?}",
+                            e
+                        );
+                        log::warn!(
+                            "try_collect_all:   data that failed to deserialize: {:?}",
+                            data
+                        );
+                    }
+                };
+            }
+        }
+        Ok(result)
+    }
+
     pub fn collect_all<'r, T, R>(&self, reader: &'r R) -> Result<Vec<T>>
     where
         R: Readable<'r>,
@@ -227,6 +264,7 @@ impl Database {
     }
 
     fn maybe_upgrade(&self) -> Result<()> {
+        log::debug!("entered maybe upgrade");
         let mut writer = self.rkv.write()?;
         let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
         match db_version {
@@ -234,19 +272,35 @@ impl Database {
                 // Already at the current version, no migration required.
                 return Ok(());
             }
+            Some(1) => {
+                match self.migrate_v1_to_v2(&mut writer) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        // The idea here is that it's better to leave an
+                        // individual install with a clean empty database
+                        // than in an unknown inconsistent state, because it
+                        // allows them to start participating in experiments
+                        // again, rather than potentially repeating the upgrade
+                        // over and over at each embedding client restart.
+                        log::error!(
+                            "Error migrating database v1 to v2: {:?}.  Wiping experiments and enrollments",
+                            e
+                        );
+                        self.clear_experiments_and_enrollments(&mut writer)?;
+                    }
+                };
+            }
             None => {
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
                 // since nimbus wasn't really shipped to production at the time anyway.
-                self.experiment_store.clear(&mut writer)?;
-                self.enrollment_store.clear(&mut writer)?;
+                self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
                 log::error!("Unknown database version. Wiping everything.");
+                self.clear_experiments_and_enrollments(&mut writer)?;
                 self.meta_store.clear(&mut writer)?;
-                self.experiment_store.clear(&mut writer)?;
-                self.enrollment_store.clear(&mut writer)?;
             }
         }
         // It is safe to clear the update store (i.e. the pending experiments) on all schema upgrades
@@ -257,6 +311,109 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
+        log::debug!("transaction commited");
+        Ok(())
+    }
+
+    fn clear_experiments_and_enrollments(&self, writer: &mut Writer) -> Result<(), NimbusError> {
+        self.experiment_store.clear(writer)?;
+        self.enrollment_store.clear(writer)?;
+        Ok(())
+    }
+
+    /// Migrates a v1 database to v2
+    ///
+    /// Note that any Err returns from this function (including stuff
+    /// propagated up via the ? operator) will cause maybe_update (our caller)
+    /// to assume that this is unrecoverable and wipe the database, removing
+    /// people from any existing enrollments and blowing away their experiment
+    /// history, so that they don't get left in an inconsistent state.
+    fn migrate_v1_to_v2(&self, mut writer: &mut Writer) -> Result<()> {
+        log::info!("Upgrading from version 1 to version 2");
+
+        // use try_collect_all to read everything except records that serde
+        // returns deserialization errors on.  Some logging of those errors
+        // happens, but it's not ideal.
+        let reader = self.read()?;
+
+        // XXX write a test to verify that we don't need to gc any
+        // enrollments that don't have experiments because the experiments
+        // were discarded either during try_collect_all (these wouldn't have been
+        // detected during the filtering phase) or during the filtering phase
+        // itself.  The test needs to run evolve_experiments, as that should
+        // correctly drop any orphans, even if the migrators aren't perfect.
+
+        let enrollments: Vec<ExperimentEnrollment> =
+            self.enrollment_store.try_collect_all(&reader)?;
+        let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
+
+        // figure out which enrollments have records that need to be dropped
+        // and log that we're going to drop them and why
+        let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
+            .iter()
+            .filter_map(
+                    |e| {
+                if matches!(e.status, EnrollmentStatus::Enrolled {ref feature_id, ..} if feature_id.is_empty()) {
+                    log::warn!("Enrollment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // figure out which experiments have records that need to be dropped
+        // and log that we're going to drop them and why
+        let empty_string = "".to_string();
+        let slugs_with_experiment_issues: HashSet<String> = experiments
+            .iter()
+            .filter_map(
+                    |e| {
+                let branch_with_empty_feature_ids =
+                    e.branches.iter().find(|b| b.feature.is_none() || b.feature.as_ref().unwrap().feature_id.is_empty());
+                if branch_with_empty_feature_ids.is_some() {
+                    log::warn!("{:?} experiment has branch missing a feature prop; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else if e.feature_ids.is_empty() || e.feature_ids.contains(&empty_string) {
+                    log::warn!("{:?} experiment has invalid feature_ids array; experiment & enrollment will be discarded", &e.slug);
+                    Some(e.slug.to_owned())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
+            .union(&slugs_with_experiment_issues)
+            .collect();
+
+        // filter out experiments to be dropped
+        let updated_experiments: Vec<Experiment> = experiments
+            .into_iter()
+            .filter(|e| !slugs_to_discard.contains(&e.slug))
+            .collect();
+        log::debug!("updated experiments = {:?}", updated_experiments);
+
+        // filter out enrollments to be dropped
+        let updated_enrollments: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| !slugs_to_discard.contains(&e.slug))
+            .collect();
+        log::debug!("updated enrollments = {:?}", updated_enrollments);
+
+        // rewrite both stores
+        self.experiment_store.clear(&mut writer)?;
+        for experiment in updated_experiments {
+            self.experiment_store
+                .put(&mut writer, &experiment.slug, &experiment)?;
+        }
+
+        self.enrollment_store.clear(&mut writer)?;
+        for enrollment in updated_enrollments {
+            self.enrollment_store
+                .put(&mut writer, &enrollment.slug, &enrollment)?;
+        }
+        log::debug!("exiting migrate_v1_to_v2");
+
         Ok(())
     }
 
@@ -366,9 +523,10 @@ impl Database {
 
 #[cfg(test)]
 mod tests {
-    use tempdir::TempDir;
-
     use super::*;
+    use serde_json::json;
+    use std::collections::HashMap;
+    use tempdir::TempDir;
 
     #[test]
     fn test_db_upgrade_no_version() -> Result<()> {
@@ -442,6 +600,820 @@ mod tests {
         assert_ne!(fs::metadata(&db_file)?.len(), garbage_len);
         Ok(())
     }
+
+    // XXX secure-gold has some fields. Ideally, we would also have an
+    // experiment with all current fields set, and another with almost no
+    // optional fields set
+    fn db_v1_experiments_with_non_empty_features() -> Vec<serde_json::Value> {
+        vec![
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": ["abc"], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "abc", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {"color": "green"}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "abc", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedDuration": 21,
+                "proposedEnrollment":7,
+                "targeting": "true",
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.5.0",
+                "slug": "ppop-mobile-test",
+                // "arguments": {}, // DEPRECATED
+                // "application": "org.mozilla.firefox_beta", // DEPRECATED
+                "appName": "fenix",
+                "appId": "org.mozilla.firefox_beta",
+                "channel": "beta",
+                "userFacingName": "[ppop] Mobile test",
+                "userFacingDescription": "test",
+                "isEnrollmentPaused": false,
+                "bucketConfig": {
+                    "randomizationUnit": "nimbus_id",
+                    "namespace": "fenix-default-browser-4",
+                    "start": 0,
+                    "count": 10000,
+                    "total": 10000
+                },
+                "probeSets": [],
+                // "outcomes": [], analysis specific, no need to round-trip
+                "branches": [
+                    {
+                        "slug": "default_browser_newtab_banner",
+                        "ratio": 100,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": true,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "default_browser_settings_menu",
+                        "ratio": 100,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": true,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "default_browser_toolbar_menu",
+                        "ratio": 100,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": true,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "fenix-default-browser",
+                            "enabled": false,
+                            "value": {}
+                        }
+                    }
+                ],
+                "targeting": "true",
+                "startDate": "2021-05-10T12:38:49.699091Z",
+                "endDate": null,
+                "proposedDuration": 28,
+                "proposedEnrollment": 7,
+                "referenceBranch": "control",
+                "featureIds": [
+                    "fenix-default-browser"
+                ]
+            }),
+        ]
+    }
+    /// Each of this should uniquely reference a single experiment returned
+    /// from get_db_v1_experiments_with_non_empty_features()
+    fn get_db_v1_enrollments_with_non_empty_features() -> Vec<serde_json::Value> {
+        vec![json!(
+            {
+                "slug": "secure-gold",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189083", // change when copy/pasting to make new
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": "abc" // change on cloning
+                            }
+                        }
+                    }
+        )]
+    }
+
+    fn get_db_v1_experiments_with_missing_feature_fields() -> Vec<serde_json::Value> {
+        vec![
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-empty-obj", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": ["bbb"], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "bbb", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {}
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-empty-obj", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "missing-branch-feature-clause", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": ["aaa"], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aaa", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {},
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"empty-branch-feature-clause", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-feature-id-missing", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": ["ccc"], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "ccc", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-feature-id-missing", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "feature-ids-array-has-empty_string", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": [""], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "def", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {},
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "def", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"feature-ids-array-has-empty-string", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "missing-feature-ids-in-branch",
+                "endDate": null,
+                "featureIds": ["abc"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"no-feature-ids-at-all",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "missing-featureids-array", // change when copy/pasting to make experiments
+                "endDate": null,
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "about_welcome", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"valid-feature-experiment", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-feature-id-empty", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": [""], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {},
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {},
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-feature-id-empty", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+        ]
+    }
+
+    fn get_v1_enrollments_with_missing_feature_ids() -> Vec<serde_json::Value> {
+        vec![
+            json!({
+                "slug": "feature-id-missing",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                            }
+                    }
+            }),
+            json!({
+                "slug": "feature-id-empty",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189086",
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": ""
+                            }
+                        }
+            }),
+        ]
+    }
+
+    /// Create a database with an old database version number, and
+    /// populate it with the given experiments and enrollments.
+    fn create_old_database(
+        tmp_dir: &TempDir,
+        old_version: u16,
+        experiments_json: &[serde_json::Value],
+        enrollments_json: &[serde_json::Value],
+    ) -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let rkv = Database::open_rkv(&tmp_dir)?;
+        let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
+        let experiment_store =
+            SingleStore::new(rkv.open_single("experiments", StoreOptions::create())?);
+        let enrollment_store =
+            SingleStore::new(rkv.open_single("enrollments", StoreOptions::create())?);
+        let mut writer = rkv.write()?;
+
+        meta_store.put(&mut writer, "db_version", &old_version)?;
+
+        // write out the experiments
+        for experiment_json in experiments_json {
+            // log::debug!("experiment_json = {:?}", experiment_json);
+            experiment_store.put(
+                &mut writer,
+                experiment_json["slug"].as_str().unwrap(),
+                experiment_json,
+            )?;
+        }
+
+        // write out the enrollments
+        for enrollment_json in enrollments_json {
+            // log::debug!("enrollment_json = {:?}", enrollment_json);
+            enrollment_store.put(
+                &mut writer,
+                enrollment_json["slug"].as_str().unwrap(),
+                enrollment_json,
+            )?;
+        }
+
+        writer.commit()?;
+        log::debug!("create_old_database committed");
+
+        Ok(())
+    }
+
+    #[test]
+    /// Migrating db v1 to db v2 involves finding enrollments that
+    /// don't contain all the feature stuff they should and discarding.
+    /// It will also discard other experiments/enrollments with required
+    /// headers that are missing.
+    fn test_migrate_db_v1_to_db_v2_enrollment_discarding() -> Result<()> {
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2")?;
+
+        // write invalid enrollments
+        let db_v1_enrollments_with_missing_feature_ids =
+            &get_v1_enrollments_with_missing_feature_ids();
+
+        create_old_database(&tmp_dir, 1, &[], db_v1_enrollments_with_missing_feature_ids)?;
+        let db = Database::new(&tmp_dir)?;
+
+        // The enrollments with invalid feature_ids should have been discarded
+        // during migration; leaving us with none.
+        let enrollments = db
+            .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+            .unwrap();
+        //log::debug!("enrollments = {:?}", enrollments);
+
+        assert_eq!(enrollments.len(), 0);
+
+        Ok(())
+    }
+
+    /// Migrating v1 to v2 involves finding experiments that
+    /// don't contain all the feature stuff they should and discarding.
+    #[test]
+    fn test_migrate_db_v1_to_db_v2_experiment_discarding() -> Result<()> {
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2_enrollment_discarding")?;
+
+        // write a bunch of invalid experiments
+        let db_v1_experiments_with_missing_feature_fields =
+            &get_db_v1_experiments_with_missing_feature_fields();
+
+        create_old_database(
+            &tmp_dir,
+            1,
+            db_v1_experiments_with_missing_feature_fields,
+            &[],
+        )?;
+
+        let db = Database::new(&tmp_dir)?;
+
+        // All of the experiments with invalid FeatureConfig related stuff
+        // should have been discarded during migration; leaving us with none.
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        log::debug!("experiments = {:?}", experiments);
+
+        assert_eq!(experiments.len(), 0);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_migrate_db_v1_to_db_v2_round_tripping() -> Result<()> {
+        let _ = env_logger::try_init();
+        let tmp_dir = TempDir::new("migrate_round_tripping")?;
+
+        // write valid experiments & enrollments
+        let db_v1_experiments_with_non_empty_features =
+            &db_v1_experiments_with_non_empty_features();
+        // ... and enrollments
+        let db_v1_enrollments_with_non_empty_features =
+            &get_db_v1_enrollments_with_non_empty_features();
+
+        create_old_database(
+            &tmp_dir,
+            1,
+            db_v1_experiments_with_non_empty_features,
+            db_v1_enrollments_with_non_empty_features,
+        )?;
+
+        // force an upgrade & read in the upgraded database
+        let db = Database::new(&tmp_dir).unwrap();
+
+        let db_experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
+        // XXX hoist into build_map function (we build maps because they
+        // compensate for the fact that iters don't return things in a
+        // deterministic order).
+        let db_experiment_map: HashMap<String, serde_json::Value> = db_experiments
+            .into_iter()
+            .map(|e| {
+                let e_json = serde_json::to_value::<Experiment>(e.clone()).unwrap();
+                let e_slug = e.slug;
+                (e_slug, e_json)
+            })
+            .collect();
+
+        // XXX hoist into build_map function
+        let orig_experiment_map: HashMap<String, serde_json::Value> =
+            db_v1_experiments_with_non_empty_features
+                .iter()
+                .map(|e_ref| {
+                    let e = e_ref.clone();
+                    let e_slug = e.get("slug").unwrap().as_str().unwrap().to_string();
+                    (e_slug, e)
+                })
+                .collect();
+
+        // The original json should be the same as data that's gone through
+        // migration, put into the rust structs again, and pulled back out.
+        assert_eq!(&orig_experiment_map, &db_experiment_map);
+        // log::debug!("db_experiments = {:?}", &db_experiment_map);
+
+        let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
+
+        // XXX hoist into build_map function
+        let db_enrollments: HashMap<String, serde_json::Value> = enrollments
+            .into_iter()
+            .map(|e| {
+                let e_json = serde_json::to_value::<ExperimentEnrollment>(e).unwrap();
+                let mut e_slug: String = String::new();
+                e_slug.push_str(e_json.get("slug").unwrap().as_str().unwrap());
+                (e_slug, e_json)
+            })
+            .collect();
+
+        // XXX hoist into build_map function
+        let orig_enrollments: HashMap<String, serde_json::Value> =
+            db_v1_enrollments_with_non_empty_features
+                .iter()
+                .map(|e_ref| {
+                    let e = e_ref.clone();
+                    let mut e_slug: String = String::new();
+                    e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
+                    (e_slug, e)
+                })
+                .collect();
+
+        // The original json should be the same as data that's gone through
+        // migration, put into the rust structs again, and pulled back out.
+        assert_eq!(&orig_enrollments, &db_enrollments);
+        // log::debug!("db_enrollments = {:?}", db_enrollments);
+
+        Ok(())
+    }
+
+    /// Migrating db_v1 to db_v2 involves finding enrollments and experiments that
+    /// don't contain all the feature_id stuff they should and discarding.
+    #[test]
+    fn test_migrate_db_v1_with_valid_and_invalid_records_to_db_v2() -> Result<()> {
+        let experiment_with_feature = json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "endDate": null,
+            "featureIds": ["about_welcome"],
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": false
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": true
+                    }
+                }
+            ],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName": "fenix",
+            "appId": "org.mozilla.fenix",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        });
+
+        let enrollment_with_feature = json!(
+            {
+                "slug": "secure-gold",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",// XXXX should be client id?
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": "about_welcome"
+                            }
+                        }
+                    }
+        );
+
+        let experiment_without_feature = json!(
+        {
+            "schemaVersion": "1.0.0",
+            "slug": "no-features",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                },
+                {
+                    "slug": "treatment",
+                    "ratio": 1,
+                }
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "channel":"nightly",
+            "bucketConfig":{
+                // Setup to enroll everyone by default.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"no-features",
+            "last_modified":1_602_197_324_372i64
+        });
+
+        let enrollment_without_feature = json!(
+            {
+                "slug": "no-features",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                            }
+                    }
+            }
+        );
+
+        use tempdir::TempDir;
+
+        let tmp_dir = TempDir::new("test_drop_experiments_wo_feature_id")?;
+        let _ = env_logger::try_init();
+
+        create_old_database(
+            &tmp_dir,
+            1,
+            &[experiment_with_feature, experiment_without_feature],
+            &[enrollment_with_feature, enrollment_without_feature],
+        )?;
+
+        let db = Database::new(&tmp_dir)?;
+
+        let experiments = db.collect_all::<Experiment>(StoreId::Experiments).unwrap();
+        log::debug!("experiments = {:?}", experiments);
+
+        // The experiment without features should have been discarded, leaving
+        // us with only one.
+        assert_eq!(experiments.len(), 1);
+
+        let enrollments = db
+            .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
+            .unwrap();
+        log::debug!("enrollments = {:?}", enrollments);
+
+        // The enrollment without features should have been discarded, leaving
+        // us with only one.
+        assert_eq!(enrollments.len(), 1);
+
+        Ok(())
+    }
+
+    // XXX Ideally, we would also write test to ensure that anytime one of
+    // (enrollment, experiment) an invalid featureAPI issue, both the
+    // experiment and the enrollment are removed from their respective stores
+    // so we don't have any weird orphans
 }
 
 // TODO: Add unit tests
