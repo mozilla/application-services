@@ -98,7 +98,7 @@ commands:
   build-desktop-libs:
     steps:
       - run: sudo apt-get update
-      - run: sudo apt-get install tcl
+      - run: sudo apt-get install python tcl
       - run:
           name: Install NSS build system dependencies
           command: sudo apt-get install ninja-build gyp zlib1g-dev
