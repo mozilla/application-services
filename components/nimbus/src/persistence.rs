@@ -360,6 +360,7 @@ impl Database {
 
         // figure out which experiments have records that need to be dropped
         // and log that we're going to drop them and why
+        let empty_string = "".to_string();
         let slugs_with_experiment_issues: HashSet<String> = experiments
             .iter()
             .filter_map(
