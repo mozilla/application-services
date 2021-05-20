@@ -1,0 +1,54 @@
+diff --git a/automation/taskcluster/linux-mingw32/build_gyp.sh b/automation/taskcluster/linux-mingw32/build_gyp.sh
+--- a/automation/taskcluster/linux-mingw32/build_gyp.sh
++++ b/automation/taskcluster/linux-mingw32/build_gyp.sh
+@@ -14,7 +14,10 @@ nss/build.sh \
+   --opt \
+   --nspr_target=x86_64-w64-mingw32 \
+   --target=x64 \
+-  -DOS="win"
++  -DOS="win" \
++  --static \
++  --disable-tests \
++  "$@"
+ 
+ # Package.
+ mkdir -p artifacts/build
+diff --git a/automation/taskcluster/scripts/build_gyp.sh b/automation/taskcluster/scripts/build_gyp.sh
+--- a/automation/taskcluster/scripts/build_gyp.sh
++++ b/automation/taskcluster/scripts/build_gyp.sh
+@@ -12,7 +12,7 @@ if [[ -f nss/nspr.patch && "$ALLOW_NSPR_
+ fi
+ 
+ # Build.
+-nss/build.sh -g -v --enable-libpkix -Denable_draft_hpke=1 "$@"
++nss/build.sh -g -v --static --disable-tests "$@"
+ 
+ # Package.
+ if [[ $(uname) = "Darwin" ]]; then
+diff --git a/coreconf/config.gypi b/coreconf/config.gypi
+--- a/coreconf/config.gypi
++++ b/coreconf/config.gypi
+@@ -170,6 +170,23 @@
+       '<(nspr_include_dir)',
+       '<(nss_dist_dir)/private/<(module)',
+     ],
++    'defines': [
++      'HMAC_Update=NSS_HMAC_Update',
++      'HMAC_Init=NSS_HMAC_Init',
++      'CMAC_Update=NSS_CMAC_Update',
++      'CMAC_Init=NSS_CMAC_Init',
++      'MD5_Update=NSS_MD5_Update',
++      'SHA1_Update=NSS_SHA1_Update',
++      'SHA256_Update=NSS_SHA256_Update',
++      'SHA224_Update=NSS_SHA224_Update',
++      'SHA512_Update=NSS_SHA512_Update',
++      'SHA384_Update=NSS_SHA384_Update',
++      'SEED_set_key=NSS_SEED_set_key',
++      'SEED_encrypt=NSS_SEED_encrypt',
++      'SEED_decrypt=NSS_SEED_decrypt',
++      'SEED_ecb_encrypt=NSS_SEED_ecb_encrypt',
++      'SEED_cbc_encrypt=NSS_SEED_cbc_encrypt',
++    ],
+     'conditions': [
+       [ 'mozpkix_only==1 and OS=="linux"', {
+         'include_dirs': [
