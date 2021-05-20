@@ -323,10 +323,11 @@ impl Database {
 
     /// Migrates a v1 database to v2
     ///
-    /// Note that any Err returns (including stuff propagated up via the ?
-    /// operator) will cause maybe_update to assume that this is unrecoverable
-    /// and wipe the database, removing people from any existing enrollments
-    /// and blowing away their experiment history.
+    /// Note that any Err returns from this function (including stuff
+    /// propagated up via the ?  operator) will cause maybe_update (our caller)
+    /// to assume that this is unrecoverable and wipe the database, removing
+    /// people from any existing enrollments and blowing away their experiment
+    /// history.
     fn migrate_v1_to_v2(&self, mut writer: &mut Writer) -> Result<()> {
         log::info!("Upgrading from version 1 to version 2");
 
@@ -335,7 +336,7 @@ impl Database {
         // happens, but it's not ideal.
         let reader = self.read()?;
 
-        // XXX write a test later to see if need to gc any enrollments that
+        // XXX write a test later to see if we need to gc any enrollments that
         // don't have experiments because the experiments were discarded
 
         let enrollments: Vec<ExperimentEnrollment> =
