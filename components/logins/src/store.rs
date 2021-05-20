@@ -1,15 +1,13 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, LoginsSyncEngine, MigrationMetrics};
+use crate::db::{LoginDb, MigrationMetrics};
 use crate::error::*;
 use crate::login::Login;
+use crate::LoginsSyncEngine;
 use std::cell::Cell;
 use std::path::Path;
-use sync15::{
-    sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
-    Sync15StorageClientInit,
-};
+use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit};
 
 // This store is a bundle of state to manage the login DB and to help the
 // SyncEngine.
@@ -68,6 +66,11 @@ impl PasswordStore {
     }
 
     pub fn wipe(&self) -> Result<()> {
+        // This should not be exposed - it wipes the server too and there's
+        // no good reason to expose that to consumers. wipe_local makes some
+        // sense though.
+        // TODO: this is exposed to android-components consumers - we should
+        // check if anyone actually calls it.
         let scope = self.db.begin_interrupt_scope();
         self.db.wipe(&scope)?;
         Ok(())
@@ -79,8 +82,9 @@ impl PasswordStore {
     }
 
     pub fn reset(&self) -> Result<()> {
-        self.db.reset(&EngineSyncAssociation::Disconnected)?;
-        Ok(())
+        // This was exposed but is not used - consumers should be resetting
+        // via the sync manager.
+        unreachable!();
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
@@ -104,28 +108,23 @@ impl PasswordStore {
         self.db.rekey_database(new_encryption_key)
     }
 
-    // This is basically exposed just for sync_pass_sql, but it doesn't seem
-    // unreasonable.
-    pub fn conn(&self) -> &rusqlite::Connection {
-        &self.db.db
-    }
-
     pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
         self.db.new_interrupt_handle()
     }
 
     /// A convenience wrapper around sync_multiple.
+    // This can almost die later - consumers should never call it (they should
+    // use the sync manager) and any of our examples probably can too!
+    // Once this dies, `mem_cached_state` can die too.
     pub fn sync(
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
     ) -> Result<telemetry::SyncTelemetryPing> {
-        // migrate our V1 state - this needn't live for long.
-        self.db.migrate_global_state()?;
+        let engine = LoginsSyncEngine::new(&self);
 
-        let mut disk_cached_state = self.db.get_global_state()?;
+        let mut disk_cached_state = engine.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.take();
-        let engine = LoginsSyncEngine::new(&self.db);
 
         let mut result = sync_multiple(
             &[&engine],
@@ -138,7 +137,7 @@ impl PasswordStore {
         );
         // We always update the state - sync_multiple does the right thing
         // if it needs to be dropped (ie, they will be None or contain Nones etc)
-        self.db.set_global_state(&disk_cached_state)?;
+        engine.set_global_state(&disk_cached_state)?;
 
         // for b/w compat reasons, we do some dances with the result.
         // XXX - note that this means telemetry isn't going to be reported back

@@ -8,10 +8,10 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 
-use logins::{Login, PasswordStore};
+use logins::{Login, LoginsSyncEngine, PasswordStore};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
-use sync15::EngineSyncAssociation;
+use sync15::{EngineSyncAssociation, SyncEngine};
 use sync_guid::Guid;
 
 // I'm completely punting on good error handling here.
@@ -119,7 +119,7 @@ fn timestamp_to_string(milliseconds: i64) -> String {
 
 fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
     use rusqlite::types::Value;
-    let conn = s.conn();
+    let conn = &s.db;
     let mut stmt = conn.prepare(sql)?;
     let cols: Vec<String> = stmt
         .column_names()
@@ -339,7 +339,8 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                if let Err(e) = store.db.reset(&EngineSyncAssociation::Disconnected) {
+                let engine = LoginsSyncEngine::new(&store);
+                if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }
             }
