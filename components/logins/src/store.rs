@@ -9,7 +9,7 @@ use std::cell::Cell;
 use std::path::Path;
 use sync15::{
     sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
-    Sync15StorageClientInit,
+    Sync15StorageClientInit, SyncEngine,
 };
 
 // This store is a bundle of state to manage the login DB and to help the
@@ -22,6 +22,26 @@ pub struct PasswordStore {
 impl PasswordStore {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
         let db = LoginDb::open(path)?;
+        Ok(Self {
+            db,
+            mem_cached_state: Cell::default(),
+        })
+    }
+
+    pub fn new_with_sqlcipher_migration(
+        path: impl AsRef<Path>,
+        new_encryption_key: &str,
+        sqlcipher_path: impl AsRef<Path>,
+        sqlcipher_key: &str,
+        salt: Option<&str>,
+    ) -> Result<Self> {
+        let db = LoginDb::open_with_sqlcipher_migration(
+            path,
+            new_encryption_key,
+            sqlcipher_path,
+            sqlcipher_key,
+            salt,
+        )?;
         Ok(Self {
             db,
             mem_cached_state: Cell::default(),
@@ -116,11 +136,16 @@ impl PasswordStore {
         &self,
         storage_init: &Sync15StorageClientInit,
         root_sync_key: &KeyBundle,
+        local_encryption_key: &str,
     ) -> Result<telemetry::SyncTelemetryPing> {
-        let engine = LoginsSyncEngine::new(&self);
-
+        let mut engine = LoginsSyncEngine::new(&self);
         let mut disk_cached_state = engine.get_global_state()?;
         let mut mem_cached_state = self.mem_cached_state.take();
+        // TODO-sqlcipher: unwrap() is not right here, but the above comment makes me think we
+        // should not worry about this too much yet.
+        engine
+            .set_local_encryption_key(local_encryption_key)
+            .unwrap();
 
         let mut result = sync_multiple(
             &[&engine],
