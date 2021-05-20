@@ -342,7 +342,9 @@ impl Database {
 
         // XXX write a test to verify that we don't need to gc any
         // enrollments that don't have experiments because the experiments
-        // were discarded
+        // were discarded either during try_collect_all (these wouldn't have been
+        // detected during the filtering phase) or during the filtering phase
+        // itself.
 
         let enrollments: Vec<ExperimentEnrollment> =
             self.enrollment_store.try_collect_all(&reader)?;
