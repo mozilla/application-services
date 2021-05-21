@@ -316,6 +316,34 @@ impl<'a> LoginsSyncEngine<'a> {
         tx.commit()?;
         Ok(())
     }
+
+    // This exists here as a public function so the store can call it. Ideally
+    // the store would not do that :) Then it can go back into the sync trait
+    // and return an anyhow::Result
+    pub fn do_reset(&self, assoc: &EngineSyncAssociation) -> Result<()> {
+        log::info!("Executing reset on password engine!");
+        let db = &self.store.db;
+        let tx = db.unchecked_transaction()?;
+        db.execute_all(&[
+            &CLONE_ENTIRE_MIRROR_SQL,
+            "DELETE FROM loginsM",
+            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
+        ])?;
+        self.set_last_sync(&db, ServerTimestamp(0))?;
+        match assoc {
+            EngineSyncAssociation::Disconnected => {
+                db.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
+                db.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
+            }
+            EngineSyncAssociation::Connected(ids) => {
+                db.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
+                db.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
+            }
+        };
+        db.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
+        tx.commit()?;
+        Ok(())
+    }
 }
 
 impl<'a> SyncEngine for LoginsSyncEngine<'a> {
@@ -371,27 +399,7 @@ impl<'a> SyncEngine for LoginsSyncEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        log::info!("Executing reset on password engine!");
-        let db = &self.store.db;
-        let tx = db.unchecked_transaction()?;
-        db.execute_all(&[
-            &CLONE_ENTIRE_MIRROR_SQL,
-            "DELETE FROM loginsM",
-            &format!("UPDATE loginsL SET sync_status = {}", SyncStatus::New as u8),
-        ])?;
-        self.set_last_sync(&db, ServerTimestamp(0))?;
-        match assoc {
-            EngineSyncAssociation::Disconnected => {
-                db.delete_meta(schema::GLOBAL_SYNCID_META_KEY)?;
-                db.delete_meta(schema::COLLECTION_SYNCID_META_KEY)?;
-            }
-            EngineSyncAssociation::Connected(ids) => {
-                db.put_meta(schema::GLOBAL_SYNCID_META_KEY, &ids.global)?;
-                db.put_meta(schema::COLLECTION_SYNCID_META_KEY, &ids.coll)?;
-            }
-        };
-        db.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
-        tx.commit()?;
+        self.do_reset(assoc)?;
         Ok(())
     }
 

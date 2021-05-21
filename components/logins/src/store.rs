@@ -7,7 +7,10 @@ use crate::login::Login;
 use crate::LoginsSyncEngine;
 use std::cell::Cell;
 use std::path::Path;
-use sync15::{sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit};
+use sync15::{
+    sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
+    Sync15StorageClientInit,
+};
 
 // This store is a bundle of state to manage the login DB and to help the
 // SyncEngine.
@@ -82,9 +85,12 @@ impl PasswordStore {
     }
 
     pub fn reset(&self) -> Result<()> {
-        // This was exposed but is not used - consumers should be resetting
-        // via the sync manager.
-        unreachable!();
+        // Reset should not exist here - all resets should be done via the
+        // sync manager. It seems that actual consumers don't use this, but
+        // some tests do, so it remains for now.
+        let engine = LoginsSyncEngine::new(&self);
+        engine.do_reset(&EngineSyncAssociation::Disconnected)?;
+        Ok(())
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
