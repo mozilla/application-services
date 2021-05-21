@@ -445,8 +445,8 @@ mod tests {
                             "id": "dummy_000003",
                             "formSubmitURL": "https://www.example.com/submit",
                             "hostname": "https://www.example.com",
-                            "username": "test",
-                            "password": "test",
+                            "usernameEnc": "test",
+                            "passwordEnc": "test",
                         }))
                         .unwrap(),
                         sync15::ServerTimestamp(10000),

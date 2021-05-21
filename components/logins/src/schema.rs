@@ -88,11 +88,11 @@
 //!    JSON.
 //!
 
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use lazy_static::lazy_static;
-use rusqlite::{Connection, Transaction, NO_PARAMS};
+use rusqlite::{Connection, NO_PARAMS};
 use sql_support::ConnExt;
-use crate::encryption::EncryptorDecryptor;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
 /// which adds a metadata table and changes timestamps to be in milliseconds
@@ -337,7 +337,8 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         // the sqlcipher db and start fresh.
         return Err(ErrorKind::InvalidDatabaseFile(
             "can't migrate to plaintext when user_version is 0".into(),
-        ).into());
+        )
+        .into());
     }
     log::debug!(
         "Upgrading schema from {} to {} to prep for plaintext migration",
@@ -375,10 +376,14 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         let encryptor = EncryptorDecryptor::new(encryption_key)?;
         let encrypt_username_and_password = |table_name: &str| -> Result<()> {
             // Encrypt the username and password field for all rows.
-            let mut select_stmt = tx.prepare(
-                &format!("SELECT guid, username, password FROM {}", table_name))?;
-            let mut update_stmt = tx.prepare(
-                &format!("UPDATE {} SET username=?, password=? WHERE guid=?", table_name))?;
+            let mut select_stmt = tx.prepare(&format!(
+                "SELECT guid, username, password FROM {}",
+                table_name
+            ))?;
+            let mut update_stmt = tx.prepare(&format!(
+                "UPDATE {} SET username=?, password=? WHERE guid=?",
+                table_name
+            ))?;
             // Use raw rows to avoid extra copying since we're looping over an entire table
             let mut rows = select_stmt.query(NO_PARAMS)?;
             while let Some(row) = rows.next()? {
@@ -407,7 +412,13 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         //     named_params! { ":guid": guid },
         // )?;
     }
-    tx.execute(&format!("PRAGMA user_version = {version}", version = SQLCIPHER_SWITCHOVER_VERSION), NO_PARAMS)?;
+    tx.execute(
+        &format!(
+            "PRAGMA user_version = {version}",
+            version = SQLCIPHER_SWITCHOVER_VERSION
+        ),
+        NO_PARAMS,
+    )?;
     tx.commit()?;
     Ok(())
 }
