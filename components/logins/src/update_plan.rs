@@ -107,9 +107,9 @@ impl UpdatePlan {
                 formSubmitURL   = :form_submit_url,
                 usernameField   = :username_field,
                 passwordField   = :password_field,
-                password        = :password,
+                passwordEnc     = :password_enc,
                 hostname        = :hostname,
-                username        = :username,
+                usernameEnc     = :username_enc,
                 -- Avoid zeroes if the remote has been overwritten by an older client.
                 timesUsed           = coalesce(nullif(:times_used,            0), timesUsed),
                 timeLastUsed        = coalesce(nullif(:time_last_used,        0), timeLastUsed),
@@ -126,9 +126,9 @@ impl UpdatePlan {
                 ":form_submit_url": login.form_submit_url,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
-                ":password": login.password_enc,
+                ":password_enc": login.password_enc,
                 ":hostname": login.hostname,
-                ":username": login.username_enc,
+                ":username_enc": login.username_enc,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
                 ":time_password_changed": login.time_password_changed,
@@ -150,9 +150,9 @@ impl UpdatePlan {
                 formSubmitURL,
                 usernameField,
                 passwordField,
-                password,
+                passwordEnc,
                 hostname,
-                username,
+                usernameEnc,
 
                 timesUsed,
                 timeLastUsed,
@@ -168,9 +168,9 @@ impl UpdatePlan {
                 :form_submit_url,
                 :username_field,
                 :password_field,
-                :password,
+                :password_enc,
                 :hostname,
-                :username,
+                :username_enc,
 
                 :times_used,
                 :time_last_used,
@@ -190,9 +190,9 @@ impl UpdatePlan {
                 ":form_submit_url": login.form_submit_url,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
-                ":password": login.password_enc,
+                ":password_enc": login.password_enc,
                 ":hostname": login.hostname,
-                ":username": login.username_enc,
+                ":username_enc": login.username_enc,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
                 ":time_password_changed": login.time_password_changed,
@@ -215,9 +215,9 @@ impl UpdatePlan {
                  timeLastUsed        = :time_last_used,
                  timePasswordChanged = :time_password_changed,
                  timesUsed           = :times_used,
-                 password            = :password,
+                 passwordEnc         = :password_enc,
                  hostname            = :hostname,
-                 username            = :username,
+                 usernameEnc         = :username_enc,
                  sync_status         = {changed}
              WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
@@ -233,9 +233,9 @@ impl UpdatePlan {
                 ":form_submit_url": l.login.form_submit_url,
                 ":username_field": l.login.username_field,
                 ":password_field": l.login.password_field,
-                ":password": l.login.password_enc,
+                ":password_enc": l.login.password_enc,
                 ":hostname": l.login.hostname,
-                ":username": l.login.username_enc,
+                ":username_enc": l.login.username_enc,
                 ":time_last_used": l.login.time_last_used,
                 ":time_password_changed": l.login.time_password_changed,
                 ":times_used": l.login.times_used,
@@ -256,5 +256,98 @@ impl UpdatePlan {
         log::debug!("UpdatePlan: Updating reconciled local records...");
         self.perform_local_updates(conn, scope)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::test_utils::{
+        check_local_login, check_mirror_login, get_local_guids, get_mirror_guids,
+        get_server_modified, insert_login,
+    };
+    use crate::db::LoginDb;
+    use crate::login::test_utils::login;
+
+    #[test]
+    fn test_deletes() {
+        let db = LoginDb::open_in_memory().unwrap();
+        insert_login(&db, "login1", Some("password"), Some("password"));
+        insert_login(&db, "login2", Some("password"), Some("password"));
+        insert_login(&db, "login3", Some("password"), Some("password"));
+        insert_login(&db, "login4", Some("password"), Some("password"));
+
+        UpdatePlan {
+            delete_mirror: vec![Guid::new("login1"), Guid::new("login2")],
+            delete_local: vec![Guid::new("login2"), Guid::new("login3")],
+            ..Default::default()
+        }
+        .execute(&db, &db.begin_interrupt_scope())
+        .unwrap();
+
+        assert_eq!(get_local_guids(&db), vec!["login1", "login4"]);
+        assert_eq!(get_mirror_guids(&db), vec!["login3", "login4"]);
+    }
+
+    #[test]
+    fn test_mirror_updates() {
+        let db = LoginDb::open_in_memory().unwrap();
+        insert_login(&db, "unchanged", None, Some("password"));
+        insert_login(&db, "changed", None, Some("password"));
+        insert_login(
+            &db,
+            "changed2",
+            Some("new-local-password"),
+            Some("password"),
+        );
+        let initial_modified = get_server_modified(&db, "unchanged");
+
+        UpdatePlan {
+            mirror_updates: vec![
+                (login("changed", "new-password"), 20000),
+                (login("changed2", "new-password2"), 21000),
+            ],
+            ..Default::default()
+        }
+        .execute(&db, &db.begin_interrupt_scope())
+        .unwrap();
+        check_mirror_login(&db, "unchanged", "password", initial_modified, false);
+        check_mirror_login(&db, "changed", "new-password", 20000, false);
+        check_mirror_login(&db, "changed2", "new-password2", 21000, true);
+    }
+
+    #[test]
+    fn test_mirror_inserts() {
+        let db = LoginDb::open_in_memory().unwrap();
+        UpdatePlan {
+            mirror_inserts: vec![
+                (login("login1", "new-password"), 20000, false),
+                (login("login2", "new-password2"), 21000, true),
+            ],
+            ..Default::default()
+        }
+        .execute(&db, &db.begin_interrupt_scope())
+        .unwrap();
+        check_mirror_login(&db, "login1", "new-password", 20000, false);
+        check_mirror_login(&db, "login2", "new-password2", 21000, true);
+    }
+
+    #[test]
+    fn test_local_updates() {
+        let db = LoginDb::open_in_memory().unwrap();
+        insert_login(&db, "login", Some("password"), Some("password"));
+        let before_update = util::system_time_ms_i64(SystemTime::now());
+
+        UpdatePlan {
+            local_updates: vec![MirrorLogin {
+                login: login("login", "new-password"),
+                server_modified: ServerTimestamp(10000),
+                is_overridden: false,
+            }],
+            ..Default::default()
+        }
+        .execute(&db, &db.begin_interrupt_scope())
+        .unwrap();
+        check_local_login(&db, "login", "new-password", before_update);
     }
 }
