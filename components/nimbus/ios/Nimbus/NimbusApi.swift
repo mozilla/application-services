@@ -14,7 +14,7 @@ import Foundation
 /// enrollment will mostly use `NimbusUserConfiguration` methods. Application developers integrating
 /// `Nimbus` into their app should use the methods in `NimbusStartup`.
 ///
-public protocol NimbusApi: AnyObject, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration {}
+public protocol NimbusApi: AnyObject, NimbusStartup, NimbusFeatureConfiguration, NimbusUserConfiguration, NimbusTelemetryConfiguration {}
 
 public protocol NimbusFeatureConfiguration {
     /// Get the currently enrolled branch for the given experiment
@@ -44,7 +44,6 @@ public extension NimbusFeatureConfiguration {
         return getVariables(featureId: featureId, recordExposureEvent: true)
     }
 }
-
 
 public protocol NimbusTelemetryConfiguration {
     /// Records the `exposure` event in telemetry.

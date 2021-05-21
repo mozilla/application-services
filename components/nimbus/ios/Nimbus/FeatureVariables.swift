@@ -71,16 +71,16 @@ public extension Variables {
 }
 
 protocol VariablesWithBundle: Variables {
-    var bundles: [Bundle] { get }
+    var resourceBundles: [Bundle] { get }
 }
 
 extension VariablesWithBundle {
     func getImage(_ key: String) -> UIImage? {
-        return lookup(key, transform: asDrawableResource)
+        return lookup(key, transform: asImage)
     }
 
     func getText(_ key: String) -> String? {
-        return lookup(key, transform: asStringResource)
+        return lookup(key, transform: asLocalizedString)
     }
 
     private func lookup<T>(_ key: String, transform: (String) -> T?) -> T? {
@@ -90,8 +90,11 @@ extension VariablesWithBundle {
         return transform(value)
     }
 
-    func asDrawableResource(name: String) -> UIImage? {
-        for bundle in bundles {
+    /// Search through the resource bundles looking for an image of the given name.
+    ///
+    /// If no image is found in any of the `resourceBundles`, then the `nil` is returned.
+    func asImage(name: String) -> UIImage? {
+        for bundle in resourceBundles {
             if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
                 return image
             }
@@ -99,8 +102,11 @@ extension VariablesWithBundle {
         return nil
     }
 
-    ///
-    func asStringResource(name: String) -> String? {
+    /// Search through the resource bundles looking for localized strings with the given name.
+    /// If the `name` contains exactly one slash, it is split up and the first part of the string is used
+    /// as the `tableName` and the second the `key` in localized string lookup.
+    /// If no string is found in any of the `resourceBundles`, then the `name` is passed back unmodified.
+    func asLocalizedString(name: String) -> String? {
         let parts = name.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true).map { String($0) }
         let key: String
         let tableName: String?
@@ -113,8 +119,8 @@ extension VariablesWithBundle {
             key = name
         }
 
-        for bundle in bundles {
-            let value = NSLocalizedString(key, tableName: tableName, bundle: bundle, comment: "Dynamic lookup")
+        for bundle in resourceBundles {
+            let value = bundle.localizedString(forKey: key, value: nil, table: tableName)
             if value != key {
                 return value
             }
@@ -127,11 +133,11 @@ extension VariablesWithBundle {
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
 internal class JSONVariables: VariablesWithBundle {
     private let json: [String: Any]
-    internal let bundles: [Bundle]
+    internal let resourceBundles: [Bundle]
 
     init(with json: [String: Any], in bundles: [Bundle] = [Bundle.main]) {
         self.json = json
-        self.bundles = bundles
+        resourceBundles = bundles
     }
 
     // These `get*` methods get values from the wrapped JSON object, and transform them using the
@@ -151,7 +157,7 @@ internal class JSONVariables: VariablesWithBundle {
     // Methods used to get sub-objects. We immediately re-wrap an JSON object if it exists.
     func getVariables(_ key: String) -> Variables? {
         if let dictionary: [String: Any] = value(key) {
-            return JSONVariables(with: dictionary, in: bundles)
+            return JSONVariables(with: dictionary, in: resourceBundles)
         } else {
             return nil
         }

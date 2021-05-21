@@ -27,7 +27,8 @@ public class Nimbus: NimbusApi {
 
     internal init(nimbusClient: NimbusClientProtocol,
                   resourceBundles: [Bundle],
-                  errorReporter: @escaping NimbusErrorReporter) {
+                  errorReporter: @escaping NimbusErrorReporter)
+    {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
         self.resourceBundles = resourceBundles
