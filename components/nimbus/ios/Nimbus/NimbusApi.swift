@@ -22,7 +22,7 @@ public protocol NimbusFeatureConfiguration {
     /// - Parameter featureId The string feature id that applies to the feature under experiment.
     /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
     ///
-    func getExperimentBranch(featureId: String) -> String?
+    func getExperimentBranch(experimentId: String) -> String?
 
     /// Get the variables needed to configure the feature given by `featureId`.
     ///
@@ -38,6 +38,13 @@ public protocol NimbusFeatureConfiguration {
     /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String, recordExposureEvent: Bool) -> Variables
 }
+
+public extension NimbusFeatureConfiguration {
+    func getVariables(featureId: String) -> Variables {
+        return getVariables(featureId: featureId, recordExposureEvent: true)
+    }
+}
+
 
 public protocol NimbusTelemetryConfiguration {
     /// Records the `exposure` event in telemetry.

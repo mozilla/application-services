@@ -107,7 +107,7 @@ class NimbusTests: XCTestCase {
         try nimbus.setExperimentsLocallyOnThisThread(minimalExperimentJSON())
         try nimbus.applyPendingExperimentsOnThisThread()
 
-        let branch = nimbus.getExperimentBranch(featureId: "aboutwelcome")
+        let branch = nimbus.getExperimentBranch(experimentId: "secure-gold")
         XCTAssertNotNil(branch)
         XCTAssert(branch == "treatment" || branch == "control")
 
@@ -140,7 +140,7 @@ class NimbusTests: XCTestCase {
         nimbus.applyPendingExperiments()
         Thread.sleep(until: Date(timeIntervalSinceNow: 1.0))
 
-        let branch = nimbus.getExperimentBranch(featureId: "aboutwelcome")
+        let branch = nimbus.getExperimentBranch(experimentId: "secure-gold")
         XCTAssertNotNil(branch)
         XCTAssert(branch == "treatment" || branch == "control")
 

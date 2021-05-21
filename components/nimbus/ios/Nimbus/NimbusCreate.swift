@@ -24,6 +24,7 @@ public extension Nimbus {
     ///     - server: the server that experiments will be downloaded from
     ///     - appSettings: the name and channel for the app
     ///     - dbPath: the path on disk for the database
+    ///     - resourceBundles: an optional array of `Bundle` objects that are used to lookup text and images
     ///     - enabled: intended for FeatureFlags. If false, then return a dummy `Nimbus` instance. Defaults to `true`.
     ///     - errorReporter: a closure capable of reporting errors. Defaults to using a logger.
     /// - Returns an implementation of `NimbusApi`.
@@ -33,6 +34,7 @@ public extension Nimbus {
         _ server: NimbusServerSettings?,
         appSettings: NimbusAppSettings,
         dbPath: String,
+        resourceBundles: [Bundle] = [Bundle.main],
         enabled: Bool = true,
         errorReporter: @escaping NimbusErrorReporter = defaultErrorReporter
     ) throws -> NimbusApi {
@@ -56,7 +58,7 @@ public extension Nimbus {
             availableRandomizationUnits: AvailableRandomizationUnits(clientId: nil, dummy: 0)
         )
 
-        return Nimbus(nimbusClient: nimbusClient, errorReporter: errorReporter)
+        return Nimbus(nimbusClient: nimbusClient, resourceBundles: resourceBundles, errorReporter: errorReporter)
     }
 
     static func buildExperimentContext(

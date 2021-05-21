@@ -71,7 +71,7 @@ public extension Variables {
 }
 
 protocol VariablesWithBundle: Variables {
-    var bundle: Bundle { get }
+    var bundles: [Bundle] { get }
 }
 
 extension VariablesWithBundle {
@@ -91,12 +91,35 @@ extension VariablesWithBundle {
     }
 
     func asDrawableResource(name: String) -> UIImage? {
-        return UIImage(named: name, in: bundle, compatibleWith: nil)
+        for bundle in bundles {
+            if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
+                return image
+            }
+        }
+        return nil
     }
 
+    ///
     func asStringResource(name: String) -> String? {
-        // TODO: what about strings with in a table?
-        return bundle.localizedString(forKey: name, value: nil, table: nil)
+        let parts = name.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true).map { String($0) }
+        let key: String
+        let tableName: String?
+        switch parts.count {
+        case 2:
+            tableName = parts[0]
+            key = parts[1]
+        default:
+            tableName = nil
+            key = name
+        }
+
+        for bundle in bundles {
+            let value = NSLocalizedString(key, tableName: tableName, bundle: bundle, comment: "Dynamic lookup")
+            if value != key {
+                return value
+            }
+        }
+        return name
     }
 }
 
@@ -104,11 +127,11 @@ extension VariablesWithBundle {
 /// for configuring a feature, but without needing the developer to know about experiment specifics.
 internal class JSONVariables: VariablesWithBundle {
     private let json: [String: Any]
-    internal let bundle: Bundle
+    internal let bundles: [Bundle]
 
-    init(with json: [String: Any], in bundle: Bundle = Bundle.main) {
+    init(with json: [String: Any], in bundles: [Bundle] = [Bundle.main]) {
         self.json = json
-        self.bundle = bundle
+        self.bundles = bundles
     }
 
     // These `get*` methods get values from the wrapped JSON object, and transform them using the
@@ -128,7 +151,7 @@ internal class JSONVariables: VariablesWithBundle {
     // Methods used to get sub-objects. We immediately re-wrap an JSON object if it exists.
     func getVariables(_ key: String) -> Variables? {
         if let dictionary: [String: Any] = value(key) {
-            return JSONVariables(with: dictionary)
+            return JSONVariables(with: dictionary, in: bundles)
         } else {
             return nil
         }
