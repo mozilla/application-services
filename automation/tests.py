@@ -59,7 +59,7 @@ def yellow_text(text):
 
 def get_output(cmdline, **kwargs):
     output = subprocess.check_output(cmdline, **kwargs).decode('utf8')
-    return output.strip()
+    return output
 
 def run_command(cmdline, **kwargs):
     print(yellow_text(' '.join(shlex.quote(str(part)) for part in cmdline)))
@@ -92,7 +92,7 @@ class BranchChanges:
         # branch that's present in this branch.
         self.merge_base = get_output([
             'git', 'merge-base', 'HEAD', base_branch,
-        ])
+        ]).strip()
         # Use the merge base to calculate which files have changed from the
         # base branch.
         raw_paths = get_output([
@@ -203,9 +203,12 @@ def touch_changed_paths(branch_changes):
 
 def print_rust_environment():
     print('platform: {}'.format(platform.uname()))
-    print('rustc version: {}'.format(get_output(['rustc', '--version'])))
-    print('cargo version: {}'.format(get_output(['cargo', '--version'])))
-    print('rustfmt version: {}'.format(get_output(['rustfmt', '--version'])))
+    print('rustc version: {}'.format(
+        get_output(['rustc', '--version']).strip()))
+    print('cargo version: {}'.format(
+        get_output(['cargo', '--version']).strip()))
+    print('rustfmt version: {}'.format(
+        get_output(['rustfmt', '--version']).strip()))
     print('GCC version: {}'.format(
         get_output(['gcc', '--version']).split('\n')[0]))
     print()
