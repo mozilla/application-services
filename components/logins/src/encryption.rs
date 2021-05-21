@@ -44,12 +44,6 @@ impl EncryptorDecryptor {
         })
     }
 
-    // For tests.
-    #[cfg(test)]
-    pub fn new_test_key() -> String {
-        serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap()
-    }
-
     pub fn encrypt(&self, cleartext: &str) -> Result<String> {
         Ok(jwcrypto::encrypt_to_jwe(
             cleartext.as_bytes(),
@@ -83,6 +77,22 @@ pub fn decrypt_string(key: String, ciphertext: String) -> Result<String> {
 pub fn create_key() -> Result<String> {
     let key = jwcrypto::Jwk::new_direct_key(None)?;
     Ok(serde_json::to_string(&key)?)
+}
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::*;
+
+    lazy_static::lazy_static! {
+        pub static ref TEST_ENCRYPTION_KEY: String = serde_json::to_string(&jwcrypto::Jwk::new_direct_key(Some("test-key".to_string())).unwrap()).unwrap();
+        pub static ref TEST_ENCRYPTOR: EncryptorDecryptor = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
+    }
+    pub fn encrypt(value: &str) -> String {
+        TEST_ENCRYPTOR.encrypt(value).unwrap()
+    }
+    pub fn decrypt(value: &str) -> String {
+        TEST_ENCRYPTOR.decrypt(value).unwrap()
+    }
 }
 
 #[cfg(test)]

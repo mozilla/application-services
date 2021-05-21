@@ -85,24 +85,11 @@ fn sqlcipher_export(conn: &mut Connection, new_db_path: impl AsRef<Path>) -> Res
 mod tests {
     use super::*;
     use crate::db::LoginDb;
-    use crate::encryption::EncryptorDecryptor;
+    use crate::encryption::test_utils::{decrypt, TEST_ENCRYPTION_KEY};
     use rusqlite::types::ValueRef;
     use std::path::PathBuf;
-    use std::time;
-    use sync15::ServerTimestamp;
 
     static TEST_SALT: &str = "01010101010101010101010101010101";
-    lazy_static::lazy_static! {
-        static ref TEST_KEY: String = EncryptorDecryptor::new_test_key();
-        static ref TEST_ENCRYPTOR: EncryptorDecryptor = EncryptorDecryptor::new(&TEST_KEY).unwrap();
-    }
-
-    fn decrypt(value: &str) -> String {
-        TEST_ENCRYPTOR.decrypt(value).unwrap()
-    }
-    fn encrypt(value: &str) -> String {
-        TEST_ENCRYPTOR.encrypt(value).unwrap()
-    }
 
     fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
         let mut db = Connection::open(db_path).unwrap();
@@ -136,7 +123,7 @@ mod tests {
         ).unwrap();
         tx.commit().unwrap();
         // Run the sqlcipher DB upgrade again;
-        schema::upgrade_sqlcipher_db(&mut db, &TEST_KEY).unwrap();
+        schema::upgrade_sqlcipher_db(&mut db, &TEST_ENCRYPTION_KEY).unwrap();
     }
 
     struct TestPaths {
@@ -157,12 +144,23 @@ mod tests {
     }
 
     fn check_migrated_data(db: &LoginDb) {
-        let mut stmt = db.prepare("SELECT * FROM loginsL where guid = 'a'").unwrap();
+        let mut stmt = db
+            .prepare("SELECT * FROM loginsL where guid = 'a'")
+            .unwrap();
         let mut rows = stmt.query(NO_PARAMS).unwrap();
         let row = rows.next().unwrap().unwrap();
-        assert_eq!(decrypt(row.get_raw("usernameEnc").as_str().unwrap()), "test");
-        assert_eq!(decrypt(row.get_raw("passwordEnc").as_str().unwrap()), "password");
-        assert_eq!(row.get_raw("hostname").as_str().unwrap(), "https://www.example.com");
+        assert_eq!(
+            decrypt(row.get_raw("usernameEnc").as_str().unwrap()),
+            "test"
+        );
+        assert_eq!(
+            decrypt(row.get_raw("passwordEnc").as_str().unwrap()),
+            "password"
+        );
+        assert_eq!(
+            row.get_raw("hostname").as_str().unwrap(),
+            "https://www.example.com"
+        );
         assert_eq!(row.get_raw("httpRealm"), ValueRef::Null);
         assert_eq!(
             row.get_raw("formSubmitUrl").as_str().unwrap(),
@@ -178,12 +176,23 @@ mod tests {
         assert_eq!(row.get_raw("is_deleted").as_i64().unwrap(), 0);
         assert_eq!(row.get_raw("sync_status").as_i64().unwrap(), 2);
 
-        let mut stmt = db.prepare("SELECT * FROM loginsM where guid = 'b'").unwrap();
+        let mut stmt = db
+            .prepare("SELECT * FROM loginsM where guid = 'b'")
+            .unwrap();
         let mut rows = stmt.query(NO_PARAMS).unwrap();
         let row = rows.next().unwrap().unwrap();
-        assert_eq!(decrypt(row.get_raw("usernameEnc").as_str().unwrap()), "test");
-        assert_eq!(decrypt(row.get_raw("passwordEnc").as_str().unwrap()), "password");
-        assert_eq!(row.get_raw("hostname").as_str().unwrap(), "https://www.example.com");
+        assert_eq!(
+            decrypt(row.get_raw("usernameEnc").as_str().unwrap()),
+            "test"
+        );
+        assert_eq!(
+            decrypt(row.get_raw("passwordEnc").as_str().unwrap()),
+            "password"
+        );
+        assert_eq!(
+            row.get_raw("hostname").as_str().unwrap(),
+            "https://www.example.com"
+        );
         assert_eq!(row.get_raw("httpRealm").as_str().unwrap(), "Test Realm");
         assert_eq!(row.get_raw("formSubmitUrl"), ValueRef::Null);
         assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "");

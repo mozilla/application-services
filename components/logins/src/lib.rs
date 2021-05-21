@@ -10,10 +10,10 @@ mod error;
 mod login;
 
 mod db;
+pub mod encryption;
 mod engine;
 mod migrate_sqlcipher_db;
 pub mod schema;
-pub mod encryption;
 mod store;
 mod update_plan;
 mod util;

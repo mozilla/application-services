@@ -18,8 +18,8 @@ use sync_guid::Guid;
 use anyhow::Result;
 
 fn read_login() -> Login {
-    let username = prompt_string("username").unwrap_or_default();
-    let password = prompt_string("password").unwrap_or_default();
+    let username_enc = prompt_string("username").unwrap_or_default();
+    let password_enc = prompt_string("password").unwrap_or_default();
     let form_submit_url = prompt_string("form_submit_url");
     let hostname = prompt_string("hostname").unwrap_or_default();
     let http_realm = prompt_string("http_realm");
@@ -27,8 +27,8 @@ fn read_login() -> Login {
     let password_field = prompt_string("password_field").unwrap_or_default();
     let record = Login {
         guid: Guid::random(),
-        username,
-        password,
+        username_enc,
+        password_enc,
         username_field,
         password_field,
         form_submit_url,
@@ -62,8 +62,16 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
 }
 
 fn update_login(record: &mut Login) {
-    update_string("username", &mut record.username, ", leave blank to keep");
-    update_string("password", &mut record.password, ", leave blank to keep");
+    update_string(
+        "username",
+        &mut record.username_enc,
+        ", leave blank to keep",
+    );
+    update_string(
+        "password",
+        &mut record.password_enc,
+        ", leave blank to keep",
+    );
     update_string("hostname", &mut record.hostname, ", leave blank to keep");
 
     update_string(
@@ -186,8 +194,8 @@ fn show_all(store: &PasswordStore) -> Result<Vec<Guid>> {
         table.add_row(row![
             r->v.len(),
             Fr->&rec.guid,
-            &rec.username,
-            Fd->&rec.password,
+            &rec.username_enc,
+            Fd->&rec.password_enc,
 
             &rec.hostname,
             string_opt_or(&rec.form_submit_url, ""),
@@ -266,7 +274,7 @@ fn main() -> Result<()> {
         .unwrap_or("./credentials.json");
     let db_path = matches.value_of("database_path").unwrap_or("./logins.db");
     // This should already be checked by `clap`, IIUC
-    let encryption_key = matches
+    let _encryption_key = matches
         .value_of("encryption_key")
         .expect("Encryption key is not optional");
 
@@ -280,7 +288,7 @@ fn main() -> Result<()> {
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
-    let store = PasswordStore::new(db_path, Some(encryption_key))?;
+    let store = PasswordStore::new(db_path)?;
 
     log::info!("Store has {} passwords", store.list()?.len());
 
