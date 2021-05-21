@@ -57,7 +57,6 @@
    existing enrollments is still less bad than having the database in an unknown
    inconsistent state.
 
-
 # v76.0.1 (_2021-05-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.0...v76.0.1)
@@ -2930,4 +2929,3 @@ N/A
 
 - Clarified which exceptions are thrown in documentation in cases where it was unclear. ([#495](https://github.com/mozilla/application-services/pull/495))
 - Added `@Throws` annotations to all methods which can throw. ([#495](https://github.com/mozilla/application-services/pull/495))
-

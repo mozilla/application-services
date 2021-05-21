@@ -23,7 +23,6 @@ the details of which are reproduced below.
 * [MIT License: hyper](#mit-license-hyper)
 * [MIT License: libsqlite3-sys](#mit-license-libsqlite3-sys)
 * [MIT License: matches](#mit-license-matches)
-* [MIT License: mime_guess](#mit-license-mime_guess)
 * [MIT License: miniz_oxide](#mit-license-miniz_oxide)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
@@ -34,7 +33,8 @@ the details of which are reproduced below.
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: tap](#mit-license-tap)
 * [MIT License: textwrap](#mit-license-textwrap)
-* [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core-tracing-futures)
+* [MIT License: tokio, tokio-util](#mit-license-tokio-tokio-util)
+* [MIT License: tokio-native-tls, tracing, tracing-core](#mit-license-tokio-native-tls-tracing-tracing-core)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
@@ -492,7 +492,6 @@ The following text applies to code linked from these dependencies:
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
-[iovec](https://github.com/carllerche/iovec),
 [ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
@@ -505,7 +504,6 @@ The following text applies to code linked from these dependencies:
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
 [native-tls](https://github.com/sfackler/rust-native-tls),
-[net2](https://github.com/deprecrated/net2-rs),
 [num-integer](https://github.com/rust-num/num-integer),
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
@@ -547,7 +545,7 @@ The following text applies to code linked from these dependencies:
 [sha2](https://github.com/RustCrypto/hashes),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
-[socket2](https://github.com/alexcrichton/socket2-rs),
+[socket2](https://github.com/rust-lang/socket2),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
@@ -560,7 +558,6 @@ The following text applies to code linked from these dependencies:
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
 [ucd-trie](https://github.com/BurntSushi/ucd-generate),
-[unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
@@ -1219,7 +1216,7 @@ The following text applies to code linked from these dependencies:
 [hyper](https://github.com/hyperium/hyper)
 
 ```
-Copyright (c) 2014-2018 Sean McArthur
+Copyright (c) 2014-2021 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1238,7 +1235,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
 
 ```
 -------------
@@ -1301,37 +1297,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: mime_guess
-
-The following text applies to code linked from these dependencies:
-[mime_guess](https://github.com/abonander/mime_guess)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Austin Bonander
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 
 ```
 -------------
@@ -1638,14 +1603,46 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures
+## MIT License: tokio, tokio-util
 
 The following text applies to code linked from these dependencies:
-[tokio-tls](https://github.com/tokio-rs/tokio),
 [tokio-util](https://github.com/tokio-rs/tokio),
-[tokio](https://github.com/tokio-rs/tokio),
+[tokio](https://github.com/tokio-rs/tokio)
+
+```
+Copyright (c) 2021 Tokio Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tokio-native-tls, tracing, tracing-core
+
+The following text applies to code linked from these dependencies:
+[tokio-native-tls](https://github.com/tokio-rs/tls),
 [tracing-core](https://github.com/tokio-rs/tracing),
-[tracing-futures](https://github.com/tokio-rs/tracing),
 [tracing](https://github.com/tokio-rs/tracing)
 
 ```
