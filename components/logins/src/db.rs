@@ -912,6 +912,7 @@ lazy_static! {
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
+    use crate::encryption::test_utils::decrypt;
     use crate::login::test_utils::login;
     use sync15::ServerTimestamp;
 
@@ -1001,6 +1002,65 @@ pub mod test_utils {
             ":guid": login.guid_str(),
         })?;
         Ok(())
+    }
+
+    pub fn get_local_guids(db: &LoginDb) -> Vec<String> {
+        get_guids(db, "SELECT guid FROM loginsL")
+    }
+
+    pub fn get_mirror_guids(db: &LoginDb) -> Vec<String> {
+        get_guids(db, "SELECT guid FROM loginsM")
+    }
+
+    fn get_guids(db: &LoginDb, sql: &str) -> Vec<String> {
+        let mut stmt = db.prepare_cached(sql).unwrap();
+        let mut res: Vec<String> = stmt
+            .query_map(NO_PARAMS, |r| r.get(0))
+            .unwrap()
+            .map(|r| r.unwrap())
+            .collect();
+        res.sort();
+        res
+    }
+
+    pub fn get_server_modified(db: &LoginDb, guid: &str) -> i64 {
+        db.query_one(&format!(
+            "SELECT server_modified FROM loginsM WHERE guid='{}'",
+            guid
+        ))
+        .unwrap()
+    }
+
+    pub fn check_local_login(db: &LoginDb, guid: &str, password: &str, local_modified_gte: i64) {
+        let row: (String, i64, bool) = db
+            .query_row(
+                "SELECT passwordEnc, local_modified, is_deleted FROM loginsL WHERE guid=?",
+                &[guid],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(decrypt(&row.0), password);
+        assert!(row.1 >= local_modified_gte);
+        assert!(!row.2);
+    }
+
+    pub fn check_mirror_login(
+        db: &LoginDb,
+        guid: &str,
+        password: &str,
+        server_modified: i64,
+        is_overridden: bool,
+    ) {
+        let row: (String, i64, bool) = db
+            .query_row(
+                "SELECT passwordEnc, server_modified, is_overridden FROM loginsM WHERE guid=?",
+                &[guid],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+        assert_eq!(decrypt(&row.0), password);
+        assert_eq!(row.1, server_modified);
+        assert_eq!(row.2, is_overridden);
     }
 }
 
