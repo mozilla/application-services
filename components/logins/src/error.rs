@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::ffi::OsString;
+
 // TODO: this is (IMO) useful and was dropped from `failure`, consider moving it
 // into `error_support`.
 macro_rules! throw {
@@ -42,6 +44,9 @@ pub enum ErrorKind {
 
     #[error("Error parsing URL: {0}")]
     UrlParseError(#[from] url::ParseError),
+
+    #[error("Invalid path: {0:?}")]
+    InvalidPath(OsString),
 
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),
@@ -92,6 +97,7 @@ impl Error {
             ErrorKind::SyncAdapterError(_) => "SyncAdapterError",
             ErrorKind::JsonError(_) => "JsonError",
             ErrorKind::UrlParseError(_) => "UrlParseError",
+            ErrorKind::InvalidPath(_) => "InvalidPath",
             ErrorKind::SqlError(_) => "SqlError",
             ErrorKind::Interrupted(_) => "Interrupted",
             ErrorKind::InvalidLogin(desc) => match desc {
