@@ -11,6 +11,7 @@ mod login;
 
 mod db;
 mod engine;
+mod migrate_sqlcipher_db;
 pub mod schema;
 mod store;
 mod update_plan;

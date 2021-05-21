@@ -20,24 +20,16 @@ pub struct PasswordStore {
 }
 
 impl PasswordStore {
-    pub fn new(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        let db = LoginDb::open(path, encryption_key)?;
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let db = LoginDb::open(path)?;
         Ok(Self {
             db,
             mem_cached_state: Cell::default(),
         })
     }
 
-    pub fn new_with_salt(path: impl AsRef<Path>, encryption_key: &str, salt: &str) -> Result<Self> {
-        let db = LoginDb::open_with_salt(path, encryption_key, salt)?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
-    }
-
-    pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        let db = LoginDb::open_in_memory(encryption_key)?;
+    pub fn new_in_memory() -> Result<Self> {
+        let db = LoginDb::open_in_memory()?;
         Ok(Self {
             db,
             mem_cached_state: Cell::default(),
@@ -106,12 +98,10 @@ impl PasswordStore {
         self.db.import_multiple(logins)
     }
 
-    pub fn disable_mem_security(&self) -> Result<()> {
-        self.db.disable_mem_security()
-    }
-
-    pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
-        self.db.rekey_database(new_encryption_key)
+    // This is basically exposed just for sync_pass_sql, but it doesn't seem
+    // unreasonable.
+    pub fn conn(&self) -> &rusqlite::Connection {
+        &self.db.db
     }
 
     pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
@@ -184,7 +174,7 @@ mod test {
 
     #[test]
     fn test_general() {
-        let store = PasswordStore::new_in_memory(Some("secret")).unwrap();
+        let store = PasswordStore::new_in_memory().unwrap();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
@@ -295,14 +285,6 @@ mod test {
         assert_ge!(b_after_update.time_last_used, now_us);
         // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
-    }
-
-    #[test]
-    fn test_rekey() {
-        let store = PasswordStore::new_in_memory(Some("secret")).unwrap();
-        store.rekey_database("new_encryption_key").unwrap();
-        let list = store.list().expect("Grabbing Empty list to work");
-        assert_eq!(list.len(), 0);
     }
 }
 

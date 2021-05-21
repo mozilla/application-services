@@ -10,7 +10,7 @@ use lazy_static::lazy_static;
 use rusqlite::{
     named_params,
     types::{FromSql, ToSql},
-    Connection, OpenFlags, NO_PARAMS,
+    Connection, NO_PARAMS,
 };
 use serde_derive::*;
 use sql_support::{self, ConnExt};
@@ -48,28 +48,10 @@ pub struct LoginDb {
 }
 
 impl LoginDb {
-    pub fn with_connection(
-        db: Connection,
-        encryption_key: Option<&str>,
-        salt: Option<&str>,
-    ) -> Result<Self> {
+    pub fn with_connection(db: Connection) -> Result<Self> {
         #[cfg(test)]
         {
             util::init_test_logging();
-        }
-
-        if let Some(key) = encryption_key {
-            db.set_pragma("key", key)?
-                .set_pragma("secure_delete", true)?;
-
-            sqlcipher_3_compat(&db)?;
-
-            if let Some(s) = salt {
-                // If a salt is also provided, this means the consumer does not want the salt stored
-                // in the database header. Currently only iOS uses this.
-                db.set_pragma("cipher_plaintext_header_size", 32)?;
-                db.set_pragma("cipher_salt", format!("x'{}'", s))?;
-            }
         }
 
         // `temp_store = 2` is required on Android to force the DB to keep temp
@@ -88,71 +70,32 @@ impl LoginDb {
         Ok(logins)
     }
 
-    pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
-        Self::with_connection(Connection::open(path)?, encryption_key, None)
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        Self::with_connection(Connection::open(path)?)
     }
 
-    pub fn open_with_salt(
-        path: impl AsRef<Path>,
-        encryption_key: &str,
-        salt: &str,
-    ) -> Result<Self> {
-        ensure_valid_salt(salt)?;
-        Self::with_connection(Connection::open(path)?, Some(encryption_key), Some(salt))
+    pub fn open_in_memory() -> Result<Self> {
+        Self::with_connection(Connection::open_in_memory()?)
     }
 
-    pub fn open_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        Self::with_connection(Connection::open_in_memory()?, encryption_key, None)
-    }
-
-    /// Opens an existing database and fetches the salt.
-    /// This method is used by iOS consumers as part as the migration plan to store
-    /// the salt outside of the sqlite db headers.
-    ///
-    /// Will return an error if the database does not exist.
-    pub fn open_and_get_salt(path: impl AsRef<Path>, encryption_key: &str) -> Result<String> {
-        // Open the connection defensively without attempting to create a db if it doesn't exist.
-        let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        db.set_pragma("key", encryption_key)?;
-        sqlcipher_3_compat(&db)?;
-        let salt = db.query_one::<String>("PRAGMA cipher_salt")?;
-        Ok(salt)
-    }
-
-    pub fn open_and_migrate_to_plaintext_header(
-        path: impl AsRef<Path>,
-        encryption_key: &str,
-        salt: &str,
+    // Migrate from a sqlcipher encrypted database to a plaintext database with individual fields
+    // encrypted
+    //
+    // The salt arg is for IOS and other systems where the salt is stored externally.
+    pub fn migrate_sqlcipher_db_to_plaintext(
+        old_db_path: impl AsRef<Path>,
+        new_db_path: impl AsRef<Path>,
+        old_encryption_key: &str,
+        new_encryption_key: &str,
+        salt: Option<&str>,
     ) -> Result<()> {
-        ensure_valid_salt(salt)?;
-        // Open the connection defensively without attempting to create a db if it doesn't exist.
-        let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
-        db.set_pragma("key", encryption_key)?;
-        sqlcipher_3_compat(&db)?;
-        db.set_pragma("cipher_salt", format!("x'{}'", salt))?;
-        // This tricks the `cipher_plaintext_header_size` command to work properly.
-        let user_version = db.query_one::<i64>("PRAGMA user_version")?;
-        // Remove the salt from the database header.
-        db.set_pragma("cipher_plaintext_header_size", 32)?;
-        // Flush the header changes.
-        db.set_pragma("user_version", user_version)?;
-        db.close().map_err(|(_conn, err)| err)?;
-        Ok(())
-    }
-
-    pub fn disable_mem_security(&self) -> Result<()> {
-        self.conn().set_pragma("cipher_memory_security", false)?;
-        Ok(())
-    }
-
-    /// Change the key on an existing encrypted database,
-    /// it must first be unlocked with the current encryption key.
-    /// Once the database is readable and writeable, PRAGMA rekey
-    /// can be used to re-encrypt every page in the database with a new key.
-    /// https://www.zetetic.net/sqlcipher/sqlcipher-api/#Changing_Key
-    pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
-        self.conn().set_pragma("rekey", new_encryption_key)?;
-        Ok(())
+        crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext(
+            old_db_path,
+            new_db_path,
+            old_encryption_key,
+            new_encryption_key,
+            salt,
+        )
     }
 
     pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
@@ -166,33 +109,6 @@ impl LoginDb {
     pub fn begin_interrupt_scope(&self) -> SqlInterruptScope {
         SqlInterruptScope::new(self.interrupt_counter.clone())
     }
-}
-
-// Checks if the provided string is a 32 len hex string.
-fn ensure_valid_salt(salt: &str) -> Result<()> {
-    let is_valid_hex_character = |c: &u8| {
-        matches!(c,
-                b'A'..=b'F' |
-                b'a'..=b'f' |
-                b'0'..=b'9')
-    };
-    if salt.len() == 32 && salt.as_bytes().iter().all(is_valid_hex_character) {
-        return Ok(());
-    }
-    Err(ErrorKind::InvalidSalt.into())
-}
-
-fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
-    // SQLcipher pre-4.0.0 compatibility. Using SHA1 still
-    // is less than ideal, but should be fine. Real uses of
-    // this (lockwise, etc) use a real random string for the
-    // encryption key, so the reduced KDF iteration count
-    // is fine.
-    conn.set_pragma("cipher_page_size", 1024)?
-        .set_pragma("kdf_iter", 64000)?
-        .set_pragma("cipher_hmac_algorithm", "HMAC_SHA1")?
-        .set_pragma("cipher_kdf_algorithm", "PBKDF2_HMAC_SHA1")?;
-    Ok(())
 }
 
 impl ConnExt for LoginDb {
@@ -939,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_check_valid_with_no_dupes() {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
             form_submit_url: Some("https://www.example.com".into()),
@@ -1028,7 +944,7 @@ mod tests {
 
     #[test]
     fn test_unicode_submit() {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
             form_submit_url: Some("http://😍.com".into()),
@@ -1055,7 +971,7 @@ mod tests {
 
     #[test]
     fn test_unicode_realm() {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
         db.add(Login {
             guid: "dummy_000001".into(),
             form_submit_url: None,
@@ -1093,7 +1009,7 @@ mod tests {
         good_queries: Vec<&str>,
         zero_queries: Vec<&str>,
     ) {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
         for h in good.iter().chain(bad.iter()) {
             db.add(Login {
                 hostname: (*h).into(),
@@ -1176,7 +1092,7 @@ mod tests {
 
     #[test]
     fn test_delete() {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
         let _login = db
             .add(Login {
                 hostname: "https://www.example.com".into(),
@@ -1206,7 +1122,7 @@ mod tests {
 
     #[test]
     fn test_wipe() {
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
         let login1 = db
             .add(Login {
                 hostname: "https://www.example.com".into(),
@@ -1271,7 +1187,7 @@ mod tests {
             expected_metrics: MigrationMetrics,
         }
 
-        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        let db = LoginDb::open_in_memory().unwrap();
 
         // Adding login to trigger non-empty table error
         let login = db
@@ -1450,90 +1366,5 @@ mod tests {
                 assert_eq!(actual_metrics, tc.expected_metrics);
             }
         }
-    }
-
-    #[test]
-    fn test_open_with_salt_create_db() {
-        let dir = tempdir::TempDir::new("open_with_salt").unwrap();
-        let dbpath = dir.path().join("logins.sqlite");
-        let dbpath = dbpath.to_str().unwrap();
-        let conn =
-            LoginDb::open_with_salt(dbpath, "testing", "952b9e3d53b39a8eba70b398acefa0a0").unwrap();
-        conn.query_one::<i64>("PRAGMA user_version").unwrap();
-    }
-
-    #[test]
-    fn test_get_salt_for_key() {
-        // First we create a database.
-        let dir = tempdir::TempDir::new("salt_for_key_test").unwrap();
-        let dbpath = dir.path().join("logins.sqlite");
-        let dbpath = dbpath.to_str().unwrap();
-        let conn = LoginDb::open(dbpath, Some("testing")).unwrap();
-        // Database created.
-        let expected_salt = conn.query_one::<String>("PRAGMA cipher_salt").unwrap();
-
-        let salt = LoginDb::open_and_get_salt(dbpath, "testing").unwrap();
-        assert_eq!(expected_salt, salt);
-    }
-
-    #[test]
-    fn test_get_salt_for_key_no_db() {
-        assert!(LoginDb::open_and_get_salt("nodbpath", "testing").is_err());
-    }
-
-    #[test]
-    fn test_plaintext_header_migration_full() {
-        // First we create a database.
-        let dir = tempdir::TempDir::new("plaintext_header_migration").unwrap();
-        let dbpath = dir.path().join("logins.sqlite");
-        let dbpath = dbpath.to_str().unwrap();
-        let conn = LoginDb::open(dbpath, Some("testing")).unwrap();
-        drop(conn);
-        // Database created.
-
-        // Step 1: get the salt.
-        let salt = LoginDb::open_and_get_salt(dbpath, "testing").unwrap();
-
-        // Step 2: migrate the db.
-        LoginDb::open_and_migrate_to_plaintext_header(dbpath, "testing", &salt).unwrap();
-
-        // Step 3: open using the salt.
-        let conn = LoginDb::open_with_salt(dbpath, "testing", &salt).unwrap();
-        conn.query_one::<i64>("PRAGMA user_version").unwrap();
-    }
-
-    #[test]
-    fn test_open_db_with_wrong_salt() {
-        // First we create a database.
-        let dir = tempdir::TempDir::new("wrong_salt_test").unwrap();
-        let dbpath = dir.path().join("logins.sqlite");
-        let dbpath = dbpath.to_str().unwrap();
-        let conn =
-            LoginDb::open_with_salt(dbpath, "testing", "deadbeefdeadbeefdeadbeefdeadbeef").unwrap();
-        drop(conn);
-        // Database created.
-
-        // Try opening the db using a wrong salt.
-        assert!(
-            LoginDb::open_with_salt(dbpath, "testing", "beefdeadbeefdeadbeefdeadbeefdead").is_err()
-        );
-    }
-
-    #[test]
-    fn test_create_db_with_invalid_salt() {
-        let dir = tempdir::TempDir::new("invalid_salt_test").unwrap();
-        let dbpath = dir.path().join("logins.sqlite");
-        let dbpath = dbpath.to_str().unwrap();
-        assert!(
-            LoginDb::open_with_salt(dbpath, "testing", "bobobobobobobobobobobobobobobobo").is_err()
-        );
-    }
-
-    #[test]
-    fn test_ensure_valid_salt() {
-        assert!(ensure_valid_salt("bobo").is_err());
-        assert!(ensure_valid_salt("bobobobobobobobobobobobobobobobo").is_err());
-        assert!(ensure_valid_salt("deadbeef").is_err());
-        assert!(ensure_valid_salt("deadbeefdeadbeefdeadbeefdeadbeef").is_ok());
     }
 }

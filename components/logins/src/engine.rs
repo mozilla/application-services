@@ -414,9 +414,10 @@ impl<'a> SyncEngine for LoginsSyncEngine<'a> {
 mod tests {
     use super::*;
     use crate::store::PasswordStore;
+
     #[test]
     fn test_bad_record() {
-        let store = PasswordStore::new_in_memory(Some("testing")).unwrap();
+        let store = PasswordStore::new_in_memory().unwrap();
         let engine = LoginsSyncEngine::new(&store);
         let scope = store.db.begin_interrupt_scope();
         let mut telem = sync15::telemetry::EngineIncoming::new();
