@@ -1,3 +1,10 @@
+# v77.0.1 (_2021-05-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
+
+## CI-only to force iOS artifact build, 77.0.0 is not good for iOS
+  - add --force flag when installing swift-protobuf via homebrew (#4137) 
+
 # v77.0.0 (_2021-05-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...v77.0.0)
