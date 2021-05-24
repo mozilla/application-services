@@ -201,7 +201,7 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
 
         if sendExposureEvent {
-            self.recordExposureEvent(featureId: featureId)
+            recordExposureEvent(featureId: featureId)
         }
 
         return JSONVariables(with: json, in: resourceBundles)
