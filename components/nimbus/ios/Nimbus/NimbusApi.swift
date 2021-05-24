@@ -36,12 +36,20 @@ public protocol NimbusFeatureConfiguration {
     /// See `recordExposureEvent` for more information on manually recording the event.
     ///
     /// - Returns a `Variables` object used to configure the feature.
-    func getVariables(featureId: String, recordExposureEvent: Bool) -> Variables
+    func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables
 }
 
 public extension NimbusFeatureConfiguration {
+    /// Get the variables needed to configure the feature given by `featureId`.
+    ///
+    /// By default this sends an exposure event.
+    ///
+    /// - Parameters:
+    ///     - featureId The string feature id that identifies to the feature under experiment.
+    ///
+    /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String) -> Variables {
-        return getVariables(featureId: featureId, recordExposureEvent: true)
+        return getVariables(featureId: featureId, sendExposureEvent: true)
     }
 }
 
