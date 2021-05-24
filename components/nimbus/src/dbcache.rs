@@ -58,10 +58,12 @@ impl DatabaseCache {
             branches_by_experiment.insert(e.slug, e.branch_slug.clone());
         }
 
+        log::debug!("collecting... ");
         let enrollments: Vec<ExperimentEnrollment> =
             db.get_store(StoreId::Enrollments).collect_all(&writer)?;
         let experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
+        log::debug!("...finished");
 
         let features_by_feature_id = map_features_by_feature_id(&enrollments, &experiments);
 
