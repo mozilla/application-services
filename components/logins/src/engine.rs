@@ -226,7 +226,7 @@ impl<'a> LoginsSyncEngine<'a> {
                     .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
                 Login::from_row(row)?
-                    .to_payload(encdec)?
+                    .into_payload(encdec)?
                     .with_sortindex(DEFAULT_SORTINDEX)
             })
         })?;
@@ -488,19 +488,19 @@ mod tests {
                 ),
                 (
                     login("added_remotely", "password")
-                        .to_payload(&TEST_ENCRYPTOR)
+                        .into_payload(&TEST_ENCRYPTOR)
                         .unwrap(),
                     sync15::ServerTimestamp(10000),
                 ),
                 (
                     login("updated_remotely", "new-password")
-                        .to_payload(&TEST_ENCRYPTOR)
+                        .into_payload(&TEST_ENCRYPTOR)
                         .unwrap(),
                     sync15::ServerTimestamp(10000),
                 ),
                 (
                     login("three_way_merge", "new-remote-password")
-                        .to_payload(&TEST_ENCRYPTOR)
+                        .into_payload(&TEST_ENCRYPTOR)
                         .unwrap(),
                     sync15::ServerTimestamp(10000),
                 ),

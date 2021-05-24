@@ -344,16 +344,16 @@ impl Login {
         })
     }
 
-    pub fn to_payload(&self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
+    pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
         Ok(sync15::Payload::from_record(LoginPayload {
-            guid: self.guid.clone(),
-            hostname: self.hostname.clone(),
-            form_submit_url: self.form_submit_url.clone(),
-            http_realm: self.http_realm.clone(),
+            guid: self.guid,
+            hostname: self.hostname,
+            form_submit_url: self.form_submit_url,
+            http_realm: self.http_realm,
             username: encdec.decrypt(&self.username_enc)?,
             password: encdec.decrypt(&self.password_enc)?,
-            username_field: self.username_field.clone(),
-            password_field: self.password_field.clone(),
+            username_field: self.username_field,
+            password_field: self.password_field,
             time_created: self.time_created,
             time_password_changed: self.time_password_changed,
             time_last_used: self.time_last_used,
@@ -1538,7 +1538,7 @@ mod tests {
     }
 
     #[test]
-    fn test_login_to_payload() {
+    fn test_login_into_payload() {
         let login = Login {
             guid: "123412341234".into(),
             http_realm: Some("test".into()),
@@ -1547,7 +1547,7 @@ mod tests {
             password_enc: encrypt("password"),
             ..Default::default()
         };
-        let payload = login.to_payload(&TEST_ENCRYPTOR).unwrap();
+        let payload = login.into_payload(&TEST_ENCRYPTOR).unwrap();
 
         assert_eq!(payload.id, "123412341234");
         assert_eq!(payload.deleted, false);
