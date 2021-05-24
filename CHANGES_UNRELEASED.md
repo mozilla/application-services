@@ -2,4 +2,4 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.1...main)
