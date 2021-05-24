@@ -327,7 +327,7 @@ jobs:
       - run:
           name: Set up the build environment
           command: |
-            brew install swift-protobuf
+            brew install swift-protobuf --force
       - carthage-bootstrap
       - run:
           name: Verify the build environment
