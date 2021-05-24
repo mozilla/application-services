@@ -7,6 +7,8 @@ import Foundation
 public class Nimbus: NimbusApi {
     private let nimbusClient: NimbusClientProtocol
 
+    private let resourceBundles: [Bundle]
+
     private let errorReporter: NimbusErrorReporter
 
     lazy var fetchQueue: OperationQueue = {
@@ -23,9 +25,13 @@ public class Nimbus: NimbusApi {
         return queue
     }()
 
-    internal init(nimbusClient: NimbusClientProtocol, errorReporter: @escaping NimbusErrorReporter) {
+    internal init(nimbusClient: NimbusClientProtocol,
+                  resourceBundles: [Bundle],
+                  errorReporter: @escaping NimbusErrorReporter)
+    {
         self.errorReporter = errorReporter
         self.nimbusClient = nimbusClient
+        self.resourceBundles = resourceBundles
     }
 }
 
@@ -76,13 +82,10 @@ extension Nimbus: NimbusTelemetryConfiguration {
         recordExperimentTelemetry(experiments)
 
         // Record enrollment change events, if any
-        if !events.isEmpty {
-            recordExperimentEvents(events)
+        recordExperimentEvents(events)
 
-            // We are only notifying observers when we have enrollment
-            // change events, to make the observer less chatty.
-            notifyOnExperimentsApplied(experiments)
-        }
+        // Inform any listeners that we're done here.
+        notifyOnExperimentsApplied(experiments)
     }
 
     internal func recordExperimentTelemetry(_ experiments: [EnrolledExperiment]) {
@@ -174,9 +177,9 @@ internal extension Nimbus {
 }
 
 extension Nimbus: NimbusFeatureConfiguration {
-    public func getExperimentBranch(featureId: String) -> String? {
+    public func getExperimentBranch(experimentId: String) -> String? {
         return catchAll {
-            try nimbusClient.getExperimentBranch(id: featureId)
+            try nimbusClient.getExperimentBranch(id: experimentId)
         }
     }
 
@@ -192,16 +195,16 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
     }
 
-    public func getVariables(featureId: String, recordExposureEvent: Bool = true) -> Variables {
+    public func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables {
         guard let json = getFeatureConfigVariablesJson(featureId: featureId) else {
             return NilVariables.instance
         }
 
-        if recordExposureEvent {
-            self.recordExposureEvent(featureId: featureId)
+        if sendExposureEvent {
+            recordExposureEvent(featureId: featureId)
         }
 
-        return JSONVariables(with: json)
+        return JSONVariables(with: json, in: resourceBundles)
     }
 }
 
@@ -305,11 +308,11 @@ public extension NimbusDisabled {
         return []
     }
 
-    func getExperimentBranch(featureId _: String) -> String? {
+    func getExperimentBranch(experimentId _: String) -> String? {
         return nil
     }
 
-    func getVariables(featureId _: String, recordExposureEvent _: Bool) -> Variables {
+    func getVariables(featureId _: String, sendExposureEvent _: Bool) -> Variables {
         return NilVariables.instance
     }
 
