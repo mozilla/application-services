@@ -2,6 +2,11 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...v77.0.0)
 
+## Logins
+
+ - Split the DB from the sync engine
+ - Rename LoginStore to LoginsSyncEngine
+
 ## Nimbus ☁️🔬
 
 ### What's New
@@ -10,11 +15,11 @@
  - Application features can only have a maximum of one experiment running at a time.
 
 ### What's Changed
-### ⚠️ Breaking changes ⚠️
+ - Add manual feature exposure recording
  - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
 
 ### ⚠️ Breaking changes ⚠️
-- The experiment database will be migrating from version 1 to version 2 on
+ - The experiment database will be migrating from version 1 to version 2 on
   first run.  *Various kinds of incorrectly specified feature and featureId
   related fields will be detected, and any related experiments & enrollments
   will be discarded.  Experiments & enrollments will also be discarded if they
