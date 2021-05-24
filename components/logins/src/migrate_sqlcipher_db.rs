@@ -4,6 +4,7 @@
 
 // Code to migrate from an sqlcipher DB to a plaintext DB
 
+use crate::db::MigrationMetrics;
 use crate::error::*;
 use crate::schema;
 use rusqlite::{Connection, NO_PARAMS};
@@ -16,11 +17,11 @@ pub fn migrate_sqlcipher_db_to_plaintext(
     old_encryption_key: &str,
     new_encryption_key: &str,
     salt: Option<&str>,
-) -> Result<()> {
+) -> Result<MigrationMetrics> {
     let mut db = Connection::open(old_db_path)?;
-    init_sqlcipher_db(&mut db, old_encryption_key, salt, new_encryption_key)?;
+    let metrics = init_sqlcipher_db(&mut db, old_encryption_key, salt, new_encryption_key)?;
     sqlcipher_export(&mut db, new_db_path)?;
-    Ok(())
+    Ok(metrics)
 }
 
 fn init_sqlcipher_db(
@@ -28,7 +29,7 @@ fn init_sqlcipher_db(
     encryption_key: &str,
     salt: Option<&str>,
     new_encryption_key: &str,
-) -> Result<()> {
+) -> Result<MigrationMetrics> {
     // Most of this code was copied from the old LoginDB::with_connection() method.
     db.set_pragma("key", encryption_key)?
         .set_pragma("secure_delete", true)?;
@@ -48,8 +49,7 @@ fn init_sqlcipher_db(
     // do this on Android, or allow caller to configure it.
     db.set_pragma("temp_store", 2)?;
 
-    schema::upgrade_sqlcipher_db(db, new_encryption_key)?;
-    Ok(())
+    Ok(schema::upgrade_sqlcipher_db(db, new_encryption_key)?)
 }
 
 fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
@@ -91,14 +91,19 @@ mod tests {
 
     static TEST_SALT: &str = "01010101010101010101010101010101";
 
-    fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
-        let mut db = Connection::open(db_path).unwrap();
+    fn open_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) -> Connection {
+        let db = Connection::open(db_path).unwrap();
         db.set_pragma("key", "old-key").unwrap();
         sqlcipher_3_compat(&db).unwrap();
         if let Some(s) = salt {
             db.set_pragma("cipher_plaintext_header_size", 32).unwrap();
             db.set_pragma("cipher_salt", format!("x'{}'", s)).unwrap();
         }
+        db
+    }
+
+    fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
+        let mut db = open_old_db(db_path, salt);
         let tx = db.transaction().unwrap();
         schema::init(&tx).unwrap();
         // Manually migrate back to schema v4 and insert some data
@@ -122,8 +127,6 @@ mod tests {
             ",
         ).unwrap();
         tx.commit().unwrap();
-        // Run the sqlcipher DB upgrade again;
-        schema::upgrade_sqlcipher_db(&mut db, &TEST_ENCRYPTION_KEY).unwrap();
     }
 
     struct TestPaths {
@@ -209,11 +212,11 @@ mod tests {
     fn test_migrate_data() {
         let testpaths = TestPaths::new();
         create_old_db(testpaths.old_db.as_path(), None);
-        migrate_sqlcipher_db_to_plaintext(
+        let metrics = migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            "new-key",
+            &TEST_ENCRYPTION_KEY,
             None,
         )
         .unwrap();
@@ -221,6 +224,48 @@ mod tests {
         // Check that the data from the old db is present in the the new DB
         let db = LoginDb::open(testpaths.new_db).unwrap();
         check_migrated_data(&db);
+
+        // Check migration numbers
+        assert_eq!(metrics.num_processed, 2);
+        assert_eq!(metrics.num_succeeded, 2);
+        assert_eq!(metrics.num_failed, 0);
+        assert!(metrics.total_duration > 0);
+        assert_eq!(metrics.errors, Vec::<String>::new());
+    }
+
+    #[test]
+    fn test_migration_errors() {
+        let testpaths = TestPaths::new();
+        create_old_db(testpaths.old_db.as_path(), None);
+        let old_db = open_old_db(testpaths.old_db.as_path(), None);
+        old_db
+            .execute(
+                "UPDATE loginsM SET username = NULL WHERE guid='b'",
+                NO_PARAMS,
+            )
+            .unwrap();
+        drop(old_db);
+
+        let metrics = migrate_sqlcipher_db_to_plaintext(
+            testpaths.old_db.as_path(),
+            testpaths.new_db.as_path(),
+            "old-key",
+            &TEST_ENCRYPTION_KEY,
+            None,
+        )
+        .unwrap();
+
+        // Check that only the non-errors are in the new DB
+        let db = LoginDb::open(testpaths.new_db).unwrap();
+        assert_eq!(db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(), 1);
+        assert_eq!(db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(), 0);
+
+        // Check metrics
+        assert_eq!(metrics.num_processed, 2);
+        assert_eq!(metrics.num_succeeded, 1);
+        assert_eq!(metrics.num_failed, 1);
+        assert!(metrics.total_duration > 0);
+        assert_eq!(metrics.errors.len(), 1);
     }
 
     #[test]
@@ -231,7 +276,7 @@ mod tests {
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
-            "new-key",
+            &TEST_ENCRYPTION_KEY,
             Some(TEST_SALT),
         )
         .unwrap();

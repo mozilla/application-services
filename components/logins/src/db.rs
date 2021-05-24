@@ -45,22 +45,22 @@ use url::{Host, Url};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationPhaseMetrics {
-    num_processed: u64,
-    num_succeeded: u64,
-    num_failed: u64,
-    total_duration: u128,
-    errors: Vec<String>,
+    pub num_processed: u64,
+    pub num_succeeded: u64,
+    pub num_failed: u64,
+    pub total_duration: u128,
+    pub errors: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationMetrics {
-    fixup_phase: MigrationPhaseMetrics,
-    insert_phase: MigrationPhaseMetrics,
-    num_processed: u64,
-    num_succeeded: u64,
-    num_failed: u64,
-    total_duration: u128,
-    errors: Vec<String>,
+    pub fixup_phase: MigrationPhaseMetrics,
+    pub insert_phase: MigrationPhaseMetrics,
+    pub num_processed: u64,
+    pub num_succeeded: u64,
+    pub num_failed: u64,
+    pub total_duration: u128,
+    pub errors: Vec<String>,
 }
 
 pub struct LoginDb {
@@ -109,11 +109,11 @@ impl LoginDb {
         sqlcipher_path: impl AsRef<Path>,
         sqlcipher_key: &str,
         salt: Option<&str>,
-    ) -> Result<Self> {
+    ) -> Result<(Self, MigrationMetrics)> {
         let path = path.as_ref();
         let sqlcipher_path = sqlcipher_path.as_ref();
 
-        if sqlcipher_path.exists() {
+        let metrics = if sqlcipher_path.exists() {
             log::info!(
                 "Migrating sqlcipher DB: {} -> {}",
                 sqlcipher_path.display(),
@@ -127,27 +127,33 @@ impl LoginDb {
                 salt,
             );
 
-            if let Err(e) = result {
-                log::error!("Error migrating sqlcipher DB: {}", e);
-                // Delete both the old and new paths (if they exist)
-                log::warn!("Re-creating database from scratch");
-                if sqlcipher_path.exists() {
-                    std::fs::remove_file(sqlcipher_path)?;
+            match result {
+                Err(e) => {
+                    log::error!("Error migrating sqlcipher DB: {}", e);
+                    // Delete both the old and new paths (if they exist)
+                    log::warn!("Re-creating database from scratch");
+                    if sqlcipher_path.exists() {
+                        std::fs::remove_file(sqlcipher_path)?;
+                    }
+                    if path.exists() {
+                        std::fs::remove_file(&path)?;
+                    }
+                    MigrationMetrics { ..Default::default()}
                 }
-                if path.exists() {
-                    std::fs::remove_file(&path)?;
-                }
-            } else {
-                log::info!("Deleting old sqlcipher DB after migration");
-                if sqlcipher_path.exists() {
-                    std::fs::remove_file(sqlcipher_path)?;
+                Ok(metrics) => {
+                    log::info!("Deleting old sqlcipher DB after migration");
+                    if sqlcipher_path.exists() {
+                        std::fs::remove_file(sqlcipher_path)?;
+                    }
+                    metrics
                 }
             }
         } else {
             log::debug!("SQLCipher DB not found, skipping migration");
-        }
+            MigrationMetrics { ..Default::default()}
+        };
 
-        Self::with_connection(Connection::open(&path)?)
+        Self::with_connection(Connection::open(&path)?).map(|db| (db, metrics))
     }
 
     pub fn open_in_memory() -> Result<Self> {

@@ -34,18 +34,23 @@ impl PasswordStore {
         sqlcipher_path: impl AsRef<Path>,
         sqlcipher_key: &str,
         salt: Option<&str>,
-    ) -> Result<Self> {
-        let db = LoginDb::open_with_sqlcipher_migration(
+    ) -> Result<(Self, MigrationMetrics)> {
+        let (db, metrics) = LoginDb::open_with_sqlcipher_migration(
             path,
             new_encryption_key,
             sqlcipher_path,
             sqlcipher_key,
             salt,
         )?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
+        Ok(
+            (
+                Self {
+                    db,
+                    mem_cached_state: Cell::default(),
+                },
+                metrics,
+            )
+        )
     }
 
     pub fn new_in_memory() -> Result<Self> {

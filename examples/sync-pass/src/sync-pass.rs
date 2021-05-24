@@ -320,13 +320,18 @@ fn open_database(
         }
         (Some(sqlcipher_path), Some(sqlcipher_encryption_key)) => {
             let encryption_key = create_key()?;
-            let store = PasswordStore::new_with_sqlcipher_migration(
+            let (store, metrics) = PasswordStore::new_with_sqlcipher_migration(
                 db_path,
                 &encryption_key,
                 sqlcipher_path,
                 sqlcipher_encryption_key,
                 None,
             )?;
+            log::info!("Migration processed: {}", metrics.num_processed);
+            log::info!("Migration succeeded: {}", metrics.num_succeeded);
+            log::info!("Migration failed: {}", metrics.num_failed);
+            log::info!("Migration time: {}ms", metrics.total_duration);
+
             // For new migrations, we want to set the encryption key.  But it's also possible that
             // the migration already happened, in that use the encryption key from that migration.
             let encryption_key = match get_encryption_key(&store) {

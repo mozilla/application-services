@@ -88,11 +88,13 @@
 //!    JSON.
 //!
 
+use crate::db::MigrationMetrics;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use lazy_static::lazy_static;
 use rusqlite::{Connection, NO_PARAMS};
 use sql_support::ConnExt;
+use std::time::Instant;
 
 /// Note that firefox-ios is currently on version 3. Version 4 is this version,
 /// which adds a metadata table and changes timestamps to be in milliseconds
@@ -318,7 +320,7 @@ pub(crate) fn drop(db: &Connection) -> Result<()> {
 
 // Run schema upgrades for a SQLCipher database.  This will bring the database up to version 5
 // which is required before migrating it to a plaintext database.
-pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result<()> {
+pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result<MigrationMetrics> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
 
     if user_version == 0 {
@@ -350,8 +352,14 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         // schema we immediately export it to plaintext then delete the sqlcipher file.  But if we
         // somehow get here, it seems reasonable to try to continue on with the process, in theory
         // we should be able to export to plaintext.
-        return Ok(());
+        println!("AOEU");
+        return Ok(Default::default());
     }
+    let start_time = Instant::now();
+    let mut num_processed = 0;
+    let mut num_succeeded = 0;
+    let mut num_failed = 0;
+    let mut errors = Vec::new();
     let tx = db.transaction()?;
     if user_version < 3 {
         // These indices were added in v3 (apparently)
@@ -374,7 +382,7 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
     if user_version < 5 {
         // encrypt the username/password data
         let encryptor = EncryptorDecryptor::new(encryption_key)?;
-        let encrypt_username_and_password = |table_name: &str| -> Result<()> {
+        let mut encrypt_username_and_password = |table_name: &str| -> Result<()> {
             // Encrypt the username and password field for all rows.
             let mut select_stmt = tx.prepare(&format!(
                 "SELECT guid, username, password FROM {}",
@@ -384,14 +392,37 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
                 "UPDATE {} SET username=?, password=? WHERE guid=?",
                 table_name
             ))?;
+            let mut delete_stmt = tx.prepare(&format!(
+                "DELETE FROM {} WHERE guid=?",
+                table_name
+            ))?;
+
+            let mut update_single_row = |guid: &str, row: &rusqlite::Row<'_>| -> Result<()> {
+                let username: String = row.get(1)?;
+                let password: String = row.get(2)?;
+                update_stmt.execute(rusqlite::params![
+                    encryptor.encrypt(&username)?,
+                    encryptor.encrypt(&password)?,
+                    &guid,
+                ])?;
+                Ok(())
+            };
+
             // Use raw rows to avoid extra copying since we're looping over an entire table
             let mut rows = select_stmt.query(NO_PARAMS)?;
             while let Some(row) = rows.next()? {
-                update_stmt.execute(rusqlite::params![
-                    encryptor.encrypt(row.get_raw_checked(1)?.as_str().unwrap())?,
-                    encryptor.encrypt(row.get_raw_checked(2)?.as_str().unwrap())?,
-                    row.get_raw_checked(0)?.as_str().unwrap(),
-                ])?;
+                let guid: String = row.get(0)?;
+                num_processed += 1;
+                match update_single_row(&guid, &row) {
+                    Ok(_) => {
+                        num_succeeded += 1;
+                    }
+                    Err(e) => {
+                        delete_stmt.execute(&[&guid])?;
+                        num_failed += 1;
+                        errors.push(e.to_string());
+                    }
+                }
             }
             Ok(())
         };
@@ -420,5 +451,14 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         NO_PARAMS,
     )?;
     tx.commit()?;
-    Ok(())
+
+    println!("ok {}", num_processed);
+    Ok(MigrationMetrics {
+        num_processed,
+        num_succeeded,
+        num_failed,
+        total_duration: start_time.elapsed().as_millis(),
+        errors,
+        ..Default::default()
+    })
 }
