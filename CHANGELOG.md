@@ -1,3 +1,38 @@
+# v77.0.0 (_2021-05-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...v77.0.0)
+
+## Logins
+
+ - Split the DB from the sync engine (#4129)
+ - Rename LoginStore to LoginsSyncEngine (#4124)
+
+## Nimbus ☁️🔬
+
+### What's New
+
+ - Both Android and iOS gain a `nimbus.getVariables(featureId: String)` and a new wrapper around JSON data coming straight from Remote Settings.
+ - Application features can only have a maximum of one experiment running at a time.
+ - Enable consuming applications to change the server collection being used. (#4076)
+
+### What's Changed
+ - Add manual feature exposure recording (#4120) 
+ - Android and iOS `Branch` objects no longer have access to a `FeatureConfig` object.
+ - Localized strings and images are provided by the app, but usable from nimbus. (#4133)
+
+### ⚠️ Breaking changes ⚠️
+ - Migrate the experiment database from version 1 to version 2 on first run .(#4078)  
+   - Various kinds of incorrectly specified feature and featureId
+   related fields will be detected, and any related experiments & enrollments
+   will be discarded.  
+   - Experiments & enrollments will also be discarded if they
+   are missing other required fields (eg schemaVersion).  
+   - If there is an error
+   during the database upgrade, the database will be wiped, since losing
+   existing enrollments is still less bad than having the database in an unknown
+   inconsistent state.
+
+
 # v76.0.1 (_2021-05-18_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.0...v76.0.1)
