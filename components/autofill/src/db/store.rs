@@ -34,7 +34,6 @@ pub fn get_store_for_manager() -> Option<Store> {
 // https://github.com/mozilla/uniffi-rs/issues/417 will give us access to the
 // `Arc<>` uniffi owns, which means we can drop this entirely (ie, `Store` and
 // `StoreImpl` could be re-unified)
-// Sadly, this is `pub` because our `autofill-utils` example uses it.
 #[derive(Clone)]
 pub struct Store {
     store_impl: Arc<StoreImpl>,
@@ -157,7 +156,7 @@ impl Store {
 
 // This is the actual implementation. All code in this crate works with this.
 // Sadly, it's forced to be `pub` because the SyncManager also uses it.
-pub struct StoreImpl {
+pub(crate) struct StoreImpl {
     pub(crate) db: Mutex<AutofillDb>,
 }
 

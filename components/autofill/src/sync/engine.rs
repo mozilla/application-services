@@ -50,7 +50,7 @@ pub struct ConfigSyncEngine<T> {
 }
 
 impl<T> ConfigSyncEngine<T> {
-    pub fn new(
+    pub(super) fn new(
         config: EngineConfig,
         store: Arc<Store>,
         storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
