@@ -2,10 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::db::models::address::{Address, UpdatableAddressFields};
-use crate::db::models::credit_card::{CreditCard, UpdatableCreditCardFields};
+use crate::db::models::address::{Address, InternalAddress, UpdatableAddressFields};
+use crate::db::models::credit_card::{CreditCard, InternalCreditCard, UpdatableCreditCardFields};
 use crate::db::{addresses, credit_cards, AutofillDb};
 use crate::error::*;
+use crate::sync::engine::ConfigSyncEngine;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection,
@@ -13,7 +14,6 @@ use rusqlite::{
 use sql_support::{self, ConnExt};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use sync15_traits::SyncEngine;
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
@@ -102,7 +102,8 @@ impl Store {
         credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
         // Force the sync engine to refetch data (only need to do this for the credit cards, since the
         // addresses engine doesn't store encrypted data).
-        crate::sync::credit_card::create_engine(self.clone()).reset_local_sync_data()?;
+        self.create_credit_cards_sync_engine()
+            .reset_local_sync_data()?;
         Ok(())
     }
 
@@ -146,12 +147,12 @@ impl Store {
         STORE_FOR_MANAGER.lock().unwrap().replace(self.clone());
     }
 
-    pub fn create_credit_cards_sync_engine(&self) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::credit_card::create_engine(self.clone()))
+    pub fn create_credit_cards_sync_engine(&self) -> ConfigSyncEngine<InternalCreditCard> {
+        crate::sync::credit_card::create_engine(self.clone())
     }
 
-    pub fn create_addresses_sync_engine(&self) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::address::create_engine(self.clone()))
+    pub fn create_addresses_sync_engine(&self) -> ConfigSyncEngine<InternalAddress> {
+        crate::sync::address::create_engine(self.clone())
     }
 }
 

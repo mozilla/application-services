@@ -76,8 +76,8 @@ impl SyncManager {
         match autofill::get_store_for_manager() {
             None => None,
             Some(store) => match engine {
-                "addresses" => Some(store.create_addresses_sync_engine()),
-                "creditcards" => Some(store.create_credit_cards_sync_engine()),
+                "addresses" => Some(Box::new(store.create_addresses_sync_engine())),
+                "creditcards" => Some(Box::new(store.create_credit_cards_sync_engine())),
                 _ => unreachable!("can't process unknown engine: {}", engine),
             },
         }

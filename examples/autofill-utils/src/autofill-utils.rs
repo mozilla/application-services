@@ -370,8 +370,8 @@ fn run_sync(
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
     let mut engines: Vec<Box<dyn SyncEngine>> = vec![
-        store.create_addresses_sync_engine(),
-        store.create_credit_cards_sync_engine(),
+        Box::new(store.create_addresses_sync_engine()),
+        Box::new(store.create_credit_cards_sync_engine()),
     ];
     engines[1].set_local_encryption_key(key)?;
     for engine in &engines {
