@@ -73,15 +73,11 @@ impl SyncManager {
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        let cell = autofill::STORE_FOR_MANAGER.lock().unwrap();
-        // The cell holds a `Weak` - borrow it (which is safe as we have the
-        // mutex) and upgrade it to a real Arc.
-        let r = cell.borrow();
-        match r.upgrade() {
+        match autofill::get_store_for_manager() {
             None => None,
-            Some(arc) => match engine {
-                "addresses" => Some(Box::new(autofill::sync::address::create_engine(arc))),
-                "creditcards" => Some(Box::new(autofill::sync::credit_card::create_engine(arc))),
+            Some(store) => match engine {
+                "addresses" => Some(store.create_addresses_sync_engine()),
+                "creditcards" => Some(store.create_credit_cards_sync_engine()),
                 _ => unreachable!("can't process unknown engine: {}", engine),
             },
         }

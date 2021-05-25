@@ -11,22 +11,21 @@ use rusqlite::{
     Connection,
 };
 use sql_support::{self, ConnExt};
-use std::cell::RefCell;
 use std::path::Path;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 use sync15_traits::SyncEngine;
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
     // Mutex: just taken long enough to update the inner stuff - needed
-    //        to wrap the RefCell as they aren't `Sync`
-    // RefCell: So we can replace what it holds. Normally you'd use `get_ref()`
-    //          on the mutex and avoid the RefCell entirely, but that requires
-    //          the mutex to be declared as `mut` which is apparently
-    //          impossible in a `lazy_static`
-    // [Arc/Weak]<StoreImpl>: What the sync manager actually needs.
-    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<StoreImpl>>> = Mutex::new(RefCell::new(Weak::new()));
+    //        to wrap the Option<Store> as they aren't `Sync`
+    static ref STORE_FOR_MANAGER: Mutex<Option<Store>> = Mutex::new(None);
+}
+
+// Get a Store for the SyncManager to use
+pub fn get_store_for_manager() -> Option<Store> {
+    STORE_FOR_MANAGER.lock().unwrap().as_ref().cloned()
 }
 
 // This is the type that uniffi exposes. It holds an `Arc<>` around the
@@ -36,6 +35,7 @@ lazy_static::lazy_static! {
 // `Arc<>` uniffi owns, which means we can drop this entirely (ie, `Store` and
 // `StoreImpl` could be re-unified)
 // Sadly, this is `pub` because our `autofill-utils` example uses it.
+#[derive(Clone)]
 pub struct Store {
     store_impl: Arc<StoreImpl>,
 }
@@ -45,6 +45,13 @@ impl Store {
         Ok(Self {
             store_impl: Arc::new(StoreImpl::new(db_path)?),
         })
+    }
+
+    #[cfg(test)]
+    pub fn new_memory() -> Self {
+        Self {
+            store_impl: Arc::new(StoreImpl::new_memory()),
+        }
     }
 
     pub fn new_shared_memory(db_name: &str) -> Result<Self> {
@@ -123,11 +130,11 @@ impl Store {
     // (thereby avoiding us needing to link with the sync manager) but
     // `register_with_sync_manager()` is logically what's happening so that's
     // the name it gets.
+    //
+    // Other components use a SyncManager method (for example `set_places()`).  The advantage of
+    // this system is the consumer doesn't need a reference to the sync manager.
     pub fn register_with_sync_manager(&self) {
-        STORE_FOR_MANAGER
-            .lock()
-            .unwrap()
-            .replace(Arc::downgrade(&self.store_impl));
+        STORE_FOR_MANAGER.lock().unwrap().replace(self.clone());
     }
 
     // These 2 are odd ones out - they don't just delegate but instead
@@ -311,5 +318,28 @@ mod tests {
         db.writer.execute("DELETE FROM moz_meta", NO_PARAMS)?;
 
         Ok(())
+    }
+
+    #[test]
+    fn test_store_for_manager() {
+        let store = Store::new_memory();
+        store.register_with_sync_manager();
+        let store_for_manager = get_store_for_manager().unwrap();
+
+        assert!(Arc::ptr_eq(
+            &store_for_manager.store_impl,
+            &store.store_impl
+        ));
+        // To make sure the pointer check is correct, let's make sure it fails for a new store
+        assert!(!Arc::ptr_eq(
+            &store_for_manager.store_impl,
+            &Store::new_memory().store_impl
+        ));
+
+        // Check reference counting:
+        //   - One reference in store
+        //   - One reference in store_for_manager
+        //   - One reference in store_impl
+        assert_eq!(Arc::strong_count(&store_for_manager.store_impl), 3);
     }
 }
