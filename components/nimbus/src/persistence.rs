@@ -522,7 +522,7 @@ impl Database {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use serde_json::json;
     use std::collections::HashMap;
@@ -748,16 +748,11 @@ mod tests {
                 "schemaVersion": "1.0.0",
                 "slug": "branch-feature-empty-obj", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["bbb"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
-                        "feature": {
-                            "featureId": "bbb", // change when copy/pasting to make experiments
-                            "enabled": false,
-                            "value": {}
-                        }
+                        "feature": {}
                     },
                     {
                         "slug": "treatment",
