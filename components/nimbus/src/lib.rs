@@ -10,7 +10,7 @@ pub use error::{NimbusError, Result};
 mod client;
 mod config;
 mod matcher;
-mod persistence;
+pub mod persistence;
 mod sampling;
 mod updating;
 #[cfg(debug_assertions)]
