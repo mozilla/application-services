@@ -12,6 +12,7 @@ use super::{
     ProcessOutgoingRecordImpl, SyncRecord,
 };
 use crate::db::models::credit_card::InternalCreditCard;
+use crate::db::Store;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync_merge_field_check;
@@ -19,12 +20,11 @@ use incoming::IncomingCreditCardsImpl;
 use outgoing::OutgoingCreditCardsImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub(crate) fn create_engine(store: Arc<crate::StoreImpl>) -> ConfigSyncEngine<InternalCreditCard> {
+pub(crate) fn create_engine(store: Store) -> ConfigSyncEngine<InternalCreditCard> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "credit_cards".to_string(),

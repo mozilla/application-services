@@ -11,18 +11,18 @@ use super::{
     MergeResult, Metadata, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord,
 };
 use crate::db::models::address::InternalAddress;
+use crate::db::Store;
 use crate::error::*;
 use crate::sync_merge_field_check;
 use incoming::IncomingAddressesImpl;
 use outgoing::OutgoingAddressesImpl;
 use rusqlite::Transaction;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub(crate) fn create_engine(store: Arc<crate::StoreImpl>) -> ConfigSyncEngine<InternalAddress> {
+pub(crate) fn create_engine(store: Store) -> ConfigSyncEngine<InternalAddress> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "addresses".to_string(),

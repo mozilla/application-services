@@ -17,6 +17,7 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
 };
+pub use store::Store;
 use url::Url;
 
 pub struct AutofillDb {

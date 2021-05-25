@@ -3,13 +3,12 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
+use crate::db::Store;
 use crate::error::*;
-use crate::StoreImpl as Store;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
 };
-use std::sync::Arc;
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, ServerTimestamp, SyncEngine,
@@ -44,7 +43,7 @@ pub trait SyncEngineStorageImpl<T> {
 // A sync engine that gets functionality from an EngineConfig.
 pub struct ConfigSyncEngine<T> {
     pub(crate) config: EngineConfig,
-    pub(crate) store: Arc<Store>,
+    pub(crate) store: Store,
     pub(crate) storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     local_enc_key: Option<String>,
 }
@@ -52,7 +51,7 @@ pub struct ConfigSyncEngine<T> {
 impl<T> ConfigSyncEngine<T> {
     pub(super) fn new(
         config: EngineConfig,
-        store: Arc<Store>,
+        store: Store,
         storage_impl: Box<dyn SyncEngineStorageImpl<T>>,
     ) -> Self {
         Self {
@@ -241,8 +240,8 @@ mod tests {
 
     // We use the credit-card engine here.
     fn create_engine() -> ConfigSyncEngine<InternalCreditCard> {
-        let store = crate::db::store::StoreImpl::new_memory();
-        crate::sync::credit_card::create_engine(Arc::new(store))
+        let store = crate::db::Store::new_memory();
+        crate::sync::credit_card::create_engine(store)
     }
 
     pub fn clear_cc_tables(conn: &Connection) -> rusqlite::Result<(), rusqlite::Error> {
