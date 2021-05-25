@@ -428,7 +428,7 @@ impl Database {
         }
     }
 
-    fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
+    pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
         let path = std::path::Path::new(path.as_ref()).join("db");
         log::debug!("Database path: {:?}", path.display());
         fs::create_dir_all(&path)?;
