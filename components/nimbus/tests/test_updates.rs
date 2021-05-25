@@ -11,7 +11,10 @@ mod common;
 #[cfg(feature = "rkv-safe-mode")]
 #[cfg(test)]
 mod test {
-    use super::common::{exactly_two_experiments, new_test_client, no_test_experiments};
+    use super::common::{
+        create_old_database, exactly_two_experiments, new_test_client, new_test_client_with_db,
+        no_test_experiments,
+    };
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::{error::Result, NimbusClient};
 
@@ -105,6 +108,383 @@ mod test {
         let experiments = client.get_all_experiments()?;
         assert_eq!(experiments.len(), 1);
         assert_eq!(experiments[0].slug, "secure-gold");
+
+        Ok(())
+    }
+
+    use serde_json::json;
+
+    // forked from persistence.rs; need to be merged in a separated test-utils
+    // module usable both by unit and integration tests (nimbus/test-utils?)
+    #[cfg(feature = "rkv-safe-mode")]
+    pub fn get_db_v1_experiments_with_missing_feature_fields() -> Vec<serde_json::Value> {
+        vec![
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-empty-obj", // change when copy/pasting to make experiments
+                "endDate": null,
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {}
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {}
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-empty-obj", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "missing-branch-feature-clause", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": ["aaa"], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "aaa", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {},
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"empty-branch-feature-clause", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-feature-id-missing", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": ["ccc"], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "ccc", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-feature-id-missing", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "feature-ids-array-has-empty_string", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": [""], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "def", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {},
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "def", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"feature-ids-array-has-empty-string", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "missing-feature-ids-in-branch",
+                "endDate": null,
+                "featureIds": ["abc"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio": 1,
+                        "feature": {
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "channel":"nightly",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"no-feature-ids-at-all",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "missing-featureids-array", // change when copy/pasting to make experiments
+                "endDate": null,
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "about_welcome", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {}
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "about_welcome", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {}
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"valid-feature-experiment", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+            json!({
+                "schemaVersion": "1.0.0",
+                "slug": "branch-feature-feature-id-empty", // change when copy/pasting to make experiments
+                "endDate": null,
+                "featureIds": [""], // change when copy/pasting to make experiments
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "", // change when copy/pasting to make experiments
+                            "enabled": false,
+                            "value": {},
+                        }
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "", // change when copy/pasting to make experiments
+                            "enabled": true,
+                            "value": {},
+                        }
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName": "fenix",
+                "appId": "org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"branch-feature-feature-id-empty", // change when copy/pasting to make experiments
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            }),
+        ]
+    }
+
+    #[cfg(feature = "rkv-safe-mode")]
+    #[test]
+        fn test_startup_orphan_behavior() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        use tempdir::TempDir;
+        let enrollments_for_missing_feature_id = vec![
+            json!(
+            {
+                "slug": "missing-feature-ids-in-branch",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189084",
+                                "reason": "Qualified",
+                                "branch": "control",
+                                "feature_id": ""
+                            }
+                    }
+                }
+            ),
+            json!(
+            {
+                "slug": "branch-feature-empty-obj",
+                "status":
+                    {
+                        "Enrolled":
+                            {
+                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c18984",
+                                "reason": "Qualified",
+                                "branch": "control",
+                                //"feature_id": ""
+                            }
+                    }
+                }
+            ),
+        ];
+
+        let tmp_dir = TempDir::new("test_startup_orphan_behavior")?;
+
+        let db_v1_experiments_with_missing_feature_fields = &get_db_v1_experiments_with_missing_feature_fields();
+
+        create_old_database(
+            &tmp_dir,
+            1,
+            &db_v1_experiments_with_missing_feature_fields,
+            &enrollments_for_missing_feature_id,
+        )?;
+
+        let client = new_test_client_with_db(tmp_dir)?;
+
+        client.apply_pending_experiments()?;
+        client.fetch_experiments()?; // get new stuff from test dir
+                                     // startup(&client, false)?;
+
+        let experiments = client.get_all_experiments()?;
+        log::debug!("experiments = {:?}", experiments);
+        // assert_eq!(experiments.len(), 2);
+        // assert_eq!(experiments[0].slug, "secure-gold");
+        // assert_eq!(experiments[1].slug, "startup-gold");
+
+        // The app is at a safe place to change all the experiments.
+        client.apply_pending_experiments()?; // apply new stuff
+                                             // let experiments = client.get_all_experiments()?;
+                                             // assert_eq!(experiments.len(), 1);
+                                             // assert_eq!(experiments[0].slug, "secure-gold");
+
+        // // Next time we start the app.
+        // startup(&client, false)?;
+        // let experiments = client.get_all_experiments()?;
+        // assert_eq!(experiments.len(), 1);
+        // assert_eq!(experiments[0].slug, "secure-gold");
 
         Ok(())
     }

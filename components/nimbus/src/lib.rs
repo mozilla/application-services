@@ -91,6 +91,7 @@ impl NimbusClient {
     }
 
     pub fn initialize(&self) -> Result<()> {
+        log::debug!("initialize");
         let db = self.db()?;
         // We're not actually going to write, we just want to exclude concurrent writers.
         let writer = db.write()?;
