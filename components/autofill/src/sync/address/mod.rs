@@ -22,7 +22,7 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub fn create_engine(store: Arc<crate::StoreImpl>) -> ConfigSyncEngine<InternalAddress> {
+pub fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<InternalAddress> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "addresses".to_string(),

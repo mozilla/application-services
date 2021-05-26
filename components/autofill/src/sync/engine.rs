@@ -4,7 +4,7 @@
 
 use super::{plan_incoming, ProcessIncomingRecordImpl, ProcessOutgoingRecordImpl, SyncRecord};
 use crate::error::*;
-use crate::StoreImpl as Store;
+use crate::Store;
 use rusqlite::{
     types::{FromSql, ToSql},
     Connection, Transaction,
@@ -241,7 +241,7 @@ mod tests {
 
     // We use the credit-card engine here.
     fn create_engine() -> ConfigSyncEngine<InternalCreditCard> {
-        let store = crate::db::store::StoreImpl::new_memory();
+        let store = crate::db::store::Store::new_memory();
         crate::sync::credit_card::create_engine(Arc::new(store))
     }
 

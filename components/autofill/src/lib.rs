@@ -12,12 +12,11 @@ pub mod error;
 pub mod sync;
 
 // Re-export stuff the sync manager needs.
-pub use crate::db::store::{StoreImpl, STORE_FOR_MANAGER};
+pub use crate::db::store::{Store, STORE_FOR_MANAGER};
 
 // Expose stuff needed by the uniffi generated code.
 use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
-use crate::db::store::Store;
 use crate::encryption::{create_key, decrypt_string, encrypt_string};
 use error::Error;
 

@@ -25,136 +25,16 @@ lazy_static::lazy_static! {
     //          on the mutex and avoid the RefCell entirely, but that requires
     //          the mutex to be declared as `mut` which is apparently
     //          impossible in a `lazy_static`
-    // [Arc/Weak]<StoreImpl>: What the sync manager actually needs.
-    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<StoreImpl>>> = Mutex::new(RefCell::new(Weak::new()));
+    // [Arc/Weak]<Store>: What the sync manager actually needs.
+    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<Store>>> = Mutex::new(RefCell::new(Weak::new()));
 }
 
-// This is the type that uniffi exposes. It holds an `Arc<>` around the
-// actual implementation, because we need to hand a clone of this `Arc<>` to
-// the sync manager and to sync engines. One day
-// https://github.com/mozilla/uniffi-rs/issues/417 will give us access to the
-// `Arc<>` uniffi owns, which means we can drop this entirely (ie, `Store` and
-// `StoreImpl` could be re-unified)
-// Sadly, this is `pub` because our `autofill-utils` example uses it.
+// This is the type that uniffi exposes.
 pub struct Store {
-    store_impl: Arc<StoreImpl>,
-}
-
-impl Store {
-    pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
-        Ok(Self {
-            store_impl: Arc::new(StoreImpl::new(db_path)?),
-        })
-    }
-
-    pub fn new_shared_memory(db_name: &str) -> Result<Self> {
-        Ok(Self {
-            store_impl: Arc::new(StoreImpl::new_shared_memory(db_name)?),
-        })
-    }
-
-    pub fn add_credit_card(&self, fields: UpdatableCreditCardFields) -> Result<CreditCard> {
-        self.store_impl.add_credit_card(fields)
-    }
-
-    pub fn get_credit_card(&self, guid: String) -> Result<CreditCard> {
-        self.store_impl.get_credit_card(guid)
-    }
-
-    pub fn get_all_credit_cards(&self) -> Result<Vec<CreditCard>> {
-        self.store_impl.get_all_credit_cards()
-    }
-
-    pub fn update_credit_card(
-        &self,
-        guid: String,
-        credit_card: UpdatableCreditCardFields,
-    ) -> Result<()> {
-        self.store_impl.update_credit_card(guid, credit_card)
-    }
-
-    pub fn delete_credit_card(&self, guid: String) -> Result<bool> {
-        self.store_impl.delete_credit_card(guid)
-    }
-
-    pub fn touch_credit_card(&self, guid: String) -> Result<()> {
-        self.store_impl.touch_credit_card(guid)
-    }
-
-    pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
-        self.store_impl.add_address(new_address)
-    }
-
-    pub fn get_address(&self, guid: String) -> Result<Address> {
-        self.store_impl.get_address(guid)
-    }
-
-    pub fn get_all_addresses(&self) -> Result<Vec<Address>> {
-        self.store_impl.get_all_addresses()
-    }
-
-    pub fn update_address(&self, guid: String, address: UpdatableAddressFields) -> Result<()> {
-        self.store_impl.update_address(guid, address)
-    }
-
-    pub fn delete_address(&self, guid: String) -> Result<bool> {
-        self.store_impl.delete_address(guid)
-    }
-
-    pub fn touch_address(&self, guid: String) -> Result<()> {
-        self.store_impl.touch_address(guid)
-    }
-
-    pub fn scrub_encrypted_data(&self) -> Result<()> {
-        // scrub the data on disk
-        self.store_impl.scrub_encrypted_data()?;
-        // Force the sync engine to refetch data (only need to do this for the credit cards, since the
-        // addresses engine doesn't store encrypted data).
-        //
-        // It would be cleaner to put this inside the StoreImpl code, but that's tricky because
-        // create_engine needs an Arc<StoreImpl> which we have, but StoreImpl doesn't and StoreImpl
-        // can't just create one because AutofillDb.writer doesn't implement Clone.
-        crate::sync::credit_card::create_engine(self.store_impl.clone()).reset_local_sync_data()?;
-        Ok(())
-    }
-
-    // This allows the embedding app to say "make this instance available to
-    // the sync manager". The implementation is more like "offer to sync mgr"
-    // (thereby avoiding us needing to link with the sync manager) but
-    // `register_with_sync_manager()` is logically what's happening so that's
-    // the name it gets.
-    pub fn register_with_sync_manager(&self) {
-        STORE_FOR_MANAGER
-            .lock()
-            .unwrap()
-            .replace(Arc::downgrade(&self.store_impl));
-    }
-
-    // These 2 are odd ones out - they don't just delegate but instead
-    // hand off the Arc.
-    // Currently the only consumer of this is our "example" (and hence why they
-    // are `pub` and not `pub(crate)`) - the sync manager duplicates it (because
-    // it doesn't have a reference to us, just to the store_impl)
-    // We could probably make the example work with the sync manager - but then
-    // our example would link with places and logins etc.
-    pub fn create_credit_cards_sync_engine(&self) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::credit_card::create_engine(
-            self.store_impl.clone(),
-        ))
-    }
-
-    pub fn create_addresses_sync_engine(&self) -> Box<dyn SyncEngine> {
-        Box::new(crate::sync::address::create_engine(self.store_impl.clone()))
-    }
-}
-
-// This is the actual implementation. All code in this crate works with this.
-// Sadly, it's forced to be `pub` because the SyncManager also uses it.
-pub struct StoreImpl {
     pub(crate) db: Mutex<AutofillDb>,
 }
 
-impl StoreImpl {
+impl Store {
     pub fn new(db_path: impl AsRef<Path>) -> Result<Self> {
         Ok(Self {
             db: Mutex::new(AutofillDb::new(db_path)?),
@@ -169,7 +49,7 @@ impl StoreImpl {
         }
     }
 
-    // Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
+    /// Creates a store backed by an in-memory database that shares its memory API (required for autofill sync tests).
     pub fn new_shared_memory(db_name: &str) -> Result<Self> {
         Ok(Self {
             db: Mutex::new(AutofillDb::new_memory(db_name)?),
@@ -215,12 +95,6 @@ impl StoreImpl {
         credit_cards::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
     }
 
-    pub fn scrub_encrypted_data(&self) -> Result<()> {
-        // Currently only credit cards have encrypted data
-        credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
-        Ok(())
-    }
-
     pub fn add_address(&self, new_address: UpdatableAddressFields) -> Result<Address> {
         Ok(addresses::add_address(&self.db.lock().unwrap().writer, new_address)?.into())
     }
@@ -247,6 +121,46 @@ impl StoreImpl {
 
     pub fn touch_address(&self, guid: String) -> Result<()> {
         addresses::touch(&self.db.lock().unwrap().writer, &Guid::new(&guid))
+    }
+
+    pub fn scrub_encrypted_data(self: Arc<Self>) -> Result<()> {
+        // scrub the data on disk
+        // Currently only credit cards have encrypted data
+        credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
+        // Force the sync engine to refetch data (only need to do this for the credit cards, since the
+        // addresses engine doesn't store encrypted data).
+        //
+        // It would be cleaner to put this inside the StoreImpl code, but that's tricky because
+        // create_engine needs an Arc<StoreImpl> which we have, but StoreImpl doesn't and StoreImpl
+        // can't just create one because AutofillDb.writer doesn't implement Clone.
+        crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
+        Ok(())
+    }
+
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(self: Arc<Self>) {
+        STORE_FOR_MANAGER
+            .lock()
+            .unwrap()
+            .replace(Arc::downgrade(&self));
+    }
+
+    // These 2 are a little odd - they aren't exposed by uniffi - currently the
+    // only consumer of this is our "example" (and hence why they
+    // are `pub` and not `pub(crate)`).
+    // We could probably make the example work with the sync manager - but then
+    // our example would link with places and logins etc, and it's not a big
+    // deal really.
+    pub fn create_credit_cards_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::credit_card::create_engine(self))
+    }
+
+    pub fn create_addresses_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
+        Box::new(crate::sync::address::create_engine(self))
     }
 }
 
@@ -311,5 +225,34 @@ mod tests {
         db.writer.execute("DELETE FROM moz_meta", NO_PARAMS)?;
 
         Ok(())
+    }
+
+    #[test]
+    fn test_sync_manager_registration() {
+        let store = Arc::new(Store::new_shared_memory("sync-mgr-test").unwrap());
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 0);
+        Arc::clone(&store).register_with_sync_manager();
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        let registered = STORE_FOR_MANAGER
+            .lock()
+            .unwrap()
+            .borrow()
+            .upgrade()
+            .expect("should upgrade");
+        assert!(Arc::ptr_eq(&store, &registered));
+        drop(registered);
+        // should be no new references
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        // dropping the registered object should drop the registration.
+        drop(store);
+        assert!(STORE_FOR_MANAGER
+            .lock()
+            .unwrap()
+            .borrow()
+            .upgrade()
+            .is_none());
     }
 }
