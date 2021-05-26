@@ -1,7 +1,3 @@
-# Unreleased
-
-- Update viaduct-reqwest to use reqwest 0.11.
-
 # v77.0.1 (_2021-05-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
