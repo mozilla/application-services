@@ -73,11 +73,8 @@ impl SyncManager {
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        let cell = autofill::STORE_FOR_MANAGER.lock().unwrap();
-        // The cell holds a `Weak` - borrow it (which is safe as we have the
-        // mutex) and upgrade it to a real Arc.
-        let r = cell.borrow();
-        match r.upgrade() {
+        let weak = autofill::STORE_FOR_MANAGER.lock().unwrap();
+        match weak.upgrade() {
             None => None,
             Some(arc) => match engine {
                 "addresses" => Some(Box::new(autofill::sync::address::create_engine(arc))),

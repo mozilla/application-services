@@ -11,7 +11,6 @@ use rusqlite::{
     Connection,
 };
 use sql_support::{self, ConnExt};
-use std::cell::RefCell;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
 use sync15_traits::SyncEngine;
@@ -19,14 +18,10 @@ use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
-    // Mutex: just taken long enough to update the inner stuff - needed
-    //        to wrap the RefCell as they aren't `Sync`
-    // RefCell: So we can replace what it holds. Normally you'd use `get_ref()`
-    //          on the mutex and avoid the RefCell entirely, but that requires
-    //          the mutex to be declared as `mut` which is apparently
-    //          impossible in a `lazy_static`
+    // Mutex: just taken long enough to update the contents - needed to wrap
+    //        the Weak as it isn't `Sync`
     // [Arc/Weak]<Store>: What the sync manager actually needs.
-    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<Store>>> = Mutex::new(RefCell::new(Weak::new()));
+    pub static ref STORE_FOR_MANAGER: Mutex<Weak<Store>> = Mutex::new(Weak::new());
 }
 
 // This is the type that uniffi exposes.
@@ -143,10 +138,8 @@ impl Store {
     // `register_with_sync_manager()` is logically what's happening so that's
     // the name it gets.
     pub fn register_with_sync_manager(self: Arc<Self>) {
-        STORE_FOR_MANAGER
-            .lock()
-            .unwrap()
-            .replace(Arc::downgrade(&self));
+        let mut state = STORE_FOR_MANAGER.lock().unwrap();
+        *state = Arc::downgrade(&self);
     }
 
     // These 2 are a little odd - they aren't exposed by uniffi - currently the
@@ -238,7 +231,6 @@ mod tests {
         let registered = STORE_FOR_MANAGER
             .lock()
             .unwrap()
-            .borrow()
             .upgrade()
             .expect("should upgrade");
         assert!(Arc::ptr_eq(&store, &registered));
@@ -248,11 +240,6 @@ mod tests {
         assert_eq!(Arc::weak_count(&store), 1);
         // dropping the registered object should drop the registration.
         drop(store);
-        assert!(STORE_FOR_MANAGER
-            .lock()
-            .unwrap()
-            .borrow()
-            .upgrade()
-            .is_none());
+        assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
     }
 }
