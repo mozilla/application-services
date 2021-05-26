@@ -9,8 +9,8 @@ exclude = ["/android", "/ios"]
 [dependencies]
 log = "0.4"
 thiserror = "1.0"
-uniffi = "0.9"
-uniffi_macros = "0.9"
+uniffi = "^0.10"
+uniffi_macros = "^0.10"
 
 [build-dependencies]
-uniffi_build = { version = "0.9", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.10", features=["builtin-bindgen"] }
