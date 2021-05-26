@@ -15,7 +15,6 @@ the details of which are reproduced below.
 * [MIT License: cargo_metadata](#mit-license-cargo_metadata)
 * [MIT License: caseless](#mit-license-caseless)
 * [MIT License: clap](#mit-license-clap)
-* [MIT License: dashmap](#mit-license-dashmap)
 * [MIT License: funty](#mit-license-funty)
 * [MIT License: generic-array](#mit-license-generic-array)
 * [MIT License: h2](#mit-license-h2)
@@ -30,7 +29,6 @@ the details of which are reproduced below.
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: openssl-sys](#mit-license-openssl-sys)
 * [MIT License: ordered-float](#mit-license-ordered-float)
-* [MIT License: oslog](#mit-license-oslog)
 * [MIT License: radium](#mit-license-radium)
 * [MIT License: rusqlite](#mit-license-rusqlite)
 * [MIT License: schannel](#mit-license-schannel)
@@ -462,6 +460,8 @@ The following text applies to code linked from these dependencies:
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [block-buffer](https://github.com/RustCrypto/utils),
+[camino](https://github.com/withoutboats/camino),
+[cargo-platform](https://github.com/rust-lang/cargo),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
@@ -529,6 +529,7 @@ The following text applies to code linked from these dependencies:
 [paste-impl](https://github.com/dtolnay/paste),
 [paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
+[pest](https://github.com/pest-parser/pest),
 [pin-project-internal](https://github.com/taiki-e/pin-project),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pin-project](https://github.com/taiki-e/pin-project),
@@ -573,6 +574,7 @@ The following text applies to code linked from these dependencies:
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
+[ucd-trie](https://github.com/BurntSushi/ucd-generate),
 [unicase](https://github.com/seanmonstar/unicase),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
@@ -1071,36 +1073,6 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: dashmap
-
-The following text applies to code linked from these dependencies:
-[dashmap](https://github.com/xacrimon/dashmap)
-
-```
-MIT License
-
-Copyright (c) 2019 Acrimon
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-```
--------------
 ## MIT License: funty
 
 The following text applies to code linked from these dependencies:
@@ -1532,36 +1504,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: oslog
-
-The following text applies to code linked from these dependencies:
-[oslog](https://github.com/steven-joruk/oslog)
-
-```
-MIT License
-
-Copyright (c) 2020 Steven Joruk
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 -------------

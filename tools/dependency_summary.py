@@ -302,6 +302,18 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/bitvecto-rs/bitvec/develop/LICENSE.txt",
         },
     },
+    "cargo-platform": {
+        "repository": {
+            "check": "https://github.com/rust-lang/cargo",
+        },
+        "license": {
+            "check": "MIT OR Apache-2.0"
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/rust-lang/cargo/master/LICENSE-APACHE",
+        }
+    },
     "failure_derive": {
         "repository": {
             "check": "https://github.com/rust-lang-nursery/failure",
