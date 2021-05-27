@@ -90,7 +90,7 @@ extern "C" {
         type_: CK_MECHANISM_TYPE,
         operation: CK_ATTRIBUTE_TYPE,
         symKey: *mut PK11SymKey,
-        param: *mut SECItem,
+        param: *const SECItem,
     ) -> *mut PK11Context;
     pub fn PK11_DigestBegin(cx: *mut PK11Context) -> SECStatus;
     pub fn PK11_HashBuf(
