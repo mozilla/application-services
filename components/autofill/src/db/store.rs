@@ -21,7 +21,23 @@ lazy_static::lazy_static! {
     // Mutex: just taken long enough to update the contents - needed to wrap
     //        the Weak as it isn't `Sync`
     // [Arc/Weak]<Store>: What the sync manager actually needs.
-    pub static ref STORE_FOR_MANAGER: Mutex<Weak<Store>> = Mutex::new(Weak::new());
+    static ref STORE_FOR_MANAGER: Mutex<Weak<Store>> = Mutex::new(Weak::new());
+}
+
+/// Called by the sync manager to get a sync engine via the store previously
+/// registered with the sync manager.
+pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+    let weak = STORE_FOR_MANAGER.lock().unwrap();
+    match weak.upgrade() {
+        None => None,
+        Some(store) => match name {
+            "addresses" => Some(Box::new(crate::sync::address::create_engine(store))),
+            "creditcards" => Some(Box::new(crate::sync::credit_card::create_engine(store))),
+            // panicing here seems reasonable - it's a static error if this
+            // it hit, not something that runtime conditions can influence.
+            _ => unreachable!("can't provide unknown engine: {}", name),
+        },
+    }
 }
 
 // This is the type that uniffi exposes.
@@ -124,10 +140,6 @@ impl Store {
         credit_cards::scrub_encrypted_credit_card_data(&self.db.lock().unwrap().writer)?;
         // Force the sync engine to refetch data (only need to do this for the credit cards, since the
         // addresses engine doesn't store encrypted data).
-        //
-        // It would be cleaner to put this inside the StoreImpl code, but that's tricky because
-        // create_engine needs an Arc<StoreImpl> which we have, but StoreImpl doesn't and StoreImpl
-        // can't just create one because AutofillDb.writer doesn't implement Clone.
         crate::sync::credit_card::create_engine(self).reset_local_sync_data()?;
         Ok(())
     }

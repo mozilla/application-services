@@ -73,15 +73,7 @@ impl SyncManager {
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        let weak = autofill::STORE_FOR_MANAGER.lock().unwrap();
-        match weak.upgrade() {
-            None => None,
-            Some(arc) => match engine {
-                "addresses" => Some(Box::new(autofill::sync::address::create_engine(arc))),
-                "creditcards" => Some(Box::new(autofill::sync::credit_card::create_engine(arc))),
-                _ => unreachable!("can't process unknown engine: {}", engine),
-            },
-        }
+        autofill::get_registered_sync_engine(engine)
     }
 
     pub fn wipe(&mut self, engine: &str) -> Result<()> {

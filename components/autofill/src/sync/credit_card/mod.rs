@@ -24,7 +24,7 @@ use sync_guid::Guid;
 use types::Timestamp;
 
 // The engine.
-pub fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<InternalCreditCard> {
+pub(crate) fn create_engine(store: Arc<crate::Store>) -> ConfigSyncEngine<InternalCreditCard> {
     ConfigSyncEngine::new(
         EngineConfig {
             namespace: "credit_cards".to_string(),
