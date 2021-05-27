@@ -14,6 +14,7 @@ use autofill::error::Error;
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_string, prompt_usize};
 use interrupt_support::NeverInterrupts; // XXX need a real interruptee!
+use std::sync::Arc;
 use structopt::StructOpt;
 use sync15::{
     sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
@@ -352,7 +353,7 @@ fn run_delete_credit_card(store: &Store, guid: String) -> Result<()> {
 
 #[allow(clippy::too_many_arguments)]
 fn run_sync(
-    store: &Store,
+    store: &Arc<Store>,
     key: &str,
     cred_file: String,
     wipe_all: bool,
@@ -370,8 +371,8 @@ fn run_sync(
     let mut mem_cached_state = MemoryCachedState::default();
     let mut global_state: Option<String> = None;
     let mut engines: Vec<Box<dyn SyncEngine>> = vec![
-        store.create_addresses_sync_engine(),
-        store.create_credit_cards_sync_engine(),
+        Arc::clone(store).create_addresses_sync_engine(),
+        Arc::clone(store).create_credit_cards_sync_engine(),
     ];
     engines[1].set_local_encryption_key(key)?;
     for engine in &engines {
@@ -528,7 +529,7 @@ fn main() -> Result<()> {
             nsyncs,
             wait,
         } => run_sync(
-            &store,
+            &Arc::new(store),
             &key,
             credential_file,
             wipe_all,

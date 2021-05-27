@@ -131,8 +131,9 @@ interface Store {
     [Throws=Error]
     void touch_address(string guid);
 
-    [Throws=Error]
+    [Throws=Error, Self=ByArc]
     void scrub_encrypted_data();
 
+    [Self=ByArc]
     void register_with_sync_manager();
 };
