@@ -10,8 +10,8 @@
 ///
 ///   - loginsM is the mirror table, which means it stores what we believe is on the server.  This
 ///     means either the last record we fetched from the server or the last record we uploaded.
-///   - loginsL is the local table, which means it stores local changes have not been sent to the
-///     server.
+///   - loginsL is the local table, which means it stores local changes that have not been sent to
+///     the server.
 ///   - When we want to fetch a record, we need to look in both loginsL and loginsM for the data.
 ///     If a record is in both tables, then we prefer the loginsL data.  GET_BY_GUID_SQL contains a
 ///     clever UNION query to accomplish this.
