@@ -216,7 +216,8 @@ executors:
       - image: cimg/rust:1.50.0
   macos:
     macos:
-      xcode: "12.3.0"
+      xcode: 12.5.0
+    resource_class: m2.medium
 
 jobs:
   Check Swift formatting:
@@ -327,6 +328,10 @@ jobs:
       - run:
           name: Set up the build environment
           command: |
+            # See #4052 - brew will fail because this six.py already exists.
+            # This is clearly unsatisfactory, but works, so :shrug
+            rm /usr/local/lib/python3.9/site-packages/six.py
+
             brew install swift-protobuf --force
       - carthage-bootstrap
       - run:
