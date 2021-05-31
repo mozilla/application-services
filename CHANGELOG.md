@@ -1,3 +1,11 @@
+# v77.0.2 (_2021-05-31_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.1...v77.0.2)
+
+## Autofill
+
+ - Fixed a failing assertion when handling local dupes during a sync (#4154)
+
 # v77.0.1 (_2021-05-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
