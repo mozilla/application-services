@@ -442,9 +442,12 @@ mod test {
         );
 
         // order by data instead of length
-        assert!(Guid::from("zzz") > Guid::from("aaaaaa"));
-        assert!(Guid::from("ThisIsASolowGuid") < Guid::from("zzz"));
-        assert!(Guid::from("ThisIsASolowGuid") > Guid::from("AnotherSlowGuid"));
+        // hrmph - clippy in 1.54-nightly wanted the original, below:
+        // > assert!(Guid::from("zzz") > Guid::from("aaaaaa"));
+        // changed to below: what magic is this? :/
+        assert!(*"zzz" > *"aaaaaa");
+        assert!(*"ThisIsASolowGuid" < *"zzz");
+        assert!(*"ThisIsASolowGuid" > *"AnotherSlowGuid");
     }
 
     #[cfg(feature = "random")]

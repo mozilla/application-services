@@ -888,7 +888,7 @@ mod tests {
         fxa.set_client(Arc::new(client));
 
         let auth_status = fxa.check_authorization_status().unwrap();
-        assert_eq!(auth_status.active, true);
+        assert!(auth_status.active);
     }
 
     #[test]

@@ -45,8 +45,8 @@ pub struct RegisterResponse {
     pub senderid: Option<String>,
 }
 
-#[serde(untagged)]
 #[derive(Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum BroadcastValue {
     Value(String),
     Nested(HashMap<String, BroadcastValue>),
@@ -324,7 +324,7 @@ impl Connection for ConnectHttp {
             uaid: String,
             #[serde(rename = "channelIDs")]
             channel_ids: Vec<String>,
-        };
+        }
 
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());

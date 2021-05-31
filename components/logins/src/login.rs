@@ -405,7 +405,7 @@ impl Login {
                     fixed
                 }
             };
-        };
+        }
 
         if self.hostname.is_empty() {
             throw!(InvalidLogin::EmptyOrigin);

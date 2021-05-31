@@ -318,7 +318,6 @@ mod tests {
     use pretty_assertions::assert_eq;
     use types::Timestamp;
 
-    #[macro_use]
     macro_rules! assert_table_size {
         ($conn:expr, $table:expr, $count:expr) => {
             assert_eq!(
@@ -335,29 +334,19 @@ mod tests {
         };
     }
 
-    #[macro_use]
     macro_rules! add_and_assert_history_metadata {
         ($conn:expr, url $url:expr, title $title:expr, created_at $created_at:expr, updated_at $updated_at:expr, total_time $tvt:expr, search_term $search_term:expr, is_media $is_media:expr, parent_url $parent_url:expr, parent_domain $parent_domain:expr) => {
             // Create an object to add.
             let metadata = HistoryMetadata {
                 guid: None,
                 url: String::from($url),
-                title: match $title as Option<&str> {
-                    Some(t) => Some(String::from(t)),
-                    None => None
-                },
+                title: $title.map(|s: &str| s.to_string()),
                 created_at: $created_at,
                 updated_at: $updated_at,
                 total_view_time: $tvt,
-                search_term: match $search_term as Option<&str> {
-                    Some(t) => Some(String::from(t)),
-                    None => None
-                },
+                search_term: $search_term.map(|s: &str| s.to_string()),
                 is_media: $is_media,
-                parent_url: match $parent_url as Option<&str> {
-                    Some(t) => Some(String::from(t)),
-                    None => None
-                }
+                parent_url: $parent_url.map(|s: &str| s.to_string()),
             };
             // Add it.
             let db_guid = add_metadata($conn, metadata).expect("should add metadata");
@@ -371,7 +360,6 @@ mod tests {
         };
     }
 
-    #[macro_use]
     macro_rules! assert_history_metadata_record {
         ($record:expr, url $url:expr, title $title:expr, created_at $created_at:expr, updated_at $updated_at:expr, total_time $tvt:expr, search_term $search_term:expr, is_media $is_media:expr, parent_url $parent_url:expr, parent_domain $parent_domain:expr) => {
             assert_eq!(String::from($url), $record.url, "url must match");

@@ -1979,7 +1979,7 @@ mod tests {
 
         assert_eq!(
             2,
-            events.iter().count(),
+            events.len(),
             "There should be exactly 2 enrollment_change_events"
         );
 
@@ -2552,19 +2552,18 @@ mod tests {
         assert!(events.is_empty());
         // We should see the experiment non-enrollments.
         assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
-        let not_enrolled_enrollments: Vec<ExperimentEnrollment> =
-            get_experiment_enrollments(&db, &writer)?
-                .into_iter()
-                .filter(|enr| {
-                    matches!(
-                        enr.status,
-                        EnrollmentStatus::NotEnrolled {
-                            reason: NotEnrolledReason::OptOut
-                        }
-                    )
-                })
-                .collect();
-        assert_eq!(not_enrolled_enrollments.len(), 2);
+        let num_not_enrolled_enrollments = get_experiment_enrollments(&db, &writer)?
+            .into_iter()
+            .filter(|enr| {
+                matches!(
+                    enr.status,
+                    EnrollmentStatus::NotEnrolled {
+                        reason: NotEnrolledReason::OptOut
+                    }
+                )
+            })
+            .count();
+        assert_eq!(num_not_enrolled_enrollments, 2);
 
         // User opts in, and updating should enroll us in 2 experiments.
         set_global_user_participation(&db, &mut writer, true)?;
@@ -2577,12 +2576,11 @@ mod tests {
         assert_eq!(events.len(), 2);
         // We should see 2 experiment enrollments.
         assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
-        let enrolled_enrollments: Vec<ExperimentEnrollment> =
-            get_experiment_enrollments(&db, &writer)?
-                .into_iter()
-                .filter(|enr| matches!(enr.status, EnrollmentStatus::Enrolled { .. }))
-                .collect();
-        assert_eq!(enrolled_enrollments.len(), 2);
+        let num_enrolled_enrollments = get_experiment_enrollments(&db, &writer)?
+            .into_iter()
+            .filter(|enr| matches!(enr.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        assert_eq!(num_enrolled_enrollments, 2);
 
         // Opting out and updating should give us two disqualified enrollments
         set_global_user_participation(&db, &mut writer, false)?;

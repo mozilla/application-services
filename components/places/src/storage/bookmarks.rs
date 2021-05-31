@@ -1435,23 +1435,23 @@ const RAW_BOOKMARK_SQL: &str = "
 pub(crate) fn get_raw_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<Option<RawBookmark>> {
     // sql is based on fetchBookmark() in Desktop's Bookmarks.jsm, with 'fk' added
     // and title's NULLIF handling.
-    Ok(db.try_query_row(
+    db.try_query_row(
         &format!("{} WHERE b.guid = :guid", RAW_BOOKMARK_SQL),
         &[(":guid", guid)],
         RawBookmark::from_row,
         true,
-    )?)
+    )
 }
 
 fn get_raw_bookmarks_for_url(db: &PlacesDb, url: &Url) -> Result<Vec<RawBookmark>> {
-    Ok(db.query_rows_into_cached(
+    db.query_rows_into_cached(
         &format!(
             "{} WHERE h.url_hash = hash(:url) AND h.url = :url",
             RAW_BOOKMARK_SQL
         ),
         &[(":url", &url.as_str())],
         RawBookmark::from_row,
-    )?)
+    )
 }
 
 fn reset_in_tx(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
@@ -2152,7 +2152,7 @@ mod tests {
             let mut stmt = conn.prepare(sql).expect("sql is ok");
             let got_guids: HashSet<String> = stmt
                 .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                    Ok(row.get::<_, String>(0)?)
+                    row.get::<_, String>(0)
                 })
                 .expect("should work")
                 .map(std::result::Result::unwrap)
@@ -2174,7 +2174,7 @@ mod tests {
             let mut stmt = conn.prepare(sql).expect("sql is ok");
             let got_guids: HashSet<String> = stmt
                 .query_and_then(NO_PARAMS, |row| -> rusqlite::Result<_> {
-                    Ok(row.get::<_, String>(0)?)
+                    row.get::<_, String>(0)
                 })
                 .expect("should work")
                 .map(std::result::Result::unwrap)

@@ -873,7 +873,7 @@ mod test {
         assert_eq!(t.batches[1].bytes, payload_size);
         // We know at this point that the server does not support batching.
         assert_eq!(t.batches[1].posts[0].batch, None);
-        assert_eq!(t.batches[1].posts[0].commit, false);
+        assert!(!t.batches[1].posts[0].commit);
         assert_eq!(
             t.batches[1].posts[0].body.len(),
             request_bytes_for_payloads(&[payload_size])
@@ -946,7 +946,7 @@ mod test {
         assert_eq!(t.batches[0].posts.len(), 1);
         assert_eq!(t.batches[0].records, 3);
         assert_eq!(t.batches[0].bytes, payload_size * 3);
-        assert_eq!(t.batches[0].posts[0].commit, true);
+        assert!(t.batches[0].posts[0].commit);
         assert_eq!(
             t.batches[0].posts[0].body.len(),
             request_bytes_for_payloads(&[payload_size, payload_size, payload_size])
@@ -986,7 +986,7 @@ mod test {
         assert_eq!(t.batches[0].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[0].posts[0].records, 2);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 200);
-        assert_eq!(t.batches[0].posts[0].commit, false);
+        assert!(!t.batches[0].posts[0].commit);
         assert_eq!(
             t.batches[0].posts[0].body.len(),
             request_bytes_for_payloads(&[100, 100])
@@ -995,7 +995,7 @@ mod test {
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 1);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 100);
-        assert_eq!(t.batches[0].posts[1].commit, true);
+        assert!(t.batches[0].posts[1].commit);
         assert_eq!(
             t.batches[0].posts[1].body.len(),
             request_bytes_for_payloads(&[100])
@@ -1041,7 +1041,7 @@ mod test {
         assert_eq!(t.batches[0].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[0].posts[0].records, 3);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 300);
-        assert_eq!(t.batches[0].posts[0].commit, false);
+        assert!(!t.batches[0].posts[0].commit);
         assert_eq!(
             t.batches[0].posts[0].body.len(),
             request_bytes_for_payloads(&[100, 100, 100])
@@ -1050,7 +1050,7 @@ mod test {
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 3);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 300);
-        assert_eq!(t.batches[0].posts[1].commit, false);
+        assert!(!t.batches[0].posts[1].commit);
         assert_eq!(
             t.batches[0].posts[1].body.len(),
             request_bytes_for_payloads(&[100, 100, 100])
@@ -1059,7 +1059,7 @@ mod test {
         assert_eq!(t.batches[0].posts[2].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[2].records, 1);
         assert_eq!(t.batches[0].posts[2].payload_bytes, 100);
-        assert_eq!(t.batches[0].posts[2].commit, true);
+        assert!(t.batches[0].posts[2].commit);
         assert_eq!(
             t.batches[0].posts[2].body.len(),
             request_bytes_for_payloads(&[100])
@@ -1116,7 +1116,7 @@ mod test {
         assert_eq!(t.batches[0].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[0].posts[0].records, 3);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 300);
-        assert_eq!(t.batches[0].posts[0].commit, false);
+        assert!(!t.batches[0].posts[0].commit);
         assert_eq!(
             t.batches[0].posts[0].body.len(),
             request_bytes_for_payloads(&[100, 100, 100])
@@ -1125,7 +1125,7 @@ mod test {
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 2);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 200);
-        assert_eq!(t.batches[0].posts[1].commit, true);
+        assert!(t.batches[0].posts[1].commit);
         assert_eq!(
             t.batches[0].posts[1].body.len(),
             request_bytes_for_payloads(&[100, 100])
@@ -1134,7 +1134,7 @@ mod test {
         assert_eq!(t.batches[1].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[1].posts[0].records, 3);
         assert_eq!(t.batches[1].posts[0].payload_bytes, 300);
-        assert_eq!(t.batches[1].posts[0].commit, false);
+        assert!(!t.batches[1].posts[0].commit);
         assert_eq!(
             t.batches[1].posts[0].body.len(),
             request_bytes_for_payloads(&[100, 100, 100])
@@ -1143,7 +1143,7 @@ mod test {
         assert_eq!(t.batches[1].posts[1].batch.as_ref().unwrap(), "abcd");
         assert_eq!(t.batches[1].posts[1].records, 1);
         assert_eq!(t.batches[1].posts[1].payload_bytes, 100);
-        assert_eq!(t.batches[1].posts[1].commit, true);
+        assert!(t.batches[1].posts[1].commit);
         assert_eq!(
             t.batches[1].posts[1].body.len(),
             request_bytes_for_payloads(&[100])
@@ -1206,7 +1206,7 @@ mod test {
         assert_eq!(t.batches[0].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[0].posts[0].records, 3);
         assert_eq!(t.batches[0].posts[0].payload_bytes, 300);
-        assert_eq!(t.batches[0].posts[0].commit, false);
+        assert!(!t.batches[0].posts[0].commit);
         assert_eq!(
             t.batches[0].posts[0].body.len(),
             request_bytes_for_payloads(&[100, 100, 100])
@@ -1215,7 +1215,7 @@ mod test {
         assert_eq!(t.batches[0].posts[1].batch.as_ref().unwrap(), "1234");
         assert_eq!(t.batches[0].posts[1].records, 2);
         assert_eq!(t.batches[0].posts[1].payload_bytes, 200);
-        assert_eq!(t.batches[0].posts[1].commit, true);
+        assert!(t.batches[0].posts[1].commit);
         assert_eq!(
             t.batches[0].posts[1].body.len(),
             request_bytes_for_payloads(&[100, 100])
@@ -1224,7 +1224,7 @@ mod test {
         assert_eq!(t.batches[1].posts[0].batch.as_ref().unwrap(), "true");
         assert_eq!(t.batches[1].posts[0].records, 3);
         assert_eq!(t.batches[1].posts[0].payload_bytes, 300);
-        assert_eq!(t.batches[1].posts[0].commit, false);
+        assert!(!t.batches[1].posts[0].commit);
         assert_eq!(
             t.batches[1].posts[0].body.len(),
             request_bytes_for_payloads(&[100, 100, 100])
@@ -1233,7 +1233,7 @@ mod test {
         assert_eq!(t.batches[1].posts[1].batch.as_ref().unwrap(), "abcd");
         assert_eq!(t.batches[1].posts[1].records, 1);
         assert_eq!(t.batches[1].posts[1].payload_bytes, 100);
-        assert_eq!(t.batches[1].posts[1].commit, true);
+        assert!(t.batches[1].posts[1].commit);
         assert_eq!(
             t.batches[1].posts[1].body.len(),
             request_bytes_for_payloads(&[100])
