@@ -150,7 +150,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         &self,
         tx: &Transaction<'_>,
         incoming: &Self::Record,
-    ) -> Result<Option<(SyncGuid, Self::Record)>> {
+    ) -> Result<Option<Self::Record>> {
         let sql = format!("
             SELECT
                 {common_cols},
@@ -199,7 +199,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         });
 
         match result {
-            Ok(r) => Ok(Some((incoming.guid.clone(), r))),
+            Ok(r) => Ok(Some(r)),
             Err(e) => match e {
                 rusqlite::Error::QueryReturnedNoRows => Ok(None),
                 _ => Err(Error::SqlError(e)),
