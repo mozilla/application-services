@@ -153,7 +153,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         &self,
         tx: &Transaction<'_>,
         incoming: &Self::Record,
-    ) -> Result<Option<(SyncGuid, Self::Record)>> {
+    ) -> Result<Option<Self::Record>> {
         let sql = format!("
             SELECT
                 {common_cols},
@@ -194,7 +194,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc)?;
         for record in records {
             if self.encdec.decrypt(&record.cc_number_enc)? == incoming_cc_number {
-                return Ok(Some((incoming.guid.clone(), record)));
+                return Ok(Some(record));
             }
         }
         Ok(None)
@@ -465,9 +465,50 @@ mod tests {
         // change the incoming guid so we don't immediately think they are the same.
         incoming_record.guid = SyncGuid::random();
 
-        // expect `Ok(Some(guid, record))`
+        // expect `Ok(Some(record))`
         let dupe = ci.get_local_dupe(&tx, &incoming_record).unwrap().unwrap();
-        assert_eq!(dupe.0, incoming_record.guid);
-        assert_eq!(dupe.1.guid, local_guid);
+        assert_eq!(dupe.guid, local_guid);
+    }
+
+    // largely the same test as above, but going through the entire plan + apply
+    // cycle.
+    #[test]
+    fn test_find_dupe_applied() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let encdec = EncryptorDecryptor::new_test_key();
+        let ci = IncomingCreditCardsImpl { encdec };
+        let local_record = test_record('C', &ci.encdec);
+        let local_guid = local_record.guid.clone();
+        ci.insert_local_record(&tx, local_record.clone()).unwrap();
+
+        // Now the same record incoming, but with a different guid. It should
+        // find the local one we just added above as a dupe.
+        let incoming_guid = SyncGuid::new(&expand_test_guid('I'));
+        let mut incoming = local_record;
+        incoming.guid = incoming_guid.clone();
+
+        let incoming_state = IncomingState {
+            incoming: IncomingRecord::Record { record: incoming },
+            // LocalRecordInfo::Missing because we don't have a local record with
+            // the incoming GUID.
+            local: LocalRecordInfo::Missing,
+            mirror: None,
+        };
+
+        let incoming_action =
+            crate::sync::plan_incoming(&ci, &tx, incoming_state).expect("should get action");
+        // We should have found the local as a dupe.
+        assert!(
+            matches!(incoming_action, crate::sync::IncomingAction::UpdateLocalGuid { ref old_guid, record: ref incoming } if *old_guid == local_guid && incoming.guid == incoming_guid)
+        );
+
+        // and apply it.
+        crate::sync::apply_incoming_action(&ci, &tx, incoming_action).expect("should apply");
+
+        // and the local record should now have the incoming guid.
+        tx.commit().expect("should commit");
+        assert!(get_credit_card(&db.writer, &local_guid).is_err());
+        assert!(get_credit_card(&db.writer, &incoming_guid).is_ok());
     }
 }
