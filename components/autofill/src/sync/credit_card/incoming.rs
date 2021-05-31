@@ -485,13 +485,11 @@ mod tests {
         // Now the same record incoming, but with a different guid. It should
         // find the local one we just added above as a dupe.
         let incoming_guid = SyncGuid::new(&expand_test_guid('I'));
-        let mut incoming = local_record.clone();
+        let mut incoming = local_record;
         incoming.guid = incoming_guid.clone();
 
         let incoming_state = IncomingState {
-            incoming: IncomingRecord::Record {
-                record: incoming.clone(),
-            },
+            incoming: IncomingRecord::Record { record: incoming },
             // LocalRecordInfo::Missing because we don't have a local record with
             // the incoming GUID.
             local: LocalRecordInfo::Missing,
