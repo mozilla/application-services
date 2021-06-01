@@ -256,77 +256,90 @@ class PlacesTests: XCTestCase {
     // MARK: history metadata tests
 
     func testHistoryMetadataBasics() {
-        let currentTime = Int64(Date().timeIntervalSince1970 * 1000)
+        let beginning = Int64(Date().timeIntervalSince1970 * 1000)
         let db = api.getWriter()
+
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
 
         XCTAssertNil(try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org"))
 
-        let meta = HistoryMetadata(
-            guid: nil,
+        let metaKey1 = HistoryMetadataKey(
             url: "http://www.mozilla.org",
-            title: nil,
-            createdAt: currentTime,
-            updatedAt: currentTime,
-            totalViewTime: 1000,
             searchTerm: nil,
-            isMedia: false,
-            parentUrl: nil
+            referrerUrl: nil
         )
-        _ = try! db.addHistoryMetadata(metadata: meta)
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation.documentTypeObservation(DocumentType.media))
 
-        let dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        var dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertNotNil(dbMeta)
-        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.url)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.key.url)
         XCTAssertEqual(nil, dbMeta!.title)
-        XCTAssertEqual(nil, dbMeta!.parentUrl)
-        XCTAssertEqual(nil, dbMeta!.searchTerm)
-        XCTAssertEqual(false, dbMeta!.isMedia)
-        XCTAssertEqual(1000, dbMeta!.totalViewTime)
+        XCTAssertEqual(nil, dbMeta!.key.referrerUrl)
+        XCTAssertEqual(nil, dbMeta!.key.searchTerm)
+        XCTAssertEqual(DocumentType.media, dbMeta!.documentType)
+        XCTAssertEqual(0, dbMeta!.totalViewTime)
 
-        let meta2 = HistoryMetadata(
-            guid: nil,
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation.viewTimeObservation(1337))
+        dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertNotNil(dbMeta)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.key.url)
+        XCTAssertEqual(nil, dbMeta!.title)
+        XCTAssertEqual(nil, dbMeta!.key.referrerUrl)
+        XCTAssertEqual(nil, dbMeta!.key.searchTerm)
+        XCTAssertEqual(DocumentType.media, dbMeta!.documentType)
+        XCTAssertEqual(1337, dbMeta!.totalViewTime)
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation.viewTimeObservation(3))
+        dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
+        XCTAssertEqual(1340, dbMeta!.totalViewTime)
+
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
+        let afterLastMeta1Update = Int64(Date().timeIntervalSince1970 * 1000)
+
+        let metaKey2 = HistoryMetadataKey(
             url: "http://www.mozilla.org/another/",
-            title: "Some title",
-            createdAt: currentTime,
-            updatedAt: currentTime + 1000,
-            totalViewTime: 2000,
             searchTerm: "another firefox",
-            isMedia: true,
-            parentUrl: "https://www.google.com/search?client=firefox-b-d&q=another+firefox"
+            referrerUrl: "https://www.google.com/search?client=firefox-b-d&q=another+firefox"
         )
-        let dbMeta2Guid = try! db.addHistoryMetadata(metadata: meta2)
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.titleObservation("some title"))
 
-        let dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
+        XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: afterLastMeta1Update).count)
+        XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
+
+        var dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
         XCTAssertNotNil(dbMeta2)
-        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.url)
-        XCTAssertEqual("Some title", dbMeta2!.title)
-        XCTAssertEqual("www.google.com", dbMeta2!.parentUrl)
-        XCTAssertEqual("another firefox", dbMeta2!.searchTerm)
-        XCTAssertEqual(true, dbMeta2!.isMedia)
-        XCTAssertEqual(2000, dbMeta2!.totalViewTime)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.key.url)
+        XCTAssertEqual("some title", dbMeta2!.title)
+        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.key.referrerUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.key.searchTerm)
+        XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
+        XCTAssertEqual(0, dbMeta2!.totalViewTime)
 
-        var list = try! db.getHistoryMetadataSince(since: currentTime)
-        XCTAssertEqual(2, list.count)
-        list = try! db.getHistoryMetadataSince(since: currentTime + 1)
-        XCTAssertEqual(1, list.count)
-        list = try! db.getHistoryMetadataSince(since: currentTime + 2000)
-        XCTAssertEqual(0, list.count)
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.documentTypeObservation(DocumentType.regular))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.titleObservation("Some Title"))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.viewTimeObservation(52345))
+        dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
+        XCTAssertNotNil(dbMeta2)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.key.url)
+        XCTAssertEqual("some title", dbMeta2!.title) // NB: subsequent title updates are currently ignored
+        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.key.referrerUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.key.searchTerm)
+        XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
+        XCTAssertEqual(52345, dbMeta2!.totalViewTime)
 
-        list = try! db.getHistoryMetadataBetween(start: currentTime, end: currentTime)
-        XCTAssertEqual(1, list.count)
-        list = try! db.getHistoryMetadataBetween(start: currentTime + 1, end: currentTime + 2)
-        XCTAssertEqual(0, list.count)
-        list = try! db.getHistoryMetadataBetween(start: currentTime, end: currentTime + 1000)
-        XCTAssertEqual(2, list.count)
-        list = try! db.getHistoryMetadataBetween(start: currentTime, end: currentTime + 999)
-        XCTAssertEqual(1, list.count)
-        list = try! db.getHistoryMetadataBetween(start: currentTime + 1, end: currentTime + 1000)
-        XCTAssertEqual(1, list.count)
-        list = try! db.getHistoryMetadataBetween(start: currentTime + 1, end: currentTime + 999)
-        XCTAssertEqual(0, list.count)
+        let afterLastMeta2Update = Int64(Date().timeIntervalSince1970 * 1000)
+
+        XCTAssertEqual(2, try! db.getHistoryMetadataBetween(start: beginning, end: afterLastMeta2Update).count)
+        XCTAssertEqual(1, try! db.getHistoryMetadataBetween(start: afterLastMeta1Update, end: afterLastMeta2Update).count)
 
         // by search term
-        list = try! db.queryHistoryMetadata(query: "firefox", limit: 100)
+        var list = try! db.queryHistoryMetadata(query: "firefox", limit: 100)
         XCTAssertEqual(1, list.count)
         // by url
         list = try! db.queryHistoryMetadata(query: "mozilla", limit: 100)
@@ -334,9 +347,17 @@ class PlacesTests: XCTestCase {
         // by title
         list = try! db.queryHistoryMetadata(query: "title", limit: 100)
         XCTAssertEqual(1, list.count)
+        // by title
+        list = try! db.queryHistoryMetadata(query: "Title", limit: 100)
+        XCTAssertEqual(1, list.count)
 
-        try! db.updateHistoryMetadata(guid: dbMeta2Guid, totalViewTime: 5000)
-        let updatedMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
-        XCTAssertEqual(5000, updatedMeta2!.totalViewTime)
+        try! db.deleteHistoryMetadaOlderThan(olderThan: beginning)
+        XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
+        try! db.deleteHistoryMetadaOlderThan(olderThan: afterLastMeta1Update)
+        list = try! db.getHistoryMetadataSince(since: beginning)
+        XCTAssertEqual(1, list.count)
+        XCTAssertEqual("http://www.mozilla.org/another/", list[0].key.url)
+        try! db.deleteHistoryMetadaOlderThan(olderThan: afterLastMeta2Update)
+        XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
     }
 }

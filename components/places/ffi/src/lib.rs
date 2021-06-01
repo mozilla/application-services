@@ -13,7 +13,7 @@ use ffi_support::{
     define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
 };
 use places::error::*;
-use places::msg_types::{BookmarkNodeList, HistoryMetadata, SearchResultList};
+use places::msg_types::{BookmarkNodeList, HistoryMetadataObservation, SearchResultList};
 use places::storage::bookmarks;
 use places::types::VisitTransitionSet;
 use places::{storage, ConnectionType, PlacesApi, PlacesDb};
@@ -486,32 +486,18 @@ pub extern "C" fn places_get_latest_history_metadata_for_url(
 /// # Safety
 /// Deref pointer, thus unsafe
 #[no_mangle]
-pub unsafe extern "C" fn places_add_history_metadata(
+pub unsafe extern "C" fn places_note_history_metadata_observation(
     handle: u64,
     data: *const u8,
     len: i32,
     error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("places_add_history_metadata");
+) {
+    log::debug!("places_note_history_metadata_observation");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         let buffer = get_buffer(data, len);
-        let metadata: HistoryMetadata = prost::Message::decode(buffer)?;
-        let guid = storage::history_metadata::add_metadata(conn, metadata)?;
-        Ok(guid.into_string())
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_update_history_metadata(
-    handle: u64,
-    guid: FfiStr<'_>,
-    total_view_time: i32,
-    error: &mut ExternError,
-) {
-    log::debug!("places_update_history_metadata");
-    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
-        let guid = SyncGuid::from_string(guid.into_string());
-        storage::history_metadata::update_metadata(conn, &guid, total_view_time)
+        let observation: HistoryMetadataObservation = prost::Message::decode(buffer)?;
+        storage::history_metadata::apply_metadata_observation(conn, observation)?;
+        Ok(())
     })
 }
 

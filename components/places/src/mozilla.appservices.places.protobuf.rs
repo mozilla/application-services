@@ -26,25 +26,38 @@ pub struct HistoryVisitInfosWithBound {
     pub offset: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryMetadata {
-    #[prost(string, optional, tag="1")]
-    pub guid: ::std::option::Option<std::string::String>,
-    #[prost(string, required, tag="2")]
+pub struct HistoryMetadataObservation {
+    #[prost(string, required, tag="1")]
     pub url: std::string::String,
+    #[prost(int32, optional, tag="2")]
+    pub view_time: ::std::option::Option<i32>,
     #[prost(string, optional, tag="3")]
-    pub title: ::std::option::Option<std::string::String>,
-    #[prost(int64, required, tag="4")]
-    pub created_at: i64,
-    #[prost(int64, required, tag="5")]
-    pub updated_at: i64,
-    #[prost(int32, required, tag="6")]
-    pub total_view_time: i32,
-    #[prost(string, optional, tag="7")]
     pub search_term: ::std::option::Option<std::string::String>,
-    #[prost(bool, required, tag="8")]
-    pub is_media: bool,
-    #[prost(string, optional, tag="9")]
-    pub parent_url: ::std::option::Option<std::string::String>,
+    #[prost(int32, optional, tag="4")]
+    pub document_type: ::std::option::Option<i32>,
+    #[prost(string, optional, tag="5")]
+    pub referrer_url: ::std::option::Option<std::string::String>,
+    #[prost(string, optional, tag="6")]
+    pub title: ::std::option::Option<std::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HistoryMetadata {
+    #[prost(string, required, tag="1")]
+    pub url: std::string::String,
+    #[prost(string, optional, tag="2")]
+    pub title: ::std::option::Option<std::string::String>,
+    #[prost(int64, required, tag="3")]
+    pub created_at: i64,
+    #[prost(int64, required, tag="4")]
+    pub updated_at: i64,
+    #[prost(int32, required, tag="5")]
+    pub total_view_time: i32,
+    #[prost(string, optional, tag="6")]
+    pub search_term: ::std::option::Option<std::string::String>,
+    #[prost(int32, required, tag="7")]
+    pub document_type: i32,
+    #[prost(string, optional, tag="8")]
+    pub referrer_url: ::std::option::Option<std::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryMetadataList {

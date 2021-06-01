@@ -209,15 +209,14 @@ impl HistoryMetadata {
         let updated_at: Timestamp = row.get("updated_at")?;
 
         Ok(Self {
-            guid: row.get("guid")?,
             url: row.get("url")?,
             title: row.get("title")?,
             created_at: created_at.0 as i64,
             updated_at: updated_at.0 as i64,
             total_view_time: row.get("total_view_time")?,
             search_term: row.get("search_term")?,
-            is_media: row.get("is_media")?,
-            parent_url: row.get("parent_domain")?,
+            document_type: row.get("document_type")?,
+            referrer_url: row.get("referrer_url")?,
         })
     }
 }
