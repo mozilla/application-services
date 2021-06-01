@@ -96,8 +96,8 @@ use rusqlite::{Connection, NO_PARAMS};
 use sql_support::ConnExt;
 use std::time::Instant;
 
-/// Note that firefox-ios is currently on version 3. Version 4 is this version,
-/// which adds a metadata table and changes timestamps to be in milliseconds
+/// Version 5 is this version, which encrypts the username/password fields and allows us to move
+/// from a SQLCipher-encrypted database to a plain SQLite one
 pub const VERSION: i64 = 5;
 /// Version where we switched from sqlcipher to a plaintext database.
 pub const SQLCIPHER_SWITCHOVER_VERSION: i64 = 5;
@@ -352,7 +352,6 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         // schema we immediately export it to plaintext then delete the sqlcipher file.  But if we
         // somehow get here, it seems reasonable to try to continue on with the process, in theory
         // we should be able to export to plaintext.
-        println!("AOEU");
         return Ok(MigrationMetrics::default());
     }
     let start_time = Instant::now();
@@ -392,10 +391,8 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
                 "UPDATE {} SET username=?, password=? WHERE guid=?",
                 table_name
             ))?;
-            let mut delete_stmt = tx.prepare(&format!(
-                "DELETE FROM {} WHERE guid=?",
-                table_name
-            ))?;
+            let mut delete_stmt =
+                tx.prepare(&format!("DELETE FROM {} WHERE guid=?", table_name))?;
 
             let mut update_single_row = |guid: &str, row: &rusqlite::Row<'_>| -> Result<()> {
                 let username: String = row.get(1)?;

@@ -257,8 +257,14 @@ mod tests {
 
         // Check that only the non-errors are in the new DB
         let db = LoginDb::open(testpaths.new_db).unwrap();
-        assert_eq!(db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(), 1);
-        assert_eq!(db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(), 0);
+        assert_eq!(
+            db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
+            1
+        );
+        assert_eq!(
+            db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(),
+            0
+        );
 
         // Check metrics
         assert_eq!(metrics.num_processed, 2);

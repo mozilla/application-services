@@ -42,15 +42,13 @@ impl PasswordStore {
             sqlcipher_key,
             salt,
         )?;
-        Ok(
-            (
-                Self {
-                    db,
-                    mem_cached_state: Cell::default(),
-                },
-                metrics,
-            )
-        )
+        Ok((
+            Self {
+                db,
+                mem_cached_state: Cell::default(),
+            },
+            metrics,
+        ))
     }
 
     pub fn new_in_memory() -> Result<Self> {

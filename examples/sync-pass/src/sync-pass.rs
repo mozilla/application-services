@@ -327,10 +327,7 @@ fn open_database(
                 sqlcipher_encryption_key,
                 None,
             )?;
-            log::info!("Migration processed: {}", metrics.num_processed);
-            log::info!("Migration succeeded: {}", metrics.num_succeeded);
-            log::info!("Migration failed: {}", metrics.num_failed);
-            log::info!("Migration time: {}ms", metrics.total_duration);
+            log::info!("Migration metrics: {:?}", metrics);
 
             // For new migrations, we want to set the encryption key.  But it's also possible that
             // the migration already happened, in that use the encryption key from that migration.

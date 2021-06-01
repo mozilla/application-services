@@ -45,6 +45,7 @@ use url::{Host, Url};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationPhaseMetrics {
+    // TODO-sqlfixup: Make these fields pub(crate) once the uniffi code is merged in
     pub num_processed: u64,
     pub num_succeeded: u64,
     pub num_failed: u64,
@@ -95,13 +96,13 @@ impl LoginDb {
         Self::with_connection(Connection::open(path)?)
     }
 
-    // Open a dabase, after potentially migrating from a sqlcipher database.  This method handles
+    // Open a database, after potentially migrating from a sqlcipher database.  This method handles
     // the migration process:
     //
-    //    - If there's not a file at sqlcipher_path, then we skip the migratnion
+    //    - If there's not a file at sqlcipher_path, then we skip the migration
     //    - If there is a file, then we attempt the migration and delete the file afterwards.
     //
-    //  The salt arg is for IOS and other systems where the salt is stored externally.
+    //  The salt arg is for IOS where the salt is stored externally.
     //
     pub fn open_with_sqlcipher_migration(
         path: impl AsRef<Path>,
