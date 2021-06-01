@@ -418,6 +418,7 @@ mod test {
         assert!(!Guid::from("aaaabbbbccc=").is_valid_for_places()); // right length, bad character
     }
 
+    #[allow(clippy::cmp_owned)] // See clippy note below.
     #[test]
     fn test_comparison() {
         assert_eq!(Guid::from("abcdabcdabcd"), "abcdabcdabcd");
@@ -442,12 +443,13 @@ mod test {
         );
 
         // order by data instead of length
-        // hrmph - clippy in 1.54-nightly wanted the original, below:
-        // > assert!(Guid::from("zzz") > Guid::from("aaaaaa"));
-        // changed to below: what magic is this? :/
-        assert!(*"zzz" > *"aaaaaa");
-        assert!(*"ThisIsASolowGuid" < *"zzz");
-        assert!(*"ThisIsASolowGuid" > *"AnotherSlowGuid");
+        // hrmph - clippy in 1.54-nightly complains about the below:
+        // 'error: this creates an owned instance just for comparison'
+        // '... help: try: `*"aaaaaa"`'
+        // and suggests a change that's wrong - so we've ignored the lint above.
+        assert!(Guid::from("zzz") > Guid::from("aaaaaa"));
+        assert!(Guid::from("ThisIsASolowGuid") < Guid::from("zzz"));
+        assert!(Guid::from("ThisIsASolowGuid") > Guid::from("AnotherSlowGuid"));
     }
 
     #[cfg(feature = "random")]
