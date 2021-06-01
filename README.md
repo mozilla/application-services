@@ -81,8 +81,6 @@ code in this repository
 * [rc_log](components/rc_log) - for connecting component log output to the
   application's log stream
 * [support](components/support) - low-level utility libraries
-  * [support/ffi](components/support/ffi) - utilities for building a component's
-    FFI bindings
   * [support/rc_crypto](components/rc_crypto) - handles cryptographic needs backed by Mozilla's
     [NSS](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS) library
   * [support/sql](components/support/sql) - utilities for storing data locally

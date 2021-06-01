@@ -108,8 +108,8 @@ The relevant directories are as follows:
   for syncing, displaying, and editing logins using the code in `src`. You can run it via
   cargo like so: `cargo run --example sync_pass_sql`.
 - [`ffi`](./ffi): The Rust public FFI bindings. This is a (memory-unsafe, by necessity)
-  API that is exposed to Kotlin and Swift. It leverages the [`ffi_support`](../support/ffi/README.md) crate
-  to avoid many issues and make it more safe than it otherwise would be. At the
+  API that is exposed to Kotlin and Swift. It leverages the [`ffi_support`](https://github.com/mozilla/ffi-support)
+  crate to avoid many issues and make it more safe than it otherwise would be. At the
   time of this writing, it uses JSON for marshalling data over the FFI, however
   in the future we will likely use protocol buffers.
 - [`android`](./android): This contains android bindings to logins, written in Kotlin. These
