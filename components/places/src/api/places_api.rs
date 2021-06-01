@@ -483,7 +483,7 @@ pub mod test {
         let write = api
             .open_connection(ConnectionType::ReadWrite)
             .expect("should get a write connection");
-        MemConnections { api, read, write }
+        MemConnections { read, write, api }
     }
 }
 

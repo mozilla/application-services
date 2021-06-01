@@ -462,7 +462,7 @@ impl ByteBuffer {
         let data = buf.as_mut_ptr();
         let len = i64::try_from(buf.len()).expect("buffer length cannot fit into a i64.");
         std::mem::forget(buf);
-        Self { data, len }
+        Self { len, data }
     }
 
     /// View the data inside this `ByteBuffer` as a `&[u8]`.
