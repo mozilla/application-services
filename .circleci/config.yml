@@ -14,7 +14,7 @@ commands:
       - run:
           name: Install sccache
           command: |
-            SCCACHE_VERSION=0.2.13
+            SCCACHE_VERSION=v0.2.15
             if [ "$(uname)" == "Darwin" ]; then
               SCCACHE="sccache-${SCCACHE_VERSION}-x86_64-apple-darwin"
             else
