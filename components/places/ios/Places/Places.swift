@@ -887,44 +887,46 @@ public class PlacesWriteConnection: PlacesReadConnection {
 
     // MARK: History Metadata
 
-    open func addHistoryMetadata(metadata: HistoryMetadata) throws -> String {
-        return try queue.sync {
+    open func noteHistoryMetadataObservation(
+        key: HistoryMetadataKey,
+        observation: HistoryMetadataObservation
+    ) throws {
+        try queue.sync {
             try self.checkApi()
 
-            var msg = MsgTypes_HistoryMetadata()
-            msg.url = metadata.url
-            msg.createdAt = metadata.createdAt
-            msg.updatedAt = metadata.updatedAt
-            msg.totalViewTime = metadata.totalViewTime
-            msg.isMedia = metadata.isMedia
-
-            if let t = metadata.title {
-                msg.title = t
+            var msg = MsgTypes_HistoryMetadataObservation()
+            msg.url = key.url
+            if let p = key.referrerUrl {
+                msg.referrerURL = p
             }
-            if let p = metadata.parentUrl {
-                msg.parentURL = p
-            }
-            if let s = metadata.searchTerm {
+            if let s = key.searchTerm {
                 msg.searchTerm = s
+            }
+
+            switch observation {
+            case let .viewTimeObservation(viewTime):
+                msg.viewTime = viewTime
+            case let .documentTypeObservation(documentType):
+                msg.documentType = documentType.rawValue
+            case let .titleObservation(title):
+                msg.title = title
             }
 
             let data = try! msg.serializedData()
             let size = Int32(data.count)
-            return try data.withUnsafeBytes { bytes -> String in
-                let idStr = try PlacesError.unwrap { error in
-                    places_add_history_metadata(self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error)
+            try data.withUnsafeBytes { bytes in
+                try PlacesError.unwrap { error in
+                    places_note_history_metadata_observation(
+                        self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error
+                    )
                 }
-                return String(freeingPlacesString: idStr)
             }
         }
     }
 
-    open func updateHistoryMetadata(guid: String, totalViewTime: Int32) throws {
-        return try queue.sync {
-            try self.checkApi()
-            try PlacesError.unwrap { error in
-                places_update_history_metadata(self.handle, guid, totalViewTime, error)
-            }
+    open func deleteHistoryMetadaOlderThan(olderThan: Int64) throws {
+        try PlacesError.unwrap { error in
+            places_metadata_delete_older_than(self.handle, olderThan, error)
         }
     }
 }

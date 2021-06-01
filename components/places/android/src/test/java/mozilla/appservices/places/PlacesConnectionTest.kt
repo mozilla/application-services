@@ -436,68 +436,123 @@ class PlacesConnectionTest {
         assertEquals(0, db.getHistoryMetadataSince(0L).size)
         assertEquals(0, db.queryHistoryMetadata("test", 100).size)
 
-        val meta2 = HistoryMetadata(
-            guid = null,
+        db.noteObservation(VisitObservation(
             url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
-            title = "Are All Wireless Earbuds As Evil As AirPods? - iFixit",
-            createdAt = currentTime + 1000,
-            updatedAt = currentTime + 2000,
-            totalViewTime = 2000,
+            title = "Are All Wireless Earbuds As Evil As AirPods?",
+            visitType = VisitType.LINK
+        ))
+
+        val metaKey1 = HistoryMetadataKey(
+            url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
             searchTerm = "repairable wireless headset",
-            isMedia = false,
-            parentUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit"
+            referrerUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit"
         )
-        db.addHistoryMetadata(meta2)
+
+        db.noteHistoryMetadataObservation(metaKey1,
+            HistoryMetadataObservation.DocumentTypeObservation(
+                documentType = DocumentType.Regular
+            )
+        )
         // title
         assertEquals(1, db.queryHistoryMetadata("airpods", 100).size)
         // url
         assertEquals(1, db.queryHistoryMetadata("35377", 100).size)
         // search term
-        assertEquals(1, db.queryHistoryMetadata("headset", 100).size)
+        with(db.queryHistoryMetadata("headset", 100)) {
+            assertEquals(1, this.size)
+            // view time is zero, since we didn't record it yet.
+            assertEquals(0, this[0].totalViewTime)
+        }
 
-        val meta3 = HistoryMetadata(
-            guid = null,
-            url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
-            title = "Тайна валдайской дачи Путина - YouTube",
-            createdAt = currentTime + 1500,
-            updatedAt = currentTime + 1700,
-            totalViewTime = 200,
-            searchTerm = "путин валдай",
-            isMedia = true,
-            parentUrl = "https://yandex.ru/query?путин+валдай"
+        db.noteHistoryMetadataObservation(metaKey1,
+            HistoryMetadataObservation.ViewTimeObservation(
+                viewTime = 1337
+            )
         )
-        db.addHistoryMetadata(meta3)
 
-        val meta4 = HistoryMetadata(
-            guid = null,
+        // total view time was updated
+        with(db.queryHistoryMetadata("headset", 100)) {
+            assertEquals(1337, this[0].totalViewTime)
+        }
+
+        db.noteHistoryMetadataObservation(metaKey1,
+            HistoryMetadataObservation.ViewTimeObservation(
+                viewTime = 711
+            )
+        )
+
+        with(db.queryHistoryMetadata("headset", 100)) {
+            // total view time was updated
+            assertEquals(2048, this[0].totalViewTime)
+        }
+
+        db.noteHistoryMetadataObservation(
+            HistoryMetadataKey(
+                url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
+                searchTerm = "путин валдай",
+                referrerUrl = "https://yandex.ru/query?путин+валдай"
+            ),
+            HistoryMetadataObservation.DocumentTypeObservation(
+                documentType = DocumentType.Media
+            )
+        )
+
+        // recording view time first, before the document type. either order should be fine.
+        val metaKey2 = HistoryMetadataKey(
             url = "https://www.youtube.com/watch?v=fdf4r43g",
-            title = null,
-            createdAt = currentTime + 1000,
-            updatedAt = currentTime + 1000,
-            totalViewTime = 200,
             searchTerm = null,
-            isMedia = true,
-            parentUrl = null
+            referrerUrl = null
         )
-        val guid4 = db.addHistoryMetadata(meta4)
+        db.noteHistoryMetadataObservation(
+            metaKey2,
+            HistoryMetadataObservation.ViewTimeObservation(
+                viewTime = 200
+            )
+        )
+
+        // document type defaults to `regular`.
+        with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
+            assertEquals(200, this!!.totalViewTime)
+            assertEquals(DocumentType.Regular, this.documentType)
+        }
+
+        // able to update document type.
+        db.noteHistoryMetadataObservation(
+            metaKey2,
+            HistoryMetadataObservation.DocumentTypeObservation(
+                documentType = DocumentType.Media
+            )
+        )
+
+        with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
+            assertEquals(200, this!!.totalViewTime)
+            assertEquals(DocumentType.Media, this.documentType)
+        }
+
+        // document type isn't reset when updating view time
+        db.noteHistoryMetadataObservation(
+            metaKey2,
+            HistoryMetadataObservation.ViewTimeObservation(
+                viewTime = 300
+            )
+        )
+
+        with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
+            assertEquals(500, this!!.totalViewTime)
+            assertEquals(DocumentType.Media, this.documentType)
+        }
 
         assertEquals(2, db.queryHistoryMetadata("youtube", 100).size)
         assertEquals(1, db.queryHistoryMetadata("youtube", 1).size)
 
         assertEquals(3, db.getHistoryMetadataSince(0L).size)
+        assertEquals(3, db.getHistoryMetadataSince(currentTime).size)
+        assertEquals(0, db.getHistoryMetadataSince(currentTime + 10000).size)
 
-        assertEquals(1, db.getHistoryMetadataBetween(currentTime + 1001, currentTime + 1999).size)
-        assertEquals(2, db.getHistoryMetadataBetween(currentTime + 1000, currentTime + 1999).size)
-        assertEquals(3, db.getHistoryMetadataBetween(currentTime + 1000, currentTime + 2000).size)
+        assertEquals(0, db.getHistoryMetadataBetween(0, currentTime).size)
+        assertEquals(3, db.getHistoryMetadataBetween(currentTime, currentTime + 10000).size)
 
-        assertEquals(2, db.getHistoryMetadataSince(currentTime + 1700).size)
-        assertEquals(1, db.getHistoryMetadataSince(currentTime + 1701).size)
-
-        db.updateHistoryMetadata(guid4, 1337)
-        val updatedMeta4 = db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")!!
-        assertEquals(1337, updatedMeta4.totalViewTime)
-
-        db.deleteOlderThan(currentTime + 3000)
+        db.deleteHistoryMetadataOlderThan(currentTime + 10000)
 
         assertEquals(0, db.getHistoryMetadataSince(0L).size)
     }

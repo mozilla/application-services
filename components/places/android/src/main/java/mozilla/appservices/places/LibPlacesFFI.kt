@@ -222,17 +222,10 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): RustBuffer.ByValue
 
-    fun places_add_history_metadata(
+    fun places_note_history_metadata_observation(
         handle: PlacesConnectionHandle,
         data: Pointer,
         len: Int,
-        out_err: RustError.ByReference
-    ): Pointer?
-
-    fun places_update_history_metadata(
-        handle: PlacesConnectionHandle,
-        guid: String,
-        totalViewTime: Int,
         out_err: RustError.ByReference
     )
 

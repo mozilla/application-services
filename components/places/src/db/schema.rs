@@ -837,7 +837,7 @@ mod tests {
             .expect("Should open second in-memory database with shared cache");
         assert_eq!(
             get_current_schema_version(&upgrade)?,
-            14,
+            15,
             "Should upgrade schema without errors"
         );
         // One with no mirror entry should still be New

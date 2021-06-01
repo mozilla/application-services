@@ -645,38 +645,38 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
-    override suspend fun addHistoryMetadata(metadata: HistoryMetadata): String {
-        val builder = MsgTypes.HistoryMetadata.newBuilder()
-            .setUrl(metadata.url)
-            .setCreatedAt(metadata.createdAt)
-            .setUpdatedAt(metadata.updatedAt)
-            .setTotalViewTime(metadata.totalViewTime)
-            .setIsMedia(metadata.isMedia)
+    override suspend fun noteHistoryMetadataObservation(key: HistoryMetadataKey, observation: HistoryMetadataObservation) {
+        // Different types of `HistoryMetadataObservation` are flattened out into a list of values.
+        // The other side of this (rust code) is going to deal with missing/absent values. We're just
+        // passing them along here.
+        // NB: Even though `MsgTypes.HistoryMetadataObservation` has an optional title field, we ignore it here.
+        // That's used by consumers which aren't already using the history observation APIs.
+        val builder = MsgTypes.HistoryMetadataObservation.newBuilder()
 
-        // These are optional.
-        metadata.title?.let { builder.setTitle(it) }
-        metadata.searchTerm?.let { builder.setSearchTerm(it) }
-        metadata.parentUrl?.let { builder.setParentUrl(it) }
+        // These make up the key:
+        builder.url = key.url
+        key.searchTerm?.let { builder.searchTerm = it }
+        key.referrerUrl?.let { builder.referrerUrl = it }
+
+        (observation as? HistoryMetadataObservation.ViewTimeObservation)?.let {
+            builder.viewTime = observation.viewTime
+        }
+
+        (observation as? HistoryMetadataObservation.DocumentTypeObservation)?.let {
+            builder.documentType = observation.documentType.id
+        }
 
         val buf = builder.build()
         val (nioBuf, len) = buf.toNioDirectBuffer()
         return writeQueryCounters.measure {
-            rustCallForString { error ->
+            rustCall { error ->
                 val ptr = Native.getDirectBufferPointer(nioBuf)
-                LibPlacesFFI.INSTANCE.places_add_history_metadata(this.handle.get(), ptr, len, error)
+                LibPlacesFFI.INSTANCE.places_note_history_metadata_observation(this.handle.get(), ptr, len, error)
             }
         }
     }
 
-    override suspend fun updateHistoryMetadata(guid: String, totalViewTime: Int) {
-        return writeQueryCounters.measure {
-            rustCall { err ->
-                LibPlacesFFI.INSTANCE.places_update_history_metadata(this.handle.get(), guid, totalViewTime, err)
-            }
-        }
-    }
-
-    override suspend fun deleteOlderThan(olderThan: Long) {
+    override suspend fun deleteHistoryMetadataOlderThan(olderThan: Long) {
         return writeQueryCounters.measure {
             rustCall { err ->
                 LibPlacesFFI.INSTANCE.places_metadata_delete_older_than(this.handle.get(), olderThan, err)
@@ -927,31 +927,16 @@ interface ReadableHistoryMetadataConnection : InterruptibleConnection {
  */
 interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection {
     /**
-     * Adds a [HistoryMetadata] record to the storage.
-     *
-     * Note that if a corresponding history (moz_places) record already exists, we won't be updating
-     * its title. The title update is expected to happen as part of a call to
-     * [WritableHistoryConnection.noteObservation]. Titles in [HistoryMetadata] and history are expected
-     * to come from the same source (i.e. the page itself).
-     *
-     * @param metadata A [HistoryMetadata] record to add. Must not have a set [HistoryMetadata.guid].
-     * @return A [HistoryMetadata.guid] of the added record.
+     * Record or update metadata information about a URL. See [HistoryMetadataObservation].
      */
-    suspend fun addHistoryMetadata(metadata: HistoryMetadata): String
-
-    /**
-     * Updates a [HistoryMetadata] based on [guid].
-     *
-     * @param totalViewTime A new [HistoryMetadata.totalViewTime].
-     */
-    suspend fun updateHistoryMetadata(guid: String, totalViewTime: Int)
+    suspend fun noteHistoryMetadataObservation(key: HistoryMetadataKey, observation: HistoryMetadataObservation)
 
     /**
      * Deletes [HistoryMetadata] with [HistoryMetadata.updatedAt] older than [olderThan].
      *
      * @param olderThan A timestamp to delete records by. Exclusive.
      */
-    suspend fun deleteOlderThan(olderThan: Long)
+    suspend fun deleteHistoryMetadataOlderThan(olderThan: Long)
 }
 
 interface ReadableHistoryConnection : InterruptibleConnection {
@@ -1325,61 +1310,90 @@ data class SearchResult(
 }
 
 /**
+ * Represents a document type of a page.
+ */
+enum class DocumentType(val id: Int) {
+    /**
+     * A page that isn't described by any other more specific types.
+     */
+    Regular(0),
+
+    /**
+     * A media page.
+     */
+    Media(1);
+
+    companion object {
+        fun fromMsg(id: Int): DocumentType {
+            return when (id) {
+                0 -> Regular
+                1 -> Media
+                else -> throw IllegalStateException("TODO")
+            }
+        }
+    }
+}
+
+/**
+ * Represents a set of properties which uniquely identify a history metadata.
+ * In database terms this is a compound key.
+ * @property url A url of the page.
+ * @property searchTerm An optional search term which was used to find this page.
+ * @property referrerUrl An optional referrer url for this page.
+ */
+data class HistoryMetadataKey(
+    val url: String,
+    val searchTerm: String?,
+    val referrerUrl: String?
+)
+
+/**
+ * Represents an observation about a [HistoryMetadataKey]. See specific observation types.
+ */
+sealed class HistoryMetadataObservation {
+    /**
+     * An observation of the [viewTime] for this page.
+     */
+    data class ViewTimeObservation(
+        val viewTime: Int
+    ) : HistoryMetadataObservation()
+
+    /**
+     * An observation of the [documentType], a [DocumentType] associated with this page.
+     */
+    data class DocumentTypeObservation(
+        val documentType: DocumentType
+    ) : HistoryMetadataObservation()
+}
+
+/**
  * Represents a history metadata record, which describes metadata for a history visit, such as metadata
  * about the page itself as well as metadata about how the page was opened.
  *
- * @property guid A global unique ID assigned to a saved record.
- * @property url A url of the page.
- * @property title A title of the page.
+ * @property key A compound key which represents this metadata.
+ * @property title A title of the page. Only available if it was recorded previously via [WritableHistoryConnection.noteObservation].
  * @property createdAt When this metadata record was created.
  * @property updatedAt The last time this record was updated.
  * @property totalViewTime Total time the user viewed the page associated with this record.
- * @property searchTerm An optional search term if this record was created as part of a search by the user.
- * @property isMedia A boolean describing if the page associated with this record is considered a media page.
- * @property parentUrl An optional parent url if this record was created in response to a user opening a page in a new tab.
+ * @property documentType An associated [DocumentType] for this page.
  */
 data class HistoryMetadata(
-    val guid: String?,
-    val url: String,
+    val key: HistoryMetadataKey,
     val title: String?,
     val createdAt: Long,
     val updatedAt: Long,
     val totalViewTime: Int,
-    val searchTerm: String?,
-    val isMedia: Boolean,
-    val parentUrl: String?
+    val documentType: DocumentType
 ) {
-    /**
-    * Used when going from Kotlin -> Rust.
-    */
-    internal fun toJSON(): JSONObject {
-        val o = JSONObject()
-        // NB: we're not processing a `guid` here. The only time when a metadata record is passed into this
-        // API from Kotlin code is when we're adding a new one, in which case a `guid` will be generated
-        // by the Rust code at the moment we're storing this record.
-        o.put("url", this.url)
-        this.title?.let { o.put("title", it) }
-        o.put("created_at", this.createdAt)
-        o.put("updated_at", this.updatedAt)
-        o.put("total_view_time", this.totalViewTime)
-        this.searchTerm?.let { o.put("search_term", it) }
-        o.put("is_media", this.isMedia)
-        this.parentUrl?.let { o.put("parent_url", it) }
-        return o
-    }
-
     companion object {
         internal fun fromMessage(msg: MsgTypes.HistoryMetadata): HistoryMetadata {
             return HistoryMetadata(
-                guid = msg.guid,
-                url = msg.url,
+                key = HistoryMetadataKey(url = msg.url, searchTerm = msg.searchTerm, referrerUrl = msg.referrerUrl),
                 title = msg.title,
                 createdAt = msg.createdAt,
                 updatedAt = msg.updatedAt,
                 totalViewTime = msg.totalViewTime,
-                searchTerm = msg.searchTerm,
-                isMedia = msg.isMedia,
-                parentUrl = msg.parentUrl
+                documentType = DocumentType.fromMsg(msg.documentType)
             )
         }
         internal fun fromCollectionMessage(msg: MsgTypes.HistoryMetadataList): List<HistoryMetadata> {
