@@ -213,7 +213,7 @@ executors:
   # Unfortunately some of our jobs can only run successfully on macos.
   docker:
     docker:
-      - image: cimg/rust:1.50.0
+      - image: cimg/rust:1.52.1
   macos:
     macos:
       xcode: 12.5.0
