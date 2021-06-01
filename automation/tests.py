@@ -324,9 +324,11 @@ def calc_steps(args):
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
         for package, features in calc_rust_items():
-            yield Step(
-                'tests for {} ({})'.format(package.name, features.label()),
-                run_rust_test, package, features)
+            # There are no tests in examples/ packages, so don't waste time on them.
+            if "examples" not in package.manifest_path.parts:
+                yield Step(
+                    'tests for {} ({})'.format(package.name, features.label()),
+                    run_rust_test, package, features)
     elif args.mode == 'rust-clippy':
         print_rust_environment()
         yield Step('cargo clean', cargo_clean)
