@@ -118,7 +118,7 @@
 				"$(INPUT_FILE_DIR)/../ios/Generated/$(INPUT_FILE_BASE).swift",
 				"$(INPUT_FILE_DIR)/../ios/Generated/uniffi_$(INPUT_FILE_BASE)-Bridging-Header.h",
 			);
-			script = "$HOME/.cargo/bin/cargo uniffi-bindgen generate $INPUT_FILE_PATH --language swift --out-dir $INPUT_FILE_DIR/../ios/Generated\n";
+			script = "CARGO_BUILD_RUSTFLAGS=\"-L /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib\" $HOME/.cargo/bin/cargo uniffi-bindgen generate $INPUT_FILE_PATH --language swift --out-dir $INPUT_FILE_DIR/../ios/Generated\n";
 		};
 		EB7DE84A2214D28C00E7CF17 /* PBXBuildRule */ = {
 			isa = PBXBuildRule;
