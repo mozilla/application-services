@@ -509,19 +509,10 @@ mod tests {
                 HistoryMetadataObservation {
                     url: String::from($url),
                     view_time: $view_time,
-                    search_term: match $search_term as Option<&str> {
-                        Some(t) => Some(String::from(t)),
-                        None => None,
-                    },
+                    search_term: $search_term.map(|s: &str| s.to_string()),
                     document_type: $document_type,
-                    referrer_url: match $referrer_url as Option<&str> {
-                        Some(t) => Some(String::from(t)),
-                        None => None,
-                    },
-                    title: match $title as Option<&str> {
-                        Some(t) => Some(String::from(t)),
-                        None => None,
-                    },
+                    referrer_url: $referrer_url.map(|s: &str| s.to_string()),
+                    title: $title.map(|s: &str| s.to_string()),
                 },
             )
             .unwrap();
