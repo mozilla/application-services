@@ -46,6 +46,8 @@ PROJECT_ROOT = Path(__file__).parent.parent
 AUTOMATION_DIR = PROJECT_ROOT / 'automation'
 COMPONENTS_DIR = PROJECT_ROOT / 'components'
 GRADLE = PROJECT_ROOT / 'gradlew'
+# Ensure this is a proper path, so we can execute it without searching $PATH.
+GRADLE = GRADLE.resolve()
 
 def blue_text(text):
     if not sys.stdout.isatty():
