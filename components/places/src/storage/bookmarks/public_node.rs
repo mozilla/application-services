@@ -200,7 +200,7 @@ pub fn search_bookmarks(db: &PlacesDb, search: &str, limit: u32) -> Result<Vec<P
             },
         )?
         .into_iter()
-        .filter_map(|r| r)
+        .flatten()
         .collect())
 }
 
@@ -252,7 +252,7 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
             },
         )?
         .into_iter()
-        .filter_map(|r| r)
+        .flatten()
         .collect())
 }
 

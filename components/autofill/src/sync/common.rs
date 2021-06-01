@@ -406,10 +406,8 @@ pub(super) mod tests {
         assert_eq!(states.len(), 1, "1 records == 1 state!");
         assert!(
             matches!(states[0].local, LocalRecordInfo::Scrubbed { .. }),
-            format!(
-                "state should be LocalRecordInfo::Scubbed but it is: {:?}",
-                states[0].local
-            )
+            "state should be LocalRecordInfo::Scubbed but it is: {:?}",
+            states[0].local
         );
 
         let action =

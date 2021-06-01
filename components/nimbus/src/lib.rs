@@ -109,12 +109,11 @@ impl NimbusClient {
     }
 
     pub fn get_experiment_branches(&self, slug: String) -> Result<Vec<ExperimentBranch>> {
-        Ok(self
-            .get_all_experiments()?
+        self.get_all_experiments()?
             .into_iter()
             .find(|e| e.slug == slug)
             .map(|e| e.branches.into_iter().map(|b| b.into()).collect())
-            .ok_or(NimbusError::NoSuchExperiment(slug))?)
+            .ok_or(NimbusError::NoSuchExperiment(slug))
     }
 
     pub fn get_global_user_participation(&self) -> Result<bool> {
@@ -306,8 +305,7 @@ impl NimbusClient {
     }
 
     fn db(&self) -> Result<&Database> {
-        self.db
-            .get_or_try_init(|| Ok(Database::new(&self.db_path)?))
+        self.db.get_or_try_init(|| Database::new(&self.db_path))
     }
 }
 

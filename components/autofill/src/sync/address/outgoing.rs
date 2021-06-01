@@ -43,7 +43,7 @@ impl ProcessOutgoingRecordImpl for OutgoingAddressesImpl {
             common_cols = ADDRESS_COMMON_COLS,
         );
         let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| Ok(InternalAddress::from_row(row)?.into_payload()?);
+            &|row| InternalAddress::from_row(row)?.into_payload();
 
         let tombstones_sql = "SELECT guid FROM addresses_tombstones";
 

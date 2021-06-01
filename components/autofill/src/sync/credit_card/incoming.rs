@@ -77,73 +77,69 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         LEFT JOIN credit_cards_data l ON s.guid = l.guid
         LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        Ok(tx.query_rows_and_then_named(
-            sql,
-            &[],
-            |row| -> Result<IncomingState<Self::Record>> {
-                // the 'guid' and 's_payload' rows must be non-null.
-                let guid: SyncGuid = row.get("guid")?;
-                // the incoming sync15::Payload
-                let incoming_payload = PersistablePayload::make_cc_payload(
-                    &row.get::<_, String>("s_payload")?,
-                    &self.encdec,
-                )?;
+        tx.query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<Self::Record>> {
+            // the 'guid' and 's_payload' rows must be non-null.
+            let guid: SyncGuid = row.get("guid")?;
+            // the incoming sync15::Payload
+            let incoming_payload = PersistablePayload::make_cc_payload(
+                &row.get::<_, String>("s_payload")?,
+                &self.encdec,
+            )?;
 
-                Ok(IncomingState {
-                    incoming: {
-                        if incoming_payload.is_tombstone() {
-                            IncomingRecord::Tombstone {
-                                guid: incoming_payload.id().into(),
-                            }
+            Ok(IncomingState {
+                incoming: {
+                    if incoming_payload.is_tombstone() {
+                        IncomingRecord::Tombstone {
+                            guid: incoming_payload.id().into(),
+                        }
+                    } else {
+                        IncomingRecord::Record {
+                            record: InternalCreditCard::from_payload(
+                                incoming_payload,
+                                &self.encdec,
+                            )?,
+                        }
+                    }
+                },
+                local: match row.get_unwrap::<_, Option<String>>("l_guid") {
+                    Some(l_guid) => {
+                        assert_eq!(l_guid, guid);
+                        // local record exists, check the state.
+                        let record = InternalCreditCard::from_row(row)?;
+                        if record.has_scrubbed_data() {
+                            LocalRecordInfo::Scrubbed { record }
                         } else {
-                            IncomingRecord::Record {
-                                record: InternalCreditCard::from_payload(
-                                    incoming_payload,
-                                    &self.encdec,
-                                )?,
-                            }
-                        }
-                    },
-                    local: match row.get_unwrap::<_, Option<String>>("l_guid") {
-                        Some(l_guid) => {
-                            assert_eq!(l_guid, guid);
-                            // local record exists, check the state.
-                            let record = InternalCreditCard::from_row(row)?;
-                            if record.has_scrubbed_data() {
-                                LocalRecordInfo::Scrubbed { record }
+                            let has_changes = record.metadata().sync_change_counter != 0;
+                            if has_changes {
+                                LocalRecordInfo::Modified { record }
                             } else {
-                                let has_changes = record.metadata().sync_change_counter != 0;
-                                if has_changes {
-                                    LocalRecordInfo::Modified { record }
-                                } else {
-                                    LocalRecordInfo::Unmodified { record }
-                                }
+                                LocalRecordInfo::Unmodified { record }
                             }
                         }
-                        None => {
-                            // no local record - maybe a tombstone?
-                            match row.get::<_, Option<String>>("t_guid")? {
-                                Some(t_guid) => {
-                                    assert_eq!(guid, t_guid);
-                                    LocalRecordInfo::Tombstone { guid }
-                                }
-                                None => LocalRecordInfo::Missing,
+                    }
+                    None => {
+                        // no local record - maybe a tombstone?
+                        match row.get::<_, Option<String>>("t_guid")? {
+                            Some(t_guid) => {
+                                assert_eq!(guid, t_guid);
+                                LocalRecordInfo::Tombstone { guid }
                             }
+                            None => LocalRecordInfo::Missing,
                         }
-                    },
-                    mirror: {
-                        match row.get::<_, Option<String>>("m_payload")? {
-                            Some(m_payload) => {
-                                let payload =
-                                    PersistablePayload::make_cc_payload(&m_payload, &self.encdec)?;
-                                Some(InternalCreditCard::from_payload(payload, &self.encdec)?)
-                            }
-                            None => None,
+                    }
+                },
+                mirror: {
+                    match row.get::<_, Option<String>>("m_payload")? {
+                        Some(m_payload) => {
+                            let payload =
+                                PersistablePayload::make_cc_payload(&m_payload, &self.encdec)?;
+                            Some(InternalCreditCard::from_payload(payload, &self.encdec)?)
                         }
-                    },
-                })
-            },
-        )?)
+                        None => None,
+                    }
+                },
+            })
+        })
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception

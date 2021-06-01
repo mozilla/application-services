@@ -138,12 +138,12 @@ pub fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInf
                      visit_date = h.last_visit_date_remote)) AS last_visit_id
       FROM moz_places h
       WHERE url_hash = hash(:page_url) AND url = :page_url";
-    Ok(db.try_query_row(
+    db.try_query_row(
         sql,
         &[(":page_url", &String::from(url.clone()))],
         FetchedPageInfo::from_row,
         true,
-    )?)
+    )
 }
 
 fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
