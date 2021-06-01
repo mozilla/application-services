@@ -1,3 +1,13 @@
+# v78.0.0 (_2021-06-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.2...v78.0.0)
+
+## [places]
+
+### ⚠️ Breaking Changes ⚠️
+  - History Metadata API shape changed to follow an observation pattern, similar to what is present for History.
+    Shape of objects and related DB schema changed as well. See ([#4123](https://github.com/mozilla/application-services/pull/4123))
+
 # v77.0.2 (_2021-05-31_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.1...v77.0.2)
