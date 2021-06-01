@@ -280,7 +280,7 @@ mod tests {
         UpdatePlan {
             delete_mirror: vec![Guid::new("login1"), Guid::new("login2")],
             delete_local: vec![Guid::new("login2"), Guid::new("login3")],
-            ..Default::default()
+            ..UpdatePlan::default()
         }
         .execute(&db, &db.begin_interrupt_scope())
         .unwrap();
@@ -307,7 +307,7 @@ mod tests {
                 (login("changed", "new-password"), 20000),
                 (login("changed2", "new-password2"), 21000),
             ],
-            ..Default::default()
+            ..UpdatePlan::default()
         }
         .execute(&db, &db.begin_interrupt_scope())
         .unwrap();
@@ -324,7 +324,7 @@ mod tests {
                 (login("login1", "new-password"), 20000, false),
                 (login("login2", "new-password2"), 21000, true),
             ],
-            ..Default::default()
+            ..UpdatePlan::default()
         }
         .execute(&db, &db.begin_interrupt_scope())
         .unwrap();
@@ -344,7 +344,7 @@ mod tests {
                 server_modified: ServerTimestamp(10000),
                 is_overridden: false,
             }],
-            ..Default::default()
+            ..UpdatePlan::default()
         }
         .execute(&db, &db.begin_interrupt_scope())
         .unwrap();

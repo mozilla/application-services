@@ -353,7 +353,7 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         // somehow get here, it seems reasonable to try to continue on with the process, in theory
         // we should be able to export to plaintext.
         println!("AOEU");
-        return Ok(Default::default());
+        return Ok(MigrationMetrics::default());
     }
     let start_time = Instant::now();
     let mut num_processed = 0;
@@ -459,6 +459,6 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         num_failed,
         total_duration: start_time.elapsed().as_millis(),
         errors,
-        ..Default::default()
+        ..MigrationMetrics::default()
     })
 }

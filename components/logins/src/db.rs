@@ -138,7 +138,7 @@ impl LoginDb {
                     if path.exists() {
                         std::fs::remove_file(&path)?;
                     }
-                    MigrationMetrics { ..Default::default()}
+                    MigrationMetrics::default()
                 }
                 Ok(metrics) => {
                     log::info!("Deleting old sqlcipher DB after migration");
@@ -150,7 +150,7 @@ impl LoginDb {
             }
         } else {
             log::debug!("SQLCipher DB not found, skipping migration");
-            MigrationMetrics { ..Default::default()}
+            MigrationMetrics::default()
         };
 
         Self::with_connection(Connection::open(&path)?).map(|db| (db, metrics))

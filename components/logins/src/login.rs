@@ -1003,7 +1003,7 @@ pub mod test_utils {
             hostname: format!("https://{}.example.com", guid),
             username_enc: encrypt("user"),
             password_enc: encrypt(password),
-            ..Default::default()
+            ..Login::default()
         }
     }
 }
@@ -1545,7 +1545,7 @@ mod tests {
             hostname: "https://www.example.com".into(),
             username_enc: encrypt("user"),
             password_enc: encrypt("password"),
-            ..Default::default()
+            ..Login::default()
         };
         let payload = login.into_payload(&TEST_ENCRYPTOR).unwrap();
 
