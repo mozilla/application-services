@@ -327,6 +327,10 @@ jobs:
       - run:
           name: Set up the build environment
           command: |
+            # See #4163 - brew will fail because this six.py already exists.
+            # This is clearly unsatisfactory, but works, so :shrug
+            rm /usr/local/lib/python3.9/site-packages/six.py
+
             brew install swift-protobuf --force
       - carthage-bootstrap
       - run:
