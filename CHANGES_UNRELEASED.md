@@ -18,3 +18,9 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## [places]
+
+### ⚠️ Breaking Changes ⚠️
+  - History Metadata API shape changed to follow an observation pattern, similar to what is present for History.
+    Shape of objects and related DB schema changed as well. See ([#4123](https://github.com/mozilla/application-services/pull/4123))
