@@ -3010,6 +3010,8 @@ dependencies = [
  "lazy_static",
  "log",
  "rusqlite",
+ "tempfile",
+ "thiserror",
 ]
 
 [[package]]
