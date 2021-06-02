@@ -3,6 +3,18 @@ version: 2.1
 # ⚠️ If you add, rename or delete a job here, please also update .mergify.yml! ⚠️
 
 commands:
+  # Our policy for updating rust versions is at https://github.com/mozilla/application-services/tree/main/docs/rust-versions.md
+  # See also rust-toolchain in the root of this repo, which is used to specify our official target version.
+  setup-rust-target-version:
+    steps:
+      # So long as this is executed after the checkout it will use the version specified in rust-toolchain.yaml
+      - run: rustup update
+  # Our minimum supported rust version is specified here.
+  setup-rust-min-version:
+    steps:
+      # Technically should be on 1.47 here, but that boat sailed - 1.50 has been our effective min for some time now.
+      - run: rustup override set 1.50.0
+
   full-checkout:
     steps:
       - checkout
@@ -69,13 +81,6 @@ commands:
             ./rustup-init -y --no-modify-path
             rm rustup-init
             echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
-  setup-rust-toolchain:
-    steps:
-      - run:
-          name: Set up Rust toolchain
-          command: |
-            rustup update
-            rustc --version
   build-libs:
     parameters:
       platform:
@@ -138,7 +143,7 @@ commands:
     steps:
       - full-checkout
       - build-desktop-libs
-      - setup-rust-toolchain
+      - setup-rust-target-version
       - setup-sccache
       # clipboard crate depends on some x11 libs.
       - run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev
@@ -150,15 +155,11 @@ commands:
       - run:
           name: Verify the build environment
           command: ./libs/verify-desktop-environment.sh
-  rust-tests:
-    parameters:
-      rust-version:
-        type: string
-        default: ""
+  run-tests:
     steps:
-      - test-setup
-      - run: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/tests.py rust-tests
-      - run: RUSTUP_TOOLCHAIN="<<parameters.rust-version>>" automation/tests.py nss-bindings
+      - run: automation/tests.py rust-tests
+      - run: automation/tests.py nss-bindings
+
   dependency-checks:
     steps:
       - run:
@@ -233,13 +234,13 @@ jobs:
     resource_class: small
     steps:
       - full-checkout
-      - setup-rust-toolchain
+      - setup-rust-target-version
       - run: ./automation/tests.py rust-fmt
   Lint Rust with clippy:
     executor: docker
     steps:
-      - test-setup
       - restore-sccache-cache
+      - test-setup
       - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
   Generate code coverage:
@@ -277,8 +278,8 @@ jobs:
     executor: macos
     steps:
       - install-rust
-      - setup-rust-toolchain
       - full-checkout
+      - setup-rust-target-version
       - dependency-checks
   Rust tests:
     executor: docker
@@ -286,7 +287,20 @@ jobs:
     resource_class: large
     steps:
       - restore-sccache-cache
-      - rust-tests
+      - test-setup
+      - run-tests
+      - save-sccache-cache
+  Rust tests - min supported rust version:
+    executor: docker
+    # We have to use a machine with more RAM for tests so we don't run out of memory.
+    resource_class: large
+    steps:
+      - restore-sccache-cache
+      - test-setup
+      - setup-rust-min-version
+      # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
+      # It's not in the default workspace members, so just `cargo test` is OK.
+      - run: cargo test
       - save-sccache-cache
   # These run periodically (driven by cron).
   Rust tests - beta:
@@ -294,8 +308,9 @@ jobs:
     resource_class: large
     steps:
       - restore-sccache-cache
-      - rust-tests:
-          rust-version: "beta"
+      - test-setup
+      - run: rustup override set beta
+      - run-tests
       - save-sccache-cache
   Rust benchmarks:
     executor: docker
@@ -314,7 +329,7 @@ jobs:
           key: sccache-cache-macos-{{ arch }}
       - full-checkout
       - install-rust
-      - setup-rust-toolchain
+      - setup-rust-target-version
       - run:
           name: Toggle brew auto-updates
           command: |
@@ -451,6 +466,9 @@ workflows:
     jobs:
       - Rust tests
       - Rust benchmarks
+  run-tests-min-supported-version:
+    jobs:
+      - Rust tests - min supported rust version
   coverage:
     jobs:
       - Generate code coverage
