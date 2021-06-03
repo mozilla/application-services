@@ -218,7 +218,8 @@ fn set_schema_version(conn: &Connection, version: u32) -> Result<()> {
     Ok(())
 }
 
-#[cfg(test)]
+// It would be nice for this to be #[cfg(test)], but that doesn't allow it to be used in tests for
+// our other crates.
 pub mod test_utils {
     use super::*;
     use std::path::Path;
@@ -283,6 +284,12 @@ pub mod test_utils {
                 ..self.migration_logic.clone()
             };
             upgrade_logic.run(&self.open(), false).unwrap();
+        }
+
+        pub fn run_all_upgrades(&self) {
+            for version in self.migration_logic.start_version..self.migration_logic.end_version {
+                self.upgrade_to(version + 1);
+            }
         }
 
         pub fn open(&self) -> Connection {
