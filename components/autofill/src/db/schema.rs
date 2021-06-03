@@ -77,6 +77,7 @@ const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_te
 
 pub(super) fn migration_logic() -> MigrationLogic {
     MigrationLogic {
+        name: "autofill db".to_string(),
         start_version: 0,
         end_version: 2,
         prepare: Some(prepare),
