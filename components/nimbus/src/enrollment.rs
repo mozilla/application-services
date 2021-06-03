@@ -2078,6 +2078,26 @@ mod tests {
     }
 
     #[test]
+    fn test_evolve_enrollments_error_handling() -> Result<()> {
+        // XXX test err in first loop gets dropped and right stuff returned
+
+        // XXX test err in 2nd loop gets dropped and right stuff returned
+
+        // XXX maybe test no errors returns right stuff
+
+        OK(())
+    }
+
+    #[test]
+    fn test_evolve_enrollment_err_behaviors() -> Result<()>
+    {
+        // XXX test that we drop experiments and leave the dataset consistent
+        // for all 8 permutations
+
+        OK(())
+    }
+
+    #[test]
     fn test_evolver_experiment_update_error() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
