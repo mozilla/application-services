@@ -81,9 +81,9 @@ dictionary Address {
 
 [Error]
 enum Error {
-   "SqlError", "IoError", "InterruptedError", "IllegalDatabasePath",
-   "Utf8Error", "JsonError", "InvalidSyncPayload", "MissingEncryptionKey",
-   "CryptoError", "NoSuchRecord",
+   "OpenDatabaseError", "SqlError", "IoError", "InterruptedError",
+   "IllegalDatabasePath", "Utf8Error", "JsonError", "InvalidSyncPayload",
+   "MissingEncryptionKey", "CryptoError", "NoSuchRecord",
 };
 
 interface Store {
