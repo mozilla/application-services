@@ -88,6 +88,8 @@ pub enum ErrorHandling {
 
 #[derive(Clone)]
 pub struct MigrationLogic {
+    // Name to display in the logs
+    pub name: String,
     // The first version that this migration applies to (usually 1)
     pub start_version: u32,
     // The version that the last upgrade function upgrades to.
@@ -123,6 +125,7 @@ impl MigrationLogic {
     }
 
     fn run(&self, conn: &Connection, init: bool) -> Result<()> {
+        log::debug!("{}: opening database", self.name);
         let tx = conn.unchecked_transaction()?;
         self.run_prepare(&tx)?;
         if init {
@@ -142,10 +145,12 @@ impl MigrationLogic {
         set_schema_version(&tx, self.end_version)?;
         self.run_finish(&tx)?;
         tx.commit()?;
+        log::debug!("{}: database open successful", self.name);
         Ok(())
     }
 
     fn run_prepare(&self, conn: &Connection) -> Result<()> {
+        log::debug!("{}: preparing database", self.name);
         if let Some(prepare) = self.prepare {
             prepare(&conn)?;
         }
@@ -153,6 +158,7 @@ impl MigrationLogic {
     }
 
     fn run_init(&self, conn: &Connection) -> Result<()> {
+        log::debug!("{}: initializing new database", self.name);
         (self.init)(&conn)?;
         Ok(())
     }
@@ -160,12 +166,14 @@ impl MigrationLogic {
     // Run the upgrade function to upgrade to v[version]
     // This will panic unless start_version < version <= end_version.
     fn run_upgrade(&self, conn: &Connection, version: u32) -> Result<()> {
+        log::debug!("{}: upgrading database to {}", self.name, version);
         let upgrade_index = (version - self.start_version - 1) as usize;
         (self.upgrades[upgrade_index])(&conn)?;
         Ok(())
     }
 
     fn run_finish(&self, conn: &Connection) -> Result<()> {
+        log::debug!("{}: finishing database open", self.name);
         if let Some(finish) = self.finish {
             finish(&conn)?;
         }
@@ -393,6 +401,7 @@ mod test {
 
     fn test_migration_logic() -> MigrationLogic {
         MigrationLogic {
+            name: "test db".to_string(),
             start_version: 2,
             end_version: 4,
             prepare: Some(prep),
