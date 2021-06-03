@@ -96,11 +96,10 @@ use rusqlite::{Connection, NO_PARAMS};
 use sql_support::ConnExt;
 use std::time::Instant;
 
-/// Version 5 is this version, which encrypts the username/password fields and allows us to move
-/// from a SQLCipher-encrypted database to a plain SQLite one
-pub const VERSION: i64 = 5;
+/// The current schema version is 1.  We reset it after the SQLCipher -> plaintext migration.
+const VERSION: i64 = 1;
 /// Version where we switched from sqlcipher to a plaintext database.
-pub const SQLCIPHER_SWITCHOVER_VERSION: i64 = 5;
+const SQLCIPHER_SWITCHOVER_VERSION: i64 = 5;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -233,28 +232,8 @@ pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "passwords_sync_id";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
+    log::warn!("user_version: {}", user_version);
     if user_version == 0 {
-        // This logic is largely taken from firefox-ios. AFAICT at some point
-        // they went from having schema versions tracked using a table named
-        // `tableList` to using `PRAGMA user_version`. This leads to the
-        // following logic:
-        //
-        // - If `tableList` exists, we're hopelessly far in the past, drop any
-        //   tables we have (to ensure we avoid name collisions/stale data) and
-        //   recreate. (This is captured by the `upgrade` case where from == 0)
-        //
-        // - If `tableList` doesn't exist and `PRAGMA user_version` is 0, it's
-        //   the first time through, just create the new tables.
-        //
-        // - Otherwise, it's a normal schema upgrade from an earlier
-        //   `PRAGMA user_version`.
-        let table_list_exists = db.query_one::<i64>(
-            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'tableList'",
-        )? != 0;
-
-        if table_list_exists {
-            drop(db)?;
-        }
         return create(db);
     }
     if user_version != VERSION {
@@ -272,15 +251,10 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-// https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
+// Allow the redundant Ok() here.  It will make more sense once we have an actual upgrade function.
+#[allow(clippy::unnecessary_wraps)]
 fn upgrade(_db: &Connection, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
-    if from < SQLCIPHER_SWITCHOVER_VERSION {
-        return Err(ErrorKind::InvalidDatabaseFile(
-            "sqlcipher -> plaintext migration needed".into(),
-        )
-        .into());
-    }
     if from == VERSION {
         return Ok(());
     }
@@ -290,7 +264,6 @@ fn upgrade(_db: &Connection, from: i64) -> Result<()> {
     );
 
     // Schema upgrades that should happen after the sqlcipher -> plaintext migration go here
-
     Ok(())
 }
 
@@ -303,17 +276,6 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
         CREATE_DELETED_HOSTNAME_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
-    ])?;
-    Ok(())
-}
-
-pub(crate) fn drop(db: &Connection) -> Result<()> {
-    log::debug!("Dropping schema");
-    db.execute_all(&[
-        "DROP TABLE IF EXISTS loginsM",
-        "DROP TABLE IF EXISTS loginsL",
-        "DROP TABLE IF EXISTS loginsSyncMeta",
-        "PRAGMA user_version = 0",
     ])?;
     Ok(())
 }
@@ -434,11 +396,6 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
             RENAME_MIRROR_USERNAME,
             RENAME_MIRROR_PASSWORD,
         ])?;
-
-        // self.execute_named_cached(
-        //     "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
-        //     named_params! { ":guid": guid },
-        // )?;
     }
     tx.execute(
         &format!(
@@ -449,7 +406,6 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
     )?;
     tx.commit()?;
 
-    println!("ok {}", num_processed);
     Ok(MigrationMetrics {
         num_processed,
         num_succeeded,

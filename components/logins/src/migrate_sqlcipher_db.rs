@@ -20,7 +20,9 @@ pub fn migrate_sqlcipher_db_to_plaintext(
 ) -> Result<MigrationMetrics> {
     let mut db = Connection::open(old_db_path)?;
     let metrics = init_sqlcipher_db(&mut db, old_encryption_key, salt, new_encryption_key)?;
-    sqlcipher_export(&mut db, new_db_path)?;
+    sqlcipher_export(&mut db, &new_db_path)?;
+    let new_db = Connection::open(new_db_path)?;
+    new_db.execute("PRAGMA user_version = 1", NO_PARAMS)?;
     Ok(metrics)
 }
 
@@ -206,6 +208,9 @@ mod tests {
         assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
         assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 0);
         assert_eq!(row.get_raw("server_modified").as_i64().unwrap(), 1000);
+
+        // The schema version should reset to 1 after the migration
+        assert_eq!(db.query_one::<i64>("PRAGMA user_version").unwrap(), 1);
     }
 
     #[test]
