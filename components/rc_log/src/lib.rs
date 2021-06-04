@@ -15,7 +15,6 @@
 //! work around this using our `settable_log` module.
 
 #![allow(unknown_lints)]
-#![allow(clippy::unknown_clippy_lints)] // clippy::upper_case_acronyms unknown by 1.48
 #![allow(clippy::upper_case_acronyms)]
 #![warn(rust_2018_idioms)]
 // We always include both modules when doing test builds, so for test builds,

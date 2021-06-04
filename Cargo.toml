@@ -68,10 +68,6 @@ exclude = [
 # We use this to exclude a couple that have a disproportional compile time
 # impact to how likely they are to get broken by average changes:
 #
-# - `nss_sys`'s companion test crate `systest` adds `syntex_syntax2` which is
-#   (surprisingly) by far the slowest crate to build in our dep graph, and very
-#   very rarely needs changing
-#
 # - The megazords just re-export ffi crates, which we aren't excluding, and get
 #   built freqently enough as part of gradle/xcode's build process.
 #
