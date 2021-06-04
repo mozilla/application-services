@@ -4,6 +4,8 @@
 
 mod blapit;
 pub use blapit::*;
+mod certdb;
+pub use certdb::*;
 mod keyhi;
 pub use keyhi::*;
 mod keythi;
@@ -16,6 +18,8 @@ mod pkcs11n;
 pub use pkcs11n::*;
 mod pkcs11t;
 pub use pkcs11t::*;
+mod pkixc;
+pub use pkixc::*;
 mod plarena;
 pub use plarena::*;
 mod prerror;
@@ -28,6 +32,8 @@ mod seccomon;
 pub use seccomon::*;
 mod secitem;
 pub use secitem::*;
+mod seckey;
+pub use seckey::*;
 mod secmodt;
 pub use secmodt::*;
 mod secoid;

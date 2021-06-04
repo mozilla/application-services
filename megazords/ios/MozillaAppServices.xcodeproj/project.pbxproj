@@ -891,6 +891,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				MACH_O_TYPE = mh_dylib;
+				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
 			};
 			name = Debug;
@@ -899,6 +900,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				MACH_O_TYPE = mh_dylib;
+				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
 			};
 			name = Release;
@@ -912,6 +914,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.MozillaAppServicesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				VALIDATE_WORKSPACE = NO;
@@ -927,6 +930,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
+				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = mozilla.org.MozillaAppServicesTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				VALIDATE_WORKSPACE = NO;
