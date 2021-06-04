@@ -4,6 +4,16 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v78.0.0...main)
 
+## Places
+
+### What's New
+- A new `getRecentlyUpdatedBookmarks` API call was added to return the list of most 
+  recently updated bookmark items.
+
+### Breaking Changes
+- The addition of `getRecentlyUpdatedBookmarks` is a breaking change for custom
+  implementations of `ReadableBookmarksConnection` on Android.
+
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
 Use the template below to make assigning a version number during the release cutting process easier.
