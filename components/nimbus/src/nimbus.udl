@@ -74,7 +74,6 @@ enum NimbusError {
     "DatabaseNotReady",
 };
 
-[Threadsafe]
 interface NimbusClient {
     [Throws=NimbusError]
     constructor(

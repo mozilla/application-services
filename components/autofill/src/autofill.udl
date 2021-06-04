@@ -86,11 +86,6 @@ enum Error {
    "CryptoError", "NoSuchRecord",
 };
 
-// We don't really *need* this to be `Threadsafe` because we have a mutex to
-// manage concurrent DB connections - but we might as well so our Mutexes
-// do what we thing they are doing rather than being controlled by the hidden
-// mutexes non-threadsafe uniffi gives us.
-[Threadsafe]
 interface Store {
     [Throws=Error]
     constructor(string dbpath);
