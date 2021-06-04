@@ -256,7 +256,6 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
         .collect())
 }
 
-
 pub fn recently_updated_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
     let scope = db.begin_interrupt_scope();
     let sql = format!(
