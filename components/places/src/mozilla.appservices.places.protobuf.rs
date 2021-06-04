@@ -25,45 +25,6 @@ pub struct HistoryVisitInfosWithBound {
     #[prost(int64, required, tag="3")]
     pub offset: i64,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryMetadataObservation {
-    #[prost(string, required, tag="1")]
-    pub url: ::prost::alloc::string::String,
-    #[prost(int32, optional, tag="2")]
-    pub view_time: ::core::option::Option<i32>,
-    #[prost(string, optional, tag="3")]
-    pub search_term: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int32, optional, tag="4")]
-    pub document_type: ::core::option::Option<i32>,
-    #[prost(string, optional, tag="5")]
-    pub referrer_url: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, optional, tag="6")]
-    pub title: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryMetadata {
-    #[prost(string, required, tag="1")]
-    pub url: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="2")]
-    pub title: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int64, required, tag="3")]
-    pub created_at: i64,
-    #[prost(int64, required, tag="4")]
-    pub updated_at: i64,
-    #[prost(int32, required, tag="5")]
-    pub total_view_time: i32,
-    #[prost(string, optional, tag="6")]
-    pub search_term: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int32, required, tag="7")]
-    pub document_type: i32,
-    #[prost(string, optional, tag="8")]
-    pub referrer_url: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryMetadataList {
-    #[prost(message, repeated, tag="1")]
-    pub metadata: ::prost::alloc::vec::Vec<HistoryMetadata>,
-}
 ///*
 /// A bookmark node.
 ///

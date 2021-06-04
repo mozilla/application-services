@@ -1,0 +1,65 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+namespace places {
+    [Throws=ErrorWrapper]
+    HistoryMetadata? places_get_latest_history_metadata_for_url(i64 handle, string url);
+
+    [Throws=ErrorWrapper]
+    sequence<HistoryMetadata> places_get_history_metadata_between(i64 handle, i64 start, i64 end);
+
+    [Throws=ErrorWrapper]
+    sequence<HistoryMetadata> places_get_history_metadata_since(i64 handle, i64 start);
+
+    [Throws=ErrorWrapper]
+    sequence<HistoryMetadata> places_query_history_metadata(i64 handle, string query, i32 limit);
+
+    [Throws=ErrorWrapper]
+    void places_note_history_metadata_observation(i64 handle, HistoryMetadataObservation data);
+
+    [Throws=ErrorWrapper]
+    void places_metadata_delete_older_than(i64 handle, i64 older_than);
+};
+
+// Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
+// Everything below is from the crate::storage::history_metadata module...
+
+enum DocumentType {
+     // A page that isn't described by any other more specific types.
+    "Regular",
+    // A media page.
+    "Media",
+};
+
+// This is used as an "input" to the api.
+dictionary HistoryMetadataObservation {
+    string url;
+    string? referrer_url = null;
+    string? search_term = null;
+    i32? view_time = null;
+    DocumentType? document_type = null;
+    string? title = null;
+};
+
+// This is what is returned.
+dictionary HistoryMetadata {
+    string url;
+    string? title;
+    i64 created_at;
+    i64 updated_at;
+    i32 total_view_time;
+    string? search_term;
+    DocumentType document_type;
+    string? referrer_url;
+};
+
+// Exists just to convince uniffi to generate `liftSequence*` helpers!
+dictionary Dummy {
+    sequence<HistoryMetadata>? md;
+};
+
+[Error]
+enum ErrorWrapper {
+    "Wrapped",
+};

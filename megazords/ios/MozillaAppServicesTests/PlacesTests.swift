@@ -268,33 +268,34 @@ class PlacesTests: XCTestCase {
             searchTerm: nil,
             referrerUrl: nil
         )
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: nil, documentTypeObservation: .media))
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey1, documentType: DocumentType.media)
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
 
         var dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertNotNil(dbMeta)
-        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.key.url)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.url)
         XCTAssertEqual(nil, dbMeta!.title)
-        XCTAssertEqual(nil, dbMeta!.key.referrerUrl)
-        XCTAssertEqual(nil, dbMeta!.key.searchTerm)
+        XCTAssertEqual(nil, dbMeta!.referrerUrl)
+        XCTAssertEqual(nil, dbMeta!.searchTerm)
         XCTAssertEqual(DocumentType.media, dbMeta!.documentType)
         XCTAssertEqual(0, dbMeta!.totalViewTime)
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 1337, documentTypeObservation: nil))
+
+        _ = try! db.noteHistoryMetadataObservationViewTime(key: metaKey1, viewTime: 1337)
         dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertNotNil(dbMeta)
-        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.key.url)
+        XCTAssertEqual("http://www.mozilla.org/", dbMeta!.url)
         XCTAssertEqual(nil, dbMeta!.title)
-        XCTAssertEqual(nil, dbMeta!.key.referrerUrl)
-        XCTAssertEqual(nil, dbMeta!.key.searchTerm)
+        XCTAssertEqual(nil, dbMeta!.referrerUrl)
+        XCTAssertEqual(nil, dbMeta!.searchTerm)
         XCTAssertEqual(DocumentType.media, dbMeta!.documentType)
         XCTAssertEqual(1337, dbMeta!.totalViewTime)
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
 
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 3, documentTypeObservation: nil))
+        _ = try! db.noteHistoryMetadataObservationViewTime(key: metaKey1, viewTime: 3)
         dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertEqual(1340, dbMeta!.totalViewTime)
 
@@ -306,29 +307,29 @@ class PlacesTests: XCTestCase {
             searchTerm: "another firefox",
             referrerUrl: "https://www.google.com/search?client=firefox-b-d&q=another+firefox"
         )
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: "some title", viewTimeObservation: nil, documentTypeObservation: nil))
+        _ = try! db.noteHistoryMetadataObservationTitle(key: metaKey2, title: "some title")
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: afterLastMeta1Update).count)
         XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
 
         var dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
         XCTAssertNotNil(dbMeta2)
-        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.key.url)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.url)
         XCTAssertEqual("some title", dbMeta2!.title)
-        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.key.referrerUrl)
-        XCTAssertEqual("another firefox", dbMeta2!.key.searchTerm)
+        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.referrerUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.searchTerm)
         XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
         XCTAssertEqual(0, dbMeta2!.totalViewTime)
 
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: nil, documentTypeObservation: .regular))
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: "some title", viewTimeObservation: nil, documentTypeObservation: nil))
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 52345, documentTypeObservation: nil))
+        _ = try! db.noteHistoryMetadataObservationDocumentType(key: metaKey2, documentType: DocumentType.regular)
+        _ = try! db.noteHistoryMetadataObservationTitle(key: metaKey2, title: "Some Title")
+        _ = try! db.noteHistoryMetadataObservationViewTime(key: metaKey2, viewTime: 52345)
         dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
         XCTAssertNotNil(dbMeta2)
-        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.key.url)
+        XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.url)
         XCTAssertEqual("some title", dbMeta2!.title) // NB: subsequent title updates are currently ignored
-        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.key.referrerUrl)
-        XCTAssertEqual("another firefox", dbMeta2!.key.searchTerm)
+        XCTAssertEqual("https://www.google.com/search?client=firefox-b-d&q=another+firefox", dbMeta2!.referrerUrl)
+        XCTAssertEqual("another firefox", dbMeta2!.searchTerm)
         XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
         XCTAssertEqual(52345, dbMeta2!.totalViewTime)
 
@@ -350,13 +351,48 @@ class PlacesTests: XCTestCase {
         list = try! db.queryHistoryMetadata(query: "Title", limit: 100)
         XCTAssertEqual(1, list.count)
 
-        try! db.deleteHistoryMetadaOlderThan(olderThan: beginning)
+        try! db.deleteHistoryMetadataOlderThan(olderThan: beginning)
         XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
-        try! db.deleteHistoryMetadaOlderThan(olderThan: afterLastMeta1Update)
+        try! db.deleteHistoryMetadataOlderThan(olderThan: afterLastMeta1Update)
         list = try! db.getHistoryMetadataSince(since: beginning)
         XCTAssertEqual(1, list.count)
-        XCTAssertEqual("http://www.mozilla.org/another/", list[0].key.url)
-        try! db.deleteHistoryMetadaOlderThan(olderThan: afterLastMeta2Update)
+        XCTAssertEqual("http://www.mozilla.org/another/", list[0].url)
+        try! db.deleteHistoryMetadataOlderThan(olderThan: afterLastMeta2Update)
         XCTAssertEqual(0, try! db.getHistoryMetadataSince(since: beginning).count)
+    }
+
+    // Due to the current hybrid approach of Uniffi for places, we're adding error test cases
+    // To properly test uniffi & non-uniffi properly error propagate
+    func testPlacesErrors() {
+        let db = api.getWriter()
+
+        // Testing a non-uniffi error
+        do {
+            _ = try db.updateBookmarkNode(guid: "123", parentGUID: "456")
+            XCTFail("Call did not throw")
+        } catch let caughtError as PlacesError {
+            if case PlacesError.noSuchItem = caughtError {
+            } else {
+                XCTFail("Not the correct error ")
+            }
+        } catch {
+            XCTFail("Not a PlacesError")
+        }
+
+        // Testing a Uniffi-ed error
+        do {
+            _ = try db.getLatestHistoryMetadataForUrl(url: "somerandomurl")
+            XCTFail("Call did not throw")
+        } catch let caughtError as PlacesError {
+            if case PlacesError.urlParseError = caughtError {
+            } else {
+                XCTAssertEqual(caughtError.localizedDescription, "Error")
+                XCTFail("Not the correct PlacesError")
+            }
+        } catch {
+            let desc = error.localizedDescription
+            XCTAssertEqual(desc, "Error")
+            XCTFail("Not a PlacesError")
+        }
     }
 }

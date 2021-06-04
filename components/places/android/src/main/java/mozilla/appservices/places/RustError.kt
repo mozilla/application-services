@@ -16,6 +16,28 @@ internal open class RustError : Structure() {
 
     class ByReference : RustError(), Structure.ByReference
 
+    companion object {
+        fun makeException(code: Int, message: String): PlacesException {
+            return when (code) {
+                2 -> UrlParseFailed(message)
+                3 -> PlacesConnectionBusy(message)
+                4 -> OperationInterrupted(message)
+                5 -> BookmarksCorruption(message)
+
+                64 -> InvalidParent(message)
+                65 -> UnknownBookmarkItem(message)
+                66 -> UrlTooLong(message)
+                67 -> InvalidBookmarkUpdate(message)
+                68 -> CannotUpdateRoot(message)
+
+                -1 -> InternalPanic(message)
+                // Note: `1` is used as a generic catch all, but we
+                // might as well handle the others the same way.
+                else -> PlacesException(message)
+            }
+        }
+    }
+
     @JvmField var code: Int = 0
     @JvmField var message: Pointer? = null
     /**
@@ -40,23 +62,7 @@ internal open class RustError : Structure() {
             throw RuntimeException("[Bug] intoException called on non-failure!")
         }
         val message = this.consumeErrorMessage()
-        when (code) {
-            2 -> return UrlParseFailed(message)
-            3 -> return PlacesConnectionBusy(message)
-            4 -> return OperationInterrupted(message)
-            5 -> return BookmarksCorruption(message)
-
-            64 -> return InvalidParent(message)
-            65 -> return UnknownBookmarkItem(message)
-            66 -> return UrlTooLong(message)
-            67 -> return InvalidBookmarkUpdate(message)
-            68 -> return CannotUpdateRoot(message)
-
-            -1 -> return InternalPanic(message)
-            // Note: `1` is used as a generic catch all, but we
-            // might as well handle the others the same way.
-            else -> return PlacesException(message)
-        }
+        return makeException(code, message)
     }
 
     /**

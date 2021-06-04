@@ -11,6 +11,7 @@ FOUNDATION_EXPORT const unsigned char MegazordClientVersionString[];
 #import "uniffi_fxa_client-Bridging-Header.h"
 #import "uniffi_nimbus-Bridging-Header.h"
 #import "uniffi_logins-Bridging-Header.h"
+#import "uniffi_places-Bridging-Header.h"
 #import "RustLogFFI.h"
 #import "RustPlacesAPI.h"
 #import "RustViaductFFI.h"
