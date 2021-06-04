@@ -5,7 +5,7 @@
 use crate::db::sql_fns;
 use rusqlite::functions::FunctionFlags;
 use rusqlite::Connection;
-use sql_support::open_database::{ErrorHandling, MigrationLogic, Result};
+use sql_support::open_database::{MigrationLogic, Result};
 
 pub const ADDRESS_COMMON_COLS: &str = "
     guid,
@@ -75,108 +75,115 @@ const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_sch
 const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
 const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
 
-pub(super) fn migration_logic() -> MigrationLogic {
-    MigrationLogic {
-        name: "autofill db".to_string(),
-        start_version: 0,
-        end_version: 2,
-        prepare: Some(prepare),
-        init,
-        upgrades: vec![upgrade_to_v1, upgrade_to_v2],
-        finish: Some(finish),
-        error_handling: ErrorHandling::DeleteAndRecreate,
+pub struct AutofillMigrationLogic;
+
+impl AutofillMigrationLogic {
+    fn define_functions(c: &Connection) -> Result<()> {
+        c.create_scalar_function(
+            "generate_guid",
+            0,
+            FunctionFlags::SQLITE_UTF8,
+            sql_fns::generate_guid,
+        )?;
+        c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
+
+        Ok(())
+    }
+
+    fn upgrade_from_v0(db: &Connection) -> Result<()> {
+        // This is a bit painful - there are (probably 3) databases out there
+        // that have a schema of 0.
+        // These databases have a `cc_number` but we need them to have a
+        // `cc_number_enc` and `cc_number_last_4`.
+        // This was so very early in the Fenix nightly cycle, and before any
+        // real UI existed to create cards, so we don't bother trying to
+        // migrate them, we just drop the table and re-create it with the
+        // correct schema.
+        db.execute_batch(
+            "
+            DROP TABLE IF EXISTS credit_cards_data;
+            CREATE TABLE credit_cards_data (
+                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+                cc_name             TEXT NOT NULL,
+                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
+                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+                cc_exp_month        INTEGER,
+                cc_exp_year         INTEGER,
+                cc_type             TEXT NOT NULL,
+                time_created        INTEGER NOT NULL,
+                time_last_used      INTEGER,
+                time_last_modified  INTEGER NOT NULL,
+                times_used          INTEGER NOT NULL,
+                sync_change_counter INTEGER NOT NULL
+            );
+            ",
+        )?;
+        Ok(())
+    }
+
+    fn upgrade_from_v1(db: &Connection) -> Result<()> {
+        // Alter cc_number_enc using the 12-step generalized procedure described here:
+        // https://sqlite.org/lang_altertable.html
+        // Note that all our triggers are TEMP triggers so do not exist when
+        // this is called (except possibly by tests which do things like
+        // downgrade the version after they are created etc.)
+        db.execute_batch(
+            "
+            CREATE TABLE new_credit_cards_data (
+                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+                cc_name             TEXT NOT NULL,
+                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
+                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+                cc_exp_month        INTEGER,
+                cc_exp_year         INTEGER,
+                cc_type             TEXT NOT NULL,
+                time_created        INTEGER NOT NULL,
+                time_last_used      INTEGER,
+                time_last_modified  INTEGER NOT NULL,
+                times_used          INTEGER NOT NULL,
+                sync_change_counter INTEGER NOT NULL
+            );
+            INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
+            cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
+            sync_change_counter)
+            SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
+                time_created, time_last_used, time_last_modified, times_used, sync_change_counter
+            FROM credit_cards_data;
+            DROP TABLE credit_cards_data;
+            ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
+            ")?;
+        Ok(())
     }
 }
 
-fn prepare(conn: &Connection) -> Result<()> {
-    define_functions(&conn)?;
-    conn.set_prepared_statement_cache_capacity(128);
-    Ok(())
-}
+impl MigrationLogic for AutofillMigrationLogic {
+    const NAME: &'static str = "autofill db";
+    // AutofillDB has a slightly strange version history, so we start on v0.  See upgrade_from_v0()
+    // for more details.
+    const START_VERSION: u32 = 0;
+    const END_VERSION: u32 = 2;
 
-fn define_functions(c: &Connection) -> Result<()> {
-    c.create_scalar_function(
-        "generate_guid",
-        0,
-        FunctionFlags::SQLITE_UTF8,
-        sql_fns::generate_guid,
-    )?;
-    c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
+    fn prepare(&self, conn: &Connection) -> Result<()> {
+        AutofillMigrationLogic::define_functions(&conn)?;
+        conn.set_prepared_statement_cache_capacity(128);
+        Ok(())
+    }
 
-    Ok(())
-}
+    fn init(&self, db: &Connection) -> Result<()> {
+        Ok(db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?)
+    }
 
-fn init(db: &Connection) -> Result<()> {
-    Ok(db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?)
-}
+    fn upgrade_from(&self, db: &Connection, version: u32) -> Result<()> {
+        match version {
+            0 => AutofillMigrationLogic::upgrade_from_v0(db),
+            1 => AutofillMigrationLogic::upgrade_from_v1(db),
+            _ => panic!("Unexpected upgrade version"),
+        }
+    }
 
-fn upgrade_to_v1(db: &Connection) -> Result<()> {
-    // This is a bit painful - there are (probably 3) databases out there
-    // that have a schema of 0.
-    // These databases have a `cc_number` but we need them to have a
-    // `cc_number_enc` and `cc_number_last_4`.
-    // This was so very early in the Fenix nightly cycle, and before any
-    // real UI existed to create cards, so we don't bother trying to
-    // migrate them, we just drop the table and re-create it with the
-    // correct schema.
-    db.execute_batch(
-        "
-        DROP TABLE IF EXISTS credit_cards_data;
-        CREATE TABLE credit_cards_data (
-            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-            cc_name             TEXT NOT NULL,
-            cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
-            cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-            cc_exp_month        INTEGER,
-            cc_exp_year         INTEGER,
-            cc_type             TEXT NOT NULL,
-            time_created        INTEGER NOT NULL,
-            time_last_used      INTEGER,
-            time_last_modified  INTEGER NOT NULL,
-            times_used          INTEGER NOT NULL,
-            sync_change_counter INTEGER NOT NULL
-        );
-        ",
-    )?;
-    Ok(())
-}
-
-fn upgrade_to_v2(db: &Connection) -> Result<()> {
-    // Alter cc_number_enc using the 12-step generalized procedure described here:
-    // https://sqlite.org/lang_altertable.html
-    // Note that all our triggers are TEMP triggers so do not exist when
-    // this is called (except possibly by tests which do things like
-    // downgrade the version after they are created etc.)
-    db.execute_batch(
-        "
-        CREATE TABLE new_credit_cards_data (
-            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-            cc_name             TEXT NOT NULL,
-            cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
-            cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-            cc_exp_month        INTEGER,
-            cc_exp_year         INTEGER,
-            cc_type             TEXT NOT NULL,
-            time_created        INTEGER NOT NULL,
-            time_last_used      INTEGER,
-            time_last_modified  INTEGER NOT NULL,
-            times_used          INTEGER NOT NULL,
-            sync_change_counter INTEGER NOT NULL
-        );
-        INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
-        cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
-        sync_change_counter)
-        SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
-            time_created, time_last_used, time_last_modified, times_used, sync_change_counter
-        FROM credit_cards_data;
-        DROP TABLE credit_cards_data;
-        ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
-        ")?;
-    Ok(())
-}
-
-fn finish(db: &Connection) -> Result<()> {
-    Ok(db.execute_batch(CREATE_SHARED_TRIGGERS_SQL)?)
+    fn finish(&self, db: &Connection) -> Result<()> {
+        Ok(db.execute_batch(CREATE_SHARED_TRIGGERS_SQL)?)
+    }
 }
 
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {
@@ -194,8 +201,8 @@ mod tests {
     use types::Timestamp;
 
     const CREATE_SHARED_SCHEMA_V0_SQL: &str = include_str!("../../sql/create_shared_schema_v0.sql");
-    fn init_v0(db: &Connection) -> Result<()> {
-        Ok(db.execute_batch(CREATE_SHARED_SCHEMA_V0_SQL)?)
+    fn init_v0(db: &Connection) {
+        db.execute_batch(CREATE_SHARED_SCHEMA_V0_SQL).unwrap()
     }
 
     // Define some structs to handle data in the DB during an upgrade.  This allows us to change
@@ -290,13 +297,13 @@ mod tests {
     #[test]
     fn test_all_upgrades() {
         // Quickly check that all migrations run
-        let db_file = MigratedDatabaseFile::new(migration_logic(), init_v0, 0);
+        let db_file = MigratedDatabaseFile::new(AutofillMigrationLogic, init_v0, 0);
         db_file.run_all_upgrades();
     }
 
     #[test]
     fn test_upgrade_version_0() {
-        let db_file = MigratedDatabaseFile::new(migration_logic(), init_v0, 0);
+        let db_file = MigratedDatabaseFile::new(AutofillMigrationLogic, init_v0, 0);
         // Just to test what we think we are testing, select a field that
         // doesn't exist now but will after we recreate the table.
         let select_cc_number_enc = "SELECT cc_number_enc from credit_cards_data";
@@ -315,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_1() {
-        let db_file = MigratedDatabaseFile::new(migration_logic(), init_v0, 0);
+        let db_file = MigratedDatabaseFile::new(AutofillMigrationLogic, init_v0, 0);
         db_file.upgrade_to(1);
 
         let orig_row = CreditCardRowV1 {
