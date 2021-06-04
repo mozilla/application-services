@@ -45,7 +45,6 @@ namespace crashtest {
 };
 
 
-
 // An error that can be returned from Rust code.
 //
 [Error]
