@@ -200,3 +200,27 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
         checkMavenArtifacts.dependsOn(checkFileSizeTask)
     }
 }
+
+
+
+// A convenience function for configuring a `uniffi-bindgen` task,
+// with appropriate dependency info. This fill call `uniffi-bindgen`
+// on the provided `.udl` file in order to generate Kotlin language
+// bindings and include them in the source set for the project.
+ext.configureUniFFIBindgen = { udlFilePath ->
+    android.libraryVariants.all { variant ->
+        def uniffiGeneratedPath = "generated/source/uniffi/${variant.name}/java"
+        def t = tasks.register("generate${variant.name.capitalize()}UniFFIBindings", Exec) {
+            workingDir project.rootDir
+            commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/${udlFilePath}", '--language', 'kotlin', '--out-dir', "${buildDir}/${uniffiGeneratedPath}"
+            outputs.dir "${buildDir}/${uniffiGeneratedPath}"
+            // Re-generate if the interface definition changes.
+            inputs.file "${project.projectDir}/${udlFilePath}"
+            // Re-generate if our uniffi-bindgen tooling changes.
+            inputs.dir "${project.rootDir}/tools/embedded-uniffi-bindgen/"
+            // Re-generate if our uniffi-bindgen version changes.
+            inputs.file "${project.rootDir}/Cargo.lock"
+        }
+        variant.registerJavaGeneratingTask(t.get(), new File(buildDir, uniffiGeneratedPath))
+    }
+}
