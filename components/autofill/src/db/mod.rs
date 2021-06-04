@@ -11,7 +11,7 @@ pub mod store;
 use crate::error::*;
 
 use rusqlite::{Connection, OpenFlags};
-use sql_support::open_database::{open_database_with_flags, DatabaseLocation};
+use sql_support::open_database;
 use sql_support::SqlInterruptScope;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::{
@@ -44,10 +44,11 @@ impl AutofillDb {
             | OpenFlags::SQLITE_OPEN_CREATE
             | OpenFlags::SQLITE_OPEN_READ_WRITE;
 
-        let conn = open_database_with_flags(
-            DatabaseLocation::File(db_path),
+        let conn = open_database::open_database_with_flags(
+            open_database::DatabaseLocation::File(db_path),
             flags,
-            schema::migration_logic(),
+            &schema::AutofillMigrationLogic,
+            open_database::ErrorHandling::DeleteAndRecreate,
         )?;
 
         Ok(Self {
