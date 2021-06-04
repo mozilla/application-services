@@ -533,6 +533,21 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override fun getRecentlyUpdatedBookmarks(limit: Int): List<BookmarkItem> {
+        readQueryCounters.measure {
+            val rustBuf = rustCall { err ->
+                LibPlacesFFI.INSTANCE.bookmarks_get_recently_updated(this.handle.get(), limit, err)
+            }
+
+            try {
+                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
+                return unpackProtobufItemList(message)
+            } finally {
+                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+            }
+        }
+    }
+
     private val readQueryCounters: PlacesManagerCounterMetrics by lazy {
         PlacesManagerCounterMetrics(
             PlacesManagerMetrics.readQueryCount,

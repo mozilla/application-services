@@ -293,6 +293,12 @@ internal interface LibPlacesFFI : Library {
         error: RustError.ByReference
     ): RustBuffer.ByValue
 
+    fun bookmarks_get_recently_updated(
+        handle: PlacesConnectionHandle,
+        limit: Int,
+        error: RustError.ByReference
+    ): RustBuffer.ByValue
+
     // Returns newly inserted guid
     fun bookmarks_insert(
         handle: PlacesConnectionHandle,

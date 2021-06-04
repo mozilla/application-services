@@ -796,6 +796,20 @@ pub extern "C" fn bookmarks_get_recent(
     })
 }
 
+#[no_mangle]
+pub extern "C" fn bookmarks_get_recently_updated(
+    handle: u64,
+    limit: i32,
+    error: &mut ExternError,
+) -> ByteBuffer {
+    log::debug!("bookmarks_get_recently_updated");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        Ok(BookmarkNodeList::from(
+            bookmarks::public_node::recently_updated_bookmarks(conn, limit as u32)?,
+        ))
+    })
+}
+
 define_string_destructor!(places_destroy_string);
 define_bytebuffer_destructor!(places_destroy_bytebuffer);
 define_handle_map_deleter!(APIS, places_api_destroy);

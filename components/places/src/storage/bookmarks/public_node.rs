@@ -256,6 +256,59 @@ pub fn recent_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
         .collect())
 }
 
+
+pub fn recently_updated_bookmarks(db: &PlacesDb, limit: u32) -> Result<Vec<PublicNode>> {
+    let scope = db.begin_interrupt_scope();
+    let sql = format!(
+        "SELECT
+            b.guid,
+            p.guid AS parentGuid,
+            b.position,
+            b.dateAdded,
+            b.lastModified,
+            NULLIF(b.title, '') AS title,
+            h.url AS url
+        FROM moz_bookmarks b
+        JOIN moz_bookmarks p ON p.id = b.parent
+        JOIN moz_places h ON h.id = b.fk
+        WHERE b.type = {bookmark_type}
+        ORDER BY b.lastModified DESC
+        LIMIT :limit",
+        bookmark_type = BookmarkType::Bookmark as u8,
+    );
+    Ok(db
+        .query_rows_into_cached::<Vec<Option<PublicNode>>, _, _, _>(
+            &sql,
+            &[(":limit", &limit)],
+            |row| -> Result<_> {
+                scope.err_if_interrupted()?;
+                Ok(
+                    match row
+                        .get::<_, Option<String>>("url")?
+                        .and_then(|href| url::Url::parse(&href).ok())
+                    {
+                        Some(url) => Some(PublicNode {
+                            node_type: BookmarkType::Bookmark,
+                            guid: row.get("guid")?,
+                            parent_guid: row.get("parentGuid")?,
+                            position: row.get("position")?,
+                            date_added: row.get("dateAdded")?,
+                            last_modified: row.get("lastModified")?,
+                            title: row.get("title")?,
+                            url: Some(url),
+                            child_guids: None,
+                            child_nodes: None,
+                        }),
+                        None => None,
+                    },
+                )
+            },
+        )?
+        .into_iter()
+        .flatten()
+        .collect())
+}
+
 lazy_static::lazy_static! {
     pub static ref SEARCH_QUERY: String = format!(
         "SELECT

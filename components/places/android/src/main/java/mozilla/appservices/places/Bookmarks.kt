@@ -253,6 +253,20 @@ interface ReadableBookmarksConnection : InterruptibleConnection {
      * has its `interrupt()` method called on another thread.
      */
     fun getRecentBookmarks(limit: Int): List<BookmarkItem>
+
+    /**
+     * Returns the list of most recently added or updated bookmarks.
+     *
+     * The result list be in order of time of addition or update, descending (more recent
+     * additions/updates first), and will contain no folder or separator nodes.
+     *
+     * @param limit The maximum number of items to return.
+     * @return A list of recently added/updated bookmarks.
+     *
+     * @throws OperationInterrupted if this database implements [InterruptibleConnection] and
+     * has its `interrupt()` method called on another thread.
+     */
+    fun getRecentlyUpdatedBookmarks(limit: Int): List<BookmarkItem>
 }
 
 /**
