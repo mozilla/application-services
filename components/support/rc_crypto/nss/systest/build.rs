@@ -16,8 +16,13 @@ fn main() {
 
     let mut cfg = ctest2::TestGenerator::new();
     cfg.header("blapit.h")
+        .header("cert.h")
+        .header("certt.h")
+        .header("certdb.h")
         .header("keyhi.h")
         .header("keythi.h")
+        .header("stdbool.h")
+        .header("mozpkix/pkixc.h")
         .header("nss.h")
         .header("pk11pub.h")
         .header("pkcs11n.h")
@@ -45,7 +50,9 @@ fn main() {
 
     cfg.skip_type(|s| {
         // Opaque types.
-        s == "PK11SlotInfo"
+        s == "CERTCertDBHandle"
+            || s == "CERTCertificate"
+            || s == "PK11SlotInfo"
             || s == "PK11SymKey"
             || s == "PK11Context"
             || s == "NSSInitContext"

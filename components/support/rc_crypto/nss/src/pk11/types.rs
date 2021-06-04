@@ -30,6 +30,13 @@ scoped_ptr!(
     nss_sys::PK11GenericObject,
     nss_sys::PK11_DestroyGenericObject
 );
+
+scoped_ptr!(
+    Certificate,
+    nss_sys::CERTCertificate,
+    nss_sys::CERT_DestroyCertificate
+);
+
 scoped_ptr!(Context, nss_sys::PK11Context, pk11_destroy_context_true);
 scoped_ptr!(Slot, nss_sys::PK11SlotInfo, nss_sys::PK11_FreeSlot);
 
