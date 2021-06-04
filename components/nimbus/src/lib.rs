@@ -45,7 +45,7 @@ const DEFAULT_TOTAL_BUCKETS: u32 = 10000;
 const DB_KEY_NIMBUS_ID: &str = "nimbus-id";
 
 // The main `NimbusClient` struct must not expose any methods that make an `&mut self`,
-// in order to be compatible with the uniffi `[Threadsafe]` annotation. This is a helper
+// in order to be compatible with the uniffi's requirements on objects. This is a helper
 // struct to contain the bits that do actually need to be mutable, so they can be
 // protected by a Mutex.
 #[derive(Default)]
