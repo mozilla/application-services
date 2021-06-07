@@ -2123,13 +2123,15 @@ mod tests {
     }
 
     #[test]
-    fn test_evolve_enrollment_err_behaviors() -> Result<()>
-    {
-        // XXX test that we drop experiments and leave the dataset consistent
-        // for all 8 permutations
+    // fn test_evolve_enrollment_err_behaviors() -> Result<()>
+    // {
+    //     // XXX test that we drop experiments and leave the dataset consistent
+    //     // for all 8 permutations
 
-        OK(())
-    }
+    //     Ok(())
+    // }
+
+    // XXX maybe test evolve_enrollments_in_db?
 
     #[test]
     fn test_evolver_experiment_update_error() -> Result<()> {
