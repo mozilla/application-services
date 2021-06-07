@@ -2106,7 +2106,7 @@ mod tests {
 
         // test err in 2nd loop (ie no previous enrollment) gets dropped and right stuff returned
 
-        let mut test_experiments = get_test_experiments();
+        let test_experiments = get_test_experiments();
 
         // this should not return an error
         let (enrollments, events) =
