@@ -618,6 +618,8 @@ impl<'a> EnrollmentsEvolver<'a> {
         let next_experiments = map_experiments(&next_experiments);
         let prev_enrollments = map_enrollments(&prev_enrollments);
 
+        log::debug!("entering evolve_enrollments");
+
         // Step 1. Build an initial active_features to keep track of
         // the features that are being experimented upon.
         let mut active_features = HashMap::with_capacity(next_experiments.len());
@@ -658,10 +660,14 @@ impl<'a> EnrollmentsEvolver<'a> {
             }
         }
 
+        log::debug!("before second loop");
+
         // Step 3. Evolve the remaining enrollments with the previous and
         // next data.
         for next_experiment in next_experiments.values() {
             let slug = &next_experiment.slug;
+
+            log::debug!("in second loop");
 
             // Check that the feature id is available.  If not, then declare
             // the enrollment as NotEnrolled; and we continue to the next
@@ -683,6 +689,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // features that are already active. So continue to
                     // the next experiment. But…
                 }
+                log::debug!("just before continue");
                 // … perhaps we can continue here too? Because
                 // if the feature is already active,
                 //    …and the experiment it's using is this one,
@@ -690,6 +697,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                 //     because we did it in step 2.
                 continue;
             }
+
+            log::debug!("past continue, feature not already active");
 
             // If we got here, then the feature is not already active.
             // But we evolved all the existing enrollments in step 2,
