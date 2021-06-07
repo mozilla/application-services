@@ -54,14 +54,18 @@
 //!
 //! - `password_enc`:  The saved password, as an encrypted string.
 //!
-//!   This field is required. The decrypted value must not be empty or contain
-//!   null bytes, but can otherwise be an arbitrary unicode string.
+//!   This field is required and usually encryted.  There are two different value types:
+//!       - Plantext empty string: Used for deleted records
+//!       - Encrypted value: The password associated with the login.  This must not be empty or
+//!         contain null bytes.
 //!
 //! - `username_enc`:  The username associated with this login, if any, as an encrypted string.
 //!
-//!   This field is required.  The decrypted string may be set to the empty string if no username
-//!   is associated with the login. It must not contain null bytes, but can otherwise be an
-//!   arbitrary unicode string.
+//!   This field is required and usually encrypted.  There are several different value types:
+//!       - Plaintext empty string: Used for deleted records
+//!       - Encrypted empty string: Indicates no username associated with the login
+//!       - Encrypted value: The username associated with the login.  This must not contain null
+//!         bytes.
 //!
 //! - `httpRealm`:  The challenge string for HTTP Basic authentication, if any.
 //!
