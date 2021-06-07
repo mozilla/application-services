@@ -2088,13 +2088,27 @@ mod tests {
 
     #[test]
     fn test_evolve_enrollments_error_handling() -> Result<()> {
-        // XXX test err in first loop gets dropped and right stuff returned
+        let _ = env_logger::try_init();
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
 
-        // XXX test err in 2nd loop gets dropped and right stuff returned
+        // test err in 2nd loop (ie no previous enrollment) gets dropped and right stuff returned
+
+        let mut test_experiments = get_test_experiments();
+
+        // this should not return an error
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &test_experiments, &test_experiments, &[])?;
+
+        // XXX now test "New Experiment but Enrollmnet exists" error in 2nd loop, and assert
+        // that both enrollment and experiment were dropped
+
+
+        // XXX test various errs in first loop gets dropped and right stuff returned
 
         // XXX maybe test no errors returns right stuff
 
-        OK(())
+        Ok(())
     }
 
     #[test]
