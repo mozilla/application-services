@@ -729,6 +729,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                         // prev_experiments?, next_experiments also dropped
                         // XXX YYY finish this logging
                         log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
+                        //return Err(NimbusError::InvalidPersistedData);
                         None
                     }
                 };
