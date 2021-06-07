@@ -5,7 +5,7 @@ use crate::Opts;
 use anyhow::Result;
 use autofill::db::store::Store as AutofillStore;
 use fxa_client::internal::{auth, config::Config as FxaConfig, FirefoxAccount};
-use logins::PasswordStore;
+use logins::LoginStore;
 use serde_json::json;
 use std::collections::HashMap;
 use std::convert::TryFrom;
@@ -225,7 +225,7 @@ pub struct TestClient {
     pub test_acct: Arc<TestAccount>,
     // XXX do this more generically...
     pub autofill_store: AutofillStore,
-    pub logins_store: PasswordStore,
+    pub logins_store: LoginStore,
     pub tabs_store: TabsStore,
 }
 
@@ -269,7 +269,7 @@ impl TestClient {
             fxa,
             test_acct: acct,
             autofill_store: AutofillStore::new_shared_memory("sync-test")?,
-            logins_store: PasswordStore::new_in_memory(None)?,
+            logins_store: LoginStore::new_in_memory(None)?,
             tabs_store: TabsStore::new(),
         })
     }
@@ -316,7 +316,7 @@ impl TestClient {
     pub fn fully_reset_local_db(&mut self) -> Result<()> {
         // Not great...
         self.autofill_store = AutofillStore::new_shared_memory("sync-test")?;
-        self.logins_store = PasswordStore::new_in_memory(None)?;
+        self.logins_store = LoginStore::new_in_memory(None)?;
         self.tabs_store = TabsStore::new();
         Ok(())
     }

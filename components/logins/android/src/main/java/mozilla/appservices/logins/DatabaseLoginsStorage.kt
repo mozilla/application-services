@@ -4,14 +4,7 @@
 
 package mozilla.appservices.logins
 
-import com.sun.jna.Native
-import com.sun.jna.Pointer
-import mozilla.appservices.logins.rust.PasswordSyncAdapter
-import mozilla.appservices.logins.rust.RustError
-import mozilla.appservices.support.native.toNioDirectBuffer
-import mozilla.appservices.sync15.SyncTelemetryPing
-import java.util.concurrent.atomic.AtomicLong
-import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicReference
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**
@@ -25,333 +18,161 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
 import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
+// uniffi has unfortunate names for errors: https://github.com/mozilla/uniffi-rs/issues/442
+typealias LoginsStorageException = LoginsStorageErrorException
+
 /**
- * LoginsStorage implementation backed by a database.
+ * An artifact of the uniffi conversion - a thin-ish wrapper around a
+   LoginStore.
  */
-class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsStorage {
-    private var raw: AtomicLong = AtomicLong(0)
+class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
+    private var store: AtomicReference<LoginStore> = AtomicReference()
 
-    override fun isLocked(): Boolean {
-        return raw.get() == 0L
+    fun isLocked(): Boolean {
+        return this.store.get() == null
     }
 
-    private fun checkUnlocked(): Long {
-        val handle = raw.get()
-        if (handle == 0L) {
-            throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
-        }
-        return handle
-    }
-
-    /**
-     * Return the raw handle used to reference this logins database.
-     *
-     * Generally should only be used to pass the handle into `SyncManager.setLogins`.
-     *
-     * Note: handles do not remain valid after locking / unlocking the logins database.
-     */
-    override fun getHandle(): Long {
-        return this.raw.get()
+    private fun checkUnlocked(): LoginStore {
+        val store = this.store.get() ?: throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
+        return store
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun lock() {
-        val raw = this.raw.getAndSet(0)
-        if (raw == 0L) {
-            throw MismatchedLockException("Lock called when we are already locked")
+    fun lock() {
+        val store = this.store.getAndSet(null)
+        if (store == null) {
+            throw LoginsStorageErrorException.MismatchedLock("Lock called when we are already locked")
         }
-        rustCall { error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(raw, error)
-        }
+        store.destroy()
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun unlock(encryptionKey: String) {
+    fun unlock(encryptionKey: String) {
         return unlockCounters.measure {
-            rustCall {
-                if (!isLocked()) {
-                    throw MismatchedLockException("Unlock called when we are already unlocked")
-                }
-                raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new(
-                        dbPath,
-                        encryptionKey,
-                        it))
+            val store = LoginStore(dbPath, encryptionKey)
+            if (this.store.getAndSet(store) != null) {
+                // this seems wrong?
+                throw LoginsStorageErrorException.MismatchedLock("Unlock called when we are already unlocked")
             }
         }
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun unlock(encryptionKey: ByteArray) {
-        return unlockCounters.measure {
-            rustCall {
-                if (!isLocked()) {
-                    throw MismatchedLockException("Unlock called when we are already unlocked")
-                }
-                raw.set(PasswordSyncAdapter.INSTANCE.sync15_passwords_state_new_with_hex_key(
-                        dbPath,
-                        encryptionKey,
-                        encryptionKey.size,
-                        it))
-            }
-        }
-    }
-
-    @Synchronized
-    @Throws(LoginsStorageException::class)
-    override fun ensureUnlocked(encryptionKey: String) {
+    fun ensureUnlocked(encryptionKey: String) {
         if (isLocked()) {
             this.unlock(encryptionKey)
         }
     }
 
     @Synchronized
-    @Throws(LoginsStorageException::class)
-    override fun ensureUnlocked(encryptionKey: ByteArray) {
-        if (isLocked()) {
-            this.unlock(encryptionKey)
-        }
-    }
-
-    @Synchronized
-    override fun ensureLocked() {
+    fun ensureLocked() {
         if (!isLocked()) {
             this.lock()
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun sync(syncInfo: SyncUnlockInfo): SyncTelemetryPing {
-        val json = rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_sync(
-                    raw,
-                    syncInfo.kid,
-                    syncInfo.fxaAccessToken,
-                    syncInfo.syncKey,
-                    syncInfo.tokenserverURL,
-                    error
-            )?.getAndConsumeRustString()
-        }
-        return SyncTelemetryPing.fromJSONString(json)
+    fun reset() {
+        this.checkUnlocked().reset()
     }
 
     @Throws(LoginsStorageException::class)
-    override fun reset() {
-        rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_reset(raw, error)
-        }
+    fun wipe() {
+        this.checkUnlocked().wipe()
     }
 
     @Throws(LoginsStorageException::class)
-    override fun wipe() {
-        rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe(raw, error)
-        }
+    fun wipeLocal() {
+        this.checkUnlocked().wipeLocal()
     }
 
     @Throws(LoginsStorageException::class)
-    override fun wipeLocal() {
-        rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_wipe_local(raw, error)
-        }
-    }
-
-    @Throws(LoginsStorageException::class)
-    override fun delete(id: String): Boolean {
+    fun delete(id: String): Boolean {
         return writeQueryCounters.measure {
-            rustCallWithLock { raw, error ->
-                val deleted = PasswordSyncAdapter.INSTANCE.sync15_passwords_delete(raw, id, error)
-                deleted.toInt() != 0
-            }
+            checkUnlocked().delete(id)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun get(id: String): ServerPassword? {
+    fun get(id: String): Login? {
         return readQueryCounters.measure {
-            val rustBuf = rustCallWithLock { raw, error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_id(raw, id, error)
-            }
-            try {
-                rustBuf.asCodedInputStream()?.let { stream ->
-                    ServerPassword.fromMessage(MsgTypes.PasswordInfo.parseFrom(stream))
-                }
-            } finally {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
-            }
+            checkUnlocked().get(id)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun touch(id: String) {
+    fun touch(id: String) {
         writeQueryCounters.measure {
-            rustCallWithLock { raw, error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_touch(raw, id, error)
-            }
+            checkUnlocked().touch(id)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun list(): List<ServerPassword> {
+    fun list(): List<Login> {
         return readQueryCounters.measure {
-            val rustBuf = rustCallWithLock { raw, error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_get_all(raw, error)
-            }
-            try {
-                ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
-            } finally {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
-            }
+            checkUnlocked().list()
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun getByBaseDomain(baseDomain: String): List<ServerPassword> {
+    fun getByBaseDomain(baseDomain: String): List<Login> {
         return readQueryCounters.measure {
-            val rustBuf = rustCallWithLock { raw, error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_get_by_base_domain(raw, baseDomain, error)
-            }
-            try {
-                ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
-            } finally {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
-            }
+            checkUnlocked().getByBaseDomain(baseDomain)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun add(login: ServerPassword): String {
+    fun add(login: Login): String {
         return writeQueryCounters.measure {
-            val buf = login.toProtobuf()
-            val (nioBuf, len) = buf.toNioDirectBuffer()
-            rustCallWithLock { raw, error ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_add(raw, ptr, len, error)
-            }.getAndConsumeRustString()
+            checkUnlocked().add(login)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun importLogins(logins: Array<ServerPassword>): JSONObject {
+    fun importLogins(logins: List<Login>): String {
         return writeQueryCounters.measure {
-            val buf = logins.toCollectionMessage()
-            val (nioBuf, len) = buf.toNioDirectBuffer()
-            val ptr = Native.getDirectBufferPointer(nioBuf)
-            val json = rustCallWithLock { raw, error ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_import(raw, ptr, len, error)
-            }.getAndConsumeRustString()
-            JSONObject(json)
+            checkUnlocked().importMultiple(logins)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun update(login: ServerPassword) {
+    fun update(login: Login) {
         return writeQueryCounters.measure {
-            val buf = login.toProtobuf()
-            val (nioBuf, len) = buf.toNioDirectBuffer()
-            rustCallWithLock { raw, error ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_update(raw, ptr, len, error)
-            }
+            checkUnlocked().update(login)
         }
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    override fun potentialDupesIgnoringUsername(login: ServerPassword): List<ServerPassword> {
+    fun potentialDupesIgnoringUsername(login: Login): List<Login> {
         return readQueryCounters.measure {
-            val buf = login.toProtobuf()
-            val (nioBuf, len) = buf.toNioDirectBuffer()
-            val rustBuf = rustCallWithLock { raw, error ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_potential_dupes_ignoring_username(
-                    raw,
-                    ptr,
-                    len,
-                    error
-                )
-            }
-            try {
-                ServerPassword.fromCollectionMessage(MsgTypes.PasswordInfos.parseFrom(rustBuf.asCodedInputStream()!!))
-            } finally {
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_buffer(rustBuf)
-            }
+            checkUnlocked().potentialDupesIgnoringUsername(login)
         }
     }
 
-    @Throws(InvalidRecordException::class)
-    override fun ensureValid(login: ServerPassword) {
-        readQueryCounters.measureIgnoring({ e -> e is InvalidRecordException }) {
-            val buf = login.toProtobuf()
-            val (nioBuf, len) = buf.toNioDirectBuffer()
-            rustCallWithLock { raw, error ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_check_valid(raw, ptr, len, error)
-            }
+    @Throws(LoginsStorageErrorException.InvalidRecord::class)
+    fun ensureValid(login: Login) {
+        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageErrorException.InvalidRecord }) {
+            checkUnlocked().checkValidWithNoDupes(login)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    override fun rekeyDatabase(newEncryptionKey: String) {
-        return rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_rekey_database(raw, newEncryptionKey, error)
-        }
+    fun rekeyDatabase(newEncryptionKey: String) {
+        return checkUnlocked().rekeyDatabase(newEncryptionKey)
     }
 
-    @Throws(LoginsStorageException::class)
-    override fun rekeyDatabase(newEncryptionKey: ByteArray) {
-        return rustCallWithLock { raw, error ->
-            PasswordSyncAdapter.INSTANCE.sync15_passwords_rekey_database_with_hex_key(
-                    raw,
-                    newEncryptionKey,
-                    newEncryptionKey.size,
-                    error)
-        }
+    fun registerWithSyncManager() {
+        return checkUnlocked().registerWithSyncManager()
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {
-        val handle = this.raw.getAndSet(0)
-        if (handle != 0L) {
-            rustCall { err ->
-                PasswordSyncAdapter.INSTANCE.sync15_passwords_state_destroy(handle, err)
-            }
-        }
-    }
-
-    // In practice we usually need to be synchronized to call this safely, so it doesn't
-    // synchronize itself
-    private inline fun <U> nullableRustCall(callback: (RustError.ByReference) -> U?): U? {
-        val e = RustError.ByReference()
-        try {
-            val ret = callback(e)
-            if (e.isFailure()) {
-                throw e.intoException()
-            }
-            return ret
-        } finally {
-            // This only matters if `callback` throws (or does a non-local return, which
-            // we currently don't do)
-            e.ensureConsumed()
-        }
-    }
-
-    private inline fun <U> rustCall(callback: (RustError.ByReference) -> U?): U {
-        return nullableRustCall(callback)!!
-    }
-
-    private inline fun <U> nullableRustCallWithLock(callback: (Long, RustError.ByReference) -> U?): U? {
-        return synchronized(this) {
-            val handle = checkUnlocked()
-            nullableRustCall { callback(handle, it) }
-        }
-    }
-
-    private inline fun <U> rustCallWithLock(callback: (Long, RustError.ByReference) -> U?): U {
-        return nullableRustCallWithLock(callback)!!
+        this.store.getAndSet(null)?.destroy()
     }
 
     private val unlockCounters: LoginsStoreCounterMetrics by lazy {
@@ -374,28 +195,6 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable, LoginsS
             LoginsStoreMetrics.writeQueryErrorCount
         )
     }
-}
-
-/**
- * Helper to read a null terminated String out of the Pointer and free it.
- *
- * Important: Do not use this pointer after this! For anything!
- */
-internal fun Pointer.getAndConsumeRustString(): String {
-    try {
-        return this.getRustString()
-    } finally {
-        PasswordSyncAdapter.INSTANCE.sync15_passwords_destroy_string(this)
-    }
-}
-
-/**
- * Helper to read a null terminated string out of the pointer.
- *
- * Important: doesn't free the pointer, use [getAndConsumeRustString] for that!
- */
-internal fun Pointer.getRustString(): String {
-    return this.getString(0, "utf8")
 }
 
 /**
@@ -428,22 +227,22 @@ class LoginsStoreCounterMetrics(
                 throw e
             }
             when (e) {
-                is MismatchedLockException -> {
+                is LoginsStorageErrorException.MismatchedLock -> {
                     errCount["mismatched_lock"].add()
                 }
-                is NoSuchRecordException -> {
+                is LoginsStorageErrorException.NoSuchRecord -> {
                     errCount["no_such_record"].add()
                 }
-                is IdCollisionException -> {
+                is LoginsStorageErrorException.IdCollision -> {
                     errCount["id_collision"].add()
                 }
-                is InvalidKeyException -> {
+                is LoginsStorageErrorException.InvalidKey -> {
                     errCount["invalid_key"].add()
                 }
-                is InterruptedException -> {
+                is LoginsStorageErrorException.Interrupted -> {
                     errCount["interrupted"].add()
                 }
-                is InvalidRecordException -> {
+                is LoginsStorageErrorException.InvalidRecord -> {
                     errCount["invalid_record"].add()
                 }
                 is LoginsStorageException -> {

@@ -24,22 +24,26 @@ use url::{Host, Url};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationPhaseMetrics {
-    num_processed: u64,
-    num_succeeded: u64,
-    num_failed: u64,
-    total_duration: u128,
-    errors: Vec<String>,
+    pub(crate) num_processed: u64,
+    pub(crate) num_succeeded: u64,
+    pub(crate) num_failed: u64,
+    // Once https://github.com/mozilla/uniffi-rs/pull/434 lands we might
+    // want to make this a `Duration`?
+    pub(crate) total_duration: u64,
+    pub(crate) errors: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationMetrics {
-    fixup_phase: MigrationPhaseMetrics,
-    insert_phase: MigrationPhaseMetrics,
-    num_processed: u64,
-    num_succeeded: u64,
-    num_failed: u64,
-    total_duration: u128,
-    errors: Vec<String>,
+    pub(crate) fixup_phase: MigrationPhaseMetrics,
+    pub(crate) insert_phase: MigrationPhaseMetrics,
+    pub(crate) num_processed: u64,
+    pub(crate) num_succeeded: u64,
+    pub(crate) num_failed: u64,
+    // Once https://github.com/mozilla/uniffi-rs/pull/434 lands we might
+    // want to make this a `Duration`?
+    pub(crate) total_duration: u64,
+    pub(crate) errors: Vec<String>,
 }
 
 pub struct LoginDb {
@@ -105,41 +109,6 @@ impl LoginDb {
         Self::with_connection(Connection::open_in_memory()?, encryption_key, None)
     }
 
-    /// Opens an existing database and fetches the salt.
-    /// This method is used by iOS consumers as part as the migration plan to store
-    /// the salt outside of the sqlite db headers.
-    ///
-    /// Will return an error if the database does not exist.
-    pub fn open_and_get_salt(path: impl AsRef<Path>, encryption_key: &str) -> Result<String> {
-        // Open the connection defensively without attempting to create a db if it doesn't exist.
-        let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-        db.set_pragma("key", encryption_key)?;
-        sqlcipher_3_compat(&db)?;
-        let salt = db.query_one::<String>("PRAGMA cipher_salt")?;
-        Ok(salt)
-    }
-
-    pub fn open_and_migrate_to_plaintext_header(
-        path: impl AsRef<Path>,
-        encryption_key: &str,
-        salt: &str,
-    ) -> Result<()> {
-        ensure_valid_salt(salt)?;
-        // Open the connection defensively without attempting to create a db if it doesn't exist.
-        let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
-        db.set_pragma("key", encryption_key)?;
-        sqlcipher_3_compat(&db)?;
-        db.set_pragma("cipher_salt", format!("x'{}'", salt))?;
-        // This tricks the `cipher_plaintext_header_size` command to work properly.
-        let user_version = db.query_one::<i64>("PRAGMA user_version")?;
-        // Remove the salt from the database header.
-        db.set_pragma("cipher_plaintext_header_size", 32)?;
-        // Flush the header changes.
-        db.set_pragma("user_version", user_version)?;
-        db.close().map_err(|(_conn, err)| err)?;
-        Ok(())
-    }
-
     pub fn disable_mem_security(&self) -> Result<()> {
         self.conn().set_pragma("cipher_memory_security", false)?;
         Ok(())
@@ -192,6 +161,41 @@ fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
         .set_pragma("kdf_iter", 64000)?
         .set_pragma("cipher_hmac_algorithm", "HMAC_SHA1")?
         .set_pragma("cipher_kdf_algorithm", "PBKDF2_HMAC_SHA1")?;
+    Ok(())
+}
+
+/// Opens an existing database and fetches the salt.
+/// This method is used by iOS consumers as part as the migration plan to store
+/// the salt outside of the sqlite db headers.
+///
+/// Will return an error if the database does not exist.
+pub fn open_and_get_salt(path: impl AsRef<Path>, encryption_key: &str) -> Result<String> {
+    // Open the connection defensively without attempting to create a db if it doesn't exist.
+    let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    db.set_pragma("key", encryption_key)?;
+    sqlcipher_3_compat(&db)?;
+    let salt = db.query_one::<String>("PRAGMA cipher_salt")?;
+    Ok(salt)
+}
+
+pub fn open_and_migrate_to_plaintext_header(
+    path: impl AsRef<Path>,
+    encryption_key: &str,
+    salt: &str,
+) -> Result<()> {
+    ensure_valid_salt(salt)?;
+    // Open the connection defensively without attempting to create a db if it doesn't exist.
+    let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    db.set_pragma("key", encryption_key)?;
+    sqlcipher_3_compat(&db)?;
+    db.set_pragma("cipher_salt", format!("x'{}'", salt))?;
+    // This tricks the `cipher_plaintext_header_size` command to work properly.
+    let user_version = db.query_one::<i64>("PRAGMA user_version")?;
+    // Remove the salt from the database header.
+    db.set_pragma("cipher_plaintext_header_size", 32)?;
+    // Flush the header changes.
+    db.set_pragma("user_version", user_version)?;
+    db.close().map_err(|(_conn, err)| err)?;
     Ok(())
 }
 
@@ -368,8 +372,8 @@ impl LoginDb {
         // Allow an empty GUID to be passed to indicate that we should generate
         // one. (Note that the FFI, does not require that the `id` field be
         // present in the JSON, and replaces it with an empty string if missing).
-        if login.guid.is_empty() {
-            login.guid = Guid::random()
+        if login.guid().is_empty() {
+            login.id = Guid::random().to_string()
         }
 
         // Fill in default metadata.
@@ -433,7 +437,7 @@ impl LoginDb {
                 ":password_field": login.password_field,
                 ":username": login.username,
                 ":password": login.password,
-                ":guid": login.guid,
+                ":guid": login.guid(),
                 ":time_created": login.time_created,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
@@ -444,9 +448,9 @@ impl LoginDb {
         if rows_changed == 0 {
             log::error!(
                 "Record {:?} already exists (use `update` to update records, not add)",
-                login.guid
+                login.guid()
             );
-            throw!(ErrorKind::DuplicateGuid(login.guid.into_string()));
+            throw!(ErrorKind::DuplicateGuid(login.guid().into_string()));
         }
         tx.commit()?;
         Ok(login)
@@ -525,14 +529,14 @@ impl LoginDb {
                     login = l;
                 }
                 Err(e) => {
-                    log::warn!("Skipping login {} as it is invalid ({}).", login.guid, e);
+                    log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
                     fixup_errors.push(e.label().into());
                     num_failed_fixup += 1;
                     continue;
                 }
             };
             // Now we can safely insert it, knowing that it's valid data.
-            let old_guid = &login.guid; // Keep the old GUID around so we can debug errors easily.
+            let old_guid = login.guid(); // Keep the old GUID around so we can debug errors easily.
             let guid = if old_guid.is_valid_for_sync_server() {
                 old_guid.clone()
             } else {
@@ -582,14 +586,14 @@ impl LoginDb {
                 num_processed: import_start_total_logins,
                 num_succeeded: num_post_fixup,
                 num_failed: num_failed_fixup,
-                total_duration: fixup_phase_duration.as_millis(),
+                total_duration: fixup_phase_duration.as_millis() as u64,
                 errors: fixup_errors,
             },
             insert_phase: MigrationPhaseMetrics {
                 num_processed: num_post_fixup,
                 num_succeeded: num_post_fixup - num_failed_insert,
                 num_failed: num_failed_insert,
-                total_duration: insert_phase_duration.as_millis(),
+                total_duration: insert_phase_duration.as_millis() as u64,
                 errors: insert_errors,
             },
             num_processed: import_start_total_logins,
@@ -598,7 +602,7 @@ impl LoginDb {
             total_duration: fixup_phase_duration
                 .checked_add(insert_phase_duration)
                 .unwrap_or_else(|| Duration::new(0, 0))
-                .as_millis(),
+                .as_millis() as u64,
             errors: all_errors,
         };
         log::info!(
@@ -652,7 +656,7 @@ impl LoginDb {
                 ":form_submit_url": login.form_submit_url,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
-                ":guid": login.guid,
+                ":guid": login.guid(),
                 ":now_millis": now_ms,
             },
         )?;
@@ -662,7 +666,7 @@ impl LoginDb {
 
     pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
         login.check_valid()?;
-        self.check_for_dupes(login)
+        self.check_for_dupes(&login)
     }
 
     pub fn fixup_and_check_for_dupes(&self, login: Login) -> Result<Login> {
@@ -708,7 +712,7 @@ impl LoginDb {
                     )
              )",
             named_params! {
-                ":guid": &login.guid,
+                ":guid": &login.guid(),
                 ":hostname": &login.hostname,
                 ":username": &login.username,
                 ":http_realm": login.http_realm.as_ref(),
@@ -941,7 +945,7 @@ mod tests {
     fn test_check_valid_with_no_dupes() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
-            guid: "dummy_000001".into(),
+            id: "dummy_000001".into(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
@@ -953,7 +957,7 @@ mod tests {
 
         let unique_login_guid = Guid::empty();
         let unique_login = Login {
-            guid: unique_login_guid.clone(),
+            id: unique_login_guid.to_string(),
             form_submit_url: None,
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
@@ -963,7 +967,7 @@ mod tests {
         };
 
         let duplicate_login = Login {
-            guid: Guid::empty(),
+            id: Guid::empty().into(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
@@ -973,7 +977,7 @@ mod tests {
         };
 
         let updated_login = Login {
-            guid: unique_login_guid,
+            id: unique_login_guid.to_string(),
             form_submit_url: None,
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
@@ -1030,7 +1034,7 @@ mod tests {
     fn test_unicode_submit() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
-            guid: "dummy_000001".into(),
+            id: "dummy_000001".into(),
             form_submit_url: Some("http://😍.com".into()),
             hostname: "http://😍.com".into(),
             http_realm: None,
@@ -1057,7 +1061,7 @@ mod tests {
     fn test_unicode_realm() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
-            guid: "dummy_000001".into(),
+            id: "dummy_000001".into(),
             form_submit_url: None,
             hostname: "http://😍.com".into(),
             http_realm: Some("😍😍".into()),
@@ -1292,12 +1296,12 @@ mod tests {
         );
 
         // Removing added login so the test cases below don't fail
-        delete_logins(&db, &[login.guid.into_string()]).unwrap();
+        delete_logins(&db, &[login.guid().into_string()]).unwrap();
 
         // Setting up test cases
         let valid_login_guid1: Guid = Guid::random();
         let valid_login1 = Login {
-            guid: valid_login_guid1,
+            id: valid_login_guid1.to_string(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
@@ -1307,7 +1311,7 @@ mod tests {
         };
         let valid_login_guid2: Guid = Guid::random();
         let valid_login2 = Login {
-            guid: valid_login_guid2,
+            id: valid_login_guid2.to_string(),
             form_submit_url: Some("https://www.example2.com".into()),
             hostname: "https://www.example2.com".into(),
             http_realm: None,
@@ -1317,7 +1321,7 @@ mod tests {
         };
         let valid_login_guid3: Guid = Guid::random();
         let valid_login3 = Login {
-            guid: valid_login_guid3,
+            id: valid_login_guid3.to_string(),
             form_submit_url: Some("https://www.example3.com".into()),
             hostname: "https://www.example3.com".into(),
             http_realm: None,
@@ -1327,7 +1331,7 @@ mod tests {
         };
         let duplicate_login_guid: Guid = Guid::random();
         let duplicate_login = Login {
-            guid: duplicate_login_guid,
+            id: duplicate_login_guid.to_string(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
@@ -1405,7 +1409,7 @@ mod tests {
             if tc.has_populated_metrics {
                 let mut guids = Vec::new();
                 for login in &tc.logins {
-                    guids.push(login.clone().guid.into_string());
+                    guids.push(login.clone().guid().into_string());
                 }
 
                 assert_eq!(
@@ -1472,13 +1476,13 @@ mod tests {
         // Database created.
         let expected_salt = conn.query_one::<String>("PRAGMA cipher_salt").unwrap();
 
-        let salt = LoginDb::open_and_get_salt(dbpath, "testing").unwrap();
+        let salt = open_and_get_salt(dbpath, "testing").unwrap();
         assert_eq!(expected_salt, salt);
     }
 
     #[test]
     fn test_get_salt_for_key_no_db() {
-        assert!(LoginDb::open_and_get_salt("nodbpath", "testing").is_err());
+        assert!(open_and_get_salt("nodbpath", "testing").is_err());
     }
 
     #[test]
@@ -1492,10 +1496,10 @@ mod tests {
         // Database created.
 
         // Step 1: get the salt.
-        let salt = LoginDb::open_and_get_salt(dbpath, "testing").unwrap();
+        let salt = open_and_get_salt(dbpath, "testing").unwrap();
 
         // Step 2: migrate the db.
-        LoginDb::open_and_migrate_to_plaintext_header(dbpath, "testing", &salt).unwrap();
+        open_and_migrate_to_plaintext_header(dbpath, "testing", &salt).unwrap();
 
         // Step 3: open using the salt.
         let conn = LoginDb::open_with_salt(dbpath, "testing", &salt).unwrap();

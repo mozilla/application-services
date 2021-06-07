@@ -8,9 +8,10 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 
-use logins::{Login, LoginsSyncEngine, PasswordStore};
+use logins::{Login, LoginStore, LoginsSyncEngine};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
+use std::sync::Arc;
 use sync15::{EngineSyncAssociation, SyncEngine};
 use sync_guid::Guid;
 
@@ -26,7 +27,7 @@ fn read_login() -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     let record = Login {
-        guid: Guid::random(),
+        id: Guid::random().to_string(),
         username,
         password,
         username_field,
@@ -117,9 +118,8 @@ fn timestamp_to_string(milliseconds: i64) -> String {
     dtl.format("%l:%M:%S %p%n%h %e, %Y").to_string()
 }
 
-fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
+fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
     use rusqlite::types::Value;
-    let conn = &s.db;
     let mut stmt = conn.prepare(sql)?;
     let cols: Vec<String> = stmt
         .column_names()
@@ -155,7 +155,7 @@ fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(store: &PasswordStore) -> Result<Vec<Guid>> {
+fn show_all(store: &LoginStore) -> Result<Vec<String>> {
     let records = store.list()?;
 
     let mut table = prettytable::Table::new();
@@ -181,11 +181,11 @@ fn show_all(store: &PasswordStore) -> Result<Vec<Guid>> {
 
     let mut v = Vec::with_capacity(records.len());
     let mut record_copy = records.clone();
-    record_copy.sort_by(|a, b| a.guid.cmp(&b.guid));
+    record_copy.sort_by_key(|a| a.guid());
     for rec in records.iter() {
         table.add_row(row![
             r->v.len(),
-            Fr->&rec.guid,
+            Fr->&rec.guid(),
             &rec.username,
             Fd->&rec.password,
 
@@ -205,13 +205,13 @@ fn show_all(store: &PasswordStore) -> Result<Vec<Guid>> {
                 timestamp_to_string(rec.time_last_used)
             }
         ]);
-        v.push(rec.guid.clone());
+        v.push(rec.guid().to_string());
     }
     table.printstd();
     Ok(v)
 }
 
-fn prompt_record_id(s: &PasswordStore, action: &str) -> Result<Option<String>> {
+fn prompt_record_id(s: &LoginStore, action: &str) -> Result<Option<String>> {
     let index_to_id = show_all(s)?;
     let input = if let Some(input) = prompt_usize(&format!("Enter (idx) of record to {}", action)) {
         input
@@ -280,7 +280,7 @@ fn main() -> Result<()> {
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
-    let store = PasswordStore::new(db_path, Some(encryption_key))?;
+    let store = Arc::new(LoginStore::new(db_path, encryption_key).unwrap());
 
     log::info!("Store has {} passwords", store.list()?.len());
 
@@ -289,7 +289,7 @@ fn main() -> Result<()> {
     }
 
     loop {
-        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
+        match prompt_char("[A]dd, [D]elete, [U]pdate, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
@@ -318,8 +318,8 @@ fn main() -> Result<()> {
                         log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
-                        let mut login = match store.get(&id) {
-                            Ok(Some(login)) => login,
+                        let login_record = match store.get(&id) {
+                            Ok(Some(login_record)) => login_record,
                             Ok(None) => {
                                 log::warn!("No such login!");
                                 continue
@@ -329,8 +329,8 @@ fn main() -> Result<()> {
                                 continue;
                             }
                         };
-                        update_login(&mut login);
-                        if let Err(e) = store.update(login) {
+                        update_login(&mut login_record.clone());
+                        if let Err(e) = store.update(login_record) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }
@@ -339,7 +339,7 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                let engine = LoginsSyncEngine::new(&store);
+                let engine = LoginsSyncEngine::new(Arc::clone(&store));
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }
@@ -352,7 +352,12 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match store.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key) {
+                match Arc::clone(&store).sync(
+                                    cli_fxa.client_init.key_id.clone(),
+                                    cli_fxa.client_init.access_token.clone(),
+                                    cli_fxa.root_sync_key.to_b64_array().join(","),
+                                    cli_fxa.client_init.tokenserver_url.to_string()
+                                ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                         log::warn!("BT: {:?}", e.backtrace());
@@ -399,7 +404,8 @@ fn main() -> Result<()> {
             'x' | 'X' => {
                 log::info!("Running arbitrary SQL, there's no way this could go wrong!");
                 if let Some(sql) = prompt_string("SQL (one line only, press enter when done):\n") {
-                    if let Err(e) = show_sql(&store, &sql) {
+                    let db = store.db.lock().unwrap();
+                    if let Err(e) = show_sql(&db, &sql) {
                         log::warn!("Failed to run sql query: {}", e);
                     }
                 }
