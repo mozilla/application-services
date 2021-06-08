@@ -414,7 +414,7 @@ mod test {
 
     #[cfg(feature = "rkv-safe-mode")]
     #[test]
-        fn test_startup_orphan_behavior() -> Result<()> {
+    fn test_startup_orphan_behavior() -> Result<()> {
         let _ = env_logger::try_init();
 
         use tempdir::TempDir;
@@ -453,7 +453,8 @@ mod test {
 
         let tmp_dir = TempDir::new("test_startup_orphan_behavior")?;
 
-        let db_v1_experiments_with_missing_feature_fields = &get_db_v1_experiments_with_missing_feature_fields();
+        let db_v1_experiments_with_missing_feature_fields =
+            &get_db_v1_experiments_with_missing_feature_fields();
 
         create_old_database(
             &tmp_dir,

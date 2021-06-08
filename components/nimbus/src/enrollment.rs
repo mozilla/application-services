@@ -2135,10 +2135,18 @@ mod tests {
         let (enrollments, events) =
             evolver.evolve_enrollments(true, &test_experiments, &test_experiments, &[])?;
 
-        assert_eq!(enrollments.len(), 0, "no new enrollments should have been returned");
+        assert_eq!(
+            enrollments.len(),
+            0,
+            "no new enrollments should have been returned"
+        );
 
         // XXX is this right?  should we be returning some sort of event for this?
-        assert_eq!(events.len(), 0, "no new enrollments should have been returned");
+        assert_eq!(
+            events.len(),
+            0,
+            "no new enrollments should have been returned"
+        );
 
         // XXX are there any other internal errors that are worth testing in
         // the second call site?
@@ -2147,7 +2155,7 @@ mod tests {
 
         // Now test "New Experiment but Enrollment exists" error in 2nd loop,
         let (enrollments, events) =
-           evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
+            evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
 
         // XXX check that both enrollment and event were dropped
 
@@ -2166,7 +2174,6 @@ mod tests {
     // }
 
     // XXX maybe test evolve_enrollments_in_db?
-
     #[test]
     fn test_evolver_experiment_update_error() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
