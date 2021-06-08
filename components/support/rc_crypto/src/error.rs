@@ -12,6 +12,8 @@ pub enum ErrorKind {
     ConversionError(#[from] std::num::TryFromIntError),
     #[error("Root hash format error: {0}")]
     RootHashFormatError(String),
+    #[error("PEM content format error: {0}")]
+    PEMFormatError(String),
 }
 
 error_support::define_error! {
