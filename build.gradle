@@ -215,15 +215,16 @@ ext.rustTargets = [
 // Generate libs for our current platform so we can run unit tests.
 switch (DefaultPlatform.RESOURCE_PREFIX) {
     case 'darwin':
-        ext.rustTargets += 'darwin'
+        ext.nativeRustTarget = 'darwin'
         break
     case 'linux-x86-64':
-        ext.rustTargets += 'linux-x86-64'
+        ext.nativeRustTarget = 'linux-x86-64'
         break
     case 'win32-x86-64':
-        ext.rustTargets += 'win32-x86-64-gnu'
+        ext.nativeRustTarget = 'win32-x86-64-gnu'
         break
 }
+ext.rustTargets += ext.nativeRustTarget
 
 ext.libsRootDir = useDownloadedLibs ? rootProject.buildDir : rootProject.rootDir
 
