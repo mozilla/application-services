@@ -1577,7 +1577,7 @@ mod tests {
     fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, mut app_ctx, aru) = local_ctx();
-        app_ctx.app_id = "foobar".to_owned(); // Make the experiment targeting fail.
+        app_ctx.app_name = "foobar".to_owned(); // Make the experiment targeting fail.
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();

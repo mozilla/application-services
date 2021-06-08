@@ -464,11 +464,10 @@ mod tests {
             ..Default::default()
         };
 
-        // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
-        // or `channel` doesn't match the experiment, then the client won't be enrolled.
+        // Application context for matching the above experiment.  If the `app_name` or
+        // `channel` doesn't match the experiment, then the client won't be enrolled.
         let mut context = AppContext {
             app_name: "NimbusTest".to_string(),
-            app_id: "org.example.app".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
         };
@@ -607,12 +606,11 @@ mod tests {
 
         let id = uuid::Uuid::new_v4();
 
-        // If any of the `app_name`, `app_id`, or `channel` doesn't match the experiment,
+        // If the `app_name` or `channel` doesn't match the experiment,
         // then the client won't be enrolled.
         // Start with a context that does't match the app_name:
         let mut context = AppContext {
             app_name: "Wrong!".to_string(),
-            app_id: "org.example.app".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
         };
@@ -627,23 +625,8 @@ mod tests {
             }
         ));
 
-        // Change the app_name back and change the app_id to test when it doesn't match:
+        // Change the app_name back and change the channel to test when it doesn't match:
         context.app_name = "NimbusTest".to_string();
-        context.app_id = "Wrong".to_string();
-
-        // Now we won't be enrolled in the experiment because we don't have the right app_id, but with the same
-        // `NotTargeted` reason
-        let enrollment =
-            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
-        assert!(matches!(
-            enrollment.status,
-            EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted
-            }
-        ));
-
-        // Change the app_id back and change the channel to test when it doesn't match:
-        context.app_id = "org.example.app".to_string();
         context.channel = "Wrong".to_string();
 
         // Now we won't be enrolled in the experiment because we don't have the right channel, but with the same
