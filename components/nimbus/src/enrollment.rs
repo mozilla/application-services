@@ -645,13 +645,22 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             log::debug!("about to call evolve_enrollment (1st call site)");
 
-            let next_enrollment = self.evolve_enrollment(
+            let next_enrollment = match self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
                 &mut enrollment_events,
-            )?;
+            ) {
+                Ok(enrollment) => enrollment,
+                Err(e) => {
+                    // XXX test that any associated enrollments,
+                    // prev_experiments?, next_experiments also dropped
+                    // XXX YYY finish this logging
+                    log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
+                    None
+                }
+            };
 
             if let Some(enrollment) = next_enrollment {
                 // We get the FeatureConfig out of the enrollment.
