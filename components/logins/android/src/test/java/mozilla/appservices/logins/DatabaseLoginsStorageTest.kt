@@ -83,6 +83,7 @@ class DatabaseLoginsStorageTest {
     protected fun finishAndClose(store: DatabaseLoginsStorage) {
         store.ensureLocked()
         assertEquals(store.isLocked(), true)
+        store.close()
     }
 
     @Test

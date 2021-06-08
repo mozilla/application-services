@@ -29,13 +29,7 @@ Use the template below to make assigning a version number during the release cut
 
 ### ⚠️ Breaking changes ⚠️
 
-Logins now Uniffi-ed!
+Logins now Uniffi-ed! While this is a very large change internally, the externally visible changes are:
 
-API Changes for Logins components:
-
-- Login is the main struct moving forward
-  - Previously Android had `ServerPassword` and iOS had `LoginRecord`
-  - `id` is now a String for consumers but internall we call `guid()` to generate/fetch the value
-- `PasswordStore` is renamed to `LoginStore` and is the consumer facing store
-  - The previous `LoginStore` in db.rs is more aptly named `LoginsSyncEngine`
-- Throwing exceptions is now done via [likely name change] LoginsStorageErrorException
+- The name and types of exceptions have changed - the base class for errors is LoginsStorageErrorException.
+- The struct `ServerPassword` (Android) and `LoginRecord` (iOS) is now named `Login` with the formSubmitURL field now formSubmitUrl

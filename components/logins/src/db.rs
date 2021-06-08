@@ -24,26 +24,22 @@ use url::{Host, Url};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationPhaseMetrics {
-    pub(crate) num_processed: u64,
-    pub(crate) num_succeeded: u64,
-    pub(crate) num_failed: u64,
-    // Once https://github.com/mozilla/uniffi-rs/pull/434 lands we might
-    // want to make this a `Duration`?
-    pub(crate) total_duration: u64,
-    pub(crate) errors: Vec<String>,
+    num_processed: u64,
+    num_succeeded: u64,
+    num_failed: u64,
+    total_duration: u64,
+    errors: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Default)]
 pub struct MigrationMetrics {
-    pub(crate) fixup_phase: MigrationPhaseMetrics,
-    pub(crate) insert_phase: MigrationPhaseMetrics,
-    pub(crate) num_processed: u64,
-    pub(crate) num_succeeded: u64,
-    pub(crate) num_failed: u64,
-    // Once https://github.com/mozilla/uniffi-rs/pull/434 lands we might
-    // want to make this a `Duration`?
-    pub(crate) total_duration: u64,
-    pub(crate) errors: Vec<String>,
+    fixup_phase: MigrationPhaseMetrics,
+    insert_phase: MigrationPhaseMetrics,
+    num_processed: u64,
+    num_succeeded: u64,
+    num_failed: u64,
+    total_duration: u64,
+    errors: Vec<String>,
 }
 
 pub struct LoginDb {

@@ -300,6 +300,7 @@ impl Login {
     pub fn guid(&self) -> Guid {
         Guid::from_string(self.id.clone())
     }
+    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
     #[inline]
     pub fn guid_str(&self) -> &str {
         &self.id

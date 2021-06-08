@@ -139,7 +139,7 @@ impl LoginStore {
     }
 
     /// A convenience wrapper around sync_multiple.
-    // Unforunately, iOS still uses this until they implement sync engine
+    // Unfortunately, iOS still uses this until they use the sync manager
     // This can almost die later - consumers should never call it (they should
     // use the sync manager) and any of our examples probably can too!
     // Once this dies, `mem_cached_state` can die too.

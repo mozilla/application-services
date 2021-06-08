@@ -289,7 +289,7 @@ fn main() -> Result<()> {
     }
 
     loop {
-        match prompt_char("[A]dd, [D]elete, [U]pdate, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
+        match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
                 let record = read_login();
