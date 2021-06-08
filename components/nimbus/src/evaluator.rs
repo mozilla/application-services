@@ -28,13 +28,15 @@ impl Bucket {
 /// Determine the enrolment status for an experiment.
 ///
 /// # Arguments:
-///
 /// - `nimbus_id` The auto-generated nimbus_id
-/// - `available_randomization_units`: The app provded available randomization units
-/// - `experiment` - The experiment.
+/// - `available_randomization_units` The app provded available randomization units
+/// - `app_context` The application parameters to use for evaluating targeting
+/// - `exp` The `Experiment` to evaluate.
 ///
+/// # Returns:
 /// An `ExperimentEnrollment` -  you need to inspect the EnrollmentStatus to
 /// determine if the user is actually enrolled.
+///
 /// # Errors:
 ///
 /// The function can return errors in one of the following cases (but not limited to):
@@ -109,9 +111,15 @@ pub fn evaluate_enrollment(
 
 /// Check if an experiment is available for this app defined by this `AppContext`.
 ///
-/// `is_release` supports two modes:
-/// if `true`, available means available for enrollment: i.e. does the `app_name`, `app_id` and `channel` match.
-/// if `false`, available means available for testing: i.e. does only the `app_name` match.
+/// # Arguments:
+/// - `app_context` The application parameters to use for targeting purposes
+/// - `exp` The `Experiment` to evaluate
+/// - `is_release` Supports two modes:
+///     if `true`, available means available for enrollment: i.e. does the `app_name` and `channel` match.
+///     if `false`, available means available for testing: i.e. does only the `app_name` match.
+///
+/// # Returns:
+/// Returns `true` if the experiment matches the targeting
 pub fn is_experiment_available(
     app_context: &AppContext,
     exp: &Experiment,
@@ -132,16 +140,6 @@ pub fn is_experiment_available(
         return true;
     }
 
-    // Verify the app_id matches the application being targeted
-    // by the experiment.
-    match &exp.app_id {
-        Some(app_id) => {
-            if !app_id.eq(&app_context.app_id) {
-                return false;
-            }
-        }
-        None => log::debug!("Experiment missing app_id, skipping it as a targeting parameter"),
-    }
     // Verify the channel matches the application being targeted
     // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
     // See https://jira.mozilla.com/browse/SDK-246 for more info.
