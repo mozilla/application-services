@@ -643,6 +643,8 @@ impl<'a> EnrollmentsEvolver<'a> {
             }
             let slug = &prev_enrollment.slug;
 
+            log::debug!("about to call evolve_enrollment (1st call site)");
+
             let next_enrollment = self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
@@ -735,6 +737,8 @@ impl<'a> EnrollmentsEvolver<'a> {
                 };
 
                 if let Some(enrollment) = next_enrollment {
+                    log::debug!("inside let Some enrollment");
+
                     // We get the FeatureConfig out of the enrollment.
                     // This is copied from above. We should consider making this a function.
                     if let Some(enrolled_feature) =
@@ -2127,13 +2131,16 @@ mod tests {
         // XXX is this right?  should we be returning some sort of event for this?
         assert_eq!(events.len(), 0, "no new enrollments should have been returned");
 
+        // XXX are there any other internal errors that are worth testing in
+        // the second call site?
+
+        // XXX test various errs in first loop gets dropped and right stuff returned
+
         // Now test "New Experiment but Enrollment exists" error in 2nd loop,
         let (enrollments, events) =
            evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
 
         // XXX check that both enrollment and event were dropped
-
-        // XXX test various errs in first loop gets dropped and right stuff returned
 
         // XXX maybe test no errors returns right stuff
 
