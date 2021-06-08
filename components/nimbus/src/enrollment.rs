@@ -2100,6 +2100,16 @@ mod tests {
 
     #[test]
     fn test_evolve_enrollments_error_handling() -> Result<()> {
+        let existing_enrollments = vec![ExperimentEnrollment {
+            slug: "secure-gold".to_owned(),
+            status: EnrollmentStatus::Enrolled {
+                enrollment_id: Uuid::new_v4(),
+                branch: "hello".to_owned(), // XXX this OK?
+                reason: EnrolledReason::Qualified,
+                feature_id: "some_control".to_owned(),
+            },
+        }];
+
         let _ = env_logger::try_init();
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
@@ -2117,9 +2127,11 @@ mod tests {
         // XXX is this right?  should we be returning some sort of event for this?
         assert_eq!(events.len(), 0, "no new enrollments should have been returned");
 
-        // XXX now test "New Experiment but Enrollmnet exists" error in 2nd loop, and assert
-        // that both enrollment and experiment were dropped
+        // Now test "New Experiment but Enrollment exists" error in 2nd loop,
+        let (enrollments, events) =
+           evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
 
+        // XXX check that both enrollment and event were dropped
 
         // XXX test various errs in first loop gets dropped and right stuff returned
 
