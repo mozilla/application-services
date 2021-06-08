@@ -10,6 +10,8 @@ pub enum ErrorKind {
     InternalError,
     #[error("Conversion error: {0}")]
     ConversionError(#[from] std::num::TryFromIntError),
+    #[error("Root hash format error: {0}")]
+    RootHashFormatError(String),
 }
 
 error_support::define_error! {
