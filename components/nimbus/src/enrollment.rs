@@ -2112,6 +2112,11 @@ mod tests {
         let (enrollments, events) =
             evolver.evolve_enrollments(true, &test_experiments, &test_experiments, &[])?;
 
+        assert_eq!(enrollments.len(), 0, "no new enrollments should have been returned");
+
+        // XXX is this right?  should we be returning some sort of event for this?
+        assert_eq!(events.len(), 0, "no new enrollments should have been returned");
+
         // XXX now test "New Experiment but Enrollmnet exists" error in 2nd loop, and assert
         // that both enrollment and experiment were dropped
 
