@@ -42,7 +42,6 @@ job-defaults:
       # add `win32-x86-64-gnu` back in to the list of targets here.
       - [bash, '-c', 'echo "rust.targets=arm,arm64,x86_64,x86,darwin,linux-x86-64\n" > local.properties']
     gradlew:
-      - ':{module_name}:testDebug'
       - ':{module_name}:assembleRelease'
       - ':{module_name}:publish'
       - ':{module_name}:checkMavenArtifacts'

@@ -16,10 +16,10 @@ kind-dependencies:
 jobs:
   pr:
     attributes:
-      run-on-pr-type: normal-ci
+      run-on-pr-type: all
       resource-monitor: true
     needs-sccache: false # TODO: Bug 1623426 deal with this once we're in prod
-    run-on-tasks-for: [github-pull-request]
+    run-on-tasks-for: [github-pull-request, github-release]
     description: Build and test (Android - linux-x86-64)
     scopes:
       - project:releng:services/tooltool/api/download/internal
