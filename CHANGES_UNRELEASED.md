@@ -19,12 +19,6 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## [viaduct-reqwest]
-
-### What's Changed
-
-- Update viaduct-reqwest to use reqwest 0.11. ([#4146](https://github.com/mozilla/application-services/pull/4146))
-
 ## Logins
 
 ### ⚠️ Breaking changes ⚠️
@@ -33,3 +27,9 @@ Logins now Uniffi-ed! While this is a very large change internally, the external
 
 - The name and types of exceptions have changed - the base class for errors is LoginsStorageErrorException.
 - The struct `ServerPassword` (Android) and `LoginRecord` (iOS) is now named `Login` with the formSubmitURL field now formSubmitUrl
+
+## [viaduct-reqwest]
+
+### What's Changed
+
+- Update viaduct-reqwest to use reqwest 0.11. ([#4146](https://github.com/mozilla/application-services/pull/4146))
