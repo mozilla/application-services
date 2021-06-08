@@ -251,7 +251,6 @@ ext.dependsOnTheMegazord = {
     // has their own build dir)
     android {
         sourceSets {
-            test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
             test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
         }
     }
@@ -271,8 +270,8 @@ ext.dependsOnTheMegazord = {
         // avoiding other configurations from being resolved.  Tricky!
         testImplementation files(configurations.jnaForTest.copyRecursive().files)
     }
-    // For running local tests, depend on a local `cargo build` of the megazord.
-    // Unfortunately the `cargoBuild` task isn't available until after evaluation.
+    // For running local tests, depend on a local native `cargo build` of the megazord.
+    // Unfortunately the `cargoBuild` tasks aren't available until after evaluation.
     evaluationDependsOn(":full-megazord")
     afterEvaluate {
         android.libraryVariants.all { variant ->
@@ -281,10 +280,8 @@ ext.dependsOnTheMegazord = {
                 productFlavor += "${it.name.capitalize()}"
             }
             def buildType = "${variant.buildType.name.capitalize()}"
-            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
-
-            // For unit tests.
-            tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+            def nativeCargoBuildTask = "cargoBuild${rootProject.ext.nativeRustTarget.capitalize()}"
+            tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks[nativeCargoBuildTask])
         }
     }
 }
