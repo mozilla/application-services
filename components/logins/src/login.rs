@@ -227,7 +227,6 @@
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
 use crate::error::*;
-use crate::msg_types::PasswordInfo;
 use crate::util;
 use rusqlite::Row;
 use serde_derive::*;
@@ -239,9 +238,7 @@ use url::Url;
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Login {
-    #[serde(rename = "id")]
-    pub guid: Guid,
-
+    pub id: String,
     pub hostname: String,
 
     // rename_all = "camelCase" by default will do formSubmitUrl, but we can just
@@ -300,13 +297,13 @@ fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
 
 impl Login {
     #[inline]
-    pub fn guid(&self) -> &Guid {
-        &self.guid
+    pub fn guid(&self) -> Guid {
+        Guid::from_string(self.id.clone())
     }
-
+    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
     #[inline]
     pub fn guid_str(&self) -> &str {
-        self.guid.as_str()
+        &self.id
     }
 
     /// Checks whether the Login is valid, without attempting to fix any fields.
@@ -399,7 +396,7 @@ impl Login {
                     if !fixup {
                         throw!($err)
                     }
-                    log::warn!("Fixing login record {}: {:?}", self.guid, $err);
+                    log::warn!("Fixing login record {}: {:?}", self.guid(), $err);
                     let fixed: Result<&mut Login> =
                         Ok(maybe_fixed.get_or_insert_with(|| self.clone()));
                     fixed
@@ -519,7 +516,7 @@ impl Login {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         let login = Login {
-            guid: row.get("guid")?,
+            id: row.get("guid")?,
             password: row.get("password")?,
             username: string_or_default(row, "username")?,
 
@@ -546,44 +543,6 @@ impl Login {
     }
 }
 
-impl From<Login> for PasswordInfo {
-    fn from(login: Login) -> Self {
-        Self {
-            id: login.guid.into_string(),
-            hostname: login.hostname,
-            password: login.password,
-            username: login.username,
-            http_realm: login.http_realm,
-            form_submit_url: login.form_submit_url,
-            username_field: login.username_field,
-            password_field: login.password_field,
-            times_used: login.times_used,
-            time_created: login.time_created,
-            time_last_used: login.time_last_used,
-            time_password_changed: login.time_password_changed,
-        }
-    }
-}
-
-impl From<PasswordInfo> for Login {
-    fn from(info: PasswordInfo) -> Self {
-        Self {
-            guid: Guid::from_string(info.id),
-            hostname: info.hostname,
-            password: info.password,
-            username: info.username,
-            http_realm: info.http_realm,
-            form_submit_url: info.form_submit_url,
-            username_field: info.username_field,
-            password_field: info.password_field,
-            times_used: info.times_used,
-            time_created: info.time_created,
-            time_last_used: info.time_last_used,
-            time_password_changed: info.time_password_changed,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {
     pub login: Login,
@@ -594,7 +553,7 @@ pub(crate) struct MirrorLogin {
 impl MirrorLogin {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        self.login.guid_str()
+        &self.login.id
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
@@ -922,6 +881,7 @@ impl Login {
         delta
     }
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

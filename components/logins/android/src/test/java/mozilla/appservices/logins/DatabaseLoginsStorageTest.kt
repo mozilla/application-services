@@ -12,6 +12,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
@@ -39,114 +40,50 @@ class DatabaseLoginsStorageTest {
 
     protected val encryptionKey = "testEncryptionKey"
 
-    protected fun getTestStore(): LoginsStorage {
+    protected fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
         store.unlock(encryptionKey)
 
-        store.add(ServerPassword(
+        store.add(Login(
                 id = "aaaaaaaaaaaa",
                 hostname = "https://www.example.com",
                 httpRealm = "Something",
                 username = "Foobar2000",
                 password = "hunter2",
                 usernameField = "users_name",
-                passwordField = "users_password"
+                passwordField = "users_password",
+                formSubmitUrl = null,
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         ))
 
-        store.add(ServerPassword(
+        store.add(Login(
                 id = "bbbbbbbbbbbb",
                 username = "Foobar2000",
                 hostname = "https://www.example.org",
-                formSubmitURL = "https://www.example.org/login",
+                httpRealm = "",
+                formSubmitUrl = "https://www.example.org/login",
                 password = "MyVeryCoolPassword",
                 usernameField = "users_name",
-                passwordField = "users_password"
+                passwordField = "users_password",
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         ))
 
         store.lock()
+
         return store
     }
 
-    protected fun finishAndClose(store: LoginsStorage) {
+    protected fun finishAndClose(store: DatabaseLoginsStorage) {
         store.ensureLocked()
         assertEquals(store.isLocked(), true)
         store.close()
-    }
-
-    protected inline fun <T : Any?, reified E : Throwable> expectException(klass: Class<E>, callback: () -> T) {
-        try {
-            callback()
-            fail("Expected exception!")
-        } catch (e: Throwable) {
-            assert(klass.isInstance(e), { "Expected $klass but got exception of type ${e.javaClass}: $e" })
-        }
-    }
-
-    @Test
-    fun testUnlockHex() {
-        val store = createTestStore()
-        val key = "0123456789abcdef"
-        // This is a little awkward because kotlin/java Byte is signed, and so the literals
-        // above 128 (above 0x80) can't be part of a `listOf<Byte>()` (there's UByte, but it's
-        // both experimental and very unclear that JNA would do anything sane with it).
-        val keyBytes = listOf(0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef)
-                .map { it.toByte() }
-                .toByteArray()
-
-        store.unlock(keyBytes)
-
-        store.add(ServerPassword(
-                id = "aaaaaaaaaaaa",
-                hostname = "https://www.example.com",
-                httpRealm = "Something",
-                username = "Foobar2000",
-                password = "hunter2",
-                usernameField = "users_name",
-                passwordField = "users_password"
-        ))
-
-        store.lock()
-        // Ensure that it's equivalent to encrypting with the hex encoded string.
-        store.unlock(key)
-
-        assertNotNull(store.get("aaaaaaaaaaaa"))
-
-        store.lock()
-        // Check that the wrong key fails
-        try {
-            store.unlock(listOf<Byte>(0x01, 0x02, 0x03).toByteArray())
-            fail("Should have thrown")
-        } catch (e: InvalidKeyException) {
-            // All good.
-        }
-        assert(store.isLocked())
-        // Make sure that ensureUnlocked works when locked or unlocked
-        store.ensureUnlocked(keyBytes)
-        assert(!store.isLocked())
-
-        store.ensureUnlocked(keyBytes)
-        assert(!store.isLocked())
-
-        finishAndClose(store)
-    }
-
-    @Test
-    fun testSyncException() {
-        val test = getTestStore()
-        test.ensureUnlocked(encryptionKey)
-        // Make sure we throw the right exception for invalid info.
-        expectException(SyncAuthInvalidException::class.java) {
-            // Provide a real URL for the tokenserver, or we give back an unexpected error about it being an invalid URL
-            test.sync(SyncUnlockInfo(
-                    kid = "",
-                    fxaAccessToken = "",
-                    syncKey = "",
-                    tokenserverURL = "https://asdf.com"
-            ))
-        }
-
-        finishAndClose(test)
     }
 
     @Test
@@ -164,9 +101,9 @@ class DatabaseLoginsStorageTest {
 
         store.lock()
         try {
-            store.unlock(listOf<Byte>(0x01, 0x02, 0x03).toByteArray())
+            store.unlock("wrongkey")
             fail("Should have thrown")
-        } catch (e: InvalidKeyException) {
+        } catch (e: LoginsStorageErrorException.InvalidKey) {
             // All good.
         }
         store.unlock(key)
@@ -178,7 +115,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.unlock(key)
             fail("Should have thrown")
-        } catch (e: MismatchedLockException) {
+        } catch (e: LoginsStorageErrorException.MismatchedLock) {
             // All good.
         }
         assertEquals(LoginsStoreMetrics.unlockCount.testGetValue(), 4)
@@ -188,34 +125,44 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
-        store.add(ServerPassword(
+        store.add(Login(
                 id = "aaaaaaaaaaaa",
                 hostname = "https://www.example.com",
                 httpRealm = "Something",
                 username = "Foobar2000",
                 password = "hunter2",
                 usernameField = "users_name",
-                passwordField = "users_password"
+                passwordField = "users_password",
+                formSubmitUrl = null,
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         ))
 
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
         // N.B. this is invalid due to `formSubmitURL` being an invalid url.
-        val invalid = ServerPassword(
+        val invalid = Login(
             id = "bbbbbbbbbbbb",
             hostname = "https://test.example.com",
-            formSubmitURL = "not a url",
+            formSubmitUrl = "not a url",
+            httpRealm = "",
             username = "Foobar2000",
             password = "hunter2",
             usernameField = "users_name",
-            passwordField = "users_password"
+            passwordField = "users_password",
+            timesUsed = 0,
+            timeCreated = 0,
+            timeLastUsed = 0,
+            timePasswordChanged = 0
         )
 
         try {
             store.add(invalid)
             fail("Should have thrown")
-        } catch (e: InvalidRecordException) {
+        } catch (e: LoginsStorageErrorException.InvalidRecord) {
             // All good.
         }
 
@@ -235,7 +182,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.ensureValid(invalid)
             fail("Should have thrown")
-        } catch (e: InvalidRecordException) {
+        } catch (e: LoginsStorageErrorException.InvalidRecord) {
             // All good.
         }
 
@@ -250,13 +197,12 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         assertEquals(test.isLocked(), true)
 
-        expectException(LoginsStorageException::class.java) { test.get("aaaaaaaaaaaa") }
-        expectException(LoginsStorageException::class.java) { test.list() }
-        expectException(LoginsStorageException::class.java) { test.delete("aaaaaaaaaaaa") }
-        expectException(LoginsStorageException::class.java) { test.touch("bbbbbbbbbbbb") }
-        expectException(LoginsStorageException::class.java) { test.wipe() }
-        expectException(LoginsStorageException::class.java) { test.sync(SyncUnlockInfo("", "", "", "")) }
-        expectException(LoginsStorageException::class.java) {
+        assertThrows(LoginsStorageErrorException::class.java) { test.get("aaaaaaaaaaaa") }
+        assertThrows(LoginsStorageErrorException::class.java) { test.list() }
+        assertThrows(LoginsStorageErrorException::class.java) { test.delete("aaaaaaaaaaaa") }
+        assertThrows(LoginsStorageErrorException::class.java) { test.touch("bbbbbbbbbbbb") }
+        assertThrows(LoginsStorageErrorException::class.java) { test.wipe() }
+        assertThrows(LoginsStorageErrorException::class.java) {
             @Suppress("DEPRECATION")
             test.reset()
         }
@@ -305,7 +251,7 @@ class DatabaseLoginsStorageTest {
         assertEquals(b.timesUsed + 1, newB!!.timesUsed)
         assert(newB.timeLastUsed > b.timeLastUsed)
 
-        expectException(NoSuchRecordException::class.java) { test.touch("abcdabcdabcd") }
+        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) { test.touch("abcdabcdabcd") }
 
         finishAndClose(test)
     }
@@ -355,36 +301,47 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
+
     fun testAdd() {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        expectException(IdCollisionException::class.java) {
-            test.add(ServerPassword(
+        assertThrows(LoginsStorageErrorException.IdCollision::class.java) {
+            test.add(Login(
                     id = "aaaaaaaaaaaa",
                     hostname = "https://www.foo.org",
                     httpRealm = "Some Realm",
                     password = "MyPassword",
                     username = "MyUsername",
                     usernameField = "",
-                    passwordField = ""
+                    passwordField = "",
+                    formSubmitUrl = "",
+                    timesUsed = 0,
+                    timeCreated = 0,
+                    timeLastUsed = 0,
+                    timePasswordChanged = 0
             ))
         }
 
         for (record in INVALID_RECORDS) {
-            expectException(InvalidRecordException::class.java) {
+            assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
                 test.add(record)
             }
         }
 
-        val toInsert = ServerPassword(
+        val toInsert = Login(
                 id = "",
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "Foobar2000",
                 usernameField = "",
-                passwordField = ""
+                passwordField = "",
+                formSubmitUrl = null,
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         )
 
         val generatedID = test.add(toInsert)
@@ -397,21 +354,26 @@ class DatabaseLoginsStorageTest {
         assertEquals(toInsert.username, record.username)
         assertEquals(toInsert.passwordField, record.passwordField)
         assertEquals(toInsert.usernameField, record.usernameField)
-        assertEquals(toInsert.formSubmitURL, record.formSubmitURL)
+        assertEquals(toInsert.formSubmitUrl, record.formSubmitUrl)
         assertEquals(1, record.timesUsed)
 
         assertNotEquals(0L, record.timeLastUsed)
         assertNotEquals(0L, record.timeCreated)
         assertNotEquals(0L, record.timePasswordChanged)
 
-        val specificID = test.add(ServerPassword(
+        val specificID = test.add(Login(
                 id = "123412341234",
                 hostname = "http://www.bar.com",
-                formSubmitURL = "http://login.bar.com",
+                formSubmitUrl = "http://login.bar.com",
                 password = "DummyPassword",
                 username = "DummyUsername",
                 usernameField = "users_name",
-                passwordField = "users_password"
+                passwordField = "users_password",
+                httpRealm = null,
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         ))
 
         assertEquals("123412341234", specificID)
@@ -424,41 +386,56 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        test.add(ServerPassword(
+        test.add(Login(
                 id = "bbbbb",
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MyUsername",
                 usernameField = "",
-                passwordField = ""
+                passwordField = "",
+                formSubmitUrl = null,
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         ))
 
-        val dupeLogin = ServerPassword(
+        val dupeLogin = Login(
                 id = "",
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MyUsername",
                 usernameField = "",
-                passwordField = ""
+                passwordField = "",
+                formSubmitUrl = "",
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         )
 
-        val nullValueLogin = ServerPassword(
+        val nullValueLogin = Login(
                 id = "",
                 hostname = "https://www.test.org",
                 httpRealm = "Some Other Realm",
                 password = "MyPassword",
                 username = "\u0000MyUsername2",
                 usernameField = "",
-                passwordField = ""
+                passwordField = "",
+                formSubmitUrl = "",
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         )
 
-        expectException(InvalidRecordException::class.java) {
+        assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
             test.ensureValid(dupeLogin)
         }
 
-        expectException(InvalidRecordException::class.java) {
+        assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
             test.ensureValid(nullValueLogin)
         }
 
@@ -470,26 +447,36 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        val savedLogin1 = ServerPassword(
+        val savedLogin1 = Login(
                 id = "bbbbb",
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MyUsername",
                 usernameField = "",
-                passwordField = ""
+                passwordField = "",
+                                formSubmitUrl = "",
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         )
 
         test.add(savedLogin1)
 
-        val dupeLogin = ServerPassword(
+        val dupeLogin = Login(
                 id = "",
                 hostname = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MySecondUsername",
                 usernameField = "",
-                passwordField = ""
+                passwordField = "",
+                                formSubmitUrl = "",
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         )
 
         val potentialDupes = test.potentialDupesIgnoringUsername(dupeLogin)
@@ -504,21 +491,26 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        expectException(NoSuchRecordException::class.java) {
-            test.update(ServerPassword(
+        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) {
+            test.update(Login(
                     id = "123412341234",
                     hostname = "https://www.foo.org",
                     httpRealm = "Some Realm",
                     password = "MyPassword",
                     username = "MyUsername",
                     usernameField = "",
-                    passwordField = ""
+                    passwordField = "",
+                    formSubmitUrl = "",
+                        timesUsed = 0,
+                        timeCreated = 0,
+                        timeLastUsed = 0,
+                        timePasswordChanged = 0
             ))
         }
 
         for (record in INVALID_RECORDS) {
             val updateArg = record.copy(id = "aaaaaaaaaaaa")
-            expectException(InvalidRecordException::class.java) {
+            assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
                 test.update(updateArg)
             }
         }
@@ -540,7 +532,7 @@ class DatabaseLoginsStorageTest {
         assertEquals(toUpdate.username, record.username)
         assertEquals(toUpdate.passwordField, record.passwordField)
         assertEquals(toUpdate.usernameField, record.usernameField)
-        assertEquals(toUpdate.formSubmitURL, record.formSubmitURL)
+        assertEquals(toUpdate.formSubmitUrl, record.formSubmitUrl)
         assertEquals(toUpdate.timesUsed + 1, record.timesUsed)
         assertEquals(toUpdate.timeCreated, record.timeCreated)
 
@@ -549,14 +541,19 @@ class DatabaseLoginsStorageTest {
         assert(toUpdate.timeLastUsed < record.timeLastUsed)
         assert(toUpdate.timeLastUsed < record.timePasswordChanged)
 
-        val specificID = test.add(ServerPassword(
+        val specificID = test.add(Login(
                 id = "123412341234",
                 hostname = "http://www.bar.com",
-                formSubmitURL = "http://login.bar.com",
+                formSubmitUrl = "http://login.bar.com",
+                httpRealm = "",
                 password = "DummyPassword",
                 username = "DummyUsername",
                 usernameField = "users_name",
-                passwordField = "users_password"
+                passwordField = "users_password",
+                timesUsed = 0,
+                timeCreated = 0,
+                timeLastUsed = 0,
+                timePasswordChanged = 0
         ))
 
         assertEquals("123412341234", specificID)
@@ -569,7 +566,7 @@ class DatabaseLoginsStorageTest {
     fun testUnlockAfterError() {
         val test = getTestStore()
 
-        expectException(LoginsStorageException::class.java) {
+        assertThrows(LoginsStorageErrorException::class.java) {
             test.reset()
         }
 
@@ -581,45 +578,66 @@ class DatabaseLoginsStorageTest {
     }
 
     companion object {
-        val INVALID_RECORDS: List<ServerPassword> = listOf(
-                // Invalid formSubmitURL
-                ServerPassword(
+        val INVALID_RECORDS: List<Login> = listOf(
+                // Invalid formSubmitUrl
+                Login(
                         id = "",
                         hostname = "https://www.foo.org",
-                        formSubmitURL = "invalid\u0000value",
+                        httpRealm = null,
+                        formSubmitUrl = "invalid\u0000value",
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "users_name",
-                        passwordField = "users_password"
+                        passwordField = "users_password",
+                        timesUsed = 0,
+                        timeCreated = 0,
+                        timeLastUsed = 0,
+                        timePasswordChanged = 0
                 ),
-                // Neither formSubmitURL nor httpRealm
-                ServerPassword(
+                // Neither formSubmitUrl nor httpRealm
+                Login(
                         id = "",
                         hostname = "https://www.foo.org",
+                        httpRealm = null,
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "",
-                        passwordField = ""
+                        passwordField = "",
+                        formSubmitUrl = null,
+                        timesUsed = 0,
+                        timeCreated = 0,
+                        timeLastUsed = 0,
+                        timePasswordChanged = 0
                 ),
                 // Empty password
-                ServerPassword(
+                Login(
                         id = "",
                         hostname = "https://www.foo.org",
                         httpRealm = "Some Realm",
                         password = "",
                         username = "MyUsername",
                         usernameField = "",
-                        passwordField = ""
+                        passwordField = "",
+                        formSubmitUrl = null,
+                        timesUsed = 0,
+                        timeCreated = 0,
+                        timeLastUsed = 0,
+                        timePasswordChanged = 0
                 ),
                 // Empty hostname
-                ServerPassword(
+                Login(
                         id = "",
                         hostname = "",
                         httpRealm = "Some Realm",
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "",
-                        passwordField = ""
+                        passwordField = "",
+                        formSubmitUrl = null,
+                        timesUsed = 0,
+                        timeCreated = 0,
+                        timeLastUsed = 0,
+                        timePasswordChanged = 0
                 )
         )
     }

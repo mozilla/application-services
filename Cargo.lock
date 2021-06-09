@@ -1571,8 +1571,6 @@ dependencies = [
  "lazy_static",
  "log",
  "more-asserts",
- "prost",
- "prost-derive",
  "rusqlite",
  "serde",
  "serde_derive",
@@ -1582,24 +1580,10 @@ dependencies = [
  "sync15",
  "tempdir",
  "thiserror",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
-]
-
-[[package]]
-name = "logins_ffi"
-version = "0.1.0"
-dependencies = [
- "base16",
- "ffi-support",
- "lazy_static",
- "log",
- "logins",
- "prost",
- "serde_json",
- "sql-support",
- "sync15",
- "url",
- "viaduct",
 ]
 
 [[package]]
@@ -1625,7 +1609,7 @@ dependencies = [
  "crashtest",
  "fxa-client",
  "lazy_static",
- "logins_ffi",
+ "logins",
  "nimbus-sdk",
  "places-ffi",
  "push-ffi",
@@ -1641,7 +1625,7 @@ dependencies = [
  "crashtest",
  "fxa-client",
  "glean-ffi",
- "logins_ffi",
+ "logins",
  "nimbus-sdk",
  "places-ffi",
  "rc_log_ffi",
@@ -3154,7 +3138,6 @@ version = "0.1.0"
 dependencies = [
  "ffi-support",
  "log",
- "logins_ffi",
  "places-ffi",
  "prost",
  "sync15",
