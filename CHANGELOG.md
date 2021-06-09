@@ -1,3 +1,22 @@
+# v79.0.0 (_2021-06-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v78.0.0...v79.0.0)
+
+## Logins
+
+### ⚠️ Breaking changes ⚠️
+
+Logins now Uniffi-ed! While this is a very large change internally, the externally visible changes are:
+
+- The name and types of exceptions have changed - the base class for errors is LoginsStorageErrorException.
+- The struct `ServerPassword` (Android) and `LoginRecord` (iOS) is now named `Login` with the formSubmitURL field now formSubmitUrl
+
+## [viaduct-reqwest]
+
+### What's Changed
+
+- Update viaduct-reqwest to use reqwest 0.11. ([#4146](https://github.com/mozilla/application-services/pull/4146))
+
 # v78.0.0 (_2021-06-01_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.2...v78.0.0)
