@@ -2,49 +2,8 @@ plugins {
     id "com.jetbrains.python.envs" version "0.0.26"
 }
 
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
-
-android {
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
-    defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
-        }
-    }
-
-    testOptions {
-        unitTests {
-            includeAndroidResources = true
-        }
-    }
-
-    // This is required to support new AndroidX support libraries.
-    // See mozilla-mobile/android-components#842
-    compileOptions {
-        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
-        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
-    }
-
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
-        kotlinOptions {
-            jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-        }
-    }
-}
+apply from: "$rootDir/build-scripts/component-common.gradle"
+apply from: "$rootDir/publish.gradle"
 
 ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
@@ -59,13 +18,10 @@ dependencies {
 
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
     testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
-    testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
-    testImplementation "org.mockito:mockito-core:$mockito_core_version"
     testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 }
 
-apply from: "$rootDir/publish.gradle"
 ext.configureUniFFIBindgen("../src/nimbus.udl")
 ext.dependsOnTheMegazord()
 ext.configurePublish()
