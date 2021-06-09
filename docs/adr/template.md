@@ -1,3 +1,5 @@
+<!-- NOTE: We have decided as a team that the writer of any given ADR decides when a decision has been reached and should not feel compelled to gather a consensus. Once the ADR author has addressed any objections and received an approval on the ADR pull request, they should feel empowered to proceed.-->
+
 # [short title of solved problem and solution]
 
 * Status: [proposed | rejected | accepted | deprecated | … | superseded by [ADR-0005](0005-example.md)] <!-- optional -->
