@@ -1,0 +1,44 @@
+// This script defines common setup logic for our components that use protocol buffers.
+// Absent some special need for customization, we expect each project under `/components`
+// that uses protocol buffers to apply this script to their build process via:
+//
+// ```
+// apply from: "$rootDir/build-scripts/protobuf-common.gradle"
+// ```
+
+apply plugin: 'com.google.protobuf'
+
+android {
+    sourceSets {
+        main {
+            proto {
+                srcDir '../src'
+            }
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        // This is a hack for Apple M1 since protobuf does not compile for M1s yet
+        // However, M1s can just use the x86_64 just fine
+        if (osdetector.os == "osx") {
+            artifact = 'com.google.protobuf:protoc:3.11.4:osx-x86_64'
+        } else {
+            artifact = 'com.google.protobuf:protoc:3.11.4'
+        }
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java {
+                    option "lite"
+                }
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation "com.google.protobuf:protobuf-javalite:$protobuf_version"
+}
