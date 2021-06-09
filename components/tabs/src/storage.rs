@@ -18,7 +18,7 @@ pub struct RemoteTab {
     pub last_used: u64, // In ms.
 }
 
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug)]
 pub struct ClientRemoteTabs {
     pub client_id: String, // Corresponds to the `clients` collection ID of the client.
     pub client_name: String,
