@@ -169,8 +169,8 @@ dependencies = [
  "sync15-traits",
  "thiserror",
  "types",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "url",
 ]
 
@@ -286,12 +286,6 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
-version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
-
-[[package]]
-name = "bytes"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b700ce4376041dcd0a327fd0097c41095743c4c8af8887265942faf1100bd040"
@@ -312,17 +306,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0226944a63d1bf35a3b5f948dd7c59e263db83695c9e8bffc4037de02e30f1d7"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "cargo_metadata"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3a567c24b86754d629addc2db89e340ac9398d07b5875efcff837e3878e17ec"
-dependencies = [
- "semver 0.10.0",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -505,8 +488,8 @@ version = "0.1.0"
 dependencies = [
  "log",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "uniffi_macros",
 ]
 
@@ -761,7 +744,7 @@ name = "embedded-uniffi-bindgen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "uniffi_bindgen 0.12.0",
+ "uniffi_bindgen",
 ]
 
 [[package]]
@@ -1095,8 +1078,8 @@ dependencies = [
  "sync-guid",
  "sync15",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "uniffi_macros",
  "url",
  "viaduct",
@@ -1225,7 +1208,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "825343c4eef0b63f541f8903f395dc5beb362a979b5799a84062527ef1e37726"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "fnv",
  "futures-core",
  "futures-sink",
@@ -1312,7 +1295,7 @@ version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "527e8c9ac747e28542699a951517aa9a6945af506cd1f2e1b53a576c17b6cc11"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "fnv",
  "itoa",
 ]
@@ -1323,7 +1306,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "60daa14be0e0786db0f03a9e57cb404c9d756eed2b6c62b9ea98ec5743ec75a9"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "http",
  "pin-project-lite",
 ]
@@ -1355,7 +1338,7 @@ version = "0.14.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7728a72c4c7d72665fde02204bcbd93b247721025b222ef78606f14513e0fd03"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "futures-channel",
  "futures-core",
  "futures-util",
@@ -1379,7 +1362,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "hyper",
  "native-tls",
  "tokio",
@@ -1589,8 +1572,8 @@ dependencies = [
  "sync15",
  "tempdir",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "uniffi_macros",
  "url",
 ]
@@ -1799,8 +1782,8 @@ dependencies = [
  "sha2",
  "tempdir",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "url",
  "uuid",
  "viaduct",
@@ -2293,7 +2276,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de5e2533f59d08fcf364fd374ebda0692a70bd6d7e66ef97f306f45c6c5d8020"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "prost-derive",
 ]
 
@@ -2303,7 +2286,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "355f634b43cdd80724ee7848f95770e7e70eefa6dcf14fea676216573b8fd603"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "heck",
  "itertools 0.10.1",
  "log",
@@ -2334,7 +2317,7 @@ version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "603bbd6394701d13f3f25aada59c7de9d35a6a5887cfc156181234a44002771b"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "prost",
 ]
 
@@ -2674,7 +2657,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "246e9f61b9bb77df069a947682be06e31ac43ea37862e244a69f177694ea6d22"
 dependencies = [
  "base64 0.13.0",
- "bytes 1.0.1",
+ "bytes",
  "encoding_rs",
  "futures-core",
  "futures-util",
@@ -2857,16 +2840,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
 dependencies = [
  "semver-parser 0.7.0",
-]
-
-[[package]]
-name = "semver"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "394cec28fa623e00903caf7ba4fa6fb9a0e260280bb8cdbbba029611108a0190"
-dependencies = [
- "semver-parser 0.7.0",
- "serde",
 ]
 
 [[package]]
@@ -3179,16 +3152,15 @@ dependencies = [
  "interrupt-support",
  "lazy_static",
  "log",
- "prost",
- "prost-derive",
  "serde",
  "serde_derive",
  "serde_json",
  "sync-guid",
  "sync15",
  "thiserror",
- "uniffi 0.8.0",
- "uniffi_build 0.8.0",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
 ]
 
@@ -3354,7 +3326,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98c8b05dc14c75ea83d63dd391100353789f5f24b8b3866542a5e85c8be8e985"
 dependencies = [
  "autocfg",
- "bytes 1.0.1",
+ "bytes",
  "libc",
  "memchr",
  "mio",
@@ -3379,7 +3351,7 @@ version = "0.6.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1caa0b0c8d94a049db56b5acf8cba99dc0623aab1b26d5b5f5e2d945846b3592"
 dependencies = [
- "bytes 1.0.1",
+ "bytes",
  "futures-core",
  "futures-sink",
  "log",
@@ -3488,50 +3460,18 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "uniffi"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "951741396f443adea228ef79abb846340607dfed26068ec0405dd180fd3dbaa5"
-dependencies = [
- "anyhow",
- "bytes 0.5.6",
- "cargo_metadata 0.11.4",
- "ffi-support",
- "lazy_static",
- "log",
- "paste 1.0.5",
- "static_assertions",
-]
-
-[[package]]
-name = "uniffi"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e2749a4075e662e6ac28bed98b579f6d66bfabcfbe3fea5de6709334aaf8343"
 dependencies = [
  "anyhow",
- "bytes 1.0.1",
- "cargo_metadata 0.13.1",
+ "bytes",
+ "cargo_metadata",
  "ffi-support",
  "lazy_static",
  "log",
  "paste 1.0.5",
  "static_assertions",
-]
-
-[[package]]
-name = "uniffi_bindgen"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fc7f411f7c8faa9d9940eb3a36e271972f4bb35d6860c920f41eca93831e10d"
-dependencies = [
- "anyhow",
- "askama",
- "cargo_metadata 0.11.4",
- "clap",
- "heck",
- "serde",
- "toml",
- "weedle",
 ]
 
 [[package]]
@@ -3542,7 +3482,7 @@ checksum = "59fbb8000ed428fc9da5066af68bc2c04084a2233fb67bf5d0f5727b05c236b6"
 dependencies = [
  "anyhow",
  "askama",
- "cargo_metadata 0.13.1",
+ "cargo_metadata",
  "clap",
  "heck",
  "serde",
@@ -3552,22 +3492,12 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa6892022dca2c387d91aced1ae78f12cca854cdf395ae8035616d100d54f18c"
-dependencies = [
- "anyhow",
- "uniffi_bindgen 0.8.0",
-]
-
-[[package]]
-name = "uniffi_build"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a45dcfc8bad77ee7b13380f8c1e57648e126b9a5f8ff101172d543d94ec53a"
 dependencies = [
  "anyhow",
- "uniffi_bindgen 0.12.0",
+ "uniffi_bindgen",
 ]
 
 [[package]]

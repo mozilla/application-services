@@ -9,14 +9,13 @@ use places::{
     bookmark_sync::engine::BookmarksEngine, history_sync::engine::HistoryEngine, PlacesApi,
 };
 use std::collections::{HashMap, HashSet};
-use std::sync::{atomic::AtomicUsize, Arc, Mutex, Weak};
+use std::sync::{atomic::AtomicUsize, Arc, Weak};
 use std::time::SystemTime;
 use sync15::{
     self,
     clients::{self, Command, CommandProcessor, CommandStatus, Settings},
     EngineSyncAssociation, MemoryCachedState, SyncEngine,
 };
-use tabs::TabsStore;
 
 const LOGINS_ENGINE: &str = "passwords";
 const HISTORY_ENGINE: &str = "history";
@@ -39,7 +38,6 @@ const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
     places: Weak<PlacesApi>,
-    tabs: Weak<Mutex<TabsStore>>,
 }
 
 impl Default for SyncManager {
@@ -53,16 +51,11 @@ impl SyncManager {
         Self {
             mem_cached_state: None,
             places: Weak::new(),
-            tabs: Weak::new(),
         }
     }
 
     pub fn set_places(&mut self, places: Arc<PlacesApi>) {
         self.places = Arc::downgrade(&places);
-    }
-
-    pub fn set_tabs(&mut self, tabs: Arc<Mutex<TabsStore>>) {
-        self.tabs = Arc::downgrade(&tabs);
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
@@ -71,6 +64,10 @@ impl SyncManager {
 
     pub fn logins_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
         logins::get_registered_sync_engine(engine)
+    }
+
+    pub fn tabs_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
+        tabs::get_registered_sync_engine(engine)
     }
 
     pub fn wipe(&mut self, engine: &str) -> Result<()> {
@@ -188,7 +185,7 @@ impl SyncManager {
     pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
         let mut have_engines = vec![];
         let places = self.places.upgrade();
-        let tabs = self.tabs.upgrade();
+        let tabs = Self::tabs_engine("tabs");
         let logins = Self::logins_engine("logins");
         let addresses = Self::autofill_engine("addresses");
         let credit_cards = Self::autofill_engine("creditcards");
@@ -238,7 +235,7 @@ impl SyncManager {
 
     fn do_sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
         let mut places = self.places.upgrade();
-        let tabs = self.tabs.upgrade();
+        let tabs = Self::tabs_engine("tabs");
         let logins = Self::logins_engine("logins");
         let addresses = Self::autofill_engine("addresses");
         let credit_cards = Self::autofill_engine("creditcards");
@@ -262,11 +259,7 @@ impl SyncManager {
         } else {
             None
         };
-        let ts = if tabs_sync {
-            tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"))
-        } else {
-            None
-        };
+        let ts = if tabs_sync { tabs } else { None };
         let ls = if logins_sync { logins } else { None };
         let ads = if addresses_sync { addresses } else { None };
         let cs = if credit_cards_sync {
@@ -299,12 +292,13 @@ impl SyncManager {
         }
 
         if let Some(logins) = ls {
+            assert!(logins_sync, "Should have already checked");
             engines.push(logins);
         }
 
-        if let Some(tbs) = ts.as_ref() {
+        if let Some(tbs) = ts {
             assert!(tabs_sync, "Should have already checked");
-            engines.push(Box::new(tabs::TabsEngine::new(&tbs.storage)));
+            engines.push(tbs);
         }
 
         if let Some(add) = ads {

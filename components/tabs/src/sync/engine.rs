@@ -2,12 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::storage::TabsStorage;
 use crate::storage::{ClientRemoteTabs, RemoteTab};
 use crate::sync::record::{TabsRecord, TabsRecordTab};
+use crate::sync::store::TabsStore;
 use anyhow::Result;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
+use std::sync::Arc;
 use sync15::{
     clients::{self, DeviceType, RemoteClient},
     telemetry, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
@@ -45,7 +46,10 @@ impl ClientRemoteTabs {
         Self {
             client_id,
             client_name: remote_client.device_name.clone(),
-            device_type: remote_client.device_type.unwrap_or(DeviceType::Mobile).into(),
+            device_type: remote_client
+                .device_type
+                .unwrap_or(DeviceType::Mobile)
+                .into(),
             remote_tabs: record.tabs.iter().map(RemoteTab::from_record_tab).collect(),
         }
     }
@@ -72,18 +76,18 @@ impl ClientRemoteTabs {
     }
 }
 
-pub struct TabsEngine<'a> {
-    storage: &'a TabsStorage,
+pub struct TabsEngine {
+    pub store: Arc<TabsStore>,
     remote_clients: RefCell<HashMap<String, RemoteClient>>,
     last_sync: Cell<Option<ServerTimestamp>>, // We use a cell because `sync_finished` doesn't take a mutable reference to &self.
     sync_store_assoc: RefCell<EngineSyncAssociation>,
     pub(crate) local_id: RefCell<String>,
 }
 
-impl<'a> TabsEngine<'a> {
-    pub fn new(storage: &'a TabsStorage) -> Self {
+impl TabsEngine {
+    pub fn new(store: Arc<TabsStore>) -> Self {
         Self {
-            storage,
+            store,
             remote_clients: RefCell::default(),
             last_sync: Cell::default(),
             sync_store_assoc: RefCell::new(EngineSyncAssociation::Disconnected),
@@ -92,7 +96,7 @@ impl<'a> TabsEngine<'a> {
     }
 }
 
-impl<'a> SyncEngine for TabsEngine<'a> {
+impl SyncEngine for TabsEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "tabs".into()
     }
@@ -144,9 +148,10 @@ impl<'a> SyncEngine for TabsEngine<'a> {
             };
             remote_tabs.push(tab);
         }
-        self.storage.replace_remote_tabs(remote_tabs);
         let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
-        if let Some(local_tabs) = self.storage.prepare_local_tabs_for_upload() {
+        let storage = self.store.storage.lock().unwrap();
+        storage.replace_remote_tabs(remote_tabs);
+        if let Some(local_tabs) = storage.prepare_local_tabs_for_upload() {
             let (client_name, device_type) = self
                 .remote_clients
                 .borrow()
@@ -205,13 +210,13 @@ impl<'a> SyncEngine for TabsEngine<'a> {
         self.remote_clients.borrow_mut().clear();
         self.sync_store_assoc.replace(assoc.clone());
         self.last_sync.set(None);
-        self.storage.wipe_remote_tabs();
+        self.store.storage.lock().unwrap().wipe_remote_tabs();
         Ok(())
     }
 
     fn wipe(&self) -> Result<()> {
         self.reset(&EngineSyncAssociation::Disconnected)?;
-        self.storage.wipe_local_tabs();
+        self.store.storage.lock().unwrap().wipe_local_tabs();
         Ok(())
     }
 }

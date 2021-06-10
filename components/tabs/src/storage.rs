@@ -7,27 +7,23 @@ const URI_LENGTH_MAX: usize = 65536;
 // https://searchfox.org/mozilla-central/rev/ea63a0888d406fae720cf24f4727d87569a8cab5/services/sync/modules/engines/tabs.js#8
 const TAB_ENTRIES_LIMIT: usize = 5;
 
+use serde_derive::{Deserialize, Serialize};
 use std::cell::RefCell;
 
-// Our "sync manager" will use whatever is stashed here.
-lazy_static::lazy_static! {
-    // Mutex: just taken long enough to update the inner stuff - needed
-    //        to wrap the RefCell as they aren't `Sync`
-    // RefCell: So we can replace what it holds. Normally you'd use `get_ref()`
-    //          on the mutex and avoid the RefCell entirely, but that requires
-    //          the mutex to be declared as `mut` which is apparently
-    //          impossible in a `lazy_static`
-    // [Arc/Weak]<StoreImpl>: What the sync manager actually needs.
-    pub static ref STORE_FOR_MANAGER: Mutex<RefCell<Weak<StoreImpl>>> = Mutex::new(RefCell::new(Weak::new()));
-}
-
-// TODO how to avoid this local type?
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+// As of right now, this local type is unavoidable due
+// to uniffi requiring all exposed types defined in the current crate
+// https://github.com/mozilla/uniffi-rs/issues/478
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum DeviceType {
+    #[serde(rename = "desktop")]
     Desktop,
+    #[serde(rename = "mobile")]
     Mobile,
+    #[serde(rename = "tablet")]
     Tablet,
+    #[serde(rename = "vr")]
     VR,
+    #[serde(rename = "tv")]
     TV,
 }
 
@@ -38,12 +34,12 @@ impl From<sync15::clients::DeviceType> for DeviceType {
             sync15::clients::DeviceType::Mobile => DeviceType::Mobile,
             sync15::clients::DeviceType::Tablet => DeviceType::Tablet,
             sync15::clients::DeviceType::VR => DeviceType::VR,
-            sync15::clients::DeviceType::TV => DeviceType::TV
+            sync15::clients::DeviceType::TV => DeviceType::TV,
         }
     }
 }
 
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RemoteTab {
     pub title: String,
     pub url_history: Vec<String>,

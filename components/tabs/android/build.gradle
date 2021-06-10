@@ -1,7 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'com.google.protobuf'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -26,12 +25,6 @@ android {
     sourceSets {
         test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
-
-        main {
-            proto {
-                srcDir '../src'
-            }
-        }
     }
 
     // This is required to support new AndroidX support libraries.
@@ -44,6 +37,9 @@ android {
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         kotlinOptions {
             jvmTarget = rootProject.ext.build.jvmTargetCompatibility
+            // This is required when using unsigned types via uniffi
+            // Will possibly be fixed in https://github.com/mozilla/uniffi-rs/issues/444
+            freeCompilerArgs += "-Xopt-in=kotlin.ExperimentalUnsignedTypes"
         }
     }
 }
@@ -64,26 +60,6 @@ configurations {
     // Success!
     jnaForTest
 }
-protobuf {
-    protoc {
-        // This is a hack for Apple M1 since protobuf does not compile for M1s yet
-        // However, M1s can just use the x86_64 just fine
-        if (osdetector.os == "osx") {
-            artifact = 'com.google.protobuf:protoc:3.11.4:osx-x86_64'
-        } else {
-            artifact = 'com.google.protobuf:protoc:3.11.4'
-        }
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.builtins {
-                java {
-                    option "lite"
-                }
-            }
-        }
-    }
-}
 
 dependencies {
     // Part of the public API.
@@ -94,7 +70,6 @@ dependencies {
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
-    implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
     api project(":full-megazord")
     implementation project(":native-support")
 
@@ -114,17 +89,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
 
-// We do the uniffi binding generation here:
-android.libraryVariants.all { variant ->
-    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
-        workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/tabs.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
-    }
-    variant.javaCompileProvider.get().dependsOn(t)
-    def sourceSet = variant.sourceSets.find { it.name == variant.name }
-    sourceSet.java.srcDir new File(buildDir, "generated/source/uniffi/${variant.name}/java")
-}
-
 evaluationDependsOn(":full-megazord")
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
@@ -142,5 +106,5 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
-
+ext.configureUniFFIBindgen("../src/tabs.udl")
 ext.configurePublish()

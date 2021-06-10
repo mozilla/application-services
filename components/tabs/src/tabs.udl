@@ -2,18 +2,19 @@ namespace tabs {
 
 };
 
-// TODO should this be [Threadsafe]? this runs into problems, e.g. mem_cached_state: Cell<MemoryCachedState> on TabsStorage
+
 interface TabsStore {
     constructor();
 
-    void update_local_state(sequence<RemoteTab> remote_tabs );
     sequence<ClientRemoteTabs> get_all();
 
+    void update_local_state(sequence<RemoteTab> remote_tabs);
+
+    [Self=ByArc]
     void register_with_sync_manager();
 };
 
 enum DeviceType { "Desktop", "Mobile", "Tablet", "VR", "TV" };
-
 dictionary RemoteTab {
     string title;
     sequence<string> url_history;
