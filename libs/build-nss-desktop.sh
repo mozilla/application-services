@@ -60,17 +60,17 @@ fi
 # https://github.com/mozilla/application-services/issues/962
 if [[ "${CROSS_COMPILE_TARGET}" =~ "darwin" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.53_darwin.bz2"
-  SHA256="bf6fdf0242f3a34778b9ae33907997161c63c2b9f2461374baa99a38058bc0ae"
-  echo "${SHA256}  nss_nspr_static_3.53_darwin.bz2" | shasum -a 256 -c - || exit 2
-  tar xvjf nss_nspr_static_3.53_darwin.bz2 && rm -rf nss_nspr_static_3.53_darwin.bz2
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.65_darwin.tar.bz2"
+  SHA256="d309f8d9ad94545760773926544e6a7a3a31a2ad3a76c13e284429e4ed83b5cd"
+  echo "${SHA256}  nss_nspr_static_3.65_darwin.tar.bz2" | shasum -a 256 -c - || exit 2
+  tar xvjf nss_nspr_static_3.65_darwin.tar.bz2 && rm -rf nss_nspr_static_3.65_darwin.tar.bz2
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "${CROSS_COMPILE_TARGET}" =~ "win32-x86-64" ]]; then
   # Generated from nss-try@111b54aaa644978464bec98848ecba6f69d3f42e.
-  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.53_mingw.7z"
-  SHA256="b4f728e95d18c4f3d1f4abfb2cdcbe598b96f596a89544980e9c24533e36f6e6"
-  echo "${SHA256}  nss_nspr_static_3.53_mingw.7z" | shasum -a 256 -c - || exit 2
-  7z x nss_nspr_static_3.53_mingw.7z -aoa && rm -rf nss_nspr_static_3.53_mingw.7z
+  curl -sfSL --retry 5 --retry-delay 10 -O "https://fxa-dev-bucket.s3-us-west-2.amazonaws.com/a-s/nss_nspr_static_3.65_mingw.7z"
+  SHA256="feb6901a774a2c6e6b0aa40704f903b422d6fdf315679fc502d1edc6ef07b126"
+  echo "${SHA256}  nss_nspr_static_3.65_mingw.7z" | shasum -a 256 -c - || exit 2
+  7z x nss_nspr_static_3.65_mingw.7z -aoa && rm -rf nss_nspr_static_3.65_mingw.7z
   NSS_DIST_DIR=$(abspath "dist")
 elif [[ "$(uname -s)" == "Darwin" ]] || [[ "$(uname -s)" == "Linux" ]]; then
   "${NSS_SRC_DIR}"/nss/build.sh \

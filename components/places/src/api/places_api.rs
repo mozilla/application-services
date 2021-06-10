@@ -210,7 +210,7 @@ impl PlacesApi {
     }
 
     fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
-        Ok(get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)?)
+        get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)
     }
 
     fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
@@ -483,7 +483,7 @@ pub mod test {
         let write = api
             .open_connection(ConnectionType::ReadWrite)
             .expect("should get a write connection");
-        MemConnections { api, read, write }
+        MemConnections { read, write, api }
     }
 }
 

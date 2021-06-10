@@ -1,3 +1,28 @@
+# v78.0.0 (_2021-06-01_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.2...v78.0.0)
+
+## [places]
+
+### ⚠️ Breaking Changes ⚠️
+  - History Metadata API shape changed to follow an observation pattern, similar to what is present for History.
+    Shape of objects and related DB schema changed as well. See ([#4123](https://github.com/mozilla/application-services/pull/4123))
+
+# v77.0.2 (_2021-05-31_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.1...v77.0.2)
+
+## Autofill
+
+ - Fixed a failing assertion when handling local dupes during a sync (#4154)
+
+# v77.0.1 (_2021-05-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.0...v77.0.1)
+
+## CI-only to force iOS artifact build, 77.0.0 is not good for iOS
+  - add --force flag when installing swift-protobuf via homebrew (#4137) 
+
 # v77.0.0 (_2021-05-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v76.0.1...v77.0.0)
@@ -31,7 +56,6 @@
    during the database upgrade, the database will be wiped, since losing
    existing enrollments is still less bad than having the database in an unknown
    inconsistent state.
-
 
 # v76.0.1 (_2021-05-18_)
 
@@ -2905,4 +2929,3 @@ N/A
 
 - Clarified which exceptions are thrown in documentation in cases where it was unclear. ([#495](https://github.com/mozilla/application-services/pull/495))
 - Added `@Throws` annotations to all methods which can throw. ([#495](https://github.com/mozilla/application-services/pull/495))
-

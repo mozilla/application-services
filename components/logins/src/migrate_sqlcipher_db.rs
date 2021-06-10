@@ -51,7 +51,7 @@ fn init_sqlcipher_db(
     // do this on Android, or allow caller to configure it.
     db.set_pragma("temp_store", 2)?;
 
-    Ok(schema::upgrade_sqlcipher_db(db, new_encryption_key)?)
+    schema::upgrade_sqlcipher_db(db, new_encryption_key)
 }
 
 fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {

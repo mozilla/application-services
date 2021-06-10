@@ -863,7 +863,7 @@ mod tests {
         // should still have only 1 visit and it should still be local.
         let (_page, visits) = fetch_visits(&db, &url, 2)?.expect("page exists");
         assert_eq!(visits.len(), 1);
-        assert_eq!(visits[0].is_local, true);
+        assert!(visits[0].is_local);
         // The item should have changed to Normal and have no change counter.
         assert_eq!(get_sync(&db, &url), (SyncStatus::Normal, 0));
         Ok(())

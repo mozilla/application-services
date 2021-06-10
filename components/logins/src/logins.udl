@@ -1,0 +1,84 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+namespace logins { };
+
+
+// Converted from mozilla.appservices.logins.protobuf.rs
+dictionary Login {
+    string id;
+    string hostname;
+    string password_enc;
+    string username_enc;
+    string? http_realm;
+    string? form_submit_url;
+    string username_field;
+    string password_field;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+};
+
+[Error]
+enum LoginsStorageError {
+    "UnexpectedLoginsStorageError",
+    "SyncAuthInvalid",
+    "MismatchedLock",
+    "NoSuchRecord",
+    "IdCollision",
+    "InvalidRecord",
+    "InvalidKey",
+    "RequestFailed",
+    "Interrupted",
+};
+
+interface LoginStore {
+    [Throws=LoginsStorageError]
+    constructor(string path);
+
+    [Throws=LoginsStorageError]
+    void check_valid_with_no_dupes([ByRef] Login login);
+
+    [Throws=LoginsStorageError]
+    string add(Login login);
+
+    [Throws=LoginsStorageError]
+    boolean delete([ByRef] string id);
+
+    [Throws=LoginsStorageError]
+    void wipe();
+    [Throws=LoginsStorageError]
+    void wipe_local();
+
+    [Throws=LoginsStorageError, Self=ByArc]
+    void reset();
+
+    [Throws=LoginsStorageError]
+    void touch([ByRef] string id);
+
+    [Throws=LoginsStorageError]
+    sequence<Login> list();
+
+    [Throws=LoginsStorageError]
+    sequence<Login> get_by_base_domain([ByRef] string base_domain);
+
+    [Throws=LoginsStorageError]
+    sequence<Login> potential_dupes_ignoring_username(Login login);
+
+    [Throws=LoginsStorageError]
+    Login? get([ByRef] string id);
+
+    [Throws=LoginsStorageError]
+    void update(Login login);
+
+    [Throws=LoginsStorageError]
+    string import_multiple(sequence<Login> login);
+
+    [Self=ByArc]
+    void register_with_sync_manager();
+
+    [Throws=LoginsStorageError, Self=ByArc]
+    string sync(string key_id, string access_token, string sync_key, string tokenserver_url, string local_encryption_key);
+};

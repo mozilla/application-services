@@ -21,10 +21,8 @@ the details of which are reproduced below.
 * [MIT License: h2](#mit-license-h2)
 * [MIT License: http-body](#mit-license-http-body)
 * [MIT License: hyper](#mit-license-hyper)
-* [MIT License: kernel32-sys, winapi-build, ws2_32-sys](#mit-license-kernel32-sys-winapi-build-ws2_32-sys)
 * [MIT License: libsqlite3-sys](#mit-license-libsqlite3-sys)
 * [MIT License: matches](#mit-license-matches)
-* [MIT License: mime_guess](#mit-license-mime_guess)
 * [MIT License: miniz_oxide](#mit-license-miniz_oxide)
 * [MIT License: mio](#mit-license-mio)
 * [MIT License: nom](#mit-license-nom)
@@ -37,12 +35,12 @@ the details of which are reproduced below.
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: tap](#mit-license-tap)
 * [MIT License: textwrap](#mit-license-textwrap)
-* [MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures](#mit-license-tokio-tokio-tls-tokio-util-tracing-tracing-core-tracing-futures)
+* [MIT License: tokio, tokio-util](#mit-license-tokio-tokio-util)
+* [MIT License: tokio-native-tls, tracing, tracing-core](#mit-license-tokio-native-tls-tracing-tracing-core)
 * [MIT License: tower-service](#mit-license-tower-service)
 * [MIT License: try-lock](#mit-license-try-lock)
 * [MIT License: want](#mit-license-want)
 * [MIT License: weedle](#mit-license-weedle)
-* [MIT License: winapi](#mit-license-winapi)
 * [MIT License: winapi-util](#mit-license-winapi-util)
 * [MIT License: winreg](#mit-license-winreg)
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
@@ -462,6 +460,8 @@ The following text applies to code linked from these dependencies:
 [base64](https://github.com/marshallpierce/rust-base64),
 [bitflags](https://github.com/bitflags/bitflags),
 [block-buffer](https://github.com/RustCrypto/utils),
+[camino](https://github.com/withoutboats/camino),
+[cargo-platform](https://github.com/rust-lang/cargo),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
 [chrono](https://github.com/chronotope/chrono),
@@ -502,7 +502,6 @@ The following text applies to code linked from these dependencies:
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
 [indexmap](https://github.com/bluss/indexmap),
-[iovec](https://github.com/carllerche/iovec),
 [ipnet](https://github.com/krisprice/ipnet),
 [itertools](https://github.com/bluss/rust-itertools),
 [itoa](https://github.com/dtolnay/itoa),
@@ -515,9 +514,9 @@ The following text applies to code linked from these dependencies:
 [lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
 [log](https://github.com/rust-lang/log),
 [mime](https://github.com/hyperium/mime),
-[miow](https://github.com/alexcrichton/miow),
+[miow](https://github.com/yoshuawuyts/miow),
 [native-tls](https://github.com/sfackler/rust-native-tls),
-[net2](https://github.com/deprecrated/net2-rs),
+[ntapi](https://github.com/MSxDOS/ntapi),
 [num-integer](https://github.com/rust-num/num-integer),
 [num-traits](https://github.com/rust-num/num-traits),
 [num_cpus](https://github.com/seanmonstar/num_cpus),
@@ -529,6 +528,7 @@ The following text applies to code linked from these dependencies:
 [paste-impl](https://github.com/dtolnay/paste),
 [paste](https://github.com/dtolnay/paste),
 [percent-encoding](https://github.com/servo/rust-url/),
+[pest](https://github.com/pest-parser/pest),
 [pin-project-internal](https://github.com/taiki-e/pin-project),
 [pin-project-lite](https://github.com/taiki-e/pin-project-lite),
 [pin-project](https://github.com/taiki-e/pin-project),
@@ -561,7 +561,7 @@ The following text applies to code linked from these dependencies:
 [sha2](https://github.com/RustCrypto/hashes),
 [smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
-[socket2](https://github.com/alexcrichton/socket2-rs),
+[socket2](https://github.com/rust-lang/socket2),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
 [syn](https://github.com/dtolnay/syn),
@@ -573,7 +573,7 @@ The following text applies to code linked from these dependencies:
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
 [typenum](https://github.com/paholg/typenum),
-[unicase](https://github.com/seanmonstar/unicase),
+[ucd-trie](https://github.com/BurntSushi/ucd-generate),
 [unicode-bidi](https://github.com/servo/unicode-bidi),
 [unicode-normalization](https://github.com/unicode-rs/unicode-normalization),
 [unicode-segmentation](https://github.com/unicode-rs/unicode-segmentation),
@@ -1234,7 +1234,7 @@ The following text applies to code linked from these dependencies:
 [hyper](https://github.com/hyperium/hyper)
 
 ```
-Copyright (c) 2014-2018 Sean McArthur
+Copyright (c) 2014-2021 Sean McArthur
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1253,37 +1253,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-
-
-```
--------------
-## MIT License: kernel32-sys, winapi-build, ws2_32-sys
-
-The following text applies to code linked from these dependencies:
-[kernel32-sys](https://github.com/retep998/winapi-rs),
-[winapi-build](https://github.com/retep998/winapi-rs),
-[ws2_32-sys](https://github.com/retep998/winapi-rs)
-
-```
-Copyright (c) 2015-2018 The winapi-rs Developers
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
 
 ```
 -------------
@@ -1346,37 +1315,6 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-
-```
--------------
-## MIT License: mime_guess
-
-The following text applies to code linked from these dependencies:
-[mime_guess](https://github.com/abonander/mime_guess)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Austin Bonander
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
 
 ```
 -------------
@@ -1733,14 +1671,46 @@ SOFTWARE.
 
 ```
 -------------
-## MIT License: tokio, tokio-tls, tokio-util, tracing, tracing-core, tracing-futures
+## MIT License: tokio, tokio-util
 
 The following text applies to code linked from these dependencies:
-[tokio-tls](https://github.com/tokio-rs/tokio),
 [tokio-util](https://github.com/tokio-rs/tokio),
-[tokio](https://github.com/tokio-rs/tokio),
+[tokio](https://github.com/tokio-rs/tokio)
+
+```
+Copyright (c) 2021 Tokio Contributors
+
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: tokio-native-tls, tracing, tracing-core
+
+The following text applies to code linked from these dependencies:
+[tokio-native-tls](https://github.com/tokio-rs/tls),
 [tracing-core](https://github.com/tokio-rs/tracing),
-[tracing-futures](https://github.com/tokio-rs/tracing),
 [tracing](https://github.com/tokio-rs/tracing)
 
 ```
@@ -1886,36 +1856,6 @@ TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONIN
 THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
 CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
-```
--------------
-## MIT License: winapi
-
-The following text applies to code linked from these dependencies:
-[winapi](https://github.com/retep998/winapi-rs)
-
-```
-The MIT License (MIT)
-
-Copyright (c) 2015 Peter Atashian
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-
 ```
 -------------
 ## MIT License: winapi-util

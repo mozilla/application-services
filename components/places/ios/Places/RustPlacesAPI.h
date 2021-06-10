@@ -233,20 +233,13 @@ PlacesRustBuffer places_query_history_metadata(
                                                int32_t limit,
                                                PlacesRustError *_Nonnull out_err);
 
-char *_Nonnull places_add_history_metadata(
+void places_note_history_metadata_observation(
                                            PlacesConnectionHandle handle,
                                            uint8_t const *_Nonnull data,
                                            int32_t len,
                                            PlacesRustError *_Nonnull out_err);
 
-void places_update_history_metadata(
-                                    PlacesConnectionHandle handle,
-                                    char const *_Nonnull guid,
-                                    int32_t totalViewTime,
-                                    PlacesRustError *_Nonnull out_err);
-
 void places_metadata_delete_older_than(
                                        PlacesConnectionHandle handle,
                                        int64_t olderThan,
                                        PlacesRustError *_Nonnull out_err);
-

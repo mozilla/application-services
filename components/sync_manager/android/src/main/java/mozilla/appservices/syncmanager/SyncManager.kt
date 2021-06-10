@@ -22,18 +22,6 @@ object SyncManager {
     }
 
     /**
-     * Point the manager at the implementation of `DatabaseLoginsStorage` to use.
-     *
-     * @param loginsDbHandle A value returned by `DatabaseLoginsStorage.getHandle()`
-     * @throws [UnsupportedEngine] If the manager was not compiled with logins support.
-     */
-    fun setLogins(loginsDbHandle: Long) {
-        rustCall { err ->
-            LibSyncManagerFFI.INSTANCE.sync_manager_set_logins(loginsDbHandle, err)
-        }
-    }
-
-    /**
      * Point the manager at the implementation of `RemoteTabsProvider` to use.
      *
      * @param tabsProviderHandle A value returned by `RemoteTabsProvider.getHandle()`

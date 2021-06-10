@@ -232,7 +232,6 @@
 
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::msg_types::PasswordInfo;
 use crate::util;
 use rusqlite::Row;
 use serde_derive::*;
@@ -243,7 +242,7 @@ use url::Url;
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Default)]
 pub struct Login {
-    pub guid: Guid,
+    pub id: String,
     pub hostname: String,
     pub form_submit_url: Option<String>,
     pub http_realm: Option<String>,
@@ -333,7 +332,7 @@ impl Login {
         let p: LoginPayload = sync_payload.into_record()?;
 
         Ok(Login {
-            guid: p.guid,
+            id: p.guid.to_string(),
             hostname: p.hostname,
             form_submit_url: p.form_submit_url,
             http_realm: p.http_realm,
@@ -350,7 +349,7 @@ impl Login {
 
     pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
         Ok(sync15::Payload::from_record(LoginPayload {
-            guid: self.guid,
+            guid: self.guid(),
             hostname: self.hostname,
             form_submit_url: self.form_submit_url,
             http_realm: self.http_realm,
@@ -366,13 +365,13 @@ impl Login {
     }
 
     #[inline]
-    pub fn guid(&self) -> &Guid {
-        &self.guid
+    pub fn guid(&self) -> Guid {
+        Guid::from_string(self.id.clone())
     }
-
+    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
     #[inline]
     pub fn guid_str(&self) -> &str {
-        self.guid.as_str()
+        &self.id
     }
 
     /// Checks whether the Login is valid, without attempting to fix any fields.
@@ -465,13 +464,13 @@ impl Login {
                     if !fixup {
                         throw!($err)
                     }
-                    log::warn!("Fixing login record {}: {:?}", self.guid, $err);
+                    log::warn!("Fixing login record {}: {:?}", self.guid(), $err);
                     let fixed: Result<&mut Login> =
                         Ok(maybe_fixed.get_or_insert_with(|| self.clone()));
                     fixed
                 }
             };
-        };
+        }
 
         if self.hostname.is_empty() {
             throw!(InvalidLogin::EmptyOrigin);
@@ -587,7 +586,7 @@ impl Login {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         let login = Login {
-            guid: row.get("guid")?,
+            id: row.get("guid")?,
             password_enc: row.get("passwordEnc")?,
             username_enc: string_or_default(row, "usernameEnc")?,
 
@@ -614,44 +613,6 @@ impl Login {
     }
 }
 
-impl From<Login> for PasswordInfo {
-    fn from(login: Login) -> Self {
-        Self {
-            id: login.guid.into_string(),
-            hostname: login.hostname,
-            password: login.password_enc,
-            username: login.username_enc,
-            http_realm: login.http_realm,
-            form_submit_url: login.form_submit_url,
-            username_field: login.username_field,
-            password_field: login.password_field,
-            times_used: login.times_used,
-            time_created: login.time_created,
-            time_last_used: login.time_last_used,
-            time_password_changed: login.time_password_changed,
-        }
-    }
-}
-
-impl From<PasswordInfo> for Login {
-    fn from(info: PasswordInfo) -> Self {
-        Self {
-            guid: Guid::from_string(info.id),
-            hostname: info.hostname,
-            password_enc: info.password,
-            username_enc: info.username,
-            http_realm: info.http_realm,
-            form_submit_url: info.form_submit_url,
-            username_field: info.username_field,
-            password_field: info.password_field,
-            times_used: info.times_used,
-            time_created: info.time_created,
-            time_last_used: info.time_last_used,
-            time_password_changed: info.time_password_changed,
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {
     pub login: Login,
@@ -662,7 +623,7 @@ pub(crate) struct MirrorLogin {
 impl MirrorLogin {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        self.login.guid_str()
+        &self.login.id
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
@@ -1000,11 +961,11 @@ pub mod test_utils {
     // Factory function to make a new login
     //
     // It uses the guid to create a unique hostname/form_submit_url
-    pub fn login(guid: &str, password: &str) -> Login {
+    pub fn login(id: &str, password: &str) -> Login {
         Login {
-            guid: guid.into(),
-            form_submit_url: Some(format!("https://{}.example.com", guid)),
-            hostname: format!("https://{}.example.com", guid),
+            id: id.into(),
+            form_submit_url: Some(format!("https://{}.example.com", id)),
+            hostname: format!("https://{}.example.com", id),
             username_enc: encrypt("user"),
             password_enc: encrypt(password),
             ..Login::default()
@@ -1534,7 +1495,7 @@ mod tests {
         }))
         .unwrap();
         let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.guid, "123412341234");
+        assert_eq!(login.id, "123412341234");
         assert_eq!(login.http_realm, Some("test".to_string()));
         assert_eq!(login.hostname, "https://www.example.com");
         assert_eq!(decrypt(&login.username_enc), "user");
@@ -1544,7 +1505,7 @@ mod tests {
     #[test]
     fn test_login_into_payload() {
         let login = Login {
-            guid: "123412341234".into(),
+            id: "123412341234".into(),
             http_realm: Some("test".into()),
             hostname: "https://www.example.com".into(),
             username_enc: encrypt("user"),

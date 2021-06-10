@@ -8,9 +8,10 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
-use logins::{Login, LoginsSyncEngine, PasswordStore};
+use logins::{Login, LoginStore, LoginsSyncEngine};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::{OptionalExtension, NO_PARAMS};
+use std::sync::Arc;
 use sync15::{EngineSyncAssociation, SyncEngine};
 use sync_guid::Guid;
 
@@ -46,7 +47,7 @@ fn read_form_based_login(encdec: &EncryptorDecryptor) -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     Login {
-        guid: Guid::random(),
+        id: Guid::random().to_string(),
         username_enc: encdec.encrypt(&username).unwrap(),
         password_enc: encdec.encrypt(&password).unwrap(),
         username_field,
@@ -66,7 +67,7 @@ fn read_auth_based_login(encdec: &EncryptorDecryptor) -> Login {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     Login {
-        guid: Guid::random(),
+        id: Guid::random().into(),
         username_enc: encdec.encrypt(&username).unwrap(),
         password_enc: encdec.encrypt(&password).unwrap(),
         username_field,
@@ -182,9 +183,8 @@ fn timestamp_to_string(milliseconds: i64) -> String {
     dtl.format("%l:%M:%S %p%n%h %e, %Y").to_string()
 }
 
-fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
+fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
     use rusqlite::types::Value;
-    let conn = &s.db;
     let mut stmt = conn.prepare(sql)?;
     let cols: Vec<String> = stmt
         .column_names()
@@ -220,7 +220,7 @@ fn show_sql(s: &PasswordStore, sql: &str) -> Result<()> {
     Ok(())
 }
 
-fn show_all(store: &PasswordStore, encdec: &EncryptorDecryptor) -> Result<Vec<Guid>> {
+fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<String>> {
     let records = store.list()?;
 
     let mut table = prettytable::Table::new();
@@ -246,11 +246,11 @@ fn show_all(store: &PasswordStore, encdec: &EncryptorDecryptor) -> Result<Vec<Gu
 
     let mut v = Vec::with_capacity(records.len());
     let mut record_copy = records.clone();
-    record_copy.sort_by(|a, b| a.guid.cmp(&b.guid));
+    record_copy.sort_by_key(|a| a.guid());
     for rec in records.iter() {
         table.add_row(row![
             r->v.len(),
-            Fr->&rec.guid,
+            Fr->&rec.guid(),
             &encdec.decrypt(&rec.username_enc).unwrap(),
             Fb->&encdec.decrypt(&rec.password_enc).unwrap(),
 
@@ -270,14 +270,14 @@ fn show_all(store: &PasswordStore, encdec: &EncryptorDecryptor) -> Result<Vec<Gu
                 timestamp_to_string(rec.time_last_used)
             }
         ]);
-        v.push(rec.guid.clone());
+        v.push(rec.guid().to_string());
     }
     table.printstd();
     Ok(v)
 }
 
 fn prompt_record_id(
-    s: &PasswordStore,
+    s: &LoginStore,
     encdec: &EncryptorDecryptor,
     action: &str,
 ) -> Result<Option<String>> {
@@ -298,10 +298,10 @@ fn open_database(
     db_path: &str,
     sqlcipher_path: Option<&str>,
     sqlcipher_encryption_key: Option<&str>,
-) -> Result<(PasswordStore, EncryptorDecryptor, String)> {
+) -> Result<(LoginStore, EncryptorDecryptor, String)> {
     Ok(match (sqlcipher_path, sqlcipher_encryption_key) {
         (None, None) => {
-            let store = PasswordStore::new(db_path)?;
+            let store = LoginStore::new(db_path)?;
             // Get or create an encryption key to use
             let encryption_key = match get_encryption_key(&store) {
                 Some(s) => s,
@@ -320,7 +320,7 @@ fn open_database(
         }
         (Some(sqlcipher_path), Some(sqlcipher_encryption_key)) => {
             let encryption_key = create_key()?;
-            let (store, metrics) = PasswordStore::new_with_sqlcipher_migration(
+            let (store, metrics) = LoginStore::new_with_sqlcipher_migration(
                 db_path,
                 &encryption_key,
                 sqlcipher_path,
@@ -351,9 +351,11 @@ fn open_database(
 }
 
 // Use loginsSyncMeta as a quick and dirty solution to store the encryption key
-fn get_encryption_key(store: &PasswordStore) -> Option<String> {
+fn get_encryption_key(store: &LoginStore) -> Option<String> {
     store
         .db
+        .lock()
+        .unwrap()
         .query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = 'sync-pass-key'",
             NO_PARAMS,
@@ -363,9 +365,11 @@ fn get_encryption_key(store: &PasswordStore) -> Option<String> {
         .unwrap()
 }
 
-fn set_encryption_key(store: &PasswordStore, key: &str) -> rusqlite::Result<()> {
+fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
     store
         .db
+        .lock()
+        .unwrap()
         .execute(
             "
         INSERT INTO  loginsSyncMeta (key, value)
@@ -435,6 +439,7 @@ fn main() -> Result<()> {
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
     let (store, encdec, encryption_key) =
         open_database(db_path, sqlcipher_database_path, sqlcipher_key)?;
+    let store = Arc::new(store);
 
     log::info!("Store has {} passwords", store.list()?.len());
 
@@ -472,8 +477,8 @@ fn main() -> Result<()> {
                         log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
-                        let mut login = match store.get(&id) {
-                            Ok(Some(login)) => login,
+                        let login_record = match store.get(&id) {
+                            Ok(Some(login_record)) => login_record,
                             Ok(None) => {
                                 log::warn!("No such login!");
                                 continue
@@ -483,8 +488,8 @@ fn main() -> Result<()> {
                                 continue;
                             }
                         };
-                        update_login(&mut login, &encdec);
-                        if let Err(e) = store.update(login) {
+                        update_login(&mut login_record.clone(), &encdec);
+                        if let Err(e) = store.update(login_record) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }
@@ -493,7 +498,7 @@ fn main() -> Result<()> {
             }
             'R' | 'r' => {
                 log::info!("Resetting client.");
-                let engine = LoginsSyncEngine::new(&store);
+                let engine = LoginsSyncEngine::new(Arc::clone(&store));
                 if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                     log::warn!("Failed to reset! {}", e);
                 }
@@ -506,7 +511,13 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match store.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &encryption_key) {
+                match Arc::clone(&store).sync(
+                                    cli_fxa.client_init.key_id.clone(),
+                                    cli_fxa.client_init.access_token.clone(),
+                                    cli_fxa.root_sync_key.to_b64_array().join(","),
+                                    cli_fxa.client_init.tokenserver_url.to_string(),
+                                    encryption_key.clone(),
+                                ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                         log::warn!("BT: {:?}", e.backtrace());
@@ -553,7 +564,8 @@ fn main() -> Result<()> {
             'x' | 'X' => {
                 log::info!("Running arbitrary SQL, there's no way this could go wrong!");
                 if let Some(sql) = prompt_string("SQL (one line only, press enter when done):\n") {
-                    if let Err(e) = show_sql(&store, &sql) {
+                    let db = store.db.lock().unwrap();
+                    if let Err(e) = show_sql(&db, &sql) {
                         log::warn!("Failed to run sql query: {}", e);
                     }
                 }

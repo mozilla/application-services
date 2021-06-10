@@ -104,16 +104,6 @@ dependencies {
     testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 }
 
-// We also do the binding generation here:
-android.libraryVariants.all { variant ->
-    def uniffiGeneratedPath = "generated/source/uniffi/${variant.name}/java"
-    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
-        workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/nimbus.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/${uniffiGeneratedPath}"
-    }
-    variant.registerJavaGeneratingTask(t.get(), new File(buildDir, uniffiGeneratedPath))
-}
-
 evaluationDependsOn(":full-megazord")
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
@@ -131,4 +121,5 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
+ext.configureUniFFIBindgen("../src/nimbus.udl")
 ext.configurePublish()

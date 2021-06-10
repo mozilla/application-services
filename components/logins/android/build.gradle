@@ -5,7 +5,6 @@ plugins {
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
-apply plugin: 'com.google.protobuf'
 
 android {
     ndkVersion rootProject.ext.build.ndkVersion
@@ -34,13 +33,7 @@ android {
         // has their own build dir)
         test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
 
-        main {
-            proto {
-                srcDir '../src'
-            }
-        }
     }
-
     testOptions {
         unitTests {
             includeAndroidResources = true
@@ -78,27 +71,6 @@ configurations {
     jnaForTest
 }
 
-protobuf {
-    protoc {
-        // This is a hack for Apple M1 since protobuf does not compile for M1s yet
-        // However, M1s can just use the x86_64 just fine
-        if (osdetector.os == "osx") {
-            artifact = 'com.google.protobuf:protoc:3.11.4:osx-x86_64'
-        } else {
-            artifact = 'com.google.protobuf:protoc:3.11.4'
-        }
-    }
-    generateProtoTasks {
-        all().each { task ->
-            task.builtins {
-                java {
-                    option "lite"
-                }
-            }
-        }
-    }
-}
-
 // Needs to happen before `dependencies` in order for the variables
 // exposed by the plugin to be available for this project.
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
@@ -114,7 +86,6 @@ dependencies {
 
     implementation "org.mozilla.components:service-glean:$android_components_version"
 
-    implementation 'com.google.protobuf:protobuf-javalite:3.11.4'
     api project(":full-megazord")
     implementation project(":native-support")
 
@@ -126,7 +97,7 @@ dependencies {
     // causing it to be resolved.  Cloning first dissociates the configuration,
     // avoiding other configurations from being resolved.  Tricky!
     testImplementation files(configurations.jnaForTest.copyRecursive().files)
-    testImplementation 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13'
     testImplementation 'org.robolectric:robolectric:4.2.1'
     testImplementation 'org.mockito:mockito-core:2.21.0'
     testImplementation 'androidx.test:core-ktx:1.2.0'
@@ -154,4 +125,5 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
+ext.configureUniFFIBindgen("../src/logins.udl")
 ext.configurePublish()

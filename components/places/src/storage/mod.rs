@@ -138,12 +138,12 @@ pub fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInf
                      visit_date = h.last_visit_date_remote)) AS last_visit_id
       FROM moz_places h
       WHERE url_hash = hash(:page_url) AND url = :page_url";
-    Ok(db.try_query_row(
+    db.try_query_row(
         sql,
         &[(":page_url", &String::from(url.clone()))],
         FetchedPageInfo::from_row,
         true,
-    )?)
+    )
 }
 
 fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result<PageInfo> {
@@ -209,15 +209,14 @@ impl HistoryMetadata {
         let updated_at: Timestamp = row.get("updated_at")?;
 
         Ok(Self {
-            guid: row.get("guid")?,
             url: row.get("url")?,
             title: row.get("title")?,
             created_at: created_at.0 as i64,
             updated_at: updated_at.0 as i64,
             total_view_time: row.get("total_view_time")?,
             search_term: row.get("search_term")?,
-            is_media: row.get("is_media")?,
-            parent_url: row.get("parent_domain")?,
+            document_type: row.get("document_type")?,
+            referrer_url: row.get("referrer_url")?,
         })
     }
 }

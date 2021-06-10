@@ -410,7 +410,7 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
         num_processed,
         num_succeeded,
         num_failed,
-        total_duration: start_time.elapsed().as_millis(),
+        total_duration: start_time.elapsed().as_millis() as u64,
         errors,
         ..MigrationMetrics::default()
     })

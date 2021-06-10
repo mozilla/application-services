@@ -11,7 +11,6 @@ sync_manager = { path = ".." }
 sync15 = { path = "../../sync15" }
 ffi-support = "0.4"
 places-ffi = { path = "../../places/ffi" }
-logins_ffi = { path = "../../logins/ffi" }
 tabs_ffi = { path = "../../tabs/ffi" }
 prost = "0.6"
 log = "0.4"

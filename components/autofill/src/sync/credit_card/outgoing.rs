@@ -48,7 +48,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
             common_cols = CREDIT_CARD_COMMON_COLS,
         );
         let payload_from_data_row: &dyn Fn(&Row<'_>) -> Result<Payload> =
-            &|row| Ok(InternalCreditCard::from_row(row)?.into_payload(&self.encdec)?);
+            &|row| InternalCreditCard::from_row(row)?.into_payload(&self.encdec);
 
         let tombstones_sql = "SELECT guid FROM credit_cards_tombstones";
 

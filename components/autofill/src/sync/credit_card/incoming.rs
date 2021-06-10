@@ -77,73 +77,69 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         LEFT JOIN credit_cards_data l ON s.guid = l.guid
         LEFT JOIN credit_cards_tombstones t ON s.guid = t.guid";
 
-        Ok(tx.query_rows_and_then_named(
-            sql,
-            &[],
-            |row| -> Result<IncomingState<Self::Record>> {
-                // the 'guid' and 's_payload' rows must be non-null.
-                let guid: SyncGuid = row.get("guid")?;
-                // the incoming sync15::Payload
-                let incoming_payload = PersistablePayload::make_cc_payload(
-                    &row.get::<_, String>("s_payload")?,
-                    &self.encdec,
-                )?;
+        tx.query_rows_and_then_named(sql, &[], |row| -> Result<IncomingState<Self::Record>> {
+            // the 'guid' and 's_payload' rows must be non-null.
+            let guid: SyncGuid = row.get("guid")?;
+            // the incoming sync15::Payload
+            let incoming_payload = PersistablePayload::make_cc_payload(
+                &row.get::<_, String>("s_payload")?,
+                &self.encdec,
+            )?;
 
-                Ok(IncomingState {
-                    incoming: {
-                        if incoming_payload.is_tombstone() {
-                            IncomingRecord::Tombstone {
-                                guid: incoming_payload.id().into(),
-                            }
+            Ok(IncomingState {
+                incoming: {
+                    if incoming_payload.is_tombstone() {
+                        IncomingRecord::Tombstone {
+                            guid: incoming_payload.id().into(),
+                        }
+                    } else {
+                        IncomingRecord::Record {
+                            record: InternalCreditCard::from_payload(
+                                incoming_payload,
+                                &self.encdec,
+                            )?,
+                        }
+                    }
+                },
+                local: match row.get_unwrap::<_, Option<String>>("l_guid") {
+                    Some(l_guid) => {
+                        assert_eq!(l_guid, guid);
+                        // local record exists, check the state.
+                        let record = InternalCreditCard::from_row(row)?;
+                        if record.has_scrubbed_data() {
+                            LocalRecordInfo::Scrubbed { record }
                         } else {
-                            IncomingRecord::Record {
-                                record: InternalCreditCard::from_payload(
-                                    incoming_payload,
-                                    &self.encdec,
-                                )?,
-                            }
-                        }
-                    },
-                    local: match row.get_unwrap::<_, Option<String>>("l_guid") {
-                        Some(l_guid) => {
-                            assert_eq!(l_guid, guid);
-                            // local record exists, check the state.
-                            let record = InternalCreditCard::from_row(row)?;
-                            if record.has_scrubbed_data() {
-                                LocalRecordInfo::Scrubbed { record }
+                            let has_changes = record.metadata().sync_change_counter != 0;
+                            if has_changes {
+                                LocalRecordInfo::Modified { record }
                             } else {
-                                let has_changes = record.metadata().sync_change_counter != 0;
-                                if has_changes {
-                                    LocalRecordInfo::Modified { record }
-                                } else {
-                                    LocalRecordInfo::Unmodified { record }
-                                }
+                                LocalRecordInfo::Unmodified { record }
                             }
                         }
-                        None => {
-                            // no local record - maybe a tombstone?
-                            match row.get::<_, Option<String>>("t_guid")? {
-                                Some(t_guid) => {
-                                    assert_eq!(guid, t_guid);
-                                    LocalRecordInfo::Tombstone { guid }
-                                }
-                                None => LocalRecordInfo::Missing,
+                    }
+                    None => {
+                        // no local record - maybe a tombstone?
+                        match row.get::<_, Option<String>>("t_guid")? {
+                            Some(t_guid) => {
+                                assert_eq!(guid, t_guid);
+                                LocalRecordInfo::Tombstone { guid }
                             }
+                            None => LocalRecordInfo::Missing,
                         }
-                    },
-                    mirror: {
-                        match row.get::<_, Option<String>>("m_payload")? {
-                            Some(m_payload) => {
-                                let payload =
-                                    PersistablePayload::make_cc_payload(&m_payload, &self.encdec)?;
-                                Some(InternalCreditCard::from_payload(payload, &self.encdec)?)
-                            }
-                            None => None,
+                    }
+                },
+                mirror: {
+                    match row.get::<_, Option<String>>("m_payload")? {
+                        Some(m_payload) => {
+                            let payload =
+                                PersistablePayload::make_cc_payload(&m_payload, &self.encdec)?;
+                            Some(InternalCreditCard::from_payload(payload, &self.encdec)?)
                         }
-                    },
-                })
-            },
-        )?)
+                        None => None,
+                    }
+                },
+            })
+        })
     }
 
     /// Returns a local record that has the same values as the given incoming record (with the exception
@@ -153,7 +149,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         &self,
         tx: &Transaction<'_>,
         incoming: &Self::Record,
-    ) -> Result<Option<(SyncGuid, Self::Record)>> {
+    ) -> Result<Option<Self::Record>> {
         let sql = format!("
             SELECT
                 {common_cols},
@@ -194,7 +190,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc)?;
         for record in records {
             if self.encdec.decrypt(&record.cc_number_enc)? == incoming_cc_number {
-                return Ok(Some((incoming.guid.clone(), record)));
+                return Ok(Some(record));
             }
         }
         Ok(None)
@@ -465,9 +461,50 @@ mod tests {
         // change the incoming guid so we don't immediately think they are the same.
         incoming_record.guid = SyncGuid::random();
 
-        // expect `Ok(Some(guid, record))`
+        // expect `Ok(Some(record))`
         let dupe = ci.get_local_dupe(&tx, &incoming_record).unwrap().unwrap();
-        assert_eq!(dupe.0, incoming_record.guid);
-        assert_eq!(dupe.1.guid, local_guid);
+        assert_eq!(dupe.guid, local_guid);
+    }
+
+    // largely the same test as above, but going through the entire plan + apply
+    // cycle.
+    #[test]
+    fn test_find_dupe_applied() {
+        let mut db = new_syncable_mem_db();
+        let tx = db.transaction().expect("should get tx");
+        let encdec = EncryptorDecryptor::new_test_key();
+        let ci = IncomingCreditCardsImpl { encdec };
+        let local_record = test_record('C', &ci.encdec);
+        let local_guid = local_record.guid.clone();
+        ci.insert_local_record(&tx, local_record.clone()).unwrap();
+
+        // Now the same record incoming, but with a different guid. It should
+        // find the local one we just added above as a dupe.
+        let incoming_guid = SyncGuid::new(&expand_test_guid('I'));
+        let mut incoming = local_record;
+        incoming.guid = incoming_guid.clone();
+
+        let incoming_state = IncomingState {
+            incoming: IncomingRecord::Record { record: incoming },
+            // LocalRecordInfo::Missing because we don't have a local record with
+            // the incoming GUID.
+            local: LocalRecordInfo::Missing,
+            mirror: None,
+        };
+
+        let incoming_action =
+            crate::sync::plan_incoming(&ci, &tx, incoming_state).expect("should get action");
+        // We should have found the local as a dupe.
+        assert!(
+            matches!(incoming_action, crate::sync::IncomingAction::UpdateLocalGuid { ref old_guid, record: ref incoming } if *old_guid == local_guid && incoming.guid == incoming_guid)
+        );
+
+        // and apply it.
+        crate::sync::apply_incoming_action(&ci, &tx, incoming_action).expect("should apply");
+
+        // and the local record should now have the incoming guid.
+        tx.commit().expect("should commit");
+        assert!(get_credit_card(&db.writer, &local_guid).is_err());
+        assert!(get_credit_card(&db.writer, &incoming_guid).is_ok());
     }
 }

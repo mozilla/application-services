@@ -110,24 +110,24 @@ impl PlacesDb {
         api_id: usize,
         coop_tx_lock: Arc<Mutex<()>>,
     ) -> Result<Self> {
-        Ok(Self::with_connection(
+        Self::with_connection(
             Connection::open_with_flags(path, conn_type.rusqlite_flags())?,
             conn_type,
             api_id,
             coop_tx_lock,
-        )?)
+        )
     }
 
     #[cfg(test)]
     // Useful for some tests (although most tests should use helper functions
     // in api::places_api::test)
     pub fn open_in_memory(conn_ty: ConnectionType) -> Result<Self> {
-        Ok(Self::with_connection(
+        Self::with_connection(
             Connection::open_in_memory()?,
             conn_ty,
             0,
             Arc::new(Mutex::new(())),
-        )?)
+        )
     }
 
     pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {

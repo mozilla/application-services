@@ -5,7 +5,6 @@
 use crate::error::*;
 use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
-use logins::PasswordStore;
 use places::{
     bookmark_sync::engine::BookmarksEngine, history_sync::engine::HistoryEngine, PlacesApi,
 };
@@ -40,7 +39,6 @@ const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
     places: Weak<PlacesApi>,
-    logins: Weak<Mutex<PasswordStore>>,
     tabs: Weak<Mutex<TabsStore>>,
 }
 
@@ -55,7 +53,6 @@ impl SyncManager {
         Self {
             mem_cached_state: None,
             places: Weak::new(),
-            logins: Weak::new(),
             tabs: Weak::new(),
         }
     }
@@ -64,43 +61,25 @@ impl SyncManager {
         self.places = Arc::downgrade(&places);
     }
 
-    pub fn set_logins(&mut self, logins: Arc<Mutex<PasswordStore>>) {
-        self.logins = Arc::downgrade(&logins);
-    }
-
     pub fn set_tabs(&mut self, tabs: Arc<Mutex<TabsStore>>) {
         self.tabs = Arc::downgrade(&tabs);
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        let cell = autofill::STORE_FOR_MANAGER.lock().unwrap();
-        // The cell holds a `Weak` - borrow it (which is safe as we have the
-        // mutex) and upgrade it to a real Arc.
-        let r = cell.borrow();
-        match r.upgrade() {
-            None => None,
-            Some(arc) => match engine {
-                "addresses" => Some(Box::new(autofill::sync::address::create_engine(arc))),
-                "creditcards" => Some(Box::new(autofill::sync::credit_card::create_engine(arc))),
-                _ => unreachable!("can't process unknown engine: {}", engine),
-            },
-        }
+        autofill::get_registered_sync_engine(engine)
+    }
+
+    pub fn logins_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
+        logins::get_registered_sync_engine(engine)
     }
 
     pub fn wipe(&mut self, engine: &str) -> Result<()> {
         match engine {
             "logins" => {
-                if let Some(logins) = self
-                    .logins
-                    .upgrade()
-                    .as_ref()
-                    .map(|l| l.lock().expect("poisoned logins mutex"))
-                {
-                    logins.wipe()?;
-                    Ok(())
-                } else {
-                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                if let Some(engine) = Self::logins_engine(engine) {
+                    engine.wipe()?;
                 }
+                Ok(())
             }
             "bookmarks" => {
                 if let Some(places) = self.places.upgrade() {
@@ -130,19 +109,6 @@ impl SyncManager {
 
     pub fn reset(&mut self, engine: &str) -> Result<()> {
         match engine {
-            "logins" => {
-                if let Some(logins) = self
-                    .logins
-                    .upgrade()
-                    .as_ref()
-                    .map(|l| l.lock().expect("poisoned logins mutex"))
-                {
-                    logins.reset()?;
-                    Ok(())
-                } else {
-                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
-                }
-            }
             "bookmarks" | "history" => {
                 if let Some(places) = self.places.upgrade() {
                     if engine == "bookmarks" {
@@ -161,19 +127,17 @@ impl SyncManager {
                 }
                 Ok(())
             }
+            "logins" => {
+                if let Some(engine) = Self::logins_engine(engine) {
+                    engine.reset(&EngineSyncAssociation::Disconnected)?;
+                }
+                Ok(())
+            }
             _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
         }
     }
 
     pub fn reset_all(&mut self) -> Result<()> {
-        if let Some(logins) = self
-            .logins
-            .upgrade()
-            .as_ref()
-            .map(|l| l.lock().expect("poisoned logins mutex"))
-        {
-            logins.reset()?;
-        }
         if let Some(places) = self.places.upgrade() {
             places.reset_bookmarks()?;
             places.reset_history()?;
@@ -188,19 +152,6 @@ impl SyncManager {
     }
 
     pub fn disconnect(&mut self) {
-        if let Some(logins) = self
-            .logins
-            .upgrade()
-            .as_ref()
-            .map(|l| l.lock().expect("poisoned logins mutex"))
-        {
-            if let Err(e) = logins.reset() {
-                log::error!("Failed to reset logins: {}", e);
-            }
-        } else {
-            log::warn!("Unable to reset logins, be sure to call set_logins before disconnect if this is surprising");
-        }
-
         if let Some(places) = self.places.upgrade() {
             if let Err(e) = places.reset_bookmarks() {
                 log::error!("Failed to reset bookmarks: {}", e);
@@ -225,13 +176,20 @@ impl SyncManager {
         } else {
             log::warn!("Unable to reset credit cards, be sure to call register_with_sync_manager before disconnect if this is surprising");
         }
+        if let Some(logins) = Self::logins_engine("logins") {
+            if let Err(e) = logins.reset(&EngineSyncAssociation::Disconnected) {
+                log::error!("Failed to reset logins: {}", e);
+            }
+        } else {
+            log::warn!("Unable to reset logins, be sure to call register_with_sync_manager before disconnect if this is surprising");
+        }
     }
 
     pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
         let mut have_engines = vec![];
         let places = self.places.upgrade();
         let tabs = self.tabs.upgrade();
-        let logins = self.logins.upgrade();
+        let logins = Self::logins_engine("logins");
         let addresses = Self::autofill_engine("addresses");
         let credit_cards = Self::autofill_engine("creditcards");
         if places.is_some() {
@@ -280,8 +238,8 @@ impl SyncManager {
 
     fn do_sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
         let mut places = self.places.upgrade();
-        let logins = self.logins.upgrade();
         let tabs = self.tabs.upgrade();
+        let logins = Self::logins_engine("logins");
         let addresses = Self::autofill_engine("addresses");
         let credit_cards = Self::autofill_engine("creditcards");
 
@@ -304,16 +262,12 @@ impl SyncManager {
         } else {
             None
         };
-        let ls = if logins_sync {
-            logins.as_ref().map(|l| l.lock().expect("poisoned mutex"))
-        } else {
-            None
-        };
         let ts = if tabs_sync {
             tabs.as_ref().map(|t| t.lock().expect("poisoned mutex"))
         } else {
             None
         };
+        let ls = if logins_sync { logins } else { None };
         let ads = if addresses_sync { addresses } else { None };
         let cs = if credit_cards_sync {
             credit_cards
@@ -344,9 +298,8 @@ impl SyncManager {
             }
         }
 
-        if let Some(le) = ls.as_ref() {
-            assert!(logins_sync, "Should have already checked");
-            engines.push(Box::new(logins::LoginsSyncEngine::new(&le)));
+        if let Some(logins) = ls {
+            engines.push(logins);
         }
 
         if let Some(tbs) = ts.as_ref() {

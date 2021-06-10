@@ -5,27 +5,45 @@ use crate::db::{LoginDb, MigrationMetrics};
 use crate::error::*;
 use crate::login::Login;
 use crate::LoginsSyncEngine;
-use std::cell::Cell;
 use std::path::Path;
-use sync15::{
-    sync_multiple, telemetry, EngineSyncAssociation, KeyBundle, MemoryCachedState,
-    Sync15StorageClientInit, SyncEngine,
-};
+use std::sync::{Arc, Mutex, Weak};
+use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine};
 
-// This store is a bundle of state to manage the login DB and to help the
-// SyncEngine.
-pub struct PasswordStore {
-    pub db: LoginDb,
-    pub mem_cached_state: Cell<MemoryCachedState>,
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the inner stuff - needed
+    //        to wrap the RefCell as they aren't `Sync`
+    static ref STORE_FOR_MANAGER: Mutex<Weak<LoginStore>> = Mutex::new(Weak::new());
 }
 
-impl PasswordStore {
+/// Called by the sync manager to get a sync engine via the store previously
+/// registered with the sync manager.
+pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+    let weak = STORE_FOR_MANAGER.lock().unwrap();
+    match weak.upgrade() {
+        None => None,
+        Some(store) => match name {
+            "logins" => Some(Box::new(LoginsSyncEngine::new(Arc::clone(&store)))),
+            // panicing here seems reasonable - it's a static error if this
+            // it hit, not something that runtime conditions can influence.
+            _ => unreachable!("can't provide unknown engine: {}", name),
+        },
+    }
+}
+
+pub struct LoginStore {
+    pub db: Mutex<LoginDb>,
+}
+
+impl LoginStore {
     pub fn new(path: impl AsRef<Path>) -> Result<Self> {
-        let db = LoginDb::open(path)?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
+        let db = Mutex::new(LoginDb::open(path)?);
+        Ok(Self { db })
+    }
+
+    pub fn new_in_memory() -> Result<Self> {
+        let db = Mutex::new(LoginDb::open_in_memory()?);
+        Ok(Self { db })
     }
 
     pub fn new_with_sqlcipher_migration(
@@ -42,45 +60,34 @@ impl PasswordStore {
             sqlcipher_key,
             salt,
         )?;
-        Ok((
-            Self {
-                db,
-                mem_cached_state: Cell::default(),
-            },
-            metrics,
-        ))
-    }
-
-    pub fn new_in_memory() -> Result<Self> {
-        let db = LoginDb::open_in_memory()?;
-        Ok(Self {
-            db,
-            mem_cached_state: Cell::default(),
-        })
+        Ok((Self { db: Mutex::new(db) }, metrics))
     }
 
     pub fn list(&self) -> Result<Vec<Login>> {
-        self.db.get_all()
+        self.db.lock().unwrap().get_all()
     }
 
     pub fn get(&self, id: &str) -> Result<Option<Login>> {
-        self.db.get_by_id(id)
+        self.db.lock().unwrap().get_by_id(id)
     }
 
     pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
-        self.db.get_by_base_domain(base_domain)
+        self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
     pub fn potential_dupes_ignoring_username(&self, login: Login) -> Result<Vec<Login>> {
-        self.db.potential_dupes_ignoring_username(&login)
+        self.db
+            .lock()
+            .unwrap()
+            .potential_dupes_ignoring_username(&login)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
-        self.db.touch(id)
+        self.db.lock().unwrap().touch(id)
     }
 
     pub fn delete(&self, id: &str) -> Result<bool> {
-        self.db.delete(id)
+        self.db.lock().unwrap().delete(id)
     }
 
     pub fn wipe(&self) -> Result<()> {
@@ -89,66 +96,77 @@ impl PasswordStore {
         // sense though.
         // TODO: this is exposed to android-components consumers - we should
         // check if anyone actually calls it.
-        let scope = self.db.begin_interrupt_scope();
-        self.db.wipe(&scope)?;
+        let db = self.db.lock().unwrap();
+        let scope = db.begin_interrupt_scope();
+        db.wipe(&scope)?;
         Ok(())
     }
 
     pub fn wipe_local(&self) -> Result<()> {
-        self.db.wipe_local()?;
+        self.db.lock().unwrap().wipe_local()?;
         Ok(())
     }
 
-    pub fn reset(&self) -> Result<()> {
+    pub fn reset(self: Arc<Self>) -> Result<()> {
         // Reset should not exist here - all resets should be done via the
         // sync manager. It seems that actual consumers don't use this, but
         // some tests do, so it remains for now.
-        let engine = LoginsSyncEngine::new(&self);
+        let engine = LoginsSyncEngine::new(Arc::clone(&self));
         engine.do_reset(&EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
     pub fn update(&self, login: Login) -> Result<()> {
-        self.db.update(login)
+        self.db.lock().unwrap().update(login)
     }
 
     pub fn add(&self, login: Login) -> Result<String> {
         // Just return the record's ID (which we may have generated).
-        self.db.add(login).map(|record| record.guid.into_string())
+        self.db
+            .lock()
+            .unwrap()
+            .add(login)
+            .map(|record| record.guid().into_string())
     }
 
-    pub fn import_multiple(&self, logins: &[Login]) -> Result<MigrationMetrics> {
-        self.db.import_multiple(logins)
+    pub fn import_multiple(&self, logins: Vec<Login>) -> Result<String> {
+        let metrics = self.db.lock().unwrap().import_multiple(&logins)?;
+        Ok(serde_json::to_string(&metrics)?)
     }
 
-    // This is basically exposed just for sync_pass_sql, but it doesn't seem
-    // unreasonable.
-    pub fn conn(&self) -> &rusqlite::Connection {
-        &self.db.db
-    }
-
-    pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
-        self.db.new_interrupt_handle()
+    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
+        self.db.lock().unwrap().check_valid_with_no_dupes(&login)
     }
 
     /// A convenience wrapper around sync_multiple.
+    // Unfortunately, iOS still uses this until they use the sync manager
     // This can almost die later - consumers should never call it (they should
     // use the sync manager) and any of our examples probably can too!
     // Once this dies, `mem_cached_state` can die too.
     pub fn sync(
-        &self,
-        storage_init: &Sync15StorageClientInit,
-        root_sync_key: &KeyBundle,
-        local_encryption_key: &str,
-    ) -> Result<telemetry::SyncTelemetryPing> {
-        let mut engine = LoginsSyncEngine::new(&self);
-        let mut disk_cached_state = engine.get_global_state()?;
-        let mut mem_cached_state = self.mem_cached_state.take();
-        // TODO-sqlcipher: unwrap() is not right here, but the above comment makes me think we
-        // should not worry about this too much yet.
+        self: Arc<Self>,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: String,
+        local_encryption_key: String,
+    ) -> Result<String> {
+        let mut engine = LoginsSyncEngine::new(Arc::clone(&self));
         engine
-            .set_local_encryption_key(local_encryption_key)
+            .set_local_encryption_key(&local_encryption_key)
             .unwrap();
+
+        // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
+        // Below was ported from the "C" ffi code that does essentially the same thing
+        let storage_init = &sync15::Sync15StorageClientInit {
+            key_id,
+            access_token,
+            tokenserver_url: url::Url::parse(tokenserver_url.as_str())?,
+        };
+        let root_sync_key = &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?;
+
+        let mut disk_cached_state = engine.get_global_state()?;
+        let mut mem_cached_state = MemoryCachedState::default();
 
         let mut result = sync_multiple(
             &[&engine],
@@ -171,13 +189,29 @@ impl PasswordStore {
             return Err(e.into());
         }
         match result.engine_results.remove("passwords") {
-            None | Some(Ok(())) => Ok(result.telemetry),
+            None | Some(Ok(())) => Ok(serde_json::to_string(&result.telemetry).unwrap()),
             Some(Err(e)) => Err(e.into()),
         }
     }
 
-    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
-        self.db.check_valid_with_no_dupes(login)
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(self: Arc<Self>) {
+        let mut state = STORE_FOR_MANAGER.lock().unwrap();
+        *state = Arc::downgrade(&self);
+    }
+
+    // this isn't exposed by uniffi - currently the
+    // only consumer of this is our "example" (and hence why they
+    // are `pub` and not `pub(crate)`).
+    // We could probably make the example work with the sync manager - but then
+    // our example would link with places and logins etc, and it's not a big
+    // deal really.
+    pub fn create_logins_sync_engine(self: Arc<Self>) -> Box<dyn SyncEngine> {
+        Box::new(LoginsSyncEngine::new(self))
     }
 }
 
@@ -186,11 +220,11 @@ mod test {
     use super::*;
     use crate::util;
     use more_asserts::*;
+    use std::cmp::Reverse;
     use std::time::SystemTime;
-    use sync_guid::Guid;
     // Doesn't check metadata fields
     fn assert_logins_equiv(a: &Login, b: &Login) {
-        assert_eq!(b.guid, a.guid);
+        assert_eq!(b.guid(), a.guid());
         assert_eq!(b.hostname, a.hostname);
         assert_eq!(b.form_submit_url, a.form_submit_url);
         assert_eq!(b.http_realm, a.http_realm);
@@ -202,13 +236,13 @@ mod test {
 
     #[test]
     fn test_general() {
-        let store = PasswordStore::new_in_memory().unwrap();
+        let store = LoginStore::new_in_memory().unwrap();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
         let a = Login {
-            guid: "aaaaaaaaaaaa".into(),
+            id: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
             form_submit_url: Some("https://www.example.com".into()),
             username_enc: "coolperson21".into(),
@@ -226,13 +260,12 @@ mod test {
             password_enc: "fdsa".into(),
             ..Login::default()
         };
-
         let a_id = store.add(a.clone()).expect("added a");
         let b_id = store.add(b.clone()).expect("added b");
 
-        assert_eq!(a_id, a.guid);
+        assert_eq!(a_id, a.guid());
 
-        assert_ne!(b_id, b.guid, "Should generate guid when none provided");
+        assert_ne!(b_id, b.guid(), "Should generate guid when none provided");
 
         let a_from_db = store
             .get(&a_id)
@@ -253,7 +286,7 @@ mod test {
         assert_logins_equiv(
             &b_from_db,
             &Login {
-                guid: Guid::from(b_id.as_str()),
+                id: b_id.to_string(),
                 ..b.clone()
             },
         );
@@ -267,8 +300,8 @@ mod test {
 
         let mut expect = vec![a_from_db, b_from_db.clone()];
 
-        list.sort_by(|a, b| b.guid.cmp(&a.guid));
-        expect.sort_by(|a, b| b.guid.cmp(&a.guid));
+        list.sort_by_key(|b| Reverse(b.guid()));
+        expect.sort_by_key(|b| Reverse(b.guid()));
         assert_eq!(list, expect);
 
         store.delete(&a_id).expect("Successful delete");
@@ -295,7 +328,7 @@ mod test {
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = Login {
             password_enc: "newpass".into(),
-            guid: Guid::from(b_id.as_str()),
+            id: b_id.to_string(),
             ..b
         };
 
@@ -314,10 +347,33 @@ mod test {
         // Should be two even though we updated twice
         assert_eq!(b_after_update.times_used, 2);
     }
+
+    #[test]
+    fn test_sync_manager_registration() {
+        let store = Arc::new(LoginStore::new_in_memory().unwrap());
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 0);
+        Arc::clone(&store).register_with_sync_manager();
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        let registered = STORE_FOR_MANAGER
+            .lock()
+            .unwrap()
+            .upgrade()
+            .expect("should upgrade");
+        assert!(Arc::ptr_eq(&store, &registered));
+        drop(registered);
+        // should be no new references
+        assert_eq!(Arc::strong_count(&store), 1);
+        assert_eq!(Arc::weak_count(&store), 1);
+        // dropping the registered object should drop the registration.
+        drop(store);
+        assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
+    }
 }
 
 #[test]
 fn test_send() {
     fn ensure_send<T: Send>() {}
-    ensure_send::<PasswordStore>();
+    ensure_send::<LoginStore>();
 }

@@ -107,7 +107,7 @@ pub fn create_context_by_sym_key(
     sym_key: &SymKey,
 ) -> Result<Context> {
     ensure_nss_initialized();
-    let mut param = nss_sys::SECItem {
+    let param = nss_sys::SECItem {
         type_: nss_sys::SECItemType::siBuffer as u32,
         data: ptr::null_mut(),
         len: 0,
@@ -117,7 +117,7 @@ pub fn create_context_by_sym_key(
             mechanism,
             operation,
             sym_key.as_mut_ptr(),
-            &mut param,
+            &param,
         ))
     }
 }

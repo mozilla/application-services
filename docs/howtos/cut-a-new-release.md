@@ -1,39 +1,38 @@
 # Application Services Release Process
 
 ## Make a new release from latest main.
+1. Create a release commit.
+    - **Automated process:** run the `./automation/prepare-release.py` script to create a release commit and open a pull-request.
+    - **Manual process:** if the automated process above fails, refer to the [Create a release commit manually](#create-a-release-commit-manually) section.
 
-1. Smoketest whether the release will integrate cleanly with key downstream consumers:
-    - Run the `./automation/smoke-test-firefox-ios.py` script to test integration with Firefox for iOS.
-    - Run the `./automation/smoke-test-android-components.py` script to test integration with Android Components.
-    - Run the `./automation/smoke-test-fenix.py` script to test integration with Fenix
-    - Build and run the [sync sample app](https://github.com/mozilla-mobile/android-components/tree/master/samples/sync) in android-components
-      against your local checkout using the [local publishing flow](./locally-published-components-in-fenix.md).
-
-    If these tests fail, it indicates a breaking change. Check that such a change is called out
-    in the changelog, and file downstream bugs to track the work of integrating it.
-2. Run the `./automation/prepare-release.py` script to create a release commit and open a pull-request. If this script does not work for you, please refer to the "Create a release commit manually" section in this document.
-3. Cut the actual release.
+    **Note:** Because the release commit must be on the main branch, your PR will need to be approved, CI successful, and merged before a release can be cut.
+2. Cut the actual release.
     1. Click "Releases", and then "Draft a New Release" in the github UI.
     2. Enter `v<myversion>` as the tag. It's important this is the same as the tags that are in the changelog.
     3. Under the description, paste the contents of the release notes from CHANGELOG.md.
     4. Note that the release is not avaliable until the taskcluster build completes for that tag.
         - Finding this out takes a little navigation in the github UI. It's available at `https://github.com/mozilla/application-services/commits/v<VERSION NUMBER>` in the build status info (the emoji) next to the last commit.
         - If the taskcluster tag and/or release tasks fail, ping someone in slack and we'll figure out what to do.
-4. If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
-    1. If necessary, set up for performing iOS builds using `./libs/verify-ios-environment.sh`.
-    2. Run `./build-carthage.sh` in the root of the repository.
-    3. Upload the resulting `MozillaAppServices.framework.zip` as an attachment on the github release.
-5. In order for consumers to have access, we need to update in [android-components](https://github.com/mozilla-mobile/android-components).
+    5. Click "Publish Release".
+3. Inform consumers that the new release is available so that [android-components](https://github.com/mozilla-mobile/android-components) can be updated. If you will be creating the update, do the following:
     1. If the changes expose new functionality, or otherwise require changes to code or documentation in https://github.com/mozilla-mobile/android-components, perform those. This part is often done at the same time as the changes in application-services, to avoid being blocked on steps 3-4 of this document.
     2. Change the versions of our dependencies in [buildSrc/src/main/java/Dependencies.kt](https://github.com/mozilla-mobile/android-components/blob/master/buildSrc/src/main/java/Dependencies.kt).
     3. Note the relevant changes in their [docs/changelog.md](https://github.com/mozilla-mobile/android-components/blob/master/docs/changelog.md), and update the application-services version there as well in their list of dependency versions.
     4. **_Important: Manually test the changes versus the samples in android-components._**
         - We do not have automated test coverage for much of the network functionality at this point, so this is crucial.
-        - You can do this using the smoketest instructions in step (1) above.
-
+        - You can do this using the smoketest instructions below.
+            **Note:** iOS smoke tests can only be run on macs.
+            - Run the `./automation/smoke-test-firefox-ios.py` script to test integration with Firefox for iOS.
+            - Run the `./automation/smoke-test-android-components.py` script to test integration with Android Components.
+            - Run the `./automation/smoke-test-fenix.py` script to test integration with Fenix.
     5. Get it PRed and landed.
 
+**Note:** If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:
+    1. If necessary, set up for performing iOS builds using `./libs/verify-ios-environment.sh`.
+    2. Run `./build-carthage.sh` in the root of the repository.
+    3. Upload the resulting `MozillaAppServices.framework.zip` as an attachment on the github release.
 
+---
 ## Make a new point-release from an existing release that is behind latest main.
 
 1. If necessary, make a new branch named `release-vXX` which will be used for all point-releases on the `vXX.YY.ZZ`
@@ -42,9 +41,7 @@
     git checkout -b release-v72 v72.1.0
     git push -u origin release-v72
     ```
-2. Make a new branch with any fixes to be included in the release, *remembering not to make any breaking API
-   changes.*. This may involve cherry-picking fixes from main, or developing a new fix directly against the
-   branch. Example:
+2. Make a new branch with any fixes to be included in the release, *remembering not to make any breaking API changes.*. This may involve cherry-picking fixes from main, or developing a new fix directly against the branch. Example:
     ```
     git checkout -b fixes-for-v72.1.1 release-v72
     git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
@@ -66,7 +63,8 @@
     * This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
       and also helps ensure that every release has an easily-discoverable changelog entry in main.
 
-## Create a release commit manually
+---
+### Create a release commit manually
 
 1. Update the changelog.
     1. Copy the contents from `CHANGES_UNRELEASED.md` into the top of `CHANGELOG.md`, except for the part that links to this document.

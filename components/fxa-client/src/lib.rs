@@ -104,7 +104,9 @@ pub enum FxaError {
 /// account and accessing other services on behalf of the user.
 ///
 pub struct FirefoxAccount {
-    internal: internal::FirefoxAccount,
+    // For now, we serialize all access on a single `Mutex` for thread safety across
+    // the FFI. We should make the locking more granular in future.
+    internal: std::sync::Mutex<internal::FirefoxAccount>,
 }
 
 /// # Constructors and state management
@@ -148,12 +150,12 @@ impl FirefoxAccount {
         token_server_url_override: &Option<String>,
     ) -> FirefoxAccount {
         FirefoxAccount {
-            internal: internal::FirefoxAccount::new(
+            internal: std::sync::Mutex::new(internal::FirefoxAccount::new(
                 content_url,
                 client_id,
                 redirect_uri,
                 token_server_url_override.as_deref(),
-            ),
+            )),
         }
     }
 
@@ -169,7 +171,7 @@ impl FirefoxAccount {
     ///
     pub fn from_json(data: &str) -> Result<FirefoxAccount, FxaError> {
         Ok(FirefoxAccount {
-            internal: internal::FirefoxAccount::from_json(data)?,
+            internal: std::sync::Mutex::new(internal::FirefoxAccount::from_json(data)?),
         })
     }
 
@@ -186,7 +188,7 @@ impl FirefoxAccount {
     /// data in a secure fashion, as appropriate for their target platform.
     ///
     pub fn to_json(&self) -> Result<String, FxaError> {
-        Ok(self.internal.to_json()?)
+        Ok(self.internal.lock().unwrap().to_json()?)
     }
 }
 
@@ -236,7 +238,7 @@ impl FirefoxAccount {
     ///       - These will be included as query parameters in the resulting URL.
     ///
     pub fn begin_oauth_flow(
-        &mut self,
+        &self,
         scopes: &[String],
         entrypoint: &str,
         metrics: Option<MetricsParams>,
@@ -245,6 +247,8 @@ impl FirefoxAccount {
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
         Ok(self
             .internal
+            .lock()
+            .unwrap()
             .begin_oauth_flow(&scopes, entrypoint, metrics)?)
     }
 
@@ -255,8 +259,8 @@ impl FirefoxAccount {
     /// so will trigger the other device to show a QR code to be scanned, and the result
     /// from said QR code can be passed to [`begin_pairing_flow`](FirefoxAccount::begin_pairing_flow).
     ///
-    pub fn get_pairing_authority_url(&mut self) -> Result<String, FxaError> {
-        Ok(self.internal.get_pairing_authority_url()?)
+    pub fn get_pairing_authority_url(&self) -> Result<String, FxaError> {
+        Ok(self.internal.lock().unwrap().get_pairing_authority_url()?)
     }
 
     /// Initiate a device-pairing sign-in flow.
@@ -284,7 +288,7 @@ impl FirefoxAccount {
     ///       - These will be included as query parameters in the resulting URL.
     ///
     pub fn begin_pairing_flow(
-        &mut self,
+        &self,
         pairing_url: &str,
         scopes: &[String],
         entrypoint: &str,
@@ -292,9 +296,12 @@ impl FirefoxAccount {
     ) -> Result<String, FxaError> {
         // UniFFI can't represent `&[&str]` yet, so convert it internally here.
         let scopes = scopes.iter().map(String::as_str).collect::<Vec<_>>();
-        Ok(self
-            .internal
-            .begin_pairing_flow(pairing_url, &scopes, entrypoint, metrics)?)
+        Ok(self.internal.lock().unwrap().begin_pairing_flow(
+            pairing_url,
+            &scopes,
+            entrypoint,
+            metrics,
+        )?)
     }
 
     /// Complete an OAuth flow.
@@ -311,8 +318,12 @@ impl FirefoxAccount {
     ///   - `code` - the OAuth authorization code obtained from the redirect URI.
     ///   - `state` - the OAuth state parameter obtained from the redirect URI.
     ///
-    pub fn complete_oauth_flow(&mut self, code: &str, state: &str) -> Result<(), FxaError> {
-        Ok(self.internal.complete_oauth_flow(code, state)?)
+    pub fn complete_oauth_flow(&self, code: &str, state: &str) -> Result<(), FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .complete_oauth_flow(code, state)?)
     }
 
     /// Check authorization status for this application.
@@ -323,8 +334,13 @@ impl FirefoxAccount {
     /// of their authentication tokens. It returns an [`AuthorizationInfo`] struct
     /// with details about whether the tokens are still active.
     ///
-    pub fn check_authorization_status(&mut self) -> Result<AuthorizationInfo, FxaError> {
-        Ok(self.internal.check_authorization_status()?.into())
+    pub fn check_authorization_status(&self) -> Result<AuthorizationInfo, FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .check_authorization_status()?
+            .into())
     }
 
     /// Disconnect from the user's account.
@@ -340,8 +356,8 @@ impl FirefoxAccount {
     /// the user to reconnnect to their account. If reconnecting to the same account
     /// is not desired then the application should discard the persisted account state.
     ///
-    pub fn disconnect(&mut self) {
-        self.internal.disconnect()
+    pub fn disconnect(&self) {
+        self.internal.lock().unwrap().disconnect()
     }
 }
 
@@ -371,8 +387,13 @@ impl FirefoxAccount {
     ///    - If there is no signed-in user, this method will throw an
     ///      [`Authentication`](FxaError::Authentication) error.
     ///
-    pub fn get_profile(&mut self, ignore_cache: bool) -> Result<Profile, FxaError> {
-        Ok(self.internal.get_profile(ignore_cache)?.into())
+    pub fn get_profile(&self, ignore_cache: bool) -> Result<Profile, FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .get_profile(ignore_cache)?
+            .into())
     }
 }
 
@@ -415,7 +436,7 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
     pub fn initialize_device(
-        &mut self,
+        &self,
         name: &str,
         device_type: DeviceType,
         supported_capabilities: Vec<DeviceCapability>,
@@ -423,9 +444,11 @@ impl FirefoxAccount {
         // UniFFI doesn't have good handling of lists of references, work around it.
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
-        Ok(self
-            .internal
-            .initialize_device(name, device_type.into(), &supported_capabilities)?)
+        Ok(self.internal.lock().unwrap().initialize_device(
+            name,
+            device_type.into(),
+            &supported_capabilities,
+        )?)
     }
 
     /// Get the device id registered for this application.
@@ -438,8 +461,8 @@ impl FirefoxAccount {
     ///    - Device metadata is only visible to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
-    pub fn get_current_device_id(&mut self) -> Result<String, FxaError> {
-        Ok(self.internal.get_current_device_id()?)
+    pub fn get_current_device_id(&self) -> Result<String, FxaError> {
+        Ok(self.internal.lock().unwrap().get_current_device_id()?)
     }
 
     /// Get the list of devices registered on the user's account.
@@ -460,9 +483,11 @@ impl FirefoxAccount {
     ///    - Device metadata is only visible to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
-    pub fn get_devices(&mut self, ignore_cache: bool) -> Result<Vec<Device>, FxaError> {
+    pub fn get_devices(&self, ignore_cache: bool) -> Result<Vec<Device>, FxaError> {
         Ok(self
             .internal
+            .lock()
+            .unwrap()
             .get_devices(ignore_cache)?
             .into_iter()
             .map(TryInto::try_into)
@@ -484,9 +509,11 @@ impl FirefoxAccount {
     ///    - Attached client metadata is only visible to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
-    pub fn get_attached_clients(&mut self) -> Result<Vec<AttachedClient>, FxaError> {
+    pub fn get_attached_clients(&self) -> Result<Vec<AttachedClient>, FxaError> {
         Ok(self
             .internal
+            .lock()
+            .unwrap()
             .get_attached_clients()?
             .into_iter()
             .map(TryInto::try_into)
@@ -509,8 +536,12 @@ impl FirefoxAccount {
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
-    pub fn set_device_name(&mut self, display_name: &str) -> Result<(), FxaError> {
-        Ok(self.internal.set_device_name(display_name)?)
+    pub fn set_device_name(&self, display_name: &str) -> Result<(), FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .set_device_name(display_name)?)
     }
 
     /// Clear any custom display name used for this application instance.
@@ -526,8 +557,8 @@ impl FirefoxAccount {
     ///    - Device registration is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
-    pub fn clear_device_name(&mut self) -> Result<(), FxaError> {
-        Ok(self.internal.clear_device_name()?)
+    pub fn clear_device_name(&self) -> Result<(), FxaError> {
+        Ok(self.internal.lock().unwrap().clear_device_name()?)
     }
 
     /// Ensure that the device record has a specific set of capabilities.
@@ -553,12 +584,16 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
     pub fn ensure_capabilities(
-        &mut self,
+        &self,
         supported_capabilities: Vec<DeviceCapability>,
     ) -> Result<(), FxaError> {
         let supported_capabilities: Vec<_> =
             supported_capabilities.into_iter().map(Into::into).collect();
-        Ok(self.internal.ensure_capabilities(&supported_capabilities)?)
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .ensure_capabilities(&supported_capabilities)?)
     }
 
     /// Set or update a push subscription endpoint for this device.
@@ -581,10 +616,14 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
     pub fn set_push_subscription(
-        &mut self,
+        &self,
         subscription: DevicePushSubscription,
     ) -> Result<(), FxaError> {
-        Ok(self.internal.set_push_subscription(subscription.into())?)
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .set_push_subscription(subscription.into())?)
     }
 
     /// Process and respond to server-delivered account update messages.
@@ -598,8 +637,8 @@ impl FirefoxAccount {
     /// accordingly and return a list of [`AccountEvent`] structs describing the events, which the application
     /// may use for further processing.
     ///
-    pub fn handle_push_message(&mut self, payload: &str) -> Result<Vec<AccountEvent>, FxaError> {
-        Ok(self.internal.handle_push_message(payload)?)
+    pub fn handle_push_message(&self, payload: &str) -> Result<Vec<AccountEvent>, FxaError> {
+        Ok(self.internal.lock().unwrap().handle_push_message(payload)?)
     }
 
     /// Poll the server for any pending device commands.
@@ -618,9 +657,11 @@ impl FirefoxAccount {
     ///    - Device commands functionality is only available to applications that have been
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
-    pub fn poll_device_commands(&mut self) -> Result<Vec<IncomingDeviceCommand>, FxaError> {
+    pub fn poll_device_commands(&self) -> Result<Vec<IncomingDeviceCommand>, FxaError> {
         Ok(self
             .internal
+            .lock()
+            .unwrap()
             .poll_device_commands(internal::device::CommandFetchReason::Poll)?
             .into_iter()
             .map(TryFrom::try_from)
@@ -645,13 +686,15 @@ impl FirefoxAccount {
     ///      granted the `https://identity.mozilla.com/apps/oldsync` scope.
     ///
     pub fn send_single_tab(
-        &mut self,
+        &self,
         target_device_id: &str,
         title: &str,
         url: &str,
     ) -> Result<(), FxaError> {
         Ok(self
             .internal
+            .lock()
+            .unwrap()
             .send_single_tab(target_device_id, title, url)?)
     }
 }
@@ -671,8 +714,12 @@ impl FirefoxAccount {
     ///
     /// **💾 This method alters the persisted account state.**
     ///
-    pub fn get_token_server_endpoint_url(&mut self) -> Result<String, FxaError> {
-        Ok(self.internal.get_token_server_endpoint_url()?)
+    pub fn get_token_server_endpoint_url(&self) -> Result<String, FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .get_token_server_endpoint_url()?)
     }
 
     /// Get a URL which shows a "successfully connceted!" message.
@@ -683,8 +730,8 @@ impl FirefoxAccount {
     /// user to a success message displayed in web content rather than having to
     /// implement their own native success UI.
     ///
-    pub fn get_connection_success_url(&mut self) -> Result<String, FxaError> {
-        Ok(self.internal.get_connection_success_url()?)
+    pub fn get_connection_success_url(&self) -> Result<String, FxaError> {
+        Ok(self.internal.lock().unwrap().get_connection_success_url()?)
     }
 
     /// Get a URL at which the user can manage their account and profile data.
@@ -700,8 +747,12 @@ impl FirefoxAccount {
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user followed the link.
     ///
-    pub fn get_manage_account_url(&mut self, entrypoint: &str) -> Result<String, FxaError> {
-        Ok(self.internal.get_manage_account_url(entrypoint)?)
+    pub fn get_manage_account_url(&self, entrypoint: &str) -> Result<String, FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .get_manage_account_url(entrypoint)?)
     }
 
     /// Get a URL at which the user can manage the devices connected to their account.
@@ -718,8 +769,12 @@ impl FirefoxAccount {
     ///       - This parameter is used for metrics purposes, to identify the
     ///         UX entrypoint from which the user followed the link.
     ///
-    pub fn get_manage_devices_url(&mut self, entrypoint: &str) -> Result<String, FxaError> {
-        Ok(self.internal.get_manage_devices_url(entrypoint)?)
+    pub fn get_manage_devices_url(&self, entrypoint: &str) -> Result<String, FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .get_manage_devices_url(entrypoint)?)
     }
 }
 
@@ -762,13 +817,18 @@ impl FirefoxAccount {
     ///      before requesting a fresh token.
     ///
     pub fn get_access_token(
-        &mut self,
+        &self,
         scope: &str,
         ttl: Option<i64>,
     ) -> Result<AccessTokenInfo, FxaError> {
         // Signedness converstion for Kotlin compatibility :-/
         let ttl = ttl.map(|ttl| u64::try_from(ttl).unwrap_or_default());
-        Ok(self.internal.get_access_token(scope, ttl)?.try_into()?)
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .get_access_token(scope, ttl)?
+            .try_into()?)
     }
 
     /// Get the session token for the user's account, if one is available.
@@ -787,8 +847,8 @@ impl FirefoxAccount {
     ///    - A session token is only available to applications that have requested the
     ///      `https://identity.mozilla.com/tokens/session` scope.
     ///
-    pub fn get_session_token(&mut self) -> Result<String, FxaError> {
-        Ok(self.internal.get_session_token()?)
+    pub fn get_session_token(&self) -> Result<String, FxaError> {
+        Ok(self.internal.lock().unwrap().get_session_token()?)
     }
 
     /// Update the stored session token for the user's account.
@@ -804,8 +864,12 @@ impl FirefoxAccount {
     ///
     ///    - `session_token` - the new session token value provided from web content.
     ///
-    pub fn handle_session_token_change(&mut self, session_token: &str) -> Result<(), FxaError> {
-        Ok(self.internal.handle_session_token_change(session_token)?)
+    pub fn handle_session_token_change(&self, session_token: &str) -> Result<(), FxaError> {
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .handle_session_token_change(session_token)?)
     }
 
     /// Create a new OAuth authorization code using the stored session token.
@@ -821,10 +885,14 @@ impl FirefoxAccount {
     ///    - `params` - the OAuth parameters from the incoming authorization request
     ///
     pub fn authorize_code_using_session_token(
-        &mut self,
+        &self,
         params: AuthorizationParameters,
     ) -> Result<String, FxaError> {
-        Ok(self.internal.authorize_code_using_session_token(params)?)
+        Ok(self
+            .internal
+            .lock()
+            .unwrap()
+            .authorize_code_using_session_token(params)?)
     }
 
     /// Clear the access token cache in response to an auth failure.
@@ -835,8 +903,8 @@ impl FirefoxAccount {
     /// should call this method before creating a new token and retrying the failed operation.
     /// It ensures that the expired token is removed and a fresh one generated.
     ///
-    pub fn clear_access_token_cache(&mut self) {
-        self.internal.clear_access_token_cache()
+    pub fn clear_access_token_cache(&self) {
+        self.internal.lock().unwrap().clear_access_token_cache()
     }
 }
 
@@ -857,8 +925,8 @@ impl FirefoxAccount {
     /// as a stop-gap until we get native Glean support. If you know how to submit
     /// a sync ping, you'll know what to do with the contents of the JSON string.
     ///
-    pub fn gather_telemetry(&mut self) -> Result<String, FxaError> {
-        Ok(self.internal.gather_telemetry()?)
+    pub fn gather_telemetry(&self) -> Result<String, FxaError> {
+        Ok(self.internal.lock().unwrap().gather_telemetry()?)
     }
 }
 
@@ -900,13 +968,13 @@ impl FirefoxAccount {
     ///      persisted account state includes a a pending migration that can be retried.
     ///
     pub fn migrate_from_session_token(
-        &mut self,
+        &self,
         session_token: &str,
         k_sync: &str,
         k_xcs: &str,
         copy_session_token: bool,
     ) -> Result<FxAMigrationResult, FxaError> {
-        Ok(self.internal.migrate_from_session_token(
+        Ok(self.internal.lock().unwrap().migrate_from_session_token(
             session_token,
             k_sync,
             k_xcs,
@@ -922,8 +990,8 @@ impl FirefoxAccount {
     /// failed, it may have stored the provided state for retrying at a later time. Call this method
     /// in order to execute such a retry.
     ///
-    pub fn retry_migrate_from_session_token(&mut self) -> Result<FxAMigrationResult, FxaError> {
-        Ok(self.internal.try_migration()?)
+    pub fn retry_migrate_from_session_token(&self) -> Result<FxAMigrationResult, FxaError> {
+        Ok(self.internal.lock().unwrap().try_migration()?)
     }
 
     /// Check for a previously failed migration from legacy session-token state.
@@ -932,8 +1000,8 @@ impl FirefoxAccount {
     /// failed, it may have stored the provided state for retrying at a later time. Call this method
     /// in check whether such state exists, then retry at an appropriate time.
     ///
-    pub fn is_in_migration_state(&mut self) -> MigrationState {
-        self.internal.is_in_migration_state()
+    pub fn is_in_migration_state(&self) -> MigrationState {
+        self.internal.lock().unwrap().is_in_migration_state()
     }
 }
 

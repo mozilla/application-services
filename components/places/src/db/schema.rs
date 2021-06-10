@@ -18,7 +18,7 @@ use crate::types::SyncStatus;
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 
-const VERSION: i64 = 14;
+const VERSION: i64 = 15;
 
 // Shared schema and temp tables for the read-write and Sync connections.
 const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_schema.sql");
@@ -281,6 +281,17 @@ fn upgrade(db: &PlacesDb, from: i64) -> Result<()> {
         || Ok(()),
     )?;
     migration(db, 13, 14, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // moz_places_metadata.
+    migration(
+        db,
+        14,
+        15,
+        &[
+            // Changing `moz_places_metadata` structure, drop and recreate it.
+            "DROP TABLE moz_places_metadata",
+            CREATE_SHARED_SCHEMA_SQL,
+        ],
+        || Ok(()),
+    )?;
 
     // Add more migrations here...
 
@@ -837,7 +848,7 @@ mod tests {
             .expect("Should open second in-memory database with shared cache");
         assert_eq!(
             get_current_schema_version(&upgrade)?,
-            14,
+            15,
             "Should upgrade schema without errors"
         );
         // One with no mirror entry should still be New

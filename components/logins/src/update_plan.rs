@@ -27,7 +27,7 @@ impl UpdatePlan {
         self.mirror_inserts
             .push((upstream.0, upstream.1.as_millis() as i64, is_override));
         if !is_override {
-            self.delete_local.push(local.guid.clone());
+            self.delete_local.push(local.guid());
         }
     }
 

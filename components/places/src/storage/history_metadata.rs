@@ -2,11 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::ErrorKind;
-use super::InvalidPlaceInfo;
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::Result;
-use crate::msg_types::{HistoryMetadata, HistoryMetadataList};
+use crate::msg_types::{HistoryMetadata, HistoryMetadataList, HistoryMetadataObservation};
 use sql_support::{self, ConnExt};
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -14,35 +12,176 @@ use url::Url;
 
 use lazy_static::lazy_static;
 
+enum PlaceEntry {
+    Existing(i64),
+    CreateFor(Url, Option<String>),
+}
+
+impl PlaceEntry {
+    fn fetch(url: &str, tx: &PlacesTransaction<'_>, title: Option<String>) -> Result<Self> {
+        let url = Url::parse(url)?;
+        let place_id = tx.try_query_one(
+            "SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url",
+            &[(":url", &url.as_str())],
+            true,
+        )?;
+
+        Ok(match place_id {
+            Some(id) => PlaceEntry::Existing(id),
+            None => PlaceEntry::CreateFor(url, title),
+        })
+    }
+}
+
+trait DatabaseId {
+    fn get_or_insert(&self, tx: &PlacesTransaction<'_>) -> Result<i64>;
+}
+
+impl DatabaseId for PlaceEntry {
+    fn get_or_insert(&self, tx: &PlacesTransaction<'_>) -> Result<i64> {
+        Ok(match self {
+            PlaceEntry::Existing(id) => *id,
+            PlaceEntry::CreateFor(url, title) => {
+                let sql = "INSERT INTO moz_places (guid, url, title, url_hash)
+                VALUES (:guid, :url, :title, hash(:url))";
+
+                let guid = SyncGuid::random();
+
+                tx.execute_named_cached(
+                    sql,
+                    &[
+                        (":guid", &guid),
+                        (":title", &title),
+                        (":url", &url.as_str()),
+                    ],
+                )?;
+                tx.conn().last_insert_rowid()
+            }
+        })
+    }
+}
+
 enum SearchQueryEntry {
-    None,
     Existing(i64),
     CreateFor(String),
 }
 
-enum ParentDomainEntry {
-    None,
-    Existing(i64),
-    CreateFor(Url),
+impl DatabaseId for SearchQueryEntry {
+    fn get_or_insert(&self, tx: &PlacesTransaction<'_>) -> Result<i64> {
+        Ok(match self {
+            SearchQueryEntry::Existing(id) => *id,
+            SearchQueryEntry::CreateFor(term) => {
+                tx.execute_named_cached(
+                    "INSERT INTO moz_places_metadata_search_queries(term) VALUES (:term)",
+                    &[(":term", &term)],
+                )?;
+                tx.conn().last_insert_rowid()
+            }
+        })
+    }
 }
 
+impl SearchQueryEntry {
+    fn from(search_term: &str, tx: &PlacesTransaction<'_>) -> Result<Self> {
+        let lowercase_term = search_term.to_lowercase();
+        Ok(
+            match tx.try_query_one(
+                "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
+                &[(":term", &lowercase_term)],
+                true,
+            )? {
+                Some(id) => SearchQueryEntry::Existing(id),
+                None => SearchQueryEntry::CreateFor(lowercase_term),
+            },
+        )
+    }
+}
+
+struct HistoryMetadataCompoundKey {
+    place_entry: PlaceEntry,
+    referrer_entry: Option<PlaceEntry>,
+    search_query_entry: Option<SearchQueryEntry>,
+}
+
+struct MetadataObservation {
+    document_type: Option<i32>,
+    view_time: Option<i32>,
+}
+
+impl HistoryMetadataCompoundKey {
+    fn can_debounce(&self) -> Option<i64> {
+        match self.place_entry {
+            PlaceEntry::Existing(id) => {
+                if (match self.search_query_entry {
+                    None | Some(SearchQueryEntry::Existing(_)) => true,
+                    Some(SearchQueryEntry::CreateFor(_)) => false,
+                } && match self.referrer_entry {
+                    None | Some(PlaceEntry::Existing(_)) => true,
+                    Some(PlaceEntry::CreateFor(_, _)) => false,
+                }) {
+                    Some(id)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    // Looks up matching metadata records, by the compound key and time window.
+    fn lookup(&self, tx: &PlacesTransaction<'_>, newer_than: i64) -> Result<Option<i64>> {
+        Ok(match self.can_debounce() {
+            Some(id) => {
+                let search_query_id = match self.search_query_entry {
+                    None | Some(SearchQueryEntry::CreateFor(_)) => None,
+                    Some(SearchQueryEntry::Existing(id)) => Some(id),
+                };
+
+                let referrer_place_id = match self.referrer_entry {
+                    None | Some(PlaceEntry::CreateFor(_, _)) => None,
+                    Some(PlaceEntry::Existing(id)) => Some(id),
+                };
+
+                tx.try_query_one::<i64>(
+                    "SELECT id FROM moz_places_metadata
+                        WHERE
+                            place_id IS :place_id AND
+                            referrer_place_id IS :referrer_place_id AND
+                            search_query_id IS :search_query_id AND
+                            updated_at >= :newer_than
+                        ORDER BY updated_at DESC LIMIT 1",
+                    rusqlite::named_params! {
+                        ":place_id": id,
+                        ":search_query_id": search_query_id,
+                        ":referrer_place_id": referrer_place_id,
+                        ":newer_than": newer_than
+                    },
+                    true,
+                )?
+            }
+            None => None,
+        })
+    }
+}
+
+const DEBOUNCE_WINDOW_MS: i64 = 2 * 60 * 1000; // 2 minutes
 const MAX_QUERY_RESULTS: i32 = 1000;
 
 const COMMON_METADATA_SELECT: &str = "
 SELECT
-    m.guid as guid, p.url as url, p.title as title, m.created_at as created_at,
+    m.id as metadata_id, p.url as url, p.title as title, m.created_at as created_at,
     m.updated_at as updated_at, m.total_view_time as total_view_time,
-    m.is_media as is_media, o.host as parent_domain, s.term as search_term
+    m.document_type as document_type, o.url as referrer_url, s.term as search_term
 FROM moz_places_metadata m
 LEFT JOIN moz_places p ON m.place_id = p.id
 LEFT JOIN moz_places_metadata_search_queries s ON m.search_query_id = s.id
-LEFT JOIN moz_origins o ON o.id = m.parent_domain_id";
+LEFT JOIN moz_places o ON o.id = m.referrer_place_id";
 
 lazy_static! {
     static ref GET_LATEST_SQL: String = format!(
         "{common_select_sql}
-        WHERE p.url_hash = hash(:url) AND url = :url
-        ORDER BY updated_at DESC
+        WHERE p.url_hash = hash(:url) AND p.url = :url
+        ORDER BY updated_at DESC, metadata_id DESC
         LIMIT 1",
         common_select_sql = COMMON_METADATA_SELECT
     );
@@ -65,8 +204,8 @@ lazy_static! {
     static ref QUERY_SQL: String = format!(
         "{common_select_sql}
         WHERE
-            url LIKE :query OR
-            title LIKE :query OR
+            p.url LIKE :query OR
+            p.title LIKE :query OR
             search_term LIKE :query
         ORDER BY total_view_time DESC
         LIMIT :limit",
@@ -119,189 +258,6 @@ pub fn query(db: &PlacesDb, query: &str, limit: i64) -> Result<HistoryMetadataLi
     Ok(HistoryMetadataList { metadata })
 }
 
-fn insert_metadata_in_tx(
-    tx: &PlacesTransaction<'_>,
-    place_id: Option<i64>,
-    search_query_entry: SearchQueryEntry,
-    parent_domain_entry: ParentDomainEntry,
-    metadata: HistoryMetadata,
-) -> Result<SyncGuid> {
-    // If HistoryMetadata already has a guid, that's an error.
-    assert!(metadata.guid.is_none());
-
-    // NB: in case we already have a moz_places record, and the title we receive in `metadata` is
-    // different from what's stored in places, we are ignoring that difference and won't perform
-    // an UPDATE on moz_places. In practice, these titles should be coming from the same source,
-    // and the sequencing in which these APIs are called (history vs history_metadata) should be
-    // such that history is written first. So these assumptions help keep this logic simpler.
-
-    // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
-    let places_id = match place_id {
-        Some(id) => id,
-        None => {
-            let sql = "INSERT INTO moz_places (guid, url, title, url_hash)
-               VALUES (:guid, :url, :title, hash(:url))";
-
-            let guid = SyncGuid::random();
-
-            // This normalizes urls, e.g. adding trailing slashes when they're missing.
-            // We do the same when querying, to make sure we have a consistent representation
-            // of urls as they're flowing around.
-            let url = Url::parse(&metadata.url)?;
-
-            // Make sure we don't go over our size limits for title.
-            let trimmed_title = match metadata.title {
-                Some(ref title) => {
-                    crate::util::slice_up_to(title.as_str(), super::TITLE_LENGTH_MAX).into()
-                }
-                None => None,
-            };
-
-            tx.execute_named_cached(
-                sql,
-                &[
-                    (":guid", &guid),
-                    (":url", &url.as_str()),
-                    (":title", &trimmed_title),
-                ],
-            )?;
-            tx.conn().last_insert_rowid()
-        }
-    };
-
-    let search_query_id = match search_query_entry {
-        SearchQueryEntry::None => None,
-        SearchQueryEntry::Existing(id) => Some(id),
-        SearchQueryEntry::CreateFor(term) => {
-            tx.execute_named_cached(
-                "INSERT INTO moz_places_metadata_search_queries(term) VALUES (:term)",
-                &[(":term", &term)],
-            )?;
-            Some(tx.conn().last_insert_rowid())
-        }
-    };
-
-    let parent_domain_id = match parent_domain_entry {
-        ParentDomainEntry::None => None,
-        ParentDomainEntry::Existing(id) => Some(id),
-        ParentDomainEntry::CreateFor(url) => {
-            tx.execute_named_cached(
-                "INSERT INTO moz_origins (prefix, host, rev_host, frecency)
-            VALUES (
-                get_prefix(:url),
-                get_host_and_port(:url),
-                reverse_host(get_host_and_port(:url)),
-                -1
-            )",
-                &[(":url", &url.as_str())],
-            )?;
-            Some(tx.conn().last_insert_rowid())
-        }
-    };
-
-    let sql = "INSERT INTO moz_places_metadata
-        (guid, place_id, created_at, updated_at, total_view_time, search_query_id, is_media, parent_domain_id)
-    VALUES
-        (:guid, :place_id, :created_at, :updated_at, :total_view_time, :search_query_id, :is_media, :parent_domain_id)";
-
-    let guid = SyncGuid::random();
-    tx.execute_named_cached(
-        sql,
-        &[
-            (":guid", &guid),
-            (":place_id", &places_id),
-            (":created_at", &metadata.created_at), // we probably just want to auto-generate these.
-            (":updated_at", &metadata.updated_at),
-            (":total_view_time", &metadata.total_view_time),
-            (":search_query_id", &search_query_id),
-            (":is_media", &metadata.is_media),
-            (":parent_domain_id", &parent_domain_id),
-        ],
-    )?;
-    Ok(guid)
-}
-
-pub fn add_metadata(db: &PlacesDb, metadata: HistoryMetadata) -> Result<SyncGuid> {
-    if metadata.url.len() > super::URL_LENGTH_MAX {
-        return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
-    }
-
-    if let Some(ref url) = metadata.parent_url {
-        if url.len() > super::URL_LENGTH_MAX {
-            return Err(ErrorKind::InvalidPlaceInfo(InvalidPlaceInfo::UrlTooLong).into());
-        }
-    }
-
-    // Begin a write transaction (since we should be on the write connection). We do before any other
-    // work (e.g. SELECTs) to avoid racing against other writers. Even though we only have a single application
-    // writer, a sync writer can come in at any time and change data we depend on, such as moz_places
-    // and moz_origins, leaving us in a potentially inconsistent state.
-    let tx = db.begin_transaction()?;
-
-    let places_id = tx.try_query_one(
-        "SELECT id FROM moz_places WHERE url_hash = hash(:url) AND url = :url",
-        &[(":url", &metadata.url)],
-        true,
-    )?;
-
-    // Look up the search query first, maybe it's already stored in the db.
-    // Do this before starting a transaction, since it's a SELECT and doesn't need to be part of a tx.
-    let search_query = match &metadata.search_term {
-        None => SearchQueryEntry::None,
-        Some(term) => {
-            let lowercase_term = term.to_lowercase();
-            match tx.try_query_one(
-                "SELECT id FROM moz_places_metadata_search_queries WHERE term = :term",
-                &[(":term", &lowercase_term)],
-                true,
-            )? {
-                Some(id) => SearchQueryEntry::Existing(id),
-                None => SearchQueryEntry::CreateFor(lowercase_term),
-            }
-        }
-    };
-
-    let parent_domain = match &metadata.parent_url {
-        None => ParentDomainEntry::None,
-        Some(parent_url) => {
-            let parent_url = Url::parse(parent_url)?;
-            match tx.try_query_one(
-                "SELECT id FROM moz_origins WHERE prefix = get_prefix(:url) AND host = get_host_and_port(:url)",
-                &[(":url", &parent_url.as_str())],
-                true
-            )? {
-                Some(id) => ParentDomainEntry::Existing(id),
-                None => ParentDomainEntry::CreateFor(parent_url)
-            }
-        }
-    };
-
-    let result = insert_metadata_in_tx(&tx, places_id, search_query, parent_domain, metadata);
-    // Inserting into moz_places has side-effects (temp tables are populated via triggers and need to be flushed).
-    // This call "finalizes" these side-effects.
-    super::delete_pending_temp_tables(db)?;
-    match result {
-        Ok(_) => tx.commit()?,
-        Err(_) => tx.rollback()?,
-    };
-    result
-}
-
-pub fn update_metadata(db: &PlacesDb, guid: &SyncGuid, total_view_time: i32) -> Result<()> {
-    let now = Timestamp::now();
-    db.execute_named_cached(
-        "UPDATE moz_places_metadata
-         SET total_view_time = :total_view_time, updated_at = :updated_at
-         WHERE guid = :guid",
-        &[
-            (":guid", guid),
-            (":total_view_time", &total_view_time),
-            (":updated_at", &now),
-        ],
-    )?;
-    Ok(())
-}
-
 pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
     db.execute_named_cached(
         "DELETE FROM moz_places_metadata
@@ -311,14 +267,162 @@ pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn apply_metadata_observation(
+    db: &PlacesDb,
+    observation: HistoryMetadataObservation,
+) -> Result<()> {
+    // Begin a write transaction. We do this before any other work (e.g. SELECTs) to avoid racing against
+    // other writers. Even though we expect to only have a single application writer, a sync writer
+    // can come in at any time and change data we depend on, such as moz_places
+    // and moz_origins, leaving us in a potentially inconsistent state.
+    let tx = db.begin_transaction()?;
+
+    let place_entry = PlaceEntry::fetch(&observation.url, &tx, observation.title.clone())?;
+    let result = apply_metadata_observation_impl(&tx, place_entry, observation);
+
+    // Inserting into moz_places has side-effects (temp tables are populated via triggers and need to be flushed).
+    // This call "finalizes" these side-effects.
+    super::delete_pending_temp_tables(db)?;
+    match result {
+        Ok(_) => tx.commit()?,
+        Err(_) => tx.rollback()?,
+    };
+
+    result
+}
+
+fn apply_metadata_observation_impl(
+    tx: &PlacesTransaction<'_>,
+    place_entry: PlaceEntry,
+    observation: HistoryMetadataObservation,
+) -> Result<()> {
+    let referrer_entry = match observation.referrer_url {
+        Some(referrer_url) if !referrer_url.is_empty() => {
+            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+        }
+        Some(_) | None => None,
+    };
+    let search_query_entry = match observation.search_term {
+        Some(search_term) if !search_term.is_empty() => {
+            Some(SearchQueryEntry::from(&search_term, &tx)?)
+        }
+        Some(_) | None => None,
+    };
+
+    let compound_key = HistoryMetadataCompoundKey {
+        place_entry,
+        referrer_entry,
+        search_query_entry,
+    };
+
+    let observation = MetadataObservation {
+        document_type: observation.document_type,
+        view_time: observation.view_time,
+    };
+
+    let now = Timestamp::now().as_millis() as i64;
+    let newer_than = now - DEBOUNCE_WINDOW_MS;
+    let matching_metadata = compound_key.lookup(&tx, newer_than)?;
+
+    // If a matching record exists, update it; otherwise, insert a new one.
+    match matching_metadata {
+        Some(metadata_id) => {
+            // If document_type isn't part of the observation, make sure we don't accidentally erase what's currently set.
+            match observation {
+                MetadataObservation {
+                    document_type: Some(dt),
+                    view_time,
+                } => {
+                    tx.execute_named_cached(
+                        "UPDATE
+                            moz_places_metadata
+                        SET
+                            document_type = :document_type,
+                            total_view_time = total_view_time + :view_time_delta,
+                            updated_at = :updated_at
+                        WHERE id = :id",
+                        rusqlite::named_params! {
+                            ":id": metadata_id,
+                            ":document_type": dt,
+                            ":view_time_delta": view_time.unwrap_or(0),
+                            ":updated_at": now
+                        },
+                    )?;
+                }
+                MetadataObservation {
+                    document_type: None,
+                    view_time,
+                } => {
+                    tx.execute_named_cached(
+                        "UPDATE
+                            moz_places_metadata
+                        SET
+                            total_view_time = total_view_time + :view_time_delta,
+                            updated_at = :updated_at
+                        WHERE id = :id",
+                        rusqlite::named_params! {
+                            ":id": metadata_id,
+                            ":view_time_delta": view_time.unwrap_or(0),
+                            ":updated_at": now
+                        },
+                    )?;
+                }
+            }
+            Ok(())
+        }
+        None => insert_metadata_in_tx(&tx, compound_key, observation),
+    }
+}
+
+fn insert_metadata_in_tx(
+    tx: &PlacesTransaction<'_>,
+    key: HistoryMetadataCompoundKey,
+    observation: MetadataObservation,
+) -> Result<()> {
+    let now = Timestamp::now();
+
+    let referrer_place_id = match key.referrer_entry {
+        None => None,
+        Some(entry) => Some(entry.get_or_insert(&tx)?),
+    };
+
+    let search_query_id = match key.search_query_entry {
+        None => None,
+        Some(entry) => Some(entry.get_or_insert(&tx)?),
+    };
+
+    // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
+    // This lets us simply INSERT here without worrying about the rest.
+    let place_id = key.place_entry.get_or_insert(&tx)?;
+
+    let sql = "INSERT INTO moz_places_metadata
+        (place_id, created_at, updated_at, total_view_time, search_query_id, document_type, referrer_place_id)
+    VALUES
+        (:place_id, :created_at, :updated_at, :total_view_time, :search_query_id, :document_type, :referrer_place_id)";
+
+    tx.execute_named_cached(
+        sql,
+        &[
+            (":place_id", &place_id),
+            (":created_at", &now),
+            (":updated_at", &now),
+            (":search_query_id", &search_query_id),
+            (":referrer_place_id", &referrer_place_id),
+            (":document_type", &observation.document_type.unwrap_or(0)),
+            (":total_view_time", &observation.view_time.unwrap_or(0)),
+        ],
+    )?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::api::places_api::ConnectionType;
     use pretty_assertions::assert_eq;
-    use types::Timestamp;
+    use std::{thread, time};
 
-    #[macro_use]
     macro_rules! assert_table_size {
         ($conn:expr, $table:expr, $count:expr) => {
             assert_eq!(
@@ -336,60 +440,14 @@ mod tests {
     }
 
     #[macro_use]
-    macro_rules! add_and_assert_history_metadata {
-        ($conn:expr, url $url:expr, title $title:expr, created_at $created_at:expr, updated_at $updated_at:expr, total_time $tvt:expr, search_term $search_term:expr, is_media $is_media:expr, parent_url $parent_url:expr, parent_domain $parent_domain:expr) => {
-            // Create an object to add.
-            let metadata = HistoryMetadata {
-                guid: None,
-                url: String::from($url),
-                title: match $title as Option<&str> {
-                    Some(t) => Some(String::from(t)),
-                    None => None
-                },
-                created_at: $created_at,
-                updated_at: $updated_at,
-                total_view_time: $tvt,
-                search_term: match $search_term as Option<&str> {
-                    Some(t) => Some(String::from(t)),
-                    None => None
-                },
-                is_media: $is_media,
-                parent_url: match $parent_url as Option<&str> {
-                    Some(t) => Some(String::from(t)),
-                    None => None
-                }
-            };
-            // Add it.
-            let db_guid = add_metadata($conn, metadata).expect("should add metadata");
-
-            // Fetch it back and compare results.
-            let m = get_latest_for_url($conn, &Url::parse($url).expect("url parse")).expect("get by url should work");
-            let meta = m.expect("metadata record must be present");
-
-            assert_eq!(db_guid, meta.guid.clone().expect("must have a guid"));
-            assert_history_metadata_record!(meta, url $url, title $title, created_at $created_at, updated_at $updated_at, total_time $tvt, search_term $search_term, is_media $is_media, parent_url $parent_url, parent_domain $parent_domain);
-        };
-    }
-
-    #[macro_use]
     macro_rules! assert_history_metadata_record {
-        ($record:expr, url $url:expr, title $title:expr, created_at $created_at:expr, updated_at $updated_at:expr, total_time $tvt:expr, search_term $search_term:expr, is_media $is_media:expr, parent_url $parent_url:expr, parent_domain $parent_domain:expr) => {
+        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
             assert_eq!(String::from($url), $record.url, "url must match");
-            assert_eq!($created_at, $record.created_at, "created_at must match");
-            assert_eq!($updated_at, $record.updated_at, "updated_at must match");
             assert_eq!($tvt, $record.total_view_time, "total_view_time must match");
-            assert_eq!($is_media, $record.is_media, "is_media must match");
+            assert_eq!($document_type, $record.document_type, "is_media must match");
 
             let meta = $record.clone(); // ugh... not sure why this `clone` is necessary.
 
-            match $title as Option<&str> {
-                Some(t) => assert_eq!(
-                    String::from(t),
-                    meta.title.expect("title must be Some"),
-                    "title must match"
-                ),
-                None => assert_eq!(true, meta.title.is_none(), "title expected to be None"),
-            };
             match $search_term as Option<&str> {
                 Some(t) => assert_eq!(
                     String::from(t),
@@ -402,78 +460,313 @@ mod tests {
                     "search_term expected to be None"
                 ),
             };
-            match $parent_domain as Option<&str> {
+            match $referrer_url as Option<&str> {
                 Some(t) => assert_eq!(
                     String::from(t),
-                    meta.parent_url.expect("parent_url must be Some"),
-                    "parent_url must match"
+                    meta.referrer_url.expect("referrer_url must be Some"),
+                    "referrer_url must match"
                 ),
                 None => assert_eq!(
                     true,
-                    meta.parent_url.is_none(),
-                    "parent_url expected to be None"
+                    meta.referrer_url.is_none(),
+                    "referrer_url expected to be None"
                 ),
+            };
+            match $title as Option<&str> {
+                Some(t) => assert_eq!(
+                    String::from(t),
+                    meta.title.expect("title must be Some"),
+                    "title must match"
+                ),
+                None => assert_eq!(true, meta.title.is_none(), "title expected to be None"),
             };
         };
     }
 
+    #[macro_use]
+    macro_rules! assert_total_after_observation {
+        ($conn:expr, total_records_after $total_records:expr, total_view_time_after $total_view_time:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
+            note_observation!($conn,
+                url $url,
+                view_time $view_time,
+                search_term $search_term,
+                document_type $document_type,
+                referrer_url $referrer_url,
+                title $title
+            );
+
+            assert_table_size!($conn, "moz_places_metadata", $total_records);
+            let updated = get_latest_for_url($conn, &Url::parse($url).unwrap()).unwrap().unwrap();
+            assert_eq!($total_view_time, updated.total_view_time, "total view time must match");
+        }
+    }
+
+    #[macro_use]
+    macro_rules! note_observation {
+        ($conn:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
+            apply_metadata_observation(
+                $conn,
+                HistoryMetadataObservation {
+                    url: String::from($url),
+                    view_time: $view_time,
+                    search_term: $search_term.map(|s: &str| s.to_string()),
+                    document_type: $document_type,
+                    referrer_url: $referrer_url.map(|s: &str| s.to_string()),
+                    title: $title.map(|s: &str| s.to_string()),
+                },
+            )
+            .unwrap();
+        };
+    }
+
+    #[macro_use]
+    macro_rules! assert_after_observation {
+        ($conn:expr, total_records_after $total_records:expr, total_view_time_after $total_view_time:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr, assertion $assertion:expr) => {
+            // can set title on creating a new record
+            assert_total_after_observation!($conn,
+                total_records_after $total_records,
+                total_view_time_after $total_view_time,
+                url $url,
+                view_time $view_time,
+                search_term $search_term,
+                document_type $document_type,
+                referrer_url $referrer_url,
+                title $title
+            );
+
+            let m = get_latest_for_url(
+                $conn,
+                &Url::parse(&String::from($url)).unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+            $assertion(m);
+        }
+    }
+
     #[test]
-    fn test_get_latest_for_url() {
-        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+    fn test_note_observation() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        assert_table_size!(&conn, "moz_places_metadata", 0);
 
-        add_and_assert_history_metadata!(
-            &conn,
+        assert_total_after_observation!(&conn,
+            total_records_after 1,
+            total_view_time_after 1500,
             url "http://mozilla.com/",
-            title Some("Sample test page"),
-            created_at now_i64 + 10000,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(1500),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(0),
+            referrer_url None,
+            title None
         );
 
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://www.mozilla.org/test",
-            title Some("Another page title"),
-            created_at now_i64,
-            updated_at now_i64,
-            total_time 10000,
-            search_term Some("test search"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=some+url+ooook"),
-            parent_domain Some("www.google.com")
-        );
-
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://www.mozilla.org/test2",
-            title Some("Some page title"),
-            created_at now_i64 + 500,
-            updated_at now_i64 + 500,
-            total_time 15000,
-            search_term Some("another search"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=another+url+ooook"),
-            parent_domain Some("www.google.com")
-        );
-
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://www.example.com/video",
-            title Some("Sample test page"),
-            created_at now_i64 + 15000,
-            updated_at now_i64 + 25000,
-            total_time 200000,
+        // debounced! total time was updated
+        assert_total_after_observation!(&conn,
+            total_records_after 1,
+            total_view_time_after 2500,
+            url "http://mozilla.com/",
+            view_time Some(1000),
             search_term None,
-            is_media true,
-            parent_url Some("https://www.reuters.com/"),
-            parent_domain Some("www.reuters.com")
+            document_type Some(0),
+            referrer_url None,
+            title None
+        );
+
+        // different document type, record updated
+        assert_total_after_observation!(&conn,
+            total_records_after 1,
+            total_view_time_after 3500,
+            url "http://mozilla.com/",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(1),
+            referrer_url None,
+            title None
+        );
+
+        // referrer set
+        assert_total_after_observation!(&conn,
+            total_records_after 2,
+            total_view_time_after 2000,
+            url "http://mozilla.com/",
+            view_time Some(2000),
+            search_term None,
+            document_type Some(1),
+            referrer_url Some("https://news.website"),
+            title None
+        );
+
+        // search term and referrer are set
+        assert_total_after_observation!(&conn,
+            total_records_after 3,
+            total_view_time_after 1100,
+            url "http://mozilla.com/",
+            view_time Some(1100),
+            search_term Some("firefox"),
+            document_type Some(1),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=firefox"),
+            title None
+        );
+
+        // debounce!
+        assert_total_after_observation!(&conn,
+            total_records_after 3,
+            total_view_time_after 6100,
+            url "http://mozilla.com/",
+            view_time Some(5000),
+            search_term Some("firefox"),
+            document_type Some(1),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=firefox"),
+            title None
+        );
+
+        // different url now
+        assert_total_after_observation!(&conn,
+            total_records_after 4,
+            total_view_time_after 3000,
+            url "http://mozilla.com/another",
+            view_time Some(3000),
+            search_term None,
+            document_type Some(0),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // shared origin for both url and referrer
+        assert_total_after_observation!(&conn,
+            total_records_after 5,
+            total_view_time_after 100000,
+            url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
+            view_time Some(100000),
+            search_term Some("cute cat"),
+            document_type Some(1),
+            referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
+            title None
+        );
+
+        // empty search term/referrer url are treated the same as None
+        assert_total_after_observation!(&conn,
+            total_records_after 6,
+            total_view_time_after 80000,
+            url "https://www.youtube.com/watch?v=daff43jif3",
+            view_time Some(80000),
+            search_term Some(""),
+            document_type Some(1),
+            referrer_url Some(""),
+            title None
+        );
+
+        assert_total_after_observation!(&conn,
+            total_records_after 6,
+            total_view_time_after 90000,
+            url "https://www.youtube.com/watch?v=daff43jif3",
+            view_time Some(10000),
+            search_term None,
+            document_type Some(1),
+            referrer_url None,
+            title None
+        );
+
+        // document type recording
+        assert_total_after_observation!(&conn,
+            total_records_after 7,
+            total_view_time_after 0,
+            url "https://www.youtube.com/watch?v=fds32fds",
+            view_time None,
+            search_term None,
+            document_type Some(1),
+            referrer_url None,
+            title None
+        );
+
+        // now, update the view time as a separate call
+        assert_total_after_observation!(&conn,
+            total_records_after 7,
+            total_view_time_after 1338,
+            url "https://www.youtube.com/watch?v=fds32fds",
+            view_time Some(1338),
+            search_term None,
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        // and again, bump the view time
+        assert_total_after_observation!(&conn,
+            total_records_after 7,
+            total_view_time_after 2000,
+            url "https://www.youtube.com/watch?v=fds32fds",
+            view_time Some(662),
+            search_term None,
+            document_type None,
+            referrer_url None,
+            title None
+        );
+
+        // now try the other way - record view time first, document type after.
+        // and again, bump the view time
+        assert_after_observation!(&conn,
+            total_records_after 8,
+            total_view_time_after 662,
+            url "https://www.youtube.com/watch?v=dasdg34d",
+            view_time Some(662),
+            search_term None,
+            document_type None,
+            referrer_url None,
+            title None,
+            assertion |m: HistoryMetadata| { assert_eq!(0, m.document_type) }
+        );
+
+        assert_after_observation!(&conn,
+            total_records_after 8,
+            total_view_time_after 662,
+            url "https://www.youtube.com/watch?v=dasdg34d",
+            view_time None,
+            search_term None,
+            document_type Some(1),
+            referrer_url None,
+            title None,
+            assertion |m: HistoryMetadata| { assert_eq!(1, m.document_type) }
+        );
+
+        // document type not overwritten (e.g. remains 1, not default 0).
+        assert_after_observation!(&conn,
+            total_records_after 8,
+            total_view_time_after 675,
+            url "https://www.youtube.com/watch?v=dasdg34d",
+            view_time Some(13),
+            search_term None,
+            document_type None,
+            referrer_url None,
+            title None,
+            assertion |m: HistoryMetadata| { assert_eq!(1, m.document_type) }
+        );
+
+        // can set title on creating a new record
+        assert_after_observation!(&conn,
+            total_records_after 9,
+            total_view_time_after 13,
+            url "https://www.youtube.com/watch?v=dasdsada",
+            view_time Some(13),
+            search_term None,
+            document_type None,
+            referrer_url None,
+            title Some("hello!"),
+            assertion |m: HistoryMetadata| { assert_eq!(Some(String::from("hello!")), m.title) }
+        );
+
+        // can not update title after
+        assert_after_observation!(&conn,
+            total_records_after 9,
+            total_view_time_after 26,
+            url "https://www.youtube.com/watch?v=dasdsada",
+            view_time Some(13),
+            search_term None,
+            document_type None,
+            referrer_url None,
+            title Some("world!"),
+            assertion |m: HistoryMetadata| { assert_eq!(Some(String::from("hello!")), m.title) }
         );
     }
 
@@ -481,161 +774,162 @@ mod tests {
     fn test_get_between() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        assert_eq!(0, get_between(&conn, 0, 0).unwrap().metadata.len());
 
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/1",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+        let beginning = Timestamp::now().as_millis() as i64;
+        note_observation!(&conn,
+            url "http://mozilla.com/another",
+            view_time Some(3000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(0),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+        let after_meta1 = Timestamp::now().as_millis() as i64;
+
+        assert_eq!(
+            0,
+            get_between(&conn, 0, beginning - 1).unwrap().metadata.len()
+        );
+        assert_eq!(
+            1,
+            get_between(&conn, 0, after_meta1).unwrap().metadata.len()
         );
 
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/2",
-            title Some("Test page 2"),
-            created_at now_i64,
-            updated_at now_i64 + 20000,
-            total_time 20000,
+        thread::sleep(time::Duration::from_millis(10));
+
+        note_observation!(&conn,
+            url "http://mozilla.com/video/",
+            view_time Some(1000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(1),
+            referrer_url None,
+            title None
         );
+        let after_meta2 = Timestamp::now().as_millis() as i64;
 
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/3",
-            title Some("Test page 3"),
-            created_at now_i64,
-            updated_at now_i64 + 30000,
-            total_time 20000,
-            search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+        assert_eq!(
+            1,
+            get_between(&conn, beginning, after_meta1)
+                .unwrap()
+                .metadata
+                .len()
         );
-
-        let start = now_i64 + 10001;
-        let end = now_i64 + 29999;
-        let meta = get_between(&conn, start, end).expect("expected results");
-
-        assert_eq!(1, meta.metadata.len(), "expected exactly one result");
-
-        let result = meta.metadata.first().expect("expected one result");
-
-        assert_eq!("http://mozilla.com/2", result.url, "url must match");
+        assert_eq!(
+            2,
+            get_between(&conn, beginning, after_meta2)
+                .unwrap()
+                .metadata
+                .len()
+        );
+        assert_eq!(
+            1,
+            get_between(&conn, after_meta1, after_meta2)
+                .unwrap()
+                .metadata
+                .len()
+        );
+        assert_eq!(
+            0,
+            get_between(&conn, after_meta2, after_meta2 + 1)
+                .unwrap()
+                .metadata
+                .len()
+        );
     }
 
     #[test]
     fn test_get_since() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        assert_eq!(0, get_since(&conn, 0).unwrap().metadata.len());
 
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/1",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+        let beginning = Timestamp::now().as_millis() as i64;
+        note_observation!(&conn,
+            url "http://mozilla.com/another",
+            view_time Some(3000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(0),
+            referrer_url Some("https://news.website/tech"),
+            title None
         );
+        let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/2",
-            title Some("Test page 2"),
-            created_at now_i64,
-            updated_at now_i64 + 20000,
-            total_time 20000,
+        assert_eq!(1, get_since(&conn, 0).unwrap().metadata.len());
+        assert_eq!(1, get_since(&conn, beginning).unwrap().metadata.len());
+        assert_eq!(0, get_since(&conn, after_meta1).unwrap().metadata.len());
+
+        // thread::sleep(time::Duration::from_millis(50));
+
+        note_observation!(&conn,
+            url "http://mozilla.com/video/",
+            view_time Some(1000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(1),
+            referrer_url None,
+            title None
         );
-
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/3",
-            title Some("Test page 3"),
-            created_at now_i64,
-            updated_at now_i64 + 30000,
-            total_time 20000,
-            search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
-        );
-
-        let start = now_i64 + 10001;
-        let meta = get_since(&conn, start).expect("expected results");
-
-        assert_eq!(2, meta.metadata.len(), "expected exactly one result");
-
-        let first_result = &meta.metadata[0];
-        assert_eq!("http://mozilla.com/3", first_result.url, "url must match");
-
-        let second_result = &meta.metadata[1];
-        assert_eq!("http://mozilla.com/2", second_result.url, "url must match");
+        let after_meta2 = Timestamp::now().as_millis() as i64;
+        assert_eq!(2, get_since(&conn, beginning).unwrap().metadata.len());
+        assert_eq!(1, get_since(&conn, after_meta1).unwrap().metadata.len());
+        assert_eq!(0, get_since(&conn, after_meta2).unwrap().metadata.len());
     }
 
     #[test]
     fn test_query() {
+        use crate::observation::VisitObservation;
+        use crate::storage::history::apply_observation;
+        use crate::types::VisitTransition;
+
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+        let now = Timestamp::now();
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        // need a history observation to get a title query working.
+        let observation1 = VisitObservation::new(Url::parse("https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021").unwrap())
+                .with_at(now)
+                .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
+                .with_is_remote(false)
+                .with_visit_type(VisitTransition::Link);
+        apply_observation(&conn, observation1).unwrap();
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
-            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term Some("cbc federal budget 2021"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
-            title Some("formatting - How to create a formatted String out of a literal in Rust? - Stack Overflow"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term Some("rust string format"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.sqlite.org/lang_corefunc.html#instr",
-            title Some("Built-In Scalar SQL Functions"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term Some("sqlite like"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
+            title None
+        );
+
+        note_observation!(
+            &conn,
+            url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
+            view_time Some(100000),
+            search_term Some("cute cat"),
+            document_type Some(1),
+            referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
+            title None
         );
 
         // query by title
@@ -643,14 +937,11 @@ mod tests {
         assert_eq!(1, meta.metadata.len(), "expected exactly one result");
         assert_history_metadata_record!(&meta.metadata[0],
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
-            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
             total_time 20000,
             search_term Some("cbc federal budget 2021"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type 0,
+            referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
+            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")
         );
 
         // query by search term
@@ -658,75 +949,33 @@ mod tests {
         assert_eq!(1, meta.metadata.len(), "expected exactly one result");
         assert_history_metadata_record!(&meta.metadata[0],
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
-            title Some("formatting - How to create a formatted String out of a literal in Rust? - Stack Overflow"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
             total_time 20000,
             search_term Some("rust string format"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type 0,
+            referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
+            title None
         );
 
         // query by url
         let meta = query(&conn, "instr", 10).expect("query should work");
         assert_history_metadata_record!(&meta.metadata[0],
             url "https://www.sqlite.org/lang_corefunc.html#instr",
-            title Some("Built-In Scalar SQL Functions"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
             total_time 20000,
             search_term Some("sqlite like"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
-        );
-    }
-
-    #[test]
-    fn test_update() {
-        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
-
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
-
-        add_and_assert_history_metadata!(
-            &conn,
-            url "http://mozilla.com/1",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64,
-            total_time 20000,
-            search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type 0,
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
+            title None
         );
 
-        let m = get_latest_for_url(
-            &conn,
-            &Url::parse("http://mozilla.com/1").expect("url parse"),
-        )
-        .expect("get by url should work");
-        let meta = m.expect("metadata record must be present");
-        let db_guid = SyncGuid::new(meta.guid.expect("Record must have a guid").as_str());
-
-        update_metadata(&conn, &db_guid, 30000).expect("update record should work");
-
-        let updated_meta = get_latest_for_url(
-            &conn,
-            &Url::parse("http://mozilla.com/1").expect("url parse"),
-        )
-        .expect("get by url should work")
-        .expect("metadata record must be present");
-
-        assert_eq!(
-            30000, updated_meta.total_view_time,
-            "total view should have been updated"
-        );
-        assert!(
-            now_i64 < updated_meta.updated_at,
-            "updated_at should have been updated"
+        // by url, referrer domain is different
+        let meta = query(&conn, "youtube", 10).expect("query should work");
+        assert_history_metadata_record!(&meta.metadata[0],
+            url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
+            total_time 100000,
+            search_term Some("cute cat"),
+            document_type 1,
+            referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
+            title None
         );
     }
 
@@ -734,63 +983,56 @@ mod tests {
     fn test_delete_older_than() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        let beginning = Timestamp::now().as_millis() as i64;
 
-        add_and_assert_history_metadata!(
-            &conn,
+        note_observation!(&conn,
             url "http://mozilla.com/1",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(0),
+            referrer_url None,
+            title None
         );
+        let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        add_and_assert_history_metadata!(
-            &conn,
+        thread::sleep(time::Duration::from_millis(10));
+
+        note_observation!(&conn,
             url "http://mozilla.com/2",
-            title Some("Test page 2"),
-            created_at now_i64,
-            updated_at now_i64 + 20000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(0),
+            referrer_url None,
+            title None
         );
 
-        add_and_assert_history_metadata!(
-            &conn,
+        thread::sleep(time::Duration::from_millis(10));
+
+        note_observation!(&conn,
             url "http://mozilla.com/3",
-            title Some("Test page 3"),
-            created_at now_i64,
-            updated_at now_i64 + 30000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url None,
-            parent_domain None
+            document_type Some(0),
+            referrer_url None,
+            title None
         );
+        let after_meta3 = Timestamp::now().as_millis() as i64;
 
         // deleting nothing.
-        delete_older_than(&conn, (now_i64 - 40000) as i64).expect("delete worked");
+        delete_older_than(&conn, beginning).expect("delete worked");
         assert_eq!(
             3,
-            get_since(&conn, now_i64)
+            get_since(&conn, beginning)
                 .expect("get worked")
                 .metadata
                 .len()
         );
 
         // boundary condition, should only delete the last one.
-        delete_older_than(&conn, (now_i64 + 20000) as i64).expect("delete worked");
+        delete_older_than(&conn, after_meta1).expect("delete worked");
         assert_eq!(
             2,
-            get_since(&conn, now_i64)
+            get_since(&conn, beginning)
                 .expect("get worked")
                 .metadata
                 .len()
@@ -802,10 +1044,10 @@ mod tests {
         );
 
         // delete everything now.
-        delete_older_than(&conn, (now_i64 + 30001) as i64).expect("delete worked");
+        delete_older_than(&conn, after_meta3).expect("delete worked");
         assert_eq!(
             0,
-            get_since(&conn, now_i64)
+            get_since(&conn, beginning)
                 .expect("get worked")
                 .metadata
                 .len()
@@ -816,40 +1058,33 @@ mod tests {
     fn test_metadata_deletes_do_not_affect_places() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
-
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/first/",
-            title Some("Test page 0"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64 + 8000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
+        let after_meta_added = Timestamp::now().as_millis() as i64;
 
         // Delete all metadata.
-        delete_older_than(&conn, now_i64 + 9000).expect("delete older than worked");
+        delete_older_than(&conn, after_meta_added).expect("delete older than worked");
 
         // Query places. Records there should not have been affected by the delete above.
-        assert_table_size!(&conn, "moz_places", 2);
+        // 2 for metadata entries + 1 for referrer url.
+        assert_table_size!(&conn, "moz_places", 3);
     }
 
     #[test]
@@ -865,8 +1100,7 @@ mod tests {
 
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        let now = Timestamp::now();
         let url = Url::parse("https://www.mozilla.org/").unwrap();
         let parent_url =
             Url::parse("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox")
@@ -922,17 +1156,14 @@ mod tests {
         assert_table_size!(&conn, "moz_bookmarks", 7);
         assert_table_size!(&conn, "moz_origins", 2);
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/",
-            title Some("Test page 0"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term Some("mozilla firefox"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
         assert_table_size!(&conn, "moz_origins", 2);
@@ -953,8 +1184,7 @@ mod tests {
 
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        let now: Timestamp = std::time::SystemTime::now().into();
-        let now_i64 = now.0 as i64;
+        let now = Timestamp::now();
         let observation1 = VisitObservation::new(Url::parse("https://www.mozilla.org/").unwrap())
             .with_at(now)
             .with_title(Some(String::from("Test page 1")))
@@ -962,13 +1192,13 @@ mod tests {
             .with_visit_type(VisitTransition::Link);
         let observation2 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/another/").unwrap())
-                .with_at(Timestamp((now_i64 + 10000) as u64))
+                .with_at(Timestamp((now.as_millis() + 10000) as u64))
                 .with_title(Some(String::from("Test page 3")))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         let observation3 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/first/").unwrap())
-                .with_at(Timestamp((now_i64 - 10000) as u64))
+                .with_at(Timestamp((now.as_millis() - 10000) as u64))
                 .with_title(Some(String::from("Test page 0")))
                 .with_is_remote(true)
                 .with_visit_type(VisitTransition::Link);
@@ -976,69 +1206,54 @@ mod tests {
         apply_observation(&conn, observation2).expect("Should apply visit");
         apply_observation(&conn, observation3).expect("Should apply visit");
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/first/",
-            title Some("Test page 0"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64 + 8000,
-            total_time 20000,
+            view_time Some(20000),
             search_term None,
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/",
-            title Some("Test page 1"),
-            created_at now_i64,
-            updated_at now_i64 + 9000,
-            total_time 20000,
+            view_time Some(20000),
             search_term Some("mozilla"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/",
-            title Some("Test page 1"),
-            created_at now_i64 + 2000,
-            updated_at now_i64 + 11000,
-            total_time 25000,
+            view_time Some(25000),
             search_term Some("firefox"),
-            is_media true,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(1),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
-        add_and_assert_history_metadata!(
+        note_observation!(
             &conn,
             url "https://www.mozilla.org/another/",
-            title Some("Test page 3"),
-            created_at now_i64,
-            updated_at now_i64 + 10000,
-            total_time 20000,
+            view_time Some(20000),
             search_term Some("mozilla"),
-            is_media false,
-            parent_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
-            parent_domain Some("www.google.com")
+            document_type Some(0),
+            referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
+            title None
         );
 
         // double-check that we have the 'firefox' search query entry.
@@ -1054,8 +1269,8 @@ mod tests {
         // Delete our first page & its visits. Note that /another/ page will remain in place.
         delete_visits_between(
             &conn,
-            Timestamp((now_i64 - 1000) as u64),
-            Timestamp((now_i64 + 1000) as u64),
+            Timestamp((now.as_millis() - 1000) as u64),
+            Timestamp((now.as_millis() + 1000) as u64),
         )
         .expect("delete worked");
 

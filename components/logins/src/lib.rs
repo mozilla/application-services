@@ -13,20 +13,15 @@ mod db;
 pub mod encryption;
 mod engine;
 mod migrate_sqlcipher_db;
-pub mod schema;
+mod schema;
 mod store;
 mod update_plan;
 mod util;
 
-mod ffi;
+uniffi_macros::include_scaffolding!("logins");
 
-// Mostly exposed for the sync manager.
-pub use crate::db::LoginDb;
+pub use crate::db::{LoginDb, MigrationMetrics, MigrationPhaseMetrics};
 pub use crate::engine::LoginsSyncEngine;
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
-
-pub mod msg_types {
-    include!("mozilla.appservices.logins.protobuf.rs");
-}
