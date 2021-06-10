@@ -2,7 +2,6 @@ package mozilla.appservices.tabs
 
 import mozilla.appservices.Megazord
 import org.junit.runner.RunWith
-import org.junit.Assert.assertEquals
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.junit.Before
