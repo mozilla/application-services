@@ -77,94 +77,12 @@ const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_te
 
 pub struct AutofillMigrationLogic;
 
-impl AutofillMigrationLogic {
-    fn define_functions(c: &Connection) -> Result<()> {
-        c.create_scalar_function(
-            "generate_guid",
-            0,
-            FunctionFlags::SQLITE_UTF8,
-            sql_fns::generate_guid,
-        )?;
-        c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
-
-        Ok(())
-    }
-
-    fn upgrade_from_v0(db: &Connection) -> Result<()> {
-        // This is a bit painful - there are (probably 3) databases out there
-        // that have a schema of 0.
-        // These databases have a `cc_number` but we need them to have a
-        // `cc_number_enc` and `cc_number_last_4`.
-        // This was so very early in the Fenix nightly cycle, and before any
-        // real UI existed to create cards, so we don't bother trying to
-        // migrate them, we just drop the table and re-create it with the
-        // correct schema.
-        db.execute_batch(
-            "
-            DROP TABLE IF EXISTS credit_cards_data;
-            CREATE TABLE credit_cards_data (
-                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-                cc_name             TEXT NOT NULL,
-                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
-                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-                cc_exp_month        INTEGER,
-                cc_exp_year         INTEGER,
-                cc_type             TEXT NOT NULL,
-                time_created        INTEGER NOT NULL,
-                time_last_used      INTEGER,
-                time_last_modified  INTEGER NOT NULL,
-                times_used          INTEGER NOT NULL,
-                sync_change_counter INTEGER NOT NULL
-            );
-            ",
-        )?;
-        Ok(())
-    }
-
-    fn upgrade_from_v1(db: &Connection) -> Result<()> {
-        // Alter cc_number_enc using the 12-step generalized procedure described here:
-        // https://sqlite.org/lang_altertable.html
-        // Note that all our triggers are TEMP triggers so do not exist when
-        // this is called (except possibly by tests which do things like
-        // downgrade the version after they are created etc.)
-        db.execute_batch(
-            "
-            CREATE TABLE new_credit_cards_data (
-                guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
-                cc_name             TEXT NOT NULL,
-                cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
-                cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
-                cc_exp_month        INTEGER,
-                cc_exp_year         INTEGER,
-                cc_type             TEXT NOT NULL,
-                time_created        INTEGER NOT NULL,
-                time_last_used      INTEGER,
-                time_last_modified  INTEGER NOT NULL,
-                times_used          INTEGER NOT NULL,
-                sync_change_counter INTEGER NOT NULL
-            );
-            INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
-            cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
-            sync_change_counter)
-            SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
-                time_created, time_last_used, time_last_modified, times_used, sync_change_counter
-            FROM credit_cards_data;
-            DROP TABLE credit_cards_data;
-            ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
-            ")?;
-        Ok(())
-    }
-}
-
 impl MigrationLogic for AutofillMigrationLogic {
     const NAME: &'static str = "autofill db";
-    // AutofillDB has a slightly strange version history, so we start on v0.  See upgrade_from_v0()
-    // for more details.
-    const START_VERSION: u32 = 0;
     const END_VERSION: u32 = 2;
 
     fn prepare(&self, conn: &Connection) -> Result<()> {
-        AutofillMigrationLogic::define_functions(&conn)?;
+        define_functions(&conn)?;
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())
     }
@@ -175,8 +93,10 @@ impl MigrationLogic for AutofillMigrationLogic {
 
     fn upgrade_from(&self, db: &Connection, version: u32) -> Result<()> {
         match version {
-            0 => AutofillMigrationLogic::upgrade_from_v0(db),
-            1 => AutofillMigrationLogic::upgrade_from_v1(db),
+            // AutofillDB has a slightly strange version history, so we start on v0.  See
+            // upgrade_from_v0() for more details.
+            0 => upgrade_from_v0(db),
+            1 => upgrade_from_v1(db),
             _ => panic!("Unexpected upgrade version"),
         }
     }
@@ -184,6 +104,83 @@ impl MigrationLogic for AutofillMigrationLogic {
     fn finish(&self, db: &Connection) -> Result<()> {
         Ok(db.execute_batch(CREATE_SHARED_TRIGGERS_SQL)?)
     }
+}
+
+fn define_functions(c: &Connection) -> Result<()> {
+    c.create_scalar_function(
+        "generate_guid",
+        0,
+        FunctionFlags::SQLITE_UTF8,
+        sql_fns::generate_guid,
+    )?;
+    c.create_scalar_function("now", 0, FunctionFlags::SQLITE_UTF8, sql_fns::now)?;
+
+    Ok(())
+}
+
+fn upgrade_from_v0(db: &Connection) -> Result<()> {
+    // This is a bit painful - there are (probably 3) databases out there
+    // that have a schema of 0.
+    // These databases have a `cc_number` but we need them to have a
+    // `cc_number_enc` and `cc_number_last_4`.
+    // This was so very early in the Fenix nightly cycle, and before any
+    // real UI existed to create cards, so we don't bother trying to
+    // migrate them, we just drop the table and re-create it with the
+    // correct schema.
+    db.execute_batch(
+        "
+        DROP TABLE IF EXISTS credit_cards_data;
+        CREATE TABLE credit_cards_data (
+            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+            cc_name             TEXT NOT NULL,
+            cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20),
+            cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+            cc_exp_month        INTEGER,
+            cc_exp_year         INTEGER,
+            cc_type             TEXT NOT NULL,
+            time_created        INTEGER NOT NULL,
+            time_last_used      INTEGER,
+            time_last_modified  INTEGER NOT NULL,
+            times_used          INTEGER NOT NULL,
+            sync_change_counter INTEGER NOT NULL
+        );
+        ",
+    )?;
+    Ok(())
+}
+
+fn upgrade_from_v1(db: &Connection) -> Result<()> {
+    // Alter cc_number_enc using the 12-step generalized procedure described here:
+    // https://sqlite.org/lang_altertable.html
+    // Note that all our triggers are TEMP triggers so do not exist when
+    // this is called (except possibly by tests which do things like
+    // downgrade the version after they are created etc.)
+    db.execute_batch(
+        "
+        CREATE TABLE new_credit_cards_data (
+            guid                TEXT NOT NULL PRIMARY KEY CHECK(length(guid) != 0),
+            cc_name             TEXT NOT NULL,
+            cc_number_enc       TEXT NOT NULL CHECK(length(cc_number_enc) > 20 OR cc_number_enc == ''),
+            cc_number_last_4    TEXT NOT NULL CHECK(length(cc_number_last_4) <= 4),
+            cc_exp_month        INTEGER,
+            cc_exp_year         INTEGER,
+            cc_type             TEXT NOT NULL,
+            time_created        INTEGER NOT NULL,
+            time_last_used      INTEGER,
+            time_last_modified  INTEGER NOT NULL,
+            times_used          INTEGER NOT NULL,
+            sync_change_counter INTEGER NOT NULL
+        );
+        INSERT INTO new_credit_cards_data(guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month,
+        cc_exp_year, cc_type, time_created, time_last_used, time_last_modified, times_used,
+        sync_change_counter)
+        SELECT guid, cc_name, cc_number_enc, cc_number_last_4, cc_exp_month, cc_exp_year, cc_type,
+            time_created, time_last_used, time_last_modified, times_used, sync_change_counter
+        FROM credit_cards_data;
+        DROP TABLE credit_cards_data;
+        ALTER TABLE new_credit_cards_data RENAME to credit_cards_data;
+        ")?;
+    Ok(())
 }
 
 pub fn create_empty_sync_temp_tables(db: &Connection) -> Result<()> {

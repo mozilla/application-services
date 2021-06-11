@@ -45,10 +45,9 @@ impl AutofillDb {
             | OpenFlags::SQLITE_OPEN_READ_WRITE;
 
         let conn = open_database::open_database_with_flags(
-            open_database::DatabaseLocation::File(db_path),
+            db_path,
             flags,
             &schema::AutofillMigrationLogic,
-            open_database::ErrorHandling::DeleteAndRecreate,
         )?;
 
         Ok(Self {

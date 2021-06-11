@@ -49,6 +49,14 @@ GRADLE = PROJECT_ROOT / 'gradlew'
 # Ensure this is a proper path, so we can execute it without searching $PATH.
 GRADLE = GRADLE.resolve()
 
+
+IGNORE_PATHS = set([
+    # let's not run tests just for dependency changes
+    'megazords/full/DEPENDENCIES.md',
+    'megazords/full/android/dependency-licenses.xml',
+    'megazords/ios/DEPENDENCIES.md',
+])
+
 def blue_text(text):
     if not sys.stdout.isatty():
         return text
@@ -100,6 +108,7 @@ class BranchChanges:
         raw_paths = get_output([
             'git', 'diff', '--name-only', self.merge_base,
         ]).split('\n')
+        raw_paths = [p for p in raw_paths if p not in IGNORE_PATHS]
         self.paths = [PROJECT_ROOT.joinpath(p) for p in raw_paths]
 
     @staticmethod

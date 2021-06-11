@@ -15,15 +15,12 @@
 ///        init(), then finish()
 ///      - If the database file exists, open_database() will open it and call prepare(),
 ///        upgrade_from() for each upgrade that needs to be applied, then finish().
-///       - If there is an error opening/migrating the database and
-///        ErrorHandling::DeleteAndRecreate was specified, open_database() will delete the
-///        database file and try to start from scratch
 ///
 ///  See the autofill DB code for an example.
 ///
 use crate::ConnExt;
 use rusqlite::{Connection, OpenFlags, NO_PARAMS};
-use std::path::PathBuf;
+use std::path::Path;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -49,55 +46,9 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-pub enum DatabaseLocation {
-    File(PathBuf),
-    Memory,
-}
-
-impl DatabaseLocation {
-    fn exists(&self) -> bool {
-        match self {
-            DatabaseLocation::Memory => false,
-            DatabaseLocation::File(path) => path.exists(),
-        }
-    }
-
-    fn open(&self, open_flags: OpenFlags) -> Result<Connection> {
-        match self {
-            DatabaseLocation::Memory => Ok(Connection::open_in_memory_with_flags(open_flags)?),
-            DatabaseLocation::File(path) => Ok(Connection::open_with_flags(path, open_flags)?),
-        }
-    }
-
-    fn delete(&self) -> Result<()> {
-        match self {
-            DatabaseLocation::Memory => (),
-            DatabaseLocation::File(path) => {
-                if path.exists() {
-                    std::fs::remove_file(path)?;
-                }
-            }
-        }
-        Ok(())
-    }
-}
-
-#[derive(Clone, PartialEq)]
-pub enum ErrorHandling {
-    // Try to start over with a fresh database.  This is the behavior that most components should
-    // use (See SYNC-937, SYNC-816)
-    DeleteAndRecreate,
-    // Return an error from open function.  This allows us to potentially recover the data with an
-    // upgraded version
-    ReturnError,
-}
-
 pub trait MigrationLogic {
     // Name to display in the logs
     const NAME: &'static str;
-
-    // The first version that this migration applies to (usually 1)
-    const START_VERSION: u32;
 
     // The version that the last upgrade function upgrades to.
     const END_VERSION: u32;
@@ -133,9 +84,7 @@ fn run_migration_logic<ML: MigrationLogic>(
         migration_logic.init(&tx)?;
     } else {
         let mut current_version = get_schema_version(&tx)?;
-        if current_version < ML::START_VERSION {
-            return Err(Error::VersionTooOld(current_version));
-        } else if current_version > ML::END_VERSION {
+        if current_version > ML::END_VERSION {
             return Err(Error::VersionTooNew(current_version));
         }
         while current_version < ML::END_VERSION {
@@ -156,60 +105,26 @@ fn run_migration_logic<ML: MigrationLogic>(
     Ok(())
 }
 
-pub fn open_database<ML: MigrationLogic>(
-    path: PathBuf,
+pub fn open_database<ML: MigrationLogic, P: AsRef<Path>>(
+    path: P,
     migration_logic: &ML,
-    error_handling: ErrorHandling,
 ) -> Result<Connection> {
-    open_database_with_flags(
-        DatabaseLocation::File(path),
-        OpenFlags::default(),
-        migration_logic,
-        error_handling,
-    )
+    open_database_with_flags(path, OpenFlags::default(), migration_logic)
 }
 
-pub fn open_memory_database<ML: MigrationLogic>(
-    migration_logic: &ML,
-    error_handling: ErrorHandling,
-) -> Result<Connection> {
-    open_database_with_flags(
-        DatabaseLocation::Memory,
-        OpenFlags::default(),
-        migration_logic,
-        error_handling,
-    )
+pub fn open_memory_database<ML: MigrationLogic>(migration_logic: &ML) -> Result<Connection> {
+    open_database_with_flags(":memory:", OpenFlags::default(), migration_logic)
 }
 
-pub fn open_database_with_flags<ML: MigrationLogic>(
-    location: DatabaseLocation,
+pub fn open_database_with_flags<ML: MigrationLogic, P: AsRef<Path>>(
+    path: P,
     open_flags: OpenFlags,
     migration_logic: &ML,
-    error_handling: ErrorHandling,
 ) -> Result<Connection> {
     // Try running the migration logic with an existing file
-    let initializing = !location.exists();
-    let mut conn = location.open(open_flags)?;
-    let first_result = run_migration_logic(migration_logic, &conn, initializing);
-
-    let final_result = match (&first_result, error_handling) {
-        // Ignore DeleteAndRecreate if the version is too new
-        (Err(Error::VersionTooNew(_)), _) => first_result,
-        // If DeleteAndRecreate was specified, try deleting the file and initializing
-        (Err(e), ErrorHandling::DeleteAndRecreate) => {
-            log::warn!(
-                "Error while opening database file, will recreate file: {:?}",
-                e
-            );
-            location.delete()?;
-            conn = location.open(open_flags)?;
-            run_migration_logic(migration_logic, &conn, true)
-        }
-        // Otherwise just use the first result
-        _ => first_result,
-    };
-    final_result?;
-
+    let initializing = !path.as_ref().exists();
+    let conn = Connection::open_with_flags(path, open_flags)?;
+    run_migration_logic(migration_logic, &conn, initializing)?;
     Ok(conn)
 }
 
@@ -227,18 +142,19 @@ fn set_schema_version(conn: &Connection, version: u32) -> Result<()> {
 // our other crates.
 pub mod test_utils {
     use super::*;
-    use std::path::Path;
+    use std::path::PathBuf;
     use tempfile::TempDir;
 
     // Database file that we can programatically run upgrades on
     //
     // We purposefully don't keep a connection to the database around to force upgrades to always
-    // run against a newly opened DB, like they would in the real world.  See SYNC-2209 for
+    // run against a newly opened DB, like they would in the real world.  See #4106 for
     // details.
     pub struct MigratedDatabaseFile<ML: MigrationLogic> {
         // Keep around a TempDir to ensure the database file stays around until this struct is
         // dropped
         _tempdir: TempDir,
+        initial_version: u32,
         pub migration_logic: ML,
         pub path: PathBuf,
     }
@@ -270,6 +186,7 @@ pub mod test_utils {
             set_schema_version(&conn, initial_version).unwrap();
             Self {
                 _tempdir: tempdir,
+                initial_version,
                 migration_logic,
                 path,
             }
@@ -290,7 +207,7 @@ pub mod test_utils {
         }
 
         pub fn run_all_upgrades(&self) {
-            for version in ML::START_VERSION..ML::END_VERSION {
+            for version in self.initial_version..ML::END_VERSION {
                 self.upgrade_to(version + 1);
             }
         }
@@ -341,7 +258,6 @@ mod test {
 
     impl MigrationLogic for TestMigrationLogic {
         const NAME: &'static str = "test db";
-        const START_VERSION: u32 = 2;
         const END_VERSION: u32 = 4;
 
         fn prepare(&self, conn: &Connection) -> Result<()> {
@@ -429,7 +345,7 @@ mod test {
     #[test]
     fn test_init() {
         let migration_logic = TestMigrationLogic::new();
-        let conn = open_memory_database(&migration_logic, ErrorHandling::ReturnError).unwrap();
+        let conn = open_memory_database(&migration_logic).unwrap();
         check_final_data(&conn);
         migration_logic.check_calls(vec!["prep", "init", "finish"]);
     }
@@ -437,12 +353,7 @@ mod test {
     #[test]
     fn test_upgrades() {
         let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), init_v2, 2);
-        let conn = open_database(
-            db_file.path.clone(),
-            &db_file.migration_logic,
-            ErrorHandling::ReturnError,
-        )
-        .unwrap();
+        let conn = open_database(db_file.path.clone(), &db_file.migration_logic).unwrap();
         check_final_data(&conn);
         db_file.migration_logic.check_calls(vec![
             "prep",
@@ -457,48 +368,13 @@ mod test {
         let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), init_v2, 2);
         db_file.upgrade_to(4);
         db_file.migration_logic.clear_calls();
-        let conn = open_database(
-            db_file.path.clone(),
-            &db_file.migration_logic,
-            ErrorHandling::ReturnError,
-        )
-        .unwrap();
+        let conn = open_database(db_file.path.clone(), &db_file.migration_logic).unwrap();
         check_final_data(&conn);
         db_file.migration_logic.check_calls(vec!["prep", "finish"]);
     }
 
     #[test]
-    fn test_error_handling_delete_and_recreate() {
-        let db_file =
-            MigratedDatabaseFile::new(TestMigrationLogic::new_with_buggy_logic(), init_v2, 2);
-        // Insert some data into the database, this should be deleted when we recreate the file
-        db_file
-            .open()
-            .execute(
-                "INSERT INTO my_old_table_name(old_col) VALUES ('I should be deleted')",
-                NO_PARAMS,
-            )
-            .unwrap();
-
-        let conn = open_database(
-            db_file.path,
-            &db_file.migration_logic,
-            ErrorHandling::DeleteAndRecreate,
-        )
-        .unwrap();
-        check_final_data(&conn);
-        db_file.migration_logic.check_calls(vec![
-            "prep",
-            "upgrade_from_v2",
-            "upgrade_from_v3",
-            "prep",
-            "init",
-            "finish",
-        ]);
-    }
-
-    #[test]
-    fn test_error_handling_return_error() {
+    fn test_migration_error() {
         let db_file =
             MigratedDatabaseFile::new(TestMigrationLogic::new_with_buggy_logic(), init_v2, 2);
         db_file
@@ -510,11 +386,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(
-            open_database(
-                db_file.path.clone(),
-                &db_file.migration_logic,
-                ErrorHandling::ReturnError
-            ),
+            open_database(db_file.path.clone(), &db_file.migration_logic,),
             Err(Error::MigrationError(_))
         ));
         // Even though the upgrades failed, the data should still be there.  The changes that
@@ -541,11 +413,7 @@ mod test {
             .unwrap();
 
         assert!(matches!(
-            open_database(
-                db_file.path.clone(),
-                &db_file.migration_logic,
-                ErrorHandling::DeleteAndRecreate
-            ),
+            open_database(db_file.path.clone(), &db_file.migration_logic,),
             Err(Error::VersionTooNew(5))
         ));
         // Make sure that even when DeleteAndRecreate is specified, we don't delete the database
@@ -557,18 +425,5 @@ mod test {
                 .unwrap(),
             1
         );
-    }
-
-    #[test]
-    fn test_version_too_old() {
-        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), init_v2, 1);
-        assert!(matches!(
-            open_database(
-                db_file.path,
-                &db_file.migration_logic,
-                ErrorHandling::ReturnError
-            ),
-            Err(Error::VersionTooOld(1))
-        ));
     }
 }
