@@ -2146,12 +2146,7 @@ mod tests {
             "no new enrollments should have been returned"
         );
 
-        // XXX are there any other internal errors that are worth testing in
-        // the second call site?
-
-        // XXX test various errs in first loop gets dropped and right stuff returned
-
-        // Now test "New Experiment but Enrollment exists" error in 2nd loop,
+        // Now test "New Experiment but Enrollment exists" error in 1st loop,
         let (enrollments, events) =
             evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
 
