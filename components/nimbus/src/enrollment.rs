@@ -656,7 +656,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                 Err(e) => {
                     // XXX test that any associated enrollments,
                     // prev_experiments?, next_experiments also dropped
-                    // XXX YYY finish this logging
                     log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
                     None
                 }
@@ -738,7 +737,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                     Err(e) => {
                         // XXX test that any associated enrollments,
                         // prev_experiments?, next_experiments also dropped
-                        // XXX YYY finish this logging
                         log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
                         //return Err(NimbusError::InvalidPersistedData);
                         None
@@ -2159,21 +2157,9 @@ mod tests {
 
         // XXX check that both enrollment and event were dropped
 
-        // XXX maybe test no errors returns right stuff
-
         Ok(())
     }
 
-    #[test]
-    // fn test_evolve_enrollment_err_behaviors() -> Result<()>
-    // {
-    //     // XXX test that we drop experiments and leave the dataset consistent
-    //     // for all 8 permutations
-
-    //     Ok(())
-    // }
-
-    // XXX maybe test evolve_enrollments_in_db?
     #[test]
     fn test_evolver_experiment_update_error() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
