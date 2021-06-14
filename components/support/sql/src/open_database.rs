@@ -70,16 +70,31 @@ pub trait MigrationLogic {
     }
 }
 
-fn run_migration_logic<ML: MigrationLogic>(
+pub fn open_database<ML: MigrationLogic, P: AsRef<Path>>(
+    path: P,
     migration_logic: &ML,
-    conn: &Connection,
-    init: bool,
-) -> Result<()> {
+) -> Result<Connection> {
+    open_database_with_flags(path, OpenFlags::default(), migration_logic)
+}
+
+pub fn open_memory_database<ML: MigrationLogic>(migration_logic: &ML) -> Result<Connection> {
+    open_database_with_flags(":memory:", OpenFlags::default(), migration_logic)
+}
+
+pub fn open_database_with_flags<ML: MigrationLogic, P: AsRef<Path>>(
+    path: P,
+    open_flags: OpenFlags,
+    migration_logic: &ML,
+) -> Result<Connection> {
+    // Try running the migration logic with an existing file
+    let conn = Connection::open_with_flags(path, open_flags)?;
+    let run_init = should_init(&conn)?;
+
     log::debug!("{}: opening database", ML::NAME);
     let tx = conn.unchecked_transaction()?;
     log::debug!("{}: preparing database", ML::NAME);
     migration_logic.prepare(&tx)?;
-    if init {
+    if run_init {
         log::debug!("{}: initializing new database", ML::NAME);
         migration_logic.init(&tx)?;
     } else {
@@ -102,30 +117,12 @@ fn run_migration_logic<ML: MigrationLogic>(
     set_schema_version(&tx, ML::END_VERSION)?;
     tx.commit()?;
     log::debug!("{}: database open successful", ML::NAME);
-    Ok(())
-}
 
-pub fn open_database<ML: MigrationLogic, P: AsRef<Path>>(
-    path: P,
-    migration_logic: &ML,
-) -> Result<Connection> {
-    open_database_with_flags(path, OpenFlags::default(), migration_logic)
-}
-
-pub fn open_memory_database<ML: MigrationLogic>(migration_logic: &ML) -> Result<Connection> {
-    open_database_with_flags(":memory:", OpenFlags::default(), migration_logic)
-}
-
-pub fn open_database_with_flags<ML: MigrationLogic, P: AsRef<Path>>(
-    path: P,
-    open_flags: OpenFlags,
-    migration_logic: &ML,
-) -> Result<Connection> {
-    // Try running the migration logic with an existing file
-    let initializing = !path.as_ref().exists();
-    let conn = Connection::open_with_flags(path, open_flags)?;
-    run_migration_logic(migration_logic, &conn, initializing)?;
     Ok(conn)
+}
+
+fn should_init(conn: &Connection) -> Result<bool> {
+    Ok(conn.query_one::<u32>("SELECT COUNT(*) FROM sqlite_master")? == 0)
 }
 
 fn get_schema_version(conn: &Connection) -> Result<u32> {
