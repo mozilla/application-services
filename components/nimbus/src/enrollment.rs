@@ -10,7 +10,6 @@ use crate::{
 
 use ::uuid::Uuid;
 use serde_derive::*;
-use std::iter::FromIterator;
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -672,17 +671,22 @@ impl<'a> EnrollmentsEvolver<'a> {
             // Check that the feature ids that this experiment needs are available.  If not, then declare
             // the enrollment as NotEnrolled; and we continue to the next
             // experiment.
+            // conflicting_features are the features needed for this experiment, but already in use.
             let conflicting_features: Vec<&EnrolledFeatureConfig> = next_experiment
                 .get_feature_ids()
                 .iter()
                 .filter_map(|id| active_features.get(id))
                 .collect();
             if !conflicting_features.is_empty() {
-                let is_our_experiment = conflicting_features
-                    .iter()
-                    .fold(true, |acc, f| acc && &f.slug == slug);
-                if !is_our_experiment {
-                    // This feature is already in use by another experiment.
+                let is_our_experiment = conflicting_features.iter().any(|f| &f.slug == slug);
+                if is_our_experiment {
+                    // At least one of these conflicted features are in use by this experiment.
+                    // Unless the experiment has changed midflight, all the features will be from
+                    // this experiment.
+                    assert!(conflicting_features.iter().all(|f| &f.slug == slug));
+                } else {
+                    // At least one feature needed for this experiment is already in use by another experiment.
+                    // Thus, we cannot proceed with an enrollment other than FeatureConflict.
                     next_enrollments.insert(
                         slug,
                         ExperimentEnrollment {
@@ -692,19 +696,19 @@ impl<'a> EnrollmentsEvolver<'a> {
                             },
                         },
                     );
-                    // So now we know that the experiment is acting on
-                    // features that are already active. So continue to
-                    // the next experiment. But…
                 }
-                // … perhaps we can continue here too? Because
-                // if the feature is already active,
-                //    …and the experiment it's using is this one,
+                // So now we know that the experiment is acting on
+                // features that are already active. So continue to
+                // the next experiment.
+                //
+                // Because if features are already active,
+                //    …and the experiment that are using them is this one,
                 //    …then we don't need to evolve the enrollment here,
                 //     because we did it in step 2.
                 continue;
             }
 
-            // If we got here, then the feature is not already active.
+            // If we got here, then the features are not already active.
             // But we evolved all the existing enrollments in step 2,
             // (except the feature conflicted ones)
             // so we should be mindful that we don't evolve them a second time.
@@ -894,8 +898,10 @@ fn get_feature_config(
         _ => Default::default(),
     };
 
-    let branch_feature_ids =
-        HashSet::<&String>::from_iter(branch_features.iter().map(|f| &f.feature_id));
+    let branch_feature_ids = branch_features
+        .iter()
+        .map(|f| &f.feature_id)
+        .collect::<HashSet<_>>();
 
     // The experiment might have other branches that deal with different features.
     // We don't want them getting involved in other experiments, so we'll make default
@@ -905,7 +911,7 @@ fn get_feature_config(
         .into_iter()
         .filter(|feature_id| !branch_feature_ids.contains(feature_id))
         .map(|feature_id| FeatureConfig {
-            feature_id: feature_id.clone(),
+            feature_id,
             ..Default::default()
         })
         .collect();
