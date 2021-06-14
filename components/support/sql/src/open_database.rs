@@ -154,39 +154,22 @@ pub mod test_utils {
         // Keep around a TempDir to ensure the database file stays around until this struct is
         // dropped
         _tempdir: TempDir,
-        initial_version: u32,
         pub migration_logic: ML,
         pub path: PathBuf,
     }
 
     impl<ML: MigrationLogic> MigratedDatabaseFile<ML> {
-        pub fn new(
-            migration_logic: ML,
-            initial_schema_func: fn(&Connection),
-            initial_version: u32,
-        ) -> Self {
-            Self::new_with_flags(
-                migration_logic,
-                initial_schema_func,
-                initial_version,
-                OpenFlags::default(),
-            )
+        pub fn new(migration_logic: ML, init_sql: &str) -> Self {
+            Self::new_with_flags(migration_logic, init_sql, OpenFlags::default())
         }
 
-        pub fn new_with_flags(
-            migration_logic: ML,
-            initial_schema_func: fn(&Connection),
-            initial_version: u32,
-            open_flags: OpenFlags,
-        ) -> Self {
+        pub fn new_with_flags(migration_logic: ML, init_sql: &str, open_flags: OpenFlags) -> Self {
             let tempdir = tempfile::tempdir().unwrap();
             let path = tempdir.path().join(Path::new("db.sql"));
             let conn = Connection::open_with_flags(&path, open_flags).unwrap();
-            initial_schema_func(&conn);
-            set_schema_version(&conn, initial_version).unwrap();
+            conn.execute_batch(init_sql).unwrap();
             Self {
                 _tempdir: tempdir,
-                initial_version,
                 migration_logic,
                 path,
             }
@@ -207,7 +190,8 @@ pub mod test_utils {
         }
 
         pub fn run_all_upgrades(&self) {
-            for version in self.initial_version..ML::END_VERSION {
+            let current_version = get_schema_version(&self.open()).unwrap();
+            for version in current_version..ML::END_VERSION {
                 self.upgrade_to(version + 1);
             }
         }
@@ -325,14 +309,10 @@ mod test {
     }
 
     // Initialize the database to v2 to test upgrading from there
-    fn init_v2(conn: &Connection) {
-        conn.execute_batch(
-            "
-            CREATE TABLE my_old_table_name(old_col);
-            ",
-        )
-        .unwrap()
-    }
+    static INIT_V2: &str = "
+        CREATE TABLE my_old_table_name(old_col);
+        PRAGMA user_version=2;
+    ";
 
     fn check_final_data(conn: &Connection) {
         let value: String = conn
@@ -352,7 +332,7 @@ mod test {
 
     #[test]
     fn test_upgrades() {
-        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), init_v2, 2);
+        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), INIT_V2);
         let conn = open_database(db_file.path.clone(), &db_file.migration_logic).unwrap();
         check_final_data(&conn);
         db_file.migration_logic.check_calls(vec![
@@ -365,7 +345,7 @@ mod test {
 
     #[test]
     fn test_open_current_version() {
-        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), init_v2, 2);
+        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), INIT_V2);
         db_file.upgrade_to(4);
         db_file.migration_logic.clear_calls();
         let conn = open_database(db_file.path.clone(), &db_file.migration_logic).unwrap();
@@ -376,7 +356,7 @@ mod test {
     #[test]
     fn test_migration_error() {
         let db_file =
-            MigratedDatabaseFile::new(TestMigrationLogic::new_with_buggy_logic(), init_v2, 2);
+            MigratedDatabaseFile::new(TestMigrationLogic::new_with_buggy_logic(), INIT_V2);
         db_file
             .open()
             .execute(
@@ -402,7 +382,8 @@ mod test {
 
     #[test]
     fn test_version_too_new() {
-        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), init_v2, 5);
+        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), INIT_V2);
+        set_schema_version(&db_file.open(), 5).unwrap();
 
         db_file
             .open()

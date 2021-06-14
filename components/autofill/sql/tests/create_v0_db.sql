@@ -75,3 +75,5 @@ CREATE TABLE IF NOT EXISTS moz_meta (
     key TEXT PRIMARY KEY,
     value NOT NULL
 ) WITHOUT ROWID;
+
+PRAGMA user_version=0;
