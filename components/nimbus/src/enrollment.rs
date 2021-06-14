@@ -668,12 +668,19 @@ impl<'a> EnrollmentsEvolver<'a> {
         for next_experiment in next_experiments.values() {
             let slug = &next_experiment.slug;
 
-            // Check that the feature id is available.  If not, then declare
+            // Check that the feature ids that this experiment needs are available.  If not, then declare
             // the enrollment as NotEnrolled; and we continue to the next
             // experiment.
-            let feature_id = &next_experiment.get_first_feature_id();
-            if let Some(enrolled_feature) = active_features.get(feature_id) {
-                if slug != &enrolled_feature.slug {
+            let conflicting_features: Vec<&EnrolledFeatureConfig> = next_experiment
+                .get_feature_ids()
+                .iter()
+                .filter_map(|id| active_features.get(id))
+                .collect();
+            if !conflicting_features.is_empty() {
+                let is_our_experiment = conflicting_features
+                    .iter()
+                    .fold(true, |acc, f| acc && &f.slug == slug);
+                if !is_our_experiment {
                     // This feature is already in use by another experiment.
                     next_enrollments.insert(
                         slug,

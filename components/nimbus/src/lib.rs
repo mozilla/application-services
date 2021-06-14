@@ -369,6 +369,10 @@ impl Experiment {
             self.feature_ids[0].clone()
         }
     }
+
+    fn get_feature_ids(&self) -> Vec<String> {
+        self.feature_ids.clone()
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
@@ -624,7 +628,7 @@ mod test_schema_bw_compat {
             "last_modified":1_602_197_324_372i64
         }))
         .unwrap();
-        assert_eq!(exp.get_first_feature_id(), "");
+        assert!(exp.get_feature_ids().is_empty());
     }
 
     // In #96 we added a `featureIds` field to the Experiment schema.
@@ -674,7 +678,7 @@ mod test_schema_bw_compat {
             "last_modified":1_602_197_324_372i64
         }))
         .unwrap();
-        assert_eq!(exp.get_first_feature_id(), "some_control");
+        assert_eq!(exp.get_feature_ids(), vec!["some_control"]);
     }
 
     // In #97 we deprecated `application` and added `app_name`, `app_id`,
