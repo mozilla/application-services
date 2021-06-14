@@ -18,3 +18,5 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+./libs/build-all.sh now displays an error message when a file fails checksum integrity test.
+
