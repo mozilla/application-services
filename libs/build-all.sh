@@ -54,7 +54,13 @@ if [[ ! -e "${SQLCIPHER}.tar.gz" ]]; then
 else
  echo "Using ${SQLCIPHER}.tar.gz"
 fi
-echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.tar.gz" | shasum -a 256 -c - || exit 2
+# Integrity check for SQLCIPHER
+if ! echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.tar.gz" | shasum -a 256 -c - 
+then
+    echo "Error: ${SQLCIPHER}.tar.gz is corrupted. Please try running this build script again."
+    rm -f "${SQLCIPHER}.tar.gz" # remove corrupted file
+    exit 2
+fi
 tar xfz "${SQLCIPHER}.tar.gz"
 SQLCIPHER_SRC_PATH=$(abspath "sqlcipher-${SQLCIPHER_VERSION}")
 
@@ -65,7 +71,13 @@ if [[ ! -e "${NSS_ARCHIVE}" ]]; then
 else
   echo "Using ${NSS_ARCHIVE}"
 fi
-echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - || exit 2
+# Integrity check for NSS
+if ! echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - 
+then
+    echo "Error: ${NSS_ARCHIVE} is corrupted. Please try running this build script again."
+    rm -f "${NSS_ARCHIVE}" # remove corrupted file
+    exit 2
+fi
 tar xfz "${NSS_ARCHIVE}"
 NSS_SRC_PATH=$(abspath "${NSS}")
 
