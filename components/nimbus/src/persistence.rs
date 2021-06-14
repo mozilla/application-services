@@ -350,21 +350,6 @@ impl Database {
             self.enrollment_store.try_collect_all(&reader)?;
         let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
 
-        // figure out which enrollments have records that need to be dropped
-        // and log that we're going to drop them and why
-        // let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
-        //     .iter()
-        //     .filter_map(
-        //             |e| {
-        //         if matches!(e.status, EnrollmentStatus::Enrolled {ref feature_id, ..} if feature_id.is_empty()) {
-        //             log::warn!("Enrollment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
-        //             Some(e.slug.to_owned())
-        //         } else {
-        //             None
-        //         }
-        //     })
-        //     .collect();
-
         // figure out which experiments have records that need to be dropped
         // and log that we're going to drop them and why
         let empty_string = "".to_string();
@@ -1083,34 +1068,6 @@ mod tests {
 
         Ok(())
     }
-
-    // #[test]
-    // /// Migrating db v1 to db v2 involves finding enrollments that
-    // /// don't contain all the feature stuff they should and discarding.
-    // /// It will also discard other experiments/enrollments with required
-    // /// headers that are missing.
-    // fn test_migrate_db_v1_to_db_v2_enrollment_discarding() -> Result<()> {
-    //     let _ = env_logger::try_init();
-    //     let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2")?;
-
-    //     // write invalid enrollments
-    //     let db_v1_enrollments_with_missing_feature_ids =
-    //         &get_v1_enrollments_with_missing_feature_ids();
-
-    //     create_old_database(&tmp_dir, 1, &[], db_v1_enrollments_with_missing_feature_ids)?;
-    //     let db = Database::new(&tmp_dir)?;
-
-    //     // The enrollments with invalid feature_ids should have been discarded
-    //     // during migration; leaving us with none.
-    //     let enrollments = db
-    //         .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
-    //         .unwrap();
-    //     //log::debug!("enrollments = {:?}", enrollments);
-
-    //     assert_eq!(enrollments.len(), 2);
-
-    //     Ok(())
-    // }
 
     /// Migrating v1 to v2 involves finding experiments that
     /// don't contain all the feature stuff they should and discarding.

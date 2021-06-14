@@ -434,10 +434,6 @@ pub enum EnrollmentStatus {
         enrollment_id: Uuid, // Random ID used for telemetry events correlation.
         reason: EnrolledReason,
         branch: String,
-        // The `feature_id` field was added later. To avoid a db migration we
-        // default it to "" for persisted enrollments where it is missing.
-        // #[serde(default)]
-        // feature_id: String,
     },
     NotEnrolled {
         reason: NotEnrolledReason,
