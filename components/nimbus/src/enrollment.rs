@@ -662,7 +662,7 @@ impl<'a> EnrollmentsEvolver<'a> {
 
             if let Some(enrollment) = next_enrollment {
                 // We get the FeatureConfig out of the enrollment.
-                if let Some(enrolled_feature) = get_feature_config(&enrollment, &next_experiments) {
+                for enrolled_feature in get_feature_config(&enrollment, &next_experiments) {
                     active_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
                 }
                 next_enrollments.insert(slug, enrollment);
@@ -738,9 +738,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                 if let Some(enrollment) = next_enrollment {
                     // We get the FeatureConfig out of the enrollment.
                     // This is copied from above. We should consider making this a function.
-                    if let Some(enrolled_feature) =
-                        get_feature_config(&enrollment, &next_experiments)
-                    {
+                    for enrolled_feature in get_feature_config(&enrollment, &next_experiments) {
                         active_features
                             .insert(enrolled_feature.feature_id.clone(), enrolled_feature);
                     }
@@ -852,7 +850,7 @@ fn map_features(
     let mut map = HashMap::with_capacity(enrollments.len());
     for enrolled_feature_config in enrollments
         .iter()
-        .filter_map(|e| get_feature_config(e, experiments))
+        .flat_map(|e| get_feature_config(e, experiments))
     {
         map.insert(
             enrolled_feature_config.feature_id.clone(),
@@ -873,17 +871,17 @@ pub fn map_features_by_feature_id(
 fn get_feature_config(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
-) -> Option<EnrolledFeatureConfig> {
+) -> Vec<EnrolledFeatureConfig> {
     let branch_name = match &enrollment.status {
         EnrollmentStatus::Enrolled { branch, .. } => branch.clone(),
-        _ => return None,
+        _ => return Vec::new(),
     };
 
     let slug = &enrollment.slug;
 
     let experiment = match experiments.get(slug).copied() {
         Some(exp) => exp,
-        _ => return None,
+        _ => return Vec::new(),
     };
 
     let branches = &experiment.branches;
@@ -895,12 +893,12 @@ fn get_feature_config(
     }
     .unwrap_or_default();
 
-    Some(EnrolledFeatureConfig {
+    vec![EnrolledFeatureConfig {
         feature,
         slug: slug.clone(),
         branch: branch_name,
         feature_id: feature_id.clone(),
-    })
+    }]
 }
 
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
