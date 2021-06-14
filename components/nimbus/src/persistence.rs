@@ -1152,10 +1152,8 @@ mod tests {
 
         let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
 
-        // XXX hoist into build_map function
         let db_enrollments: Vec<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
 
-        // XXX hoist into build_map function
         let orig_enrollments: Vec<String> = db_v1_enrollments_with_non_empty_features
             .iter()
             .map(|e_ref| e_ref.get("slug").unwrap().as_str().unwrap().to_string())
