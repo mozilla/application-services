@@ -33,9 +33,9 @@ pub struct Matcher {
 
 /// The `AppContext` object represents the parameters and characteristics of the
 /// consuming application that we are interested in for targeting purposes. The
-/// `app_name`, `app_id`, and `channel` fields are not optional as they are expected
-/// to be provided by all consuming applications as they are used in the first
-/// pieces of targeting that help to ensure that an experiment is only processed
+/// `app_name` and `channel` fields are not optional as they are expected
+/// to be provided by all consuming applications as they are used in the top-level
+/// targeting that help to ensure that an experiment is only processed
 /// by the correct application.
 ///
 /// Definitions of the fields are as follows:
