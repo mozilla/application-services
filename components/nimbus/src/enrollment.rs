@@ -10,8 +10,9 @@ use crate::{
 
 use ::uuid::Uuid;
 use serde_derive::*;
+use std::iter::FromIterator;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -873,33 +874,54 @@ fn get_feature_config(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
 ) -> Vec<EnrolledFeatureConfig> {
-    let branch_name = match &enrollment.status {
-        EnrollmentStatus::Enrolled { branch, .. } => branch.clone(),
+    // If status is not enrolled, then we can leave early.
+    let branch_slug = match &enrollment.status {
+        EnrollmentStatus::Enrolled { branch, .. } => branch,
         _ => return Vec::new(),
     };
 
-    let slug = &enrollment.slug;
+    let experiment_slug = &enrollment.slug;
 
-    let experiment = match experiments.get(slug).copied() {
+    let experiment = match experiments.get(experiment_slug).copied() {
         Some(exp) => exp,
         _ => return Vec::new(),
     };
 
-    let branches = &experiment.branches;
-    let feature_id = &experiment.get_first_feature_id();
+    // Get the branch from the experiment, and then get the feature configs
+    // from there.
+    let branch_features = match &experiment.get_branch(branch_slug) {
+        Some(branch) => branch.get_feature_configs(),
+        _ => Default::default(),
+    };
 
-    let feature = match branches.iter().find(|b| b.slug == branch_name) {
-        Some(branch) => branch.feature.clone(),
-        _ => None,
-    }
-    .unwrap_or_default();
+    let branch_feature_ids =
+        HashSet::<&String>::from_iter(branch_features.iter().map(|f| &f.feature_id));
 
-    vec![EnrolledFeatureConfig {
-        feature,
-        slug: slug.clone(),
-        branch: branch_name,
-        feature_id: feature_id.clone(),
-    }]
+    // The experiment might have other branches that deal with different features.
+    // We don't want them getting involved in other experiments, so we'll make default
+    // FeatureConfigs.
+    let non_branch_features: Vec<FeatureConfig> = experiment
+        .get_feature_ids()
+        .into_iter()
+        .filter(|feature_id| !branch_feature_ids.contains(feature_id))
+        .map(|feature_id| FeatureConfig {
+            feature_id: feature_id.clone(),
+            ..Default::default()
+        })
+        .collect();
+
+    // Now we've got the feature configs for all features in this experiment,
+    // we can make EnrolledFeatureConfigs with them.
+    branch_features
+        .iter()
+        .chain(non_branch_features.iter())
+        .map(|f| EnrolledFeatureConfig {
+            feature: f.to_owned(),
+            slug: experiment_slug.clone(),
+            branch: branch_slug.clone(),
+            feature_id: f.feature_id.clone(),
+        })
+        .collect()
 }
 
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.

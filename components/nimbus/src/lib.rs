@@ -362,12 +362,8 @@ impl Experiment {
             .any(|branch| branch.slug == branch_slug)
     }
 
-    fn get_first_feature_id(&self) -> String {
-        if self.feature_ids.is_empty() {
-            "".to_string()
-        } else {
-            self.feature_ids[0].clone()
-        }
+    fn get_branch(&self, branch_slug: &str) -> Option<&Branch> {
+        self.branches.iter().find(|b| b.slug == branch_slug)
     }
 
     fn get_feature_ids(&self) -> Vec<String> {
@@ -394,6 +390,19 @@ pub struct Branch {
     pub slug: String,
     pub ratio: i32,
     pub feature: Option<FeatureConfig>,
+}
+
+impl Branch {
+    /// We want to be able to support multiple features per branch.
+    /// The schema does not support this yet, but we can still write the
+    // enrollment code as it does.
+    fn get_feature_configs(&self) -> Vec<FeatureConfig> {
+        if let Some(feature) = &self.feature {
+            vec![feature.clone()]
+        } else {
+            Default::default()
+        }
+    }
 }
 
 fn default_buckets() -> u32 {
