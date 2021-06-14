@@ -36,6 +36,7 @@ use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
 use serde_json::{Map, Value};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
@@ -367,7 +368,18 @@ impl Experiment {
     }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.feature_ids.clone()
+        let branches = &self.branches;
+        let feature_ids = branches
+            .iter()
+            .flat_map(|b| {
+                b.get_feature_configs()
+                    .iter()
+                    .map(|f| f.to_owned().feature_id)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<HashSet<_>>();
+
+        feature_ids.into_iter().collect()
     }
 }
 

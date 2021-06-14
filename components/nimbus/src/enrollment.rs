@@ -1133,7 +1133,7 @@ mod tests {
                         }
                     },
                 ],
-                "featureIds": ["monkey"],
+                "featureIds": ["about_welcome"],
                 "channel": "nightly",
                 "probeSets":[],
                 "startDate":null,
@@ -1270,16 +1270,57 @@ mod tests {
         ]
     }
 
+    fn get_experiment_with_different_feature_branches() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-silver",
+            "branches": [
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": false,
+                        "value": {},
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "newtab",
+                        "enabled": true,
+                        "value": {},
+                    }
+                }
+            ],
+            "probeSets":[],
+            "bucketConfig":{
+                // Also enroll everyone.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "userFacingName":"2nd test experiment",
+        }))
+        .unwrap()
+    }
+
     fn get_conflicting_experiment() -> Experiment {
         serde_json::from_value(json!({
             "schemaVersion": "1.0.0",
             "slug": "another-monkey",
             "endDate": null,
             "branches":[
-                {"slug": "control", "ratio": 1, "featureId": "monkey"},
-                {"slug": "treatment","ratio":1, "featureId": "monkey"},
+                {"slug": "control", "ratio": 1, "feature": { "featureId": "some_control", "enabled": true }},
+                {"slug": "treatment","ratio": 1, "feature": { "featureId": "some_control", "enabled": true }},
             ],
-            "featureIds": ["monkey"],
+            "featureIds": ["some_control"],
             "channel": "nightly",
             "probeSets":[],
             "startDate":null,
@@ -1971,6 +2012,30 @@ mod tests {
     }
 
     #[test]
+    fn test_experiment_get_feature_ids() -> Result<()> {
+        let experiment = get_conflicting_experiment();
+        assert!(experiment.get_branch("control").is_some());
+
+        let branch = experiment.get_branch("control").unwrap();
+        assert_eq!(branch.slug, "control");
+
+        let feature_config = &branch.feature;
+        assert!(feature_config.is_some());
+
+        assert_eq!(branch.get_feature_configs().len(), 1);
+        assert_eq!(experiment.get_feature_ids(), vec!["some_control"]);
+
+        let experiment = get_experiment_with_different_feature_branches();
+        assert_eq!(
+            experiment.get_feature_ids().iter().collect::<HashSet<_>>(),
+            vec!["newtab".to_string(), "about_welcome".to_string()]
+                .iter()
+                .collect::<HashSet<_>>()
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_evolver_experiment_not_enrolled_feature_conflict() -> Result<()> {
         let _ = env_logger::try_init();
 
@@ -2054,7 +2119,7 @@ mod tests {
         let (enrollments, events) = evolver.evolve_enrollments(
             true,
             &test_experiments,
-            &[test_experiments[0].clone(), conflicting_experiment.clone()],
+            &[test_experiments[1].clone(), conflicting_experiment.clone()],
             &enrollments,
         )?;
 
@@ -2064,7 +2129,7 @@ mod tests {
 
         // we didn't include test_experiments[1] in next_experiments above,
         // so it should have been unenrolled...
-        assert_eq!(events[0].experiment_slug, test_experiments[1].slug);
+        assert_eq!(events[0].experiment_slug, test_experiments[0].slug);
         assert_eq!(events[0].change, EnrollmentChangeEventType::Unenrollment);
 
         // ...which will have gotten rid of the thing that otherwise would have
