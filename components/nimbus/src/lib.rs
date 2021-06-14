@@ -502,7 +502,6 @@ mod tests {
         let mock_client_id = "client-1".to_string();
         let mock_exp_slug = "exp-1".to_string();
         let mock_exp_branch = "branch-1".to_string();
-        let mock_feature_id = "feature-1".to_string();
 
         let tmp_dir = TempDir::new("test_telemetry_reset")?;
         let client = NimbusClient::new(
@@ -541,11 +540,7 @@ mod tests {
             &mock_exp_slug,
             &ExperimentEnrollment {
                 slug: mock_exp_slug.clone(),
-                status: EnrollmentStatus::new_enrolled(
-                    EnrolledReason::Qualified,
-                    &mock_exp_branch,
-                    &mock_feature_id,
-                ),
+                status: EnrollmentStatus::new_enrolled(EnrolledReason::Qualified, &mock_exp_branch),
             },
         )?;
         writer.commit()?;

@@ -130,11 +130,7 @@ impl ExperimentEnrollment {
         }
         let enrollment = Self {
             slug: experiment.slug.clone(),
-            status: EnrollmentStatus::new_enrolled(
-                EnrolledReason::OptIn,
-                branch_slug,
-                &experiment.get_first_feature_id(),
-            ),
+            status: EnrollmentStatus::new_enrolled(EnrolledReason::OptIn, branch_slug),
         };
         out_enrollment_events.push(enrollment.get_change_event());
         Ok(enrollment)
@@ -440,8 +436,8 @@ pub enum EnrollmentStatus {
         branch: String,
         // The `feature_id` field was added later. To avoid a db migration we
         // default it to "" for persisted enrollments where it is missing.
-        #[serde(default)]
-        feature_id: String,
+        // #[serde(default)]
+        // feature_id: String,
     },
     NotEnrolled {
         reason: NotEnrolledReason,
@@ -467,9 +463,8 @@ pub enum EnrollmentStatus {
 impl EnrollmentStatus {
     // Note that for now, we only support a single feature_id per experiment,
     // so this code is expected to shift once we start supporting multiple.
-    pub fn new_enrolled(reason: EnrolledReason, branch: &str, feature_id: &str) -> Self {
+    pub fn new_enrolled(reason: EnrolledReason, branch: &str) -> Self {
         EnrollmentStatus::Enrolled {
-            feature_id: feature_id.to_owned(),
             reason,
             branch: branch.to_owned(),
             enrollment_id: Uuid::new_v4(),
@@ -518,7 +513,6 @@ pub fn get_enrollments<'r>(
         if let EnrollmentStatus::Enrolled {
             branch,
             enrollment_id,
-            feature_id,
             ..
         } = &enrollment.status
         {
@@ -527,7 +521,7 @@ pub fn get_enrollments<'r>(
                 .get::<Experiment, _>(reader, &enrollment.slug)?
             {
                 result.push(EnrolledExperiment {
-                    feature_ids: vec![feature_id.to_string()],
+                    feature_ids: vec![],
                     slug: experiment.slug,
                     user_facing_name: experiment.user_facing_name,
                     user_facing_description: experiment.user_facing_description,
@@ -1519,7 +1513,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1564,7 +1557,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1607,7 +1599,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1657,7 +1648,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1699,7 +1689,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -1734,7 +1723,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -2192,7 +2180,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = evolver
@@ -2411,7 +2398,6 @@ mod tests {
                 enrollment_id,
                 branch: "control".to_owned(),
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_switch".to_owned(),
             },
         };
         let enrollment = existing_enrollment.on_explicit_opt_out(&mut events);
@@ -2735,7 +2721,6 @@ mod tests {
                 status: EnrollmentStatus::new_enrolled(
                     EnrolledReason::Qualified,
                     &mock_exp1_branch,
-                    "some_switch",
                 ),
             },
         )?;
@@ -2851,9 +2836,7 @@ mod test_schema_bw_compat {
             }}
         }))
         .unwrap();
-        assert!(
-            matches!(enroll.status, EnrollmentStatus::Enrolled{ ref feature_id, ..} if feature_id.is_empty())
-        );
+        assert!(matches!(enroll.status, EnrollmentStatus::Enrolled { .. }));
     }
 
     // In #96 we added a `feature_id` field to the ExperimentEnrollment schema.
@@ -2871,9 +2854,7 @@ mod test_schema_bw_compat {
             }}
         }))
         .unwrap();
-        assert!(
-            matches!(enroll.status, EnrollmentStatus::Enrolled{ ref feature_id, ..} if feature_id == "some_control")
-        );
+        assert!(matches!(enroll.status, EnrollmentStatus::Enrolled { .. }));
     }
 
     // In SDK-260 we added a FeatureConflict variant to the NotEnrolledReason
