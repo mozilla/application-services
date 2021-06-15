@@ -1,3 +1,16 @@
+# v79.0.1 (_2021-06-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.0...v79.0.1)
+
+## Logins
+
+- Fixed a bug on iOS where `getDbSaltForKey` would incorrectly trigger a fatal error
+  instead of propagating errors to the caller.
+
+## Dependencies
+
+- The version of UniFFI used to generate Rust component bindings was updated to v0.12.0.
+
 # v79.0.0 (_2021-06-09_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v78.0.0...v79.0.0)
