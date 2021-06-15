@@ -74,7 +74,7 @@ fi
 # Integrity check for NSS
 if ! echo "${NSS_SHA256}  ${NSS_ARCHIVE}" | shasum -a 256 -c - 
 then
-    echo "Error: ${NSS_ARCHIVE} is corrupted. Please try running this build script again."
+    echo "Error: ${NSS_ARCHIVE} was corrupted. Please try running this build script again."
     rm -f "${NSS_ARCHIVE}" # remove corrupted file
     exit 2
 fi
