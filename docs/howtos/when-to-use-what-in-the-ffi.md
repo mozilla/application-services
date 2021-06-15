@@ -81,6 +81,11 @@ good support for calling over the FFI), but it's our lowest common denominator.
 
 These we pass as nul-terminated UTF-8 C-strings.
 
+JNA automatically converts a `String` argument into a nul-terminated C-string,
+but it will use the system default encoding unless specially configured.
+*This may not be UTF-8*, in which case we use a custom TypeMapper to override
+the default behaviour.
+
 For return values, used `*mut c_char`, and for input, use
 [`ffi_support::FfiStr`](https://docs.rs/ffi-support/*/ffi_support/struct.FfiStr.html)
 
