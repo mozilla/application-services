@@ -1280,10 +1280,51 @@ mod tests {
         ]
     }
 
+    fn get_experiment_with_newtab_feature_branches() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "newtab-feature-experiment",
+            "branches": [
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "newtab",
+                        "enabled": false,
+                        "value": {},
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "newtab",
+                        "enabled": true,
+                        "value": {},
+                    }
+                }
+            ],
+            "probeSets":[],
+            "bucketConfig":{
+                // Also enroll everyone.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "userFacingName":"2nd test experiment",
+        }))
+        .unwrap()
+    }
+
     fn get_experiment_with_different_feature_branches() -> Experiment {
         serde_json::from_value(json!({
             "schemaVersion": "1.0.0",
-            "slug": "secure-silver",
+            "slug": "mixed-feature-experiment",
             "branches": [
                 {
                     "slug": "control",
@@ -1299,6 +1340,47 @@ mod tests {
                     "ratio":1,
                     "feature": {
                         "featureId": "newtab",
+                        "enabled": true,
+                        "value": {},
+                    }
+                }
+            ],
+            "probeSets":[],
+            "bucketConfig":{
+                // Also enroll everyone.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "userFacingName":"2nd test experiment",
+        }))
+        .unwrap()
+    }
+
+    fn get_experiment_with_aboutwelcome_feature_branches() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "about_welcome-feature-experiment",
+            "branches": [
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "about_welcome",
+                        "enabled": false,
+                        "value": {},
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "about_welcome",
                         "enabled": true,
                         "value": {},
                     }
@@ -2108,7 +2190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_feature_id_reuse() -> Result<()> {
+    fn test_evolver_feature_id_reuse() -> Result<()> {
         let _ = env_logger::try_init();
 
         let test_experiments = get_test_experiments();
@@ -2155,6 +2237,206 @@ mod tests {
         assert_eq!(
             2, enrolled_count,
             "exactly two enrollments should have Enrolled status"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_multi_feature_experiments() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+
+        let aboutwelcome_experiment = get_experiment_with_aboutwelcome_feature_branches();
+        let newtab_experiment = get_experiment_with_newtab_feature_branches();
+        let mixed_experiment = get_experiment_with_different_feature_branches();
+
+        // 1. we have two experiments that use one feature each. There's no conflicts.
+        let next_experiments = vec![aboutwelcome_experiment.clone(), newtab_experiment.clone()];
+
+        let (enrollments, _) = evolver.evolve_enrollments(true, &[], &next_experiments, &[])?;
+
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 2);
+        assert_eq!(
+            feature_map.get("about_welcome").unwrap().slug,
+            "about_welcome-feature-experiment"
+        );
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "newtab-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec![
+                "newtab-feature-experiment",
+                "about_welcome-feature-experiment"
+            ]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>()
+        );
+
+        // 2. We add a third, which uses both the features that the other experiments use, i.e. it shouldn't be enrolled.
+        let prev_enrollments = enrollments;
+        let prev_experiments = next_experiments;
+        let next_experiments = vec![
+            aboutwelcome_experiment.clone(),
+            newtab_experiment.clone(),
+            mixed_experiment.clone(),
+        ];
+        let (enrollments, events) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        assert_eq!(events.len(), 0);
+
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 2);
+        assert_eq!(
+            feature_map.get("about_welcome").unwrap().slug,
+            "about_welcome-feature-experiment"
+        );
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "newtab-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec![
+                "newtab-feature-experiment",
+                "about_welcome-feature-experiment"
+            ]
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<HashSet<_>>()
+        );
+
+        // 3. Next we take away each of the single feature experiments, until the multi-feature can enroll.
+        let prev_enrollments = enrollments;
+        let prev_experiments = next_experiments;
+        let next_experiments = vec![newtab_experiment.clone(), mixed_experiment.clone()];
+        let (enrollments, _) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 1);
+        assert!(feature_map.get("about_welcome").is_none());
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "newtab-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec!["newtab-feature-experiment"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<_>>()
+        );
+
+        // 3a. Take away the second single-feature experiment. The multi-feature one now can enroll.
+        let prev_enrollments = enrollments;
+        let prev_experiments = next_experiments;
+        let next_experiments = vec![mixed_experiment.clone()];
+        let (enrollments, _) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 2);
+        assert_eq!(
+            feature_map.get("about_welcome").unwrap().slug,
+            "mixed-feature-experiment"
+        );
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "mixed-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec!["mixed-feature-experiment"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<_>>()
+        );
+
+        // 4. Starting from an empty enrollments, enroll a multi-feature and then add the single feature ones back in again, which won't be able to enroll.
+        // 4a. The multi feature experiment.
+        let prev_enrollments = vec![];
+        let prev_experiments = vec![];
+        let next_experiments = vec![mixed_experiment.clone()];
+        let (enrollments, _) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        // 4b. Add the single feature experiments.
+        let prev_enrollments = enrollments;
+        let prev_experiments = next_experiments;
+        let next_experiments = vec![aboutwelcome_experiment, newtab_experiment, mixed_experiment];
+        let (enrollments, events) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        assert_eq!(events.len(), 0);
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 2);
+        assert_eq!(
+            feature_map.get("about_welcome").unwrap().slug,
+            "mixed-feature-experiment"
+        );
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "mixed-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec!["mixed-feature-experiment"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<_>>()
         );
 
         Ok(())
