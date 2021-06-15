@@ -64,7 +64,7 @@ open class LoginsStorage {
             if self.store != nil {
                 throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
             }
-            return try! openAndGetSalt(path: self.dbPath, encryptionKey: key)
+            return try openAndGetSalt(path: self.dbPath, encryptionKey: key)
         }
     }
 
