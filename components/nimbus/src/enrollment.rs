@@ -2119,7 +2119,6 @@ mod tests {
             "no new enrollments should have been returned"
         );
 
-        // XXX is this right?  should we be returning some sort of event for this?
         assert_eq!(
             events.len(),
             0,
