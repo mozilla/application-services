@@ -481,7 +481,10 @@ mod test {
         client.apply_pending_experiments()?;
 
         let experiments = client.get_all_experiments()?;
-        log::debug!("after 2nd apply and get_all: experiments = {:?}", experiments);
+        log::debug!(
+            "after 2nd apply and get_all: experiments = {:?}",
+            experiments
+        );
 
         // Make sure that we have what we should...
         assert_eq!(experiments.len(), 1);

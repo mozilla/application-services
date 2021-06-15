@@ -726,7 +726,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                 };
 
                 if let Some(enrollment) = next_enrollment {
-
                     // We get the FeatureConfig out of the enrollment.
                     // This is copied from above. We should consider making this a function.
                     if let Some(enrolled_feature) =
