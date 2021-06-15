@@ -10,9 +10,8 @@ class LoginsTests: XCTestCase {
     var encryptionKey: String!
     var salt: String!
 
-    //This tests setup mimics closer to what fxiOS is doing
+    // This test setup mimics as close as we can to how fxiOS consumes our API
     override func setUp() {
-
         let directory = NSTemporaryDirectory()
         let filename = "testdb-\(UUID().uuidString).db"
         let fileURL = URL(fileURLWithPath: directory).appendingPathComponent(filename)
@@ -23,30 +22,28 @@ class LoginsTests: XCTestCase {
         encryptionKey = "uyvuyvuvWSRYRWYRW47654754hdxjkinouhi"
         salt = setupPlaintextHeaderAndGetSalt(databasePath: databasePath, encryptionKey: encryptionKey)
         storage = LoginsStorage(databasePath: fileURL.absoluteString)
-            
-       
     }
 
     override func tearDown() {
         // This method is called after the invocation of each test method in the class.
     }
-    
+
     // Migrate and return the salt, or create a new salt
     // Also, in the event of an error, returns a new salt.
     public func setupPlaintextHeaderAndGetSalt(databasePath: String, encryptionKey: String) -> String {
         do {
             if FileManager.default.fileExists(atPath: databasePath) {
-               let db = LoginsStorage(databasePath: databasePath)
-               let salt = try db.getDbSaltForKey(key: encryptionKey)
-               try db.migrateToPlaintextHeader(key: encryptionKey, salt: salt)
-               return salt
-           }
-       } catch {
-           print("could not sucessfully migrate plaintext")
-       }
-       let saltOf32Chars = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-       return saltOf32Chars
-   }
+                let db = LoginsStorage(databasePath: databasePath)
+                let salt = try db.getDbSaltForKey(key: encryptionKey)
+                try db.migrateToPlaintextHeader(key: encryptionKey, salt: salt)
+                return salt
+            }
+        } catch {
+            print("could not sucessfully migrate plaintext")
+        }
+        let saltOf32Chars = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        return saltOf32Chars
+    }
 
     func testBadEncryptionKey() {
         var dbOpened = true
@@ -113,7 +110,7 @@ class LoginsTests: XCTestCase {
     func testLoginEnsureValid() {
         try! storage.unlockWithKeyAndSalt(key: encryptionKey, salt: salt)
 
-        let _ = try! storage.add(login: Login(
+        _ = try! storage.add(login: Login(
             id: "",
             hostname: "https://www.example5.com",
             password: "hunter5",
@@ -161,7 +158,7 @@ class LoginsTests: XCTestCase {
         XCTAssertThrowsError(try storage.ensureValid(login: dupeLogin))
         XCTAssertThrowsError(try storage.ensureValid(login: nullValueLogin))
     }
-    
+
     func addLogin() -> String {
         let login = Login(
             id: "",
@@ -179,15 +176,15 @@ class LoginsTests: XCTestCase {
         )
         return try! storage.add(login: login)
     }
-    
+
     func testListLogins() {
         try! storage.unlockWithKeyAndSalt(key: encryptionKey, salt: salt)
-        
+
         let listResult1 = try! storage.list()
         XCTAssertEqual(listResult1.count, 0)
-        
-       let _ = addLogin()
-        
+
+        _ = addLogin()
+
         let listResult2 = try! storage.list()
         XCTAssertEqual(listResult2.count, 1)
     }
