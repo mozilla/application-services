@@ -618,8 +618,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         let next_experiments = map_experiments(&next_experiments);
         let prev_enrollments = map_enrollments(&prev_enrollments);
 
-        log::debug!("entering evolve_enrollments");
-
         // Step 1. Build an initial active_features to keep track of
         // the features that are being experimented upon.
         let mut active_features = HashMap::with_capacity(next_experiments.len());
@@ -643,8 +641,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             }
             let slug = &prev_enrollment.slug;
 
-            log::debug!("about to call evolve_enrollment (1st call site)");
-
             let next_enrollment = match self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
@@ -654,8 +650,6 @@ impl<'a> EnrollmentsEvolver<'a> {
             ) {
                 Ok(enrollment) => enrollment,
                 Err(e) => {
-                    // XXX test that any associated enrollments,
-                    // prev_experiments?, next_experiments also dropped
                     log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
                     None
                 }
@@ -670,14 +664,10 @@ impl<'a> EnrollmentsEvolver<'a> {
             }
         }
 
-        log::debug!("before second loop");
-
         // Step 3. Evolve the remaining enrollments with the previous and
         // next data.
         for next_experiment in next_experiments.values() {
             let slug = &next_experiment.slug;
-
-            log::debug!("in second loop");
 
             // Check that the feature id is available.  If not, then declare
             // the enrollment as NotEnrolled; and we continue to the next
@@ -699,7 +689,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // features that are already active. So continue to
                     // the next experiment. But…
                 }
-                log::debug!("just before continue");
                 // … perhaps we can continue here too? Because
                 // if the feature is already active,
                 //    …and the experiment it's using is this one,
@@ -707,8 +696,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                 //     because we did it in step 2.
                 continue;
             }
-
-            log::debug!("past continue, feature not already active");
 
             // If we got here, then the feature is not already active.
             // But we evolved all the existing enrollments in step 2,
@@ -724,8 +711,6 @@ impl<'a> EnrollmentsEvolver<'a> {
                     }
                 )
             {
-                log::debug!("about to call evolve_enrollment (2nd call site)");
-
                 let next_enrollment = match self.evolve_enrollment(
                     is_user_participating,
                     prev_experiments.get(slug).copied(),
@@ -735,16 +720,12 @@ impl<'a> EnrollmentsEvolver<'a> {
                 ) {
                     Ok(enrollment) => enrollment,
                     Err(e) => {
-                        // XXX test that any associated enrollments,
-                        // prev_experiments?, next_experiments also dropped
                         log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
-                        //return Err(NimbusError::InvalidPersistedData);
                         None
                     }
                 };
 
                 if let Some(enrollment) = next_enrollment {
-                    log::debug!("inside let Some enrollment");
 
                     // We get the FeatureConfig out of the enrollment.
                     // This is copied from above. We should consider making this a function.

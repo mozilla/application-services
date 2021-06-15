@@ -460,6 +460,8 @@ mod test {
         let db_v1_experiments_with_missing_feature_fields =
             &get_db_v1_experiments_with_missing_feature_fields();
 
+        // create a database in a way that could cause the migrator to
+        // leave some orphan records while cleaning up...
         create_old_database(
             &tmp_dir,
             1,

@@ -169,7 +169,6 @@ impl SingleStore {
         let persisted_data = self.store.get(reader, key)?;
         match persisted_data {
             Some(data) => {
-                log::debug!("inside get Some case");
                 if let rkv::Value::Json(data) = data {
                     Ok(Some(serde_json::from_str::<T>(data)?))
                 } else {
@@ -267,13 +266,11 @@ impl Database {
     fn maybe_upgrade(&self) -> Result<()> {
         log::debug!("entered maybe upgrade");
         let mut writer = self.rkv.write()?;
-        log::debug!("maybe_upgrade: DB_KEY_DB_VERSION = {}", DB_KEY_DB_VERSION);
         let db_version = self.meta_store.get::<u16, _>(&writer, DB_KEY_DB_VERSION)?;
-        log::debug!("maybe_upgrade: db_version = {:?}", db_version);
         match db_version {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
-                log::debug!("Already at version {}, no upgrade needed", DB_VERSION);
+                log::info!("Already at version {}, no upgrade needed", DB_VERSION);
                 return Ok(());
             }
             Some(1) => {
@@ -296,7 +293,7 @@ impl Database {
                 };
             }
             None => {
-                log::debug!("maybe_upgrade: no version number; wiping everything");
+                log::error!("maybe_upgrade: no version number; wiping most stores");
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
@@ -304,7 +301,7 @@ impl Database {
                 self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
-                log::error!("Unknown database version. Wiping everything.");
+                log::error!("Unknown database version. Wiping all stores.");
                 self.clear_experiments_and_enrollments(&mut writer)?;
                 self.meta_store.clear(&mut writer)?;
             }
@@ -317,7 +314,7 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
-        log::debug!("transaction committed");
+        log::debug!("maybe_upgrade: transaction committed");
         Ok(())
     }
 

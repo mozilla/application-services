@@ -27,6 +27,7 @@ fn new_test_client_internal(
     let mut dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     dir.push("tests/experiments");
     let url = Url::from_file_path(dir).expect("experiments dir should exist");
+
     let config = RemoteSettingsConfig {
         server_url: url.as_str().to_string(),
         collection_name: "doesn't matter".to_string(),
@@ -38,7 +39,6 @@ fn new_test_client_internal(
         channel: "nightly".to_string(),
         ..Default::default()
     };
-    log::debug!("new_test_client_internal: tmp_dir.path() = {:?}", tmp_dir.path());
     NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
 }
 
@@ -328,7 +328,7 @@ pub fn create_old_database<P: AsRef<Path>>(
     }
 
     writer.commit()?;
-    log::debug!("create_old_database committed");
+    log::debug!("create_old_database: writer committed");
 
     Ok(())
 }
