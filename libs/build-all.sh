@@ -57,7 +57,7 @@ fi
 # Integrity check for SQLCIPHER
 if ! echo "${SQLCIPHER_SHA256}  ${SQLCIPHER}.tar.gz" | shasum -a 256 -c - 
 then
-    echo "Error: ${SQLCIPHER}.tar.gz is corrupted. Please try running this build script again."
+    echo "Error: ${SQLCIPHER}.tar.gz was corrupted. Please try running this build script again."
     rm -f "${SQLCIPHER}.tar.gz" # remove corrupted file
     exit 2
 fi
