@@ -485,6 +485,7 @@ The following text applies to code linked from these dependencies:
 [rand_core](https://github.com/rust-random/rand),
 [regex-syntax](https://github.com/rust-lang/regex),
 [regex](https://github.com/rust-lang/regex),
+[remove_dir_all](https://github.com/XAMPPRocky/remove_dir_all.git),
 [rkv](https://github.com/mozilla/rkv),
 [ryu](https://github.com/dtolnay/ryu),
 [semver-parser](https://github.com/steveklabnik/semver-parser),
@@ -497,6 +498,7 @@ The following text applies to code linked from these dependencies:
 [smallvec](https://github.com/servo/rust-smallvec),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
+[tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
 [tinyvec](https://github.com/Lokathor/tinyvec),
@@ -511,7 +513,9 @@ The following text applies to code linked from these dependencies:
 [unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
-[version_check](https://github.com/SergioBenitez/version_check)
+[version_check](https://github.com/SergioBenitez/version_check),
+[winapi-x86_64-pc-windows-gnu](https://github.com/retep998/winapi-rs),
+[winapi](https://github.com/retep998/winapi-rs)
 
 ```
                               Apache License
