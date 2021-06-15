@@ -16,7 +16,7 @@ impl MigrationLogic for WebExtMigrationLogin {
     const NAME: &'static str = "webext storage db";
     const END_VERSION: u32 = 2;
 
-    fn prepare(&self, conn: &Connection) -> MigrationResult<()> {
+    fn setup_pragmas(&self, conn: &Connection) -> MigrationResult<()> {
         let initial_pragmas = "
             -- We don't care about temp tables being persisted to disk.
             PRAGMA temp_store = 2;
@@ -25,8 +25,11 @@ impl MigrationLogic for WebExtMigrationLogin {
             -- foreign keys seem worth enforcing!
             PRAGMA foreign_keys = ON;
         ";
-
         conn.execute_batch(initial_pragmas)?;
+        Ok(())
+    }
+
+    fn prepare(&self, conn: &Connection) -> MigrationResult<()> {
         define_functions(&conn)?;
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())

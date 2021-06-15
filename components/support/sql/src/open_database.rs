@@ -11,6 +11,8 @@
 ///      - Extra preparation/finishing steps, for example setting up SQLite functions
 ///
 ///    - Call open_database() in your database constructor:
+///      - The first method called is setup_pragmas().  This is executed outside of a transaction
+///        to support `PRAGMA journal_mode=wal`
 ///      - If the database file is not present, open_database() will create a new DB and call prepare(),
 ///        init(), then finish()
 ///      - If the database file exists, open_database() will open it and call prepare(),
@@ -53,6 +55,11 @@ pub trait MigrationLogic {
     // The version that the last upgrade function upgrades to.
     const END_VERSION: u32;
 
+    // Runs first, outside of a transaction
+    fn setup_pragmas(&self, _conn: &Connection) -> Result<()> {
+        Ok(())
+    }
+
     // Runs before the init/upgrade functions
     fn prepare(&self, _conn: &Connection) -> Result<()> {
         Ok(())
@@ -87,11 +94,14 @@ pub fn open_database_with_flags<ML: MigrationLogic, P: AsRef<Path>>(
     migration_logic: &ML,
 ) -> Result<Connection> {
     // Try running the migration logic with an existing file
-    let conn = Connection::open_with_flags(path, open_flags)?;
+    log::debug!("{}: opening database", ML::NAME);
+    let mut conn = Connection::open_with_flags(path, open_flags)?;
     let run_init = should_init(&conn)?;
 
-    log::debug!("{}: opening database", ML::NAME);
-    let tx = conn.unchecked_transaction()?;
+    log::debug!("{}: setup pragmas", ML::NAME);
+    migration_logic.setup_pragmas(&conn)?;
+
+    let tx = conn.transaction()?;
     log::debug!("{}: preparing database", ML::NAME);
     migration_logic.prepare(&tx)?;
     if run_init {
@@ -241,6 +251,11 @@ mod test {
         const NAME: &'static str = "test db";
         const END_VERSION: u32 = 4;
 
+        fn setup_pragmas(&self, conn: &Connection) -> Result<()> {
+            conn.execute_batch("PRAGMA journal_mode = wal;")?;
+            Ok(())
+        }
+
         fn prepare(&self, conn: &Connection) -> Result<()> {
             self.push_call("prep");
             conn.execute_batch(
@@ -348,6 +363,16 @@ mod test {
         let conn = open_database(db_file.path.clone(), &db_file.migration_logic).unwrap();
         check_final_data(&conn);
         db_file.migration_logic.check_calls(vec!["prep", "finish"]);
+    }
+
+    #[test]
+    fn test_pragmas() {
+        let db_file = MigratedDatabaseFile::new(TestMigrationLogic::new(), INIT_V2);
+        let conn = open_database(db_file.path.clone(), &db_file.migration_logic).unwrap();
+        assert_eq!(
+            conn.query_one::<String>("PRAGMA journal_mode").unwrap(),
+            "wal"
+        );
     }
 
     #[test]
