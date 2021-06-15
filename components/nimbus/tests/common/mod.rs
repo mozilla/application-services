@@ -10,16 +10,16 @@ pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
     use tempdir::TempDir;
     let tmp_dir = TempDir::new(identifier)?;
 
-    new_test_client_internal(tmp_dir)
+    new_test_client_internal(&tmp_dir)
 }
 
 #[allow(dead_code)] // not clear why this is necessary...
-pub fn new_test_client_with_db(tmp_dir: tempdir::TempDir) -> Result<NimbusClient> {
+pub fn new_test_client_with_db(tmp_dir: &tempdir::TempDir) -> Result<NimbusClient> {
     new_test_client_internal(tmp_dir)
 }
 
 fn new_test_client_internal(
-    tmp_dir: tempdir::TempDir,
+    tmp_dir: &tempdir::TempDir,
 ) -> Result<NimbusClient, nimbus::NimbusError> {
     use std::path::PathBuf;
     use url::Url;
@@ -38,6 +38,7 @@ fn new_test_client_internal(
         channel: "nightly".to_string(),
         ..Default::default()
     };
+    log::debug!("new_test_client_internal: tmp_dir.path() = {:?}", tmp_dir.path());
     NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
 }
 
@@ -294,7 +295,8 @@ pub fn create_old_database<P: AsRef<Path>>(
     enrollments_json: &[serde_json::Value],
 ) -> Result<()> {
     let _ = env_logger::try_init();
-
+    log::debug!("create_old_database(): old_version = {:?}", old_version);
+    log::debug!("create_old_database(): path = {:?}", path.as_ref());
     let rkv = Database::open_rkv(path)?;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
     let experiment_store =

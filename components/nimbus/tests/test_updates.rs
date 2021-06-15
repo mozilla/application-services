@@ -414,10 +414,15 @@ mod test {
 
     #[cfg(feature = "rkv-safe-mode")]
     #[test]
+
+    /// test that even with a database with orphan records,
+    /// apply_pending_experiments does not throw an error
     fn test_startup_orphan_behavior() -> Result<()> {
         let _ = env_logger::try_init();
 
         use tempdir::TempDir;
+
+        // these enrollments should cause orphan experiments to be created
         let enrollments_for_missing_feature_id = vec![
             json!(
             {
@@ -452,40 +457,33 @@ mod test {
         ];
 
         let tmp_dir = TempDir::new("test_startup_orphan_behavior")?;
-
         let db_v1_experiments_with_missing_feature_fields =
             &get_db_v1_experiments_with_missing_feature_fields();
 
         create_old_database(
             &tmp_dir,
             1,
-            &db_v1_experiments_with_missing_feature_fields,
+            db_v1_experiments_with_missing_feature_fields,
             &enrollments_for_missing_feature_id,
         )?;
 
-        let client = new_test_client_with_db(tmp_dir)?;
-
-        client.apply_pending_experiments()?;
-        client.fetch_experiments()?; // get new stuff from test dir
-                                     // startup(&client, false)?;
+        let client = new_test_client_with_db(&tmp_dir)?;
 
         let experiments = client.get_all_experiments()?;
-        log::debug!("experiments = {:?}", experiments);
-        // assert_eq!(experiments.len(), 2);
-        // assert_eq!(experiments[0].slug, "secure-gold");
-        // assert_eq!(experiments[1].slug, "startup-gold");
+        log::debug!("after db creation: experiments = {:?}", experiments);
 
-        // The app is at a safe place to change all the experiments.
-        client.apply_pending_experiments()?; // apply new stuff
-                                             // let experiments = client.get_all_experiments()?;
-                                             // assert_eq!(experiments.len(), 1);
-                                             // assert_eq!(experiments[0].slug, "secure-gold");
+        assert_eq!(experiments.len(), 0); // all data should have been discarded
 
-        // // Next time we start the app.
-        // startup(&client, false)?;
-        // let experiments = client.get_all_experiments()?;
-        // assert_eq!(experiments.len(), 1);
-        // assert_eq!(experiments[0].slug, "secure-gold");
+        // Apply the new experiments from the test dir...
+        client.fetch_experiments()?;
+        client.apply_pending_experiments()?;
+
+        let experiments = client.get_all_experiments()?;
+        log::debug!("after 2nd apply and get_all: experiments = {:?}", experiments);
+
+        // Make sure that we have what we should...
+        assert_eq!(experiments.len(), 1);
+        assert_eq!(experiments[0].slug, "secure-gold");
 
         Ok(())
     }

@@ -2125,8 +2125,8 @@ mod tests {
         let (nimbus_id, app_ctx, aru) = local_ctx();
         let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
 
-        // test err in 2nd loop (ie no previous enrollment) gets dropped and right stuff returned
-
+        // test that evolve_enrollments correctly handles the case where a
+        // record without a previous enrollment gets dropped
         let test_experiments = get_test_experiments();
 
         // this should not return an error
@@ -2146,11 +2146,22 @@ mod tests {
             "no new enrollments should have been returned"
         );
 
-        // Now test "New Experiment but Enrollment exists" error in 1st loop,
+        // Test that evolve_enrollments correctly handles the case where a
+        // record with a previous enrollment gets dropped
         let (enrollments, events) =
             evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
 
-        // XXX check that both enrollment and event were dropped
+        assert_eq!(
+            enrollments.len(),
+            1,
+            "only 1 of 2 enrollments should have been returned, since one caused evolve_enrollment to err"
+        );
+
+        assert_eq!(
+            events.len(),
+            1,
+            "only 1 of 2 enrollment events should have been returned, since one caused evolve_enrollment to err"
+        );
 
         Ok(())
     }
