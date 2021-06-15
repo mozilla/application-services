@@ -651,10 +651,14 @@ impl<'a> EnrollmentsEvolver<'a> {
             };
 
             if let Some(enrollment) = next_enrollment {
-                // We get the FeatureConfig out of the enrollment.
-                for enrolled_feature in get_feature_config(&enrollment, &next_experiments) {
+                // Now we have an enrollment object!
+                // If it's an enrolled enrollment, then get the FeatureConfigs
+                // from the experiment and store them in the active_features map.
+                for enrolled_feature in get_enrolled_feature_configs(&enrollment, &next_experiments)
+                {
                     active_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
                 }
+                // Also, record the enrollment for our return value
                 next_enrollments.insert(slug, enrollment);
             }
         }
@@ -667,22 +671,25 @@ impl<'a> EnrollmentsEvolver<'a> {
             // Check that the feature ids that this experiment needs are available.  If not, then declare
             // the enrollment as NotEnrolled; and we continue to the next
             // experiment.
-            // conflicting_features are the features needed for this experiment, but already in use.
-            let conflicting_features: Vec<&EnrolledFeatureConfig> = next_experiment
+            // `needed_features_in_use` are the features needed for this experiment, but already in use.
+            // If this is not empty, then the experiment is either already enrolled, or cannot be enrolled.
+            let needed_features_in_use: Vec<&EnrolledFeatureConfig> = next_experiment
                 .get_feature_ids()
                 .iter()
                 .filter_map(|id| active_features.get(id))
                 .collect();
-            if !conflicting_features.is_empty() {
-                let is_our_experiment = conflicting_features.iter().any(|f| &f.slug == slug);
+            if !needed_features_in_use.is_empty() {
+                let is_our_experiment = needed_features_in_use.iter().any(|f| &f.slug == slug);
                 if is_our_experiment {
                     // At least one of these conflicted features are in use by this experiment.
                     // Unless the experiment has changed midflight, all the features will be from
                     // this experiment.
-                    assert!(conflicting_features.iter().all(|f| &f.slug == slug));
+                    assert!(needed_features_in_use.iter().all(|f| &f.slug == slug));
+                    // N.B. If this experiment is enrolled already, then we called
+                    // evolve_enrollment() on this enrollment and this experiment above.
                 } else {
                     // At least one feature needed for this experiment is already in use by another experiment.
-                    // Thus, we cannot proceed with an enrollment other than FeatureConflict.
+                    // Thus, we cannot proceed with an enrollment other than as a `FeatureConflict`.
                     next_enrollments.insert(
                         slug,
                         ExperimentEnrollment {
@@ -693,14 +700,11 @@ impl<'a> EnrollmentsEvolver<'a> {
                         },
                     );
                 }
-                // So now we know that the experiment is acting on
-                // features that are already active. So continue to
-                // the next experiment.
-                //
-                // Because if features are already active,
-                //    …and the experiment that are using them is this one,
-                //    …then we don't need to evolve the enrollment here,
-                //     because we did it in step 2.
+                // Whether it's our experiment or not that is using these features, no further enrollment can
+                // happen.
+                // Because no change has happened to this experiment's enrollment status, we don't need
+                // to log an enrollment event.
+                // All we can do is continue to the next experiment.
                 continue;
             }
 
@@ -738,12 +742,16 @@ impl<'a> EnrollmentsEvolver<'a> {
                 };
 
                 if let Some(enrollment) = next_enrollment {
-                    // We get the FeatureConfig out of the enrollment.
-                    // This is copied from above. We should consider making this a function.
-                    for enrolled_feature in get_feature_config(&enrollment, &next_experiments) {
+                    // Now we have an enrollment object!
+                    // If it's an enrolled enrollment, then get the FeatureConfigs
+                    // from the experiment and store them in the active_features map.
+                    for enrolled_feature in
+                        get_enrolled_feature_configs(&enrollment, &next_experiments)
+                    {
                         active_features
                             .insert(enrolled_feature.feature_id.clone(), enrolled_feature);
                     }
+                    // Also, record the enrollment for our return value
                     next_enrollments.insert(slug, enrollment);
                 }
             }
@@ -852,7 +860,7 @@ fn map_features(
     let mut map = HashMap::with_capacity(enrollments.len());
     for enrolled_feature_config in enrollments
         .iter()
-        .flat_map(|e| get_feature_config(e, experiments))
+        .flat_map(|e| get_enrolled_feature_configs(e, experiments))
     {
         map.insert(
             enrolled_feature_config.feature_id.clone(),
@@ -870,7 +878,7 @@ pub fn map_features_by_feature_id(
     map_features(enrollments, &map_experiments(experiments))
 }
 
-fn get_feature_config(
+fn get_enrolled_feature_configs(
     enrollment: &ExperimentEnrollment,
     experiments: &HashMap<String, &Experiment>,
 ) -> Vec<EnrolledFeatureConfig> {
