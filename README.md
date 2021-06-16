@@ -14,7 +14,7 @@ Get in touch with other community members on Matrix, or through issues here on G
 ### Building the Rust Components
 1. Clone or Download the repository:
 ```shell
-  $ git clone https://github.com/mozilla/application-services (or use the ssh link)
+  $ git clone https://github.com/mozilla/application-services # (or use the ssh link)
   $ cd application-services
   $ git submodule init
   $ git submodule update --recursive
