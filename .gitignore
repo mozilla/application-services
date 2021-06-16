@@ -28,6 +28,8 @@ components/**/ios/Generated
 # Glean generated artifacts
 megazords/ios/MozillaAppServices/Generated/Metrics.swift
 megazords/ios/.venv
+megazords/nimbus-ios/NimbusStandalone/Generated/Metrics.swift
+megazords/nimbus-ios/.venv
 
 # Carthage generated artifacts
 Carthage

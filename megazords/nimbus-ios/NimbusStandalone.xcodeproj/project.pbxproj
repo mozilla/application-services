@@ -1,0 +1,587 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 52;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		99D95D392679CFF600A24069 /* sdk_generator.sh in Resources */ = {isa = PBXBuildFile; fileRef = 99D95D342679CFF600A24069 /* sdk_generator.sh */; };
+		99D95D3C2679D2C300A24069 /* Dispatchers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D302679CFF600A24069 /* Dispatchers.swift */; };
+		99D95D3D2679D2C300A24069 /* Glean.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D322679CFF600A24069 /* Glean.swift */; };
+		99D95D3E2679D2C300A24069 /* GleanFfi.h in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D332679CFF600A24069 /* GleanFfi.h */; };
+		99D95D3F2679D2C300A24069 /* GleanMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D312679CFF600A24069 /* GleanMetrics.swift */; };
+		99D95D402679D2C300A24069 /* Configuration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D2E2679CFE900A24069 /* Configuration.swift */; };
+		99D95D412679D2C300A24069 /* GleanDebugTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D2C2679CFE400A24069 /* GleanDebugTools.swift */; };
+		99D95D422679D2C300A24069 /* BooleanMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D0B2679CFDD00A24069 /* BooleanMetric.swift */; };
+		99D95D432679D2C300A24069 /* CounterMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D0F2679CFDD00A24069 /* CounterMetric.swift */; };
+		99D95D442679D2C300A24069 /* DatetimeMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D192679CFDD00A24069 /* DatetimeMetric.swift */; };
+		99D95D452679D2C300A24069 /* DistributionData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D0D2679CFDD00A24069 /* DistributionData.swift */; };
+		99D95D462679D2C300A24069 /* EventMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D182679CFDD00A24069 /* EventMetric.swift */; };
+		99D95D472679D2C300A24069 /* JweMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D142679CFDD00A24069 /* JweMetric.swift */; };
+		99D95D482679D2C300A24069 /* LabeledMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D102679CFDD00A24069 /* LabeledMetric.swift */; };
+		99D95D492679D2C300A24069 /* Lifetime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D0C2679CFDD00A24069 /* Lifetime.swift */; };
+		99D95D4A2679D2C300A24069 /* MemoryDistributionMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D122679CFDD00A24069 /* MemoryDistributionMetric.swift */; };
+		99D95D4B2679D2C300A24069 /* MemoryUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D082679CFDD00A24069 /* MemoryUnit.swift */; };
+		99D95D4C2679D2C300A24069 /* Ping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D152679CFDD00A24069 /* Ping.swift */; };
+		99D95D4D2679D2C300A24069 /* RecordedExperimentData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D112679CFDD00A24069 /* RecordedExperimentData.swift */; };
+		99D95D4E2679D2C300A24069 /* StringListMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D0E2679CFDD00A24069 /* StringListMetric.swift */; };
+		99D95D4F2679D2C300A24069 /* StringMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D132679CFDD00A24069 /* StringMetric.swift */; };
+		99D95D502679D2C300A24069 /* TimespanMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D162679CFDD00A24069 /* TimespanMetric.swift */; };
+		99D95D512679D2C300A24069 /* TimeUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D092679CFDD00A24069 /* TimeUnit.swift */; };
+		99D95D522679D2C300A24069 /* TimingDistributionMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D0A2679CFDD00A24069 /* TimingDistributionMetric.swift */; };
+		99D95D532679D2C300A24069 /* UuidMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D172679CFDD00A24069 /* UuidMetric.swift */; };
+		99D95D542679D2C300A24069 /* HttpPingUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D042679CFD600A24069 /* HttpPingUploader.swift */; };
+		99D95D552679D2C300A24069 /* Upload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D052679CFD600A24069 /* Upload.swift */; };
+		99D95D562679D2C300A24069 /* GleanLifecycleObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CFE2679CFCD00A24069 /* GleanLifecycleObserver.swift */; };
+		99D95D572679D2C300A24069 /* GleanOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CFD2679CFCD00A24069 /* GleanOperation.swift */; };
+		99D95D582679D2C300A24069 /* MetricsPingScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CFC2679CFCD00A24069 /* MetricsPingScheduler.swift */; };
+		99D95D592679D2C300A24069 /* PingUploadOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CFF2679CFCD00A24069 /* PingUploadOperation.swift */; };
+		99D95D5A2679D2C300A24069 /* ErrorType.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CFA2679CFC200A24069 /* ErrorType.swift */; };
+		99D95D5B2679D2C300A24069 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CF42679CFB400A24069 /* Logger.swift */; };
+		99D95D5C2679D2C300A24069 /* Sysctl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CF22679CFB400A24069 /* Sysctl.swift */; };
+		99D95D5D2679D2C300A24069 /* Unreachable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CF32679CFB400A24069 /* Unreachable.swift */; };
+		99D95D5E2679D2C300A24069 /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95CF52679CFB400A24069 /* Utils.swift */; };
+		99D95D5F2679D2C300A24069 /* RustLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC21B12221DCE3700AA71E5 /* RustLog.swift */; };
+		99D95D602679D2C300A24069 /* Viaduct.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9FFA12242D4E7B0011029E /* Viaduct.swift */; };
+		99D95D612679D2C300A24069 /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 394A807325EE94C600FAF26F /* nimbus.udl */; };
+		99D95D622679D2C300A24069 /* Nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394A809725F94E1300FAF26F /* Nimbus.swift */; };
+		99D95D632679D2C300A24069 /* NimbusApi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 395992B725FBE40300E3185F /* NimbusApi.swift */; };
+		99D95D642679D2C300A24069 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394D6C612600E64E008F9CE5 /* NimbusCreate.swift */; };
+		99D95D652679D2C300A24069 /* FeatureVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 398A4148264986E200AA22F1 /* FeatureVariables.swift */; };
+		99D95D682679D54600A24069 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99D95D672679D54600A24069 /* Metrics.swift */; };
+		99D95D692679D59B00A24069 /* GleanFfi.h in Headers */ = {isa = PBXBuildFile; fileRef = 99D95D332679CFF600A24069 /* GleanFfi.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		C852EEEF220A2E9400A6E79A /* libnimbus_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libnimbus_ios.a */; };
+		CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = CE58B2F7242D54340089F091 /* RustViaductFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		D05434A1225680D900FDE4EF /* NimbusStandalone.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* NimbusStandalone.h */; settings = {ATTRIBUTES = (Public, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXBuildRule section */
+		CE0617CE24E4978C0068E903 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.udl";
+			fileType = pattern.proxy;
+			inputFiles = (
+			);
+			isEditable = 1;
+			outputFiles = (
+				"$(INPUT_FILE_DIR)/../ios/Generated/$(INPUT_FILE_BASE).swift",
+				"$(INPUT_FILE_DIR)/../ios/Generated/uniffi_$(INPUT_FILE_BASE)-Bridging-Header.h",
+			);
+			runOncePerArchitecture = 0;
+			script = "bash $PWD/../../build-scripts/xc-cargo.sh uniffi-bindgen generate $INPUT_FILE_PATH --language swift --out-dir $INPUT_FILE_DIR/../ios/Generated\n";
+		};
+		EB7DE84A2214D28C00E7CF17 /* PBXBuildRule */ = {
+			isa = PBXBuildRule;
+			compilerSpec = com.apple.compilers.proxy.script;
+			filePatterns = "*.proto";
+			fileType = pattern.proxy;
+			inputFiles = (
+			);
+			isEditable = 1;
+			outputFiles = (
+				"$(DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).pb.swift",
+			);
+			runOncePerArchitecture = 0;
+			script = "protoc --proto_path=$INPUT_FILE_DIR --swift_out=$DERIVED_FILE_DIR $INPUT_FILE_PATH\n";
+		};
+/* End PBXBuildRule section */
+
+/* Begin PBXFileReference section */
+		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../src/nimbus.udl; sourceTree = "<group>"; };
+		394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_nimbus-Bridging-Header.h"; sourceTree = "<group>"; };
+		394A807725EE951D00FAF26F /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = "<group>"; };
+		394A809725F94E1300FAF26F /* Nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Nimbus.swift; sourceTree = "<group>"; };
+		394D6C612600E64E008F9CE5 /* NimbusCreate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusCreate.swift; sourceTree = "<group>"; };
+		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
+		398A4148264986E200AA22F1 /* FeatureVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureVariables.swift; sourceTree = "<group>"; };
+		99D95CF22679CFB400A24069 /* Sysctl.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Sysctl.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Utils/Sysctl.swift"; sourceTree = "<group>"; };
+		99D95CF32679CFB400A24069 /* Unreachable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Unreachable.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Utils/Unreachable.swift"; sourceTree = "<group>"; };
+		99D95CF42679CFB400A24069 /* Logger.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Logger.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Utils/Logger.swift"; sourceTree = "<group>"; };
+		99D95CF52679CFB400A24069 /* Utils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Utils.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Utils/Utils.swift"; sourceTree = "<group>"; };
+		99D95CFA2679CFC200A24069 /* ErrorType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = ErrorType.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Testing/ErrorType.swift"; sourceTree = "<group>"; };
+		99D95CFC2679CFCD00A24069 /* MetricsPingScheduler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MetricsPingScheduler.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Scheduler/MetricsPingScheduler.swift"; sourceTree = "<group>"; };
+		99D95CFD2679CFCD00A24069 /* GleanOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GleanOperation.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Scheduler/GleanOperation.swift"; sourceTree = "<group>"; };
+		99D95CFE2679CFCD00A24069 /* GleanLifecycleObserver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GleanLifecycleObserver.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Scheduler/GleanLifecycleObserver.swift"; sourceTree = "<group>"; };
+		99D95CFF2679CFCD00A24069 /* PingUploadOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PingUploadOperation.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Scheduler/PingUploadOperation.swift"; sourceTree = "<group>"; };
+		99D95D042679CFD600A24069 /* HttpPingUploader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = HttpPingUploader.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Net/HttpPingUploader.swift"; sourceTree = "<group>"; };
+		99D95D052679CFD600A24069 /* Upload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Upload.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Net/Upload.swift"; sourceTree = "<group>"; };
+		99D95D082679CFDD00A24069 /* MemoryUnit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MemoryUnit.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/MemoryUnit.swift"; sourceTree = "<group>"; };
+		99D95D092679CFDD00A24069 /* TimeUnit.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TimeUnit.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/TimeUnit.swift"; sourceTree = "<group>"; };
+		99D95D0A2679CFDD00A24069 /* TimingDistributionMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TimingDistributionMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/TimingDistributionMetric.swift"; sourceTree = "<group>"; };
+		99D95D0B2679CFDD00A24069 /* BooleanMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = BooleanMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/BooleanMetric.swift"; sourceTree = "<group>"; };
+		99D95D0C2679CFDD00A24069 /* Lifetime.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Lifetime.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/Lifetime.swift"; sourceTree = "<group>"; };
+		99D95D0D2679CFDD00A24069 /* DistributionData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DistributionData.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/DistributionData.swift"; sourceTree = "<group>"; };
+		99D95D0E2679CFDD00A24069 /* StringListMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = StringListMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/StringListMetric.swift"; sourceTree = "<group>"; };
+		99D95D0F2679CFDD00A24069 /* CounterMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = CounterMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/CounterMetric.swift"; sourceTree = "<group>"; };
+		99D95D102679CFDD00A24069 /* LabeledMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = LabeledMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/LabeledMetric.swift"; sourceTree = "<group>"; };
+		99D95D112679CFDD00A24069 /* RecordedExperimentData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = RecordedExperimentData.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/RecordedExperimentData.swift"; sourceTree = "<group>"; };
+		99D95D122679CFDD00A24069 /* MemoryDistributionMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MemoryDistributionMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/MemoryDistributionMetric.swift"; sourceTree = "<group>"; };
+		99D95D132679CFDD00A24069 /* StringMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = StringMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/StringMetric.swift"; sourceTree = "<group>"; };
+		99D95D142679CFDD00A24069 /* JweMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = JweMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/JweMetric.swift"; sourceTree = "<group>"; };
+		99D95D152679CFDD00A24069 /* Ping.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Ping.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/Ping.swift"; sourceTree = "<group>"; };
+		99D95D162679CFDD00A24069 /* TimespanMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = TimespanMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/TimespanMetric.swift"; sourceTree = "<group>"; };
+		99D95D172679CFDD00A24069 /* UuidMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = UuidMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/UuidMetric.swift"; sourceTree = "<group>"; };
+		99D95D182679CFDD00A24069 /* EventMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = EventMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/EventMetric.swift"; sourceTree = "<group>"; };
+		99D95D192679CFDD00A24069 /* DatetimeMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = DatetimeMetric.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Metrics/DatetimeMetric.swift"; sourceTree = "<group>"; };
+		99D95D2C2679CFE400A24069 /* GleanDebugTools.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GleanDebugTools.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Debug/GleanDebugTools.swift"; sourceTree = "<group>"; };
+		99D95D2E2679CFE900A24069 /* Configuration.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Configuration.swift; path = "../../../../components/external/glean/glean-core/ios/Glean/Config/Configuration.swift"; sourceTree = "<group>"; };
+		99D95D302679CFF600A24069 /* Dispatchers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Dispatchers.swift; path = "../../../components/external/glean/glean-core/ios/Glean/Dispatchers.swift"; sourceTree = "<group>"; };
+		99D95D312679CFF600A24069 /* GleanMetrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = GleanMetrics.swift; path = "../../../components/external/glean/glean-core/ios/Glean/GleanMetrics.swift"; sourceTree = "<group>"; };
+		99D95D322679CFF600A24069 /* Glean.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Glean.swift; path = "../../../components/external/glean/glean-core/ios/Glean/Glean.swift"; sourceTree = "<group>"; };
+		99D95D332679CFF600A24069 /* GleanFfi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GleanFfi.h; path = "../../../components/external/glean/glean-core/ios/Glean/GleanFfi.h"; sourceTree = "<group>"; };
+		99D95D342679CFF600A24069 /* sdk_generator.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = sdk_generator.sh; path = "../../../components/external/glean/glean-core/ios/sdk_generator.sh"; sourceTree = "<group>"; };
+		99D95D672679D54600A24069 /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Metrics.swift; path = NimbusStandalone/Generated/Metrics.swift; sourceTree = SOURCE_ROOT; };
+		C852EE9A220A26E600A6E79A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		C852EEEE220A2E9400A6E79A /* libnimbus_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libnimbus_ios.a; path = ../../target/universal/release/libnimbus_ios.a; sourceTree = "<group>"; };
+		C852EEF2220A3C6800A6E79A /* NimbusStandalone.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NimbusStandalone.h; sourceTree = "<group>"; };
+		CDC21B12221DCE3700AA71E5 /* RustLog.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RustLog.swift; sourceTree = "<group>"; };
+		CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustLogFFI.h; sourceTree = "<group>"; };
+		CE58B2F7242D54340089F091 /* RustViaductFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustViaductFFI.h; sourceTree = "<group>"; };
+		CE9D202020914D0D00F1C8FA /* NimbusStandalone.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = NimbusStandalone.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		CE9FFA12242D4E7B0011029E /* Viaduct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Viaduct.swift; sourceTree = "<group>"; };
+		EBA8770621F5FB9A004F63F0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
+		EBA8770721F5FB9A004F63F0 /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = debug.xcconfig; sourceTree = "<group>"; };
+		EBA8770821F5FB9A004F63F0 /* release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = release.xcconfig; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		CE9D201C20914D0D00F1C8FA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C852EEEF220A2E9400A6E79A /* libnimbus_ios.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		394A807225EE927D00FAF26F /* Nimbus */ = {
+			isa = PBXGroup;
+			children = (
+				394A807525EE951D00FAF26F /* Generated */,
+				394A807325EE94C600FAF26F /* nimbus.udl */,
+				394A809725F94E1300FAF26F /* Nimbus.swift */,
+				395992B725FBE40300E3185F /* NimbusApi.swift */,
+				394D6C612600E64E008F9CE5 /* NimbusCreate.swift */,
+				398A4148264986E200AA22F1 /* FeatureVariables.swift */,
+			);
+			name = Nimbus;
+			path = ../../components/nimbus/ios/Nimbus;
+			sourceTree = SOURCE_ROOT;
+		};
+		394A807525EE951D00FAF26F /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */,
+				394A807725EE951D00FAF26F /* nimbus.swift */,
+			);
+			name = Generated;
+			path = ../../components/nimbus/ios/Generated;
+			sourceTree = SOURCE_ROOT;
+		};
+		99D95C972679CCC700A24069 /* Glean */ = {
+			isa = PBXGroup;
+			children = (
+				99D95CE92679CE1800A24069 /* Generated */,
+				99D95D302679CFF600A24069 /* Dispatchers.swift */,
+				99D95D322679CFF600A24069 /* Glean.swift */,
+				99D95D332679CFF600A24069 /* GleanFfi.h */,
+				99D95D312679CFF600A24069 /* GleanMetrics.swift */,
+				99D95D342679CFF600A24069 /* sdk_generator.sh */,
+				99D95C9E2679CCC800A24069 /* Config */,
+				99D95CC12679CCD000A24069 /* Debug */,
+				99D95CA02679CCC900A24069 /* Metrics */,
+				99D95CB92679CCCE00A24069 /* Net */,
+				99D95CB42679CCCD00A24069 /* Scheduler */,
+				99D95CC32679CCD000A24069 /* Testing */,
+				99D95CBC2679CCCF00A24069 /* Utils */,
+			);
+			path = Glean;
+			sourceTree = "<group>";
+		};
+		99D95C9E2679CCC800A24069 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				99D95D2E2679CFE900A24069 /* Configuration.swift */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		99D95CA02679CCC900A24069 /* Metrics */ = {
+			isa = PBXGroup;
+			children = (
+				99D95D0B2679CFDD00A24069 /* BooleanMetric.swift */,
+				99D95D0F2679CFDD00A24069 /* CounterMetric.swift */,
+				99D95D192679CFDD00A24069 /* DatetimeMetric.swift */,
+				99D95D0D2679CFDD00A24069 /* DistributionData.swift */,
+				99D95D182679CFDD00A24069 /* EventMetric.swift */,
+				99D95D142679CFDD00A24069 /* JweMetric.swift */,
+				99D95D102679CFDD00A24069 /* LabeledMetric.swift */,
+				99D95D0C2679CFDD00A24069 /* Lifetime.swift */,
+				99D95D122679CFDD00A24069 /* MemoryDistributionMetric.swift */,
+				99D95D082679CFDD00A24069 /* MemoryUnit.swift */,
+				99D95D152679CFDD00A24069 /* Ping.swift */,
+				99D95D112679CFDD00A24069 /* RecordedExperimentData.swift */,
+				99D95D0E2679CFDD00A24069 /* StringListMetric.swift */,
+				99D95D132679CFDD00A24069 /* StringMetric.swift */,
+				99D95D162679CFDD00A24069 /* TimespanMetric.swift */,
+				99D95D092679CFDD00A24069 /* TimeUnit.swift */,
+				99D95D0A2679CFDD00A24069 /* TimingDistributionMetric.swift */,
+				99D95D172679CFDD00A24069 /* UuidMetric.swift */,
+			);
+			path = Metrics;
+			sourceTree = "<group>";
+		};
+		99D95CB42679CCCD00A24069 /* Scheduler */ = {
+			isa = PBXGroup;
+			children = (
+				99D95CFE2679CFCD00A24069 /* GleanLifecycleObserver.swift */,
+				99D95CFD2679CFCD00A24069 /* GleanOperation.swift */,
+				99D95CFC2679CFCD00A24069 /* MetricsPingScheduler.swift */,
+				99D95CFF2679CFCD00A24069 /* PingUploadOperation.swift */,
+			);
+			path = Scheduler;
+			sourceTree = "<group>";
+		};
+		99D95CB92679CCCE00A24069 /* Net */ = {
+			isa = PBXGroup;
+			children = (
+				99D95D042679CFD600A24069 /* HttpPingUploader.swift */,
+				99D95D052679CFD600A24069 /* Upload.swift */,
+			);
+			path = Net;
+			sourceTree = "<group>";
+		};
+		99D95CBC2679CCCF00A24069 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				99D95CF42679CFB400A24069 /* Logger.swift */,
+				99D95CF22679CFB400A24069 /* Sysctl.swift */,
+				99D95CF32679CFB400A24069 /* Unreachable.swift */,
+				99D95CF52679CFB400A24069 /* Utils.swift */,
+			);
+			path = Utils;
+			sourceTree = "<group>";
+		};
+		99D95CC12679CCD000A24069 /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				99D95D2C2679CFE400A24069 /* GleanDebugTools.swift */,
+			);
+			path = Debug;
+			sourceTree = "<group>";
+		};
+		99D95CC32679CCD000A24069 /* Testing */ = {
+			isa = PBXGroup;
+			children = (
+				99D95CFA2679CFC200A24069 /* ErrorType.swift */,
+			);
+			path = Testing;
+			sourceTree = "<group>";
+		};
+		99D95CE92679CE1800A24069 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				99D95D672679D54600A24069 /* Metrics.swift */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		C852EEB2220A285B00A6E79A /* config */ = {
+			isa = PBXGroup;
+			children = (
+				C852EE9A220A26E600A6E79A /* Info.plist */,
+				EBA8770621F5FB9A004F63F0 /* base.xcconfig */,
+				EBA8770721F5FB9A004F63F0 /* debug.xcconfig */,
+				EBA8770821F5FB9A004F63F0 /* release.xcconfig */,
+			);
+			path = config;
+			sourceTree = "<group>";
+		};
+		CDC21B11221DCE3700AA71E5 /* RustLog */ = {
+			isa = PBXGroup;
+			children = (
+				CDC21B12221DCE3700AA71E5 /* RustLog.swift */,
+				CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */,
+			);
+			path = RustLog;
+			sourceTree = "<group>";
+		};
+		CE9D201620914D0D00F1C8FA = {
+			isa = PBXGroup;
+			children = (
+				C852EEF2220A3C6800A6E79A /* NimbusStandalone.h */,
+				99D95C972679CCC700A24069 /* Glean */,
+				CDC21B11221DCE3700AA71E5 /* RustLog */,
+				CE9FFA11242D4E5A0011029E /* Viaduct */,
+				C852EEB2220A285B00A6E79A /* config */,
+				394A807225EE927D00FAF26F /* Nimbus */,
+				CE9D202120914D0D00F1C8FA /* Products */,
+				CE9D203720914D4800F1C8FA /* Frameworks */,
+			);
+			sourceTree = "<group>";
+		};
+		CE9D202120914D0D00F1C8FA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				CE9D202020914D0D00F1C8FA /* NimbusStandalone.framework */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		CE9D203720914D4800F1C8FA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C852EEEE220A2E9400A6E79A /* libnimbus_ios.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		CE9FFA11242D4E5A0011029E /* Viaduct */ = {
+			isa = PBXGroup;
+			children = (
+				CE58B2F7242D54340089F091 /* RustViaductFFI.h */,
+				CE9FFA12242D4E7B0011029E /* Viaduct.swift */,
+			);
+			path = Viaduct;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		CE9D201D20914D0D00F1C8FA /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D05434A1225680D900FDE4EF /* NimbusStandalone.h in Headers */,
+				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
+				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
+				99D95D692679D59B00A24069 /* GleanFfi.h in Headers */,
+				394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		CE9D201F20914D0D00F1C8FA /* NimbusStandalone */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "NimbusStandalone" */;
+			buildPhases = (
+				CEEA12EF20AA1D630018998A /* Build Rust libraries */,
+				99D95CE82679CD0100A24069 /* Generate Glean metrics */,
+				CE9D201B20914D0D00F1C8FA /* Sources */,
+				CE9D201C20914D0D00F1C8FA /* Frameworks */,
+				CE9D201D20914D0D00F1C8FA /* Headers */,
+				CE9D201E20914D0D00F1C8FA /* Resources */,
+			);
+			buildRules = (
+				CE0617CE24E4978C0068E903 /* PBXBuildRule */,
+				EB7DE84A2214D28C00E7CF17 /* PBXBuildRule */,
+			);
+			dependencies = (
+			);
+			name = NimbusStandalone;
+			productName = Logins;
+			productReference = CE9D202020914D0D00F1C8FA /* NimbusStandalone.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		CE9D201720914D0D00F1C8FA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastSwiftUpdateCheck = 1010;
+				LastUpgradeCheck = 1240;
+				ORGANIZATIONNAME = Mozilla;
+				TargetAttributes = {
+					CE9D201F20914D0D00F1C8FA = {
+						CreatedOnToolsVersion = 9.3;
+						LastSwiftMigration = 0930;
+					};
+				};
+			};
+			buildConfigurationList = CE9D201A20914D0D00F1C8FA /* Build configuration list for PBXProject "NimbusStandalone" */;
+			compatibilityVersion = "Xcode 10.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = CE9D201620914D0D00F1C8FA;
+			productRefGroup = CE9D202120914D0D00F1C8FA /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				CE9D201F20914D0D00F1C8FA /* NimbusStandalone */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CE9D201E20914D0D00F1C8FA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99D95D392679CFF600A24069 /* sdk_generator.sh in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		99D95CE82679CD0100A24069 /* Generate Glean metrics */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../../components/external/glean/glean-core/metrics.yaml",
+				"$(SRCROOT)/../../components/external/glean/glean-core/pings.yaml",
+				"$(SRCROOT)/../../components/nimbus/metrics.yaml",
+			);
+			name = "Generate Glean metrics";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Generated/Metrics.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash $PWD/../../components/external/glean/glean-core/ios/sdk_generator.sh --allow-reserved\n";
+		};
+		CEEA12EF20AA1D630018998A /* Build Rust libraries */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust libraries";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bash $PWD/../../build-scripts/xc-universal-er-binary.sh nimbus_ios $PWD/../.. $buildvariant\n\n\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CE9D201B20914D0D00F1C8FA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				99D95D3C2679D2C300A24069 /* Dispatchers.swift in Sources */,
+				99D95D3D2679D2C300A24069 /* Glean.swift in Sources */,
+				99D95D3E2679D2C300A24069 /* GleanFfi.h in Sources */,
+				99D95D3F2679D2C300A24069 /* GleanMetrics.swift in Sources */,
+				99D95D402679D2C300A24069 /* Configuration.swift in Sources */,
+				99D95D412679D2C300A24069 /* GleanDebugTools.swift in Sources */,
+				99D95D422679D2C300A24069 /* BooleanMetric.swift in Sources */,
+				99D95D432679D2C300A24069 /* CounterMetric.swift in Sources */,
+				99D95D442679D2C300A24069 /* DatetimeMetric.swift in Sources */,
+				99D95D452679D2C300A24069 /* DistributionData.swift in Sources */,
+				99D95D462679D2C300A24069 /* EventMetric.swift in Sources */,
+				99D95D472679D2C300A24069 /* JweMetric.swift in Sources */,
+				99D95D482679D2C300A24069 /* LabeledMetric.swift in Sources */,
+				99D95D492679D2C300A24069 /* Lifetime.swift in Sources */,
+				99D95D4A2679D2C300A24069 /* MemoryDistributionMetric.swift in Sources */,
+				99D95D4B2679D2C300A24069 /* MemoryUnit.swift in Sources */,
+				99D95D4C2679D2C300A24069 /* Ping.swift in Sources */,
+				99D95D4D2679D2C300A24069 /* RecordedExperimentData.swift in Sources */,
+				99D95D4E2679D2C300A24069 /* StringListMetric.swift in Sources */,
+				99D95D4F2679D2C300A24069 /* StringMetric.swift in Sources */,
+				99D95D502679D2C300A24069 /* TimespanMetric.swift in Sources */,
+				99D95D512679D2C300A24069 /* TimeUnit.swift in Sources */,
+				99D95D522679D2C300A24069 /* TimingDistributionMetric.swift in Sources */,
+				99D95D532679D2C300A24069 /* UuidMetric.swift in Sources */,
+				99D95D542679D2C300A24069 /* HttpPingUploader.swift in Sources */,
+				99D95D552679D2C300A24069 /* Upload.swift in Sources */,
+				99D95D562679D2C300A24069 /* GleanLifecycleObserver.swift in Sources */,
+				99D95D572679D2C300A24069 /* GleanOperation.swift in Sources */,
+				99D95D582679D2C300A24069 /* MetricsPingScheduler.swift in Sources */,
+				99D95D592679D2C300A24069 /* PingUploadOperation.swift in Sources */,
+				99D95D5A2679D2C300A24069 /* ErrorType.swift in Sources */,
+				99D95D5B2679D2C300A24069 /* Logger.swift in Sources */,
+				99D95D5C2679D2C300A24069 /* Sysctl.swift in Sources */,
+				99D95D5D2679D2C300A24069 /* Unreachable.swift in Sources */,
+				99D95D5E2679D2C300A24069 /* Utils.swift in Sources */,
+				99D95D5F2679D2C300A24069 /* RustLog.swift in Sources */,
+				99D95D602679D2C300A24069 /* Viaduct.swift in Sources */,
+				99D95D612679D2C300A24069 /* nimbus.udl in Sources */,
+				99D95D622679D2C300A24069 /* Nimbus.swift in Sources */,
+				99D95D632679D2C300A24069 /* NimbusApi.swift in Sources */,
+				99D95D642679D2C300A24069 /* NimbusCreate.swift in Sources */,
+				99D95D682679D54600A24069 /* Metrics.swift in Sources */,
+				99D95D652679D2C300A24069 /* FeatureVariables.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		CE9D202620914D0D00F1C8FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EBA8770721F5FB9A004F63F0 /* debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		CE9D202720914D0D00F1C8FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = EBA8770821F5FB9A004F63F0 /* release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		CE9D202920914D0D00F1C8FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACH_O_TYPE = mh_dylib;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.NimbusStandalone;
+			};
+			name = Debug;
+		};
+		CE9D202A20914D0D00F1C8FA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				MACH_O_TYPE = mh_dylib;
+				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.NimbusStandalone;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		CE9D201A20914D0D00F1C8FA /* Build configuration list for PBXProject "NimbusStandalone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE9D202620914D0D00F1C8FA /* Debug */,
+				CE9D202720914D0D00F1C8FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		CE9D202820914D0D00F1C8FA /* Build configuration list for PBXNativeTarget "NimbusStandalone" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE9D202920914D0D00F1C8FA /* Debug */,
+				CE9D202A20914D0D00F1C8FA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = CE9D201720914D0D00F1C8FA /* Project object */;
+}

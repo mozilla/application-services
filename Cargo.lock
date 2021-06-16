@@ -1799,6 +1799,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nimbus_ios"
+version = "0.1.0"
+dependencies = [
+ "glean-ffi",
+ "nimbus-sdk",
+ "rc_log_ffi",
+ "viaduct",
+ "viaduct-reqwest",
+]
+
+[[package]]
 name = "nix"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
