@@ -1,4 +1,4 @@
-package mozilla.appservices.tabs
+package mozilla.appservices.remotetabs
 
 import mozilla.appservices.Megazord
 import org.junit.runner.RunWith
@@ -21,10 +21,10 @@ class RemoteTabsTest {
     }
 
     @Test
-    fun updateLocalStateTest() {
+    fun setLocalTabsTest() {
         val store = getTestStore()
         store.use { tabs ->
-            tabs.updateLocalState(listOf(
+            tabs.setLocalTabs(listOf(
                 RemoteTab(
                     title = "cool things to look at in your remote tabs",
                     urlHistory = listOf("https://example.com"),

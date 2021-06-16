@@ -8,7 +8,7 @@ interface TabsStore {
 
     sequence<ClientRemoteTabs> get_all();
 
-    void update_local_state(sequence<RemoteTab> remote_tabs);
+    void set_local_tabs(sequence<RemoteTab> remote_tabs);
 
     [Self=ByArc]
     void register_with_sync_manager();

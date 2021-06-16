@@ -149,9 +149,13 @@ impl SyncEngine for TabsEngine {
             remote_tabs.push(tab);
         }
         let mut outgoing = OutgoingChangeset::new("tabs", inbound.timestamp);
-        let storage = self.store.storage.lock().unwrap();
-        storage.replace_remote_tabs(remote_tabs);
-        if let Some(local_tabs) = storage.prepare_local_tabs_for_upload() {
+        // We want to keep the mutex for as short as possible
+        let local_tabs = {
+            let storage = self.store.storage.lock().unwrap();
+            storage.replace_remote_tabs(remote_tabs);
+            storage.prepare_local_tabs_for_upload()
+        };
+        if let Some(local_tabs) = local_tabs {
             let (client_name, device_type) = self
                 .remote_clients
                 .borrow()

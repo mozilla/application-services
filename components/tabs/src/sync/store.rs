@@ -50,7 +50,7 @@ impl TabsStore {
         }
     }
 
-    pub fn update_local_state(&self, local_state: Vec<RemoteTab>) {
+    pub fn set_local_tabs(&self, local_state: Vec<RemoteTab>) {
         self.storage.lock().unwrap().update_local_state(local_state);
     }
 
