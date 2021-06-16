@@ -650,6 +650,11 @@ impl<'a> EnrollmentsEvolver<'a> {
             ) {
                 Ok(enrollment) => enrollment,
                 Err(e) => {
+                    // It would be a fine thing if we had counters that
+                    // collected the number of errors here, and at the
+                    // place in this function where enrollments could be
+                    // dropped.  We could then send those errors to
+                    // telemetry so that they could be monitored (SDK-309)
                     log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
                     None
                 }
@@ -720,6 +725,11 @@ impl<'a> EnrollmentsEvolver<'a> {
                 ) {
                     Ok(enrollment) => enrollment,
                     Err(e) => {
+                        // It would be a fine thing if we had counters that
+                        // collected the number of errors here, and at the
+                        // place in this function where enrollments could be
+                        // dropped.  We could then send those errors to
+                        // telemetry so that they could be monitored (SDK-309)
                         log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
                         None
                     }

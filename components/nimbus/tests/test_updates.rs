@@ -412,11 +412,10 @@ mod test {
         ]
     }
 
-    #[cfg(feature = "rkv-safe-mode")]
-    #[test]
-
     /// test that even with a database with orphan records,
     /// apply_pending_experiments does not throw an error
+    #[cfg(feature = "rkv-safe-mode")]
+    #[test]
     fn test_startup_orphan_behavior() -> Result<()> {
         let _ = env_logger::try_init();
 

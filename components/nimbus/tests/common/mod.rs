@@ -5,7 +5,7 @@
 // utilities shared between tests
 use nimbus::{error::Result, AppContext, NimbusClient, RemoteSettingsConfig};
 
-#[allow(dead_code)] // not clear why this is necessary...
+#[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
 pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
     use tempdir::TempDir;
     let tmp_dir = TempDir::new(identifier)?;
@@ -13,7 +13,7 @@ pub fn new_test_client(identifier: &str) -> Result<NimbusClient> {
     new_test_client_internal(&tmp_dir)
 }
 
-#[allow(dead_code)] // not clear why this is necessary...
+#[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
 pub fn new_test_client_with_db(tmp_dir: &tempdir::TempDir) -> Result<NimbusClient> {
     new_test_client_internal(tmp_dir)
 }
@@ -42,7 +42,7 @@ fn new_test_client_internal(
     NimbusClient::new(ctx, tmp_dir.path(), Some(config), aru)
 }
 
-#[allow(dead_code)] // not clear why this is necessary...
+#[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn exactly_two_experiments() -> String {
     use serde_json::json;
     json!({
@@ -141,7 +141,7 @@ pub fn exactly_two_experiments() -> String {
     .to_string()
 }
 
-#[allow(dead_code)] // not clear why this is necessary...
+#[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn experiments_testing_feature_ids() -> String {
     use serde_json::json;
     json!({
@@ -275,7 +275,7 @@ pub fn experiments_testing_feature_ids() -> String {
     .to_string()
 }
 
-#[allow(dead_code)] // not clear why this is necessary...
+#[allow(dead_code)] // work around https://github.com/rust-lang/rust/issues/46379
 pub fn no_test_experiments() -> String {
     use serde_json::json;
     json!({
@@ -287,7 +287,7 @@ pub fn no_test_experiments() -> String {
 use nimbus::persistence::{Database, SingleStore};
 use rkv::StoreOptions;
 use std::path::Path;
-#[allow(dead_code)] // not clear why this is necessary...
+#[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn create_old_database<P: AsRef<Path>>(
     path: P,
     old_version: u16,
