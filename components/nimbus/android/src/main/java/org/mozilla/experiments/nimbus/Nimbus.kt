@@ -347,12 +347,14 @@ open class Nimbus(
     // This is currently not available from the main thread.
     // see https://jira.mozilla.com/browse/SDK-191
     @WorkerThread
-    override fun getActiveExperiments(): List<EnrolledExperiment> =
+    override fun getActiveExperiments(): List<EnrolledExperiment> = withCatchAll {
         nimbusClient.getActiveExperiments()
+    } ?: emptyList()
 
     @WorkerThread
-    override fun getAvailableExperiments(): List<AvailableExperiment> =
+    override fun getAvailableExperiments(): List<AvailableExperiment> = withCatchAll {
         nimbusClient.getAvailableExperiments()
+    } ?: emptyList()
 
     @AnyThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
