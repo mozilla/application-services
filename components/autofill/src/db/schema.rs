@@ -5,7 +5,7 @@
 use crate::db::sql_fns;
 use rusqlite::functions::FunctionFlags;
 use rusqlite::Connection;
-use sql_support::open_database::{MigrationLogic, Result};
+use sql_support::open_database::{Error, MigrationLogic, Result};
 
 pub const ADDRESS_COMMON_COLS: &str = "
     guid,
@@ -97,7 +97,7 @@ impl MigrationLogic for AutofillMigrationLogic {
             // upgrade_from_v0() for more details.
             0 => upgrade_from_v0(db),
             1 => upgrade_from_v1(db),
-            _ => panic!("Unexpected upgrade version"),
+            _ => Err(Error::IncompatibleVersion(version)),
         }
     }
 

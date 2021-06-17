@@ -5,7 +5,9 @@
 use crate::db::sql_fns;
 use crate::error::Result;
 use rusqlite::Connection;
-use sql_support::open_database::{MigrationLogic, Result as MigrationResult};
+use sql_support::open_database::{
+    Error as MigrationError, MigrationLogic, Result as MigrationResult,
+};
 
 const CREATE_SCHEMA_SQL: &str = include_str!("../sql/create_schema.sql");
 const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../sql/create_sync_temp_tables.sql");
@@ -44,7 +46,7 @@ impl MigrationLogic for WebExtMigrationLogin {
     fn upgrade_from(&self, db: &Connection, version: u32) -> MigrationResult<()> {
         match version {
             1 => upgrade_from_1(db),
-            _ => panic!("Unexpected upgrade version"),
+            _ => Err(MigrationError::IncompatibleVersion(version)),
         }
     }
 }
