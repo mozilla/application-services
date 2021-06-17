@@ -42,8 +42,8 @@ fn read_login(encdec: &EncryptorDecryptor) -> Login {
 fn read_form_based_login(encdec: &EncryptorDecryptor) -> Login {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
-    let form_submit_url = prompt_string("form_submit_url (example: https://www.example.com)");
-    let hostname = prompt_string("hostname (example: https://www.example.com)").unwrap_or_default();
+    let form_action_origin = prompt_string("form_action_origin (example: https://www.example.com)");
+    let origin = prompt_string("origin (example: https://www.example.com)").unwrap_or_default();
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     Login {
@@ -52,9 +52,9 @@ fn read_form_based_login(encdec: &EncryptorDecryptor) -> Login {
         password_enc: encdec.encrypt(&password).unwrap(),
         username_field,
         password_field,
-        form_submit_url,
+        form_action_origin,
         http_realm: None,
-        hostname,
+        origin,
         ..Login::default()
     }
 }
@@ -62,7 +62,7 @@ fn read_form_based_login(encdec: &EncryptorDecryptor) -> Login {
 fn read_auth_based_login(encdec: &EncryptorDecryptor) -> Login {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
-    let hostname = prompt_string("hostname (example: https://www.example.com)").unwrap_or_default();
+    let origin = prompt_string("origin (example: https://www.example.com)").unwrap_or_default();
     let http_realm = prompt_string("http_realm (example: My Auth Realm)");
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
@@ -72,9 +72,9 @@ fn read_auth_based_login(encdec: &EncryptorDecryptor) -> Login {
         password_enc: encdec.encrypt(&password).unwrap(),
         username_field,
         password_field,
-        form_submit_url: None,
+        form_action_origin: None,
         http_realm,
-        hostname,
+        origin,
         ..Login::default()
     }
 }
@@ -130,7 +130,7 @@ fn update_login(record: &mut Login, encdec: &EncryptorDecryptor) {
         ", leave blank to keep",
         encdec,
     );
-    update_string("hostname", &mut record.hostname, ", leave blank to keep");
+    update_string("origin", &mut record.origin, ", leave blank to keep");
 
     update_string(
         "username_field",
@@ -144,12 +144,12 @@ fn update_login(record: &mut Login, encdec: &EncryptorDecryptor) {
     );
 
     if prompt_bool(&format!(
-        "edit form_submit_url? (now {}) [yN]",
-        string_opt_or(&record.form_submit_url, "(none)")
+        "edit form_action_origin? (now {}) [yN]",
+        string_opt_or(&record.form_action_origin, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.form_submit_url = prompt_string("form_submit_url");
+        record.form_action_origin = prompt_string("form_action_origin");
     }
 
     if prompt_bool(&format!(
@@ -254,8 +254,8 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
             &encdec.decrypt(&rec.username_enc).unwrap(),
             Fb->&encdec.decrypt(&rec.password_enc).unwrap(),
 
-            &rec.hostname,
-            string_opt_or(&rec.form_submit_url, ""),
+            &rec.origin,
+            string_opt_or(&rec.form_action_origin, ""),
             string_opt_or(&rec.http_realm, ""),
 
             &rec.username_field,

@@ -10,10 +10,10 @@ use logins::{Login, LoginStore, Result as LoginResult};
 // Doesn't check metadata fields
 pub fn assert_logins_equiv(a: &Login, b: &Login) {
     assert_eq!(b.guid, a.guid, "id mismatch");
-    assert_eq!(b.hostname, a.hostname, "hostname mismatch");
+    assert_eq!(b.origin, a.origin, "origin mismatch");
     assert_eq!(
-        b.form_submit_url, a.form_submit_url,
-        "form_submit_url mismatch"
+        b.form_action_origin, a.form_action_origin,
+        "form_action_origin mismatch"
     );
     assert_eq!(b.http_realm, a.http_realm, "http_realm mismatch");
     assert_eq!(b.username, a.username, "username mismatch");
@@ -92,8 +92,8 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l0id.into(),
-            hostname: "http://www.example.com".into(),
-            form_submit_url: Some("http://login.example.com".into()),
+            origin: "http://www.example.com".into(),
+            form_action_origin: Some("http://login.example.com".into()),
             username: "cool_username".into(),
             password: "hunter2".into(),
             username_field: "uname".into(),
@@ -110,7 +110,7 @@ fn test_login_general(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l1id.into(),
-            hostname: "http://www.example.com".into(),
+            origin: "http://www.example.com".into(),
             http_realm: Some("Login".into()),
             username: "cool_username".into(),
             password: "sekret".into(),
@@ -199,8 +199,8 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l0id.into(),
-            hostname: "http://www.example.com".into(),
-            form_submit_url: Some("http://login.example.com".into()),
+            origin: "http://www.example.com".into(),
+            form_action_origin: Some("http://login.example.com".into()),
             username: "cool_username".into(),
             password: "hunter2".into(),
             username_field: "uname".into(),
@@ -214,7 +214,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l1id.into(),
-            hostname: "http://www.example.com".into(),
+            origin: "http://www.example.com".into(),
             http_realm: Some("Login".into()),
             username: "cool_username".into(),
             password: "sekret".into(),
@@ -227,7 +227,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l2id.into(),
-            hostname: "https://www.example.org".into(),
+            origin: "https://www.example.org".into(),
             http_realm: Some("Test".into()),
             username: "cool_username100".into(),
             password: "123454321".into(),
@@ -240,7 +240,7 @@ fn test_login_deletes(c0: &mut TestClient, c1: &mut TestClient) {
         &c0.logins_store,
         Login {
             guid: l3id.into(),
-            hostname: "https://www.example.net".into(),
+            origin: "https://www.example.net".into(),
             http_realm: Some("Http Realm".into()),
             username: "cool_username99".into(),
             password: "aaaaa".into(),

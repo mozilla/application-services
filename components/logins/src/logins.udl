@@ -8,11 +8,11 @@ namespace logins { };
 // Converted from mozilla.appservices.logins.protobuf.rs
 dictionary Login {
     string id;
-    string hostname;
+    string origin;
     string password_enc;
     string username_enc;
     string? http_realm;
-    string? form_submit_url;
+    string? form_action_origin;
     string username_field;
     string password_field;
     i64 times_used;
