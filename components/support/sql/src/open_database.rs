@@ -27,23 +27,10 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    // Generic error meaning that something went wrong during the migration.  You can return this
-    // from your upgrade functions to signal that the database is beyond repair and can't be
-    // migrated.
-    #[error("MigrationError: {0}")]
-    MigrationError(String),
-    // Error with the migration logic struct, for example the number upgrade functions doesn't
-    // line up with start_version and end_version
-    #[error("MigrationLogicError: {0}")]
-    MigrationLogicError(String),
-    #[error("Database version too old: {0}")]
-    VersionTooOld(u32),
-    #[error("Database version too new: {0}")]
-    VersionTooNew(u32),
+    #[error("Incompatible database version: {0}")]
+    IncompatibleVersion(u32),
     #[error("Error executing SQL: {0}")]
     SqlError(#[from] rusqlite::Error),
-    #[error("IOError")]
-    IOError(#[from] std::io::Error),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -110,7 +97,7 @@ pub fn open_database_with_flags<ML: MigrationLogic, P: AsRef<Path>>(
     } else {
         let mut current_version = get_schema_version(&tx)?;
         if current_version > ML::END_VERSION {
-            return Err(Error::VersionTooNew(current_version));
+            return Err(Error::IncompatibleVersion(current_version));
         }
         while current_version < ML::END_VERSION {
             log::debug!(
@@ -292,7 +279,7 @@ mod test {
                     self.push_call("upgrade_from_v3");
 
                     if self.buggy_v3_upgrade {
-                        return Err(Error::MigrationError("Test error".to_string()));
+                        conn.execute_batch("ILLEGAL_SQL_CODE")?;
                     }
 
                     conn.execute_batch(
@@ -387,10 +374,7 @@ mod test {
             )
             .unwrap();
 
-        assert!(matches!(
-            open_database(db_file.path.clone(), &db_file.migration_logic,),
-            Err(Error::MigrationError(_))
-        ));
+        open_database(db_file.path.clone(), &db_file.migration_logic).unwrap_err();
         // Even though the upgrades failed, the data should still be there.  The changes that
         // upgrade_to_v3 made should have been rolled back.
         assert_eq!(
@@ -417,7 +401,7 @@ mod test {
 
         assert!(matches!(
             open_database(db_file.path.clone(), &db_file.migration_logic,),
-            Err(Error::VersionTooNew(5))
+            Err(Error::IncompatibleVersion(5))
         ));
         // Make sure that even when DeleteAndRecreate is specified, we don't delete the database
         // file when the schema is newer
