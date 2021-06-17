@@ -90,46 +90,6 @@ impl Config {
         self
     }
 
-    // FIXME
-    #[allow(clippy::too_many_arguments)]
-    pub(crate) fn init(
-        content_url: String,
-        auth_url: String,
-        oauth_url: String,
-        profile_url: String,
-        token_server_endpoint_url: String,
-        authorization_endpoint: String,
-        issuer: String,
-        jwks_uri: String,
-        token_endpoint: String,
-        userinfo_endpoint: String,
-        introspection_endpoint: String,
-        client_id: String,
-        redirect_uri: String,
-        token_server_url_override: Option<String>,
-    ) -> Self {
-        let remote_config = RemoteConfig {
-            auth_url,
-            oauth_url,
-            profile_url,
-            token_server_endpoint_url,
-            authorization_endpoint,
-            issuer,
-            jwks_uri,
-            token_endpoint,
-            userinfo_endpoint,
-            introspection_endpoint,
-        };
-
-        Config {
-            content_url,
-            remote_config: RefCell::new(Some(Arc::new(remote_config))),
-            client_id,
-            redirect_uri,
-            token_server_url_override,
-        }
-    }
-
     fn remote_config(&self) -> Result<Arc<RemoteConfig>> {
         if let Some(remote_config) = self.remote_config.borrow().clone() {
             return Ok(remote_config);

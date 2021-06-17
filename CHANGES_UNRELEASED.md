@@ -18,4 +18,12 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-- `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
+
+## fxa-client
+### ⚠️ Breaking Changes ⚠️
+  - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
+    Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
+    will recieve an error indicating that the schema was not correctly formated.
+
+## Other
+  - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
