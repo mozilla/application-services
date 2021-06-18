@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+import UIKit
 
 /// `Variables` provides a type safe key-value style interface to configure application features
 ///
