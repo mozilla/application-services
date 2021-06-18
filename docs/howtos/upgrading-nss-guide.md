@@ -56,6 +56,18 @@ To test out your changes:
   * Install the updates version: `./libs/verify-desktop-environment.sh`
   * Try it out: `cargo test`
 
+## Exposing new functions
+
+If the new version of NSS comes with new functions that you want to expose, you will need to:
+
+* Add low-level bindings for those functions in the [`nss_sys` crate](
+  ../../components/support/rc_crypto/nss/nss_sys); follow the instructions in
+  README for that crate.
+* Expose a safe wrapper API for the functions from the [`nss` crate](
+  ../../components/support/rc_crypto/nss);
+* Expose a convenient high-level API for the functions from the [`rc_crypto` crate](
+  ../../components/support/rc_crypto);
+
 ## Tips for Fixing Bustage
 
 On top of the primitives provided by NSS, we have built a safe Rust wrapper named [rc_crypto](https://github.com/mozilla/application-services/tree/main/components/support/rc_crypto) that links to NSS and makes these cryptographic primitives available to our components.

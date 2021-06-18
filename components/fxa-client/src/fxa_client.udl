@@ -94,7 +94,6 @@ enum FxaError {
 // user's Firefox Account, and provides methods for inspecting the state of the
 // account and accessing other services on behalf of the user.
 //
-[Threadsafe]
 interface FirefoxAccount {
 
   // Create a new [`FirefoxAccount`] instance, not connected to any account.

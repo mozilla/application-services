@@ -1,3 +1,35 @@
+# v79.0.1 (_2021-06-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.0...v79.0.1)
+
+## Logins
+
+- Fixed a bug on iOS where `getDbSaltForKey` would incorrectly trigger a fatal error
+  instead of propagating errors to the caller.
+
+## Dependencies
+
+- The version of UniFFI used to generate Rust component bindings was updated to v0.12.0.
+
+# v79.0.0 (_2021-06-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v78.0.0...v79.0.0)
+
+## Logins
+
+### ⚠️ Breaking changes ⚠️
+
+Logins now Uniffi-ed! While this is a very large change internally, the externally visible changes are:
+
+- The name and types of exceptions have changed - the base class for errors is LoginsStorageErrorException.
+- The struct `ServerPassword` (Android) and `LoginRecord` (iOS) is now named `Login` with the formSubmitURL field now formSubmitUrl
+
+## [viaduct-reqwest]
+
+### What's Changed
+
+- Update viaduct-reqwest to use reqwest 0.11. ([#4146](https://github.com/mozilla/application-services/pull/4146))
+
 # v78.0.0 (_2021-06-01_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.2...v78.0.0)
@@ -56,7 +88,6 @@
    during the database upgrade, the database will be wiped, since losing
    existing enrollments is still less bad than having the database in an unknown
    inconsistent state.
-
 
 # v76.0.1 (_2021-05-18_)
 
@@ -2930,4 +2961,3 @@ N/A
 
 - Clarified which exceptions are thrown in documentation in cases where it was unclear. ([#495](https://github.com/mozilla/application-services/pull/495))
 - Added `@Throws` annotations to all methods which can throw. ([#495](https://github.com/mozilla/application-services/pull/495))
-

@@ -3,12 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 51;
+	objectVersion = 52;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */ = {isa = PBXBuildFile; fileRef = 1379D0682404BE1300AABD16 /* logins_msg_types.proto */; };
-		137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 137C5892240257340016932F /* Data+LoginsRustBuffer.swift */; };
+		1BE78F46265322DB008B9A45 /* uniffi_logins-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE78F44265322DB008B9A45 /* uniffi_logins-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1BE78F4926532325008B9A45 /* logins.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BE78F4826532325008B9A45 /* logins.udl */; };
 		394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		394A809825F94E1300FAF26F /* Nimbus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394A809725F94E1300FAF26F /* Nimbus.swift */; };
 		394D6C622600E64E008F9CE5 /* NimbusCreate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 394D6C612600E64E008F9CE5 /* NimbusCreate.swift */; };
@@ -60,11 +60,7 @@
 		BF1A87D325064B1100FED88E /* sdk_generator.sh in Resources */ = {isa = PBXBuildFile; fileRef = BF1A87D225064B1100FED88E /* sdk_generator.sh */; };
 		BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
-		C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */; };
-		C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECC220A29FE00A6E79A /* LoginRecord.swift */; };
 		C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECD220A29FE00A6E79A /* LoginsStorage.swift */; };
-		C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECF220A29FE00A6E79A /* LoginStoreError.swift */; };
-		C852EED8220A29FE00A6E79A /* LockError.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EED0220A29FE00A6E79A /* LockError.swift */; };
 		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
 		CD02CF3922568BCC00124DA2 /* SyncUnlockInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */; };
 		CD440A422238A08E003F004B /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
@@ -98,7 +94,6 @@
 		CEDDBC8E23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */; };
 		CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFB1EAF22EF708B0001E20F /* ResultError.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D9FA8C542644A170008344BF /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
 		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
 		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
@@ -160,8 +155,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		1379D0682404BE1300AABD16 /* logins_msg_types.proto */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.protobuf; name = logins_msg_types.proto; path = ../../src/logins_msg_types.proto; sourceTree = "<group>"; };
-		137C5892240257340016932F /* Data+LoginsRustBuffer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "Data+LoginsRustBuffer.swift"; path = "Extensions/Data+LoginsRustBuffer.swift"; sourceTree = "<group>"; };
+		1BE78F44265322DB008B9A45 /* uniffi_logins-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_logins-Bridging-Header.h"; sourceTree = "<group>"; };
+		1BE78F4826532325008B9A45 /* logins.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = logins.udl; path = ../../src/logins.udl; sourceTree = "<group>"; };
 		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../src/nimbus.udl; sourceTree = "<group>"; };
 		394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_nimbus-Bridging-Header.h"; sourceTree = "<group>"; };
 		394A807725EE951D00FAF26F /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = "<group>"; };
@@ -217,12 +212,7 @@
 		BF1A87D625064B4C00FED88E /* Metrics.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Metrics.swift; sourceTree = "<group>"; };
 		C852EE9A220A26E600A6E79A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		C852EE9D220A283200A6E79A /* libsqlcipher.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsqlcipher.a; path = ../../libs/ios/universal/sqlcipher/lib/libsqlcipher.a; sourceTree = "<group>"; };
-		C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPasswordAPI.h; sourceTree = "<group>"; };
-		C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_Logins.swift"; sourceTree = "<group>"; };
-		C852EECC220A29FE00A6E79A /* LoginRecord.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginRecord.swift; sourceTree = "<group>"; };
 		C852EECD220A29FE00A6E79A /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginsStorage.swift; sourceTree = "<group>"; };
-		C852EECF220A29FE00A6E79A /* LoginStoreError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginStoreError.swift; sourceTree = "<group>"; };
-		C852EED0220A29FE00A6E79A /* LockError.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LockError.swift; sourceTree = "<group>"; };
 		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
 		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
 		CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SyncUnlockInfo.swift; sourceTree = "<group>"; };
@@ -288,6 +278,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1BE78F42265322DB008B9A45 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				1BE78F44265322DB008B9A45 /* uniffi_logins-Bridging-Header.h */,
+			);
+			name = Generated;
+			path = ../Generated;
+			sourceTree = "<group>";
+		};
 		394A807225EE927D00FAF26F /* Nimbus */ = {
 			isa = PBXGroup;
 			children = (
@@ -466,33 +465,12 @@
 		C852EEC7220A29FE00A6E79A /* Logins */ = {
 			isa = PBXGroup;
 			children = (
-				1379D0682404BE1300AABD16 /* logins_msg_types.proto */,
-				137C5892240257340016932F /* Data+LoginsRustBuffer.swift */,
-				C852EEC8220A29FE00A6E79A /* RustPasswordAPI.h */,
-				C852EEC9220A29FE00A6E79A /* Extensions */,
-				C852EECC220A29FE00A6E79A /* LoginRecord.swift */,
+				1BE78F42265322DB008B9A45 /* Generated */,
+				1BE78F4826532325008B9A45 /* logins.udl */,
 				C852EECD220A29FE00A6E79A /* LoginsStorage.swift */,
-				C852EECE220A29FE00A6E79A /* Errors */,
 			);
 			name = Logins;
 			path = ../../components/logins/ios/Logins;
-			sourceTree = "<group>";
-		};
-		C852EEC9220A29FE00A6E79A /* Extensions */ = {
-			isa = PBXGroup;
-			children = (
-				C852EECA220A29FE00A6E79A /* String+Free_Logins.swift */,
-			);
-			path = Extensions;
-			sourceTree = "<group>";
-		};
-		C852EECE220A29FE00A6E79A /* Errors */ = {
-			isa = PBXGroup;
-			children = (
-				C852EECF220A29FE00A6E79A /* LoginStoreError.swift */,
-				C852EED0220A29FE00A6E79A /* LockError.swift */,
-			);
-			path = Errors;
 			sourceTree = "<group>";
 		};
 		C852EEDA220A2A2B00A6E79A /* FxAClient */ = {
@@ -646,13 +624,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */,
-				D05434A32256810200FDE4EF /* RustPasswordAPI.h in Headers */,
 				CDC21B15221DCE3700AA71E5 /* RustLogFFI.h in Headers */,
 				CE58B2F8242D54340089F091 /* RustViaductFFI.h in Headers */,
 				CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */,
 				BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */,
 				990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */,
 				99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */,
+				1BE78F46265322DB008B9A45 /* uniffi_logins-Bridging-Header.h in Headers */,
 				394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -801,17 +779,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1BE78F4926532325008B9A45 /* logins.udl in Sources */,
 				9908639E25F9CC5F00032083 /* crashtest.udl in Sources */,
 				9924024A25F789F200841837 /* nimbus.udl in Sources */,
 				BF1A87B625064A8100FED88E /* UuidMetric.swift in Sources */,
 				BF1A87AE25064A8100FED88E /* BooleanMetric.swift in Sources */,
 				CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */,
 				CE1B09A5231865BC006226E1 /* FxAccountStorage.swift in Sources */,
-				1379D0692404BE1300AABD16 /* logins_msg_types.proto in Sources */,
 				BF1A87B525064A8100FED88E /* CounterMetric.swift in Sources */,
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */,
-				137C5893240257340016932F /* Data+LoginsRustBuffer.swift in Sources */,
 				BF1A879525064A6600FED88E /* Configuration.swift in Sources */,
 				BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */,
 				CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */,
@@ -832,7 +809,6 @@
 				BF1A87C925064AB300FED88E /* ErrorType.swift in Sources */,
 				BF1A87BA25064A8100FED88E /* StringMetric.swift in Sources */,
 				99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */,
-				C852EED7220A29FE00A6E79A /* LoginStoreError.swift in Sources */,
 				398A4149264986E200AA22F1 /* FeatureVariables.swift in Sources */,
 				BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */,
 				CD02CF3922568BCC00124DA2 /* SyncUnlockInfo.swift in Sources */,
@@ -840,7 +816,6 @@
 				BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */,
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
-				C852EED8220A29FE00A6E79A /* LockError.swift in Sources */,
 				D9FA8C542644A170008344BF /* HistoryMetadata.swift in Sources */,
 				BF1A87AC25064A8100FED88E /* MemoryUnit.swift in Sources */,
 				BF1A87BE25064A9400FED88E /* HttpPingUploader.swift in Sources */,
@@ -851,7 +826,6 @@
 				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
 				BF1A87C525064AA500FED88E /* GleanOperation.swift in Sources */,
 				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
-				C852EED5220A29FE00A6E79A /* LoginRecord.swift in Sources */,
 				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
 				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
 				395992B825FBE40300E3185F /* NimbusApi.swift in Sources */,
@@ -864,7 +838,6 @@
 				BF1A87B725064A8100FED88E /* Ping.swift in Sources */,
 				BF1A87B425064A8100FED88E /* EventMetric.swift in Sources */,
 				BF1A87C625064AA500FED88E /* MetricsPingScheduler.swift in Sources */,
-				C852EED3220A29FE00A6E79A /* String+Free_Logins.swift in Sources */,
 				BF1A87BF25064A9400FED88E /* Upload.swift in Sources */,
 				CE1445AF23D6315200B1E808 /* FxAccountLogging.swift in Sources */,
 				BF1A87B325064A8100FED88E /* StringListMetric.swift in Sources */,

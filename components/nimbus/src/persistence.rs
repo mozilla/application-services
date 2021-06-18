@@ -270,9 +270,11 @@ impl Database {
         match db_version {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
+                log::info!("Already at version {}, no upgrade needed", DB_VERSION);
                 return Ok(());
             }
             Some(1) => {
+                log::info!("Migrating database from v1 to v2");
                 match self.migrate_v1_to_v2(&mut writer) {
                     Ok(_) => (),
                     Err(e) => {
@@ -291,6 +293,7 @@ impl Database {
                 };
             }
             None => {
+                log::error!("maybe_upgrade: no version number; wiping most stores");
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
@@ -298,7 +301,7 @@ impl Database {
                 self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
-                log::error!("Unknown database version. Wiping everything.");
+                log::error!("Unknown database version. Wiping all stores.");
                 self.clear_experiments_and_enrollments(&mut writer)?;
                 self.meta_store.clear(&mut writer)?;
             }
@@ -311,7 +314,7 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
-        log::debug!("transaction commited");
+        log::debug!("maybe_upgrade: transaction committed");
         Ok(())
     }
 
@@ -428,9 +431,9 @@ impl Database {
         }
     }
 
-    fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
+    pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
         let path = std::path::Path::new(path.as_ref()).join("db");
-        log::debug!("Database path: {:?}", path.display());
+        log::debug!("open_rkv: path =  {:?}", path.display());
         fs::create_dir_all(&path)?;
         let rkv = match rkv_new(&path) {
             Ok(rkv) => Ok(rkv),
@@ -748,16 +751,11 @@ mod tests {
                 "schemaVersion": "1.0.0",
                 "slug": "branch-feature-empty-obj", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["bbb"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
-                        "feature": {
-                            "featureId": "bbb", // change when copy/pasting to make experiments
-                            "enabled": false,
-                            "value": {}
-                        }
+                        "feature": {}
                     },
                     {
                         "slug": "treatment",

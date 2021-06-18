@@ -641,13 +641,24 @@ impl<'a> EnrollmentsEvolver<'a> {
             }
             let slug = &prev_enrollment.slug;
 
-            let next_enrollment = self.evolve_enrollment(
+            let next_enrollment = match self.evolve_enrollment(
                 is_user_participating,
                 prev_experiments.get(slug).copied(),
                 next_experiments.get(slug).copied(),
                 Some(prev_enrollment),
                 &mut enrollment_events,
-            )?;
+            ) {
+                Ok(enrollment) => enrollment,
+                Err(e) => {
+                    // It would be a fine thing if we had counters that
+                    // collected the number of errors here, and at the
+                    // place in this function where enrollments could be
+                    // dropped.  We could then send those errors to
+                    // telemetry so that they could be monitored (SDK-309)
+                    log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
+                    None
+                }
+            };
 
             if let Some(enrollment) = next_enrollment {
                 // We get the FeatureConfig out of the enrollment.
@@ -705,13 +716,24 @@ impl<'a> EnrollmentsEvolver<'a> {
                     }
                 )
             {
-                let next_enrollment = self.evolve_enrollment(
+                let next_enrollment = match self.evolve_enrollment(
                     is_user_participating,
                     prev_experiments.get(slug).copied(),
                     Some(next_experiment),
                     prev_enrollment,
                     &mut enrollment_events,
-                )?;
+                ) {
+                    Ok(enrollment) => enrollment,
+                    Err(e) => {
+                        // It would be a fine thing if we had counters that
+                        // collected the number of errors here, and at the
+                        // place in this function where enrollments could be
+                        // dropped.  We could then send those errors to
+                        // telemetry so that they could be monitored (SDK-309)
+                        log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
+                        None
+                    }
+                };
 
                 if let Some(enrollment) = next_enrollment {
                     // We get the FeatureConfig out of the enrollment.
@@ -1577,7 +1599,7 @@ mod tests {
     fn test_evolver_experiment_update_enrolled_then_targeting_changed() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, mut app_ctx, aru) = local_ctx();
-        app_ctx.app_id = "foobar".to_owned(); // Make the experiment targeting fail.
+        app_ctx.app_name = "foobar".to_owned(); // Make the experiment targeting fail.
         let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
@@ -2074,6 +2096,62 @@ mod tests {
             .unwrap();
         assert_eq!(enrollment, existing_enrollment);
         assert!(events.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolve_enrollments_error_handling() -> Result<()> {
+        let existing_enrollments = vec![ExperimentEnrollment {
+            slug: "secure-gold".to_owned(),
+            status: EnrollmentStatus::Enrolled {
+                enrollment_id: Uuid::new_v4(),
+                branch: "hello".to_owned(), // XXX this OK?
+                reason: EnrolledReason::Qualified,
+                feature_id: "some_control".to_owned(),
+            },
+        }];
+
+        let _ = env_logger::try_init();
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+
+        // test that evolve_enrollments correctly handles the case where a
+        // record without a previous enrollment gets dropped
+        let test_experiments = get_test_experiments();
+
+        // this should not return an error
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &test_experiments, &test_experiments, &[])?;
+
+        assert_eq!(
+            enrollments.len(),
+            0,
+            "no new enrollments should have been returned"
+        );
+
+        assert_eq!(
+            events.len(),
+            0,
+            "no new enrollments should have been returned"
+        );
+
+        // Test that evolve_enrollments correctly handles the case where a
+        // record with a previous enrollment gets dropped
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &[], &test_experiments, &existing_enrollments[..])?;
+
+        assert_eq!(
+            enrollments.len(),
+            1,
+            "only 1 of 2 enrollments should have been returned, since one caused evolve_enrollment to err"
+        );
+
+        assert_eq!(
+            events.len(),
+            1,
+            "only 1 of 2 enrollment events should have been returned, since one caused evolve_enrollment to err"
+        );
+
         Ok(())
     }
 

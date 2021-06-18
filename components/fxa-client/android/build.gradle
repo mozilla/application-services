@@ -86,20 +86,6 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 }
 
-// We do the uniffi binding generation here:
-android.libraryVariants.all { variant ->
-    def t = tasks.register("generate${variant.name.capitalize()}UniffiBindings", Exec) {
-        workingDir project.rootDir
-        commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/../src/fxa_client.udl", '--language', 'kotlin', '--out-dir', "${buildDir}/generated/source/uniffi/${variant.name}/java"
-
-        inputs.file '../src/fxa_client.udl'
-        outputs.dir "${buildDir}/generated/source/uniffi/${variant.name}/java/"
-    }
-    variant.javaCompileProvider.get().dependsOn(t)
-    def sourceSet = variant.sourceSets.find { it.name == variant.name }
-    sourceSet.java.srcDirs += new File(buildDir, "generated/source/uniffi/${variant.name}/java")
-}
-
 evaluationDependsOn(":full-megazord")
 afterEvaluate {
     // The `cargoBuild` task isn't available until after evaluation.
@@ -117,5 +103,5 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
-
+ext.configureUniFFIBindgen("../src/fxa_client.udl")
 ext.configurePublish()

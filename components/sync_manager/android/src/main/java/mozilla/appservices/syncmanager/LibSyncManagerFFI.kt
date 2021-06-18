@@ -17,7 +17,6 @@ internal interface LibSyncManagerFFI : Library {
             loadIndirect(componentName = "syncmanager", componentVersion = BuildConfig.LIBRARY_VERSION)
     }
     fun sync_manager_set_places(handle: PlacesApiHandle, error: RustError.ByReference)
-    fun sync_manager_set_logins(handle: LoginsDbHandle, error: RustError.ByReference)
     fun sync_manager_set_tabs(handle: TabsApiHandle, error: RustError.ByReference)
     fun sync_manager_disconnect(error: RustError.ByReference)
 
@@ -28,5 +27,4 @@ internal interface LibSyncManagerFFI : Library {
 }
 
 internal typealias PlacesApiHandle = Long
-internal typealias LoginsDbHandle = Long
 internal typealias TabsApiHandle = Long

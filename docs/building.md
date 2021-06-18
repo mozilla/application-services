@@ -14,10 +14,16 @@ a number of hours to complete.
 ## Building the Rust Components
 
 *Complete this section before moving to the android/iOS build instructions.*
-
-1. Install Rust: install [via rustup](https://www.rust-lang.org/tools/install)
-1. Install your system dependencies: - install via the instructions below for [Linux](building.md#linux), [MacOS](building.md#macos) or [Windows](building.md#windows)
-1. Check dependencies, environment variables and test
+1. Make sure you cloned the repository:
+  ```shell
+    $ git clone https://github.com/mozilla/application-services # (or use the ssh link)
+    $ cd application-services
+    $ git submodule init
+    $ git submodule update --recursive
+  ```
+2. Install Rust: install [via rustup](https://www.rust-lang.org/tools/install)
+3. Install your system dependencies: - install via the instructions below for [Linux](building.md#linux), [MacOS](building.md#macos) or [Windows](building.md#windows)
+4. Check dependencies, environment variables and test
    1. Run: `./libs/verify-desktop-environment.sh`
    1. Run: `cargo test`
 
@@ -35,7 +41,7 @@ Once you have successfully run `./libs/verify-desktop-environment.sh` and `cargo
 
 
 #### MacOS
-1. Install Xcode: check the [ci config](../.circleci/config) for the correct
+1. Install Xcode: check the [ci config](../.circleci/config.yml) for the correct
 version.
 1. Install Xcode tools: `xcode-select --install`
 1. Install homebrew: [via homebrew](https://brew.sh/) (its what we use for ci)

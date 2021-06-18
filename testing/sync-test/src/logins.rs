@@ -4,7 +4,7 @@ http://creativecommons.org/publicdomain/zero/1.0/ */
 use crate::auth::TestClient;
 use crate::testing::TestGroup;
 use anyhow::Result;
-use logins::{Login, PasswordStore, Result as LoginResult};
+use logins::{Login, LoginStore, Result as LoginResult};
 // helpers...
 
 // Doesn't check metadata fields
@@ -28,19 +28,19 @@ pub fn assert_logins_equiv(a: &Login, b: &Login) {
     );
 }
 
-pub fn times_used_for_id(s: &PasswordStore, id: &str) -> i64 {
+pub fn times_used_for_id(s: &LoginStore, id: &str) -> i64 {
     s.get(id)
         .expect("get() failed")
         .expect("Login doesn't exist")
         .times_used
 }
 
-pub fn add_login(s: &PasswordStore, l: Login) -> LoginResult<Login> {
+pub fn add_login(s: &LoginStore, l: Login) -> LoginResult<Login> {
     let id = s.add(l)?;
     Ok(s.get(&id)?.expect("Login we just added to exist"))
 }
 
-pub fn verify_login(s: &PasswordStore, l: &Login) {
+pub fn verify_login(s: &LoginStore, l: &Login) {
     let equivalent = s
         .get(&l.guid)
         .expect("get() to succeed")
@@ -48,7 +48,7 @@ pub fn verify_login(s: &PasswordStore, l: &Login) {
     assert_logins_equiv(&equivalent, l);
 }
 
-pub fn verify_missing_login(s: &PasswordStore, id: &str) {
+pub fn verify_missing_login(s: &LoginStore, id: &str) {
     assert!(
         s.get(id).expect("get() to succeed").is_none(),
         "Login {} should not exist",
@@ -57,7 +57,7 @@ pub fn verify_missing_login(s: &PasswordStore, id: &str) {
 }
 
 pub fn update_login<F: FnMut(&mut Login)>(
-    s: &PasswordStore,
+    s: &LoginStore,
     id: &str,
     mut callback: F,
 ) -> LoginResult<Login> {
@@ -67,7 +67,7 @@ pub fn update_login<F: FnMut(&mut Login)>(
     Ok(s.get(id)?.expect("Just updated this"))
 }
 
-pub fn touch_login(s: &PasswordStore, id: &str, times: usize) -> LoginResult<Login> {
+pub fn touch_login(s: &LoginStore, id: &str, times: usize) -> LoginResult<Login> {
     for _ in 0..times {
         s.touch(&id)?;
     }
