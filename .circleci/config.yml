@@ -177,6 +177,7 @@ commands:
             cargo metadata --locked > /dev/null
             python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
+            python3 ./tools/dependency_summary.py --all-ios-targets --package ios_rust --check megazords/ios-rust/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
             python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
   bench-all:
@@ -380,6 +381,21 @@ jobs:
       - store_artifacts:
           path: raw_xcodebuild.log
           destination: logs/raw_xcodebuild.log
+      - run:
+          name: Build XCFramework archive
+          command: |
+            # For now we need the nightly toolchain to build for the M1 simulator.
+            rustup install nightly
+            # For now we need to build the Rust stdlib from source for the M1 simulator.
+            rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # XCode tests build in Debug configuration, save us a full
+              # Rust rebuild in Release mode by forcing Debug mode on
+              # non-release builds.
+              bash megazords/ios-rust/build-xcframework.sh --build-profile debug
+            else
+              bash megazords/ios-rust/build-xcframework.sh --build-profile release
+            fi
       - save_cache:
           name: Save sccache cache
           key: sccache-cache-macos-{{ arch }}-{{ epoch }}
@@ -392,21 +408,33 @@ jobs:
             ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices.framework.zip
             echo "{\"0.0.1\":\"$ZIP_URL\"}" > mozilla.app-services.json
       - store_artifacts:
+          name: Store Carthage framework in workspace
           path: MozillaAppServices.framework.zip
           destination: dist/MozillaAppServices.framework.zip
       - store_artifacts:
+          name: Store Carthage bin-only project specification in workspace
           path: mozilla.app-services.json
           destination: dist/mozilla.app-services.json
+      - store_artifacts:
+          name: Store XCFramework bundle in workspace
+          path: megazords/ios-rust/MozillaRustComponents.xcframework.zip
+          destination: dist/MozillaRustComponents.xcframework.zip
       - run:
           name: "Carthage binary snapshot URL"
           command: |
             JSON_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/mozilla.app-services.json
             echo "Add the following line to your Cartfile:"
             echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
+      - run:
+          name: "XCFramework bundle checksum"
+          command: |
+            shasum -a 256 ./megazords/ios-rust/MozillaRustComponents.xcframework.zip
+            echo "Use the above checksum to depend on MozillaRustComponents.xcframework.zip as a Swift Package binary target"
       - persist_to_workspace:
           root: .
           paths:
             - MozillaAppServices.framework.zip
+            - megazords/ios-rust/MozillaRustComponents.xcframework.zip
   Carthage release:
     executor: macos
     steps:
@@ -422,6 +450,21 @@ jobs:
             echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
             unzip "${GHR}.zip"
             ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
+  XCFramework release:
+    executor: macos
+    steps:
+      - full-checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Release XCFramework archive on GitHub
+          command: |
+            GHR=ghr_v0.12.0_darwin_amd64
+            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
+            unzip "${GHR}.zip"
+            ./${GHR}/ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
 
 workflows:
   version: 2
@@ -473,13 +516,21 @@ workflows:
   coverage:
     jobs:
       - Generate code coverage
-  carthage-framework:
+  ios-artifacts:
     jobs:
       - iOS build and test:
           filters: # required since `Release` has tag filters AND requires `Build`
             tags:
               only: /.*/
       - Carthage release:
+          requires:
+            - iOS build and test
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+      - XCFramework release:
           requires:
             - iOS build and test
           filters:

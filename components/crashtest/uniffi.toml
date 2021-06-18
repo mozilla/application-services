@@ -2,6 +2,8 @@
 package_name = "mozilla.appservices.crashtest"
 cdylib_name = "megazord"
 
-[bindings.swift]
-generate_module_map = false
 
+[bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "crashtestFFI"
+generate_module_map = false

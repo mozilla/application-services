@@ -4,6 +4,9 @@
 
 import Foundation
 import UIKit
+#if canImport(Sync15)
+    import Sync15
+#endif
 
 typealias LoginsStoreError = LoginsStorageError
 

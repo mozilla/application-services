@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+#if canImport(MozillaRustComponents)
+    import MozillaRustComponents
+#endif
 
 /// The public interface to viaduct.
 /// Right now it doesn't do any "true" viaduct things,
