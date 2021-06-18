@@ -15,72 +15,32 @@ pull_request_rules:
       - "#approved-reviews-by>=1"
       - base=main
       - label=checkin-needed
-      - "status-success=android-build-pr"
-      - "status-success=lint-detekt"
-      - "status-success=lint-ktlint"
-      - "status-success=check-protobuf-uptodate"
-      - "status-success=check-dependencies"
-      - "status-success=check-formatting"
-      - "status-success=swiftlint"
-      - "status-success=bash-lint"
-      - "status-success=clippy"
-      - "status-success=run-tests"
-      - "status-success=carthage-framework"
+      # What we want to say here is "all checks passed", but that's not a concept
+      # that makes sense in GitHub:
+      #
+      #    https://docs.mergify.io/conditions/#validating-all-status-checks
+      #
+      # But we don't want to just list out all the checks, because we have many of
+      # them and some of them are added dynamically and we might add or remove checks
+      # without updating the list here.
+      #
+      # So instead we insist that a small set of known checks has completed,
+      # and also that there are no other checks in unexpected states.
+      - "check-success=Decision Task"
+      - "check-success=run-tests"
+      - "check-success=check-formatting"
+      - "#check-success-or-neutral>=5" # we should always have at least this many checks
+      - "#check-pending=0"
+      - "#check-stale=0"
+      - "#check-failure=0"
     actions:
+      # This merges by rebasing without strict merge, which means that mergify will *attempt*
+      # to rebase a matching PR directly on to the `main` branch, even if the PR is out of date.
+      # However, our GitHub branch protection rules require that PRs must be up-to-date before merging,
+      # and mergify respects these rules, so the expected behaviour here is that mergify will only
+      # merge when it can cleanly put the exact commits of the PR directly on top of `main`
+      # (and thus avoid having to re-write any commits or create merge commits of its own).
       merge:
-        method: merge
-        strict: smart
-        strict_method: rebase
-  # Copy pasta of above, with different checks.
-  - name: automatic merge for main (CI FULL)
-    conditions:
-      - title~=\[ci full\]
-      - "#approved-reviews-by>=1"
-      - base=main
-      - label=checkin-needed
-      - "status-success=module-build-logins"
-      - "status-success=module-build-httpconfig"
-      - "status-success=module-build-full-megazord"
-      - "status-success=module-build-tabs"
-      - "status-success=module-build-lockbox-megazord"
-      - "status-success=module-build-rustlog"
-      - "status-success=module-build-places"
-      - "status-success=module-build-sync15"
-      - "status-success=module-build-syncmanager"
-      - "status-success=module-build-fxaclient"
-      - "status-success=module-build-push"
-      - "status-success=module-build-native-support"
-      - "status-success=lint-detekt"
-      - "status-success=lint-ktlint"
-      - "status-success=check-protobuf-uptodate"
-      - "status-success=check-dependencies"
-      - "status-success=check-formatting"
-      - "status-success=swiftlint"
-      - "status-success=bash-lint"
-      - "status-success=clippy"
-      - "status-success=run-tests"
-      - "status-success=carthage-framework"
-    actions:
-      merge:
-        method: merge
-        strict: smart
-        strict_method: rebase
-  - name: automatic merge for main (CI SKIP)
-    conditions:
-      - title~=\[ci skip\]
-      - "#approved-reviews-by>=1"
-      - base=main
-      - label=checkin-needed
-      - "status-success=check-protobuf-uptodate"
-      - "status-success=check-dependencies"
-      - "status-success=check-formatting"
-      - "status-success=swiftlint"
-      - "status-success=bash-lint"
-      - "status-success=clippy"
-      - "status-success=run-tests"
-      - "status-success=carthage-framework"
-    actions:
-      merge:
-        method: merge
-        strict: smart
-        strict_method: rebase
+        method: rebase
+        rebase_fallback: none
+        strict: false
