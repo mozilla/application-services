@@ -1,5 +1,5 @@
 [alias]
 regen-protobufs = ["run", "--bin", "protobuf-gen", "tools/protobuf_files.toml"]
-uniffi-bindgen = ["run", "--bin", "embedded-uniffi-bindgen"]
+uniffi-bindgen = ["run", "--package", "embedded-uniffi-bindgen", "--"]
 dev-install = ["install", "asdev"]
 verify_env = ["asdev", "verify_env"]
