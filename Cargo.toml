@@ -36,6 +36,7 @@ members = [
     "components/webext-storage/ffi",
     "megazords/full",
     "megazords/ios/rust",
+    "megazords/ios-rust",
 # Disabled for intermittent failures; see SDK-233 and #3909 for details.
 #    "testing/sync-test",
     "tools/protobuf-gen",

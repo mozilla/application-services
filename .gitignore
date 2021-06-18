@@ -28,6 +28,7 @@ components/**/ios/Generated
 # Glean generated artifacts
 megazords/ios/MozillaAppServices/Generated/Metrics.swift
 megazords/ios/.venv
+megazords/ios-rust/MozillaRustComponents.xcframework*
 
 # Carthage generated artifacts
 Carthage
@@ -50,3 +51,4 @@ docs/book
 
 # Generated rustdocs
 docs/rust-docs
+
