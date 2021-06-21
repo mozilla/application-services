@@ -45,21 +45,10 @@ impl TabsRecord {
                     .iter()
                     .map(|u| u.as_str().unwrap_or_default().to_string())
                     .collect::<Vec<_>>();
-                let icon: Option<String> = if let Some(i) = tabs_obj.get("icon") {
-                    Some(i.as_str().unwrap_or_default().to_string())
-                } else {
-                    None
-                };
-
-                let last_used: u64 = if let Some(l) = tabs_obj.get("lastUsed") {
-                    if l.is_f64() {
-                        l.as_f64().unwrap_or_default().trunc() as u64
-                    } else {
-                        l.as_u64().unwrap_or_default()
-                    }
-                } else {
-                    0
-                };
+                let icon: Option<String> = tabs_obj
+                    .get("icon")
+                    .map(|i| i.as_str().unwrap_or_default().to_string());
+                let last_used = parse_last_used(&tabs_obj["lastUsed"]);
 
                 TabsRecordTab {
                     title,
@@ -78,6 +67,28 @@ impl TabsRecord {
             tabs,
             ttl,
         })
+    }
+}
+
+fn parse_last_used(last_used_val: &JsonValue) -> u64 {
+    // In order to support older clients, we are handling `last used` values that
+    // are either floats, integers, or stringified floats or integers. We attempt to
+    // represent `last used` as a float before converting it to an integer. If that
+    // operation isn't successful, we try converting `last used` to an integer directly.
+    // If that isn't successful, the returned value will be zero.
+
+    if last_used_val.is_string() {
+        let l = last_used_val.as_str().unwrap_or_default();
+
+        match l.parse::<f64>() {
+            Ok(f) => f.trunc() as u64,
+            Err(_) => l.parse::<u64>().unwrap_or_default(),
+        }
+    } else {
+        match last_used_val.as_f64() {
+            Some(f) => f.trunc() as u64,
+            None => last_used_val.as_u64().unwrap_or_default(),
+        }
     }
 }
 
@@ -110,11 +121,28 @@ pub(crate) mod tests {
                 ],
                 "icon": "test.png",
                 "lastUsed": 1623745000.99 // test with float value
-            }
+            },
+            {
+                "title": "Example2",
+                "urlHistory": [
+                    "example2.com"
+                ],
+                "icon": "example2.png",
+                "lastUsed": "1623745144" // test with stringified integer value
+            },
+            {
+                "title": "Test2",
+                "urlHistory": [
+                    "test2.com"
+                ],
+                "icon": "test2.png",
+                "lastUsed": "1623745018.99" // test with stringified float value
+            },
         ]);
 
-        data.insert("clientName".to_string(), JsonValue::from("Nightly"));
         data.insert("tabs".to_string(), tabs);
+        data.insert("clientName".to_string(), JsonValue::from("Nightly"));
+        data.insert("ttl".to_string(), JsonValue::from(0));
 
         let payload_input = sync15::Payload {
             id: guid.clone(),
@@ -138,6 +166,18 @@ pub(crate) mod tests {
                     url_history: vec!["test.com".to_string(), "test2.com".to_string()],
                     icon: Some("test.png".to_string()),
                     last_used: 1623745000,
+                },
+                TabsRecordTab {
+                    title: "Example2".to_string(),
+                    url_history: vec!["example2.com".to_string()],
+                    icon: Some("example2.png".to_string()),
+                    last_used: 1623745144,
+                },
+                TabsRecordTab {
+                    title: "Test2".to_string(),
+                    url_history: vec!["test2.com".to_string()],
+                    icon: Some("test2.png".to_string()),
+                    last_used: 1623745018,
                 },
             ],
             ttl: 0,
