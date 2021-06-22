@@ -228,6 +228,7 @@ fn prompt_record_id(s: &LoginStore, action: &str) -> Result<Option<String>> {
 #[allow(clippy::cognitive_complexity)] // FIXME
 fn main() -> Result<()> {
     cli_support::init_trace_logging();
+    viaduct_reqwest::use_reqwest_backend();
     std::env::set_var("RUST_BACKTRACE", "1");
 
     let matches = clap::App::new("sync_pass_sql")

@@ -876,6 +876,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempdir",
+ "viaduct-reqwest",
 ]
 
 [[package]]
