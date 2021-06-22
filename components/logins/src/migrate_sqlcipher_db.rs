@@ -115,12 +115,12 @@ mod tests {
             ALTER TABLE loginsL RENAME passwordEnc to password;
             ALTER TABLE loginsM RENAME usernameEnc to username;
             ALTER TABLE loginsM RENAME passwordEnc to password;
-            INSERT INTO loginsL(guid, username, password, hostname,
-            httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
+            INSERT INTO loginsL(guid, username, password, origin,
+            httpRealm, formActionOrigin, usernameField, passwordField, timeCreated, timeLastUsed,
             timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
             VALUES ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
             'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2);
-            INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
+            INSERT INTO loginsM(guid, username, password, origin, httpRealm, formActionOrigin,
             usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
             is_overridden, server_modified)
             VALUES ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
@@ -163,12 +163,12 @@ mod tests {
             "password"
         );
         assert_eq!(
-            row.get_raw("hostname").as_str().unwrap(),
+            row.get_raw("origin").as_str().unwrap(),
             "https://www.example.com"
         );
         assert_eq!(row.get_raw("httpRealm"), ValueRef::Null);
         assert_eq!(
-            row.get_raw("formSubmitUrl").as_str().unwrap(),
+            row.get_raw("formActionOrigin").as_str().unwrap(),
             "https://www.example.com"
         );
         assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "username");
@@ -195,11 +195,11 @@ mod tests {
             "password"
         );
         assert_eq!(
-            row.get_raw("hostname").as_str().unwrap(),
+            row.get_raw("origin").as_str().unwrap(),
             "https://www.example.com"
         );
         assert_eq!(row.get_raw("httpRealm").as_str().unwrap(), "Test Realm");
-        assert_eq!(row.get_raw("formSubmitUrl"), ValueRef::Null);
+        assert_eq!(row.get_raw("formActionOrigin"), ValueRef::Null);
         assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "");
         assert_eq!(row.get_raw("passwordField").as_str().unwrap(), "");
         assert_eq!(row.get_raw("timeCreated").as_i64().unwrap(), 1000);
