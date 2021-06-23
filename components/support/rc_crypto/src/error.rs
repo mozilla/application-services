@@ -14,6 +14,12 @@ pub enum ErrorKind {
     RootHashFormatError(String),
     #[error("PEM content format error: {0}")]
     PEMFormatError(String),
+    #[error("Certificate content error: {0}")]
+    CertificateContentError(String),
+    #[error("Signature content error: {0}")]
+    SignatureContentError(String),
+    #[error("Content signature mismatch error: {0}")]
+    SignatureMismatchError(String),
 }
 
 error_support::define_error! {

@@ -8,6 +8,8 @@ pub enum ErrorKind {
     NSSInitFailure,
     #[error("NSS error: {0} {1}")]
     NSSError(i32, String),
+    #[error("Input or format error: {0}")]
+    InputError(String),
     #[error("Internal crypto error")]
     InternalError,
     #[error("Conversion error: {0}")]
