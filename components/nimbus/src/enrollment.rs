@@ -610,9 +610,9 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         // Step 1. Build an initial active_features to keep track of
         // the features that are being experimented upon.
-        let mut active_features = HashMap::with_capacity(next_experiments.len());
+        let mut enrolled_features = HashMap::with_capacity(next_experiments.len());
 
-        let mut next_enrollments = HashMap::with_capacity(next_experiments.len());
+        let mut next_enrollments = Vec::with_capacity(next_experiments.len());
 
         // Step 2.
         // Evolve the experiments with previous enrollments first (except for
@@ -650,17 +650,12 @@ impl<'a> EnrollmentsEvolver<'a> {
                 }
             };
 
-            if let Some(enrollment) = next_enrollment {
-                // Now we have an enrollment object!
-                // If it's an enrolled enrollment, then get the FeatureConfigs
-                // from the experiment and store them in the active_features map.
-                for enrolled_feature in get_enrolled_feature_configs(&enrollment, &next_experiments)
-                {
-                    active_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
-                }
-                // Also, record the enrollment for our return value
-                next_enrollments.insert(slug, enrollment);
-            }
+            self.reserve_enrolled_features(
+                next_enrollment,
+                &next_experiments,
+                &mut enrolled_features,
+                &mut next_enrollments,
+            );
         }
 
         // Step 3. Evolve the remaining enrollments with the previous and
@@ -676,7 +671,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             let needed_features_in_use: Vec<&EnrolledFeatureConfig> = next_experiment
                 .get_feature_ids()
                 .iter()
-                .filter_map(|id| active_features.get(id))
+                .filter_map(|id| enrolled_features.get(id))
                 .collect();
             if !needed_features_in_use.is_empty() {
                 let is_our_experiment = needed_features_in_use.iter().any(|f| &f.slug == slug);
@@ -690,15 +685,12 @@ impl<'a> EnrollmentsEvolver<'a> {
                 } else {
                     // At least one feature needed for this experiment is already in use by another experiment.
                     // Thus, we cannot proceed with an enrollment other than as a `FeatureConflict`.
-                    next_enrollments.insert(
-                        slug,
-                        ExperimentEnrollment {
-                            slug: slug.clone(),
-                            status: EnrollmentStatus::NotEnrolled {
-                                reason: NotEnrolledReason::FeatureConflict,
-                            },
+                    next_enrollments.push(ExperimentEnrollment {
+                        slug: slug.clone(),
+                        status: EnrollmentStatus::NotEnrolled {
+                            reason: NotEnrolledReason::FeatureConflict,
                         },
-                    );
+                    });
                 }
                 // Whether it's our experiment or not that is using these features, no further enrollment can
                 // happen.
@@ -741,35 +733,45 @@ impl<'a> EnrollmentsEvolver<'a> {
                     }
                 };
 
-                if let Some(enrollment) = next_enrollment {
-                    // Now we have an enrollment object!
-                    // If it's an enrolled enrollment, then get the FeatureConfigs
-                    // from the experiment and store them in the active_features map.
-                    for enrolled_feature in
-                        get_enrolled_feature_configs(&enrollment, &next_experiments)
-                    {
-                        active_features
-                            .insert(enrolled_feature.feature_id.clone(), enrolled_feature);
-                    }
-                    // Also, record the enrollment for our return value
-                    next_enrollments.insert(slug, enrollment);
-                }
+                self.reserve_enrolled_features(
+                    next_enrollment,
+                    &next_experiments,
+                    &mut enrolled_features,
+                    &mut next_enrollments,
+                );
             }
         }
 
-        let updated_enrollments: Vec<ExperimentEnrollment> =
-            next_enrollments.values().cloned().collect();
-
-        // Check that we generate the active feature map from the new
+        // Check that we generate the enrolled feature map from the new
         // enrollments and new experiments.  Perhaps this should just be an
         // assert.
-        let updated_active_features = map_features(&updated_enrollments, &next_experiments);
-        if active_features != updated_active_features {
+        let updated_enrolled_features = map_features(&next_enrollments, &next_experiments);
+        if enrolled_features != updated_enrolled_features {
             Err(NimbusError::InternalError(
                 "Next enrollment calculation error",
             ))
         } else {
-            Ok((updated_enrollments, enrollment_events))
+            Ok((next_enrollments, enrollment_events))
+        }
+    }
+
+    // Book-keeping method used in evolve_enrollments.
+    fn reserve_enrolled_features(
+        &self,
+        latest_enrollment: Option<ExperimentEnrollment>,
+        experiments: &HashMap<String, &Experiment>,
+        enrolled_features: &mut HashMap<String, EnrolledFeatureConfig>,
+        enrollments: &mut Vec<ExperimentEnrollment>,
+    ) {
+        if let Some(enrollment) = latest_enrollment {
+            // Now we have an enrollment object!
+            // If it's an enrolled enrollment, then get the FeatureConfigs
+            // from the experiment and store them in the active_features map.
+            for enrolled_feature in get_enrolled_feature_configs(&enrollment, &experiments) {
+                enrolled_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
+            }
+            // Also, record the enrollment for our return value
+            enrollments.push(enrollment);
         }
     }
 
