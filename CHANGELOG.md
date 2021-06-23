@@ -2,7 +2,7 @@
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.1...v79.0.2)
 
-
+- Removed hard crash for `migrateToPlaintextHeader` and allowed error to propagate for Logins
 
 # v79.0.1 (_2021-06-15_)
 
