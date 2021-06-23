@@ -36,6 +36,7 @@ use once_cell::sync::OnceCell;
 use persistence::{Database, StoreId, Writer};
 use serde_derive::*;
 use serde_json::{Map, Value};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use updating::{read_and_remove_pending_experiments, write_pending_experiments};
@@ -362,12 +363,23 @@ impl Experiment {
             .any(|branch| branch.slug == branch_slug)
     }
 
-    fn get_first_feature_id(&self) -> String {
-        if self.feature_ids.is_empty() {
-            "".to_string()
-        } else {
-            self.feature_ids[0].clone()
-        }
+    fn get_branch(&self, branch_slug: &str) -> Option<&Branch> {
+        self.branches.iter().find(|b| b.slug == branch_slug)
+    }
+
+    fn get_feature_ids(&self) -> Vec<String> {
+        let branches = &self.branches;
+        let feature_ids = branches
+            .iter()
+            .flat_map(|b| {
+                b.get_feature_configs()
+                    .iter()
+                    .map(|f| f.to_owned().feature_id)
+                    .collect::<Vec<_>>()
+            })
+            .collect::<HashSet<_>>();
+
+        feature_ids.into_iter().collect()
     }
 }
 
@@ -390,6 +402,19 @@ pub struct Branch {
     pub slug: String,
     pub ratio: i32,
     pub feature: Option<FeatureConfig>,
+}
+
+impl Branch {
+    /// We want to be able to support multiple features per branch.
+    /// The schema does not support this yet, but we can still write the
+    // enrollment code as it does.
+    fn get_feature_configs(&self) -> Vec<FeatureConfig> {
+        if let Some(feature) = &self.feature {
+            vec![feature.clone()]
+        } else {
+            Default::default()
+        }
+    }
 }
 
 fn default_buckets() -> u32 {
@@ -502,7 +527,6 @@ mod tests {
         let mock_client_id = "client-1".to_string();
         let mock_exp_slug = "exp-1".to_string();
         let mock_exp_branch = "branch-1".to_string();
-        let mock_feature_id = "feature-1".to_string();
 
         let tmp_dir = TempDir::new("test_telemetry_reset")?;
         let client = NimbusClient::new(
@@ -541,11 +565,7 @@ mod tests {
             &mock_exp_slug,
             &ExperimentEnrollment {
                 slug: mock_exp_slug.clone(),
-                status: EnrollmentStatus::new_enrolled(
-                    EnrolledReason::Qualified,
-                    &mock_exp_branch,
-                    &mock_feature_id,
-                ),
+                status: EnrollmentStatus::new_enrolled(EnrolledReason::Qualified, &mock_exp_branch),
             },
         )?;
         writer.commit()?;
@@ -629,7 +649,7 @@ mod test_schema_bw_compat {
             "last_modified":1_602_197_324_372i64
         }))
         .unwrap();
-        assert_eq!(exp.get_first_feature_id(), "");
+        assert!(exp.get_feature_ids().is_empty());
     }
 
     // In #96 we added a `featureIds` field to the Experiment schema.
@@ -679,7 +699,7 @@ mod test_schema_bw_compat {
             "last_modified":1_602_197_324_372i64
         }))
         .unwrap();
-        assert_eq!(exp.get_first_feature_id(), "some_control");
+        assert_eq!(exp.get_feature_ids(), vec!["some_control"]);
     }
 
     // In #97 we deprecated `application` and added `app_name`, `app_id`,

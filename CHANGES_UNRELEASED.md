@@ -25,5 +25,9 @@ Use the template below to make assigning a version number during the release cut
     Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
     will recieve an error indicating that the schema was not correctly formated.
 
+## Nimbus
+### What's Changed
+  - Nimbus SDK now supports different branches having different Feature Configs ([#4213](https://github.com/mozilla/application-services/pull/4213))
+
 ## Other
   - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
