@@ -2481,7 +2481,6 @@ mod tests {
                 enrollment_id: Uuid::new_v4(),
                 branch: "hello".to_owned(), // XXX this OK?
                 reason: EnrolledReason::Qualified,
-                feature_id: "some_control".to_owned(),
             },
         }];
 

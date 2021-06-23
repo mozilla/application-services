@@ -293,7 +293,7 @@ impl Database {
                 };
             }
             None => {
-                log::error!("maybe_upgrade: no version number; wiping most stores");
+                log::info!("maybe_upgrade: no version number; wiping most stores");
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
