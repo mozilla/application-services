@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.2...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -24,6 +24,10 @@ Use the template below to make assigning a version number during the release cut
   - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
     Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
     will recieve an error indicating that the schema was not correctly formated.
+
+## Nimbus
+### What's Changed
+  - Nimbus SDK now supports different branches having different Feature Configs ([#4213](https://github.com/mozilla/application-services/pull/4213))
 
 ## Other
   - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.

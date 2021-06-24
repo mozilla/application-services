@@ -18,8 +18,10 @@ in their build. The workflow is:
 1. Edit (or create) the file `local.properties` *in the consuming project* and tell it where to
    find your local checkout of application-services, by adding a line like:
 
-   `autoPublish.application-services.dir=path/to/your/checkout/of/application-services`
+   `autoPublish.application-services.dir=relative/path/to/your/checkout/of/application-services`
 
+   Note that the path should be relative from the root of the consumer's directory. For example, if `application-services`
+   and `fenix` are at the same level, the relative path would be `../application-services`
 1. Build the consuming project following its usual build procedure, e.g. via `./gradlew assembleDebug` or `./gradlew
    test`.
 
