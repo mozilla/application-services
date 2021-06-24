@@ -115,12 +115,16 @@ mod tests {
             ALTER TABLE loginsL RENAME passwordEnc to password;
             ALTER TABLE loginsM RENAME usernameEnc to username;
             ALTER TABLE loginsM RENAME passwordEnc to password;
-            INSERT INTO loginsL(guid, username, password, origin,
-            httpRealm, formActionOrigin, usernameField, passwordField, timeCreated, timeLastUsed,
+            ALTER TABLE loginsL RENAME origin to hostname;
+            ALTER TABLE loginsL RENAME formActionOrigin to formSubmitURL;
+            ALTER TABLE loginsM RENAME origin to hostname;
+            ALTER TABLE loginsM RENAME formActionOrigin to formSubmitURL;
+            INSERT INTO loginsL(guid, username, password, hostname,
+            httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
             timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
             VALUES ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
             'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2);
-            INSERT INTO loginsM(guid, username, password, origin, httpRealm, formActionOrigin,
+            INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
             usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
             is_overridden, server_modified)
             VALUES ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
