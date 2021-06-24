@@ -347,12 +347,14 @@ open class Nimbus(
     // This is currently not available from the main thread.
     // see https://jira.mozilla.com/browse/SDK-191
     @WorkerThread
-    override fun getActiveExperiments(): List<EnrolledExperiment> =
+    override fun getActiveExperiments(): List<EnrolledExperiment> = withCatchAll {
         nimbusClient.getActiveExperiments()
+    } ?: emptyList()
 
     @WorkerThread
-    override fun getAvailableExperiments(): List<AvailableExperiment> =
+    override fun getAvailableExperiments(): List<AvailableExperiment> = withCatchAll {
         nimbusClient.getAvailableExperiments()
+    } ?: emptyList()
 
     @AnyThread
     @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
@@ -361,8 +363,8 @@ open class Nimbus(
             nimbusClient.getFeatureConfigVariables(featureId)?.let { JSONObject(it) }
         }
 
-    override fun getExperimentBranch(experimentId: String): String? {
-        return nimbusClient.getExperimentBranch(experimentId)
+    override fun getExperimentBranch(experimentId: String): String? = withCatchAll {
+        nimbusClient.getExperimentBranch(experimentId)
     }
 
     override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables =
@@ -525,7 +527,11 @@ open class Nimbus(
         experiments.forEach { experiment ->
             // For now, we will just record the experiment id and the branch id. Once we can call
             // Glean from Rust, this will move to the nimbus-sdk Rust core.
-            Glean.setExperimentActive(experiment.slug, experiment.branchSlug)
+            Glean.setExperimentActive(
+                experiment.slug,
+                experiment.branchSlug,
+                mapOf("enrollmentId" to experiment.enrollmentId)
+            )
         }
     }
 
