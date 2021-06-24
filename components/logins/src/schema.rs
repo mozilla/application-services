@@ -193,6 +193,16 @@ const CREATE_DELETED_HOSTNAME_INDEX_SQL: &str = "
     ON loginsL (is_deleted, hostname)
 ";
 
+const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_origin
+    ON loginsM (is_overridden, origin)
+";
+
+const CREATE_DELETED_ORIGIN_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_origin
+    ON loginsL (is_deleted, origin)
+";
+
 // As noted above, we use these when updating from schema v3 (firefox-ios's
 // last schema) to convert from microsecond timestamps to milliseconds.
 const UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL: &str = "
@@ -288,8 +298,8 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
-        CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
-        CREATE_DELETED_HOSTNAME_INDEX_SQL,
+        CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
+        CREATE_DELETED_ORIGIN_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
     ])?;
