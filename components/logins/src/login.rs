@@ -589,10 +589,10 @@ impl Login {
             password_enc: row.get("passwordEnc")?,
             username_enc: string_or_default(row, "usernameEnc")?,
 
-            origin: row.get("hostname")?,
+            origin: row.get("origin")?,
             http_realm: row.get("httpRealm")?,
 
-            form_action_origin: row.get("formSubmitURL")?,
+            form_action_origin: row.get("formActionOrigin")?,
 
             username_field: string_or_default(row, "usernameField")?,
             password_field: string_or_default(row, "passwordField")?,
@@ -1520,7 +1520,7 @@ mod tests {
         assert_eq!(payload.data["origin"], "https://www.example.com");
         assert_eq!(payload.data["username"], "user");
         assert_eq!(payload.data["password"], "password");
-        assert!(!payload.data.contains_key("formSubmitURL"));
+        assert!(!payload.data.contains_key("formActionOrigin"));
     }
 
     #[test]

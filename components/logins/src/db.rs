@@ -226,7 +226,7 @@ impl LoginDb {
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
         let args = named_params! {
-            ":hostname": l.origin,
+            ":origin": l.origin,
             ":http_realm": l.http_realm,
             ":username": l.username_enc,
             ":form_submit": form_submit_host_port,
@@ -234,16 +234,16 @@ impl LoginDb {
         let mut query = format!(
             "SELECT {common}
              FROM loginsL
-             WHERE hostname IS :origin
+             WHERE origin IS :origin
                AND httpRealm IS :http_realm
                AND username IS :username",
             common = schema::COMMON_COLS,
         );
         if form_submit_host_port.is_some() {
             // Stolen from iOS
-            query += " AND (formSubmitURL = '' OR (instr(formSubmitURL, :form_submit) > 0))";
+            query += " AND (formActionOrigin = '' OR (instr(formActionOrigin, :form_submit) > 0))";
         } else {
-            query += " AND formSubmitURL IS :form_submit"
+            query += " AND formActionOrigin IS :form_submit"
         }
         self.try_query_row(&query, args, |row| Login::from_row(row), false)
     }
@@ -366,9 +366,9 @@ impl LoginDb {
 
         let sql = format!(
             "INSERT OR IGNORE INTO loginsL (
-                hostname,
+                origin,
                 httpRealm,
-                formSubmitURL,
+                formActionOrigin,
                 usernameField,
                 passwordField,
                 timesUsed,
@@ -382,9 +382,9 @@ impl LoginDb {
                 is_deleted,
                 sync_status
             ) VALUES (
-                :hostname,
+                :origin,
                 :http_realm,
-                :form_submit_url,
+                :form_action_origin,
                 :username_field,
                 :password_field,
                 :times_used,
@@ -404,9 +404,9 @@ impl LoginDb {
         let rows_changed = self.execute_named(
             &sql,
             named_params! {
-                ":hostname": login.origin,
+                ":origin": login.origin,
                 ":http_realm": login.http_realm,
-                ":form_submit_url": login.form_action_origin,
+                ":form_action_origin": login.form_action_origin,
                 ":username_field": login.username_field,
                 ":password_field": login.password_field,
                 ":username_enc": login.username_enc,
@@ -444,9 +444,9 @@ impl LoginDb {
         let import_start = Instant::now();
         let sql = format!(
             "INSERT OR IGNORE INTO loginsL (
-                hostname,
+                origin,
                 httpRealm,
-                formSubmitURL,
+                formActionOrigin,
                 usernameField,
                 passwordField,
                 timesUsed,
@@ -460,9 +460,9 @@ impl LoginDb {
                 is_deleted,
                 sync_status
             ) VALUES (
-                :hostname,
+                :origin,
                 :http_realm,
-                :form_submit_url,
+                :form_action_origin,
                 :username_field,
                 :password_field,
                 :times_used,
@@ -520,9 +520,9 @@ impl LoginDb {
             match self.execute_named_cached(
                 &sql,
                 named_params! {
-                    ":hostname": login.origin,
+                    ":origin": login.origin,
                     ":http_realm": login.http_realm,
-                    ":form_submit_url": login.form_action_origin,
+                    ":form_action_origin": login.form_action_origin,
                     ":username_field": login.username_field,
                     ":password_field": login.password_field,
                     ":username_enc": login.username_enc,
@@ -608,13 +608,13 @@ impl LoginDb {
                      ELSE :now_millis
                  END),
                  httpRealm           = :http_realm,
-                 formSubmitURL       = :form_action_origin,
+                 formActionOrigin    = :form_action_origin,
                  usernameField       = :username_field,
                  passwordField       = :password_field,
                  timesUsed           = timesUsed + 1,
                  usernameEnc         = :username_enc,
                  passwordEnc         = :password_enc,
-                 hostname            = :hostname,
+                 origin              = :origin,
                  -- leave New records as they are, otherwise update them to `changed`
                  sync_status         = max(sync_status, {changed})
              WHERE guid = :guid",
@@ -624,7 +624,7 @@ impl LoginDb {
         self.db.execute_named(
             &sql,
             named_params! {
-                ":hostname": login.origin,
+                ":origin": login.origin,
                 ":username_enc": login.username_enc,
                 ":password_enc": login.password_enc,
                 ":http_realm": login.http_realm,
@@ -668,10 +668,10 @@ impl LoginDb {
         //         SELECT 1 FROM loginsL
         //         WHERE is_deleted = 0
         //             AND guid <> :guid
-        //             AND hostname = :hostname
+        //             AND origin = :origin
         //             AND NULLIF(username, '') = :username
         //             AND (
-        //                 formSubmitURL = :form_submit
+        //                 formActionOrigin = :form_submit
         //                 OR
         //                 httpRealm = :http_realm
         //             )
@@ -681,20 +681,20 @@ impl LoginDb {
         //         SELECT 1 FROM loginsM
         //         WHERE is_overridden = 0
         //             AND guid <> :guid
-        //             AND hostname = :hostname
+        //             AND origin = :origin
         //             AND NULLIF(username, '') = :username
         //             AND (
-        //                 formSubmitURL = :form_submit
+        //                 formActionOrigin = :form_submit
         //                 OR
         //                 httpRealm = :http_realm
         //             )
         //      )",
         //     named_params! {
         //         ":guid": &login.guid(),
-        //         ":hostname": &login.hostname,
+        //         ":origin": &login.origin,
         //         ":username": &login.username,
         //         ":http_realm": login.http_realm.as_ref(),
-        //         ":form_submit": login.form_submit_url.as_ref(),
+        //         ":form_submit": login.form_action_origin.as_ref(),
         //     },
         //     |row| row.get(0),
         // )?)
@@ -706,9 +706,9 @@ impl LoginDb {
             static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
                 "SELECT {common_cols} FROM loginsL
                 WHERE is_deleted = 0
-                    AND hostname = :hostname
+                    AND origin = :origin
                     AND (
-                        formSubmitURL = :form_submit
+                        formActionOrigin = :form_submit
                         OR
                         httpRealm = :http_realm
                     )
@@ -717,9 +717,9 @@ impl LoginDb {
 
                 SELECT {common_cols} FROM loginsM
                 WHERE is_overridden = 0
-                    AND hostname = :hostname
+                    AND origin = :origin
                     AND (
-                        formSubmitURL = :form_submit
+                        formActionOrigin = :form_submit
                         OR
                         httpRealm = :http_realm
                     )
@@ -729,7 +729,7 @@ impl LoginDb {
         }
         let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
         let params = named_params! {
-            ":hostname": &login.origin,
+            ":origin": &login.origin,
             ":http_realm": login.http_realm.as_ref(),
             ":form_submit": login.form_action_origin.as_ref(),
         };
@@ -767,7 +767,7 @@ impl LoginDb {
                      sync_status = {status_changed},
                      is_deleted = 1,
                      passwordEnc = '',
-                     hostname = '',
+                     origin = '',
                      usernameEnc = ''
                  WHERE guid = :guid",
                 status_changed = SyncStatus::Changed as u8
@@ -785,7 +785,7 @@ impl LoginDb {
         // insert a tombstone.
         self.execute_named(&format!("
             INSERT OR IGNORE INTO loginsL
-                    (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, passwordEnc, usernameEnc)
+                    (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, passwordEnc, usernameEnc)
             SELECT   guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,                   '',       ''
             FROM loginsM
             WHERE guid = :guid",
@@ -843,7 +843,7 @@ impl LoginDb {
                     sync_status = {changed},
                     is_deleted = 1,
                     passwordEnc = '',
-                    hostname = '',
+                    origin = '',
                     usernameEnc = ''
                 WHERE is_deleted = 0",
                 changed = SyncStatus::Changed as u8
@@ -858,7 +858,7 @@ impl LoginDb {
         self.execute_named(
             &format!("
                 INSERT OR IGNORE INTO loginsL
-                      (guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, passwordEnc, usernameEnc)
+                      (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, passwordEnc, usernameEnc)
                 SELECT guid, :now_ms,        1,          {changed},   '',       timeCreated, :now_ms,             '',       ''
                 FROM loginsM",
                 changed = SyncStatus::Changed as u8),
@@ -900,7 +900,7 @@ lazy_static! {
          FROM loginsM
          WHERE is_overridden IS NOT 1
            AND guid = :guid
-         ORDER BY hostname ASC
+         ORDER BY origin ASC
 
          LIMIT 1",
         common_cols = schema::COMMON_COLS,
@@ -957,11 +957,11 @@ pub mod test_utils {
                 server_modified,
 
                 httpRealm,
-                formSubmitURL,
+                formActionOrigin,
                 usernameField,
                 passwordField,
                 passwordEnc,
-                hostname,
+                origin,
                 usernameEnc,
 
                 timesUsed,
@@ -975,11 +975,11 @@ pub mod test_utils {
                 :server_modified,
 
                 :http_realm,
-                :form_submit_url,
+                :form_action_origin,
                 :username_field,
                 :password_field,
                 :password_enc,
-                :hostname,
+                :origin,
                 :username_enc,
 
                 :times_used,
@@ -995,11 +995,11 @@ pub mod test_utils {
             ":is_overridden": is_overridden,
             ":server_modified": server_modified.as_millis(),
             ":http_realm": login.http_realm,
-            ":form_submit_url": login.form_action_origin,
+            ":form_action_origin": login.form_action_origin,
             ":username_field": login.username_field,
             ":password_field": login.password_field,
             ":password_enc": login.password_enc,
-            ":hostname": login.origin,
+            ":origin": login.origin,
             ":username_enc": login.username_enc,
             ":times_used": login.times_used,
             ":time_last_used": login.time_last_used,

@@ -122,9 +122,9 @@ pub const COMMON_COLS: &str = "
     guid,
     usernameEnc,
     passwordEnc,
-    hostname,
+    origin,
     httpRealm,
-    formSubmitURL,
+    formActionOrigin,
     usernameField,
     passwordField,
     timeCreated,
@@ -135,10 +135,10 @@ pub const COMMON_COLS: &str = "
 
 const COMMON_SQL: &str = "
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    hostname            TEXT NOT NULL,
-    -- Exactly one of httpRealm or formSubmitURL should be set
+    origin              TEXT NOT NULL,
+    -- Exactly one of httpRealm or formActionOrigin should be set
     httpRealm           TEXT,
-    formSubmitURL       TEXT,
+    formActionOrigin    TEXT,
     usernameField       TEXT,
     passwordField       TEXT,
     timesUsed           INTEGER NOT NULL DEFAULT 0,
@@ -193,6 +193,16 @@ const CREATE_DELETED_HOSTNAME_INDEX_SQL: &str = "
     ON loginsL (is_deleted, hostname)
 ";
 
+const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_origin
+    ON loginsM (is_overridden, origin)
+";
+
+const CREATE_DELETED_ORIGIN_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_origin
+    ON loginsL (is_deleted, origin)
+";
+
 // As noted above, we use these when updating from schema v3 (firefox-ios's
 // last schema) to convert from microsecond timestamps to milliseconds.
 const UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL: &str = "
@@ -223,6 +233,22 @@ const RENAME_MIRROR_USERNAME: &str = "
 
 const RENAME_MIRROR_PASSWORD: &str = "
     ALTER TABLE loginsM RENAME password to passwordEnc
+";
+
+const RENAME_LOCAL_HOSTNAME: &str = "
+    ALTER TABLE loginsL RENAME COLUMN hostname TO origin
+";
+
+const RENAME_LOCAL_SUBMIT_URL: &str = "
+    ALTER TABLE loginsL RENAME COLUMN formSubmitURL TO formActionOrigin
+";
+
+const RENAME_MIRROR_HOSTNAME: &str = "
+    ALTER TABLE loginsM RENAME COLUMN hostname TO origin
+";
+
+const RENAME_MIRROR_SUBMIT_URL: &str = "
+    ALTER TABLE loginsM RENAME COLUMN formSubmitURL TO formActionOrigin
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
@@ -272,8 +298,8 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
-        CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
-        CREATE_DELETED_HOSTNAME_INDEX_SQL,
+        CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
+        CREATE_DELETED_ORIGIN_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
     ])?;
@@ -395,6 +421,10 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
             RENAME_LOCAL_PASSWORD,
             RENAME_MIRROR_USERNAME,
             RENAME_MIRROR_PASSWORD,
+            RENAME_LOCAL_HOSTNAME,
+            RENAME_LOCAL_SUBMIT_URL,
+            RENAME_MIRROR_HOSTNAME,
+            RENAME_MIRROR_SUBMIT_URL,
         ])?;
     }
     tx.execute(

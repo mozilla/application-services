@@ -115,6 +115,10 @@ mod tests {
             ALTER TABLE loginsL RENAME passwordEnc to password;
             ALTER TABLE loginsM RENAME usernameEnc to username;
             ALTER TABLE loginsM RENAME passwordEnc to password;
+            ALTER TABLE loginsL RENAME origin to hostname;
+            ALTER TABLE loginsL RENAME formActionOrigin to formSubmitURL;
+            ALTER TABLE loginsM RENAME origin to hostname;
+            ALTER TABLE loginsM RENAME formActionOrigin to formSubmitURL;
             INSERT INTO loginsL(guid, username, password, hostname,
             httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
             timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
@@ -163,12 +167,12 @@ mod tests {
             "password"
         );
         assert_eq!(
-            row.get_raw("hostname").as_str().unwrap(),
+            row.get_raw("origin").as_str().unwrap(),
             "https://www.example.com"
         );
         assert_eq!(row.get_raw("httpRealm"), ValueRef::Null);
         assert_eq!(
-            row.get_raw("formSubmitUrl").as_str().unwrap(),
+            row.get_raw("formActionOrigin").as_str().unwrap(),
             "https://www.example.com"
         );
         assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "username");
@@ -195,11 +199,11 @@ mod tests {
             "password"
         );
         assert_eq!(
-            row.get_raw("hostname").as_str().unwrap(),
+            row.get_raw("origin").as_str().unwrap(),
             "https://www.example.com"
         );
         assert_eq!(row.get_raw("httpRealm").as_str().unwrap(), "Test Realm");
-        assert_eq!(row.get_raw("formSubmitUrl"), ValueRef::Null);
+        assert_eq!(row.get_raw("formActionOrigin"), ValueRef::Null);
         assert_eq!(row.get_raw("usernameField").as_str().unwrap(), "");
         assert_eq!(row.get_raw("passwordField").as_str().unwrap(), "");
         assert_eq!(row.get_raw("timeCreated").as_i64().unwrap(), 1000);
