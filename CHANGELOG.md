@@ -1,3 +1,20 @@
+# v80.0.0 (_2021-06-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.2...v80.0.0)
+
+## fxa-client
+### ⚠️ Breaking Changes ⚠️
+  - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
+    Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
+    will recieve an error indicating that the schema was not correctly formated.
+
+## Nimbus
+### What's Changed
+  - Nimbus SDK now supports different branches having different Feature Configs ([#4213](https://github.com/mozilla/application-services/pull/4213))
+
+## Other
+  - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
+
 # v79.0.2 (_2021-06-23_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.1...v79.0.2)
