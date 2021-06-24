@@ -298,8 +298,8 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
-        CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
-        CREATE_DELETED_HOSTNAME_INDEX_SQL,
+        CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
+        CREATE_DELETED_ORIGIN_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
     ])?;
