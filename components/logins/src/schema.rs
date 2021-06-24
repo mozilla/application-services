@@ -183,14 +183,14 @@ const CREATE_META_TABLE_SQL: &str = "
     )
 ";
 
-const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
-    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_origin
-    ON loginsM (is_overridden, origin)
+const CREATE_OVERRIDE_HOSTNAME_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_hostname
+    ON loginsM (is_overridden, hostname)
 ";
 
-const CREATE_DELETED_ORIGIN_INDEX_SQL: &str = "
-    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_origin
-    ON loginsL (is_deleted, origin)
+const CREATE_DELETED_HOSTNAME_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_hostname
+    ON loginsL (is_deleted, hostname)
 ";
 
 const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
@@ -298,8 +298,8 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
-        CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
-        CREATE_DELETED_ORIGIN_INDEX_SQL,
+        CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
+        CREATE_DELETED_HOSTNAME_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
     ])?;
@@ -351,8 +351,8 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
     if user_version < 3 {
         // These indices were added in v3 (apparently)
         tx.execute_all(&[
-            CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
-            CREATE_DELETED_ORIGIN_INDEX_SQL,
+            CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
+            CREATE_DELETED_HOSTNAME_INDEX_SQL,
         ])?;
     }
     if user_version < 4 {
