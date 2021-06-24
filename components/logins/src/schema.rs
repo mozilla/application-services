@@ -183,14 +183,14 @@ const CREATE_META_TABLE_SQL: &str = "
     )
 ";
 
-const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
-    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_origin
-    ON loginsM (is_overridden, origin)
+const CREATE_OVERRIDE_HOSTNAME_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_hostname
+    ON loginsM (is_overridden, hostname)
 ";
 
-const CREATE_DELETED_ORIGIN_INDEX_SQL: &str = "
-    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_origin
-    ON loginsL (is_deleted, origin)
+const CREATE_DELETED_HOSTNAME_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_hostname
+    ON loginsL (is_deleted, hostname)
 ";
 
 // As noted above, we use these when updating from schema v3 (firefox-ios's
@@ -223,6 +223,22 @@ const RENAME_MIRROR_USERNAME: &str = "
 
 const RENAME_MIRROR_PASSWORD: &str = "
     ALTER TABLE loginsM RENAME password to passwordEnc
+";
+
+const RENAME_LOCAL_HOSTNAME: &str = "
+    ALTER TABLE loginsL RENAME COLUMN hostname TO origin
+";
+
+const RENAME_LOCAL_SUBMIT_URL: &str = "
+    ALTER TABLE loginsL RENAME COLUMN formSubmitURL TO formActionOrigin
+";
+
+const RENAME_MIRROR_HOSTNAME: &str = "
+    ALTER TABLE loginsM RENAME COLUMN hostname TO origin
+";
+
+const RENAME_MIRROR_SUBMIT_URL: &str = "
+    ALTER TABLE loginsM RENAME COLUMN formSubmitURL TO formActionOrigin
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
@@ -272,8 +288,8 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
-        CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
-        CREATE_DELETED_ORIGIN_INDEX_SQL,
+        CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
+        CREATE_DELETED_HOSTNAME_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
     ])?;
@@ -325,8 +341,8 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
     if user_version < 3 {
         // These indices were added in v3 (apparently)
         tx.execute_all(&[
-            CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
-            CREATE_DELETED_ORIGIN_INDEX_SQL,
+            CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
+            CREATE_DELETED_HOSTNAME_INDEX_SQL,
         ])?;
     }
     if user_version < 4 {
@@ -395,6 +411,10 @@ pub fn upgrade_sqlcipher_db(db: &mut Connection, encryption_key: &str) -> Result
             RENAME_LOCAL_PASSWORD,
             RENAME_MIRROR_USERNAME,
             RENAME_MIRROR_PASSWORD,
+            RENAME_LOCAL_HOSTNAME,
+            RENAME_LOCAL_SUBMIT_URL,
+            RENAME_MIRROR_HOSTNAME,
+            RENAME_MIRROR_SUBMIT_URL,
         ])?;
     }
     tx.execute(

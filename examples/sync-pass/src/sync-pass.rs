@@ -230,9 +230,9 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
         "Guid",
         "Username",
         "Password",
-        "Host",
+        "Origin",
 
-        "Submit URL",
+        "Action Origin",
         "HTTP Realm",
 
         "User Field",
