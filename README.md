@@ -1,6 +1,6 @@
 <a href="https://codecov.io/gh/mozilla/application-services"> <img src="https://codecov.io/gh/mozilla/application-services/branch/main/graph/badge.svg?token=HxeUysUWqx"/> </a>
 
-## Firefox Application Services
+# Firefox Application Services
 
 Application Services (a-s) is collection of Rust Components that are used to enable Firefox applications to integrate with Firefox accounts, sync, experimentation, etc. Each component is built using a core of shared code written in Rust, wrapped with native language bindings for different platforms.
 
@@ -10,6 +10,22 @@ To contribute, please review the Mozilla [Community Participation Guidelines](ht
 ### Contact
 Get in touch with other community members on Matrix, or through issues here on GitHub.
 - Matrix: [#rust-components:mozilla.org](https://chat.mozilla.org/#/room/#rust-components:mozilla.org) ([How to connect](https://wiki.mozilla.org/Matrix#Connect_to_Matrix))
+
+# Documentation
+
+### High-level docs
+
+The [Application Services Book](https://mozilla.github.io/application-services/book/index.html) contains high-level documentation about the code in this repository.  It's built from the [./docs/](docs) directory.
+
+### Package docs
+
+We use rustdoc to document both the public API of the components and the various internal implementation details.  View them on [https://mozilla.github.io/application-services/rust-docs/](https://mozilla.github.io/application-services/rust-docs/).  Once you have completed the build steps, you can view the docs by running:
+
+```shell
+cargo doc --no-deps --document-private-items --open
+```
+
+# Building
 
 ### Building the Rust Components
 1. Clone or Download the repository:
@@ -40,17 +56,7 @@ The application-services library primary consumers are Fenix (Firefox on Android
 #### Firefox Desktop
 * Build instructions to test [Firefox Desktop integration](docs/building.md#building-for-firefox-desktop)
 
-### Documentation
-We use rustdoc to document both the public API of the components and the various internal implementation details. Once you have completed the build steps, you can view the docs by running:
-
-```shell
-cargo doc --no-deps --document-private-items --open
-```
-
-The [./docs/](docs) directory holds internal documentation about working with the
-code in this repository
-
-### Rust Components
+# Rust Components
 
 [./components/](components) contains the source for each component, and its
   FFI bindings.
@@ -65,7 +71,7 @@ code in this repository
     [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
     multiple languages, such as Kotlin and Swift.
 
-#### List of components
+### List of components
 * [autofill](components/autofill) - for storage and syncing of credit card and
   address information
 * [crashtest](components/crashtest) - testing-purposes (crashing the Rust code)
