@@ -1,0 +1,25 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "Glean",
+        "repositoryURL": "https://github.com/mozilla/glean-swift",
+        "state": {
+          "branch": null,
+          "revision": "bfc206651ba8559f6c54f51dd7d6561dc07531f4",
+          "version": "38.0.2"
+        }
+      },
+      {
+        "package": "MozillaRustComponentsSwift",
+        "repositoryURL": "https://github.com/rfk/rust-components-swift",
+        "state": {
+          "branch": null,
+          "revision": "0b6e716b7942b38d2eefd55a9119c265d8d8d21d",
+          "version": "0.1.3"
+        }
+      }
+    ]
+  },
+  "version": 1
+}
