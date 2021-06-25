@@ -1,30 +1,63 @@
 # Rust Push Component
 
-This is a companion library for the work being proposed for the Rust
-Push Component. This skeleton is very much incomplete and subject to
-drastic change.
+This component helps an application to manage [WebPush](https://developer.mozilla.org/en-US/docs/Web/API/Push_API) subscriptions,
+acting as an intermediary between Mozilla's [autopush service](https://autopush.readthedocs.io/en/latest/)
+and platform native push infrastructure such as [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging) or [Amazon Device Messaging](https://developer.amazon.com/docs/adm/overview.html).
 
+## Background Concepts
 
-The code was derived from the `mozilla-central/dom/push/` directory
-and best estimates were used to determine types and structures. Note
-that `unknown.rs` contains structres that could not be readily
-determined. These must be resolved before meaningful work on this API
-can continue.
+### WebPush Subscriptions
 
-In many instances, best guesses were made for the return types and
-functions (e.g. the original code makes heavy use of Javascript
-Promise objects, which have no analog in Rust. These were converted to
-rust `futures`)
+A WebPush client manages a number of *subscriptions*, each of which is used to deliver push
+notifications to a different part of the app. For example, a web browser might manage a separate
+subscription for each website that has registered a [service worker](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API), and an application that includes Firefox Accounts would manage
+a dedicated subscription on which to receive account state updates.
 
-Note: we've been encouraged to model after the "places" component.
-this means defining the final Push API elements as kotlin in the
-android directory ffi descriptions. Since this could cause compile
-failures, it's currently not checked in.
+Each subscription is identified by a unique *channel id*, which is a randomly-generated identifier.
+It's the responsibility of the application to know how to map a channel id to an appropriate function
+in the app to receive push notifications. Subscriptions also have an associated *scope* which is something
+to do which service workers that your humble author doesn't really understand :-/.
 
-## System Dependencies:
+When a subscription is created for a channel id, we allocate *subscription info* consisting of:
 
- * Sqlite > 3.24
- * SqlCipher > 3.4
+* An HTTP endpoint URL at which push messages can be submitted.
+* A cryptographic key and authentication secret with which push messages can be encrypted.
+
+This subscription info is distributed to other services that want to send push messages to
+the application.
+
+The HTTP endpoint is provided by Mozilla's [autopush service](https://autopush.readthedocs.io/en/latest/),
+and we use the [rust-ece](https://github.com/mozilla/rust-ece) to manage encryption with the cryptographic keys.
+
+### AutoPush Bridging
+
+Our target consumer platforms each have their own proprietary push-notification infrastructure,
+such as [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging) for Android
+and the [Apple Push Notification Service](https://developer.apple.com/notifications/) for iOS.
+Mozilla's [autopush service](https://autopush.readthedocs.io/en/latest/) provides a bridge between
+these different mechanisms and the WebPush standard so that they can be used with a consistent
+interface.
+
+This component acts a client of the [Push Service Bridge HTTP Interface](https://autopush.readthedocs.io/en/latest/http.html#push-service-bridge-http-interface).
+
+We assume two things about the consuming application:
+* It has registered with the autopush service and received a unique `app_id` identifying this registration.
+* It has registred with whatever platform-specific notification infrastructure is appropriate, and is
+  able to obtain a `token` corresponding to its native push notification state.
+
+On first use, this component will register itself as an *application instance* with the autopush service, providing the `app_id` and `token` and receiving a unique `uaid` ("user-agent id") to identify its
+connection to the server.
+
+As the application adds or removes subscriptions using the API of this component, it will:
+* Manage a local database of subscriptions and the corresponding cryptographic material.
+* Make corresponding HTTP API calls to update the state associated with its `uaid` on the autopush server.
+
+Periodically, the application should call a special `verify_connection` method to check whether
+the state on the autopush server matches the local state and take any corrective action if it
+differs.
+
+For local development and debugging, it is possible to run a local instance of the autopush
+bridge service; see [this google doc](https://docs.google.com/document/d/18L_g2hIj_1mncF978A_SHXN4udDQLut5P_ZHYZEwGP8) for details.
 
 ## API
 
