@@ -19,7 +19,7 @@ The [Application Services Book](https://mozilla.github.io/application-services/b
 
 ### Package docs
 
-We use rustdoc to document both the public API of the components and the various internal implementation details.  View them on [https://mozilla.github.io/application-services/rust-docs/](https://mozilla.github.io/application-services/rust-docs/).  Once you have completed the build steps, you can view the docs by running:
+We use rustdoc to document both the public API of the components and the various internal implementation details.  View them on [https://mozilla.github.io/application-services/book/rust-docs/fxa_client/index.html](https://mozilla.github.io/application-services/book/rust-docs/fxa_client/index.html).  Once you have completed the build steps, you can view the docs by running:
 
 ```shell
 cargo doc --no-deps --document-private-items --open
