@@ -24,5 +24,6 @@
   - [How we distribute the application-services library](design/megazords.md)
   - [CI Publishing tools and flow](build-and-publish-pipeline.md)
   - [How to upgrade NSS](howtos/upgrading-nss-guide.md)
+- [Sync overview](sync-overview.md)
 - [Metrics - (Glean Telemetry)](metrics.md)
 - [Adding to these documents](adding-docs.md)
