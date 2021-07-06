@@ -2,6 +2,12 @@
 
 # Unreleased Changes
 
+## General
+
+### What's Changed
+
+- Updated CircleCI xcode version to 12.5.1
+
 [Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
