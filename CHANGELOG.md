@@ -1,3 +1,15 @@
+# v80.0.1 (_2021-07-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...v80.0.1)
+
+## General
+
+### What's Changed
+
+- Updated CircleCI xcode version to 12.5.1
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...main)
+
 # v80.0.0 (_2021-06-24_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.2...v80.0.0)
