@@ -2,10 +2,11 @@
 
 This log lists the architectural decisions for MADR.
 
-<!-- adrlog -- Regenerate the content by using "adr-log -i". You can install it via "npm install -g adr-log" -->
+<!-- adrlog -- Regenerate the content by using `./update-readme.sh`. Make sure to install `adr-log` via `npm install -g adr-log` -->
 
-- [ADR-0000](0000-use-markdown-architectural-decision-records.md) - Use Markdown Architectural Decision Records
-- [ADR-0001](0001-update-logins-api.md) - Update Logins API
+* [ADR-0000](0000-use-markdown-architectural-decision-records.md) - Use Markdown Architectural Decision Records
+* [ADR-0001](0001-update-logins-api.md) - Update Logins API
+* [ADR-0002](0002-database-corruption.md) - Handling Database Corruption
 
 <!-- adrlogstop -->
 
