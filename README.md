@@ -60,6 +60,8 @@ The application-services library primary consumers are Fenix (Firefox on Android
 
 [./components/](components) contains the source for each component, and its
   FFI bindings.
+
+> Please note that we are in the process of moving away from hand-written ffi code and instead favouring the use of the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
 * See [./components/push/](components/places) for an example, where you can
     find:
   * The shared [rust code](components/places/src).
