@@ -181,20 +181,25 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
     }
 }
 
-// Call an ffi-generated function.
+// Call a uniffi-generated function.
 @Suppress("TooGenericExceptionThrown")
 internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
     synchronized(syncOn) {
         try {
             return callback()
         } catch (e: ErrorWrapperException.Wrapped) {
+            // uniffi-generated functions currently return just a single error
+            // type, which inside its message is the underlying error code
+            // and message, which we can use to construct the actual error
+            // from the hand-written FFI.
             if (e.message != null) {
                 try {
                     val (code, message) = e.message.split('|', limit = 2)
                     throw RustError.makeException(code.toInt(), message)
                 } catch (_: NumberFormatException) {
                     // how to log? Not clear it matters TBH - all the details
-                    // should be visible in the generic exception we throw below.
+                    // should be visible in the generic exception we throw below,
+                    // and it should be impossible anyway!
                 }
             }
             throw RuntimeException("Unexpected error: $e")
@@ -939,9 +944,9 @@ interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection 
      * Record or update metadata information about a URL. See [HistoryMetadataObservation].
      */
     suspend fun noteHistoryMetadataObservation(observation: HistoryMetadataObservation)
-    // XXX - was previously, etc, HistoryMetadataObservation.ViewTimeObservation
-    // this is probably the wrong place for this abstraction?
-    // maybe `key` should go into uniffi? But I think `key` is a leaked abstraction.
+    // There's a bit of an impedance mismatch here; `HistoryMetadataKey` is
+    // a concept that only exists here and not in the rust. We can iterate on
+    // this as the entire "history metadata" requirement evolves.
     suspend fun noteHistoryMetadataObservationViewTime(key: HistoryMetadataKey, viewTime: Int)
     suspend fun noteHistoryMetadataObservationDocumentType(key: HistoryMetadataKey, documentType: DocumentType)
 

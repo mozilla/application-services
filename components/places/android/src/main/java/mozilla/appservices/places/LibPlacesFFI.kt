@@ -12,8 +12,9 @@ import com.sun.jna.StringArray
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.places.BuildConfig
 
-// yay - 2 RustBuffers :)
+// yay - 2 RustBuffers :) This one is for the "old" hand-written FFI...
 import mozilla.appservices.support.native.RustBuffer
+// ...and this one is for stuff implemented via uniffi.
 import mozilla.appservices.places.uniffi.RustBuffer as UniFFIRustBuffer
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")

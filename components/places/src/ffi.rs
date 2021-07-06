@@ -280,14 +280,12 @@ implement_into_ffi_by_delegation!(
     msg_types::BookmarkNode
 );
 
-// XXX - this should be in some other crate?
-// uniffi!
 /// Implements [`IntoFfi`] for the provided types (more than one may be passed in) implementing
 /// `uniffi::ViaFfi` (UniFFI auto-generated serialization) by delegating to that implementation.
 ///
-/// Note: for this to work, the crate it's called in must depend on `uniffi`.
-///
-/// Note: Each type passed in must implement or derive `uniffi::ViaFfi`.
+/// This is only necessary because we have a kinda "hybrid" FFI situation -
+/// some things generated via UniFFI, others by hand. Because this macro only
+/// makes sense in this Frankenstein world it's not in UniFFI itself.
 #[macro_export]
 macro_rules! implement_into_ffi_by_uniffi {
     ($($FFIType:ty),* $(,)*) => {$(
