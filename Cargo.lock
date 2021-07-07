@@ -169,8 +169,8 @@ dependencies = [
  "sync15-traits",
  "thiserror",
  "types",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "url",
 ]
 
@@ -488,9 +488,9 @@ version = "0.1.0"
 dependencies = [
  "log",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
- "uniffi_macros 0.12.0",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
 ]
 
 [[package]]
@@ -744,7 +744,7 @@ name = "embedded-uniffi-bindgen"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "uniffi_bindgen 0.12.0",
+ "uniffi_bindgen",
 ]
 
 [[package]]
@@ -1078,9 +1078,9 @@ dependencies = [
  "sync-guid",
  "sync15",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
- "uniffi_macros 0.12.0",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
  "viaduct",
  "viaduct-reqwest",
@@ -1572,9 +1572,9 @@ dependencies = [
  "sync15",
  "tempdir",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
- "uniffi_macros 0.12.0",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
 ]
 
@@ -1782,8 +1782,8 @@ dependencies = [
  "sha2",
  "tempdir",
  "thiserror",
- "uniffi 0.12.0",
- "uniffi_build 0.12.0",
+ "uniffi",
+ "uniffi_build",
  "url",
  "uuid",
  "viaduct",
@@ -3158,9 +3158,9 @@ dependencies = [
  "sync-guid",
  "sync15",
  "thiserror",
- "uniffi 0.11.0",
- "uniffi_build 0.11.0",
- "uniffi_macros 0.11.0",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
 ]
 
@@ -3460,22 +3460,6 @@ checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
 
 [[package]]
 name = "uniffi"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "657fbc531f30fefafcdd40484152a35f573af0670394c8e879e113eafddc0d60"
-dependencies = [
- "anyhow",
- "bytes 1.0.1",
- "cargo_metadata",
- "ffi-support",
- "lazy_static",
- "log",
- "paste 1.0.5",
- "static_assertions",
-]
-
-[[package]]
-name = "uniffi"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e2749a4075e662e6ac28bed98b579f6d66bfabcfbe3fea5de6709334aaf8343"
@@ -3488,22 +3472,6 @@ dependencies = [
  "log",
  "paste 1.0.5",
  "static_assertions",
-]
-
-[[package]]
-name = "uniffi_bindgen"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d10d1a19352133760809d06cf69742d4baa36ef756d96b67d88438713408e32"
-dependencies = [
- "anyhow",
- "askama",
- "cargo_metadata",
- "clap",
- "heck",
- "serde",
- "toml",
- "weedle",
 ]
 
 [[package]]
@@ -3524,34 +3492,12 @@ dependencies = [
 
 [[package]]
 name = "uniffi_build"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "015624925af99e254321a257e5a51d3c5192da4fae9887770be5841c0c9c2a4c"
-dependencies = [
- "anyhow",
- "uniffi_bindgen 0.11.0",
-]
-
-[[package]]
-name = "uniffi_build"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4a45dcfc8bad77ee7b13380f8c1e57648e126b9a5f8ff101172d543d94ec53a"
 dependencies = [
  "anyhow",
- "uniffi_bindgen 0.12.0",
-]
-
-[[package]]
-name = "uniffi_macros"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbafc1d13d61d903addb3eed289510d238ba25806714f978e4a1caa45fa95b06"
-dependencies = [
- "glob",
- "proc-macro2",
- "quote",
- "syn",
+ "uniffi_bindgen",
 ]
 
 [[package]]
