@@ -169,7 +169,11 @@ impl ExperimentEnrollment {
                     updated_enrollment
                 }
             }
-            EnrollmentStatus::Enrolled { ref branch, .. } => {
+            EnrollmentStatus::Enrolled {
+                ref branch,
+                ref reason,
+                ..
+            } => {
                 if !is_user_participating {
                     log::debug!(
                         "Existing experiment enrollment '{}' is now disqualified (global opt-out)",
@@ -185,6 +189,10 @@ impl ExperimentEnrollment {
                         self.disqualify_from_enrolled(DisqualifiedReason::Error);
                     out_enrollment_events.push(updated_enrollment.get_change_event());
                     updated_enrollment
+                } else if matches!(reason, EnrolledReason::OptIn) {
+                    // we check if we opted-in an experiment, if so
+                    // we don't need to update our enrollment
+                    self.clone()
                 } else {
                     let evaluated_enrollment = evaluate_enrollment(
                         nimbus_id,
