@@ -7,6 +7,14 @@ use crate::util::ensure_nss_initialized;
 
 use nss_sys::PRErrorCode;
 
+// NSS error codes.
+// https://searchfox.org/mozilla-central/source/security/nss/lib/util/secerr.h#29
+// https://searchfox.org/mozilla-central/source/security/nss/lib/mozpkix/include/pkix/Result.h
+const SEC_ERROR_UNKNOWN_ISSUER: i32 = -8179; // -8192 + 13
+const SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE: i32 = -8162; // -8192 + 30
+const SEC_ERROR_SUBJECT_MISMATCH: i32 = -12276; // ???
+const SEC_ERROR_EXPIRED_CERTIFICATE: i32 = -16378; // ???
+
 const ROOT_HASH_LENGTH: usize = 32;
 
 pub fn verify_code_signing_certificate_chain(
@@ -51,7 +59,14 @@ pub fn verify_code_signing_certificate_chain(
     };
 
     if !result {
-        return Err(ErrorKind::NSSError(out, "invalid chain of trust".into()).into());
+        let kind = match out {
+            SEC_ERROR_UNKNOWN_ISSUER => ErrorKind::CertificateIssuerError,
+            SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE => ErrorKind::CertificateExpiredError,
+            SEC_ERROR_EXPIRED_CERTIFICATE => ErrorKind::CertificateExpiredError,
+            SEC_ERROR_SUBJECT_MISMATCH => ErrorKind::CertificateSubjectError,
+            _ => ErrorKind::NSSError(out, "invalid chain of trust".into()),
+        };
+        return Err(kind.into());
     }
 
     Ok(())

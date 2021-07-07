@@ -16,6 +16,12 @@ pub enum ErrorKind {
     ConversionError(#[from] std::num::TryFromIntError),
     #[error("Base64 decode error: {0}")]
     Base64Decode(#[from] base64::DecodeError),
+    #[error("Certificate issuer does not match")]
+    CertificateIssuerError,
+    #[error("Certificate subject does not match")]
+    CertificateSubjectError,
+    #[error("Certificate expired")]
+    CertificateExpiredError,
 }
 
 error_support::define_error! {

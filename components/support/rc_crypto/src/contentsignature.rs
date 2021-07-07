@@ -82,7 +82,13 @@ pub fn verify(
         seconds_since_epoch,
         &root_hash_bytes,
         hostname,
-    )?;
+    )
+    .map_err(|err| match err.kind() {
+        nss::ErrorKind::CertificateIssuerError => ErrorKind::CertificateIssuerError,
+        nss::ErrorKind::CertificateExpiredError => ErrorKind::CertificateExpiredError,
+        nss::ErrorKind::CertificateSubjectError => ErrorKind::CertificateSubjectError,
+        _ => ErrorKind::CertificateChainError(err.to_string()),
+    })?;
 
     let leaf_cert = certificates.first().unwrap(); // PEM parse fails if len == 0.
 
