@@ -43,7 +43,7 @@ This document provides a high-level overview of how syncing works.  **Note**: ea
    - The mirror table stores the last known record from the server
    - The staging temporary table stores the incoming records that we're currently processing
    - The local/mirror/staging tables contains a `guid` as its primary key.  A record will share the same `guid` for the local/mirror/staging table.
-   - The metadata table stores the GUID for the collection as a whole and the timestamp of the last sync
+   - The metadata table stores the GUID for the collection as a whole and the the last-known server timestamp of the collection.
 
 ### `apply_incoming` stages
   - **stage incoming**: write out each incoming server record to the staging table
