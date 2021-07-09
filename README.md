@@ -60,13 +60,15 @@ The application-services library primary consumers are Fenix (Firefox on Android
 
 [./components/](components) contains the source for each component, and its
   FFI bindings.
-* See [./components/logins/](components/logins) for an example, where you can
+
+> Please note that we are in the process of moving away from hand-written ffi code and instead favouring the use of the [uniffi](https://github.com/mozilla/uniffi-rs/) library.
+* See [./components/push/](components/places) for an example, where you can
     find:
-  * The shared [rust code](components/logins/src).
-  * The mapping into a [C FFI](components/logins/ffi).
-  * The [Kotlin bindings](components/logins/android) for use by Android
+  * The shared [rust code](components/places/src).
+  * The mapping into a [C FFI](components/places/ffi).
+  * The [Kotlin bindings](components/places/android) for use by Android
       applications.
-  * The [Swift bindings](components/logins/ios) for use by iOS applications.
+  * The [Swift bindings](components/places/ios) for use by iOS applications.
 * See [./components/fxa-client](components/fxa-client) for an example that uses
     [uniffi](https://github.com/mozilla/uniffi-rs/) to generate API wrappers for
     multiple languages, such as Kotlin and Swift.
