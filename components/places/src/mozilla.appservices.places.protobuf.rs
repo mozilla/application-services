@@ -1,9 +1,9 @@
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryVisitInfo {
     #[prost(string, required, tag="1")]
-    pub url: std::string::String,
+    pub url: ::prost::alloc::string::String,
     #[prost(string, optional, tag="2")]
-    pub title: ::std::option::Option<std::string::String>,
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int64, required, tag="3")]
     pub timestamp: i64,
     #[prost(int32, required, tag="4")]
@@ -14,12 +14,12 @@ pub struct HistoryVisitInfo {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryVisitInfos {
     #[prost(message, repeated, tag="1")]
-    pub infos: ::std::vec::Vec<HistoryVisitInfo>,
+    pub infos: ::prost::alloc::vec::Vec<HistoryVisitInfo>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryVisitInfosWithBound {
     #[prost(message, repeated, tag="1")]
-    pub infos: ::std::vec::Vec<HistoryVisitInfo>,
+    pub infos: ::prost::alloc::vec::Vec<HistoryVisitInfo>,
     #[prost(int64, required, tag="2")]
     pub bound: i64,
     #[prost(int64, required, tag="3")]
@@ -28,24 +28,24 @@ pub struct HistoryVisitInfosWithBound {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryMetadataObservation {
     #[prost(string, required, tag="1")]
-    pub url: std::string::String,
+    pub url: ::prost::alloc::string::String,
     #[prost(int32, optional, tag="2")]
-    pub view_time: ::std::option::Option<i32>,
+    pub view_time: ::core::option::Option<i32>,
     #[prost(string, optional, tag="3")]
-    pub search_term: ::std::option::Option<std::string::String>,
+    pub search_term: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int32, optional, tag="4")]
-    pub document_type: ::std::option::Option<i32>,
+    pub document_type: ::core::option::Option<i32>,
     #[prost(string, optional, tag="5")]
-    pub referrer_url: ::std::option::Option<std::string::String>,
+    pub referrer_url: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag="6")]
-    pub title: ::std::option::Option<std::string::String>,
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryMetadata {
     #[prost(string, required, tag="1")]
-    pub url: std::string::String,
+    pub url: ::prost::alloc::string::String,
     #[prost(string, optional, tag="2")]
-    pub title: ::std::option::Option<std::string::String>,
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int64, required, tag="3")]
     pub created_at: i64,
     #[prost(int64, required, tag="4")]
@@ -53,16 +53,16 @@ pub struct HistoryMetadata {
     #[prost(int32, required, tag="5")]
     pub total_view_time: i32,
     #[prost(string, optional, tag="6")]
-    pub search_term: ::std::option::Option<std::string::String>,
+    pub search_term: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int32, required, tag="7")]
     pub document_type: i32,
     #[prost(string, optional, tag="8")]
-    pub referrer_url: ::std::option::Option<std::string::String>,
+    pub referrer_url: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryMetadataList {
     #[prost(message, repeated, tag="1")]
-    pub metadata: ::std::vec::Vec<HistoryMetadata>,
+    pub metadata: ::prost::alloc::vec::Vec<HistoryMetadata>,
 }
 ///*
 /// A bookmark node.
@@ -95,7 +95,7 @@ pub struct BookmarkNode {
     /// - Required for inserts.
     /// - Not provided for updates.
     #[prost(int32, optional, tag="1")]
-    pub node_type: ::std::option::Option<i32>,
+    pub node_type: ::core::option::Option<i32>,
     ///*
     /// The bookmarks guid.
     ///
@@ -103,7 +103,7 @@ pub struct BookmarkNode {
     /// - Not allowed for inserts.
     /// - Required for updates (specifies which record is being changed)
     #[prost(string, optional, tag="2")]
-    pub guid: ::std::option::Option<std::string::String>,
+    pub guid: ::core::option::Option<::prost::alloc::string::String>,
     ///*
     /// Creation time, in milliseconds since the unix epoch.
     ///
@@ -113,14 +113,14 @@ pub struct BookmarkNode {
     /// - Always returned on reads.
     /// - Ignored for insertion and update.
     #[prost(int64, optional, tag="3")]
-    pub date_added: ::std::option::Option<i64>,
+    pub date_added: ::core::option::Option<i64>,
     ///*
     /// Last modification time, in milliseconds since the unix epoch.
     ///
     /// - Always returned on reads.
     /// - Ignored for insertion and update.
     #[prost(int64, optional, tag="4")]
-    pub last_modified: ::std::option::Option<i64>,
+    pub last_modified: ::core::option::Option<i64>,
     ///*
     /// Guid of the parent record.
     ///
@@ -130,7 +130,7 @@ pub struct BookmarkNode {
     ///     - Interacts with `position`, see its documentation below
     ///       for details on how.
     #[prost(string, optional, tag="5")]
-    pub parent_guid: ::std::option::Option<std::string::String>,
+    pub parent_guid: ::core::option::Option<::prost::alloc::string::String>,
     ///*
     /// Zero based index within the parent.
     ///
@@ -150,21 +150,21 @@ pub struct BookmarkNode {
     ///     - If `position` is not provided (and `parent_guid` is) then it's
     ///       treated as a move to the end of that folder.
     #[prost(uint32, optional, tag="6")]
-    pub position: ::std::option::Option<u32>,
+    pub position: ::core::option::Option<u32>,
     ///*
     /// Bookmark title. Not present for type = `BookmarkType::Separator`.
     ///
     /// - Returned on reads if it exists.
     /// - Required when inserting folders.
     #[prost(string, optional, tag="7")]
-    pub title: ::std::option::Option<std::string::String>,
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
     ///*
     /// Bookmark URL. Only allowed/present for type = `BookmarkType::Bookmark`.
     ///
     /// - Always returned on reads (for `BookmarkType::Bookmark`).
     /// - Required when inserting a new bookmark.
     #[prost(string, optional, tag="8")]
-    pub url: ::std::option::Option<std::string::String>,
+    pub url: ::core::option::Option<::prost::alloc::string::String>,
     ///*
     /// IDs of folder children, in order. Only present for type =
     /// `BookmarkType::Folder`.
@@ -174,14 +174,14 @@ pub struct BookmarkNode {
     /// - Not provided if `child_nodes` is provided, to avoid sending more data
     ///   over the FFI than necessary.
     #[prost(string, repeated, tag="9")]
-    pub child_guids: ::std::vec::Vec<std::string::String>,
+    pub child_guids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     ///*
     /// Data about folder children, in order. Only present for type =
     /// `BookmarkType::Folder`.
     ///
     /// For performance reasons, this only is provided if it's requested.
     #[prost(message, repeated, tag="10")]
-    pub child_nodes: ::std::vec::Vec<BookmarkNode>,
+    pub child_nodes: ::prost::alloc::vec::Vec<BookmarkNode>,
     ///*
     /// Returned by reads, and used to distinguish between the cases of
     /// "empty child_nodes because the API doesn't return children" and
@@ -192,41 +192,41 @@ pub struct BookmarkNode {
     ///
     /// Leaving this out is equivalent to false.
     #[prost(bool, optional, tag="11")]
-    pub have_child_nodes: ::std::option::Option<bool>,
+    pub have_child_nodes: ::core::option::Option<bool>,
 }
 ///* An array of bookmark nodes, since we can't represent that directly 
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BookmarkNodeList {
     #[prost(message, repeated, tag="1")]
-    pub nodes: ::std::vec::Vec<BookmarkNode>,
+    pub nodes: ::prost::alloc::vec::Vec<BookmarkNode>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SearchResultMessage {
     #[prost(string, required, tag="1")]
-    pub url: std::string::String,
+    pub url: ::prost::alloc::string::String,
     #[prost(string, required, tag="2")]
-    pub title: std::string::String,
+    pub title: ::prost::alloc::string::String,
     #[prost(int64, required, tag="3")]
     pub frecency: i64,
     #[prost(enumeration="SearchResultReason", repeated, tag="4")]
-    pub reasons: ::std::vec::Vec<i32>,
+    pub reasons: ::prost::alloc::vec::Vec<i32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SearchResultList {
     #[prost(message, repeated, tag="1")]
-    pub results: ::std::vec::Vec<SearchResultMessage>,
+    pub results: ::prost::alloc::vec::Vec<SearchResultMessage>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TopFrecentSiteInfo {
     #[prost(string, required, tag="1")]
-    pub url: std::string::String,
+    pub url: ::prost::alloc::string::String,
     #[prost(string, optional, tag="2")]
-    pub title: ::std::option::Option<std::string::String>,
+    pub title: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct TopFrecentSiteInfos {
     #[prost(message, repeated, tag="1")]
-    pub infos: ::std::vec::Vec<TopFrecentSiteInfo>,
+    pub infos: ::prost::alloc::vec::Vec<TopFrecentSiteInfo>,
 }
 /// Protobuf allows nesting these, but prost behaves weirdly if we do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
