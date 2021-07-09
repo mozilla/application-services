@@ -12,7 +12,7 @@ pub mod tags;
 
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
-use crate::msg_types::{HistoryMetadata, HistoryVisitInfo, TopFrecentSiteInfo};
+use crate::msg_types::{HistoryVisitInfo, TopFrecentSiteInfo};
 use crate::types::{SyncStatus, VisitTransition};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
@@ -199,24 +199,6 @@ impl TopFrecentSiteInfo {
         Ok(Self {
             url: row.get("url")?,
             title: row.get("title")?,
-        })
-    }
-}
-
-impl HistoryMetadata {
-    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
-        let created_at: Timestamp = row.get("created_at")?;
-        let updated_at: Timestamp = row.get("updated_at")?;
-
-        Ok(Self {
-            url: row.get("url")?,
-            title: row.get("title")?,
-            created_at: created_at.0 as i64,
-            updated_at: updated_at.0 as i64,
-            total_view_time: row.get("total_view_time")?,
-            search_term: row.get("search_term")?,
-            document_type: row.get("document_type")?,
-            referrer_url: row.get("referrer_url")?,
         })
     }
 }

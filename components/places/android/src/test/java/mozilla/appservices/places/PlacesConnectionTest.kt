@@ -3,21 +3,22 @@
 
 package mozilla.appservices.places
 
-import kotlinx.coroutines.runBlocking
 import androidx.test.core.app.ApplicationProvider
+import kotlinx.coroutines.runBlocking
 import mozilla.appservices.Megazord
+import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
-import org.junit.rules.TemporaryFolder
-import org.junit.Rule
-import org.junit.runner.RunWith
-import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
-import org.junit.Test
 import org.junit.Assert.assertEquals
 import org.junit.Assert.fail
 import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -57,16 +58,16 @@ class PlacesConnectionTest {
         val escapedUnicodeInDomain = "http://www.xn--exmple123-w2a24222l.com"
 
         val toAdd = listOf(
-                "https://www.example.com/1",
-                "https://www.example.com/12",
-                "https://www.example.com/123",
-                "https://www.example.com/1234",
-                "https://www.mozilla.com",
-                "https://www.firefox.com",
-                "$unicodeInPath/1",
-                "$escapedUnicodeInPath/2",
-                "$unicodeInDomain/1",
-                "$escapedUnicodeInDomain/2"
+            "https://www.example.com/1",
+            "https://www.example.com/12",
+            "https://www.example.com/123",
+            "https://www.example.com/1234",
+            "https://www.mozilla.com",
+            "https://www.firefox.com",
+            "$unicodeInPath/1",
+            "$escapedUnicodeInPath/2",
+            "$unicodeInDomain/1",
+            "$escapedUnicodeInDomain/2"
         )
 
         for (url in toAdd) {
@@ -74,35 +75,35 @@ class PlacesConnectionTest {
         }
 
         val toSearch = listOf(
-                Pair("https://www.example.com", false),
-                Pair("https://www.example.com/1", true),
-                Pair("https://www.example.com/12", true),
-                Pair("https://www.example.com/123", true),
-                Pair("https://www.example.com/1234", true),
-                Pair("https://www.example.com/12345", false),
-                // Bad URLs should still work without.
-                Pair("https://www.example.com:badurl", false),
+            Pair("https://www.example.com", false),
+            Pair("https://www.example.com/1", true),
+            Pair("https://www.example.com/12", true),
+            Pair("https://www.example.com/123", true),
+            Pair("https://www.example.com/1234", true),
+            Pair("https://www.example.com/12345", false),
+            // Bad URLs should still work without.
+            Pair("https://www.example.com:badurl", false),
 
-                Pair("https://www.mozilla.com", true),
-                Pair("https://www.firefox.com", true),
-                Pair("https://www.mozilla.org", false),
+            Pair("https://www.mozilla.com", true),
+            Pair("https://www.firefox.com", true),
+            Pair("https://www.mozilla.org", false),
 
-                // Dupes should still work
-                Pair("https://www.example.com/1234", true),
-                Pair("https://www.example.com/12345", false),
+            // Dupes should still work
+            Pair("https://www.example.com/1234", true),
+            Pair("https://www.example.com/12345", false),
 
-                // The unicode URLs should work when escaped the way we
-                // encountered them
-                Pair("$unicodeInPath/1", true),
-                Pair("$escapedUnicodeInPath/2", true),
-                Pair("$unicodeInDomain/1", true),
-                Pair("$escapedUnicodeInDomain/2", true),
+            // The unicode URLs should work when escaped the way we
+            // encountered them
+            Pair("$unicodeInPath/1", true),
+            Pair("$escapedUnicodeInPath/2", true),
+            Pair("$unicodeInDomain/1", true),
+            Pair("$escapedUnicodeInDomain/2", true),
 
-                // But also the other way.
-                Pair("$unicodeInPath/2", true),
-                Pair("$escapedUnicodeInPath/1", true),
-                Pair("$unicodeInDomain/2", true),
-                Pair("$escapedUnicodeInDomain/1", true)
+            // But also the other way.
+            Pair("$unicodeInPath/2", true),
+            Pair("$escapedUnicodeInPath/1", true),
+            Pair("$unicodeInDomain/2", true),
+            Pair("$escapedUnicodeInDomain/1", true)
         )
 
         val visited = db.getVisited(toSearch.map { it.first }.toList())
@@ -130,14 +131,14 @@ class PlacesConnectionTest {
     fun testMatchUrl() {
 
         val toAdd = listOf(
-                // add twice to ensure its frecency is higher
-                "https://www.example.com/123",
-                "https://www.example.com/123",
-                "https://www.example.com/12345",
-                "https://www.mozilla.com/foo/bar/baz",
-                "https://www.mozilla.com/foo/bar/baz",
-                "https://mozilla.com/a1/b2/c3",
-                "https://news.ycombinator.com/"
+            // add twice to ensure its frecency is higher
+            "https://www.example.com/123",
+            "https://www.example.com/123",
+            "https://www.example.com/12345",
+            "https://www.mozilla.com/foo/bar/baz",
+            "https://www.mozilla.com/foo/bar/baz",
+            "https://mozilla.com/a1/b2/c3",
+            "https://news.ycombinator.com/"
         )
 
         for (url in toAdd) {
@@ -185,14 +186,14 @@ class PlacesConnectionTest {
         db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitType.RELOAD))
 
         val toAdd = listOf(
-                "https://www.example.com/123",
-                "https://www.example.com/123",
-                "https://www.example.com/12345",
-                "https://www.mozilla.com/foo/bar/baz",
-                "https://www.mozilla.com/foo/bar/baz",
-                "https://mozilla.com/a1/b2/c3",
-                "https://news.ycombinator.com/",
-                "https://www.mozilla.com/foo/bar/baz"
+            "https://www.example.com/123",
+            "https://www.example.com/123",
+            "https://www.example.com/12345",
+            "https://www.mozilla.com/foo/bar/baz",
+            "https://www.mozilla.com/foo/bar/baz",
+            "https://mozilla.com/a1/b2/c3",
+            "https://news.ycombinator.com/",
+            "https://www.mozilla.com/foo/bar/baz"
         )
 
         for (url in toAdd) {
@@ -272,17 +273,18 @@ class PlacesConnectionTest {
         assertEquals(7, db.getVisitCount(excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)))
 
         val want = listOf(
-                listOf("https://www.example.com/8", "https://www.example.com/7", "https://www.example.com/6"),
-                listOf("https://www.example.com/5", "https://www.example.com/4", "https://www.example.com/2"),
-                listOf("https://www.example.com/1")
+            listOf("https://www.example.com/8", "https://www.example.com/7", "https://www.example.com/6"),
+            listOf("https://www.example.com/5", "https://www.example.com/4", "https://www.example.com/2"),
+            listOf("https://www.example.com/1")
         )
 
         var offset = 0L
         for (expect in want) {
             val page = db.getVisitPage(
-                    offset = offset,
-                    count = 3,
-                    excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
+                offset = offset,
+                count = 3,
+                excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)
+            )
             assertEquals(expect.size, page.size)
             for (i in 0..(expect.size - 1)) {
                 assertEquals(expect[i], page[i].url)
@@ -290,26 +292,30 @@ class PlacesConnectionTest {
             offset += page.size
         }
         val empty = db.getVisitPage(
-                offset = offset,
-                count = 3,
-                excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
+            offset = offset,
+            count = 3,
+            excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)
+        )
         assertEquals(0, empty.size)
     }
 
     @Test
     fun testCreateBookmark() {
         val itemGUID = db.createBookmarkItem(
-                parentGUID = BookmarkRoot.Unfiled.id,
-                url = "https://www.example.com/",
-                title = "example")
+            parentGUID = BookmarkRoot.Unfiled.id,
+            url = "https://www.example.com/",
+            title = "example"
+        )
 
         val sepGUID = db.createSeparator(
-                parentGUID = BookmarkRoot.Unfiled.id,
-                position = 0)
+            parentGUID = BookmarkRoot.Unfiled.id,
+            position = 0
+        )
 
         val folderGUID = db.createFolder(
-                parentGUID = BookmarkRoot.Unfiled.id,
-                title = "example folder")
+            parentGUID = BookmarkRoot.Unfiled.id,
+            title = "example folder"
+        )
 
         val item = db.getBookmark(itemGUID)!! as BookmarkItem
         val sep = db.getBookmark(sepGUID)!! as BookmarkSeparator
@@ -378,9 +384,10 @@ class PlacesConnectionTest {
         assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
 
         val itemGUID = db.createBookmarkItem(
-                parentGUID = BookmarkRoot.Unfiled.id,
-                url = "https://www.example.com/",
-                title = "example")
+            parentGUID = BookmarkRoot.Unfiled.id,
+            url = "https://www.example.com/",
+            title = "example"
+        )
 
         assertEquals(1, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["unknown_bookmark_item"].testHasValue())
@@ -389,7 +396,8 @@ class PlacesConnectionTest {
             db.createBookmarkItem(
                 parentGUID = BookmarkRoot.Unfiled.id,
                 url = "3",
-                title = "example")
+                title = "example"
+            )
             fail("Should have thrown")
         } catch (e: UrlParseFailed) {
             // nothing to do here
@@ -408,23 +416,27 @@ class PlacesConnectionTest {
         assert(!PlacesManagerMetrics.readQueryErrorCount["__other__"].testHasValue())
 
         val folderGUID = db.createFolder(
-                parentGUID = BookmarkRoot.Unfiled.id,
-                title = "example folder")
+            parentGUID = BookmarkRoot.Unfiled.id,
+            title = "example folder"
+        )
 
         db.createBookmarkItem(
-                parentGUID = folderGUID,
-                url = "https://www.example2.com/",
-                title = "example2")
+            parentGUID = folderGUID,
+            url = "https://www.example2.com/",
+            title = "example2"
+        )
 
         db.createBookmarkItem(
-                parentGUID = folderGUID,
-                url = "https://www.example3.com/",
-                title = "example3")
+            parentGUID = folderGUID,
+            url = "https://www.example3.com/",
+            title = "example3"
+        )
 
         db.createBookmarkItem(
-                parentGUID = BookmarkRoot.Unfiled.id,
-                url = "https://www.example4.com/",
-                title = "example4")
+            parentGUID = BookmarkRoot.Unfiled.id,
+            url = "https://www.example4.com/",
+            title = "example4"
+        )
 
         db.getBookmarksTree(folderGUID, false)
     }
@@ -435,12 +447,13 @@ class PlacesConnectionTest {
 
         assertEquals(0, db.getHistoryMetadataSince(0L).size)
         assertEquals(0, db.queryHistoryMetadata("test", 100).size)
-
-        db.noteObservation(VisitObservation(
-            url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
-            title = "Are All Wireless Earbuds As Evil As AirPods?",
-            visitType = VisitType.LINK
-        ))
+        db.noteObservation(
+            VisitObservation(
+                url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
+                title = "Are All Wireless Earbuds As Evil As AirPods?",
+                visitType = VisitType.LINK
+            )
+        )
 
         val metaKey1 = HistoryMetadataKey(
             url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
@@ -448,11 +461,7 @@ class PlacesConnectionTest {
             referrerUrl = "https://www.google.com/search?client=firefox-b-d&q=headsets+ifixit"
         )
 
-        db.noteHistoryMetadataObservation(metaKey1,
-            HistoryMetadataObservation.DocumentTypeObservation(
-                documentType = DocumentType.Regular
-            )
-        )
+        db.noteHistoryMetadataObservationDocumentType(metaKey1, DocumentType.REGULAR)
         // title
         assertEquals(1, db.queryHistoryMetadata("airpods", 100).size)
         // url
@@ -464,37 +473,27 @@ class PlacesConnectionTest {
             assertEquals(0, this[0].totalViewTime)
         }
 
-        db.noteHistoryMetadataObservation(metaKey1,
-            HistoryMetadataObservation.ViewTimeObservation(
-                viewTime = 1337
-            )
-        )
+        db.noteHistoryMetadataObservationViewTime(metaKey1, 1337)
 
         // total view time was updated
         with(db.queryHistoryMetadata("headset", 100)) {
             assertEquals(1337, this[0].totalViewTime)
         }
 
-        db.noteHistoryMetadataObservation(metaKey1,
-            HistoryMetadataObservation.ViewTimeObservation(
-                viewTime = 711
-            )
-        )
+        db.noteHistoryMetadataObservationViewTime(metaKey1, 711)
 
         with(db.queryHistoryMetadata("headset", 100)) {
             // total view time was updated
             assertEquals(2048, this[0].totalViewTime)
         }
 
-        db.noteHistoryMetadataObservation(
+        db.noteHistoryMetadataObservationDocumentType(
             HistoryMetadataKey(
                 url = "https://www.youtube.com/watch?v=Cs1b5qvCZ54",
                 searchTerm = "путин валдай",
                 referrerUrl = "https://yandex.ru/query?путин+валдай"
             ),
-            HistoryMetadataObservation.DocumentTypeObservation(
-                documentType = DocumentType.Media
-            )
+            documentType = DocumentType.MEDIA
         )
 
         // recording view time first, before the document type. either order should be fine.
@@ -503,43 +502,28 @@ class PlacesConnectionTest {
             searchTerm = null,
             referrerUrl = null
         )
-        db.noteHistoryMetadataObservation(
-            metaKey2,
-            HistoryMetadataObservation.ViewTimeObservation(
-                viewTime = 200
-            )
-        )
+        db.noteHistoryMetadataObservationViewTime(metaKey2, 200)
 
         // document type defaults to `regular`.
         with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
             assertEquals(200, this!!.totalViewTime)
-            assertEquals(DocumentType.Regular, this.documentType)
+            assertEquals(DocumentType.REGULAR, this.documentType)
         }
 
         // able to update document type.
-        db.noteHistoryMetadataObservation(
-            metaKey2,
-            HistoryMetadataObservation.DocumentTypeObservation(
-                documentType = DocumentType.Media
-            )
-        )
+        db.noteHistoryMetadataObservationDocumentType(metaKey2, DocumentType.MEDIA)
 
         with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
             assertEquals(200, this!!.totalViewTime)
-            assertEquals(DocumentType.Media, this.documentType)
+            assertEquals(DocumentType.MEDIA, this.documentType)
         }
 
         // document type isn't reset when updating view time
-        db.noteHistoryMetadataObservation(
-            metaKey2,
-            HistoryMetadataObservation.ViewTimeObservation(
-                viewTime = 300
-            )
-        )
+        db.noteHistoryMetadataObservationViewTime(metaKey2, 300)
 
         with(db.getLatestHistoryMetadataForUrl("https://www.youtube.com/watch?v=fdf4r43g")) {
             assertEquals(500, this!!.totalViewTime)
-            assertEquals(DocumentType.Media, this.documentType)
+            assertEquals(DocumentType.MEDIA, this.documentType)
         }
 
         assertEquals(2, db.queryHistoryMetadata("youtube", 100).size)
@@ -555,5 +539,17 @@ class PlacesConnectionTest {
         db.deleteHistoryMetadataOlderThan(currentTime + 10000)
 
         assertEquals(0, db.getHistoryMetadataSince(0L).size)
+
+        val metaKeyBad = HistoryMetadataKey(
+            url = "invalid-url",
+            searchTerm = null,
+            referrerUrl = null
+        )
+        try {
+            db.noteHistoryMetadataObservationViewTime(metaKeyBad, 200)
+            assert(false) // should fail
+        } catch (e: PlacesException) {
+            assert(e is UrlParseFailed)
+        }
     }
 }

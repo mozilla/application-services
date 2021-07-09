@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1B9B8F00267439F800C8A918 /* places.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B9B8EFE267439CC00C8A918 /* places.udl */; };
+		1B9B8F0A26743B8800C8A918 /* uniffi_places-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B9B8F0826743B8800C8A918 /* uniffi_places-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
 		1BE78F46265322DB008B9A45 /* uniffi_logins-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 1BE78F44265322DB008B9A45 /* uniffi_logins-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1BE78F4926532325008B9A45 /* logins.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1BE78F4826532325008B9A45 /* logins.udl */; };
 		394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 394A807625EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -119,7 +122,7 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.proto";
-			fileType = pattern.proxy;
+			fileType = sourcecode.protobuf;
 			inputFiles = (
 			);
 			isEditable = 1;
@@ -155,6 +158,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1B9B8EFE267439CC00C8A918 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../src/places.udl; sourceTree = "<group>"; };
+		1B9B8F0726743B8800C8A918 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = places.swift; path = ../../Generated/places.swift; sourceTree = "<group>"; };
+		1B9B8F0826743B8800C8A918 /* uniffi_places-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "uniffi_places-Bridging-Header.h"; path = "../../Generated/uniffi_places-Bridging-Header.h"; sourceTree = "<group>"; };
 		1BE78F44265322DB008B9A45 /* uniffi_logins-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_logins-Bridging-Header.h"; sourceTree = "<group>"; };
 		1BE78F4826532325008B9A45 /* logins.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = logins.udl; path = ../../src/logins.udl; sourceTree = "<group>"; };
 		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../src/nimbus.udl; sourceTree = "<group>"; };
@@ -278,6 +284,15 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1B9B8F0626743B7500C8A918 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				1B9B8F0726743B8800C8A918 /* places.swift */,
+				1B9B8F0826743B8800C8A918 /* uniffi_places-Bridging-Header.h */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
 		1BE78F42265322DB008B9A45 /* Generated */ = {
 			isa = PBXGroup;
 			children = (
@@ -495,7 +510,9 @@
 		CD85A44822361E880099BFA9 /* Places */ = {
 			isa = PBXGroup;
 			children = (
+				1B9B8F0626743B7500C8A918 /* Generated */,
 				CDC0089E2236CAD100893800 /* places_msg_types.proto */,
+				1B9B8EFE267439CC00C8A918 /* places.udl */,
 				CD85A44922361E880099BFA9 /* Places.swift */,
 				CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */,
 				CD85A44C22361E880099BFA9 /* Extensions */,
@@ -630,6 +647,7 @@
 				BF1A879225064A4C00FED88E /* GleanFfi.h in Headers */,
 				990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */,
 				99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */,
+				1B9B8F0A26743B8800C8A918 /* uniffi_places-Bridging-Header.h in Headers */,
 				1BE78F46265322DB008B9A45 /* uniffi_logins-Bridging-Header.h in Headers */,
 				394A807825EE951D00FAF26F /* uniffi_nimbus-Bridging-Header.h in Headers */,
 			);
@@ -779,6 +797,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */,
 				1BE78F4926532325008B9A45 /* logins.udl in Sources */,
 				9908639E25F9CC5F00032083 /* crashtest.udl in Sources */,
 				9924024A25F789F200841837 /* nimbus.udl in Sources */,
@@ -816,7 +835,7 @@
 				BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */,
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
-				D9FA8C542644A170008344BF /* HistoryMetadata.swift in Sources */,
+				1B9B8F00267439F800C8A918 /* places.udl in Sources */,
 				BF1A87AC25064A8100FED88E /* MemoryUnit.swift in Sources */,
 				BF1A87BE25064A9400FED88E /* HttpPingUploader.swift in Sources */,
 				BF1A87CF25064AC000FED88E /* Utils.swift in Sources */,

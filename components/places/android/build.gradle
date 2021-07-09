@@ -149,5 +149,5 @@ afterEvaluate {
 }
 
 apply from: "$rootDir/publish.gradle"
-
+ext.configureUniFFIBindgen("../src/places.udl")
 ext.configurePublish()

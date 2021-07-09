@@ -2148,6 +2148,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "types",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
 ]
 
@@ -2179,6 +2182,8 @@ dependencies = [
  "sync-guid",
  "sync15",
  "types",
+ "uniffi",
+ "uniffi_macros",
  "url",
  "viaduct",
 ]
