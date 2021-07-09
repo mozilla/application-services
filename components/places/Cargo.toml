@@ -26,8 +26,8 @@ ffi-support = "0.4"
 bitflags = "1.2"
 idna = "0.2"
 memchr = "2.3"
-prost = "0.6"
-prost-derive = "0.6"
+prost = "0.8"
+prost-derive = "0.8"
 dogear = "0.4"
 interrupt-support = { path = "../support/interrupt" }
 error-support = { path = "../support/error" }
