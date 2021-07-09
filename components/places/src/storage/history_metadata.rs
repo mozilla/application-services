@@ -246,7 +246,7 @@ pub fn get_since(db: &PlacesDb, start: i64) -> Result<HistoryMetadataList> {
     Ok(HistoryMetadataList { metadata })
 }
 
-pub fn query(db: &PlacesDb, query: &str, limit: i64) -> Result<HistoryMetadataList> {
+pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<HistoryMetadataList> {
     let metadata = db.query_rows_and_then_named_cached(
         QUERY_SQL.as_str(),
         rusqlite::named_params! {
