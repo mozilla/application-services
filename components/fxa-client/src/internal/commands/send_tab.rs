@@ -115,13 +115,15 @@ impl PrivateSendTabKeys {
     // `serde_json::to_string` would compile because both types derive
     // `Serialize`.
     pub(crate) fn serialize(&self) -> Result<String> {
-        Ok(serde_json::to_string(&VersionnedPrivateSendTabKeys::V1(
-            self.clone(),
-        ))?)
+        Ok(base64::encode_config(
+            serde_json::to_string(&VersionnedPrivateSendTabKeys::V1(self.clone()))?,
+            base64::URL_SAFE_NO_PAD,
+        ))
     }
 
     pub(crate) fn deserialize(s: &str) -> Result<Self> {
-        let versionned: VersionnedPrivateSendTabKeys = serde_json::from_str(s)?;
+        let decoded = base64::decode(s)?;
+        let versionned: VersionnedPrivateSendTabKeys = serde_json::from_slice(&decoded)?;
         match versionned {
             VersionnedPrivateSendTabKeys::V1(prv_key) => Ok(prv_key),
         }
