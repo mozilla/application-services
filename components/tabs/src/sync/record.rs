@@ -32,7 +32,9 @@ impl TabsRecord {
         // Note: We are hand-parsing the tabs payload so that we can provide support for
         // older clients that may have a stringified float or integer `last_used` value.
         let id = payload.id.to_string();
-        let client_name = parse_string_from_json(&"clientName", payload.data.get("clientName"))?;
+        let client_name =
+            parse_string_from_json(&"clientName", payload.data.get("clientName"), false)?
+                .expect("client name to have a value");
         let tabs: Vec<TabsRecordTab> = payload
             .data
             .get("tabs")
@@ -42,7 +44,8 @@ impl TabsRecord {
             .iter()
             .map(|x| -> Result<TabsRecordTab> {
                 let tabs_obj: Map<String, JsonValue> = x.as_object().unwrap_or(&Map::new()).clone();
-                let title: String = parse_string_from_json(&"title", tabs_obj.get("title"))?;
+                let title: String = parse_string_from_json(&"title", tabs_obj.get("title"), false)?
+                    .expect("tab title to have a value");
                 let url_history: Vec<String> = tabs_obj
                     .get("urlHistory")
                     .ok_or_else(|| serde_json::Error::custom("missing field `urlHistory`"))?
@@ -62,10 +65,7 @@ impl TabsRecord {
                     })
                     .into_iter()
                     .collect::<Result<_>>()?;
-                let icon: Option<String> = match tabs_obj.get("icon") {
-                    Some(i) => Some(parse_string_from_json("icon", Some(i))?),
-                    None => None,
-                };
+                let icon = parse_string_from_json("icon", tabs_obj.get("icon"), true)?;
                 let last_used = parse_last_used(
                     tabs_obj
                         .get("lastUsed")
@@ -125,14 +125,25 @@ fn parse_last_used(last_used_val: &JsonValue) -> Result<u64> {
     Ok(last_used)
 }
 
-fn parse_string_from_json(field_name: &str, val: Option<&JsonValue>) -> Result<String> {
-    Ok(val
-        .ok_or_else(|| serde_json::Error::custom(format!("missing field `{}`", field_name)))?
-        .as_str()
-        .ok_or_else(|| {
-            serde_json::Error::custom(format!("invalid `{}`, expected string", field_name))
-        })?
-        .to_string())
+fn parse_string_from_json(
+    field_name: &str,
+    val: Option<&JsonValue>,
+    can_be_empty: bool,
+) -> Result<Option<String>> {
+    if can_be_empty && val.is_none() {
+        Ok(None)
+    } else {
+        Ok(Some(
+            val.ok_or_else(|| {
+                serde_json::Error::custom(format!("missing field `{}`", field_name))
+            })?
+            .as_str()
+            .ok_or_else(|| {
+                serde_json::Error::custom(format!("invalid `{}`, expected string", field_name))
+            })?
+            .to_string(),
+        ))
+    }
 }
 
 #[cfg(test)]
