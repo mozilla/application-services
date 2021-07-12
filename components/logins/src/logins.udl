@@ -2,30 +2,50 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-namespace logins {
-
-    [Throws=LoginsStorageError]
-    string open_and_get_salt(string path, [ByRef] string encryption_key);
-
-    [Throws=LoginsStorageError]
-    void open_and_migrate_to_plaintext_header(string path, [ByRef] string encryption_key, [ByRef] string salt);
-};
-
+namespace logins { };
 
 // Converted from mozilla.appservices.logins.protobuf.rs
-dictionary Login {
+dictionary DecryptedLogin {
     string id;
-    string hostname;
+    string origin;
     string password;
     string username;
     string? http_realm;
-    string? form_submit_url;
+    string? form_action_origin;
     string username_field;
     string password_field;
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+};
+
+// Converted from mozilla.appservices.logins.protobuf.rs
+dictionary Login {
+    string id;
+    string origin;
+    string password_enc;
+    string username_enc;
+    string? http_realm;
+    string? form_action_origin;
+    string username_field;
+    string password_field;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+};
+
+// Converted from mozilla.appservices.logins.protobuf.rs
+dictionary LoginFields {
+    string id;
+    string origin;
+    string password_enc;
+    string username_enc;
+    string? http_realm;
+    string? form_action_origin;
+    string username_field;
+    string password_field;
 };
 
 [Error]
@@ -43,16 +63,10 @@ enum LoginsStorageError {
 
 interface LoginStore {
     [Throws=LoginsStorageError]
-    constructor(string path, [ByRef] string encryption_key);
-
-    [Name=new_with_salt, Throws=LoginsStorageError]
-    constructor(string path, [ByRef] string encryption_key, [ByRef] string salt);
+    constructor(string path);
 
     [Throws=LoginsStorageError]
-    void check_valid_with_no_dupes([ByRef] Login login);
-
-    [Throws=LoginsStorageError]
-    string add(Login login);
+    string add_or_update([ByRef] string enc_key, LoginFields login);
 
     [Throws=LoginsStorageError]
     boolean delete([ByRef] string id);
@@ -66,13 +80,10 @@ interface LoginStore {
     void reset();
 
     [Throws=LoginsStorageError]
-    void disable_mem_security();
-
-    [Throws=LoginsStorageError]
-    void rekey_database([ByRef] string new_encryption_key);
-
-    [Throws=LoginsStorageError]
     void touch([ByRef] string id);
+
+    [Throws=LoginsStorageError]
+    DecryptedLogin decrypt_and_fixup_login([ByRef] string enc_key, Login login);
 
     [Throws=LoginsStorageError]
     sequence<Login> list();
@@ -81,16 +92,10 @@ interface LoginStore {
     sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsStorageError]
-    sequence<Login> potential_dupes_ignoring_username(Login login);
-
-    [Throws=LoginsStorageError]
     Login? get([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    void update(Login login);
-
-    [Throws=LoginsStorageError]
-    string import_multiple(sequence<Login> login);
+    string import_multiple([ByRef] string enc_key, sequence<Login> logins);
 
     [Self=ByArc]
     void register_with_sync_manager();

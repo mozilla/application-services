@@ -4,7 +4,7 @@
 
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
 use crate::error::*;
-use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
+use crate::login::{LocalLogin, LoginPayload, MirrorLogin, SyncLoginData, SyncStatus};
 use crate::schema;
 use crate::update_plan::UpdatePlan;
 use crate::LoginDb;
@@ -217,7 +217,7 @@ impl LoginsSyncEngine {
                 Payload::new_tombstone(row.get::<_, String>("guid")?)
                     .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
-                let login = Login::from_row(row)?;
+                let login = LoginPayload::from_row(row)?;
                 Payload::from_record(login)?.with_sortindex(DEFAULT_SORTINDEX)
             })
         })?;

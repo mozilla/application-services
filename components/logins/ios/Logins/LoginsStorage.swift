@@ -53,111 +53,6 @@ open class LoginsStorage {
         return store!
     }
 
-    /// Unlock the database and reads the salt.
-    ///
-    /// Throws `LockError.mismatched` if the database is already unlocked.
-    ///
-    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
-    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
-    open func getDbSaltForKey(key: String) throws -> String {
-        try queue.sync {
-            if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
-            }
-            return try openAndGetSalt(path: self.dbPath, encryptionKey: key)
-        }
-    }
-
-    /// Migrate an existing database to a sqlcipher plaintext header.
-    /// If your application calls this method without reading and persisting
-    /// the salt, the database will be rendered un-usable.
-    ///
-    /// Throws `LockError.mismatched` if the database is already unlocked.
-    ///
-    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
-    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
-    open func migrateToPlaintextHeader(key: String, salt: String) throws {
-        try queue.sync {
-            if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
-            }
-            try openAndMigrateToPlaintextHeader(path: self.dbPath, encryptionKey: key, salt: salt)
-        }
-    }
-
-    private func doOpen(_ key: String, salt: String?) throws {
-        if store != nil {
-            return
-        }
-        if let salt = salt {
-            store = try LoginStore.newWithSalt(path: dbPath, encryptionKey: key, salt: salt)
-        } else {
-            store = try LoginStore(path: dbPath, encryptionKey: key)
-        }
-    }
-
-    /// Unlock the database.
-    /// `key` must be a random string.
-    /// `salt` must be an hex-encoded string of 32 characters (e.g. `a6a97a03ac3e5a20617175355ea2da5c`).
-    ///
-    /// Throws `LockError.mismatched` if the database is already unlocked.
-    ///
-    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
-    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
-    open func unlockWithKeyAndSalt(key: String, salt: String) throws {
-        try queue.sync {
-            if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
-            }
-            try self.doOpen(key, salt: salt)
-        }
-    }
-
-    /// Equivalent to `unlockWithKeyAndSalt(key:, salt:)`, but does not throw if the
-    /// database is already unlocked.
-    open func ensureUnlockedWithKeyAndSalt(key: String, salt: String) throws {
-        try queue.sync {
-            try self.doOpen(key, salt: salt)
-        }
-    }
-
-    /// Unlock the database.
-    ///
-    /// Throws `LockError.mismatched` if the database is already unlocked.
-    ///
-    /// Throws a `LoginStoreError.InvalidKey` if the key is incorrect, or if dbPath does not point
-    /// to a database, (may also throw `LoginStoreError.Unspecified` or `.Panic`).
-    @available(*, deprecated, message: "Use unlockWithKeyAndSalt instead.")
-    open func unlock(withEncryptionKey key: String) throws {
-        try queue.sync {
-            if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
-            }
-            try self.doOpen(key, salt: nil)
-        }
-    }
-
-    /// equivalent to `unlock(withEncryptionKey:)`, but does not throw if the
-    /// database is already unlocked.
-    @available(*, deprecated, message: "Use ensureUnlockedWithKeyAndSalt instead.")
-    open func ensureUnlocked(withEncryptionKey key: String) throws {
-        try queue.sync {
-            try self.doOpen(key, salt: nil)
-        }
-    }
-
-    /// Lock the database.
-    ///
-    /// Throws `LockError.mismatched` if the database is already locked.
-    open func lock() throws {
-        try queue.sync {
-            if self.store == nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
-            }
-            self.doDestroy()
-        }
-    }
-
     /// Locks the database, but does not throw in the case that the database is
     /// already locked. This is an alias for `close()`, provided for convenience
     /// (and consistency with Android)
@@ -170,20 +65,6 @@ open class LoginsStorage {
     open func reset() throws {
         try queue.sync {
             try getUnlockedStore().reset()
-        }
-    }
-
-    /// Disable memory security, which prevents keys from being swapped to disk.
-    /// This allows some esoteric attacks, but can have a performance benefit.
-    open func disableMemSecurity() throws {
-        try queue.sync {
-            try getUnlockedStore().disableMemSecurity()
-        }
-    }
-
-    open func rekeyDatabase(withNewEncryptionKey newKey: String) throws {
-        try queue.sync {
-            try self.getUnlockedStore().rekeyDatabase(newEncryptionKey: newKey)
         }
     }
 
@@ -207,13 +88,6 @@ open class LoginsStorage {
         }
     }
 
-    /// Ensure that the record is valid and a duplicate record doesn't exist.
-    open func ensureValid(login: Login) throws {
-        try queue.sync {
-            try self.getUnlockedStore().checkValidWithNoDupes(login: login)
-        }
-    }
-
     /// Bump the usage count for the record with the given id.
     ///
     /// Throws `LoginStoreError.NoSuchRecord` if there was no such record.
@@ -223,21 +97,15 @@ open class LoginsStorage {
         }
     }
 
-    /// Insert `login` into the database. If `login.id` is not empty,
-    /// then this throws `LoginStoreError.DuplicateGuid` if there is a collision
-    ///
-    /// Returns the `id` of the newly inserted record.
-    open func add(login: Login) throws -> String {
+    open func addOrUpdate(encKey: String, login: LoginFields) throws -> String {
         return try queue.sync {
-            return try self.getUnlockedStore().add(login: login)
+            return try self.getUnlockedStore().addOrUpdate(encKey: encKey, login: login)
         }
     }
 
-    /// Update `login` in the database. If `login.id` does not refer to a known
-    /// login, then this throws `LoginStoreError.NoSuchRecord`.
-    open func update(login: Login) throws {
+    open func decryptAndFixupLogin(encKey: String, login: Login) throws {
         try queue.sync {
-            try self.getUnlockedStore().update(login: login)
+            try self.getUnlockedStore().decryptAndFixupLogin(encKey: encKey, login: login)
         }
     }
 
@@ -252,13 +120,6 @@ open class LoginsStorage {
     open func list() throws -> [Login] {
         return try queue.sync {
             return try self.getUnlockedStore().list()
-        }
-    }
-
-    /// Get the set of potential duplicates ignoring the username of `login`.
-    open func potentialDupesIgnoringUsername(to login: Login) throws -> [Login] {
-        return try queue.sync {
-            return try self.getUnlockedStore().potentialDupesIgnoringUsername(login: login)
         }
     }
 

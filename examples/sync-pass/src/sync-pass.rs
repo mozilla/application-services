@@ -8,7 +8,7 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 
-use logins::{Login, LoginStore, LoginsSyncEngine};
+use logins::{LoginPayload, LoginStore, LoginsSyncEngine};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::NO_PARAMS;
 use std::sync::Arc;
@@ -18,7 +18,7 @@ use sync_guid::Guid;
 // I'm completely punting on good error handling here.
 use anyhow::Result;
 
-fn read_login() -> Login {
+fn read_login() -> LoginPayload {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
     let form_submit_url = prompt_string("form_submit_url");
@@ -26,7 +26,7 @@ fn read_login() -> Login {
     let http_realm = prompt_string("http_realm");
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
-    let record = Login {
+    let record = LoginPayload {
         id: Guid::random().to_string(),
         username,
         password,
@@ -35,7 +35,7 @@ fn read_login() -> Login {
         form_submit_url,
         http_realm,
         hostname,
-        ..Login::default()
+        ..LoginPayload::default()
     };
 
     if let Err(e) = record.check_valid() {
@@ -62,7 +62,7 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
     string_opt(o).unwrap_or(or)
 }
 
-fn update_login(record: &mut Login) {
+fn update_login(record: &mut LoginPayload) {
     update_string("username", &mut record.username, ", leave blank to keep");
     update_string("password", &mut record.password, ", leave blank to keep");
     update_string("hostname", &mut record.hostname, ", leave blank to keep");
@@ -156,7 +156,7 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
 }
 
 fn show_all(store: &LoginStore) -> Result<Vec<String>> {
-    let records = store.list()?;
+    let records = store.list_old()?;
 
     let mut table = prettytable::Table::new();
 
@@ -281,7 +281,7 @@ fn main() -> Result<()> {
     // TODO: allow users to use stage/etc.
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
 
-    let store = Arc::new(LoginStore::new(db_path, encryption_key).unwrap());
+    let store = Arc::new(LoginStore::new_old(db_path, encryption_key).unwrap());
 
     log::info!("Store has {} passwords", store.list()?.len());
 
@@ -319,7 +319,7 @@ fn main() -> Result<()> {
                         log::warn!("Failed to get record ID! {}", e);
                     }
                     Ok(Some(id)) => {
-                        let login_record = match store.get(&id) {
+                        let login_record = match store.get_old(&id) {
                             Ok(Some(login_record)) => login_record,
                             Ok(None) => {
                                 log::warn!("No such login!");

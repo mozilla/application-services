@@ -235,9 +235,55 @@ use sync15::ServerTimestamp;
 use sync_guid::Guid;
 use url::Url;
 
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Default)]
+pub struct DecryptedLogin {
+    pub id: String,
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username: String,
+    pub password: String,
+    pub username_field: String,
+    pub password_field: String,
+
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Default)]
+pub struct Login {
+    pub id: String,
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_enc: String,
+    pub password_enc: String,
+    pub username_field: String,
+    pub password_field: String,
+
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Default)]
+pub struct LoginFields {
+    pub id: String,
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_enc: String,
+    pub password_enc: String,
+    pub username_field: String,
+    pub password_field: String,
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct Login {
+pub struct LoginPayload {
     pub id: String,
     pub hostname: String,
 
@@ -295,7 +341,7 @@ fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
     Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
 }
 
-impl Login {
+impl LoginPayload {
     #[inline]
     pub fn guid(&self) -> Guid {
         Guid::from_string(self.id.clone())
@@ -397,7 +443,7 @@ impl Login {
                         throw!($err)
                     }
                     log::warn!("Fixing login record {}: {:?}", self.guid(), $err);
-                    let fixed: Result<&mut Login> =
+                    let fixed: Result<&mut LoginPayload> =
                         Ok(maybe_fixed.get_or_insert_with(|| self.clone()));
                     fixed
                 }
@@ -466,7 +512,7 @@ impl Login {
         }
 
         // Check we can parse the origin, then use the normalized version of it.
-        if let Some(fixed) = Login::validate_and_fixup_origin(&self.hostname)? {
+        if let Some(fixed) = LoginPayload::validate_and_fixup_origin(&self.hostname)? {
             get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                 field_info: "Origin is not normalized".into()
             })?
@@ -501,7 +547,7 @@ impl Login {
                             .form_submit_url = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
-                    if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
+                    if let Some(fixed) = LoginPayload::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "formActionOrigin is not normalized".into()
                         })?
@@ -514,8 +560,8 @@ impl Login {
         Ok(maybe_fixed)
     }
 
-    pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
-        let login = Login {
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<LoginPayload> {
+        let login = LoginPayload {
             id: row.get("guid")?,
             password: row.get("password")?,
             username: string_or_default(row, "username")?,
@@ -545,7 +591,7 @@ impl Login {
 
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {
-    pub login: Login,
+    pub login: LoginPayload,
     pub is_overridden: bool,
     pub server_modified: ServerTimestamp,
 }
@@ -558,7 +604,7 @@ impl MirrorLogin {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
         Ok(MirrorLogin {
-            login: Login::from_row(row)?,
+            login: LoginPayload::from_row(row)?,
             is_overridden: row.get("is_overridden")?,
             server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
         })
@@ -588,7 +634,7 @@ impl SyncStatus {
 
 #[derive(Clone, Debug)]
 pub(crate) struct LocalLogin {
-    pub login: Login,
+    pub login: LoginPayload,
     pub sync_status: SyncStatus,
     pub is_deleted: bool,
     pub local_modified: SystemTime,
@@ -602,7 +648,7 @@ impl LocalLogin {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
         Ok(LocalLogin {
-            login: Login::from_row(row)?,
+            login: LoginPayload::from_row(row)?,
             sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
             is_deleted: row.get("is_deleted")?,
             local_modified: util::system_time_millis_from_row(row, "local_modified")?,
@@ -612,30 +658,30 @@ impl LocalLogin {
 
 macro_rules! impl_login {
     ($ty:ty { $($fields:tt)* }) => {
-        impl AsRef<Login> for $ty {
+        impl AsRef<LoginPayload> for $ty {
             #[inline]
-            fn as_ref(&self) -> &Login {
+            fn as_ref(&self) -> &LoginPayload {
                 &self.login
             }
         }
 
-        impl AsMut<Login> for $ty {
+        impl AsMut<LoginPayload> for $ty {
             #[inline]
-            fn as_mut(&mut self) -> &mut Login {
+            fn as_mut(&mut self) -> &mut LoginPayload {
                 &mut self.login
             }
         }
 
-        impl From<$ty> for Login {
+        impl From<$ty> for LoginPayload {
             #[inline]
             fn from(l: $ty) -> Self {
                 l.login
             }
         }
 
-        impl From<Login> for $ty {
+        impl From<LoginPayload> for $ty {
             #[inline]
-            fn from(login: Login) -> Self {
+            fn from(login: LoginPayload) -> Self {
                 Self { login, $($fields)* }
             }
         }
@@ -659,7 +705,7 @@ pub(crate) struct SyncLoginData {
     pub local: Option<LocalLogin>,
     pub mirror: Option<MirrorLogin>,
     // None means it's a deletion
-    pub inbound: (Option<Login>, ServerTimestamp),
+    pub inbound: (Option<LoginPayload>, ServerTimestamp),
 }
 
 impl SyncLoginData {
@@ -680,10 +726,10 @@ impl SyncLoginData {
         ts: ServerTimestamp,
     ) -> std::result::Result<Self, serde_json::Error> {
         let guid = payload.id.clone();
-        let login: Option<Login> = if payload.is_tombstone() {
+        let login: Option<LoginPayload> = if payload.is_tombstone() {
             None
         } else {
-            let record: Login = payload.into_record()?;
+            let record: LoginPayload = payload.into_record()?;
             // If we can fixup incoming records from sync, do so.
             // But if we can't then keep the invalid data.
             record.maybe_fixup().unwrap_or(None).or(Some(record))
@@ -800,7 +846,7 @@ macro_rules! apply_field {
     };
 }
 
-impl Login {
+impl LoginPayload {
     pub(crate) fn apply_delta(&mut self, mut delta: LoginDelta) {
         apply_field!(self, delta, hostname);
 
@@ -826,7 +872,7 @@ impl Login {
         self.times_used += delta.times_used;
     }
 
-    pub(crate) fn delta(&self, older: &Login) -> LoginDelta {
+    pub(crate) fn delta(&self, older: &LoginPayload) -> LoginDelta {
         let mut delta = LoginDelta::default();
 
         if self.form_submit_url != older.form_submit_url {
@@ -946,7 +992,7 @@ mod tests {
             "file://",
             "https://[::1]",
         ] {
-            assert_eq!(Login::validate_and_fixup_origin(input)?, None);
+            assert_eq!(LoginPayload::validate_and_fixup_origin(input)?, None);
         }
 
         // And URLs which get normalized.
@@ -978,7 +1024,7 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                Login::validate_and_fixup_origin(input)?,
+                LoginPayload::validate_and_fixup_origin(input)?,
                 Some((*output).into())
             );
         }
@@ -989,169 +1035,169 @@ mod tests {
     fn test_check_valid() {
         #[derive(Debug, Clone)]
         struct TestCase {
-            login: Login,
+            login: LoginPayload,
             should_err: bool,
             expected_err: &'static str,
         }
 
-        let valid_login = Login {
+        let valid_login = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_empty_hostname = Login {
+        let login_with_empty_hostname = LoginPayload {
             hostname: "".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_empty_password = Login {
+        let login_with_empty_password = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_form_submit_and_http_realm = Login {
+        let login_with_form_submit_and_http_realm = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             form_submit_url: Some("https://www.example.com".into()),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_without_form_submit_or_http_realm = Login {
+        let login_without_form_submit_or_http_realm = LoginPayload {
             hostname: "https://www.example.com".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_null_http_realm = Login {
+        let login_with_null_http_realm = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.\0com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_null_username = Login {
+        let login_with_null_username = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "\0".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_null_password = Login {
+        let login_with_null_password = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "username".into(),
             password: "test\0".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_newline_hostname = Login {
+        let login_with_newline_hostname = LoginPayload {
             hostname: "\rhttps://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_newline_username_field = Login {
+        let login_with_newline_username_field = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
             username_field: "\n".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_newline_realm = Login {
+        let login_with_newline_realm = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("foo\nbar".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_newline_password = Login {
+        let login_with_newline_password = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test\n".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_period_username_field = Login {
+        let login_with_period_username_field = LoginPayload {
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
             username_field: ".".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_period_form_submit_url = Login {
+        let login_with_period_form_submit_url = LoginPayload {
             form_submit_url: Some(".".into()),
             hostname: "https://www.example.com".into(),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_javascript_form_submit_url = Login {
+        let login_with_javascript_form_submit_url = LoginPayload {
             form_submit_url: Some("javascript:".into()),
             hostname: "https://www.example.com".into(),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_malformed_origin_parens = Login {
+        let login_with_malformed_origin_parens = LoginPayload {
             hostname: " (".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_host_unicode = Login {
+        let login_with_host_unicode = LoginPayload {
             hostname: "http://💖.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_hostname_trailing_slash = Login {
+        let login_with_hostname_trailing_slash = LoginPayload {
             hostname: "https://www.example.com/".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_hostname_expanded_ipv6 = Login {
+        let login_with_hostname_expanded_ipv6 = LoginPayload {
             hostname: "https://[0:0:0:0:0:0:1:1]".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_unknown_protocol = Login {
+        let login_with_unknown_protocol = LoginPayload {
             hostname: "moz-proxy://127.0.0.1:8888".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
         let test_cases = [
@@ -1285,44 +1331,44 @@ mod tests {
     fn test_fixup() {
         #[derive(Debug, Default)]
         struct TestCase {
-            login: Login,
+            login: LoginPayload,
             fixedup_host: Option<&'static str>,
             fixedup_form_submit_url: Option<String>,
         }
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
-        let login_with_full_url = Login {
+        let login_with_full_url = LoginPayload {
             hostname: "http://example.com/foo?query=wtf#bar".into(),
             form_submit_url: Some("http://example.com/foo?query=wtf#bar".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_host_unicode = Login {
+        let login_with_host_unicode = LoginPayload {
             hostname: "http://😍.com".into(),
             form_submit_url: Some("http://😍.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_period_fsu = Login {
+        let login_with_period_fsu = LoginPayload {
             hostname: "https://example.com".into(),
             form_submit_url: Some(".".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
-        let login_with_empty_fsu = Login {
+        let login_with_empty_fsu = LoginPayload {
             hostname: "https://example.com".into(),
             form_submit_url: Some("".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let login_with_form_submit_and_http_realm = Login {
+        let login_with_form_submit_and_http_realm = LoginPayload {
             hostname: "https://www.example.com".into(),
             form_submit_url: Some("https://www.example.com".into()),
             // If both http_realm and form_submit_url are specified, we drop
@@ -1331,7 +1377,7 @@ mod tests {
             // we end up dropping.
             http_realm: Some("\n".into()),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
         let test_cases = [
@@ -1397,7 +1443,7 @@ mod tests {
         }))
         .unwrap();
 
-        let login: Login = bad_payload.clone().into_record().unwrap();
+        let login: LoginPayload = bad_payload.clone().into_record().unwrap();
         assert_eq!(login.username_field, "invalid");
         assert!(login.check_valid().is_err());
         assert_eq!(login.fixup().unwrap().username_field, "");
@@ -1423,7 +1469,7 @@ mod tests {
         }))
         .unwrap();
 
-        let login: Login = bad_payload.into_record().unwrap();
+        let login: LoginPayload = bad_payload.into_record().unwrap();
         assert_eq!(login.password_field, "invalid");
         assert!(login.check_valid().is_err());
         assert_eq!(login.fixup().unwrap().password_field, "");

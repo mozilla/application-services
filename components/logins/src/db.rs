@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::login::{Login, SyncStatus};
+use crate::login::{LoginPayload, SyncStatus};
 use crate::schema;
 use crate::util;
 use lazy_static::lazy_static;
@@ -88,7 +88,14 @@ impl LoginDb {
         Ok(logins)
     }
 
-    pub fn open(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        Ok(Self {
+            db: Connection::open(path)?,
+            interrupt_counter: Arc::default(),
+        })
+    }
+
+    pub fn open_old(path: impl AsRef<Path>, encryption_key: Option<&str>) -> Result<Self> {
         Self::with_connection(Connection::open(path)?, encryption_key, None)
     }
 
@@ -242,7 +249,7 @@ impl LoginDb {
     // for each one if they exist)... I can't think of how to write that query, though.
     // NOTE: currently used only by sync - maybe it should move to the sync engine?
     // It doesn't *feel* sync specific though?
-    pub(crate) fn find_dupe(&self, l: &Login) -> Result<Option<Login>> {
+    pub(crate) fn find_dupe(&self, l: &LoginPayload) -> Result<Option<LoginPayload>> {
         let form_submit_host_port = l
             .form_submit_url
             .as_ref()
@@ -267,16 +274,16 @@ impl LoginDb {
         } else {
             query += " AND formSubmitURL IS :form_submit"
         }
-        self.try_query_row(&query, args, |row| Login::from_row(row), false)
+        self.try_query_row(&query, args, |row| LoginPayload::from_row(row), false)
     }
 
-    pub fn get_all(&self) -> Result<Vec<Login>> {
+    pub fn get_all(&self) -> Result<Vec<LoginPayload>> {
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
-        let rows = stmt.query_and_then(NO_PARAMS, Login::from_row)?;
+        let rows = stmt.query_and_then(NO_PARAMS, LoginPayload::from_row)?;
         rows.collect::<Result<_>>()
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<LoginPayload>> {
         // We first parse the input string as a host so it is normalized.
         let base_host = match Host::parse(base_domain) {
             Ok(d) => d,
@@ -294,7 +301,7 @@ impl LoginDb {
         // in a regex lib just for this.
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
         let rows = stmt
-            .query_and_then(NO_PARAMS, Login::from_row)?
+            .query_and_then(NO_PARAMS, LoginPayload::from_row)?
             .filter(|r| {
                 let login = r
                     .as_ref()
@@ -327,11 +334,11 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
+    pub fn get_by_id(&self, id: &str) -> Result<Option<LoginPayload>> {
         self.try_query_row(
             &GET_BY_GUID_SQL,
             &[(":guid", &id as &dyn ToSql)],
-            Login::from_row,
+            LoginPayload::from_row,
             true,
         )
     }
@@ -359,7 +366,7 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn add(&self, login: Login) -> Result<Login> {
+    pub fn add(&self, login: LoginPayload) -> Result<LoginPayload> {
         let mut login = self.fixup_and_check_for_dupes(login)?;
 
         let tx = self.unchecked_transaction()?;
@@ -452,7 +459,7 @@ impl LoginDb {
         Ok(login)
     }
 
-    pub fn import_multiple(&self, logins: &[Login]) -> Result<MigrationMetrics> {
+    pub fn import_multiple(&self, logins: &[LoginPayload]) -> Result<MigrationMetrics> {
         // Check if the logins table is empty first.
         let mut num_existing_logins =
             self.query_row::<i64, _, _>("SELECT COUNT(*) FROM loginsL", NO_PARAMS, |r| r.get(0))?;
@@ -608,7 +615,7 @@ impl LoginDb {
         Ok(metrics)
     }
 
-    pub fn update(&self, login: Login) -> Result<()> {
+    pub fn update(&self, login: LoginPayload) -> Result<()> {
         let login = self.fixup_and_check_for_dupes(login)?;
 
         let tx = self.unchecked_transaction()?;
@@ -660,25 +667,25 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
+    pub fn check_valid_with_no_dupes(&self, login: &LoginPayload) -> Result<()> {
         login.check_valid()?;
         self.check_for_dupes(&login)
     }
 
-    pub fn fixup_and_check_for_dupes(&self, login: Login) -> Result<Login> {
+    pub fn fixup_and_check_for_dupes(&self, login: LoginPayload) -> Result<LoginPayload> {
         let login = login.fixup()?;
         self.check_for_dupes(&login)?;
         Ok(login)
     }
 
-    pub fn check_for_dupes(&self, login: &Login) -> Result<()> {
+    pub fn check_for_dupes(&self, login: &LoginPayload) -> Result<()> {
         if self.dupe_exists(&login)? {
             throw!(InvalidLogin::DuplicateLogin);
         }
         Ok(())
     }
 
-    pub fn dupe_exists(&self, login: &Login) -> Result<bool> {
+    pub fn dupe_exists(&self, login: &LoginPayload) -> Result<bool> {
         // Note: the query below compares the guids of the given login with existing logins
         //  to prevent a login from being considered a duplicate of itself (e.g. during updates).
         Ok(self.db.query_row_named(
@@ -718,7 +725,10 @@ impl LoginDb {
         )?)
     }
 
-    pub fn potential_dupes_ignoring_username(&self, login: &Login) -> Result<Vec<Login>> {
+    pub fn potential_dupes_ignoring_username(
+        &self,
+        login: &LoginPayload,
+    ) -> Result<Vec<LoginPayload>> {
         // Could be lazy_static-ed...
         lazy_static::lazy_static! {
             static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
@@ -752,7 +762,7 @@ impl LoginDb {
             ":form_submit": login.form_submit_url.as_ref(),
         };
         // Needs to be two lines for borrow checker
-        let rows = stmt.query_and_then_named(params, Login::from_row)?;
+        let rows = stmt.query_and_then_named(params, LoginPayload::from_row)?;
         rows.collect()
     }
 
@@ -940,50 +950,50 @@ mod tests {
     #[test]
     fn test_check_valid_with_no_dupes() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
-        db.add(Login {
+        db.add(LoginPayload {
             id: "dummy_000001".into(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         })
         .unwrap();
 
         let unique_login_guid = Guid::empty();
-        let unique_login = Login {
+        let unique_login = LoginPayload {
             id: unique_login_guid.to_string(),
             form_submit_url: None,
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let duplicate_login = Login {
+        let duplicate_login = LoginPayload {
             id: Guid::empty().into(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test2".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let updated_login = Login {
+        let updated_login = LoginPayload {
             id: unique_login_guid.to_string(),
             form_submit_url: None,
             hostname: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             username: "test".into(),
             password: "test4".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
         struct TestCase {
-            login: Login,
+            login: LoginPayload,
             should_err: bool,
             expected_err: &'static str,
         }
@@ -1029,7 +1039,7 @@ mod tests {
     #[test]
     fn test_unicode_submit() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
-        db.add(Login {
+        db.add(LoginPayload {
             id: "dummy_000001".into(),
             form_submit_url: Some("http://😍.com".into()),
             hostname: "http://😍.com".into(),
@@ -1038,7 +1048,7 @@ mod tests {
             username_field: "😍".into(),
             password: "😍".into(),
             password_field: "😍".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         })
         .unwrap();
         let fetched = db
@@ -1056,14 +1066,14 @@ mod tests {
     #[test]
     fn test_unicode_realm() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
-        db.add(Login {
+        db.add(LoginPayload {
             id: "dummy_000001".into(),
             form_submit_url: None,
             hostname: "http://😍.com".into(),
             http_realm: Some("😍😍".into()),
             username: "😍".into(),
             password: "😍".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         })
         .unwrap();
         let fetched = db
@@ -1095,11 +1105,11 @@ mod tests {
     ) {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         for h in good.iter().chain(bad.iter()) {
-            db.add(Login {
+            db.add(LoginPayload {
                 hostname: (*h).into(),
                 http_realm: Some((*h).into()),
                 password: "test".into(),
-                ..Login::default()
+                ..LoginPayload::default()
             })
             .unwrap();
         }
@@ -1178,12 +1188,12 @@ mod tests {
     fn test_delete() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         let _login = db
-            .add(Login {
+            .add(LoginPayload {
                 hostname: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
                 username: "test_user".into(),
                 password: "test_password".into(),
-                ..Login::default()
+                ..LoginPayload::default()
             })
             .unwrap();
 
@@ -1208,22 +1218,22 @@ mod tests {
     fn test_wipe() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         let login1 = db
-            .add(Login {
+            .add(LoginPayload {
                 hostname: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
                 username: "test_user_1".into(),
                 password: "test_password_1".into(),
-                ..Login::default()
+                ..LoginPayload::default()
             })
             .unwrap();
 
         let login2 = db
-            .add(Login {
+            .add(LoginPayload {
                 hostname: "https://www.example2.com".into(),
                 http_realm: Some("https://www.example2.com".into()),
                 username: "test_user_1".into(),
                 password: "test_password_2".into(),
-                ..Login::default()
+                ..LoginPayload::default()
             })
             .unwrap();
 
@@ -1266,7 +1276,7 @@ mod tests {
     #[test]
     fn test_import_multiple() {
         struct TestCase {
-            logins: Vec<Login>,
+            logins: Vec<LoginPayload>,
             has_populated_metrics: bool,
             expected_metrics: MigrationMetrics,
         }
@@ -1275,12 +1285,12 @@ mod tests {
 
         // Adding login to trigger non-empty table error
         let login = db
-            .add(Login {
+            .add(LoginPayload {
                 hostname: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
                 username: "test_user_1".into(),
                 password: "test_password_1".into(),
-                ..Login::default()
+                ..LoginPayload::default()
             })
             .unwrap();
 
@@ -1296,44 +1306,44 @@ mod tests {
 
         // Setting up test cases
         let valid_login_guid1: Guid = Guid::random();
-        let valid_login1 = Login {
+        let valid_login1 = LoginPayload {
             id: valid_login_guid1.to_string(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
         let valid_login_guid2: Guid = Guid::random();
-        let valid_login2 = Login {
+        let valid_login2 = LoginPayload {
             id: valid_login_guid2.to_string(),
             form_submit_url: Some("https://www.example2.com".into()),
             hostname: "https://www.example2.com".into(),
             http_realm: None,
             username: "test2".into(),
             password: "test2".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
         let valid_login_guid3: Guid = Guid::random();
-        let valid_login3 = Login {
+        let valid_login3 = LoginPayload {
             id: valid_login_guid3.to_string(),
             form_submit_url: Some("https://www.example3.com".into()),
             hostname: "https://www.example3.com".into(),
             http_realm: None,
             username: "test3".into(),
             password: "test3".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
         let duplicate_login_guid: Guid = Guid::random();
-        let duplicate_login = Login {
+        let duplicate_login = LoginPayload {
             id: duplicate_login_guid.to_string(),
             form_submit_url: Some("https://www.example.com".into()),
             hostname: "https://www.example.com".into(),
             http_realm: None,
             username: "test".into(),
             password: "test2".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
         let duplicate_logins = vec![valid_login1.clone(), duplicate_login, valid_login2.clone()];
@@ -1468,7 +1478,7 @@ mod tests {
         let dir = tempdir::TempDir::new("salt_for_key_test").unwrap();
         let dbpath = dir.path().join("logins.sqlite");
         let dbpath = dbpath.to_str().unwrap();
-        let conn = LoginDb::open(dbpath, Some("testing")).unwrap();
+        let conn = LoginDb::open_old(dbpath, Some("testing")).unwrap();
         // Database created.
         let expected_salt = conn.query_one::<String>("PRAGMA cipher_salt").unwrap();
 
@@ -1487,7 +1497,7 @@ mod tests {
         let dir = tempdir::TempDir::new("plaintext_header_migration").unwrap();
         let dbpath = dir.path().join("logins.sqlite");
         let dbpath = dbpath.to_str().unwrap();
-        let conn = LoginDb::open(dbpath, Some("testing")).unwrap();
+        let conn = LoginDb::open_old(dbpath, Some("testing")).unwrap();
         drop(conn);
         // Database created.
 
