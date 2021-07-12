@@ -17,8 +17,6 @@ jobs:
           echo 'rust.targets=linux-x86-64' > local.properties
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
-          cargo install mdbook mdbook-mermaid mdbook-open-on-gh
-          ./tools/build-book.sh
  
       - name: Build Dependencies and Generate Rust Docs
         env: 
@@ -36,8 +34,13 @@ jobs:
           ./libs/verify-desktop-environment.sh
           cargo doc --no-deps
           echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
-          mkdir -p build/docs/rust-docs
-          cp -rf target/doc/* build/docs/rust-docs
+          mkdir -p docs/rust-docs
+          cp -rf target/doc/* docs/rust-docs
+      
+      - name: Build mdbook
+        run: |
+          cargo install mdbook mdbook-mermaid mdbook-open-on-gh
+          ./tools/build-book.sh
           
       - name: Deploy
         run: |

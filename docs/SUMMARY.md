@@ -26,4 +26,5 @@
   - [How to upgrade NSS](howtos/upgrading-nss-guide.md)
 - [Sync overview](sync-overview.md)
 - [Metrics - (Glean Telemetry)](metrics.md)
+- [Rustdocs for components](rust-docs/fxa_client/index.html)
 - [Adding to these documents](adding-docs.md)
