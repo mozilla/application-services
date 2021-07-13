@@ -400,4 +400,103 @@ pub(crate) mod tests {
 
         Ok(())
     }
+
+    #[test]
+    fn test_tabs_record_from_payload_ttl_values() -> Result<()> {
+        struct TestCase {
+            case_description: String,
+            data: JsonValue,
+            expected_ttl: u32,
+        }
+
+        let test_cases = vec![
+            TestCase {
+                case_description: "test missing ttl".to_string(),
+                data: json!({
+                    "clientName": "Nightly",
+                    "tabs": [
+                        {
+                            "title": "",
+                            "urlHistory": [],
+                            "lastUsed": 0
+                        }
+                    ],
+                }),
+                expected_ttl: 0,
+            },
+            TestCase {
+                case_description: "test null ttl".to_string(),
+                data: json!({
+                    "clientName": "Nightly",
+                    "tabs": [
+                        {
+                            "title": "",
+                            "urlHistory": [],
+                            "lastUsed": 0
+                        }
+                    ],
+                    "ttl": null,
+                }),
+                expected_ttl: 0,
+            },
+            TestCase {
+                case_description: "test sequence ttl".to_string(),
+                data: json!({
+                    "clientName": "Nightly",
+                    "tabs": [
+                        {
+                            "title": "",
+                            "urlHistory": [],
+                            "lastUsed": 0
+                        }
+                    ],
+                    "ttl": [],
+                }),
+                expected_ttl: 0,
+            },
+            TestCase {
+                case_description: "test string ttl".to_string(),
+                data: json!({
+                    "clientName": "Nightly",
+                    "tabs": [
+                        {
+                            "title": "",
+                            "urlHistory": [],
+                            "lastUsed": 0
+                        }
+                    ],
+                    "ttl": "",
+                }),
+                expected_ttl: 0,
+            },
+            TestCase {
+                case_description: "test non-zero ttl".to_string(),
+                data: json!({
+                    "clientName": "Nightly",
+                    "tabs": [
+                        {
+                            "title": "",
+                            "urlHistory": [],
+                            "lastUsed": 0
+                        }
+                    ],
+                    "ttl": 4,
+                }),
+                expected_ttl: 4,
+            },
+        ];
+
+        for tc in test_cases {
+            let actual = TabsRecord::from_payload(sync15::Payload {
+                id: Guid::random(),
+                deleted: false,
+                data: tc.data.as_object().unwrap().clone(),
+            });
+
+            assert!(actual.is_ok(), "{}", tc.case_description);
+            assert_eq!(actual?.ttl, tc.expected_ttl);
+        }
+
+        Ok(())
+    }
 }
