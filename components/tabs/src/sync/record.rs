@@ -82,7 +82,10 @@ impl TabsRecord {
             .into_iter()
             .collect::<Result<_>>()?;
 
-        let ttl: u32 = payload.data["ttl"].as_u64().unwrap_or_default() as u32;
+        let ttl: u32 = match payload.data.get("ttl") {
+            Some(v) => v.as_u64().unwrap_or_default() as u32,
+            None => u32::default(),
+        };
 
         Ok(TabsRecord {
             id,
