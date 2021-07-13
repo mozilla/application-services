@@ -3131,7 +3131,6 @@ dependencies = [
  "prost",
  "sync15",
  "sync_manager",
- "tabs_ffi",
 ]
 
 [[package]]
@@ -3151,32 +3150,18 @@ dependencies = [
  "error-support",
  "ffi-support",
  "interrupt-support",
+ "lazy_static",
  "log",
- "prost",
- "prost-derive",
  "serde",
  "serde_derive",
  "serde_json",
  "sync-guid",
  "sync15",
  "thiserror",
+ "uniffi",
+ "uniffi_build",
+ "uniffi_macros",
  "url",
-]
-
-[[package]]
-name = "tabs_ffi"
-version = "0.1.0"
-dependencies = [
- "base16",
- "ffi-support",
- "lazy_static",
- "log",
- "prost",
- "serde_json",
- "sync15",
- "tabs",
- "url",
- "viaduct",
 ]
 
 [[package]]
