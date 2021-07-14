@@ -5,11 +5,13 @@
 // Code to migrate from an sqlcipher DB to a plaintext DB
 
 use crate::db::MigrationMetrics;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::schema;
 use rusqlite::{Connection, NO_PARAMS};
 use sql_support::ConnExt;
 use std::path::Path;
+use std::time::Instant;
 
 pub fn migrate_sqlcipher_db_to_plaintext(
     old_db_path: impl AsRef<Path>,
@@ -19,19 +21,19 @@ pub fn migrate_sqlcipher_db_to_plaintext(
     salt: Option<&str>,
 ) -> Result<MigrationMetrics> {
     let mut db = Connection::open(old_db_path)?;
-    let metrics = init_sqlcipher_db(&mut db, old_encryption_key, salt, new_encryption_key)?;
-    sqlcipher_export(&mut db, &new_db_path)?;
-    let new_db = Connection::open(new_db_path)?;
+    init_sqlcipher_db(&mut db, old_encryption_key, salt)?;
+    // We want the new db to have the latest changes
+    let mut new_db = Connection::open(new_db_path)?;
+    schema::create(&new_db)?;
+
+    //Here we need to call a function that goes row-by-row and copies to the new DB
+    let metrics = migrate_from_sqlcipher_db(&mut db, &mut new_db, new_encryption_key)?;
+
     new_db.execute("PRAGMA user_version = 1", NO_PARAMS)?;
     Ok(metrics)
 }
 
-fn init_sqlcipher_db(
-    db: &mut Connection,
-    encryption_key: &str,
-    salt: Option<&str>,
-    new_encryption_key: &str,
-) -> Result<MigrationMetrics> {
+fn init_sqlcipher_db(db: &mut Connection, encryption_key: &str, salt: Option<&str>) -> Result<()> {
     // Most of this code was copied from the old LoginDB::with_connection() method.
     db.set_pragma("key", encryption_key)?
         .set_pragma("secure_delete", true)?;
@@ -50,8 +52,7 @@ fn init_sqlcipher_db(
     // https://github.com/mozilla/mentat/issues/505. Ideally we'd only
     // do this on Android, or allow caller to configure it.
     db.set_pragma("temp_store", 2)?;
-
-    schema::upgrade_sqlcipher_db(db, new_encryption_key)
+    Ok(())
 }
 
 fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
@@ -67,20 +68,106 @@ fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn sqlcipher_export(conn: &mut Connection, new_db_path: impl AsRef<Path>) -> Result<()> {
-    // Export sqlite data to a plaintext DB using the strategy from example 2 here:
-    // https://www.zetetic.net/sqlcipher/sqlcipher-api/index.html#sqlcipher_export
-    let path = new_db_path.as_ref().as_os_str();
-    let path = path
-        .to_str()
-        .ok_or_else(|| ErrorKind::InvalidPath(path.to_os_string()))?;
+//Manually copy over row by row from sqlcipher db to a plaintext db
+pub fn migrate_from_sqlcipher_db(
+    db: &mut Connection,
+    new_db: &mut Connection,
+    encryption_key: &str,
+) -> Result<MigrationMetrics> {
+    let start_time = Instant::now();
+    let mut num_processed = 0;
+    let mut num_succeeded = 0;
+    let mut num_failed = 0;
+    let mut errors = Vec::new();
 
-    conn.execute("ATTACH DATABASE ? AS plaintext key ''", &[path])?;
-    // this one is a bit weird because it's a SELECT statement that we know will return 0 rows.
-    // rusqlite will return an Error if we use execute(), so we use query_row with a dummy closure
-    conn.query_row("SELECT sqlcipher_export('plaintext')", NO_PARAMS, |_| Ok(0))?;
-    conn.execute("DETACH DATABASE plaintext", NO_PARAMS)?;
-    Ok(())
+    let cipher_tx = db.transaction()?;
+    let plaintext_tx = new_db.transaction()?;
+    // encrypt the username/password data
+    let encryptor = EncryptorDecryptor::new(encryption_key)?;
+    let mut encrypt_username_and_password = |table_name: &str| -> Result<()> {
+        // Encrypt the username and password field for all rows.
+        let mut select_stmt = cipher_tx.prepare(&format!("SELECT * FROM {}", table_name))?;
+        // Took this style from autofill, feels cleaner
+        let mut insert_stmt = plaintext_tx.prepare(&format!(
+            "INSERT INTO {} (
+                {common_cols}
+            ) VALUES (
+                {common_vals}
+            )",
+            table_name,
+            common_cols = schema::COMMON_COLS,
+            common_vals = schema::COMMON_VALS
+        ))?;
+
+        // This is where we manually take anything from old db and adjust it for the new one
+        let mut migrate_single_row = |guid: &str, row: &rusqlite::Row<'_>| -> Result<()> {
+            let username: String = row.get("username")?;
+            let password: String = row.get("password")?;
+            // migrating hostname to the new origin
+            let origin: String = row.get("hostname")?;
+            let http_realm: Option<String> = row.get("httpRealm")?;
+            // migrating formSubmitURL to the new action origin
+            let form_action_origin: Option<String> = row.get("formSubmitURL")?;
+            let username_field: Option<String> = row.get("usernameField")?;
+            let password_field: Option<String> = row.get("passwordField")?;
+            let time_created: i64 = row.get("timeCreated")?;
+            let time_last_used: i64 = row.get("timeLastUsed").unwrap_or_default();
+            let time_password_changed: i64 = row.get("timePasswordChanged")?;
+            let times_used: i64 = row.get("timesUsed")?;
+
+            // TO_DO: rusqlite::params required having variables since it's not allowed
+            // to cast after ?, potentially look for a cleaner way
+            insert_stmt.execute(rusqlite::params![
+                guid,
+                encryptor.encrypt(&username)?,
+                encryptor.encrypt(&password)?,
+                origin,
+                http_realm,
+                form_action_origin,
+                username_field,
+                password_field,
+                // TO_DO: Do we need to convert from microsecond timestamps to milliseconds??
+                time_created,
+                time_last_used,
+                time_password_changed,
+                times_used
+            ])?;
+
+            Ok(())
+        };
+
+        // Use raw rows to avoid extra copying since we're looping over an entire table
+        let mut rows = select_stmt.query(NO_PARAMS)?;
+        while let Some(row) = rows.next()? {
+            let guid: String = row.get("guid")?;
+            num_processed += 1;
+            match migrate_single_row(&guid, &row) {
+                Ok(_) => {
+                    num_succeeded += 1;
+                }
+                Err(e) => {
+                    num_failed += 1;
+                    errors.push(e.to_string());
+                }
+            }
+        }
+        Ok(())
+    };
+
+    encrypt_username_and_password("loginsL")?;
+    encrypt_username_and_password("loginsM")?;
+
+    cipher_tx.commit()?;
+    plaintext_tx.commit()?;
+
+    Ok(MigrationMetrics {
+        num_processed,
+        num_succeeded,
+        num_failed,
+        total_duration: start_time.elapsed().as_millis() as u64,
+        errors,
+        ..MigrationMetrics::default()
+    })
 }
 
 #[cfg(test)]
