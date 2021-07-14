@@ -1,3 +1,23 @@
+# v81.0.0 (_2021-07-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.1...v81.0.0)
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+ - Tabs has been Uniffi-ed! ([#4192](https://github.com/mozilla/application-services/pull/4192))
+    - Manual calling of sync() is removed
+    - registerWithSyncManager() should be used instead
+    - Tab struct member lastUsed is now a U64
+## Nimbus
+### What's changed
+  - Fixed a bug where opt-in enrollments in experiments were not preserved when the application is restarted ([#4324](https://github.com/mozilla/application-services/pull/4324))
+  - The nimbus component now specifies the version of the server's api - currently V1. That was done to avoid redirects. ([#4319](https://github.com/mozilla/application-services/pull/4319))
+
+## Push
+### What's changed
+  - Fixed a bug where we don't delete a client's UAID locally when it's deleted on the server ([#4325](https://github.com/mozilla/application-services/pull/4325))
+
+
 # v80.0.1 (_2021-07-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...v80.0.1)
