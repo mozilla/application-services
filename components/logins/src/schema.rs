@@ -128,21 +128,6 @@ pub const COMMON_COLS: &str = "
     timesUsed
 ";
 
-pub const COMMON_VALS: &str = "
-    :guid,
-    :usernameEnc,
-    :passwordEnc,
-    :origin,
-    :httpRealm,
-    :formActionOrigin,
-    :usernameField,
-    :passwordField,
-    :timeCreated,
-    :timeLastUsed,
-    :timePasswordChanged,
-    :timesUsed
-";
-
 const COMMON_SQL: &str = "
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     origin              TEXT NOT NULL,
