@@ -224,3 +224,67 @@ ext.configureUniFFIBindgen = { udlFilePath ->
         variant.registerJavaGeneratingTask(t.get(), new File(buildDir, uniffiGeneratedPath))
     }
 }
+
+// A convenience function for configuring a project to depend on the megazord
+// for native code. It sets up the correct set of dependencies for publishing
+// a package whose Rust code is included in the megazord, and for running its
+// tests using a local build.
+ext.dependsOnTheMegazord = {
+    // There's an interaction between Gradle's resolution of dependencies with different types
+    // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
+    // JUnit test runner.  The runtime classpath in the built-in JUnit test runner gets the
+    // dependency from the `implementation`, which is type @aar, and therefore the JNA dependency
+    // doesn't provide the JNI dispatch libraries in the correct Java resource directories.  I think
+    // what's happening is that @aar type in `implementation` resolves to the @jar type in
+    // `testImplementation`, and that it wins the dependency resolution battle.
+    //
+    // A workaround is to add a new configuration which depends on the @jar type and to reference
+    // the underlying JAR file directly in `testImplementation`.  This JAR file doesn't resolve to
+    // the @aar type in `implementation`.  This works when invoked via `gradle`, but also sets the
+    // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
+    // Success!
+    configurations {
+        jnaForTest
+    }
+    // Add the full-megazord's build directory to our resource path so that
+    // we can actually find it during tests. (Unfortunately, each project
+    // has their own build dir)
+    android {
+        sourceSets {
+            test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
+            test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
+        }
+    }
+    // Depend on the megazord and its support library, as well as the
+    // above-mentione JNA stuff for testing.
+    dependencies {
+        api project(":full-megazord")
+        implementation project(":native-support")
+        jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
+        implementation "net.java.dev.jna:jna:$jna_version@aar"
+        // For reasons unknown, resolving the jnaForTest configuration directly
+        // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
+        // change attributes of configuration ':PROJECT:kapt' after it has been
+        // resolved`.  I think that the configuration is being made a
+        // super-configuration of the testImplementation and then the `.files` is
+        // causing it to be resolved.  Cloning first dissociates the configuration,
+        // avoiding other configurations from being resolved.  Tricky!
+        testImplementation files(configurations.jnaForTest.copyRecursive().files)
+    }
+    // For running local tests, depend on a local `cargo build` of the megazord.
+    // Unfortunately the `cargoBuild` task isn't available until after evaluation.
+    evaluationDependsOn(":full-megazord")
+    afterEvaluate {
+        android.libraryVariants.all { variant ->
+            def productFlavor = ""
+            variant.productFlavors.each {
+                productFlavor += "${it.name.capitalize()}"
+            }
+            def buildType = "${variant.buildType.name.capitalize()}"
+            tasks["generate${productFlavor}${buildType}Assets"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+
+            // For unit tests.
+            tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
+        }
+    }
+}
