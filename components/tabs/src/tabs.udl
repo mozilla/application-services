@@ -14,11 +14,6 @@ interface TabsStore {
     void register_with_sync_manager();
 };
 
-[Error]
-enum RemoteTabError {
-    "UnexpectedError"
-};
-
 enum DeviceType { "Desktop", "Mobile", "Tablet", "VR", "TV" };
 dictionary RemoteTab {
     string title;

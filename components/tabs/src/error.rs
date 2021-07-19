@@ -14,13 +14,6 @@ pub enum ErrorKind {
     UrlParseError(#[from] url::ParseError),
 }
 
-// This is the error enum that the consumer will catch
-#[derive(Debug, thiserror::Error)]
-pub enum RemoteTabError {
-    #[error("Unexpected error: {0}")]
-    UnexpectedError(String),
-}
-
 error_support::define_error! {
     ErrorKind {
         (SyncAdapterError, sync15::Error),
