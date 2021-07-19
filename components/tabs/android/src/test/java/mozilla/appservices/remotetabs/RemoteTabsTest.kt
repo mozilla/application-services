@@ -29,13 +29,13 @@ class RemoteTabsTest {
                     title = "cool things to look at in your remote tabs",
                     urlHistory = listOf("https://example.com"),
                     icon = null,
-                    lastUsed = 0u
+                    lastUsed = 0
                 ),
                 RemoteTab(
                     title = "cool things to look at in your remote tabs",
                     urlHistory = listOf(),
                     icon = null,
-                    lastUsed = 12u
+                    lastUsed = 12
                 )
             ))
         }

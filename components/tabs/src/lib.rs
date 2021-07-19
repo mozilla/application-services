@@ -15,6 +15,6 @@ uniffi_macros::include_scaffolding!("tabs");
 pub use crate::storage::{ClientRemoteTabs, DeviceType, RemoteTab};
 pub use crate::sync::engine::TabsEngine;
 pub use crate::sync::store::TabsStore;
-pub use error::{Error, ErrorKind, Result};
+pub use error::{Error, ErrorKind, RemoteTabError, Result};
 
 pub use crate::sync::store::get_registered_sync_engine;
