@@ -18,7 +18,7 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
  
-      - name: Build Dependencies and Generate Rust Docs
+      - name: Build Dependencies
         env: 
           SQLCIPHER_LIB_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/lib
           SQLCIPHER_INCLUDE_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/include
@@ -32,10 +32,6 @@ jobs:
           cd ../..
           sudo apt-get install ninja-build zlib1g-dev tclsh python3
           ./libs/verify-desktop-environment.sh
-          cargo doc --no-deps
-          echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
-          mkdir -p docs/rust-docs
-          cp -rf target/doc/* docs/rust-docs
       
       - name: Build mdbook
         run: |

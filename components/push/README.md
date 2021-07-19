@@ -29,6 +29,9 @@ the application.
 The HTTP endpoint is provided by Mozilla's [autopush service](https://autopush.readthedocs.io/en/latest/),
 and we use the [rust-ece](https://github.com/mozilla/rust-ece) to manage encryption with the cryptographic keys.
 
+Here's a helpful diagram of how the *subscription* flow works at a high level across the moving parts:
+![A Sequence diagram showing how the different parts of push interact](../../docs/diagrams/Push-Component-Subscription-flow.png "Sequence diagram")
+
 ### AutoPush Bridging
 
 Our target consumer platforms each have their own proprietary push-notification infrastructure,
