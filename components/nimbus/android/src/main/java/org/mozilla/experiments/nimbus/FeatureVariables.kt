@@ -126,7 +126,7 @@ interface VariablesWithContext : Variables {
     // defaults from manifest information.
     fun asText(res: Int) = context.getString(res)
     fun asDrawable(res: Int) = context.getDrawable(res)
-    fun asText(string: String) = asStringResource(string)?.let(this::asText) ?: string
+    fun asText(string: String): String? = asStringResource(string)?.let(this::asText) ?: string
     fun asStringResource(string: String) = context.getResource(string, "string")
     fun asDrawableResource(string: String) = context.getResource(string, "drawable")
 }
