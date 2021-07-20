@@ -12,6 +12,8 @@ error_support::define_error! {
     ErrorKind {
         (StorageSqlError, rusqlite::Error),
         (UrlParseError, url::ParseError),
+        (JSONDeserializeError, serde_json::Error),
+        (RequestError, viaduct::Error),
     }
 }
 
@@ -29,7 +31,7 @@ pub enum ErrorKind {
     CommunicationError(String),
 
     /// An error returned from the registration Server
-    #[error("Communication Server Error: {0:?}")]
+    #[error("Communication Server Error: {0}")]
     CommunicationServerError(String),
 
     /// Channel is already registered, generate new channelID
@@ -56,6 +58,18 @@ pub enum ErrorKind {
     /// A failure to parse a URL.
     #[error("URL parse error: {0:?}")]
     UrlParseError(#[from] url::ParseError),
+
+    /// A failure deserializing json.
+    #[error("Failed to parse json: {0}")]
+    JSONDeserializeError(#[from] serde_json::Error),
+
+    /// The UAID was not recognized by the server
+    #[error("Unrecognized UAID: {0}")]
+    UAIDNotRecognizedError(String),
+
+    /// Was unable to send request to server
+    #[error("Unable to send request to server: {0}")]
+    RequestError(#[from] viaduct::Error),
 }
 
 // Note, be sure to duplicate errors in the Kotlin side
@@ -74,6 +88,9 @@ impl ErrorKind {
             ErrorKind::TranscodingError(_) => 31,
             ErrorKind::RecordNotFoundError(_, _) => 32,
             ErrorKind::UrlParseError(_) => 33,
+            ErrorKind::JSONDeserializeError(_) => 34,
+            ErrorKind::UAIDNotRecognizedError(_) => 35,
+            ErrorKind::RequestError(_) => 36,
         };
         ffi_support::ErrorCode::new(code)
     }
