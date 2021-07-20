@@ -1,3 +1,11 @@
+# v81.0.1 (_2021-07-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.0...v81.0.1)
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+    - Tab struct member last_used is now a i64
+
 # v81.0.0 (_2021-07-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.1...v81.0.0)
