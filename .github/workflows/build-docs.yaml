@@ -34,6 +34,11 @@ jobs:
           ./libs/verify-desktop-environment.sh
       
       - name: Build mdbook
+        env: 
+          SQLCIPHER_LIB_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/lib
+          SQLCIPHER_INCLUDE_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/sqlcipher/include
+          NSS_DIR: ${{ github.workspace }}/libs/desktop/linux-x86-64/nss
+          NSS_STATIC: 1 
         run: |
           cargo install mdbook mdbook-mermaid mdbook-open-on-gh
           ./tools/build-book.sh
