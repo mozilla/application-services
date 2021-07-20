@@ -32,9 +32,6 @@ android {
     tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
         kotlinOptions {
             jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-            // This is required when using unsigned types via uniffi
-            // Will possibly be fixed in https://github.com/mozilla/uniffi-rs/issues/444
-            freeCompilerArgs += "-Xopt-in=kotlin.ExperimentalUnsignedTypes"
         }
     }
 }

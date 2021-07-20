@@ -44,7 +44,7 @@ pub struct RemoteTab {
     pub title: String,
     pub url_history: Vec<String>,
     pub icon: Option<String>,
-    pub last_used: u64, // In ms.
+    pub last_used: i64, // In ms.
 }
 
 #[derive(Clone, Debug)]

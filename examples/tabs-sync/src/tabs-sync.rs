@@ -129,7 +129,7 @@ fn read_local_state() -> Vec<RemoteTab> {
     let mut local_state = vec![];
     for tab in tabs {
         let title = tab["title"].as_str().unwrap().to_owned();
-        let last_used = tab["lastUsed"].as_u64().unwrap();
+        let last_used = tab["lastUsed"].as_i64().unwrap();
         let icon = tab["icon"]
             .as_str()
             .map(|s| Some(s.to_owned()))
