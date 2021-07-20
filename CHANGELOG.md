@@ -4,6 +4,8 @@
 
 ## Tabs
 ### ⚠️ Breaking Changes ⚠️
+Note: Though this is technically a breaking change, we do not expect any consumers to have upgraded to v81. Since this is a bug was introduced in v81 we're treating it as a bugfix.
+
     - Tab struct member last_used is now a i64
 
 # v81.0.0 (_2021-07-13_)
