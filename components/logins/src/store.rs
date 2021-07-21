@@ -124,7 +124,6 @@ impl LoginStore {
     pub fn add_or_update(&self, login: Login) -> Result<()> {
         match login.fixup() {
             Ok(l) => {
-                println!("successfully added and fixed up");
                 self.add(l)?;
             }
             Err(e) => {
