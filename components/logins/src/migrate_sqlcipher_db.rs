@@ -10,7 +10,7 @@ use crate::error::*;
 use crate::Login;
 use crate::LoginStore;
 use lazy_static::lazy_static;
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::{Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use std::path::Path;
 use std::time::Instant;
@@ -32,7 +32,9 @@ pub const SQL_CIPHER_COLS: &str = "
 ";
 
 lazy_static! {
-    pub static ref GET_BY_GUID_SQL: String = format!(
+    // pub static ref GET_JOINED_LOGINS_SQL: String =
+    //     format!("SELECT * FROM loginsL LEFT JOIN loginsM ON loginsL.guid = loginsM.guid");
+    pub static ref GET_ALL_SQL: String = format!(
         "SELECT {common_cols}
          FROM loginsL
          WHERE is_deleted = 0
@@ -111,56 +113,23 @@ pub fn migrate_from_sqlcipher_db(
 
     // Select From both LoginsL and LoginsM with a union to ensure we're covering our
     // migration cases (one table has but not the other, etc)
-    let mut select_stmt = cipher_conn.prepare(&GET_BY_GUID_SQL)?;
+    let mut select_stmt = cipher_conn.prepare(&GET_ALL_SQL)?;
+
+    // encrypt the username/password data
+    let encryptor = EncryptorDecryptor::new(encryption_key)?;
 
     // Use raw rows to avoid extra copying since we're looping over an entire table
     let mut rows = select_stmt.query(NO_PARAMS)?;
     while let Some(row) = rows.next()? {
         metrics.num_processed += 1;
-        let guid: String = row.get("guid")?;
-        let username: String = row.get("username").unwrap_or_default();
-        let password: String = row.get("password")?;
-        // migrating hostname to the new column origin
-        let origin: String = row.get("hostname")?;
-        let http_realm: Option<String> = row.get("httpRealm")?;
-        // migrating formSubmitURL to the new column action origin
-        let form_action_origin: Option<String> = row.get("formSubmitURL")?;
-        let username_field: Option<String> = row.get("usernameField")?;
-        let password_field: Option<String> = row.get("passwordField")?;
-        let time_created: i64 = row.get("timeCreated")?;
-        let time_last_used: i64 = row.get("timeLastUsed").unwrap_or_default();
-        let time_password_changed: i64 = row.get("timePasswordChanged")?;
-        let times_used: i64 = row.get("timesUsed")?;
-
-        // TODO: Discuss
-        // Need to handle in loginsL: local_modified, is_deleted
-        // Feels like we potentially shouldn't migrate these fields?
-
-        // Need to handle in loginsM: is_overridden, server_modified
-        // Similar to the other: I only see server_modified potentially being needed
-
-        // encrypt the username/password data
-        let encryptor = EncryptorDecryptor::new(encryption_key)?;
-        let login: Login = Login {
-            id: guid.to_string(),
-            username_enc: encryptor.encrypt(&username)?,
-            password_enc: encryptor.encrypt(&password)?,
-            origin,
-            http_realm,
-            form_action_origin,
-            username_field: username_field.unwrap_or_default(),
-            password_field: password_field.unwrap_or_default(),
-            // TO_DO: Do we need to convert from microsecond timestamps to milliseconds??
-            time_created,
-            time_last_used,
-            time_password_changed,
-            times_used,
-        };
-
-        // Leveraging the add_or_update to get free fixup
-        match new_db_store.add_or_update(login) {
-            Ok(_) => {
+        match get_login_from_row(row, &encryptor) {
+            Ok(login) => {
                 metrics.num_succeeded += 1;
+                // TODO: Discuss
+                // Need to handle in loginsL: local_modified, is_deleted
+                // Need to handle in loginsM: is_overridden, server_modified
+                // Could create a LocalLogin/Mirror Login but sql probably easier
+                new_db_store.add_or_update(login)?;
             }
             Err(e) => {
                 metrics.num_failed += 1;
@@ -171,6 +140,49 @@ pub fn migrate_from_sqlcipher_db(
 
     metrics.total_duration = start_time.elapsed().as_millis() as u64;
     Ok(metrics)
+}
+
+// Convert rows from old schema to match new fields in the Login struct
+fn get_login_from_row(row: &Row<'_>, encryptor: &EncryptorDecryptor) -> Result<Login> {
+    // We want to grab the "old" schema
+    let guid: String = row.get("guid")?;
+    let username: String = row.get("username").unwrap_or_default();
+    let password: String = row.get("password")?;
+    // migrating hostname to the new column origin
+    let origin: String = row.get("hostname")?;
+    let http_realm: Option<String> = row.get("httpRealm")?;
+    // migrating formSubmitURL to the new column action origin
+    let form_action_origin: Option<String> = row.get("formSubmitURL")?;
+    let username_field: Option<String> = row.get("usernameField")?;
+    let password_field: Option<String> = row.get("passwordField")?;
+    let time_created: i64 = row.get("timeCreated")?;
+    let time_last_used: i64 = row.get("timeLastUsed").unwrap_or_default();
+    let time_password_changed: i64 = row.get("timePasswordChanged")?;
+    let times_used: i64 = row.get("timesUsed")?;
+
+    let login: Login = Login {
+        id: guid.to_string(),
+        username_enc: encryptor.encrypt(&username)?,
+        password_enc: encryptor.encrypt(&password)?,
+        origin,
+        http_realm,
+        form_action_origin,
+        username_field: username_field.unwrap_or_default(),
+        password_field: password_field.unwrap_or_default(),
+        // TO_DO: Do we need to convert from microsecond timestamps to milliseconds??
+        time_created,
+        time_last_used,
+        time_password_changed,
+        times_used,
+    };
+
+    match login.fixup() {
+        Ok(fixed_login) => {
+            return Ok(fixed_login);
+        }
+        // We want to skip any invalid logins
+        Err(e) => return Err(e),
+    }
 }
 
 #[cfg(test)]
@@ -209,12 +221,20 @@ mod tests {
             INSERT INTO loginsL(guid, username, password, hostname,
             httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
             timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
-            VALUES ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
+            VALUES
+            ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
+            'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
+            ('b', 'test', 'password', 'https://www.example.com', 'https://www.example.com', 'https://www.example.com',
             'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2);
             INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
             usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
             is_overridden, server_modified)
-            VALUES ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
+            VALUES
+            ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
+            '', '', 1000, 1000, 1, 10, 0, 1000),
+            ('c', 'test', 'password', 'http://example.com:1234/', 'Test Realm', NULL,
+            '', '', 1000, 1000, 1, 10, 0, 1000),
+            ('d', 'test', 'password', 'http://example.com/foo?query=bbq#bar', 'Test Realm', NULL,
             '', '', 1000, 1000, 1, 10, 0, 1000);
             PRAGMA user_version = 4;
             ",
@@ -360,11 +380,11 @@ mod tests {
         let db = LoginDb::open(testpaths.new_db).unwrap();
         assert_eq!(
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
-            1
+            2
         );
         assert_eq!(
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(),
-            0
+            2
         );
 
         // Check metrics
