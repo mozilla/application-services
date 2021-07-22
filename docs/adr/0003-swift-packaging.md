@@ -1,8 +1,8 @@
 # Distributing Swift Packages
 
-* Status: proposed
+* Status: accepted
 * Deciders: rfkelly
-* Date: 2021-06-25
+* Date: 2021-07-22
 
 ## Context and Problem Statement
 
