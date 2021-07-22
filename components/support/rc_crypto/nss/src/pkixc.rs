@@ -11,14 +11,16 @@ use nss_sys::PRErrorCode;
 
 // NSS error codes.
 // https://searchfox.org/mozilla-central/rev/352b525/security/nss/lib/util/secerr.h#29
+const SEC_ERROR_EXPIRED_CERTIFICATE: i32 = -8181; // -8192 + 11
 const SEC_ERROR_UNKNOWN_ISSUER: i32 = -8179; // -8192 + 13
 const SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE: i32 = -8162; // -8192 + 30
 // SSL error codes.
 // https://searchfox.org/mozilla-central/rev/352b525/security/nss/lib/ssl/sslerr.h#42
-const SEC_ERROR_SUBJECT_MISMATCH: i32 = -12276; // -12288 + 12
+const SSL_ERROR_BAD_CERT_DOMAIN: i32 = -12276; // -12288 + 12
 // PKIX error codes.
 // https://searchfox.org/mozilla-central/rev/352b525/security/nss/lib/mozpkix/include/pkix/pkixnss.h#81
-const SEC_ERROR_EXPIRED_CERTIFICATE: i32 = -16378; // -16384 + 6
+const PKIX_ERROR_NOT_YET_VALID_CERTIFICATE: i32 = -16379; // -16384 + 5
+const PKIX_ERROR_NOT_YET_VALID_ISSUER_CERTIFICATE: i32 = -16378; // -16384 + 6
 
 const ROOT_HASH_LENGTH: usize = 32;
 
@@ -73,9 +75,11 @@ pub fn verify_code_signing_certificate_chain(
     if !result {
         let kind = match out {
             SEC_ERROR_UNKNOWN_ISSUER => ErrorKind::CertificateIssuerError,
-            SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE => ErrorKind::CertificateExpiredError,
-            SEC_ERROR_EXPIRED_CERTIFICATE => ErrorKind::CertificateExpiredError,
-            SEC_ERROR_SUBJECT_MISMATCH => ErrorKind::CertificateSubjectError,
+            SEC_ERROR_EXPIRED_CERTIFICATE => ErrorKind::CertificateValidityError,
+            SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE => ErrorKind::CertificateValidityError,
+            PKIX_ERROR_NOT_YET_VALID_CERTIFICATE => ErrorKind::CertificateValidityError,
+            PKIX_ERROR_NOT_YET_VALID_ISSUER_CERTIFICATE => ErrorKind::CertificateValidityError,
+            SSL_ERROR_BAD_CERT_DOMAIN => ErrorKind::CertificateSubjectError,
             _ => ErrorKind::NSSError(out, "invalid chain of trust".into()),
         };
         return Err(kind.into());

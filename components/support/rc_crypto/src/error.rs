@@ -16,8 +16,8 @@ pub enum ErrorKind {
     PEMFormatError(String),
     #[error("Certificate content error: {0}")]
     CertificateContentError(String),
-    #[error("Certificate expired")]
-    CertificateExpiredError,
+    #[error("Certificate not yet valid or expired")]
+    CertificateValidityError,
     #[error("Certificate subject mismatch")]
     CertificateSubjectError,
     #[error("Certificate issuer mismatch")]

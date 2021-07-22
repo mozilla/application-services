@@ -103,7 +103,7 @@ pub fn verify(
     )
     .map_err(|err| match err.kind() {
         nss::ErrorKind::CertificateIssuerError => ErrorKind::CertificateIssuerError,
-        nss::ErrorKind::CertificateExpiredError => ErrorKind::CertificateExpiredError,
+        nss::ErrorKind::CertificateValidityError => ErrorKind::CertificateValidityError,
         nss::ErrorKind::CertificateSubjectError => ErrorKind::CertificateSubjectError,
         _ => ErrorKind::CertificateChainError(err.to_string()),
     })?;
@@ -250,7 +250,31 @@ iKv8cXTONrGY0fyBDKennuX0uAca3V0Qm6v2VRp+7wG/pywWwc5n+04qgxTQPxgO
 6pPB9UUsNbaLMDR5QPYAWrNhqJ7B07XqIYJZSwGP5xB9NqUZLF4z+AOMYgWtDpmg
 IKdcFKAt3fFrpyMhlfIKkLfmm0iDjmfmIXbDGBJw9SE=
 -----END CERTIFICATE-----";
+    const VALID_INPUT: &[u8] =
+        b"Content-Signature:\x00{\"data\":[],\"last_modified\":\"1603992731957\"}";
     const VALID_SIGNATURE: &[u8] = b"fJJcOpwdnkjEWFeHXfdOJN6GaGLuDTPGzQOxA2jn6ldIleIk6KqMhZcy2GZv2uYiGwl6DERWwpaoUfQFLyCAOcVjck1qlaaEFZGY1BQba9p99xEc9FNQ3YPPfvSSZqsw";
+    const VALID_HOSTNAME: &str = "remote-settings.content-signature.mozilla.org";
+
+    const INVALID_CERTIFICATE: &[u8] = b"\
+    -----BEGIN CERTIFICATE-----
+    invalidCertificategIFiJLFfdxFlYwCgYIKoZIzj0EAwMwgaMxCzAJBgNVBAYT
+    AlVTMRwwGgYDVQQKExNNb3ppbGxhIENvcnBvcmF0aW9uMS8wLQYDVQQLEyZNb3pp
+    bGxhIEFNTyBQcm9kdWN0aW9uIFNpZ25pbmcgU2VydmljZTFFMEMGA1UEAww8Q29u
+    dGVudCBTaWduaW5nIEludGVybWVkaWF0ZS9lbWFpbEFkZHJlc3M9Zm94c2VjQG1v
+    emlsbGEuY29tMB4XDTIwMDYxNjE3MTYxNVoXDTIwMDkwNDE3MTYxNVowgakxCzAJ
+    BgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1Nb3VudGFp
+    biBWaWV3MRwwGgYDVQQKExNNb3ppbGxhIENvcnBvcmF0aW9uMRcwFQYDVQQLEw5D
+    bG91ZCBTZXJ2aWNlczE2MDQGA1UEAxMtcmVtb3RlLXNldHRpbmdzLmNvbnRlbnQt
+    c2lnbmF0dXJlLm1vemlsbGEub3JnMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEDmOX
+    N5IGlUqCvu6xkOKr020Eo3kY2uPdJO0ZihVUoglk1ktQPss184OajFOMKm/BJX4W
+    IsZUzQoRL8NgGfZDwBjT95Q87lhOWEWs5AU/nMXIYwDp7rpUPaUqw0QLMikdo4GD
+    MIGAMA4GA1UdDwEB/wQEAwIHgDATBgNVHSUEDDAKBggrBgEFBQcDAzAfBgNVHSME
+    GDAWgBSgHUoXT4zCKzVF8WPx2nBwp8744TA4BgNVHREEMTAvgi1yZW1vdGUtc2V0
+    dGluZ3MuY29udGVudC1zaWduYXR1cmUubW96aWxsYS5vcmcwCgYIKoZIzj0EAwMD
+    aQAwZgIxAJvyynyPqRmRMqf95FPH5xfcoT3jb/2LOkUifGDtjtZ338ScpT2glUK8
+    HszKVANqXQIxAIygMaeTiD9figEusmHMthBdFoIoHk31x4MHukAy+TWZ863X6/V2
+    6/ZrZMpinvalid==
+    -----END CERTIFICATE-----";
 
     #[test]
     fn test_decode_root_hash() {
@@ -299,7 +323,7 @@ BAUG
     }
 
     #[test]
-    fn test_verify() {
+    fn test_verify_fails_if_invalid() {
         assert!(verify(
             b"msg",
             b"sig",
@@ -311,14 +335,82 @@ fdfeff
             "remotesettings.firefox.com",
         )
         .is_err());
+    }
 
-        verify(
-            "Content-Signature:\u{0}{\"data\":[],\"last_modified\":\"1603992731957\"}".as_bytes(),
+    #[test]
+    fn test_verify_fails_if_cert_has_expired() {
+        assert!(verify(
+            VALID_INPUT,
+            VALID_SIGNATURE,
+            VALID_CERT_CHAIN,
+            1215559719, // July 9, 2008
+            ROOT_HASH,
+            VALID_HOSTNAME,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_verify_fails_if_bad_certificate_chain() {
+        assert!(verify(
+            VALID_INPUT,
+            VALID_SIGNATURE,
+            INVALID_CERTIFICATE,
+            1615559719, // March 12, 2021
+            ROOT_HASH,
+            VALID_HOSTNAME,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_verify_fails_if_mismatch() {
+        assert!(verify(
+            b"msg",
             VALID_SIGNATURE,
             VALID_CERT_CHAIN,
             1615559719, // March 12, 2021
             ROOT_HASH,
-            "remote-settings.content-signature.mozilla.org",
+            VALID_HOSTNAME,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_verify_fails_if_bad_hostname() {
+        assert!(verify(
+            VALID_INPUT,
+            VALID_SIGNATURE,
+            VALID_CERT_CHAIN,
+            1615559719, // March 12, 2021
+            ROOT_HASH,
+            "some.hostname.org",
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_verify_fails_if_bad_root_hash() {
+        assert!(verify(
+            VALID_INPUT,
+            VALID_SIGNATURE,
+            VALID_CERT_CHAIN,
+            1615559719, // March 12, 2021
+            "00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00:00",
+            VALID_HOSTNAME,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_verify_succeeds_if_valid() {
+        verify(
+            VALID_INPUT,
+            VALID_SIGNATURE,
+            VALID_CERT_CHAIN,
+            1615559719, // March 12, 2021
+            ROOT_HASH,
+            VALID_HOSTNAME,
         )
         .unwrap();
     }

@@ -20,8 +20,8 @@ pub enum ErrorKind {
     CertificateIssuerError,
     #[error("Certificate subject does not match")]
     CertificateSubjectError,
-    #[error("Certificate expired")]
-    CertificateExpiredError,
+    #[error("Certificate not yet valid or expired")]
+    CertificateValidityError,
 }
 
 error_support::define_error! {
