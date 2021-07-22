@@ -19,7 +19,6 @@ use manager::SyncManager;
 use places::PlacesApi;
 use std::sync::Arc;
 use std::sync::Mutex;
-use tabs::TabsStore;
 
 lazy_static::lazy_static! {
     static ref MANAGER: Mutex<SyncManager> = Mutex::new(SyncManager::new());
@@ -28,11 +27,6 @@ lazy_static::lazy_static! {
 pub fn set_places(places: Arc<PlacesApi>) {
     let mut manager = MANAGER.lock().unwrap();
     manager.set_places(places);
-}
-
-pub fn set_tabs(tabs: Arc<Mutex<TabsStore>>) {
-    let mut manager = MANAGER.lock().unwrap();
-    manager.set_tabs(tabs);
 }
 
 pub fn disconnect() {

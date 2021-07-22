@@ -182,7 +182,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: itertools</name>
-    <url>https://github.com/bluss/rust-itertools/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/rust-itertools/itertools/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: itoa</name>
@@ -270,11 +270,11 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: prost</name>
-    <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
+    <url>https://github.com/tokio-rs/prost/blob/master/LICENSE</url>
   </license>
   <license>
     <name>Apache License 2.0: prost-derive</name>
-    <url>https://github.com/danburkert/prost/blob/master/LICENSE</url>
+    <url>https://github.com/tokio-rs/prost/blob/master/LICENSE</url>
   </license>
   <license>
     <name>Apache License 2.0: quote</name>
@@ -459,10 +459,6 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: wyz</name>
     <url>https://github.com/myrrlyn/wyz/blob/main/LICENSE.txt</url>
-  </license>
-  <license>
-    <name>MIT License: bytes</name>
-    <url>https://github.com/tokio-rs/bytes/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: bytes</name>

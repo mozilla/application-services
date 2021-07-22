@@ -11,7 +11,7 @@ pub struct TabsRecordTab {
     pub title: String,
     pub url_history: Vec<String>,
     pub icon: Option<String>,
-    pub last_used: u64, // Seconds since epoch!
+    pub last_used: i64, // Seconds since epoch!
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize)]

@@ -12,9 +12,6 @@ pub enum ErrorKind {
 
     #[error("Error parsing URL: {0}")]
     UrlParseError(#[from] url::ParseError),
-
-    #[error("Protobuf decode error: {0}")]
-    ProtobufDecodeError(#[from] prost::DecodeError),
 }
 
 error_support::define_error! {
@@ -22,6 +19,5 @@ error_support::define_error! {
         (SyncAdapterError, sync15::Error),
         (JsonError, serde_json::Error),
         (UrlParseError, url::ParseError),
-        (ProtobufDecodeError, prost::DecodeError),
     }
 }

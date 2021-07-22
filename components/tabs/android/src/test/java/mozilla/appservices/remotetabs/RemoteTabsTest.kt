@@ -15,15 +15,21 @@ class RemoteTabsTest {
     fun init() {
         Megazord.init()
     }
+
+    protected fun getTestStore(): TabsStore {
+        return TabsStore()
+    }
+
     @Test
-    fun doTest() {
-        RemoteTabsProvider().use { tabs ->
+    fun setLocalTabsTest() {
+        val store = getTestStore()
+        store.use { tabs ->
             tabs.setLocalTabs(listOf(
                 RemoteTab(
                     title = "cool things to look at in your remote tabs",
                     urlHistory = listOf("https://example.com"),
                     icon = null,
-                    lastUsed = null
+                    lastUsed = 0
                 ),
                 RemoteTab(
                     title = "cool things to look at in your remote tabs",
@@ -33,5 +39,11 @@ class RemoteTabsTest {
                 )
             ))
         }
+    }
+
+    @Test
+    fun getAllTest() {
+        val store = getTestStore()
+        store.getAll()
     }
 }

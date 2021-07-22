@@ -418,29 +418,29 @@ PACKAGE_METADATA_FIXUPS = {
     },
     "prost-build": {
         "repository": {
-            "check": "https://github.com/danburkert/prost",
+            "check": "https://github.com/tokio-rs/prost",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/prost/master/LICENSE",
         },
     },
     "prost-derive": {
         "repository": {
-            "check": "https://github.com/danburkert/prost",
+            "check": "https://github.com/tokio-rs/prost",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/prost/master/LICENSE",
         },
     },
     "prost-types": {
         "repository": {
-            "check": "https://github.com/danburkert/prost",
+            "check": "https://github.com/tokio-rs/prost",
         },
         "license_file": {
             "check": None,
-            "fixup": "https://raw.githubusercontent.com/danburkert/prost/master/LICENSE",
+            "fixup": "https://raw.githubusercontent.com/tokio-rs/prost/master/LICENSE",
         },
     },
     "radium": {

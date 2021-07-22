@@ -142,6 +142,102 @@ pub fn exactly_two_experiments() -> String {
 }
 
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
+pub fn two_valid_experiments() -> Vec<serde_json::Value> {
+    use serde_json::json;
+    vec![
+        json!({
+        "schemaVersion": "1.0.0",
+        "slug": "startup-gold",
+        "endDate": null,
+        "featureIds": ["aboutmonkeys"],
+        "branches":[
+            {
+                "slug": "control",
+                "ratio": 1,
+                "feature": {
+                    "featureId": "aboutmonkeys",
+                    "enabled": false
+                }
+            },
+            {
+                "slug": "treatment",
+                "ratio":1,
+                "feature": {
+                    "featureId": "aboutmonkeys",
+                    "enabled": true
+                },
+            }
+        ],
+        "channel": "nightly",
+        "probeSets":[],
+        "startDate":null,
+        "appName":"fenix",
+        "appId":"org.mozilla.fenix",
+        "bucketConfig":{
+            // Setup to enroll everyone by default.
+            "count":10_000,
+            "start":0,
+            "total":10_000,
+            "namespace":"startup-gold",
+            "randomizationUnit":"nimbus_id"
+        },
+        "userFacingName":"Diagnostic test experiment",
+        "referenceBranch":"control",
+        "isEnrollmentPaused":false,
+        "proposedEnrollment":7,
+        "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+        "id":"startup-gold",
+        "last_modified":1_602_197_324_372i64
+        }),
+        json!({
+                "schemaVersion": "1.0.0",
+                "slug": "secure-gold",
+                "endDate": null,
+                "featureIds": ["some-feature"],
+                "branches":[
+                    {
+                        "slug": "control",
+                        "ratio": 1,
+                        "feature": {
+                            "featureId": "some-feature",
+                            "enabled": false
+                        },
+                    },
+                    {
+                        "slug": "treatment",
+                        "ratio":1,
+                        "feature": {
+                            "featureId": "some-feature",
+                            "enabled": true
+                        },
+                    }
+                ],
+                "channel": "nightly",
+                "probeSets":[],
+                "startDate":null,
+                "appName":"fenix",
+                "appId":"org.mozilla.fenix",
+                "bucketConfig":{
+                    // Setup to enroll everyone by default.
+                    "count":10_000,
+                    "start":0,
+                    "total":10_000,
+                    "namespace":"secure-gold",
+                    "randomizationUnit":"nimbus_id"
+                },
+                "userFacingName":"Diagnostic test experiment",
+                "referenceBranch":"control",
+                "isEnrollmentPaused":false,
+                "proposedEnrollment":7,
+                "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+                "id":"secure-gold",
+                "last_modified":1_602_197_324_372i64
+            }
+        ),
+    ]
+}
+
+#[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
 pub fn experiments_testing_feature_ids() -> String {
     use serde_json::json;
     json!({
@@ -288,15 +384,15 @@ use nimbus::persistence::{Database, SingleStore};
 use rkv::StoreOptions;
 use std::path::Path;
 #[allow(dead_code)] //  work around https://github.com/rust-lang/rust/issues/46379
-pub fn create_old_database<P: AsRef<Path>>(
+pub fn create_database<P: AsRef<Path>>(
     path: P,
     old_version: u16,
     experiments_json: &[serde_json::Value],
     enrollments_json: &[serde_json::Value],
 ) -> Result<()> {
     let _ = env_logger::try_init();
-    log::debug!("create_old_database(): old_version = {:?}", old_version);
-    log::debug!("create_old_database(): path = {:?}", path.as_ref());
+    log::debug!("create_database(): old_version = {:?}", old_version);
+    log::debug!("create_database(): path = {:?}", path.as_ref());
     let rkv = Database::open_rkv(path)?;
     let meta_store = SingleStore::new(rkv.open_single("meta", StoreOptions::create())?);
     let experiment_store =
@@ -309,7 +405,7 @@ pub fn create_old_database<P: AsRef<Path>>(
 
     // write out the experiments
     for experiment_json in experiments_json {
-        // log::debug!("experiment_json = {:?}", experiment_json);
+        log::debug!("create_database(): experiment_json = {:?}", experiment_json);
         experiment_store.put(
             &mut writer,
             experiment_json["slug"].as_str().unwrap(),
@@ -328,7 +424,7 @@ pub fn create_old_database<P: AsRef<Path>>(
     }
 
     writer.commit()?;
-    log::debug!("create_old_database: writer committed");
+    log::debug!("create_database: writer committed");
 
     Ok(())
 }

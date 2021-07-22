@@ -32,7 +32,7 @@ impl PushManager {
             Store::open_in_memory()?
         };
         let uaid = store.get_meta("uaid")?;
-        let pm = Self {
+        Ok(Self {
             config: config.clone(),
             conn: connect(config, uaid, store.get_meta("auth")?)?,
             store,
@@ -41,8 +41,7 @@ impl PushManager {
                 UPDATE_RATE_LIMITER_INTERVAL,
                 UPDATE_RATE_LIMITER_MAX_CALLS,
             ),
-        };
-        Ok(pm)
+        })
     }
 
     // XXX: make these trait methods
@@ -101,19 +100,21 @@ impl PushManager {
     }
 
     // XXX: maybe -> Result<()> instead
-    pub fn unsubscribe(&self, channel_id: Option<&str>) -> Result<bool> {
+    pub fn unsubscribe(&mut self, channel_id: Option<&str>) -> Result<bool> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
-        let uaid = self.conn.uaid.as_ref().unwrap();
         Ok(if let Some(chid) = channel_id {
-            self.conn.unsubscribe(channel_id)? && self.store.delete_record(uaid, chid)?
+            self.conn.unsubscribe(channel_id)?
+                && self
+                    .store
+                    .delete_record(self.conn.uaid.as_ref().unwrap(), chid)?
         } else {
             false
         })
     }
 
-    pub fn unsubscribe_all(&self) -> Result<bool> {
+    pub fn unsubscribe_all(&mut self) -> Result<bool> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
@@ -142,7 +143,8 @@ impl PushManager {
             .conn
             .uaid
             .as_ref()
-            .ok_or_else(|| ErrorKind::GeneralError("No subscriptions created yet.".into()))?;
+            .ok_or_else(|| ErrorKind::GeneralError("No subscriptions created yet.".into()))?
+            .to_owned();
 
         let channels = self.store.get_channel_list(&uaid)?;
         if self.conn.verify_connection(&channels)? {
@@ -156,6 +158,12 @@ impl PushManager {
                 subscriptions.push(record);
             }
         }
+        // we wipe the UAID if there is a mismatch, forcing us to later
+        // re-generate a new one when we do the next first subscription.
+        // this is to prevent us from attempting to communicate with the server using an outdated
+        // UAID, the in-memory uaid was already wiped in the `verify_connection` call
+        // when we unsubscribe
+        self.store.delete_all_records(&uaid)?;
         Ok(subscriptions)
     }
 
@@ -191,27 +199,26 @@ impl PushManager {
 #[cfg(test)]
 mod test {
     use super::*;
-
+    const TEST_CHANNEL_ID: &str = "deadbeef00000000decafbad00000000";
     #[test]
     fn basic() -> Result<()> {
-        let test_channel_id = "deadbeef00000000decafbad00000000";
         let test_config = PushConfiguration {
             sender_id: "test".to_owned(),
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, key) = pm.subscribe(test_channel_id, "", None)?;
+        let (info, key) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
         // verify that a subsequent request for the same channel ID returns the same subscription
-        let (info2, key2) = pm.subscribe(test_channel_id, "", None)?;
+        let (info2, key2) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
         assert_eq!(
             Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned()),
             pm.store.get_meta("auth")?
         );
         assert_eq!(info.endpoint, info2.endpoint);
         assert_eq!(key, key2);
-        assert!(pm.unsubscribe(Some(test_channel_id))?);
+        assert!(pm.unsubscribe(Some(TEST_CHANNEL_ID))?);
         // It's already deleted, so return false.
-        assert!(!pm.unsubscribe(Some(test_channel_id))?);
+        assert!(!pm.unsubscribe(Some(TEST_CHANNEL_ID))?);
         // No channel specified, so nothing done.
         assert!(!pm.unsubscribe(None)?);
         assert!(pm.unsubscribe_all()?);
@@ -223,14 +230,13 @@ mod test {
         use rc_crypto::ece;
 
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
-        let test_channel_id = "deadbeef00000000decafbad00000000";
         let test_config = PushConfiguration {
             sender_id: "test".to_owned(),
             // database_path: Some("test.db"),
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, key) = pm.subscribe(test_channel_id, "", None)?;
+        let (info, key) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
         // Act like a subscription provider, so create a "local" key to encrypt the data
         let ciphertext = ece::encrypt(&key.public_key(), &key.auth, data_string).unwrap();
         let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
@@ -241,6 +247,48 @@ mod test {
         assert_eq!(
             serde_json::to_string(&data_string.to_vec()).unwrap(),
             result
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_wipe_uaid() -> Result<()> {
+        let test_config = PushConfiguration {
+            sender_id: "test".to_owned(),
+            ..Default::default()
+        };
+        let mut pm = PushManager::new(test_config)?;
+        let (info, _) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        // verify that the uaid got added to our store and
+        // that there is a record associated with the channel ID provided
+        assert_eq!(pm.store.get_meta("uaid")?.unwrap(), info.uaid);
+        assert_eq!(
+            pm.store
+                .get_record(&info.uaid, TEST_CHANNEL_ID)?
+                .unwrap()
+                .channel_id,
+            TEST_CHANNEL_ID
+        );
+        let unsubscribed_channels = pm.verify_connection()?;
+        assert_eq!(unsubscribed_channels.len(), 1);
+        assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
+        // since verify_connection failed,
+        // we wipe the uaid and all associated records from our store
+        assert!(pm.store.get_meta("uaid")?.is_none());
+        assert!(pm.store.get_record(&info.uaid, TEST_CHANNEL_ID)?.is_none());
+
+        // we now check that a new subscription will cause us to
+        // re-generate a uaid and store it in our store
+        let (info, _) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        // verify that the uaid got added to our store and
+        // that there is a record associated with the channel ID provided
+        assert_eq!(pm.store.get_meta("uaid")?.unwrap(), info.uaid);
+        assert_eq!(
+            pm.store
+                .get_record(&info.uaid, TEST_CHANNEL_ID)?
+                .unwrap()
+                .channel_id,
+            TEST_CHANNEL_ID
         );
         Ok(())
     }

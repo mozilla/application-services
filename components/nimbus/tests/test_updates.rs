@@ -12,8 +12,8 @@ mod common;
 #[cfg(test)]
 mod test {
     use super::common::{
-        create_old_database, exactly_two_experiments, new_test_client, new_test_client_with_db,
-        no_test_experiments,
+        create_database, exactly_two_experiments, new_test_client, new_test_client_with_db,
+        no_test_experiments, two_valid_experiments,
     };
     #[cfg(feature = "rkv-safe-mode")]
     use nimbus::{error::Result, NimbusClient};
@@ -461,7 +461,7 @@ mod test {
 
         // create a database in a way that could cause the migrator to
         // leave some orphan records while cleaning up...
-        create_old_database(
+        create_database(
             &tmp_dir,
             1,
             db_v1_experiments_with_missing_feature_fields,
@@ -488,6 +488,56 @@ mod test {
         // Make sure that we have what we should...
         assert_eq!(experiments.len(), 1);
         assert_eq!(experiments[0].slug, "secure-gold");
+
+        Ok(())
+    }
+
+    /// Test that with pre-existing experiments that are missing enrollments,
+    /// apply_pending_experiments drops the experiments and returns the right
+    /// thing.
+    #[cfg(feature = "rkv-safe-mode")]
+    #[test]
+    fn test_experiments_without_enrollments_are_dropped() -> Result<()> {
+        let _ = env_logger::try_init();
+
+        use tempdir::TempDir;
+
+        let tmp_dir = TempDir::new("test_experiments_without_enrollments_are_dropped")?;
+        let two_valid_experiments = &two_valid_experiments();
+
+        // create a database in a way that could cause the migrator to
+        // leave some orphan records while cleaning up by having pre-existing
+        // enrollments for the pre-existing experiments, which should cause an
+        // error during evolution forcing both records to be dropped.
+        create_database(&tmp_dir, 2, two_valid_experiments, &[])?;
+
+        let client = new_test_client_with_db(&tmp_dir)?;
+
+        let experiments = client.get_all_experiments()?;
+        log::debug!("after db creation: experiments = {:?}", experiments);
+
+        assert_eq!(
+            experiments.len(),
+            2,
+            "both experiments should have been read"
+        );
+
+        // Apply the new experiments from the test dir...
+        client.fetch_experiments()?;
+        client.apply_pending_experiments()?;
+
+        let experiments = client.get_all_experiments()?;
+        log::debug!(
+            "after 2nd apply and get_all: experiments = {:?}",
+            experiments
+        );
+
+        // Make sure that we have what we should...
+        assert_eq!(
+            experiments.len(),
+            0,
+            "both experiments should have been discarded"
+        );
 
         Ok(())
     }

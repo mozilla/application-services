@@ -7,19 +7,14 @@
 
 #[macro_use]
 pub mod error;
-mod ffi;
 mod storage;
 mod sync;
 
-pub mod msg_types {
-    include!("mozilla.appservices.remotetabs.protobuf.rs");
-}
+uniffi_macros::include_scaffolding!("tabs");
 
-pub use crate::storage::{ClientRemoteTabs, RemoteTab};
+pub use crate::storage::{ClientRemoteTabs, DeviceType, RemoteTab};
 pub use crate::sync::engine::TabsEngine;
 pub use crate::sync::store::TabsStore;
 pub use error::{Error, ErrorKind, Result};
 
-// Re-export `DeviceType`, so that it's easier for consumers to make
-// `ClientRemoteTabs` structs without importing `sync15`.
-pub use sync15::clients::DeviceType;
+pub use crate::sync::store::get_registered_sync_engine;

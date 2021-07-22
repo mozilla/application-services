@@ -47,3 +47,6 @@ __pycache__
 # Generated mdbook documentation files
 build/docs/*
 docs/book
+
+# Generated rustdocs
+docs/rust-docs

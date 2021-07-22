@@ -24,8 +24,8 @@ ffi-support = "0.4"
 sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
-prost = "0.6"
-prost-derive = "0.6"
+prost = "0.8"
+prost-derive = "0.8"
 thiserror = "1.0"
 
 [dev-dependencies]

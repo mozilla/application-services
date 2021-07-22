@@ -246,7 +246,7 @@ pub fn get_since(db: &PlacesDb, start: i64) -> Result<HistoryMetadataList> {
     Ok(HistoryMetadataList { metadata })
 }
 
-pub fn query(db: &PlacesDb, query: &str, limit: i64) -> Result<HistoryMetadataList> {
+pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<HistoryMetadataList> {
     let metadata = db.query_rows_and_then_named_cached(
         QUERY_SQL.as_str(),
         rusqlite::named_params! {
@@ -439,7 +439,6 @@ mod tests {
         };
     }
 
-    #[macro_use]
     macro_rules! assert_history_metadata_record {
         ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
             assert_eq!(String::from($url), $record.url, "url must match");
@@ -483,7 +482,6 @@ mod tests {
         };
     }
 
-    #[macro_use]
     macro_rules! assert_total_after_observation {
         ($conn:expr, total_records_after $total_records:expr, total_view_time_after $total_view_time:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
             note_observation!($conn,
@@ -501,7 +499,6 @@ mod tests {
         }
     }
 
-    #[macro_use]
     macro_rules! note_observation {
         ($conn:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
             apply_metadata_observation(
@@ -519,7 +516,6 @@ mod tests {
         };
     }
 
-    #[macro_use]
     macro_rules! assert_after_observation {
         ($conn:expr, total_records_after $total_records:expr, total_view_time_after $total_view_time:expr, url $url:expr, view_time $view_time:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr, assertion $assertion:expr) => {
             // can set title on creating a new record

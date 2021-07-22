@@ -542,10 +542,10 @@ pub extern "C" fn places_get_history_metadata_since(
 pub extern "C" fn places_query_history_metadata(
     handle: u64,
     query: FfiStr<'_>,
-    limit: i64,
+    limit: i32,
     error: &mut ExternError,
 ) -> ByteBuffer {
-    log::debug!("places_get_history_metadata_since");
+    log::debug!("places_query_history_metadata");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         storage::history_metadata::query(conn, query.as_str(), limit)
     })

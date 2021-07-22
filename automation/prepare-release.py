@@ -40,6 +40,22 @@ CHANGELOG_FILE = "CHANGELOG.md"
 
 ensure_working_tree_clean()
 
+step_msg(f"Calculating remote owner {remote}")
+result = run_cmd_checked(["git", "remote", "get-url", remote], stdout=subprocess.PIPE)
+repo_url = result.stdout.decode('utf8').strip()
+repo_owner_patterns = [
+    r"git@github.com:(.*?)/application-services.git",
+    r'https://github.com/(.*?)/application-services.git',
+]
+for pattern in repo_owner_patterns:
+    match = re.match(pattern, repo_url)
+    if match:
+        repo_owner = match.group(1)
+        break
+else:
+    fatal_err(f"Error parsing remote URL: {repo_url}")
+print(f"Parsed github owner {repo_owner} for {repo_url}")
+
 step_msg(f"Updating remote {remote}")
 run_cmd_checked(["git", "remote", "update", remote])
 
@@ -142,4 +158,7 @@ response = input("Great! Would you like to push and open a pull-request? ([Y]/N)
 if response != "y" and response != "" and response != "yes":
     exit(0)
 run_cmd_checked(["git", "push", remote, release_branch])
-webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{release_branch}")
+if repo_owner == 'mozilla':
+    webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{release_branch}")
+else:
+    webbrowser.open_new_tab(f"https://github.com/mozilla/application-services/compare/{base_branch}...{repo_owner}:{release_branch}")

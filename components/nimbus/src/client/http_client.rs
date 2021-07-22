@@ -109,7 +109,10 @@ impl SettingsClient for Client {
     }
 
     fn fetch_experiments(&self) -> Result<Vec<Experiment>> {
-        let path = format!("buckets/main/collections/{}/records", &self.collection_name);
+        let path = format!(
+            "v1/buckets/main/collections/{}/records",
+            &self.collection_name
+        );
         let url = self.base_url.join(&path)?;
         let req = Request::get(url);
         let resp = self.make_request(req)?;
@@ -270,7 +273,7 @@ mod tests {
         // in order to test filtering of unsupported schema versions.
         let m = mock(
             "GET",
-            "/buckets/main/collections/messaging-experiments/records",
+            "/v1/buckets/main/collections/messaging-experiments/records",
         )
         .with_body(response_body())
         .with_status(200)
@@ -341,7 +344,7 @@ mod tests {
         viaduct_reqwest::use_reqwest_backend();
         let m = mock(
             "GET",
-            "/buckets/main/collections/messaging-experiments/records",
+            "/v1/buckets/main/collections/messaging-experiments/records",
         )
         .with_body(response_body())
         .with_status(200)
@@ -364,7 +367,7 @@ mod tests {
         viaduct_reqwest::use_reqwest_backend();
         let m = mock(
             "GET",
-            "/buckets/main/collections/messaging-experiments/records",
+            "/v1/buckets/main/collections/messaging-experiments/records",
         )
         .with_body("Boom!")
         .with_status(500)
@@ -386,7 +389,7 @@ mod tests {
         viaduct_reqwest::use_reqwest_backend();
         let m = mock(
             "GET",
-            "/buckets/main/collections/messaging-experiments/records",
+            "/v1/buckets/main/collections/messaging-experiments/records",
         )
         .with_body(response_body())
         .with_status(200)
