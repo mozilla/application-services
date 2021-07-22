@@ -3,22 +3,27 @@
 buildscript {
 
     ext {
-        kotlin_version = '1.3.71'
-        kotlin_coroutines_version = '1.4.2'
-        jna_version = '5.6.0'
-        android_gradle_plugin_version = '4.0.1'
-        android_components_version = '75.0.0'
+        kotlin_version = '1.5.20'
+        kotlin_coroutines_version = '1.5.0'
+        jna_version = '5.8.0'
+        android_gradle_plugin_version = '4.2.2'
+        android_components_version = '91.0.3'
         androidx_annotation_version = '1.2.0'
         androidx_core_version = '1.3.2'
         androidx_test_core_version = '1.3.0'
         androidx_test_junit_version = '1.1.2'
         androidx_work_testing_version = '2.5.0'
+        androidx_test_runner_version = '1.3.0'
+        detekt_version = '1.17.1'
+        gradle_download_task_version = '3.4.3'
         junit_version = '4.13'
+        maven_publish_version = '3.6.2'
         mockito_core_version = '2.24.5'
         roboelectric_core_version = '4.3.1'
-        android_test_runner_version = '1.0.2'
-        espresso_core_version = '3.0.2'
+        rust_android_gradle_version = '0.8.3'
+        espresso_core_version = '3.3.0'
         protobuf_version = '3.11.4'
+        gradle_protobuf_version = '0.8.14'
     }
 
     ext.build = [
@@ -49,20 +54,21 @@ buildscript {
 
     dependencies {
         classpath "com.android.tools.build:gradle:$android_gradle_plugin_version"
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
 
         // Publish.
-        classpath 'digital.wup:android-maven-publish:3.6.2'
+        classpath "digital.wup:android-maven-publish:$maven_publish_version"
 
-        classpath 'gradle.plugin.org.mozilla.rust-android-gradle:plugin:0.8.3'
+        classpath "gradle.plugin.org.mozilla.rust-android-gradle:plugin:$rust_android_gradle_version"
 
         // Yes, this is unusual.  We want to access some host-specific
         // computation at build time.
         classpath "net.java.dev.jna:jna:$jna_version"
 
         // Downloading libs/ archives from Taskcluster.
-        classpath 'de.undercouch:gradle-download-task:3.4.3'
+        classpath "de.undercouch:gradle-download-task:$gradle_download_task_version"
 
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.14'
+        classpath "com.google.protobuf:protobuf-gradle-plugin:$gradle_protobuf_version"
 
         // Since the Glean version depends on the Android components version,
         // it is very important to use a modern version of Glean and, ideally,
@@ -75,7 +81,7 @@ buildscript {
 }
 
 plugins {
-    id "io.gitlab.arturbosch.detekt" version "1.7.4"
+    id "io.gitlab.arturbosch.detekt" version "$detekt_version"
 }
 
 apply plugin: 'de.undercouch.download'
@@ -138,6 +144,7 @@ if (useDownloadedLibs) {
         src {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
                 case 'darwin':
+                case 'darwin-x86-64':
                     return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.macos.${rootProject.ext.libsGitSha}/artifacts/public/build/macos.tar.gz"
                 case 'linux-x86-64':
                     return "https://firefox-ci-tc.services.mozilla.com/api/index/v1/task/project.application-services.application-services.build.libs.desktop.linux.${rootProject.ext.libsGitSha}/artifacts/public/build/linux.tar.gz"
@@ -154,6 +161,7 @@ if (useDownloadedLibs) {
         dest {
             switch (DefaultPlatform.RESOURCE_PREFIX) {
                 case 'darwin':
+                case 'darwin-x86-64':
                     return new File(buildDir, "libs.desktop.macos.${rootProject.ext.libsGitSha}.tar.gz")
                 case 'linux-x86-64':
                     return new File(buildDir, "libs.desktop.linux.${rootProject.ext.libsGitSha}.tar.gz")
@@ -220,6 +228,7 @@ ext.rustTargets = [
 // Generate libs for our current platform so we can run unit tests.
 switch (DefaultPlatform.RESOURCE_PREFIX) {
     case 'darwin':
+    case 'darwin-x86-64':
         ext.nativeRustTarget = 'darwin'
         break
     case 'linux-x86-64':
@@ -277,7 +286,7 @@ ext.cargoExecWithSQLCipher = { spec, toolchain ->
 }
 
 detekt {
-    toolVersion = "1.7.4"
+    toolVersion = "$detekt_version"
     input = files(
         fileTree(dir: "${projectDir}/components", excludes: ["external", "**/generated"]),
         "${projectDir}/gradle-plugin",

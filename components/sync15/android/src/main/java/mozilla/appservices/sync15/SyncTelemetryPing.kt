@@ -74,7 +74,7 @@ data class SyncTelemetryPing(
     }
 
     fun toJSON(): JSONObject {
-        var result = JSONObject()
+        val result = JSONObject()
         result.put("version", version)
         result.put("uid", uid)
         if (!events.isEmpty()) {
@@ -131,7 +131,7 @@ data class SyncInfo(
     }
 
     fun toJSON(): JSONObject {
-        var result = JSONObject()
+        val result = JSONObject()
         result.put("when", at)
         if (took > 0) {
             result.put("took", took)
@@ -322,7 +322,7 @@ data class ValidationInfo(
     }
 
     fun toJSON(): JSONObject {
-        var result = JSONObject()
+        val result = JSONObject()
         result.put("version", version)
         if (!problems.isEmpty()) {
             result.put("problems", JSONArray().apply {
@@ -406,7 +406,7 @@ data class FailureReason(
     }
 
     fun toJSON(): JSONObject {
-        var result = JSONObject()
+        val result = JSONObject()
         when (name) {
             FailureName.Shutdown -> {
                 result.put("name", "shutdownerror")
