@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::db::LoginDb;
 use crate::error::*;
-use crate::login::Login;
+use crate::login::{DecryptedLogin, Login, LoginFields, LoginPayload};
 use crate::LoginsSyncEngine;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
@@ -36,8 +36,13 @@ pub struct LoginStore {
 }
 
 impl LoginStore {
-    pub fn new(path: impl AsRef<Path>, encryption_key: &str) -> Result<Self> {
-        let db = Mutex::new(LoginDb::open(path, Some(encryption_key))?);
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let db = Mutex::new(LoginDb::open(path)?);
+        Ok(Self { db })
+    }
+
+    pub fn new_old(path: impl AsRef<Path>, encryption_key: &str) -> Result<Self> {
+        let db = Mutex::new(LoginDb::open_old(path, Some(encryption_key))?);
         Ok(Self { db })
     }
 
@@ -51,19 +56,40 @@ impl LoginStore {
         Ok(Self { db })
     }
 
+    pub fn decrypt_and_fixup_login(&self, _enc_key: &str, _login: Login) -> Result<DecryptedLogin> {
+        Ok(DecryptedLogin {
+            ..Default::default()
+        })
+    }
+
     pub fn list(&self) -> Result<Vec<Login>> {
+        Ok(Vec::new())
+    }
+
+    pub fn list_old(&self) -> Result<Vec<LoginPayload>> {
         self.db.lock().unwrap().get_all()
     }
 
-    pub fn get(&self, id: &str) -> Result<Option<Login>> {
+    pub fn get(&self, _id: &str) -> Result<Option<Login>> {
+        Ok(None)
+    }
+
+    pub fn get_old(&self, id: &str) -> Result<Option<LoginPayload>> {
         self.db.lock().unwrap().get_by_id(id)
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+    pub fn get_by_base_domain(&self, _base_domain: &str) -> Result<Vec<Login>> {
+        Ok(Vec::new())
+    }
+
+    pub fn get_by_base_domain_old(&self, base_domain: &str) -> Result<Vec<LoginPayload>> {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
-    pub fn potential_dupes_ignoring_username(&self, login: Login) -> Result<Vec<Login>> {
+    pub fn potential_dupes_ignoring_username(
+        &self,
+        login: LoginPayload,
+    ) -> Result<Vec<LoginPayload>> {
         self.db
             .lock()
             .unwrap()
@@ -104,11 +130,15 @@ impl LoginStore {
         Ok(())
     }
 
-    pub fn update(&self, login: Login) -> Result<()> {
+    pub fn update(&self, login: LoginPayload) -> Result<()> {
         self.db.lock().unwrap().update(login)
     }
 
-    pub fn add(&self, login: Login) -> Result<String> {
+    pub fn add_or_update(&self, _enc_key: &str, _login: LoginFields) -> Result<String> {
+        Ok(String::default())
+    }
+
+    pub fn add(&self, login: LoginPayload) -> Result<String> {
         // Just return the record's ID (which we may have generated).
         self.db
             .lock()
@@ -117,7 +147,11 @@ impl LoginStore {
             .map(|record| record.guid().into_string())
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>) -> Result<String> {
+    pub fn import_multiple(&self, _enc_key: &str, _logins: Vec<Login>) -> Result<String> {
+        Ok(String::default())
+    }
+
+    pub fn import_multiple_old(&self, logins: Vec<LoginPayload>) -> Result<String> {
         let metrics = self.db.lock().unwrap().import_multiple(&logins)?;
         Ok(serde_json::to_string(&metrics)?)
     }
@@ -134,7 +168,7 @@ impl LoginStore {
         self.db.lock().unwrap().rekey_database(new_encryption_key)
     }
 
-    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
+    pub fn check_valid_with_no_dupes(&self, login: &LoginPayload) -> Result<()> {
         self.db.lock().unwrap().check_valid_with_no_dupes(&login)
     }
 
@@ -219,7 +253,7 @@ mod test {
     use std::cmp::Reverse;
     use std::time::SystemTime;
     // Doesn't check metadata fields
-    fn assert_logins_equiv(a: &Login, b: &Login) {
+    fn assert_logins_equiv(a: &LoginPayload, b: &LoginPayload) {
         assert_eq!(b.guid(), a.guid());
         assert_eq!(b.hostname, a.hostname);
         assert_eq!(b.form_submit_url, a.form_submit_url);
@@ -233,11 +267,11 @@ mod test {
     #[test]
     fn test_general() {
         let store = LoginStore::new_in_memory(Some("secret")).unwrap();
-        let list = store.list().expect("Grabbing Empty list to work");
+        let list = store.list_old().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
-        let a = Login {
+        let a = LoginPayload {
             id: "aaaaaaaaaaaa".into(),
             hostname: "https://www.example.com".into(),
             form_submit_url: Some("https://www.example.com".into()),
@@ -245,16 +279,16 @@ mod test {
             password: "p4ssw0rd".into(),
             username_field: "user_input".into(),
             password_field: "pass_input".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
 
-        let b = Login {
+        let b = LoginPayload {
             // Note: no ID, should be autogenerated for us
             hostname: "https://www.example2.com".into(),
             http_realm: Some("Some String Here".into()),
             username: "asdf".into(),
             password: "fdsa".into(),
-            ..Login::default()
+            ..LoginPayload::default()
         };
         let a_id = store.add(a.clone()).expect("added a");
         let b_id = store.add(b.clone()).expect("added b");
@@ -264,7 +298,7 @@ mod test {
         assert_ne!(b_id, b.guid(), "Should generate guid when none provided");
 
         let a_from_db = store
-            .get(&a_id)
+            .get_old(&a_id)
             .expect("Not to error getting a")
             .expect("a to exist");
 
@@ -275,13 +309,13 @@ mod test {
         assert_eq!(a_from_db.times_used, 1);
 
         let b_from_db = store
-            .get(&b_id)
+            .get_old(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
         assert_logins_equiv(
             &b_from_db,
-            &Login {
+            &LoginPayload {
                 id: b_id.to_string(),
                 ..b.clone()
             },
@@ -291,7 +325,7 @@ mod test {
         assert_ge!(b_from_db.time_last_used, start_us);
         assert_eq!(b_from_db.times_used, 1);
 
-        let mut list = store.list().expect("Grabbing list to work");
+        let mut list = store.list_old().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
 
         let mut expect = vec![a_from_db, b_from_db.clone()];
@@ -306,23 +340,23 @@ mod test {
             .expect("get after delete should still work")
             .is_none());
 
-        let list = store.list().expect("Grabbing list to work");
+        let list = store.list_old().expect("Grabbing list to work");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
         let list = store
-            .get_by_base_domain("example2.com")
+            .get_by_base_domain_old("example2.com")
             .expect("Expect a list for this hostname");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
         let list = store
-            .get_by_base_domain("www.example.com")
+            .get_by_base_domain_old("www.example.com")
             .expect("Expect an empty list");
         assert_eq!(list.len(), 0);
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
-        let b2 = Login {
+        let b2 = LoginPayload {
             password: "newpass".into(),
             id: b_id.to_string(),
             ..b
@@ -331,7 +365,7 @@ mod test {
         store.update(b2.clone()).expect("update b should work");
 
         let b_after_update = store
-            .get(&b_id)
+            .get_old(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
@@ -348,7 +382,7 @@ mod test {
     fn test_rekey() {
         let store = LoginStore::new_in_memory(Some("secret")).unwrap();
         store.rekey_database("new_encryption_key").unwrap();
-        let list = store.list().expect("Grabbing Empty list to work");
+        let list = store.list_old().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
     }
     #[test]

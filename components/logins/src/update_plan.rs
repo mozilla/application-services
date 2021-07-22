@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
+use crate::login::{LocalLogin, LoginPayload, MirrorLogin, SyncStatus};
 use crate::util;
 use rusqlite::{named_params, Connection};
 use sql_support::SqlInterruptScope;
@@ -17,12 +17,16 @@ pub(crate) struct UpdatePlan {
     pub delete_local: Vec<Guid>,
     pub local_updates: Vec<MirrorLogin>,
     // the bool is the `is_overridden` flag, the i64 is ServerTimestamp in millis
-    pub mirror_inserts: Vec<(Login, i64, bool)>,
-    pub mirror_updates: Vec<(Login, i64)>,
+    pub mirror_inserts: Vec<(LoginPayload, i64, bool)>,
+    pub mirror_updates: Vec<(LoginPayload, i64)>,
 }
 
 impl UpdatePlan {
-    pub fn plan_two_way_merge(&mut self, local: &Login, upstream: (Login, ServerTimestamp)) {
+    pub fn plan_two_way_merge(
+        &mut self,
+        local: &LoginPayload,
+        upstream: (LoginPayload, ServerTimestamp),
+    ) {
         let is_override = local.time_password_changed > upstream.0.time_password_changed;
         self.mirror_inserts
             .push((upstream.0, upstream.1.as_millis() as i64, is_override));
@@ -35,7 +39,7 @@ impl UpdatePlan {
         &mut self,
         local: LocalLogin,
         shared: MirrorLogin,
-        upstream: Login,
+        upstream: LoginPayload,
         upstream_time: ServerTimestamp,
         server_now: ServerTimestamp,
     ) {
@@ -64,11 +68,16 @@ impl UpdatePlan {
         self.delete_mirror.push(id);
     }
 
-    pub fn plan_mirror_update(&mut self, login: Login, time: ServerTimestamp) {
+    pub fn plan_mirror_update(&mut self, login: LoginPayload, time: ServerTimestamp) {
         self.mirror_updates.push((login, time.as_millis() as i64));
     }
 
-    pub fn plan_mirror_insert(&mut self, login: Login, time: ServerTimestamp, is_override: bool) {
+    pub fn plan_mirror_insert(
+        &mut self,
+        login: LoginPayload,
+        time: ServerTimestamp,
+        is_override: bool,
+    ) {
         self.mirror_inserts
             .push((login, time.as_millis() as i64, is_override));
     }

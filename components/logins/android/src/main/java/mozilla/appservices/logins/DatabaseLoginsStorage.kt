@@ -49,9 +49,9 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    fun unlock(encryptionKey: String) {
+    fun unlock(@Suppress("UNUSED_PARAMETER") encryptionKey: String) {
         return unlockCounters.measure {
-            val store = LoginStore(dbPath, encryptionKey)
+            val store = LoginStore(dbPath)
             if (this.store.getAndSet(store) != null) {
                 // this seems wrong?
                 throw LoginsStorageErrorException.MismatchedLock("Unlock called when we are already unlocked")
@@ -111,6 +111,13 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
+    fun decryptAndFixupLogin(encKey: String, login: Login): DecryptedLogin {
+        return readQueryCounters.measure {
+            checkUnlocked().decryptAndFixupLogin(encKey, login)
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
     fun list(): List<Login> {
         return readQueryCounters.measure {
             checkUnlocked().list()
@@ -125,44 +132,17 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun add(login: Login): String {
+    fun addOrUpdate(encKey: String, login: LoginFields): String {
         return writeQueryCounters.measure {
-            checkUnlocked().add(login)
+            checkUnlocked().addOrUpdate(encKey, login)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun importLogins(logins: List<Login>): String {
+    fun importLogins(encKey: String, logins: List<Login>): String {
         return writeQueryCounters.measure {
-            checkUnlocked().importMultiple(logins)
+            checkUnlocked().importMultiple(encKey, logins)
         }
-    }
-
-    @Throws(LoginsStorageException::class)
-    fun update(login: Login) {
-        return writeQueryCounters.measure {
-            checkUnlocked().update(login)
-        }
-    }
-
-    @Synchronized
-    @Throws(LoginsStorageException::class)
-    fun potentialDupesIgnoringUsername(login: Login): List<Login> {
-        return readQueryCounters.measure {
-            checkUnlocked().potentialDupesIgnoringUsername(login)
-        }
-    }
-
-    @Throws(LoginsStorageErrorException.InvalidRecord::class)
-    fun ensureValid(login: Login) {
-        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageErrorException.InvalidRecord }) {
-            checkUnlocked().checkValidWithNoDupes(login)
-        }
-    }
-
-    @Throws(LoginsStorageException::class)
-    fun rekeyDatabase(newEncryptionKey: String) {
-        return checkUnlocked().rekeyDatabase(newEncryptionKey)
     }
 
     fun registerWithSyncManager() {
