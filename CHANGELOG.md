@@ -1,3 +1,100 @@
+# v81.0.1 (_2021-07-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.0...v81.0.1)
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+Note: Though this is technically a breaking change, we do not expect any consumers to have upgraded to v81. Since this was a bug that was introduced in v81 we're treating it as a bugfix.
+
+    - Tab struct member last_used is now a i64
+
+# v81.0.0 (_2021-07-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.1...v81.0.0)
+
+## Tabs
+### ⚠️ Breaking Changes ⚠️
+ - Tabs has been Uniffi-ed! ([#4192](https://github.com/mozilla/application-services/pull/4192))
+    - Manual calling of sync() is removed
+    - registerWithSyncManager() should be used instead
+    - Tab struct member lastUsed is now a U64
+## Nimbus
+### What's changed
+  - Fixed a bug where opt-in enrollments in experiments were not preserved when the application is restarted ([#4324](https://github.com/mozilla/application-services/pull/4324))
+  - The nimbus component now specifies the version of the server's api - currently V1. That was done to avoid redirects. ([#4319](https://github.com/mozilla/application-services/pull/4319))
+
+## Push
+### What's changed
+  - Fixed a bug where we don't delete a client's UAID locally when it's deleted on the server ([#4325](https://github.com/mozilla/application-services/pull/4325))
+
+
+# v80.0.1 (_2021-07-06_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...v80.0.1)
+
+## General
+
+### What's Changed
+
+- Updated CircleCI xcode version to 12.5.1
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...main)
+
+# v80.0.0 (_2021-06-24_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.2...v80.0.0)
+
+## fxa-client
+### ⚠️ Breaking Changes ⚠️
+  - The old StateV1 persisted state schema is now removed. ([#4218](https://github.com/mozilla/application-services/pull/4218))
+    Users on very old versions of this component will no longer be able to cleanly update to this version. Instead, the consumer code
+    will recieve an error indicating that the schema was not correctly formated.
+
+## Nimbus
+### What's Changed
+  - Nimbus SDK now supports different branches having different Feature Configs ([#4213](https://github.com/mozilla/application-services/pull/4213))
+
+## Other
+  - `./libs/build-all.sh` now displays a more helpful error message when a file fails checksum integrity test.
+
+# v79.0.2 (_2021-06-23_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.1...v79.0.2)
+
+- Removed hard crash for `migrateToPlaintextHeader` and allowed error to propagate for Logins
+
+# v79.0.1 (_2021-06-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v79.0.0...v79.0.1)
+
+## Logins
+
+- Fixed a bug on iOS where `getDbSaltForKey` would incorrectly trigger a fatal error
+  instead of propagating errors to the caller.
+
+## Dependencies
+
+- The version of UniFFI used to generate Rust component bindings was updated to v0.12.0.
+
+# v79.0.0 (_2021-06-09_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v78.0.0...v79.0.0)
+
+## Logins
+
+### ⚠️ Breaking changes ⚠️
+
+Logins now Uniffi-ed! While this is a very large change internally, the externally visible changes are:
+
+- The name and types of exceptions have changed - the base class for errors is LoginsStorageErrorException.
+- The struct `ServerPassword` (Android) and `LoginRecord` (iOS) is now named `Login` with the formSubmitURL field now formSubmitUrl
+
+## [viaduct-reqwest]
+
+### What's Changed
+
+- Update viaduct-reqwest to use reqwest 0.11. ([#4146](https://github.com/mozilla/application-services/pull/4146))
+
 # v78.0.0 (_2021-06-01_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v77.0.2...v78.0.0)

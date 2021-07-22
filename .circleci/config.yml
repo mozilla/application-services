@@ -217,7 +217,7 @@ executors:
       - image: cimg/rust:1.50.0
   macos:
     macos:
-      xcode: 12.5.0
+      xcode: 12.5.1
     resource_class: m2.medium
 
 jobs:
@@ -258,7 +258,7 @@ jobs:
           command: grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "target/*" --ignore "/*" -o lcov.info
       - run:
           name: Upload to codecov.io
-          command: bash <(curl -s https://codecov.io/bash) -f lcov.info
+          command: ./automation/upload-to-codecov.sh
   Check Protobuf files are up-to-date:
     executor: docker
     resource_class: small

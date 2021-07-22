@@ -3,6 +3,12 @@
 ## Make a new release from latest main.
 1. Create a release commit.
     - **Automated process:** run the `./automation/prepare-release.py` script to create a release commit and open a pull-request.
+
+        Note that after this script is executed, the following should be true:
+        - The library version has been updated in `.buildconfig-android.yml`.
+        - The entries in `CHANGES_UNRELEASED.md` have been moved to `CHANGELOG.md` under a header with the new version number and a link to the full changelog since the previous release.
+        - The full changelog link in `CHANGES_UNRELEASED.md` has been updated with the new release version.
+
     - **Manual process:** if the automated process above fails, refer to the [Create a release commit manually](#create-a-release-commit-manually) section.
 
     **Note:** Because the release commit must be on the main branch, your PR will need to be approved, CI successful, and merged before a release can be cut.

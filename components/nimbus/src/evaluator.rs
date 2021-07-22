@@ -28,13 +28,15 @@ impl Bucket {
 /// Determine the enrolment status for an experiment.
 ///
 /// # Arguments:
-///
 /// - `nimbus_id` The auto-generated nimbus_id
-/// - `available_randomization_units`: The app provded available randomization units
-/// - `experiment` - The experiment.
+/// - `available_randomization_units` The app provded available randomization units
+/// - `app_context` The application parameters to use for evaluating targeting
+/// - `exp` The `Experiment` to evaluate.
 ///
+/// # Returns:
 /// An `ExperimentEnrollment` -  you need to inspect the EnrollmentStatus to
 /// determine if the user is actually enrolled.
+///
 /// # Errors:
 ///
 /// The function can return errors in one of the following cases (but not limited to):
@@ -83,7 +85,6 @@ pub fn evaluate_enrollment(
                         EnrollmentStatus::new_enrolled(
                             EnrolledReason::Qualified,
                             &choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
-                            &exp.get_first_feature_id(),
                         )
                     } else {
                         EnrollmentStatus::NotEnrolled {
@@ -109,9 +110,15 @@ pub fn evaluate_enrollment(
 
 /// Check if an experiment is available for this app defined by this `AppContext`.
 ///
-/// `is_release` supports two modes:
-/// if `true`, available means available for enrollment: i.e. does the `app_name`, `app_id` and `channel` match.
-/// if `false`, available means available for testing: i.e. does only the `app_name` match.
+/// # Arguments:
+/// - `app_context` The application parameters to use for targeting purposes
+/// - `exp` The `Experiment` to evaluate
+/// - `is_release` Supports two modes:
+///     if `true`, available means available for enrollment: i.e. does the `app_name` and `channel` match.
+///     if `false`, available means available for testing: i.e. does only the `app_name` match.
+///
+/// # Returns:
+/// Returns `true` if the experiment matches the targeting
 pub fn is_experiment_available(
     app_context: &AppContext,
     exp: &Experiment,
@@ -132,16 +139,6 @@ pub fn is_experiment_available(
         return true;
     }
 
-    // Verify the app_id matches the application being targeted
-    // by the experiment.
-    match &exp.app_id {
-        Some(app_id) => {
-            if !app_id.eq(&app_context.app_id) {
-                return false;
-            }
-        }
-        None => log::debug!("Experiment missing app_id, skipping it as a targeting parameter"),
-    }
     // Verify the channel matches the application being targeted
     // by the experiment.  Note, we are intentionally comparing in a case-insensitive way.
     // See https://jira.mozilla.com/browse/SDK-246 for more info.
@@ -466,11 +463,10 @@ mod tests {
             ..Default::default()
         };
 
-        // Application context for matching the above experiment.  If any of the `app_name`, `app_id`,
-        // or `channel` doesn't match the experiment, then the client won't be enrolled.
+        // Application context for matching the above experiment.  If the `app_name` or
+        // `channel` doesn't match the experiment, then the client won't be enrolled.
         let mut context = AppContext {
             app_name: "NimbusTest".to_string(),
-            app_id: "org.example.app".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
         };
@@ -609,12 +605,11 @@ mod tests {
 
         let id = uuid::Uuid::new_v4();
 
-        // If any of the `app_name`, `app_id`, or `channel` doesn't match the experiment,
+        // If the `app_name` or `channel` doesn't match the experiment,
         // then the client won't be enrolled.
         // Start with a context that does't match the app_name:
         let mut context = AppContext {
             app_name: "Wrong!".to_string(),
-            app_id: "org.example.app".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
         };
@@ -629,23 +624,8 @@ mod tests {
             }
         ));
 
-        // Change the app_name back and change the app_id to test when it doesn't match:
+        // Change the app_name back and change the channel to test when it doesn't match:
         context.app_name = "NimbusTest".to_string();
-        context.app_id = "Wrong".to_string();
-
-        // Now we won't be enrolled in the experiment because we don't have the right app_id, but with the same
-        // `NotTargeted` reason
-        let enrollment =
-            evaluate_enrollment(&id, &Default::default(), &context, &experiment).unwrap();
-        assert!(matches!(
-            enrollment.status,
-            EnrollmentStatus::NotEnrolled {
-                reason: NotEnrolledReason::NotTargeted
-            }
-        ));
-
-        // Change the app_id back and change the channel to test when it doesn't match:
-        context.app_id = "org.example.app".to_string();
         context.channel = "Wrong".to_string();
 
         // Now we won't be enrolled in the experiment because we don't have the right channel, but with the same

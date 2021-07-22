@@ -10,7 +10,7 @@ use crate::error::{NimbusError, Result};
 // it must be noted that the rkv documentation explicitly says "To use rkv in
 // production/release environments at Mozilla, you may do so with the "SafeMode"
 // backend", so we really should get more guidance here.)
-use crate::enrollment::{EnrollmentStatus, ExperimentEnrollment};
+use crate::enrollment::ExperimentEnrollment;
 use crate::Experiment;
 use core::iter::Iterator;
 use rkv::{StoreError, StoreOptions};
@@ -270,9 +270,11 @@ impl Database {
         match db_version {
             Some(DB_VERSION) => {
                 // Already at the current version, no migration required.
+                log::info!("Already at version {}, no upgrade needed", DB_VERSION);
                 return Ok(());
             }
             Some(1) => {
+                log::info!("Migrating database from v1 to v2");
                 match self.migrate_v1_to_v2(&mut writer) {
                     Ok(_) => (),
                     Err(e) => {
@@ -291,6 +293,7 @@ impl Database {
                 };
             }
             None => {
+                log::info!("maybe_upgrade: no version number; wiping most stores");
                 // The "first" version of the database (= no version number) had un-migratable data
                 // for experiments and enrollments, start anew.
                 // XXX: We can most likely remove this behaviour once enough time has passed,
@@ -298,7 +301,7 @@ impl Database {
                 self.clear_experiments_and_enrollments(&mut writer)?;
             }
             _ => {
-                log::error!("Unknown database version. Wiping everything.");
+                log::error!("Unknown database version. Wiping all stores.");
                 self.clear_experiments_and_enrollments(&mut writer)?;
                 self.meta_store.clear(&mut writer)?;
             }
@@ -311,7 +314,7 @@ impl Database {
         self.meta_store
             .put(&mut writer, DB_KEY_DB_VERSION, &DB_VERSION)?;
         writer.commit()?;
-        log::debug!("transaction commited");
+        log::debug!("maybe_upgrade: transaction committed");
         Ok(())
     }
 
@@ -347,21 +350,6 @@ impl Database {
             self.enrollment_store.try_collect_all(&reader)?;
         let experiments: Vec<Experiment> = self.experiment_store.try_collect_all(&reader)?;
 
-        // figure out which enrollments have records that need to be dropped
-        // and log that we're going to drop them and why
-        let slugs_without_enrollment_feature_ids: HashSet<String> = enrollments
-            .iter()
-            .filter_map(
-                    |e| {
-                if matches!(e.status, EnrollmentStatus::Enrolled {ref feature_id, ..} if feature_id.is_empty()) {
-                    log::warn!("Enrollment for {:?} missing feature_ids; experiment & enrollment will be discarded", &e.slug);
-                    Some(e.slug.to_owned())
-                } else {
-                    None
-                }
-            })
-            .collect();
-
         // figure out which experiments have records that need to be dropped
         // and log that we're going to drop them and why
         let empty_string = "".to_string();
@@ -382,9 +370,7 @@ impl Database {
                 }
             })
             .collect();
-        let slugs_to_discard: HashSet<_> = slugs_without_enrollment_feature_ids
-            .union(&slugs_with_experiment_issues)
-            .collect();
+        let slugs_to_discard: HashSet<_> = slugs_with_experiment_issues;
 
         // filter out experiments to be dropped
         let updated_experiments: Vec<Experiment> = experiments
@@ -428,9 +414,9 @@ impl Database {
         }
     }
 
-    fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
+    pub fn open_rkv<P: AsRef<Path>>(path: P) -> Result<Rkv> {
         let path = std::path::Path::new(path.as_ref()).join("db");
-        log::debug!("Database path: {:?}", path.display());
+        log::debug!("open_rkv: path =  {:?}", path.display());
         fs::create_dir_all(&path)?;
         let rkv = match rkv_new(&path) {
             Ok(rkv) => Ok(rkv),
@@ -748,16 +734,11 @@ mod tests {
                 "schemaVersion": "1.0.0",
                 "slug": "branch-feature-empty-obj", // change when copy/pasting to make experiments
                 "endDate": null,
-                "featureIds": ["bbb"], // change when copy/pasting to make experiments
                 "branches":[
                     {
                         "slug": "control",
                         "ratio": 1,
-                        "feature": {
-                            "featureId": "bbb", // change when copy/pasting to make experiments
-                            "enabled": false,
-                            "value": {}
-                        }
+                        "feature": {}
                     },
                     {
                         "slug": "treatment",
@@ -1042,36 +1023,6 @@ mod tests {
         ]
     }
 
-    fn get_v1_enrollments_with_missing_feature_ids() -> Vec<serde_json::Value> {
-        vec![
-            json!({
-                "slug": "feature-id-missing",
-                "status":
-                    {
-                        "Enrolled":
-                            {
-                                "enrollment_id": "801ee64b-0b1b-47a7-be47-5f1b5c189084",
-                                "reason": "Qualified",
-                                "branch": "control",
-                            }
-                    }
-            }),
-            json!({
-                "slug": "feature-id-empty",
-                "status":
-                    {
-                        "Enrolled":
-                            {
-                                "enrollment_id": "801ee64b-0b1b-44a7-be47-5f1b5c189086",
-                                "reason": "Qualified",
-                                "branch": "control",
-                                "feature_id": ""
-                            }
-                        }
-            }),
-        ]
-    }
-
     /// Create a database with an old database version number, and
     /// populate it with the given experiments and enrollments.
     fn create_old_database(
@@ -1114,34 +1065,6 @@ mod tests {
 
         writer.commit()?;
         log::debug!("create_old_database committed");
-
-        Ok(())
-    }
-
-    #[test]
-    /// Migrating db v1 to db v2 involves finding enrollments that
-    /// don't contain all the feature stuff they should and discarding.
-    /// It will also discard other experiments/enrollments with required
-    /// headers that are missing.
-    fn test_migrate_db_v1_to_db_v2_enrollment_discarding() -> Result<()> {
-        let _ = env_logger::try_init();
-        let tmp_dir = TempDir::new("migrate_db_v1_to_db_v2")?;
-
-        // write invalid enrollments
-        let db_v1_enrollments_with_missing_feature_ids =
-            &get_v1_enrollments_with_missing_feature_ids();
-
-        create_old_database(&tmp_dir, 1, &[], db_v1_enrollments_with_missing_feature_ids)?;
-        let db = Database::new(&tmp_dir)?;
-
-        // The enrollments with invalid feature_ids should have been discarded
-        // during migration; leaving us with none.
-        let enrollments = db
-            .collect_all::<ExperimentEnrollment>(StoreId::Enrollments)
-            .unwrap();
-        //log::debug!("enrollments = {:?}", enrollments);
-
-        assert_eq!(enrollments.len(), 0);
 
         Ok(())
     }
@@ -1229,28 +1152,12 @@ mod tests {
 
         let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
 
-        // XXX hoist into build_map function
-        let db_enrollments: HashMap<String, serde_json::Value> = enrollments
-            .into_iter()
-            .map(|e| {
-                let e_json = serde_json::to_value::<ExperimentEnrollment>(e).unwrap();
-                let mut e_slug: String = String::new();
-                e_slug.push_str(e_json.get("slug").unwrap().as_str().unwrap());
-                (e_slug, e_json)
-            })
-            .collect();
+        let db_enrollments: Vec<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
 
-        // XXX hoist into build_map function
-        let orig_enrollments: HashMap<String, serde_json::Value> =
-            db_v1_enrollments_with_non_empty_features
-                .iter()
-                .map(|e_ref| {
-                    let e = e_ref.clone();
-                    let mut e_slug: String = String::new();
-                    e_slug.push_str(e.get("slug").unwrap().as_str().unwrap());
-                    (e_slug, e)
-                })
-                .collect();
+        let orig_enrollments: Vec<String> = db_v1_enrollments_with_non_empty_features
+            .iter()
+            .map(|e_ref| e_ref.get("slug").unwrap().as_str().unwrap().to_string())
+            .collect();
 
         // The original json should be the same as data that's gone through
         // migration, put into the rust structs again, and pulled back out.

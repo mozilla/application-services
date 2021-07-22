@@ -9,7 +9,14 @@
 
 set -xe
 
-# Build the  development book
+# Genarate the Rust docs and
+# move them over to the book
+cargo doc --no-deps
+echo '<meta http-equiv=refresh content=0;url=fxa_client>' > target/doc/index.html
+mkdir -p docs/rust-docs
+cp -rf target/doc/* docs/rust-docs
+
+# Build the development book
 output=$(mdbook build docs 2>&1)
 if echo "$output" | grep -q "\[ERROR\]" ; then
     exit 1

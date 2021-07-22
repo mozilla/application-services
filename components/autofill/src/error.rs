@@ -7,6 +7,9 @@ use interrupt_support::Interrupted;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Error opening database: {0}")]
+    OpenDatabaseError(#[from] sql_support::open_database::Error),
+
     #[error("Error executing SQL: {0}")]
     SqlError(#[from] rusqlite::Error),
 

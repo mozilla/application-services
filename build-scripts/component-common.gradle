@@ -1,0 +1,74 @@
+// This script defines common setup logic for our components, such as depending
+// on the correct versions of android dependencies.
+// Absent some special need for customization, we expect each project under `/components`
+// to apply this script to their build process via:
+//
+// ```
+// apply from: "$rootDir/build-scripts/component-common.gradle"
+// ```
+
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
+
+android {
+    ndkVersion rootProject.ext.build.ndkVersion
+    compileSdkVersion rootProject.ext.build.compileSdkVersion
+
+    defaultConfig {
+        minSdkVersion rootProject.ext.build['minSdkVersion']
+        targetSdkVersion rootProject.ext.build['targetSdkVersion']
+
+        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
+        }
+    }
+
+    // This is required to support new AndroidX support libraries.
+    // See mozilla-mobile/android-components#842
+    compileOptions {
+        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
+        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
+    }
+
+    // We're told the following is required to support new AndroidX support libraries.
+    // See mozilla-mobile/android-components#842
+    //
+    // tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
+    //    kotlinOptions {
+    //         jvmTarget = rootProject.ext.build.jvmTargetCompatibility
+    //     }
+    // }
+    //
+    // However, it doesn't work when factored out into this script.
+    // So we're doing the below instead. Things don't seem to have broken as
+    // a result of this change, this seems like good news...?
+    kotlinOptions {
+        jvmTarget = rootProject.ext.build.jvmTargetCompatibility
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+
+    testImplementation "junit:junit:$junit_version"
+    testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
+    testImplementation "org.mockito:mockito-core:$mockito_core_version"
+
+    androidTestImplementation "com.android.support.test:runner:$android_test_runner_version"
+    androidTestImplementation "com.android.support.test.espresso:$espresso_core_version"
+}

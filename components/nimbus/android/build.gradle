@@ -2,79 +2,13 @@ plugins {
     id "com.jetbrains.python.envs" version "0.0.26"
 }
 
-apply plugin: 'com.android.library'
-apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-android-extensions'
-
-android {
-    ndkVersion rootProject.ext.build.ndkVersion
-    compileSdkVersion rootProject.ext.build.compileSdkVersion
-
-    defaultConfig {
-        minSdkVersion rootProject.ext.build['minSdkVersion']
-        targetSdkVersion rootProject.ext.build['targetSdkVersion']
-
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "LIBRARY_VERSION", "\"${rootProject.ext.library.version}\"")
-    }
-
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-            consumerProguardFiles "$rootDir/proguard-rules-consumer-jna.pro"
-        }
-    }
-
-    sourceSets {
-        test.resources.srcDirs += "$buildDir/rustJniLibs/desktop"
-        test.resources.srcDirs += "${project(':full-megazord').buildDir}/rustJniLibs/desktop"
-    }
-
-    testOptions {
-        unitTests {
-            includeAndroidResources = true
-        }
-    }
-
-    // This is required to support new AndroidX support libraries.
-    // See mozilla-mobile/android-components#842
-    compileOptions {
-        sourceCompatibility rootProject.ext.build.jvmTargetCompatibility
-        targetCompatibility rootProject.ext.build.jvmTargetCompatibility
-    }
-
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).all {
-        kotlinOptions {
-            jvmTarget = rootProject.ext.build.jvmTargetCompatibility
-        }
-    }
-}
-
-configurations {
-    // There's an interaction between Gradle's resolution of dependencies with different types
-    // (@jar, @aar) for `implementation` and `testImplementation` and with Android Studio's built-in
-    // JUnit test runner.  The runtime classpath in the built-in JUnit test runner gets the
-    // dependency from the `implementation`, which is type @aar, and therefore the JNA dependency
-    // doesn't provide the JNI dispatch libraries in the correct Java resource directories.  I think
-    // what's happening is that @aar type in `implementation` resolves to the @jar type in
-    // `testImplementation`, and that it wins the dependency resolution battle.
-    //
-    // A workaround is to add a new configuration which depends on the @jar type and to reference
-    // the underlying JAR file directly in `testImplementation`.  This JAR file doesn't resolve to
-    // the @aar type in `implementation`.  This works when invoked via `gradle`, but also sets the
-    // correct runtime classpath when invoked with Android Studio's built-in JUnit test runner.
-    // Success!
-    jnaForTest
-}
+apply from: "$rootDir/build-scripts/component-common.gradle"
+apply from: "$rootDir/publish.gradle"
 
 ext.gleanYamlFiles = ["${project.projectDir}/../metrics.yaml"]
 apply plugin: "org.mozilla.telemetry.glean-gradle-plugin"
 
 dependencies {
-    jnaForTest "net.java.dev.jna:jna:$jna_version@jar"
-    implementation "net.java.dev.jna:jna:$jna_version@aar"
-
     implementation "androidx.annotation:annotation:$androidx_annotation_version"
 
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:$kotlin_coroutines_version"
@@ -82,44 +16,12 @@ dependencies {
     implementation "org.mozilla.components:service-glean:$android_components_version"
     implementation "androidx.core:core-ktx:$androidx_core_version"
 
-    // Unlike standard Nimbus which builds a standalone package, this version depends
-    // on `:full-megazord` for the underlying native library. The full-megazord needs
-    // to be configured to include the corresponding Nimbus FFI functions.
-    implementation project(":native-support")
-    api project(":full-megazord")
-
-    // For reasons unknown, resolving the jnaForTest configuration directly
-    // trips a nasty issue with the Android-Gradle plugin 3.2.1, like `Cannot
-    // change attributes of configuration ':PROJECT:kapt' after it has been
-    // resolved`.  I think that the configuration is being made a
-    // super-configuration of the testImplementation and then the `.files` is
-    // causing it to be resolved.  Cloning first dissociates the configuration,
-    // avoiding other configurations from being resolved.  Tricky!
-    testImplementation files(configurations.jnaForTest.copyRecursive().files)
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
     testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
-    testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
-    testImplementation "org.mockito:mockito-core:$mockito_core_version"
     testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
 }
 
-evaluationDependsOn(":full-megazord")
-afterEvaluate {
-    // The `cargoBuild` task isn't available until after evaluation.
-    android.libraryVariants.all { variant ->
-        def productFlavor = ""
-        variant.productFlavors.each {
-            productFlavor += "${it.name.capitalize()}"
-        }
-        def buildType = "${variant.buildType.name.capitalize()}"
-        tasks["merge${productFlavor}${buildType}JniLibFolders"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
-
-        // For unit tests.
-        tasks["process${productFlavor}${buildType}UnitTestJavaRes"].dependsOn(project(':full-megazord').tasks["cargoBuild"])
-    }
-}
-
-apply from: "$rootDir/publish.gradle"
 ext.configureUniFFIBindgen("../src/nimbus.udl")
+ext.dependsOnTheMegazord()
 ext.configurePublish()

@@ -7,6 +7,7 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::prompt_char;
 use clipboard::{ClipboardContext, ClipboardProvider};
+use std::sync::Arc;
 use tabs::{RemoteTab, TabsStore};
 
 use anyhow::Result;
@@ -34,7 +35,7 @@ fn main() -> Result<()> {
     let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
-    let mut store = TabsStore::new();
+    let store = Arc::new(TabsStore::new());
 
     loop {
         match prompt_char("[U]pdate local state, [L]ist remote tabs, [S]ync or [Q]uit")
@@ -44,7 +45,11 @@ fn main() -> Result<()> {
                 log::info!("Updating the local state.");
                 let local_state = read_local_state();
                 dbg!(&local_state);
-                store.update_local_state(local_state);
+                store
+                    .storage
+                    .lock()
+                    .unwrap()
+                    .update_local_state(local_state);
             }
             'L' | 'l' => {
                 log::info!("Listing remote tabs.");
@@ -70,7 +75,11 @@ fn main() -> Result<()> {
             }
             'S' | 's' => {
                 log::info!("Syncing!");
-                match store.sync(&cli_fxa.client_init, &cli_fxa.root_sync_key, &device_id) {
+                match Arc::clone(&store).sync(
+                    &cli_fxa.client_init,
+                    &cli_fxa.root_sync_key,
+                    &device_id,
+                ) {
                     Err(e) => {
                         log::warn!("Sync failed! {}", e);
                     }
@@ -120,7 +129,7 @@ fn read_local_state() -> Vec<RemoteTab> {
     let mut local_state = vec![];
     for tab in tabs {
         let title = tab["title"].as_str().unwrap().to_owned();
-        let last_used = tab["lastUsed"].as_u64().unwrap();
+        let last_used = tab["lastUsed"].as_i64().unwrap();
         let icon = tab["icon"]
             .as_str()
             .map(|s| Some(s.to_owned()))

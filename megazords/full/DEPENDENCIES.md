@@ -456,7 +456,7 @@ The following text applies to code linked from these dependencies:
 [hex](https://github.com/KokaKiwi/rust-hex),
 [id-arena](https://github.com/fitzgen/id-arena),
 [idna](https://github.com/servo/rust-url/),
-[itertools](https://github.com/bluss/rust-itertools),
+[itertools](https://github.com/rust-itertools/itertools),
 [itoa](https://github.com/dtolnay/itoa),
 [jna](https://github.com/java-native-access/jna),
 [lalrpop-util](https://github.com/lalrpop/lalrpop),
@@ -477,14 +477,15 @@ The following text applies to code linked from these dependencies:
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro-hack](https://github.com/dtolnay/proc-macro-hack),
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
-[prost-derive](https://github.com/danburkert/prost),
-[prost](https://github.com/danburkert/prost),
+[prost-derive](https://github.com/tokio-rs/prost),
+[prost](https://github.com/tokio-rs/prost),
 [quote](https://github.com/dtolnay/quote),
 [rand](https://github.com/rust-random/rand),
 [rand_chacha](https://github.com/rust-random/rand),
 [rand_core](https://github.com/rust-random/rand),
 [regex-syntax](https://github.com/rust-lang/regex),
 [regex](https://github.com/rust-lang/regex),
+[remove_dir_all](https://github.com/XAMPPRocky/remove_dir_all.git),
 [rkv](https://github.com/mozilla/rkv),
 [ryu](https://github.com/dtolnay/ryu),
 [semver-parser](https://github.com/steveklabnik/semver-parser),
@@ -497,6 +498,7 @@ The following text applies to code linked from these dependencies:
 [smallvec](https://github.com/servo/rust-smallvec),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [syn](https://github.com/dtolnay/syn),
+[tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
 [tinyvec](https://github.com/Lokathor/tinyvec),
@@ -511,7 +513,9 @@ The following text applies to code linked from these dependencies:
 [unicode-xid](https://github.com/unicode-rs/unicode-xid),
 [url](https://github.com/servo/rust-url),
 [uuid](https://github.com/uuid-rs/uuid),
-[version_check](https://github.com/SergioBenitez/version_check)
+[version_check](https://github.com/SergioBenitez/version_check),
+[winapi-x86_64-pc-windows-gnu](https://github.com/retep998/winapi-rs),
+[winapi](https://github.com/retep998/winapi-rs)
 
 ```
                               Apache License

@@ -1,0 +1,30 @@
+namespace tabs {
+
+};
+
+
+interface TabsStore {
+    constructor();
+
+    sequence<ClientRemoteTabs> get_all();
+
+    void set_local_tabs(sequence<RemoteTab> remote_tabs);
+
+    [Self=ByArc]
+    void register_with_sync_manager();
+};
+
+enum DeviceType { "Desktop", "Mobile", "Tablet", "VR", "TV" };
+dictionary RemoteTab {
+    string title;
+    sequence<string> url_history;
+    string? icon;
+    i64 last_used;
+};
+
+dictionary ClientRemoteTabs {
+    string client_id;
+    string client_name;
+    DeviceType device_type;
+    sequence<RemoteTab> remote_tabs;
+};
