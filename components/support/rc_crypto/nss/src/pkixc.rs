@@ -44,8 +44,6 @@ pub fn verify_code_signing_certificate_chain(
         }
     }
 
-    // I cannot figure out how to get rid of `mut` here, because of
-    // ``const uint8_t** certificates`` param in nss_sys.
     let mut p_certificates: Vec<_> = certificates.iter().map(|c| c.as_ptr()).collect();
 
     if root_sha256_hash.len() != ROOT_HASH_LENGTH {

@@ -7,6 +7,15 @@ use std::str;
 use crate::error::*;
 use crate::signature;
 
+/// Verify content signatures, with the ECDSA P384 curve and SHA-384 hashing (NIST384p / secp384r1).
+///
+/// These signatures are typically used to garantee integrity of data between our servers and clients.
+/// This is a critical part of systems like Remote Settings or the experiment platform.
+///
+/// The equivalent implementation for Gecko is ``security/manager/ssl/nsIContentSignatureVerifier.idl``.
+
+/// Decode a string with colon separated hexadecimal pairs into an array of bytes
+/// (eg. "3C:01:44" -> [60, 1, 68]).
 fn decode_root_hash(input: &str) -> Result<Vec<u8>> {
     let bytes_hex = input.split(':');
 
@@ -22,6 +31,8 @@ fn decode_root_hash(input: &str) -> Result<Vec<u8>> {
     Ok(result)
 }
 
+/// Split a certificate chain in PEM format into a list of certificates bytes,
+/// decoded from base64.
 fn split_pem(pem_content: &[u8]) -> Result<Vec<Vec<u8>>> {
     let pem_str = match str::from_utf8(pem_content) {
         Ok(v) => v,
@@ -60,6 +71,13 @@ fn split_pem(pem_content: &[u8]) -> Result<Vec<Vec<u8>>> {
     Ok(blocks)
 }
 
+/// Verify that the signature matches the input data.
+///
+/// The data must be prefixed with ``Content-Signature:\u{0}``.
+/// The signature must be provided as base 64 url-safe encoded.
+/// The certificate chain, provided as PEM, must be valid at the provided current time.
+/// The root certificate content must match the provided root hash, and the leaf
+/// subject name must match the provided hostname.
 pub fn verify(
     input: &[u8],
     signature: &[u8],
@@ -123,6 +141,8 @@ pub fn verify(
 
     let signature_alg = &signature::ECDSA_P384_SHA384;
     let public_key = signature::UnparsedPublicKey::new(signature_alg, &public_key_bytes);
+    // Note that if the provided key type or curve is incorrect here, the signature will
+    // be considered as invalid.
     match public_key.verify(&input, &signature_bytes) {
         Ok(_) => Ok(()),
         Err(err) => Err(ErrorKind::SignatureMismatchError(err.to_string()).into()),
