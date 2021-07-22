@@ -4,7 +4,6 @@
 
 use crate::error::*;
 use crate::util::{ensure_nss_initialized, sec_item_as_slice};
-// use crate::error::ErrorKind;
 use nss_sys::CERT_ExtractPublicKey;
 use nss_sys::{CERT_GetDefaultCertDB, CERT_NewTempCertificate};
 use std::convert::TryFrom;

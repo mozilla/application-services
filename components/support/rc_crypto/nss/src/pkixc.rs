@@ -10,12 +10,15 @@ use crate::util::ensure_nss_initialized;
 use nss_sys::PRErrorCode;
 
 // NSS error codes.
-// https://searchfox.org/mozilla-central/source/security/nss/lib/util/secerr.h#29
-// https://searchfox.org/mozilla-central/source/security/nss/lib/mozpkix/include/pkix/Result.h
+// https://searchfox.org/mozilla-central/rev/352b525/security/nss/lib/util/secerr.h#29
 const SEC_ERROR_UNKNOWN_ISSUER: i32 = -8179; // -8192 + 13
 const SEC_ERROR_EXPIRED_ISSUER_CERTIFICATE: i32 = -8162; // -8192 + 30
-const SEC_ERROR_SUBJECT_MISMATCH: i32 = -12276; // ???
-const SEC_ERROR_EXPIRED_CERTIFICATE: i32 = -16378; // ???
+// SSL error codes.
+// https://searchfox.org/mozilla-central/rev/352b525/security/nss/lib/ssl/sslerr.h#42
+const SEC_ERROR_SUBJECT_MISMATCH: i32 = -12276; // -12288 + 12
+// PKIX error codes.
+// https://searchfox.org/mozilla-central/rev/352b525/security/nss/lib/mozpkix/include/pkix/pkixnss.h#81
+const SEC_ERROR_EXPIRED_CERTIFICATE: i32 = -16378; // -16384 + 6
 
 const ROOT_HASH_LENGTH: usize = 32;
 

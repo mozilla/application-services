@@ -6,7 +6,7 @@ use crate::*;
 
 extern "C" {
     pub fn VerifyCodeSigningCertificateChain(
-        certificates: *mut *const u8, // Why mut? ``*mut *const u8`` --> ``const uint8_t **``
+        certificates: *mut *const u8,
         certificateLengths: *const u16,
         numCertificates: size_t,
         secondsSinceEpoch: u64,
@@ -15,14 +15,4 @@ extern "C" {
         hostnameLength: size_t,
         error: *mut PRErrorCode,
     ) -> bool;
-
-    // bool VerifyCodeSigningCertificateChain(
-    //     const uint8_t** certificates,
-    //     const uint16_t* certificateLengths,
-    //     size_t numCertificates,
-    //     uint64_t secondsSinceEpoch,
-    //     const uint8_t* rootSHA256Hash,
-    //     const uint8_t* hostname,
-    //     size_t hostnameLength,
-    //     /* out */ PRErrorCode* error);
 }
