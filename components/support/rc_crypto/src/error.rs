@@ -10,6 +10,24 @@ pub enum ErrorKind {
     InternalError,
     #[error("Conversion error: {0}")]
     ConversionError(#[from] std::num::TryFromIntError),
+    #[error("Root hash format error: {0}")]
+    RootHashFormatError(String),
+    #[error("PEM content format error: {0}")]
+    PEMFormatError(String),
+    #[error("Certificate content error: {0}")]
+    CertificateContentError(String),
+    #[error("Certificate not yet valid or expired")]
+    CertificateValidityError,
+    #[error("Certificate subject mismatch")]
+    CertificateSubjectError,
+    #[error("Certificate issuer mismatch")]
+    CertificateIssuerError,
+    #[error("Certificate chain of trust error: {0}")]
+    CertificateChainError(String),
+    #[error("Signature content error: {0}")]
+    SignatureContentError(String),
+    #[error("Content signature mismatch error: {0}")]
+    SignatureMismatchError(String),
 }
 
 error_support::define_error! {
