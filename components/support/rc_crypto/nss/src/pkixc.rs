@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::convert::TryFrom;
+
 use crate::error::*;
 use crate::util::ensure_nss_initialized;
 
@@ -27,7 +29,16 @@ pub fn verify_code_signing_certificate_chain(
 
     let mut cert_lens: Vec<u16> = vec![];
     for certificate in &certificates {
-        cert_lens.push(certificate.len() as u16);
+        match u16::try_from(certificate.len()) {
+            Ok(v) => cert_lens.push(v),
+            Err(e) => {
+                return Err(ErrorKind::InputError(format!(
+                    "certificate length is more than 65536 bytes: {}",
+                    e
+                ))
+                .into());
+            }
+        }
     }
 
     // I cannot figure out how to get rid of `mut` here, because of
