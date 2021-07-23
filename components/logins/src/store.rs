@@ -120,6 +120,19 @@ impl LoginStore {
         self.db.lock().unwrap().update(login)
     }
 
+    // TODO: STUB FOR THE NEW API THAT WILL BE USED AND WILL BE CHANGED
+    pub fn add_or_update(&self, login: Login) -> Result<()> {
+        match login.fixup() {
+            Ok(l) => {
+                self.add(l)?;
+            }
+            Err(e) => {
+                println!("Error fixing up {:?}", e);
+            }
+        }
+        Ok(())
+    }
+
     pub fn add(&self, login: Login) -> Result<String> {
         // Just return the record's ID (which we may have generated).
         self.db
