@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Interrupted","The error returned by err_if_interrupted."],["NeverInterrupts","A convenience implementation, should only be used in tests."]],"trait":[["Interruptee","Represents the state of something that may be interrupted. Decoupled from the interrupt mechanics so that things which want to check if they have been interrupted are simpler."]]});

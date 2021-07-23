@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error",""]],"fn":[["open_database",""],["open_database_with_flags",""],["open_memory_database",""]],"mod":[["test_utils",""]],"trait":[["MigrationLogic",""]],"type":[["Result",""]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["FennecBookmarkType",""]],"fn":[["import",""],["import_pinned_sites",""]],"struct":[["BookmarksMigrationResult",""]]});

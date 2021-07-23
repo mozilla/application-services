@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["encrypt_outgoing",""],["fetch_incoming",""]],"struct":[["CollectionUpdate",""],["RecordChangeset",""]],"type":[["IncomingChangeset",""],["OutgoingChangeset",""]]});

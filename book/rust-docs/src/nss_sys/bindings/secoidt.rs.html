@@ -1,0 +1,809 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `components/support/rc_crypto/nss/nss_sys/src/bindings/secoidt.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>secoidt.rs - source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script id="default-settings"></script><script src="../../../storage.js"></script><script src="../../../crates.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../../../nss_sys/index.html'><div class='logo-container rust-logo'><img src='../../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../../../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */</span>
+
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="kw-2">*</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">os</span>::<span class="ident">raw</span>::{<span class="ident">c_char</span>, <span class="ident">c_ulong</span>};
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SECAlgorithmIDStr</span> {
+    <span class="kw">pub</span> <span class="ident">algorithm</span>: <span class="ident">SECItem</span>,
+    <span class="kw">pub</span> <span class="ident">parameters</span>: <span class="ident">SECItem</span>,
+}
+
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">SECAlgorithmID</span> <span class="op">=</span> <span class="ident">SECAlgorithmIDStr</span>;
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>)]</span>
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SECOidDataStr</span> {
+    <span class="kw">pub</span> <span class="ident">oid</span>: <span class="ident">SECItem</span>,
+    <span class="kw">pub</span> <span class="ident">offset</span>: <span class="ident">u32</span>, <span class="comment">/* SECOidTag */</span>
+    <span class="kw">pub</span> <span class="ident">desc</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span>,
+    <span class="kw">pub</span> <span class="ident">mechanism</span>: <span class="ident">c_ulong</span>,
+    <span class="kw">pub</span> <span class="ident">supportedExtension</span>: <span class="ident">u32</span>, <span class="comment">/* SECSupportExtenTag */</span>
+}
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">SECOidData</span> <span class="op">=</span> <span class="ident">SECOidDataStr</span>;
+
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SECSupportExtenTag</span> {
+    <span class="ident">INVALID_CERT_EXTENSION</span> <span class="op">=</span> <span class="number">0</span>,
+    <span class="ident">UNSUPPORTED_CERT_EXTENSION</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="ident">SUPPORTED_CERT_EXTENSION</span> <span class="op">=</span> <span class="number">2</span>,
+}
+
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u32</span>)]</span>
+<span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">SECOidTag</span> {
+    <span class="ident">SEC_OID_UNKNOWN</span> <span class="op">=</span> <span class="number">0</span>,
+    <span class="ident">SEC_OID_MD2</span> <span class="op">=</span> <span class="number">1</span>,
+    <span class="ident">SEC_OID_MD4</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="ident">SEC_OID_MD5</span> <span class="op">=</span> <span class="number">3</span>,
+    <span class="ident">SEC_OID_SHA1</span> <span class="op">=</span> <span class="number">4</span>,
+    <span class="ident">SEC_OID_RC2_CBC</span> <span class="op">=</span> <span class="number">5</span>,
+    <span class="ident">SEC_OID_RC4</span> <span class="op">=</span> <span class="number">6</span>,
+    <span class="ident">SEC_OID_DES_EDE3_CBC</span> <span class="op">=</span> <span class="number">7</span>,
+    <span class="ident">SEC_OID_RC5_CBC_PAD</span> <span class="op">=</span> <span class="number">8</span>,
+    <span class="ident">SEC_OID_DES_ECB</span> <span class="op">=</span> <span class="number">9</span>,
+    <span class="ident">SEC_OID_DES_CBC</span> <span class="op">=</span> <span class="number">10</span>,
+    <span class="ident">SEC_OID_DES_OFB</span> <span class="op">=</span> <span class="number">11</span>,
+    <span class="ident">SEC_OID_DES_CFB</span> <span class="op">=</span> <span class="number">12</span>,
+    <span class="ident">SEC_OID_DES_MAC</span> <span class="op">=</span> <span class="number">13</span>,
+    <span class="ident">SEC_OID_DES_EDE</span> <span class="op">=</span> <span class="number">14</span>,
+    <span class="ident">SEC_OID_ISO_SHA_WITH_RSA_SIGNATURE</span> <span class="op">=</span> <span class="number">15</span>,
+    <span class="ident">SEC_OID_PKCS1_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">16</span>,
+    <span class="ident">SEC_OID_PKCS1_MD2_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">17</span>,
+    <span class="ident">SEC_OID_PKCS1_MD4_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">18</span>,
+    <span class="ident">SEC_OID_PKCS1_MD5_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">19</span>,
+    <span class="ident">SEC_OID_PKCS1_SHA1_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">20</span>,
+    <span class="ident">SEC_OID_PKCS5_PBE_WITH_MD2_AND_DES_CBC</span> <span class="op">=</span> <span class="number">21</span>,
+    <span class="ident">SEC_OID_PKCS5_PBE_WITH_MD5_AND_DES_CBC</span> <span class="op">=</span> <span class="number">22</span>,
+    <span class="ident">SEC_OID_PKCS5_PBE_WITH_SHA1_AND_DES_CBC</span> <span class="op">=</span> <span class="number">23</span>,
+    <span class="ident">SEC_OID_PKCS7</span> <span class="op">=</span> <span class="number">24</span>,
+    <span class="ident">SEC_OID_PKCS7_DATA</span> <span class="op">=</span> <span class="number">25</span>,
+    <span class="ident">SEC_OID_PKCS7_SIGNED_DATA</span> <span class="op">=</span> <span class="number">26</span>,
+    <span class="ident">SEC_OID_PKCS7_ENVELOPED_DATA</span> <span class="op">=</span> <span class="number">27</span>,
+    <span class="ident">SEC_OID_PKCS7_SIGNED_ENVELOPED_DATA</span> <span class="op">=</span> <span class="number">28</span>,
+    <span class="ident">SEC_OID_PKCS7_DIGESTED_DATA</span> <span class="op">=</span> <span class="number">29</span>,
+    <span class="ident">SEC_OID_PKCS7_ENCRYPTED_DATA</span> <span class="op">=</span> <span class="number">30</span>,
+    <span class="ident">SEC_OID_PKCS9_EMAIL_ADDRESS</span> <span class="op">=</span> <span class="number">31</span>,
+    <span class="ident">SEC_OID_PKCS9_UNSTRUCTURED_NAME</span> <span class="op">=</span> <span class="number">32</span>,
+    <span class="ident">SEC_OID_PKCS9_CONTENT_TYPE</span> <span class="op">=</span> <span class="number">33</span>,
+    <span class="ident">SEC_OID_PKCS9_MESSAGE_DIGEST</span> <span class="op">=</span> <span class="number">34</span>,
+    <span class="ident">SEC_OID_PKCS9_SIGNING_TIME</span> <span class="op">=</span> <span class="number">35</span>,
+    <span class="ident">SEC_OID_PKCS9_COUNTER_SIGNATURE</span> <span class="op">=</span> <span class="number">36</span>,
+    <span class="ident">SEC_OID_PKCS9_CHALLENGE_PASSWORD</span> <span class="op">=</span> <span class="number">37</span>,
+    <span class="ident">SEC_OID_PKCS9_UNSTRUCTURED_ADDRESS</span> <span class="op">=</span> <span class="number">38</span>,
+    <span class="ident">SEC_OID_PKCS9_EXTENDED_CERTIFICATE_ATTRIBUTES</span> <span class="op">=</span> <span class="number">39</span>,
+    <span class="ident">SEC_OID_PKCS9_SMIME_CAPABILITIES</span> <span class="op">=</span> <span class="number">40</span>,
+    <span class="ident">SEC_OID_AVA_COMMON_NAME</span> <span class="op">=</span> <span class="number">41</span>,
+    <span class="ident">SEC_OID_AVA_COUNTRY_NAME</span> <span class="op">=</span> <span class="number">42</span>,
+    <span class="ident">SEC_OID_AVA_LOCALITY</span> <span class="op">=</span> <span class="number">43</span>,
+    <span class="ident">SEC_OID_AVA_STATE_OR_PROVINCE</span> <span class="op">=</span> <span class="number">44</span>,
+    <span class="ident">SEC_OID_AVA_ORGANIZATION_NAME</span> <span class="op">=</span> <span class="number">45</span>,
+    <span class="ident">SEC_OID_AVA_ORGANIZATIONAL_UNIT_NAME</span> <span class="op">=</span> <span class="number">46</span>,
+    <span class="ident">SEC_OID_AVA_DN_QUALIFIER</span> <span class="op">=</span> <span class="number">47</span>,
+    <span class="ident">SEC_OID_AVA_DC</span> <span class="op">=</span> <span class="number">48</span>,
+    <span class="ident">SEC_OID_NS_TYPE_GIF</span> <span class="op">=</span> <span class="number">49</span>,
+    <span class="ident">SEC_OID_NS_TYPE_JPEG</span> <span class="op">=</span> <span class="number">50</span>,
+    <span class="ident">SEC_OID_NS_TYPE_URL</span> <span class="op">=</span> <span class="number">51</span>,
+    <span class="ident">SEC_OID_NS_TYPE_HTML</span> <span class="op">=</span> <span class="number">52</span>,
+    <span class="ident">SEC_OID_NS_TYPE_CERT_SEQUENCE</span> <span class="op">=</span> <span class="number">53</span>,
+    <span class="ident">SEC_OID_MISSI_KEA_DSS_OLD</span> <span class="op">=</span> <span class="number">54</span>,
+    <span class="ident">SEC_OID_MISSI_DSS_OLD</span> <span class="op">=</span> <span class="number">55</span>,
+    <span class="ident">SEC_OID_MISSI_KEA_DSS</span> <span class="op">=</span> <span class="number">56</span>,
+    <span class="ident">SEC_OID_MISSI_DSS</span> <span class="op">=</span> <span class="number">57</span>,
+    <span class="ident">SEC_OID_MISSI_KEA</span> <span class="op">=</span> <span class="number">58</span>,
+    <span class="ident">SEC_OID_MISSI_ALT_KEA</span> <span class="op">=</span> <span class="number">59</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_NETSCAPE_OK</span> <span class="op">=</span> <span class="number">60</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_ISSUER_LOGO</span> <span class="op">=</span> <span class="number">61</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_SUBJECT_LOGO</span> <span class="op">=</span> <span class="number">62</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CERT_TYPE</span> <span class="op">=</span> <span class="number">63</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_BASE_URL</span> <span class="op">=</span> <span class="number">64</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_REVOCATION_URL</span> <span class="op">=</span> <span class="number">65</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CA_REVOCATION_URL</span> <span class="op">=</span> <span class="number">66</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CA_CRL_URL</span> <span class="op">=</span> <span class="number">67</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CA_CERT_URL</span> <span class="op">=</span> <span class="number">68</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CERT_RENEWAL_URL</span> <span class="op">=</span> <span class="number">69</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CA_POLICY_URL</span> <span class="op">=</span> <span class="number">70</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_HOMEPAGE_URL</span> <span class="op">=</span> <span class="number">71</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_ENTITY_LOGO</span> <span class="op">=</span> <span class="number">72</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_USER_PICTURE</span> <span class="op">=</span> <span class="number">73</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_SSL_SERVER_NAME</span> <span class="op">=</span> <span class="number">74</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_COMMENT</span> <span class="op">=</span> <span class="number">75</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_LOST_PASSWORD_URL</span> <span class="op">=</span> <span class="number">76</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_CERT_RENEWAL_TIME</span> <span class="op">=</span> <span class="number">77</span>,
+    <span class="ident">SEC_OID_NS_KEY_USAGE_GOVT_APPROVED</span> <span class="op">=</span> <span class="number">78</span>,
+    <span class="ident">SEC_OID_X509_SUBJECT_DIRECTORY_ATTR</span> <span class="op">=</span> <span class="number">79</span>,
+    <span class="ident">SEC_OID_X509_SUBJECT_KEY_ID</span> <span class="op">=</span> <span class="number">80</span>,
+    <span class="ident">SEC_OID_X509_KEY_USAGE</span> <span class="op">=</span> <span class="number">81</span>,
+    <span class="ident">SEC_OID_X509_PRIVATE_KEY_USAGE_PERIOD</span> <span class="op">=</span> <span class="number">82</span>,
+    <span class="ident">SEC_OID_X509_SUBJECT_ALT_NAME</span> <span class="op">=</span> <span class="number">83</span>,
+    <span class="ident">SEC_OID_X509_ISSUER_ALT_NAME</span> <span class="op">=</span> <span class="number">84</span>,
+    <span class="ident">SEC_OID_X509_BASIC_CONSTRAINTS</span> <span class="op">=</span> <span class="number">85</span>,
+    <span class="ident">SEC_OID_X509_NAME_CONSTRAINTS</span> <span class="op">=</span> <span class="number">86</span>,
+    <span class="ident">SEC_OID_X509_CRL_DIST_POINTS</span> <span class="op">=</span> <span class="number">87</span>,
+    <span class="ident">SEC_OID_X509_CERTIFICATE_POLICIES</span> <span class="op">=</span> <span class="number">88</span>,
+    <span class="ident">SEC_OID_X509_POLICY_MAPPINGS</span> <span class="op">=</span> <span class="number">89</span>,
+    <span class="ident">SEC_OID_X509_POLICY_CONSTRAINTS</span> <span class="op">=</span> <span class="number">90</span>,
+    <span class="ident">SEC_OID_X509_AUTH_KEY_ID</span> <span class="op">=</span> <span class="number">91</span>,
+    <span class="ident">SEC_OID_X509_EXT_KEY_USAGE</span> <span class="op">=</span> <span class="number">92</span>,
+    <span class="ident">SEC_OID_X509_AUTH_INFO_ACCESS</span> <span class="op">=</span> <span class="number">93</span>,
+    <span class="ident">SEC_OID_X509_CRL_NUMBER</span> <span class="op">=</span> <span class="number">94</span>,
+    <span class="ident">SEC_OID_X509_REASON_CODE</span> <span class="op">=</span> <span class="number">95</span>,
+    <span class="ident">SEC_OID_X509_INVALID_DATE</span> <span class="op">=</span> <span class="number">96</span>,
+    <span class="ident">SEC_OID_X500_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">97</span>,
+    <span class="ident">SEC_OID_RFC1274_UID</span> <span class="op">=</span> <span class="number">98</span>,
+    <span class="ident">SEC_OID_RFC1274_MAIL</span> <span class="op">=</span> <span class="number">99</span>,
+    <span class="ident">SEC_OID_PKCS12</span> <span class="op">=</span> <span class="number">100</span>,
+    <span class="ident">SEC_OID_PKCS12_MODE_IDS</span> <span class="op">=</span> <span class="number">101</span>,
+    <span class="ident">SEC_OID_PKCS12_ESPVK_IDS</span> <span class="op">=</span> <span class="number">102</span>,
+    <span class="ident">SEC_OID_PKCS12_BAG_IDS</span> <span class="op">=</span> <span class="number">103</span>,
+    <span class="ident">SEC_OID_PKCS12_CERT_BAG_IDS</span> <span class="op">=</span> <span class="number">104</span>,
+    <span class="ident">SEC_OID_PKCS12_OIDS</span> <span class="op">=</span> <span class="number">105</span>,
+    <span class="ident">SEC_OID_PKCS12_PBE_IDS</span> <span class="op">=</span> <span class="number">106</span>,
+    <span class="ident">SEC_OID_PKCS12_SIGNATURE_IDS</span> <span class="op">=</span> <span class="number">107</span>,
+    <span class="ident">SEC_OID_PKCS12_ENVELOPING_IDS</span> <span class="op">=</span> <span class="number">108</span>,
+    <span class="ident">SEC_OID_PKCS12_PKCS8_KEY_SHROUDING</span> <span class="op">=</span> <span class="number">109</span>,
+    <span class="ident">SEC_OID_PKCS12_KEY_BAG_ID</span> <span class="op">=</span> <span class="number">110</span>,
+    <span class="ident">SEC_OID_PKCS12_CERT_AND_CRL_BAG_ID</span> <span class="op">=</span> <span class="number">111</span>,
+    <span class="ident">SEC_OID_PKCS12_SECRET_BAG_ID</span> <span class="op">=</span> <span class="number">112</span>,
+    <span class="ident">SEC_OID_PKCS12_X509_CERT_CRL_BAG</span> <span class="op">=</span> <span class="number">113</span>,
+    <span class="ident">SEC_OID_PKCS12_SDSI_CERT_BAG</span> <span class="op">=</span> <span class="number">114</span>,
+    <span class="ident">SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC4</span> <span class="op">=</span> <span class="number">115</span>,
+    <span class="ident">SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC4</span> <span class="op">=</span> <span class="number">116</span>,
+    <span class="ident">SEC_OID_PKCS12_PBE_WITH_SHA1_AND_TRIPLE_DES_CBC</span> <span class="op">=</span> <span class="number">117</span>,
+    <span class="ident">SEC_OID_PKCS12_PBE_WITH_SHA1_AND_128_BIT_RC2_CBC</span> <span class="op">=</span> <span class="number">118</span>,
+    <span class="ident">SEC_OID_PKCS12_PBE_WITH_SHA1_AND_40_BIT_RC2_CBC</span> <span class="op">=</span> <span class="number">119</span>,
+    <span class="ident">SEC_OID_PKCS12_RSA_ENCRYPTION_WITH_128_BIT_RC4</span> <span class="op">=</span> <span class="number">120</span>,
+    <span class="ident">SEC_OID_PKCS12_RSA_ENCRYPTION_WITH_40_BIT_RC4</span> <span class="op">=</span> <span class="number">121</span>,
+    <span class="ident">SEC_OID_PKCS12_RSA_ENCRYPTION_WITH_TRIPLE_DES</span> <span class="op">=</span> <span class="number">122</span>,
+    <span class="ident">SEC_OID_PKCS12_RSA_SIGNATURE_WITH_SHA1_DIGEST</span> <span class="op">=</span> <span class="number">123</span>,
+    <span class="ident">SEC_OID_ANSIX9_DSA_SIGNATURE</span> <span class="op">=</span> <span class="number">124</span>,
+    <span class="ident">SEC_OID_ANSIX9_DSA_SIGNATURE_WITH_SHA1_DIGEST</span> <span class="op">=</span> <span class="number">125</span>,
+    <span class="ident">SEC_OID_BOGUS_DSA_SIGNATURE_WITH_SHA1_DIGEST</span> <span class="op">=</span> <span class="number">126</span>,
+    <span class="ident">SEC_OID_VERISIGN_USER_NOTICES</span> <span class="op">=</span> <span class="number">127</span>,
+    <span class="ident">SEC_OID_PKIX_CPS_POINTER_QUALIFIER</span> <span class="op">=</span> <span class="number">128</span>,
+    <span class="ident">SEC_OID_PKIX_USER_NOTICE_QUALIFIER</span> <span class="op">=</span> <span class="number">129</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP</span> <span class="op">=</span> <span class="number">130</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_BASIC_RESPONSE</span> <span class="op">=</span> <span class="number">131</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_NONCE</span> <span class="op">=</span> <span class="number">132</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_CRL</span> <span class="op">=</span> <span class="number">133</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_RESPONSE</span> <span class="op">=</span> <span class="number">134</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_NO_CHECK</span> <span class="op">=</span> <span class="number">135</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_ARCHIVE_CUTOFF</span> <span class="op">=</span> <span class="number">136</span>,
+    <span class="ident">SEC_OID_PKIX_OCSP_SERVICE_LOCATOR</span> <span class="op">=</span> <span class="number">137</span>,
+    <span class="ident">SEC_OID_PKIX_REGCTRL_REGTOKEN</span> <span class="op">=</span> <span class="number">138</span>,
+    <span class="ident">SEC_OID_PKIX_REGCTRL_AUTHENTICATOR</span> <span class="op">=</span> <span class="number">139</span>,
+    <span class="ident">SEC_OID_PKIX_REGCTRL_PKIPUBINFO</span> <span class="op">=</span> <span class="number">140</span>,
+    <span class="ident">SEC_OID_PKIX_REGCTRL_PKI_ARCH_OPTIONS</span> <span class="op">=</span> <span class="number">141</span>,
+    <span class="ident">SEC_OID_PKIX_REGCTRL_OLD_CERT_ID</span> <span class="op">=</span> <span class="number">142</span>,
+    <span class="ident">SEC_OID_PKIX_REGCTRL_PROTOCOL_ENC_KEY</span> <span class="op">=</span> <span class="number">143</span>,
+    <span class="ident">SEC_OID_PKIX_REGINFO_UTF8_PAIRS</span> <span class="op">=</span> <span class="number">144</span>,
+    <span class="ident">SEC_OID_PKIX_REGINFO_CERT_REQUEST</span> <span class="op">=</span> <span class="number">145</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_SERVER_AUTH</span> <span class="op">=</span> <span class="number">146</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_CLIENT_AUTH</span> <span class="op">=</span> <span class="number">147</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_CODE_SIGN</span> <span class="op">=</span> <span class="number">148</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_EMAIL_PROTECT</span> <span class="op">=</span> <span class="number">149</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_TIME_STAMP</span> <span class="op">=</span> <span class="number">150</span>,
+    <span class="ident">SEC_OID_OCSP_RESPONDER</span> <span class="op">=</span> <span class="number">151</span>,
+    <span class="ident">SEC_OID_NETSCAPE_SMIME_KEA</span> <span class="op">=</span> <span class="number">152</span>,
+    <span class="ident">SEC_OID_FORTEZZA_SKIPJACK</span> <span class="op">=</span> <span class="number">153</span>,
+    <span class="ident">SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_128_BIT_RC4</span> <span class="op">=</span> <span class="number">154</span>,
+    <span class="ident">SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_40_BIT_RC4</span> <span class="op">=</span> <span class="number">155</span>,
+    <span class="ident">SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_3KEY_TRIPLE_DES_CBC</span> <span class="op">=</span> <span class="number">156</span>,
+    <span class="ident">SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_2KEY_TRIPLE_DES_CBC</span> <span class="op">=</span> <span class="number">157</span>,
+    <span class="ident">SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_128_BIT_RC2_CBC</span> <span class="op">=</span> <span class="number">158</span>,
+    <span class="ident">SEC_OID_PKCS12_V2_PBE_WITH_SHA1_AND_40_BIT_RC2_CBC</span> <span class="op">=</span> <span class="number">159</span>,
+    <span class="ident">SEC_OID_PKCS12_SAFE_CONTENTS_ID</span> <span class="op">=</span> <span class="number">160</span>,
+    <span class="ident">SEC_OID_PKCS12_PKCS8_SHROUDED_KEY_BAG_ID</span> <span class="op">=</span> <span class="number">161</span>,
+    <span class="ident">SEC_OID_PKCS12_V1_KEY_BAG_ID</span> <span class="op">=</span> <span class="number">162</span>,
+    <span class="ident">SEC_OID_PKCS12_V1_PKCS8_SHROUDED_KEY_BAG_ID</span> <span class="op">=</span> <span class="number">163</span>,
+    <span class="ident">SEC_OID_PKCS12_V1_CERT_BAG_ID</span> <span class="op">=</span> <span class="number">164</span>,
+    <span class="ident">SEC_OID_PKCS12_V1_CRL_BAG_ID</span> <span class="op">=</span> <span class="number">165</span>,
+    <span class="ident">SEC_OID_PKCS12_V1_SECRET_BAG_ID</span> <span class="op">=</span> <span class="number">166</span>,
+    <span class="ident">SEC_OID_PKCS12_V1_SAFE_CONTENTS_BAG_ID</span> <span class="op">=</span> <span class="number">167</span>,
+    <span class="ident">SEC_OID_PKCS9_X509_CERT</span> <span class="op">=</span> <span class="number">168</span>,
+    <span class="ident">SEC_OID_PKCS9_SDSI_CERT</span> <span class="op">=</span> <span class="number">169</span>,
+    <span class="ident">SEC_OID_PKCS9_X509_CRL</span> <span class="op">=</span> <span class="number">170</span>,
+    <span class="ident">SEC_OID_PKCS9_FRIENDLY_NAME</span> <span class="op">=</span> <span class="number">171</span>,
+    <span class="ident">SEC_OID_PKCS9_LOCAL_KEY_ID</span> <span class="op">=</span> <span class="number">172</span>,
+    <span class="ident">SEC_OID_BOGUS_KEY_USAGE</span> <span class="op">=</span> <span class="number">173</span>,
+    <span class="ident">SEC_OID_X942_DIFFIE_HELMAN_KEY</span> <span class="op">=</span> <span class="number">174</span>,
+    <span class="ident">SEC_OID_NETSCAPE_NICKNAME</span> <span class="op">=</span> <span class="number">175</span>,
+    <span class="ident">SEC_OID_NETSCAPE_RECOVERY_REQUEST</span> <span class="op">=</span> <span class="number">176</span>,
+    <span class="ident">SEC_OID_CERT_RENEWAL_LOCATOR</span> <span class="op">=</span> <span class="number">177</span>,
+    <span class="ident">SEC_OID_NS_CERT_EXT_SCOPE_OF_USE</span> <span class="op">=</span> <span class="number">178</span>,
+    <span class="ident">SEC_OID_CMS_EPHEMERAL_STATIC_DIFFIE_HELLMAN</span> <span class="op">=</span> <span class="number">179</span>,
+    <span class="ident">SEC_OID_CMS_3DES_KEY_WRAP</span> <span class="op">=</span> <span class="number">180</span>,
+    <span class="ident">SEC_OID_CMS_RC2_KEY_WRAP</span> <span class="op">=</span> <span class="number">181</span>,
+    <span class="ident">SEC_OID_SMIME_ENCRYPTION_KEY_PREFERENCE</span> <span class="op">=</span> <span class="number">182</span>,
+    <span class="ident">SEC_OID_AES_128_ECB</span> <span class="op">=</span> <span class="number">183</span>,
+    <span class="ident">SEC_OID_AES_128_CBC</span> <span class="op">=</span> <span class="number">184</span>,
+    <span class="ident">SEC_OID_AES_192_ECB</span> <span class="op">=</span> <span class="number">185</span>,
+    <span class="ident">SEC_OID_AES_192_CBC</span> <span class="op">=</span> <span class="number">186</span>,
+    <span class="ident">SEC_OID_AES_256_ECB</span> <span class="op">=</span> <span class="number">187</span>,
+    <span class="ident">SEC_OID_AES_256_CBC</span> <span class="op">=</span> <span class="number">188</span>,
+    <span class="ident">SEC_OID_SDN702_DSA_SIGNATURE</span> <span class="op">=</span> <span class="number">189</span>,
+    <span class="ident">SEC_OID_MS_SMIME_ENCRYPTION_KEY_PREFERENCE</span> <span class="op">=</span> <span class="number">190</span>,
+    <span class="ident">SEC_OID_SHA256</span> <span class="op">=</span> <span class="number">191</span>,
+    <span class="ident">SEC_OID_SHA384</span> <span class="op">=</span> <span class="number">192</span>,
+    <span class="ident">SEC_OID_SHA512</span> <span class="op">=</span> <span class="number">193</span>,
+    <span class="ident">SEC_OID_PKCS1_SHA256_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">194</span>,
+    <span class="ident">SEC_OID_PKCS1_SHA384_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">195</span>,
+    <span class="ident">SEC_OID_PKCS1_SHA512_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">196</span>,
+    <span class="ident">SEC_OID_AES_128_KEY_WRAP</span> <span class="op">=</span> <span class="number">197</span>,
+    <span class="ident">SEC_OID_AES_192_KEY_WRAP</span> <span class="op">=</span> <span class="number">198</span>,
+    <span class="ident">SEC_OID_AES_256_KEY_WRAP</span> <span class="op">=</span> <span class="number">199</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PUBLIC_KEY</span> <span class="op">=</span> <span class="number">200</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SHA1_SIGNATURE</span> <span class="op">=</span> <span class="number">201</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PRIME192V1</span> <span class="op">=</span> <span class="number">202</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PRIME192V2</span> <span class="op">=</span> <span class="number">203</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PRIME192V3</span> <span class="op">=</span> <span class="number">204</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PRIME239V1</span> <span class="op">=</span> <span class="number">205</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PRIME239V2</span> <span class="op">=</span> <span class="number">206</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_PRIME239V3</span> <span class="op">=</span> <span class="number">207</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP256R1</span> <span class="op">=</span> <span class="number">208</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP112R1</span> <span class="op">=</span> <span class="number">209</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP112R2</span> <span class="op">=</span> <span class="number">210</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP128R1</span> <span class="op">=</span> <span class="number">211</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP128R2</span> <span class="op">=</span> <span class="number">212</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP160K1</span> <span class="op">=</span> <span class="number">213</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP160R1</span> <span class="op">=</span> <span class="number">214</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP160R2</span> <span class="op">=</span> <span class="number">215</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP192K1</span> <span class="op">=</span> <span class="number">216</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP224K1</span> <span class="op">=</span> <span class="number">217</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP224R1</span> <span class="op">=</span> <span class="number">218</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP256K1</span> <span class="op">=</span> <span class="number">219</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP384R1</span> <span class="op">=</span> <span class="number">220</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECP521R1</span> <span class="op">=</span> <span class="number">221</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB163V1</span> <span class="op">=</span> <span class="number">222</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB163V2</span> <span class="op">=</span> <span class="number">223</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB163V3</span> <span class="op">=</span> <span class="number">224</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB176V1</span> <span class="op">=</span> <span class="number">225</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB191V1</span> <span class="op">=</span> <span class="number">226</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB191V2</span> <span class="op">=</span> <span class="number">227</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB191V3</span> <span class="op">=</span> <span class="number">228</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2ONB191V4</span> <span class="op">=</span> <span class="number">229</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2ONB191V5</span> <span class="op">=</span> <span class="number">230</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB208W1</span> <span class="op">=</span> <span class="number">231</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB239V1</span> <span class="op">=</span> <span class="number">232</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB239V2</span> <span class="op">=</span> <span class="number">233</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB239V3</span> <span class="op">=</span> <span class="number">234</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2ONB239V4</span> <span class="op">=</span> <span class="number">235</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2ONB239V5</span> <span class="op">=</span> <span class="number">236</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB272W1</span> <span class="op">=</span> <span class="number">237</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB304W1</span> <span class="op">=</span> <span class="number">238</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB359V1</span> <span class="op">=</span> <span class="number">239</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2PNB368W1</span> <span class="op">=</span> <span class="number">240</span>,
+    <span class="ident">SEC_OID_ANSIX962_EC_C2TNB431R1</span> <span class="op">=</span> <span class="number">241</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT113R1</span> <span class="op">=</span> <span class="number">242</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT113R2</span> <span class="op">=</span> <span class="number">243</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT131R1</span> <span class="op">=</span> <span class="number">244</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT131R2</span> <span class="op">=</span> <span class="number">245</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT163K1</span> <span class="op">=</span> <span class="number">246</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT163R1</span> <span class="op">=</span> <span class="number">247</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT163R2</span> <span class="op">=</span> <span class="number">248</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT193R1</span> <span class="op">=</span> <span class="number">249</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT193R2</span> <span class="op">=</span> <span class="number">250</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT233K1</span> <span class="op">=</span> <span class="number">251</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT233R1</span> <span class="op">=</span> <span class="number">252</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT239K1</span> <span class="op">=</span> <span class="number">253</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT283K1</span> <span class="op">=</span> <span class="number">254</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT283R1</span> <span class="op">=</span> <span class="number">255</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT409K1</span> <span class="op">=</span> <span class="number">256</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT409R1</span> <span class="op">=</span> <span class="number">257</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT571K1</span> <span class="op">=</span> <span class="number">258</span>,
+    <span class="ident">SEC_OID_SECG_EC_SECT571R1</span> <span class="op">=</span> <span class="number">259</span>,
+    <span class="ident">SEC_OID_NETSCAPE_AOLSCREENNAME</span> <span class="op">=</span> <span class="number">260</span>,
+    <span class="ident">SEC_OID_AVA_SURNAME</span> <span class="op">=</span> <span class="number">261</span>,
+    <span class="ident">SEC_OID_AVA_SERIAL_NUMBER</span> <span class="op">=</span> <span class="number">262</span>,
+    <span class="ident">SEC_OID_AVA_STREET_ADDRESS</span> <span class="op">=</span> <span class="number">263</span>,
+    <span class="ident">SEC_OID_AVA_TITLE</span> <span class="op">=</span> <span class="number">264</span>,
+    <span class="ident">SEC_OID_AVA_POSTAL_ADDRESS</span> <span class="op">=</span> <span class="number">265</span>,
+    <span class="ident">SEC_OID_AVA_POSTAL_CODE</span> <span class="op">=</span> <span class="number">266</span>,
+    <span class="ident">SEC_OID_AVA_POST_OFFICE_BOX</span> <span class="op">=</span> <span class="number">267</span>,
+    <span class="ident">SEC_OID_AVA_GIVEN_NAME</span> <span class="op">=</span> <span class="number">268</span>,
+    <span class="ident">SEC_OID_AVA_INITIALS</span> <span class="op">=</span> <span class="number">269</span>,
+    <span class="ident">SEC_OID_AVA_GENERATION_QUALIFIER</span> <span class="op">=</span> <span class="number">270</span>,
+    <span class="ident">SEC_OID_AVA_HOUSE_IDENTIFIER</span> <span class="op">=</span> <span class="number">271</span>,
+    <span class="ident">SEC_OID_AVA_PSEUDONYM</span> <span class="op">=</span> <span class="number">272</span>,
+    <span class="ident">SEC_OID_PKIX_CA_ISSUERS</span> <span class="op">=</span> <span class="number">273</span>,
+    <span class="ident">SEC_OID_PKCS9_EXTENSION_REQUEST</span> <span class="op">=</span> <span class="number">274</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SIGNATURE_RECOMMENDED_DIGEST</span> <span class="op">=</span> <span class="number">275</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SIGNATURE_SPECIFIED_DIGEST</span> <span class="op">=</span> <span class="number">276</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SHA224_SIGNATURE</span> <span class="op">=</span> <span class="number">277</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SHA256_SIGNATURE</span> <span class="op">=</span> <span class="number">278</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SHA384_SIGNATURE</span> <span class="op">=</span> <span class="number">279</span>,
+    <span class="ident">SEC_OID_ANSIX962_ECDSA_SHA512_SIGNATURE</span> <span class="op">=</span> <span class="number">280</span>,
+    <span class="ident">SEC_OID_X509_HOLD_INSTRUCTION_CODE</span> <span class="op">=</span> <span class="number">281</span>,
+    <span class="ident">SEC_OID_X509_DELTA_CRL_INDICATOR</span> <span class="op">=</span> <span class="number">282</span>,
+    <span class="ident">SEC_OID_X509_ISSUING_DISTRIBUTION_POINT</span> <span class="op">=</span> <span class="number">283</span>,
+    <span class="ident">SEC_OID_X509_CERT_ISSUER</span> <span class="op">=</span> <span class="number">284</span>,
+    <span class="ident">SEC_OID_X509_FRESHEST_CRL</span> <span class="op">=</span> <span class="number">285</span>,
+    <span class="ident">SEC_OID_X509_INHIBIT_ANY_POLICY</span> <span class="op">=</span> <span class="number">286</span>,
+    <span class="ident">SEC_OID_X509_SUBJECT_INFO_ACCESS</span> <span class="op">=</span> <span class="number">287</span>,
+    <span class="ident">SEC_OID_CAMELLIA_128_CBC</span> <span class="op">=</span> <span class="number">288</span>,
+    <span class="ident">SEC_OID_CAMELLIA_192_CBC</span> <span class="op">=</span> <span class="number">289</span>,
+    <span class="ident">SEC_OID_CAMELLIA_256_CBC</span> <span class="op">=</span> <span class="number">290</span>,
+    <span class="ident">SEC_OID_PKCS5_PBKDF2</span> <span class="op">=</span> <span class="number">291</span>,
+    <span class="ident">SEC_OID_PKCS5_PBES2</span> <span class="op">=</span> <span class="number">292</span>,
+    <span class="ident">SEC_OID_PKCS5_PBMAC1</span> <span class="op">=</span> <span class="number">293</span>,
+    <span class="ident">SEC_OID_HMAC_SHA1</span> <span class="op">=</span> <span class="number">294</span>,
+    <span class="ident">SEC_OID_HMAC_SHA224</span> <span class="op">=</span> <span class="number">295</span>,
+    <span class="ident">SEC_OID_HMAC_SHA256</span> <span class="op">=</span> <span class="number">296</span>,
+    <span class="ident">SEC_OID_HMAC_SHA384</span> <span class="op">=</span> <span class="number">297</span>,
+    <span class="ident">SEC_OID_HMAC_SHA512</span> <span class="op">=</span> <span class="number">298</span>,
+    <span class="ident">SEC_OID_PKIX_TIMESTAMPING</span> <span class="op">=</span> <span class="number">299</span>,
+    <span class="ident">SEC_OID_PKIX_CA_REPOSITORY</span> <span class="op">=</span> <span class="number">300</span>,
+    <span class="ident">SEC_OID_ISO_SHA1_WITH_RSA_SIGNATURE</span> <span class="op">=</span> <span class="number">301</span>,
+    <span class="ident">SEC_OID_SEED_CBC</span> <span class="op">=</span> <span class="number">302</span>,
+    <span class="ident">SEC_OID_X509_ANY_POLICY</span> <span class="op">=</span> <span class="number">303</span>,
+    <span class="ident">SEC_OID_PKCS1_RSA_OAEP_ENCRYPTION</span> <span class="op">=</span> <span class="number">304</span>,
+    <span class="ident">SEC_OID_PKCS1_MGF1</span> <span class="op">=</span> <span class="number">305</span>,
+    <span class="ident">SEC_OID_PKCS1_PSPECIFIED</span> <span class="op">=</span> <span class="number">306</span>,
+    <span class="ident">SEC_OID_PKCS1_RSA_PSS_SIGNATURE</span> <span class="op">=</span> <span class="number">307</span>,
+    <span class="ident">SEC_OID_PKCS1_SHA224_WITH_RSA_ENCRYPTION</span> <span class="op">=</span> <span class="number">308</span>,
+    <span class="ident">SEC_OID_SHA224</span> <span class="op">=</span> <span class="number">309</span>,
+    <span class="ident">SEC_OID_EV_INCORPORATION_LOCALITY</span> <span class="op">=</span> <span class="number">310</span>,
+    <span class="ident">SEC_OID_EV_INCORPORATION_STATE</span> <span class="op">=</span> <span class="number">311</span>,
+    <span class="ident">SEC_OID_EV_INCORPORATION_COUNTRY</span> <span class="op">=</span> <span class="number">312</span>,
+    <span class="ident">SEC_OID_BUSINESS_CATEGORY</span> <span class="op">=</span> <span class="number">313</span>,
+    <span class="ident">SEC_OID_NIST_DSA_SIGNATURE_WITH_SHA224_DIGEST</span> <span class="op">=</span> <span class="number">314</span>,
+    <span class="ident">SEC_OID_NIST_DSA_SIGNATURE_WITH_SHA256_DIGEST</span> <span class="op">=</span> <span class="number">315</span>,
+    <span class="ident">SEC_OID_MS_EXT_KEY_USAGE_CTL_SIGNING</span> <span class="op">=</span> <span class="number">316</span>,
+    <span class="ident">SEC_OID_AVA_NAME</span> <span class="op">=</span> <span class="number">317</span>,
+    <span class="ident">SEC_OID_AES_128_GCM</span> <span class="op">=</span> <span class="number">318</span>,
+    <span class="ident">SEC_OID_AES_192_GCM</span> <span class="op">=</span> <span class="number">319</span>,
+    <span class="ident">SEC_OID_AES_256_GCM</span> <span class="op">=</span> <span class="number">320</span>,
+    <span class="ident">SEC_OID_IDEA_CBC</span> <span class="op">=</span> <span class="number">321</span>,
+    <span class="ident">SEC_OID_RC2_40_CBC</span> <span class="op">=</span> <span class="number">322</span>,
+    <span class="ident">SEC_OID_DES_40_CBC</span> <span class="op">=</span> <span class="number">323</span>,
+    <span class="ident">SEC_OID_RC4_40</span> <span class="op">=</span> <span class="number">324</span>,
+    <span class="ident">SEC_OID_RC4_56</span> <span class="op">=</span> <span class="number">325</span>,
+    <span class="ident">SEC_OID_NULL_CIPHER</span> <span class="op">=</span> <span class="number">326</span>,
+    <span class="ident">SEC_OID_HMAC_MD5</span> <span class="op">=</span> <span class="number">327</span>,
+    <span class="ident">SEC_OID_TLS_RSA</span> <span class="op">=</span> <span class="number">328</span>,
+    <span class="ident">SEC_OID_TLS_DHE_RSA</span> <span class="op">=</span> <span class="number">329</span>,
+    <span class="ident">SEC_OID_TLS_DHE_DSS</span> <span class="op">=</span> <span class="number">330</span>,
+    <span class="ident">SEC_OID_TLS_DH_RSA</span> <span class="op">=</span> <span class="number">331</span>,
+    <span class="ident">SEC_OID_TLS_DH_DSS</span> <span class="op">=</span> <span class="number">332</span>,
+    <span class="ident">SEC_OID_TLS_DH_ANON</span> <span class="op">=</span> <span class="number">333</span>,
+    <span class="ident">SEC_OID_TLS_ECDHE_ECDSA</span> <span class="op">=</span> <span class="number">334</span>,
+    <span class="ident">SEC_OID_TLS_ECDHE_RSA</span> <span class="op">=</span> <span class="number">335</span>,
+    <span class="ident">SEC_OID_TLS_ECDH_ECDSA</span> <span class="op">=</span> <span class="number">336</span>,
+    <span class="ident">SEC_OID_TLS_ECDH_RSA</span> <span class="op">=</span> <span class="number">337</span>,
+    <span class="ident">SEC_OID_TLS_ECDH_ANON</span> <span class="op">=</span> <span class="number">338</span>,
+    <span class="ident">SEC_OID_TLS_RSA_EXPORT</span> <span class="op">=</span> <span class="number">339</span>,
+    <span class="ident">SEC_OID_TLS_DHE_RSA_EXPORT</span> <span class="op">=</span> <span class="number">340</span>,
+    <span class="ident">SEC_OID_TLS_DHE_DSS_EXPORT</span> <span class="op">=</span> <span class="number">341</span>,
+    <span class="ident">SEC_OID_TLS_DH_RSA_EXPORT</span> <span class="op">=</span> <span class="number">342</span>,
+    <span class="ident">SEC_OID_TLS_DH_DSS_EXPORT</span> <span class="op">=</span> <span class="number">343</span>,
+    <span class="ident">SEC_OID_TLS_DH_ANON_EXPORT</span> <span class="op">=</span> <span class="number">344</span>,
+    <span class="ident">SEC_OID_APPLY_SSL_POLICY</span> <span class="op">=</span> <span class="number">345</span>,
+    <span class="ident">SEC_OID_CHACHA20_POLY1305</span> <span class="op">=</span> <span class="number">346</span>,
+    <span class="ident">SEC_OID_TLS_ECDHE_PSK</span> <span class="op">=</span> <span class="number">347</span>,
+    <span class="ident">SEC_OID_TLS_DHE_PSK</span> <span class="op">=</span> <span class="number">348</span>,
+    <span class="ident">SEC_OID_TLS_FFDHE_2048</span> <span class="op">=</span> <span class="number">349</span>,
+    <span class="ident">SEC_OID_TLS_FFDHE_3072</span> <span class="op">=</span> <span class="number">350</span>,
+    <span class="ident">SEC_OID_TLS_FFDHE_4096</span> <span class="op">=</span> <span class="number">351</span>,
+    <span class="ident">SEC_OID_TLS_FFDHE_6144</span> <span class="op">=</span> <span class="number">352</span>,
+    <span class="ident">SEC_OID_TLS_FFDHE_8192</span> <span class="op">=</span> <span class="number">353</span>,
+    <span class="ident">SEC_OID_TLS_DHE_CUSTOM</span> <span class="op">=</span> <span class="number">354</span>,
+    <span class="ident">SEC_OID_CURVE25519</span> <span class="op">=</span> <span class="number">355</span>,
+    <span class="ident">SEC_OID_TLS13_KEA_ANY</span> <span class="op">=</span> <span class="number">356</span>,
+    <span class="ident">SEC_OID_X509_ANY_EXT_KEY_USAGE</span> <span class="op">=</span> <span class="number">357</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_IPSEC_IKE</span> <span class="op">=</span> <span class="number">358</span>,
+    <span class="ident">SEC_OID_IPSEC_IKE_END</span> <span class="op">=</span> <span class="number">359</span>,
+    <span class="ident">SEC_OID_IPSEC_IKE_INTERMEDIATE</span> <span class="op">=</span> <span class="number">360</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_IPSEC_END</span> <span class="op">=</span> <span class="number">361</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_IPSEC_TUNNEL</span> <span class="op">=</span> <span class="number">362</span>,
+    <span class="ident">SEC_OID_EXT_KEY_USAGE_IPSEC_USER</span> <span class="op">=</span> <span class="number">363</span>,
+    <span class="ident">SEC_OID_TOTAL</span> <span class="op">=</span> <span class="number">364</span>,
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../../" data-current-crate="nss_sys" data-search-js="../../../search-index.js"></div>
+    <script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script></body></html>

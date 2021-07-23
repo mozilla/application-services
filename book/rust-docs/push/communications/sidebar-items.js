@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["BroadcastValue",""]],"fn":[["connect",""]],"struct":[["ConnectHttp","Connect to the Autopush server via the HTTP interface"],["PersistedRateLimiter",""],["RegisterResponse",""]],"trait":[["Connection","A new communication link to the Autopush server"]]});

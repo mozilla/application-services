@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["DEFAULT_FRECENCY_SETTINGS",""]],"fn":[["calculate_frecency",""]],"struct":[["FrecencySettings",""]]});

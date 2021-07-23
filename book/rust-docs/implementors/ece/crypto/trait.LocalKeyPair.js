@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["rc_crypto"] = [{"text":"impl LocalKeyPair for <a class=\"struct\" href=\"rc_crypto/ece_crypto/struct.RcCryptoLocalKeyPair.html\" title=\"struct rc_crypto::ece_crypto::RcCryptoLocalKeyPair\">RcCryptoLocalKeyPair</a>","synthetic":false,"types":["rc_crypto::ece_crypto::RcCryptoLocalKeyPair"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

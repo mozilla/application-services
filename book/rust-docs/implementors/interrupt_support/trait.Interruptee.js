@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["interrupt_support"] = [];
+implementors["sql_support"] = [{"text":"impl <a class=\"trait\" href=\"interrupt_support/trait.Interruptee.html\" title=\"trait interrupt_support::Interruptee\">Interruptee</a> for <a class=\"struct\" href=\"sql_support/struct.SqlInterruptScope.html\" title=\"struct sql_support::SqlInterruptScope\">SqlInterruptScope</a>","synthetic":false,"types":["sql_support::interrupt::SqlInterruptScope"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

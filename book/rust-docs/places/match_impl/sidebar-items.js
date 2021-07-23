@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["MatchBehavior",""]],"fn":[["find_in_string",""]],"struct":[["AutocompleteMatch",""],["SearchBehavior",""]]});

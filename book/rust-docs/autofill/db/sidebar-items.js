@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["addresses",""],["credit_cards",""],["models",""],["schema",""],["store",""]],"struct":[["AutofillDb",""]]});

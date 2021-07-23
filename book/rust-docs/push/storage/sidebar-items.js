@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["PushRecord",""],["Store",""]],"trait":[["Storage",""]]});

@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Firefox Accounts Client"><meta name="keywords" content="rust, rustlang, rust-lang, fxa_client"><title>fxa_client - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings"></script><script src="../storage.js"></script><script src="../crates.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../fxa_client/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><p class="location">Crate fxa_client</p><div class="block version"><p>Version 0.1.0</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all fxa_client's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><p class="location"></p><div id="sidebar-vars" data-name="fxa_client" data-ty="mod" data-relpath="../"></div></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="">fxa_client</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/fxa_client/lib.rs.html#5-1337" title="goto source code">[src]</a></span></h1><div class="docblock"><h1 id="firefox-accounts-client" class="section-header"><a href="#firefox-accounts-client">Firefox Accounts Client</a></h1>
+<p>The fxa-client component lets applications integrate with the
+<a href="https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/fxa-overview">Firefox Accounts</a>
+identity service. The shape of a typical integration would look
+something like:</p>
+<ul>
+<li>
+<p>Out-of-band, register your application with the Firefox Accounts service,
+providing an OAuth <code>redirect_uri</code> controlled by your application and
+obtaining an OAuth <code>client_id</code>.</p>
+</li>
+<li>
+<p>On application startup, create a <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> object to represent the
+signed-in state of the application.</p>
+<ul>
+<li>On first startup, a new <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> can be created by calling
+<a href="../fxa_client/struct.FirefoxAccount.html#method.new" title="FirefoxAccount::new"><code>FirefoxAccount::new</code></a> and passing the application’s <code>client_id</code>.</li>
+<li>For subsequent startups the object can be persisted using the
+<a href="../fxa_client/struct.FirefoxAccount.html#method.to_json"><code>to_json</code></a> method and re-created by
+calling <a href="../fxa_client/struct.FirefoxAccount.html#method.from_json" title="FirefoxAccount::from_json"><code>FirefoxAccount::from_json</code></a>.</li>
+</ul>
+</li>
+<li>
+<p>When the user wants to sign in to your application, direct them through
+a web-based OAuth flow using <a href="../fxa_client/struct.FirefoxAccount.html#method.begin_oauth_flow"><code>begin_oauth_flow</code></a>
+or <a href="../fxa_client/struct.FirefoxAccount.html#method.begin_pairing_flow"><code>begin_pairing_flow</code></a>; when they return
+to your registered <code>redirect_uri</code>, pass the resulting authorization state back to
+<a href="../fxa_client/struct.FirefoxAccount.html#method.complete_oauth_flow"><code>complete_oauth_flow</code></a> to sign them in.</p>
+</li>
+<li>
+<p>Display information about the signed-in user by using the data from
+<a href="../fxa_client/struct.FirefoxAccount.html#method.get_profile"><code>get_profile</code></a>.</p>
+</li>
+<li>
+<p>Access account-related services on behalf of the user by obtaining OAuth
+access tokens via <a href="../fxa_client/struct.FirefoxAccount.html#method.get_access_token"><code>get_access_token</code></a>.</p>
+</li>
+<li>
+<p>If the user opts to sign out of the application, calling <a href="../fxa_client/struct.FirefoxAccount.html#method.disconnect"><code>disconnect</code></a>
+and then discarding any persisted account data.</p>
+</li>
+</ul>
+</div><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
+<table><tr class="module-item"><td><a class="mod" href="internal/index.html" title="fxa_client::internal mod">internal</a></td><td class="docblock-short"><p>Internal implementation details for the fxa_client crate.</p>
+</td></tr></table><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<table><tr class="module-item"><td><a class="struct" href="struct.AccessTokenInfo.html" title="fxa_client::AccessTokenInfo struct">AccessTokenInfo</a></td><td class="docblock-short"><p>An OAuth access token, with its associated keys and metadata.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.AttachedClient.html" title="fxa_client::AttachedClient struct">AttachedClient</a></td><td class="docblock-short"><p>A client connected to the user’s account.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.AuthorizationInfo.html" title="fxa_client::AuthorizationInfo struct">AuthorizationInfo</a></td><td class="docblock-short"><p>Information about the authorization state of the application.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.AuthorizationParameters.html" title="fxa_client::AuthorizationParameters struct">AuthorizationParameters</a></td><td class="docblock-short"><p>Parameters provided in an incoming OAuth request.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.Device.html" title="fxa_client::Device struct">Device</a></td><td class="docblock-short"><p>A device connected to the user’s account.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DevicePushSubscription.html" title="fxa_client::DevicePushSubscription struct">DevicePushSubscription</a></td><td class="docblock-short"><p>Details of a web-push subscription endpoint.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.FirefoxAccount.html" title="fxa_client::FirefoxAccount struct">FirefoxAccount</a></td><td class="docblock-short"><p>Object representing the signed-in state of an application.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.FxAMigrationResult.html" title="fxa_client::FxAMigrationResult struct">FxAMigrationResult</a></td><td class="docblock-short"><p>Statistics about the completion of a migration from legacy sign-in data.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.MetricsParams.html" title="fxa_client::MetricsParams struct">MetricsParams</a></td><td class="docblock-short"><p>Additional metrics tracking parameters to include in an OAuth request.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.Profile.html" title="fxa_client::Profile struct">Profile</a></td><td class="docblock-short"><p>Information about the user that controls a Firefox Account.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.ScopedKey.html" title="fxa_client::ScopedKey struct">ScopedKey</a></td><td class="docblock-short"><p>A cryptograpic key associated with an OAuth scope.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.SendTabPayload.html" title="fxa_client::SendTabPayload struct">SendTabPayload</a></td><td class="docblock-short"><p>The payload sent when invoking a “send tab” command.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.TabHistoryEntry.html" title="fxa_client::TabHistoryEntry struct">TabHistoryEntry</a></td><td class="docblock-short"><p>An individual entry in the navigation history of a sent tab.</p>
+</td></tr></table><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
+<table><tr class="module-item"><td><a class="enum" href="enum.AccountEvent.html" title="fxa_client::AccountEvent enum">AccountEvent</a></td><td class="docblock-short"><p>An event that happened on the user’s account.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.DeviceCapability.html" title="fxa_client::DeviceCapability enum">DeviceCapability</a></td><td class="docblock-short"><p>A “capability” offered by a device.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.DeviceType.html" title="fxa_client::DeviceType enum">DeviceType</a></td><td class="docblock-short"><p>Enumeration for the different types of device.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.FxaError.html" title="fxa_client::FxaError enum">FxaError</a></td><td class="docblock-short"><p>Generic error type thrown by many <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> operations.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.IncomingDeviceCommand.html" title="fxa_client::IncomingDeviceCommand enum">IncomingDeviceCommand</a></td><td class="docblock-short"><p>A command invoked by another device.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.MigrationState.html" title="fxa_client::MigrationState enum">MigrationState</a></td><td class="docblock-short"><p>The current state migration from legacy sign-in data.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="fxa_client" data-search-js="../search-index.js"></div>
+    <script src="../main.js"></script></body></html>

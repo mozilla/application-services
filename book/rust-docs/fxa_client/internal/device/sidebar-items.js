@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Capability",""],["CommandFetchReason","The reason we are fetching commands."],["Type",""]],"struct":[["Device",""],["Location",""],["PushSubscription",""]]});

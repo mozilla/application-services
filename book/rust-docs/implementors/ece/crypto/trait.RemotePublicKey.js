@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["rc_crypto"] = [{"text":"impl RemotePublicKey for <a class=\"struct\" href=\"rc_crypto/ece_crypto/struct.RcCryptoRemotePublicKey.html\" title=\"struct rc_crypto::ece_crypto::RcCryptoRemotePublicKey\">RcCryptoRemotePublicKey</a>","synthetic":false,"types":["rc_crypto::ece_crypto::RcCryptoRemotePublicKey"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

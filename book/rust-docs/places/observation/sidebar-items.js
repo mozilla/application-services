@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["VisitObservation","An “observation” based model for updating history. You create a VisitObservation, call functions on it which correspond with what you observed. The page will then be updated using this info."]]});

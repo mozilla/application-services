@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["autofill"] = [{"text":"impl <a class=\"trait\" href=\"sql_support/open_database/trait.MigrationLogic.html\" title=\"trait sql_support::open_database::MigrationLogic\">MigrationLogic</a> for <a class=\"struct\" href=\"autofill/db/schema/struct.AutofillMigrationLogic.html\" title=\"struct autofill::db::schema::AutofillMigrationLogic\">AutofillMigrationLogic</a>","synthetic":false,"types":["autofill::db::schema::AutofillMigrationLogic"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,522 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Object representing the signed-in state of an application."><meta name="keywords" content="rust, rustlang, rust-lang, FirefoxAccount"><title>fxa_client::FirefoxAccount - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script id="default-settings"></script><script src="../storage.js"></script><script src="../crates.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc struct"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../fxa_client/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><p class="location">Struct FirefoxAccount</p><div class="sidebar-elems"><div class="block items"><a class="sidebar-title" href="#implementations">Methods</a><div class="sidebar-links"><a href="#method.authorize_code_using_session_token">authorize_code_using_session_token</a><a href="#method.begin_oauth_flow">begin_oauth_flow</a><a href="#method.begin_pairing_flow">begin_pairing_flow</a><a href="#method.check_authorization_status">check_authorization_status</a><a href="#method.clear_access_token_cache">clear_access_token_cache</a><a href="#method.clear_device_name">clear_device_name</a><a href="#method.complete_oauth_flow">complete_oauth_flow</a><a href="#method.disconnect">disconnect</a><a href="#method.ensure_capabilities">ensure_capabilities</a><a href="#method.from_json">from_json</a><a href="#method.gather_telemetry">gather_telemetry</a><a href="#method.get_access_token">get_access_token</a><a href="#method.get_attached_clients">get_attached_clients</a><a href="#method.get_connection_success_url">get_connection_success_url</a><a href="#method.get_current_device_id">get_current_device_id</a><a href="#method.get_devices">get_devices</a><a href="#method.get_manage_account_url">get_manage_account_url</a><a href="#method.get_manage_devices_url">get_manage_devices_url</a><a href="#method.get_pairing_authority_url">get_pairing_authority_url</a><a href="#method.get_profile">get_profile</a><a href="#method.get_session_token">get_session_token</a><a href="#method.get_token_server_endpoint_url">get_token_server_endpoint_url</a><a href="#method.handle_push_message">handle_push_message</a><a href="#method.handle_session_token_change">handle_session_token_change</a><a href="#method.initialize_device">initialize_device</a><a href="#method.is_in_migration_state">is_in_migration_state</a><a href="#method.migrate_from_session_token">migrate_from_session_token</a><a href="#method.new">new</a><a href="#method.poll_device_commands">poll_device_commands</a><a href="#method.retry_migrate_from_session_token">retry_migrate_from_session_token</a><a href="#method.send_single_tab">send_single_tab</a><a href="#method.set_device_name">set_device_name</a><a href="#method.set_push_subscription">set_push_subscription</a><a href="#method.to_json">to_json</a></div><a class="sidebar-title" href="#synthetic-implementations">Auto Trait Implementations</a><div class="sidebar-links"><a href="#impl-RefUnwindSafe">RefUnwindSafe</a><a href="#impl-Send">Send</a><a href="#impl-Sync">Sync</a><a href="#impl-Unpin">Unpin</a><a href="#impl-UnwindSafe">UnwindSafe</a></div><a class="sidebar-title" href="#blanket-implementations">Blanket Implementations</a><div class="sidebar-links"><a href="#impl-Any">Any</a><a href="#impl-Borrow%3CT%3E">Borrow&lt;T&gt;</a><a href="#impl-BorrowMut%3CT%3E">BorrowMut&lt;T&gt;</a><a href="#impl-From%3CT%3E">From&lt;T&gt;</a><a href="#impl-Into%3CU%3E">Into&lt;U&gt;</a><a href="#impl-TryFrom%3CU%3E">TryFrom&lt;U&gt;</a><a href="#impl-TryInto%3CU%3E">TryInto&lt;U&gt;</a><a href="#impl-VZip%3CV%3E">VZip&lt;V&gt;</a></div></div><p class="location"><a href="index.html">fxa_client</a></p><div id="sidebar-vars" data-name="FirefoxAccount" data-ty="struct" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu"><img src="../brush.svg" width="18" height="18" alt="Pick another theme!"></button><div id="theme-choices" role="menu"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" class="help-button">?</button>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" height="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Struct <a href="index.html">fxa_client</a>::<wbr><a class="struct" href="">FirefoxAccount</a></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/fxa_client/lib.rs.html#106-110" title="goto source code">[src]</a></span></h1><div class="docblock type-decl hidden-by-usual-hider"><pre class="rust struct">pub struct FirefoxAccount { /* fields omitted */ }</pre></div><div class="docblock"><p>Object representing the signed-in state of an application.</p>
+<p>The <code>FirefoxAccount</code> object is the main interface provided by this crate.
+It represents the signed-in state of an application that may be connected to
+user’s Firefox Account, and provides methods for inspecting the state of the
+account and accessing other services on behalf of the user.</p>
+</div><h2 id="implementations" class="small-section-header">Implementations<a href="#implementations" class="anchor"></a></h2><h3 id="impl" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#127-193" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="constructors-and-state-management" class="section-header"><a href="#constructors-and-state-management">Constructors and state management</a></h1>
+<p>These are methods for managing the signed-in state of the application,
+either by restoring a previously-saved state via <a href="../fxa_client/struct.FirefoxAccount.html#method.from_json" title="FirefoxAccount::from_json"><code>FirefoxAccount::from_json</code></a>
+or by starting afresh with <a href="../fxa_client/struct.FirefoxAccount.html#method.new" title="FirefoxAccount::new"><code>FirefoxAccount::new</code></a>.</p>
+<p>The application must persist the signed-in state after calling any methods
+that may alter it. Such methods are marked in the documentation as follows:</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>After calling any such method, use <a href="../fxa_client/struct.FirefoxAccount.html#method.to_json" title="FirefoxAccount::to_json"><code>FirefoxAccount::to_json</code></a> to serialize
+the modified account state and persist the resulting string in application
+settings.</p>
+</div><div class="impl-items"><h4 id="method.new" class="method"><code>pub fn <a href="#method.new" class="fnname">new</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;content_url: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;client_id: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;redirect_uri: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;token_server_url_override: &amp;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;<br>) -&gt; <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a class="srclink" href="../src/fxa_client/lib.rs.html#146-160" title="goto source code">[src]</a></h4><div class="docblock"><p>Create a new <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> instance, not connected to any account.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method constructs as new <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> instance configured to connect
+the application to a user’s account.</p>
+<h1 id="arguments" class="section-header"><a href="#arguments">Arguments</a></h1>
+<ul>
+<li><code>content_url</code> - the URL of the Firefox Accounts server to use
+<ul>
+<li>For example, use <code>https://accounts.firefox.com</code> for the main
+Mozilla-hosted service.</li>
+</ul>
+</li>
+<li><code>client_id</code> - the registered OAuth client id of the application.</li>
+<li><code>redirect_uri</code> - the registered OAuth redirect URI of the application.</li>
+<li><code>token_server_url_override</code>: optionally, URL for the user’s Sync Tokenserver.
+<ul>
+<li>This can be used to support users who self-host their sync data.
+If <code>None</code> then it will default to the Mozilla-hosted Sync server.</li>
+</ul>
+</li>
+</ul>
+</div><h4 id="method.from_json" class="method"><code>pub fn <a href="#method.from_json" class="fnname">from_json</a>(data: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#172-176" title="goto source code">[src]</a></h4><div class="docblock"><p>Restore a <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> instance from serialized state.</p>
+<p>Given a JSON string previously obtained from <a href="../fxa_client/struct.FirefoxAccount.html#method.to_json" title="FirefoxAccount::to_json"><code>FirefoxAccount::to_json</code></a>, this
+method will deserialize it and return a live <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> instance.</p>
+<p><strong>⚠️ Warning:</strong> since the serialized state contains access tokens, you should
+not call <code>from_json</code> multiple times on the same data. This would result
+in multiple live objects sharing the same access tokens and is likely to
+produce unexpected behaviour.</p>
+</div><h4 id="method.to_json" class="method"><code>pub fn <a href="#method.to_json" class="fnname">to_json</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#190-192" title="goto source code">[src]</a></h4><div class="docblock"><p>Save current state to a JSON string.</p>
+<p>This method serializes the current account state into a JSON string, which
+the application can use to persist the user’s signed-in state across restarts.
+The application should call this method and update its persisted state after
+any potentially-state-changing operation.</p>
+<p><strong>⚠️ Warning:</strong> the serialized state may contain encryption keys and access
+tokens that let anyone holding them access the user’s data in Firefox Sync
+and/or other FxA services. Applications should take care to store the resulting
+data in a secure fashion, as appropriate for their target platform.</p>
+</div></div><h3 id="impl-1" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-1" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#216-362" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="signing-in-and-out" class="section-header"><a href="#signing-in-and-out">Signing in and out</a></h1>
+<p>These are methods for managing the signed-in state, such as authenticating via
+an OAuth flow or disconnecting from the user’s account.</p>
+<p>The Firefox Accounts system supports two methods for connecting an application
+to a user’s account:</p>
+<ul>
+<li>
+<p>A traditional OAuth flow, where the user is directed to a webpage to enter
+their account credentials and then redirected back to the application.
+This is exposed by the <a href="../fxa_client/struct.FirefoxAccount.html#method.begin_oauth_flow"><code>begin_oauth_flow</code></a>
+method.</p>
+</li>
+<li>
+<p>A device pairing flow, where the user scans a QRCode presented by another
+app that is already connected to the account, which then directs them to
+a webpage for a simplified signing flow. This is exposed by the
+<a href="../fxa_client/struct.FirefoxAccount.html#method.begin_pairing_flow"><code>begin_pairing_flow</code></a> method.</p>
+</li>
+</ul>
+<p>Technical details of the pairing flow can be found in the <a href="https://mozilla.github.io/ecosystem-platform/docs/features/firefox-accounts/pairing">Firefox Accounts
+documentation hub</a>.</p>
+</div><div class="impl-items"><h4 id="method.begin_oauth_flow" class="method"><code>pub fn <a href="#method.begin_oauth_flow" class="fnname">begin_oauth_flow</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;scopes: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[</a><a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">]</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;entrypoint: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;metrics: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../fxa_client/struct.MetricsParams.html" title="struct fxa_client::MetricsParams">MetricsParams</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#240-253" title="goto source code">[src]</a></h4><div class="docblock"><p>Initiate a web-based OAuth sign-in flow.</p>
+<p>This method initializes some internal state and then returns a URL at which the
+user may perform a web-based authorization flow to connect the application to
+their account. The application should direct the user to the provided URL.</p>
+<p>When the resulting OAuth flow redirects back to the configured <code>redirect_uri</code>,
+the query parameters should be extracting from the URL and passed to the
+<a href="../fxa_client/struct.FirefoxAccount.html#method.complete_oauth_flow"><code>complete_oauth_flow</code></a> method to finalize
+the signin.</p>
+<h1 id="arguments-1" class="section-header"><a href="#arguments-1">Arguments</a></h1>
+<ul>
+<li><code>scopes</code> - list of OAuth scopes to request.
+<ul>
+<li>The requested scopes will determine what account-related data
+the application is able to access.</li>
+</ul>
+</li>
+<li><code>entrypoint</code> - metrics identifier for UX entrypoint.
+<ul>
+<li>This parameter is used for metrics purposes, to identify the
+UX entrypoint from which the user triggered the signin request.
+For example, the application toolbar, on the onboarding flow.</li>
+</ul>
+</li>
+<li><code>metrics</code> - optionally, additional metrics tracking paramters.
+<ul>
+<li>These will be included as query parameters in the resulting URL.</li>
+</ul>
+</li>
+</ul>
+</div><h4 id="method.get_pairing_authority_url" class="method"><code>pub fn <a href="#method.get_pairing_authority_url" class="fnname">get_pairing_authority_url</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#262-264" title="goto source code">[src]</a></h4><div class="docblock"><p>Get the URL at which to begin a device-pairing signin flow.</p>
+<p>If the user wants to sign in using device pairing, call this method and then
+direct them to visit the resulting URL on an already-signed-in device. Doing
+so will trigger the other device to show a QR code to be scanned, and the result
+from said QR code can be passed to <a href="../fxa_client/struct.FirefoxAccount.html#method.begin_pairing_flow"><code>begin_pairing_flow</code></a>.</p>
+</div><h4 id="method.begin_pairing_flow" class="method"><code>pub fn <a href="#method.begin_pairing_flow" class="fnname">begin_pairing_flow</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;pairing_url: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;scopes: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[</a><a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">]</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;entrypoint: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;metrics: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="../fxa_client/struct.MetricsParams.html" title="struct fxa_client::MetricsParams">MetricsParams</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#290-305" title="goto source code">[src]</a></h4><div class="docblock"><p>Initiate a device-pairing sign-in flow.</p>
+<p>Once the user has scanned a pairing QR code, pass the scanned value to this
+method. It will return a URL to which the application should redirect the user
+in order to continue the sign-in flow.</p>
+<p>When the resulting flow redirects back to the configured <code>redirect_uri</code>,
+the resulting OAuth parameters should be extracting from the URL and passed
+to <a href="../fxa_client/struct.FirefoxAccount.html#method.complete_oauth_flow"><code>complete_oauth_flow</code></a> to finalize
+the signin.</p>
+<h1 id="arguments-2" class="section-header"><a href="#arguments-2">Arguments</a></h1>
+<ul>
+<li><code>pairing_url</code> - the URL scanned from a QR code on another device.</li>
+<li><code>scopes</code> - list of OAuth scopes to request.
+<ul>
+<li>The requested scopes will determine what account-related data
+the application is able to access.</li>
+</ul>
+</li>
+<li><code>entrypoint</code> - metrics identifier for UX entrypoint.
+<ul>
+<li>This parameter is used for metrics purposes, to identify the
+UX entrypoint from which the user triggered the signin request.
+For example, the application toolbar, on the onboarding flow.</li>
+</ul>
+</li>
+<li><code>metrics</code> - optionally, additional metrics tracking paramters.
+<ul>
+<li>These will be included as query parameters in the resulting URL.</li>
+</ul>
+</li>
+</ul>
+</div><h4 id="method.complete_oauth_flow" class="method"><code>pub fn <a href="#method.complete_oauth_flow" class="fnname">complete_oauth_flow</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;code: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;state: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#321-327" title="goto source code">[src]</a></h4><div class="docblock"><p>Complete an OAuth flow.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>At the conclusion of an OAuth flow, the user will be redirect to the
+application’s registered <code>redirect_uri</code>. It should extract the <code>code</code>
+and <code>state</code> parameters from the resulting URL and pass them to this
+method in order to complete the sign-in.</p>
+<h1 id="arguments-3" class="section-header"><a href="#arguments-3">Arguments</a></h1>
+<ul>
+<li><code>code</code> - the OAuth authorization code obtained from the redirect URI.</li>
+<li><code>state</code> - the OAuth state parameter obtained from the redirect URI.</li>
+</ul>
+</div><h4 id="method.check_authorization_status" class="method"><code>pub fn <a href="#method.check_authorization_status" class="fnname">check_authorization_status</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../fxa_client/struct.AuthorizationInfo.html" title="struct fxa_client::AuthorizationInfo">AuthorizationInfo</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#337-344" title="goto source code">[src]</a></h4><div class="docblock"><p>Check authorization status for this application.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications may call this method to check with the FxA server about the status
+of their authentication tokens. It returns an <a href="../fxa_client/struct.AuthorizationInfo.html" title="AuthorizationInfo"><code>AuthorizationInfo</code></a> struct
+with details about whether the tokens are still active.</p>
+</div><h4 id="method.disconnect" class="method"><code>pub fn <a href="#method.disconnect" class="fnname">disconnect</a>(&amp;self)</code><a class="srclink" href="../src/fxa_client/lib.rs.html#359-361" title="goto source code">[src]</a></h4><div class="docblock"><p>Disconnect from the user’s account.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method destroys any tokens held by the client, effectively disconnecting
+from the user’s account. Applications should call this when the user opts to
+sign out.</p>
+<p>The persisted account state after calling this method will contain only the
+user’s last-seen profile information, if any. This may be useful in helping
+the user to reconnnect to their account. If reconnecting to the same account
+is not desired then the application should discard the persisted account state.</p>
+</div></div><h3 id="impl-2" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-2" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#368-398" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="user-profile-info" class="section-header"><a href="#user-profile-info">User Profile info</a></h1>
+<p>These methods can be used to find out information about the connected user.</p>
+</div><div class="impl-items"><h4 id="method.get_profile" class="method"><code>pub fn <a href="#method.get_profile" class="fnname">get_profile</a>(&amp;self, ignore_cache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../fxa_client/struct.Profile.html" title="struct fxa_client::Profile">Profile</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#390-397" title="goto source code">[src]</a></h4><div class="docblock"><p>Get profile information for the signed-in user, if any.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method fetches a <a href="../fxa_client/struct.Profile.html" title="Profile"><code>Profile</code></a> struct with information about the currently-signed-in
+user, either by using locally-cached profile information or by fetching fresh data from
+the server.</p>
+<h1 id="arguments-4" class="section-header"><a href="#arguments-4">Arguments</a></h1>
+<ul>
+<li><code>ignore_cache</code> - if true, always hit the server for fresh profile information.</li>
+</ul>
+<h1 id="notes" class="section-header"><a href="#notes">Notes</a></h1>
+<ul>
+<li>Profile information is only available to applications that have been
+granted the <code>profile</code> scope.</li>
+<li>There is currently no API for fetching cached profile information without
+potentially hitting the server.</li>
+<li>If there is no signed-in user, this method will throw an
+<a href="../fxa_client/enum.FxaError.html#variant.Authentication"><code>Authentication</code></a> error.</li>
+</ul>
+</div></div><h3 id="impl-3" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-3" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#413-700" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="device-management" class="section-header"><a href="#device-management">Device Management</a></h1>
+<p>Applications that connect to a user’s account may register additional information
+about themselves via a “device record”, which allows them to:</p>
+<ul>
+<li>customize how they appear in the user’s account management page</li>
+<li>receive push notifications about events that happen on the account</li>
+<li>participate in the FxA “device commands” ecosystem</li>
+</ul>
+<p>For more details on FxA device registration and management, consult the
+<a href="https://github.com/mozilla/fxa/blob/main/packages/fxa-auth-server/docs/device_registration.md">Firefox Accounts Device Registration docs</a>.</p>
+</div><div class="impl-items"><h4 id="method.initialize_device" class="method"><code>pub fn <a href="#method.initialize_device" class="fnname">initialize_device</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;device_type: <a class="enum" href="../fxa_client/enum.DeviceType.html" title="enum fxa_client::DeviceType">DeviceType</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;supported_capabilities: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../fxa_client/enum.DeviceCapability.html" title="enum fxa_client::DeviceCapability">DeviceCapability</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#438-452" title="goto source code">[src]</a></h4><div class="docblock"><p>Create a new device record for this application.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method registed a device record for the application, providing basic metadata for
+the device along with a list of supported <a href="../fxa_client/enum.DeviceCapability.html">Device Capabilities</a> for
+participating in the “device commands” ecosystem.</p>
+<p>Applications should call this method soon after a successful sign-in, to ensure
+they they appear correctly in the user’s account-management pages and when discovered
+by other devices connected to the account.</p>
+<h1 id="arguments-5" class="section-header"><a href="#arguments-5">Arguments</a></h1>
+<ul>
+<li><code>name</code> - human-readable display name to use for this application</li>
+<li><code>device_type</code> - the <a href="../fxa_client/enum.DeviceType.html">type</a> of device the application is installed on</li>
+<li><code>supported_capabilities</code> - the set of <a href="../fxa_client/enum.DeviceCapability.html">capabilities</a> to register
+for this device in the “device commands” ecosystem.</li>
+</ul>
+<h1 id="notes-1" class="section-header"><a href="#notes-1">Notes</a></h1>
+<ul>
+<li>Device registration is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.get_current_device_id" class="method"><code>pub fn <a href="#method.get_current_device_id" class="fnname">get_current_device_id</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#464-466" title="goto source code">[src]</a></h4><div class="docblock"><p>Get the device id registered for this application.</p>
+<h1 id="notes-2" class="section-header"><a href="#notes-2">Notes</a></h1>
+<ul>
+<li>If the application has not registered a device record, this method will
+throw an <a href="../fxa_client/enum.FxaError.html#variant.Other"><code>Other</code></a> error.
+<ul>
+<li>(Yeah…sorry. This should be changed to do something better.)</li>
+</ul>
+</li>
+<li>Device metadata is only visible to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.get_devices" class="method"><code>pub fn <a href="#method.get_devices" class="fnname">get_devices</a>(&amp;self, ignore_cache: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../fxa_client/struct.Device.html" title="struct fxa_client::Device">Device</a>&gt;, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#486-495" title="goto source code">[src]</a></h4><div class="docblock"><p>Get the list of devices registered on the user’s account.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method returns a list of <a href="../fxa_client/struct.Device.html" title="Device"><code>Device</code></a> structs representing all the devices
+currently attached to the user’s account (including the current device).
+The application might use this information to e.g. display a list of appropriate
+send-tab targets.</p>
+<h1 id="arguments-6" class="section-header"><a href="#arguments-6">Arguments</a></h1>
+<ul>
+<li><code>ignore_cache</code> - if true, always hit the server for fresh profile information.</li>
+</ul>
+<h1 id="notes-3" class="section-header"><a href="#notes-3">Notes</a></h1>
+<ul>
+<li>Device metadata is only visible to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.get_attached_clients" class="method"><code>pub fn <a href="#method.get_attached_clients" class="fnname">get_attached_clients</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../fxa_client/struct.AttachedClient.html" title="struct fxa_client::AttachedClient">AttachedClient</a>&gt;, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#512-521" title="goto source code">[src]</a></h4><div class="docblock"><p>Get the list of all client applications attached to the user’s account.</p>
+<p>This method returns a list of <a href="../fxa_client/struct.AttachedClient.html" title="AttachedClient"><code>AttachedClient</code></a> structs representing all the applications
+connected to the user’s acount. This includes applications that are registered as a device
+as well as server-side services that the user has connected.</p>
+<p>This information is really only useful for targetted messaging or marketing purposes,
+e.g. if the application wants to advertize a related product, but first wants to check
+whether the user is already using that product.</p>
+<h1 id="notes-4" class="section-header"><a href="#notes-4">Notes</a></h1>
+<ul>
+<li>Attached client metadata is only visible to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.set_device_name" class="method"><code>pub fn <a href="#method.set_device_name" class="fnname">set_device_name</a>(&amp;self, display_name: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#539-545" title="goto source code">[src]</a></h4><div class="docblock"><p>Update the display name used for this application instance.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method modifies the name of the current application’s device record, as seen by
+other applications and in the user’s account management pages.</p>
+<h1 id="arguments-7" class="section-header"><a href="#arguments-7">Arguments</a></h1>
+<ul>
+<li><code>display_name</code> - the new name for the current device.</li>
+</ul>
+<h1 id="notes-5" class="section-header"><a href="#notes-5">Notes</a></h1>
+<ul>
+<li>Device registration is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.clear_device_name" class="method"><code>pub fn <a href="#method.clear_device_name" class="fnname">clear_device_name</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#560-562" title="goto source code">[src]</a></h4><div class="docblock"><p>Clear any custom display name used for this application instance.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method clears the name of the current application’s device record, causing other
+applications or the user’s account management pages to have to fill in some sort of
+default name when displaying this device.</p>
+<h1 id="notes-6" class="section-header"><a href="#notes-6">Notes</a></h1>
+<ul>
+<li>Device registration is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.ensure_capabilities" class="method"><code>pub fn <a href="#method.ensure_capabilities" class="fnname">ensure_capabilities</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;supported_capabilities: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../fxa_client/enum.DeviceCapability.html" title="enum fxa_client::DeviceCapability">DeviceCapability</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#586-597" title="goto source code">[src]</a></h4><div class="docblock"><p>Ensure that the device record has a specific set of capabilities.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method checks that the currently-registred device record is advertising the
+given set of capabilities in the FxA “device commands” ecosystem. If not, then it
+updates the device record to do so.</p>
+<p>Applications should call this method on each startup as a way to ensure that their
+expected set of capabilities is being accurately reflected on the FxA server, and
+to handle the rollout of new capabilities over time.</p>
+<h1 id="arguments-8" class="section-header"><a href="#arguments-8">Arguments</a></h1>
+<ul>
+<li><code>supported_capabilities</code> - the set of <a href="../fxa_client/enum.DeviceCapability.html">capabilities</a> to register
+for this device in the “device commands” ecosystem.</li>
+</ul>
+<h1 id="notes-7" class="section-header"><a href="#notes-7">Notes</a></h1>
+<ul>
+<li>Device registration is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.set_push_subscription" class="method"><code>pub fn <a href="#method.set_push_subscription" class="fnname">set_push_subscription</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;subscription: <a class="struct" href="../fxa_client/struct.DevicePushSubscription.html" title="struct fxa_client::DevicePushSubscription">DevicePushSubscription</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#618-627" title="goto source code">[src]</a></h4><div class="docblock"><p>Set or update a push subscription endpoint for this device.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>This method registers the given webpush subscription with the FxA server, requesting
+that is send notifications in the event of any significant changes to the user’s
+account. When the application receives a push message at the registered subscription
+endpoint, it should decrypt the payload and pass it to the <a href="../fxa_client/struct.FirefoxAccount.html#method.handle_push_message"><code>handle_push_message</code></a> method for processing.</p>
+<h1 id="arguments-9" class="section-header"><a href="#arguments-9">Arguments</a></h1>
+<ul>
+<li><code>subscription</code> - the <a href="../fxa_client/struct.DevicePushSubscription.html" title="DevicePushSubscription"><code>DevicePushSubscription</code></a> details to register with the server.</li>
+</ul>
+<h1 id="notes-8" class="section-header"><a href="#notes-8">Notes</a></h1>
+<ul>
+<li>Device registration is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.handle_push_message" class="method"><code>pub fn <a href="#method.handle_push_message" class="fnname">handle_push_message</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;payload: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../fxa_client/enum.AccountEvent.html" title="enum fxa_client::AccountEvent">AccountEvent</a>&gt;, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#640-642" title="goto source code">[src]</a></h4><div class="docblock"><p>Process and respond to server-delivered account update messages.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications should call this method whenever they receive a push notiication on subscription
+endpoint previously registered with the Firefox Accounts server. Such messages typically indicate
+a noteworthy change of state on the user’s account, such as an update to their profile information
+or the disconnection of a client. The <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> struct will update its internl state
+accordingly and return a list of <a href="../fxa_client/enum.AccountEvent.html" title="AccountEvent"><code>AccountEvent</code></a> structs describing the events, which the application
+may use for further processing.</p>
+</div><h4 id="method.poll_device_commands" class="method"><code>pub fn <a href="#method.poll_device_commands" class="fnname">poll_device_commands</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="../fxa_client/enum.IncomingDeviceCommand.html" title="enum fxa_client::IncomingDeviceCommand">IncomingDeviceCommand</a>&gt;, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#660-669" title="goto source code">[src]</a></h4><div class="docblock"><p>Poll the server for any pending device commands.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications that have registered one or more <a href="../fxa_client/enum.DeviceCapability.html" title="DeviceCapability"><code>DeviceCapability</code></a>s with the server can use
+this method to check whether other devices on the account have sent them any commands.
+It will return a list of <a href="../fxa_client/enum.IncomingDeviceCommand.html" title="IncomingDeviceCommand"><code>IncomingDeviceCommand</code></a> structs for the application to process.</p>
+<h1 id="notes-9" class="section-header"><a href="#notes-9">Notes</a></h1>
+<ul>
+<li>Device commands are typically delivered via push message and the <a href="../fxa_client/enum.AccountEvent.html#variant.CommandReceived"><code>CommandReceived</code></a> event. Polling should only be used as a backup delivery
+mechanism, f the application has reason to believe that push messages may have been missed.</li>
+<li>Device commands functionality is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div><h4 id="method.send_single_tab" class="method"><code>pub fn <a href="#method.send_single_tab" class="fnname">send_single_tab</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;target_device_id: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;title: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;url: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#688-699" title="goto source code">[src]</a></h4><div class="docblock"><p>Use device commands to send a single tab to another device.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>If a device on the account has registered the <a href="../fxa_client/enum.DeviceCapability.html#variant.SendTab"><code>SendTab</code></a>
+capability, this method can be used to send it a tab.</p>
+<h1 id="notes-10" class="section-header"><a href="#notes-10">Notes</a></h1>
+<ul>
+<li>If the given device id does not existing or is not capable of receiving tabs,
+this method will throw an <a href="../fxa_client/enum.FxaError.html#variant.Other"><code>Other</code></a> error.
+<ul>
+<li>(Yeah…sorry. This should be changed to do something better.)</li>
+</ul>
+</li>
+<li>It is not currently possible to send a full <a href="../fxa_client/struct.SendTabPayload.html" title="SendTabPayload"><code>SendTabPayload</code></a> to another device,
+but that’s purely an API limitation that should go away in future.</li>
+<li>Device commands functionality is only available to applications that have been
+granted the <code>https://identity.mozilla.com/apps/oldsync</code> scope.</li>
+</ul>
+</div></div><h3 id="impl-4" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-4" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#712-779" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="account-management-urls" class="section-header"><a href="#account-management-urls">Account Management URLs</a></h1>
+<p>Signed-in applications should not attempt to perform an account-level management
+(such as changing profile data or managing devices) using native UI. Instead, they
+should offer the user the opportunity to visit their account managment pages on the
+web.</p>
+<p>The methods in this section provide URLs at which the user can perform various
+account-management activities.</p>
+</div><div class="impl-items"><h4 id="method.get_token_server_endpoint_url" class="method"><code>pub fn <a href="#method.get_token_server_endpoint_url" class="fnname">get_token_server_endpoint_url</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#717-723" title="goto source code">[src]</a></h4><div class="docblock"><p>Get the URL at which to access the user’s sync data.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+</div><h4 id="method.get_connection_success_url" class="method"><code>pub fn <a href="#method.get_connection_success_url" class="fnname">get_connection_success_url</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#733-735" title="goto source code">[src]</a></h4><div class="docblock"><p>Get a URL which shows a “successfully connceted!” message.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications can use this method after a successful signin, to redirect the
+user to a success message displayed in web content rather than having to
+implement their own native success UI.</p>
+</div><h4 id="method.get_manage_account_url" class="method"><code>pub fn <a href="#method.get_manage_account_url" class="fnname">get_manage_account_url</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;entrypoint: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#750-756" title="goto source code">[src]</a></h4><div class="docblock"><p>Get a URL at which the user can manage their account and profile data.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications should link the user out to this URL from an appropriate place
+in their signed-in settings UI.</p>
+<h1 id="arguments-10" class="section-header"><a href="#arguments-10">Arguments</a></h1>
+<ul>
+<li><code>entrypoint</code> - metrics identifier for UX entrypoint.
+<ul>
+<li>This parameter is used for metrics purposes, to identify the
+UX entrypoint from which the user followed the link.</li>
+</ul>
+</li>
+</ul>
+</div><h4 id="method.get_manage_devices_url" class="method"><code>pub fn <a href="#method.get_manage_devices_url" class="fnname">get_manage_devices_url</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;entrypoint: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#772-778" title="goto source code">[src]</a></h4><div class="docblock"><p>Get a URL at which the user can manage the devices connected to their account.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications should link the user out to this URL from an appropriate place
+in their signed-in settings UI. For example, “Manage your devices…” may be
+a useful link to place somewhere near the device list in the send-tab UI.</p>
+<h1 id="arguments-11" class="section-header"><a href="#arguments-11">Arguments</a></h1>
+<ul>
+<li><code>entrypoint</code> - metrics identifier for UX entrypoint.
+<ul>
+<li>This parameter is used for metrics purposes, to identify the
+UX entrypoint from which the user followed the link.</li>
+</ul>
+</li>
+</ul>
+</div></div><h3 id="impl-5" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-5" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#794-909" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="token-management" class="section-header"><a href="#token-management">Token Management</a></h1>
+<p>A signed-in appliction will typically hold a number of different <em>tokens</em> associated with the
+user’s account, including:</p>
+<ul>
+<li>An OAuth <code>refresh_token</code>, representing their ongoing connection to the account
+and the scopes that have been granted.</li>
+<li>Short-lived OAuth <code>access_token</code>s that can be used to access resources on behalf
+of the user.</li>
+<li>Optionally, a <code>session_token</code> that gives full control over the user’s account,
+typically managed on behalf of web content that runs within the context
+of the application.</li>
+</ul>
+</div><div class="impl-items"><h4 id="method.get_access_token" class="method"><code>pub fn <a href="#method.get_access_token" class="fnname">get_access_token</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;scope: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;ttl: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i64.html">i64</a>&gt;<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../fxa_client/struct.AccessTokenInfo.html" title="struct fxa_client::AccessTokenInfo">AccessTokenInfo</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#819-832" title="goto source code">[src]</a></h4><div class="docblock"><p>Get a short-lived OAuth access token for the user’s account.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications that need to access resources on behalf of the user must obtain an
+<code>access_token</code> in order to do so. For example, an access token is required when
+fetching the user’s profile data, or when accessing their data stored in Firefox Sync.</p>
+<p>This method will obtain and return an access token bearing the requested scopes, either
+from a local cache of previously-issued tokens, or by creating a new one from the server.</p>
+<h1 id="arguments-12" class="section-header"><a href="#arguments-12">Arguments</a></h1>
+<ul>
+<li><code>scope</code> - the OAuth scope to be granted by the token.
+<ul>
+<li>This must be one of the scopes requested during the signin flow.</li>
+<li>Only a single scope is supported; for multiple scopes request multiple tokens.</li>
+</ul>
+</li>
+<li><code>ttl</code> - optionally, the time for which the token should be valid, in seconds.</li>
+</ul>
+<h1 id="notes-11" class="section-header"><a href="#notes-11">Notes</a></h1>
+<ul>
+<li>If the application receives an authorization error when trying to use the resulting
+token, it should call <a href="../fxa_client/struct.FirefoxAccount.html#method.clear_access_token_cache"><code>clear_access_token_cache</code></a>
+before requesting a fresh token.</li>
+</ul>
+</div><h4 id="method.get_session_token" class="method"><code>pub fn <a href="#method.get_session_token" class="fnname">get_session_token</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#850-852" title="goto source code">[src]</a></h4><div class="docblock"><p>Get the session token for the user’s account, if one is available.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications that function as a web browser may need to hold on to a session token
+on behalf of Firefox Accounts web content. This method exists so that they can retreive
+it an pass it back to said web content when required.</p>
+<h1 id="notes-12" class="section-header"><a href="#notes-12">Notes</a></h1>
+<ul>
+<li>Please do not attempt to use the resulting token to directly make calls to the
+Firefox Accounts servers! All account management functionality should be performed
+in web content.</li>
+<li>A session token is only available to applications that have requested the
+<code>https://identity.mozilla.com/tokens/session</code> scope.</li>
+</ul>
+</div><h4 id="method.handle_session_token_change" class="method"><code>pub fn <a href="#method.handle_session_token_change" class="fnname">handle_session_token_change</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;session_token: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.unit.html">()</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#867-873" title="goto source code">[src]</a></h4><div class="docblock"><p>Update the stored session token for the user’s account.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications that function as a web browser may need to hold on to a session token
+on behalf of Firefox Accounts web content. This method exists so that said web content
+signals that it has generated a new session token, the stored value can be updated
+to match.</p>
+<h1 id="arguments-13" class="section-header"><a href="#arguments-13">Arguments</a></h1>
+<ul>
+<li><code>session_token</code> - the new session token value provided from web content.</li>
+</ul>
+</div><h4 id="method.authorize_code_using_session_token" class="method"><code>pub fn <a href="#method.authorize_code_using_session_token" class="fnname">authorize_code_using_session_token</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;params: <a class="struct" href="../fxa_client/struct.AuthorizationParameters.html" title="struct fxa_client::AuthorizationParameters">AuthorizationParameters</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#887-896" title="goto source code">[src]</a></h4><div class="docblock"><p>Create a new OAuth authorization code using the stored session token.</p>
+<p>When a signed-in application receives an incoming device pairing request, it can
+use this method to grant the request and generate a corresponding OAuth authorization
+code. This code would then be passed back to the connecting device over the
+pairing channel (a process which is not currently supported by any code in this
+component).</p>
+<h1 id="arguments-14" class="section-header"><a href="#arguments-14">Arguments</a></h1>
+<ul>
+<li><code>params</code> - the OAuth parameters from the incoming authorization request</li>
+</ul>
+</div><h4 id="method.clear_access_token_cache" class="method"><code>pub fn <a href="#method.clear_access_token_cache" class="fnname">clear_access_token_cache</a>(&amp;self)</code><a class="srclink" href="../src/fxa_client/lib.rs.html#906-908" title="goto source code">[src]</a></h4><div class="docblock"><p>Clear the access token cache in response to an auth failure.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>Applications that receive an authentication error when trying to use an access token,
+should call this method before creating a new token and retrying the failed operation.
+It ensures that the expired token is removed and a fresh one generated.</p>
+</div></div><h3 id="impl-6" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-6" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#917-931" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="telemetry-methods" class="section-header"><a href="#telemetry-methods">Telemetry Methods</a></h1>
+<p>This component does not currently submit telemetry via Glean, but it <em>does</em> gather
+a small amount of telemetry about send-tab that the application may submit on its
+behalf.</p>
+</div><div class="impl-items"><h4 id="method.gather_telemetry" class="method"><code>pub fn <a href="#method.gather_telemetry" class="fnname">gather_telemetry</a>(&amp;self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#928-930" title="goto source code">[src]</a></h4><div class="docblock"><p>Collect and return telemetry about send-tab attempts.</p>
+<p>Applications that register the <a href="../fxa_client/enum.DeviceCapability.html#variant.SendTab"><code>SendTab</code></a> capability
+should also arrange to submit “sync ping” telemetry. Calling this method will
+return a JSON string of telemetry data that can be incorporated into that ping.</p>
+<p>Sorry, this is not particularly carefully documented because it is intended
+as a stop-gap until we get native Glean support. If you know how to submit
+a sync ping, you’ll know what to do with the contents of the JSON string.</p>
+</div></div><h3 id="impl-7" class="impl"><code class="in-band">impl <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-7" class="anchor"></a><a class="srclink" href="../src/fxa_client/lib.rs.html#944-1006" title="goto source code">[src]</a></h3><div class="docblock"><h1 id="migration-support-methods" class="section-header"><a href="#migration-support-methods">Migration Support Methods</a></h1>
+<p>Some applications may have existing signed-in account state from a bespoke implementation
+of the Firefox Accounts signin protocol, but want to move to using this component in order
+to reduce maintenance costs.</p>
+<p>The sign-in state for a legacy FxA integration would typically consist of a session token
+and a pair of cryptographic keys used for accessing Firefox Sync. The methods in this section
+can be used to help migrate from such legacy state into state that’s suitable for use with
+this component.</p>
+</div><div class="impl-items"><h4 id="method.migrate_from_session_token" class="method"><code>pub fn <a href="#method.migrate_from_session_token" class="fnname">migrate_from_session_token</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;session_token: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;k_sync: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;k_xcs: &amp;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;copy_session_token: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../fxa_client/struct.FxAMigrationResult.html" title="struct fxa_client::FxAMigrationResult">FxAMigrationResult</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#970-983" title="goto source code">[src]</a></h4><div class="docblock"><p>Sign in by using legacy session-token state.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>When migrating to use the FxA client component, create a <a href="../fxa_client/struct.FirefoxAccount.html" title="FirefoxAccount"><code>FirefoxAccount</code></a> instance
+and then pass any legacy sign-in state to this method. It will attempt to use the
+session token to bootstrap a full internal state of OAuth tokens, and will store the
+provided credentials internally in case it needs to retry after e.g. a network failure.</p>
+<h1 id="arguments-15" class="section-header"><a href="#arguments-15">Arguments</a></h1>
+<ul>
+<li><code>session_token</code> - the session token from legacy sign-in state</li>
+<li><code>k_sync</code> - the Firefox Sync encryption key from legacy sign-in state</li>
+<li><code>k_xcs</code> - the Firefox Sync “X-Client-State: value from legacy sign-in state</li>
+<li><code>copy_session_token</code> - if true, copy the given session token rather than using it directly</li>
+</ul>
+<h1 id="notes-13" class="section-header"><a href="#notes-13">Notes</a></h1>
+<ul>
+<li>If successful, this method will return an <a href="../fxa_client/struct.FxAMigrationResult.html" title="FxAMigrationResult"><code>FxAMigrationResult</code></a> with some statistics
+about the migration process.</li>
+<li>If unsuccessful this method will throw an error, but you may be able to retry the
+migration again at a later time.</li>
+<li>Use <a href="../fxa_client/struct.FirefoxAccount.html#method.is_in_migration_state">is_in_migration_state</a> to check whether the
+persisted account state includes a a pending migration that can be retried.</li>
+</ul>
+</div><h4 id="method.retry_migrate_from_session_token" class="method"><code>pub fn <a href="#method.retry_migrate_from_session_token" class="fnname">retry_migrate_from_session_token</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../fxa_client/struct.FxAMigrationResult.html" title="struct fxa_client::FxAMigrationResult">FxAMigrationResult</a>, <a class="enum" href="../fxa_client/enum.FxaError.html" title="enum fxa_client::FxaError">FxaError</a>&gt;</code><a class="srclink" href="../src/fxa_client/lib.rs.html#993-995" title="goto source code">[src]</a></h4><div class="docblock"><p>Retry a previously failed migration from legacy session-token state.</p>
+<p><strong>💾 This method alters the persisted account state.</strong></p>
+<p>If an earlier call to <a href="../fxa_client/struct.FirefoxAccount.html#method.migrate_from_session_token"><code>migrate_from_session_token</code></a>
+failed, it may have stored the provided state for retrying at a later time. Call this method
+in order to execute such a retry.</p>
+</div><h4 id="method.is_in_migration_state" class="method"><code>pub fn <a href="#method.is_in_migration_state" class="fnname">is_in_migration_state</a>(&amp;self) -&gt; <a class="enum" href="../fxa_client/enum.MigrationState.html" title="enum fxa_client::MigrationState">MigrationState</a></code><a class="srclink" href="../src/fxa_client/lib.rs.html#1003-1005" title="goto source code">[src]</a></h4><div class="docblock"><p>Check for a previously failed migration from legacy session-token state.</p>
+<p>If an earlier call to <a href="../fxa_client/struct.FirefoxAccount.html#method.migrate_from_session_token"><code>migrate_from_session_token</code></a>
+failed, it may have stored the provided state for retrying at a later time. Call this method
+in check whether such state exists, then retry at an appropriate time.</p>
+</div></div><h2 id="synthetic-implementations" class="small-section-header">Auto Trait Implementations<a href="#synthetic-implementations" class="anchor"></a></h2><div id="synthetic-implementations-list"><h3 id="impl-RefUnwindSafe" class="impl"><code class="in-band">impl <a class="trait" href="https://doc.rust-lang.org/nightly/std/panic/trait.RefUnwindSafe.html" title="trait std::panic::RefUnwindSafe">RefUnwindSafe</a> for <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-RefUnwindSafe" class="anchor"></a></h3><div class="impl-items"></div><h3 id="impl-Send" class="impl"><code class="in-band">impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> for <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-Send" class="anchor"></a></h3><div class="impl-items"></div><h3 id="impl-Sync" class="impl"><code class="in-band">impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> for <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-Sync" class="anchor"></a></h3><div class="impl-items"></div><h3 id="impl-Unpin" class="impl"><code class="in-band">impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Unpin.html" title="trait core::marker::Unpin">Unpin</a> for <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-Unpin" class="anchor"></a></h3><div class="impl-items"></div><h3 id="impl-UnwindSafe" class="impl"><code class="in-band">impl <a class="trait" href="https://doc.rust-lang.org/nightly/std/panic/trait.UnwindSafe.html" title="trait std::panic::UnwindSafe">UnwindSafe</a> for <a class="struct" href="../fxa_client/struct.FirefoxAccount.html" title="struct fxa_client::FirefoxAccount">FirefoxAccount</a></code><a href="#impl-UnwindSafe" class="anchor"></a></h3><div class="impl-items"></div></div><h2 id="blanket-implementations" class="small-section-header">Blanket Implementations<a href="#blanket-implementations" class="anchor"></a></h2><div id="blanket-implementations-list"><h3 id="impl-Any" class="impl"><code class="in-band">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/any/trait.Any.html" title="trait core::any::Any">Any</a> for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: 'static + ?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code><a href="#impl-Any" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/any.rs.html#131-135" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="method.type_id" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/any/trait.Any.html#tymethod.type_id" class="fnname">type_id</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/core/any/struct.TypeId.html" title="struct core::any::TypeId">TypeId</a></code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/any.rs.html#132" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Gets the <code>TypeId</code> of <code>self</code>. <a href="https://doc.rust-lang.org/nightly/core/any/trait.Any.html#tymethod.type_id">Read more</a></p>
+</div></div><h3 id="impl-Borrow%3CT%3E" class="impl"><code class="in-band">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html" title="trait core::borrow::Borrow">Borrow</a>&lt;T&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: ?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code><a href="#impl-Borrow%3CT%3E" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#208-213" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="method.borrow" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html#tymethod.borrow" class="fnname">borrow</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;</a>T</code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#210" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Immutably borrows from an owned value. <a href="https://doc.rust-lang.org/nightly/core/borrow/trait.Borrow.html#tymethod.borrow">Read more</a></p>
+</div></div><h3 id="impl-BorrowMut%3CT%3E" class="impl"><code class="in-band">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/borrow/trait.BorrowMut.html" title="trait core::borrow::BorrowMut">BorrowMut</a>&lt;T&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: ?<a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,&nbsp;</span></code><a href="#impl-BorrowMut%3CT%3E" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#216-220" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="method.borrow_mut" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut" class="fnname">borrow_mut</a>(&amp;mut self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.reference.html">&amp;mut </a>T</code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/borrow.rs.html#217" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Mutably borrows from an owned value. <a href="https://doc.rust-lang.org/nightly/core/borrow/trait.BorrowMut.html#tymethod.borrow_mut">Read more</a></p>
+</div></div><h3 id="impl-From%3CT%3E" class="impl"><code class="in-band">impl&lt;T&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt; for T</code><a href="#impl-From%3CT%3E" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#544-548" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="method.from" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/convert/trait.From.html#tymethod.from" class="fnname">from</a>(t: T) -&gt; T</code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#545" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id="impl-Into%3CU%3E" class="impl"><code class="in-band">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;U&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;U: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.From.html" title="trait core::convert::From">From</a>&lt;T&gt;,&nbsp;</span></code><a href="#impl-Into%3CU%3E" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#533-540" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="method.into" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html#tymethod.into" class="fnname">into</a>(self) -&gt; U</code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#537" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id="impl-TryFrom%3CU%3E" class="impl"><code class="in-band">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;U: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;T&gt;,&nbsp;</span></code><a href="#impl-TryFrom%3CU%3E" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#581-590" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="associatedtype.Error" class="type"><code>type <a href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" class="type">Error</a> = <a class="enum" href="https://doc.rust-lang.org/nightly/core/convert/enum.Infallible.html" title="enum core::convert::Infallible">Infallible</a></code></h4><div class='docblock'><p>The type returned in the event of a conversion error.</p>
+</div><h4 id="method.try_from" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#tymethod.try_from" class="fnname">try_from</a>(value: U) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;T, &lt;T as <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;U&gt;&gt;::<a class="type" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#587" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id="impl-TryInto%3CU%3E" class="impl"><code class="in-band">impl&lt;T, U&gt; <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryInto.html" title="trait core::convert::TryInto">TryInto</a>&lt;U&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;U: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;,&nbsp;</span></code><a href="#impl-TryInto%3CU%3E" class="anchor"></a><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#567-576" title="goto source code">[src]</a></h3><div class="impl-items"><h4 id="associatedtype.Error-1" class="type"><code>type <a href="https://doc.rust-lang.org/nightly/core/convert/trait.TryInto.html#associatedtype.Error" class="type">Error</a> = &lt;U as <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="type" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a></code></h4><div class='docblock'><p>The type returned in the event of a conversion error.</p>
+</div><h4 id="method.try_into" class="method hidden"><code>pub fn <a href="https://doc.rust-lang.org/nightly/core/convert/trait.TryInto.html#tymethod.try_into" class="fnname">try_into</a>(self) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;U, &lt;U as <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html" title="trait core::convert::TryFrom">TryFrom</a>&lt;T&gt;&gt;::<a class="type" href="https://doc.rust-lang.org/nightly/core/convert/trait.TryFrom.html#associatedtype.Error" title="type core::convert::TryFrom::Error">Error</a>&gt;</code><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/convert/mod.rs.html#573" title="goto source code">[src]</a></h4><div class='docblock hidden'><p>Performs the conversion.</p>
+</div></div><h3 id="impl-VZip%3CV%3E" class="impl"><code class="in-band">impl&lt;V, T&gt; VZip&lt;V&gt; for T <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;V: MultiLane&lt;T&gt;,&nbsp;</span></code><a href="#impl-VZip%3CV%3E" class="anchor"></a></h3><div class="impl-items"><h4 id="method.vzip" class="method hidden"><code>pub fn <a href="#method.vzip" class="fnname">vzip</a>(self) -&gt; V</code></h4></div></div></section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="fxa_client" data-search-js="../search-index.js"></div>
+    <script src="../main.js"></script></body></html>

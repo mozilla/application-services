@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["create_synced_bookmark_roots","Sets up the syncable roots. All items in `moz_bookmarks_synced` descend from these roots."]]});

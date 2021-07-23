@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["places"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/arith/trait.SubAssign.html\" title=\"trait core::ops::arith::SubAssign\">SubAssign</a>&lt;<a class=\"struct\" href=\"places/match_impl/struct.SearchBehavior.html\" title=\"struct places::match_impl::SearchBehavior\">SearchBehavior</a>&gt; for <a class=\"struct\" href=\"places/match_impl/struct.SearchBehavior.html\" title=\"struct places::match_impl::SearchBehavior\">SearchBehavior</a>","synthetic":false,"types":["places::match_impl::SearchBehavior"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,319 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>How to know what to use when in the FFI - Cross-platform Rust Components</title>
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../shared/a-s.css">
+        <link rel="stylesheet" href="../shared/mermaid.css">
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">application-services Rust Components</a></li><li class="chapter-item expanded "><a href="../contributing.html"><strong aria-hidden="true">1.</strong> Contributing</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../building.html"><strong aria-hidden="true">1.1.</strong> Building</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-fenix.html"><strong aria-hidden="true">1.1.1.</strong> How to use the local development autopublish flow for Fenix</a></li><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-ios.html"><strong aria-hidden="true">1.1.2.</strong> How to use the local development flow for Firefox iOS</a></li><li class="chapter-item expanded "><a href="../howtos/locally-building-jna.html"><strong aria-hidden="true">1.1.3.</strong> How to locally build JNA</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/testing-a-rust-component.html"><strong aria-hidden="true">1.2.</strong> How we test Rust Components</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/smoke-testing-app-services.html"><strong aria-hidden="true">1.2.1.</strong> How to integration (smoke) test application-services</a></li><li class="chapter-item expanded "><a href="../design/test-faster.html"><strong aria-hidden="true">1.2.2.</strong> Writing efficient tests</a></li></ol></li><li class="chapter-item expanded "><a href="../dependency-management.html"><strong aria-hidden="true">1.3.</strong> Dependency management</a></li><li class="chapter-item expanded "><a href="../howtos/adding-a-new-component.html"><strong aria-hidden="true">1.4.</strong> How to add a new component</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/building-a-rust-component.html"><strong aria-hidden="true">1.4.1.</strong> How to build a new syncable component</a></li><li class="chapter-item expanded "><a href="../naming-conventions.html"><strong aria-hidden="true">1.4.2.</strong> Naming Conventions</a></li><li class="chapter-item expanded "><a href="../howtos/converting-a-component-to-uniffi.html"><strong aria-hidden="true">1.4.3.</strong> How to convert a Rust Component to Uniffi</a></li><li class="chapter-item expanded "><a href="../howtos/when-to-use-what-in-the-ffi.html" class="active"><strong aria-hidden="true">1.4.4.</strong> How to know what to use when in the FFI</a></li><li class="chapter-item expanded "><a href="../android-faqs.html"><strong aria-hidden="true">1.4.5.</strong> How to use Rust Components in Android</a></li><li class="chapter-item expanded "><a href="../howtos/consuming-rust-components-on-ios.html"><strong aria-hidden="true">1.4.6.</strong> How to use Rust Components on iOS</a></li></ol></li><li class="chapter-item expanded "><a href="../logging.html"><strong aria-hidden="true">1.5.</strong> Logging</a></li></ol></li><li class="chapter-item expanded "><a href="../adr/index.html"><strong aria-hidden="true">2.</strong> Architectural Decision Records</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../adr/0000-use-markdown-architectural-decision-records.html"><strong aria-hidden="true">2.1.</strong> ADR-0000</a></li><li class="chapter-item expanded "><a href="../adr/0001-update-logins-api.html"><strong aria-hidden="true">2.2.</strong> ADR-0001</a></li><li class="chapter-item expanded "><a href="../adr/0002-database-corruption.html"><strong aria-hidden="true">2.3.</strong> ADR-0002</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/cut-a-new-release.html"><strong aria-hidden="true">3.</strong> How to cut a new release</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../design/megazords.html"><strong aria-hidden="true">3.1.</strong> How we distribute the application-services library</a></li><li class="chapter-item expanded "><a href="../build-and-publish-pipeline.html"><strong aria-hidden="true">3.2.</strong> CI Publishing tools and flow</a></li><li class="chapter-item expanded "><a href="../howtos/upgrading-nss-guide.html"><strong aria-hidden="true">3.3.</strong> How to upgrade NSS</a></li></ol></li><li class="chapter-item expanded "><a href="../sync-overview.html"><strong aria-hidden="true">4.</strong> Sync overview</a></li><li class="chapter-item expanded "><a href="../metrics.html"><strong aria-hidden="true">5.</strong> Metrics - (Glean Telemetry)</a></li><li class="chapter-item expanded "><a href="../rust-docs/fxa_client/index.html"><strong aria-hidden="true">6.</strong> Rustdocs for components</a></li><li class="chapter-item expanded "><a href="../adding-docs.html"><strong aria-hidden="true">7.</strong> Adding to these documents</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mozilla/application-services" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="when-to-use-what-method-of-passing-data-between-rust-and-javaswift"><a class="header" href="#when-to-use-what-method-of-passing-data-between-rust-and-javaswift">When to use what method of passing data between Rust and Java/Swift</a></h1>
+<p>There are a bunch of options here. For the purposes of our discussion,
+there are two kinds of values you may want to pass over the FFI.</p>
+<ol>
+<li>Types with identity (includes stateful types, resource types, or anything that
+isn't really serializable).</li>
+<li>Plain ol' data.</li>
+</ol>
+<h2 id="types-with-identity"><a class="header" href="#types-with-identity">Types with identity</a></h2>
+<p>Examples of this are things like database connections, the FirefoxAccounts
+struct, etc. These types are complex, implemented in rust, and it's not
+unreasonable for them to come to Java/Kotlin as a type representing a
+resource (e.g. implementing <code>Closable</code>/<code>AutoClosable</code>).</p>
+<p>You have two choices here:</p>
+<ol>
+<li>
+<p>Use a <code>ConcurrentHandleMap</code> to store all instances of your object, and
+pass the handle back and forth as a u64 from Rust / Long from Kotlin.</p>
+<p>This is recommended for most cases, as it's the hardest to mess up.
+Additionally, for types T such that <code>&amp;T: Sync + Send</code>, or that you
+need to call <code>&amp;mut self</code> method, this is the safest choice.</p>
+<p>Additionally, this will ensure panic-safety, as you'll poison your Mutex.</p>
+<p>The <a href="https://docs.rs/ffi-support/*/ffi_support/handle_map/index.html"><code>ffi_support::handle_map</code> docs</a>
+are good, and under <code>ConcurrentHandleMap</code> include an example of how to set
+this up. You can also look at most of the FFI crates, as they do this (with
+the exception of <code>rc_log</code>, which has unique requirements).</p>
+</li>
+<li>
+<p>Using an opaque pointer. This is generally only recommended for rare cases
+like the <code>PlacesInterruptHandle</code> (or the <code>LogAdapterState</code> from <code>rc_log</code>,
+although it will probably eventually use a handle).</p>
+<p>It's good if your synchronization or threading requirements are somewhat
+complex and handled separately, such that the additional overhead of
+the <code>ConcurrentHandleMap</code> is undesirable. You should probably talk to us
+before adding another type that works this way, to make sure it's sound.</p>
+<p>The <a href="https://docs.rs/ffi-support/*/ffi_support/macro.implement_into_ffi_by_pointer.html"><code>ffi_support</code> docs</a>
+discuss how to do this, or take a look at how it's done for
+<code>PlacesInterruptHandle</code>).</p>
+</li>
+</ol>
+<h2 id="plain-old-data"><a class="header" href="#plain-old-data">Plain Old Data</a></h2>
+<p>This includes both primitive values, strings, arrays, or arbitrarially nested
+structures containing them.</p>
+<h3 id="primitives"><a class="header" href="#primitives">Primitives</a></h3>
+<p>Specifically numeric primitives. These we'll tackle first since they're the
+easiest.</p>
+<p>In general, you can just pass them as you wish. There are a couple of
+exceptions/caveats. All of them are caused by JNA/Android issues (Swift has very
+good support for calling over the FFI), but it's our lowest common denominator.</p>
+<ol>
+<li>
+<p><code>bool</code>: Don't use it. JNA doesn't handle it well. Instead, use a numeric type
+(like <code>u8</code>) and represent 0 for false and 1 for true for interchange over the
+FFI, converting back to a Kotlin <code>Boolean</code> or swift <code>Bool</code> after (as to
+not expose this somewhat annoying limitation in our public API).</p>
+</li>
+<li>
+<p><code>usize</code>/<code>isize</code>: These cause the structure size to be different based on the
+platform. JNA does handle this if you use <code>NativeSize</code>, but it's awkward,
+incompatible with it's Direct Mapping optimization (which we don't use but
+want to in the future), and has more overhead than just using <code>i64</code>/<code>i32</code> for
+<code>Long</code>/<code>Int</code>. (You can also use <code>u64</code>/<code>u32</code> for <code>Long</code>/<code>Int</code>, if you're certain the
+value is not negative)</p>
+</li>
+<li>
+<p><code>char</code>: I really don't see a reason you need to pass a single codepoint over the
+FFI, but if someone needs to do this, they instead should just pass it as a <code>u32</code>.</p>
+<p>If you do this, you should probably be aware of the fact that Java chars are 16
+bit, and Swift <code>Character</code>s are actually strings (they represent Extended
+Grapheme Clusters, not codepoints).</p>
+</li>
+</ol>
+<h3 id="strings"><a class="header" href="#strings">Strings</a></h3>
+<p>These we pass as nul-terminated UTF-8 C-strings.</p>
+<p>JNA automatically converts a <code>String</code> argument into a nul-terminated C-string,
+but it will use the system default encoding unless specially configured.
+<em>This may not be UTF-8</em>, in which case we use a custom TypeMapper to override
+the default behaviour.</p>
+<p>For return values, used <code>*mut c_char</code>, and for input, use
+<a href="https://docs.rs/ffi-support/*/ffi_support/struct.FfiStr.html"><code>ffi_support::FfiStr</code></a></p>
+<ol>
+<li>
+<p>If the string is returned from Rust to Kotlin/Swift, you need to expose a
+string destructor from your ffi crate. See
+<a href="https://docs.rs/ffi-support/*/ffi_support/macro.define_string_destructor.html"><code>ffi_support::define_string_destructor!</code></a>).</p>
+<p>For converting to a <code>*mut c_char</code>, use either
+<a href="https://docs.rs/ffi-support/*/ffi_support/fn.rust_string_to_c.html"><code>rust_string_to_c</code></a>
+if you have a <code>String</code>, or
+<a href="https://docs.rs/ffi-support/*/ffi_support/fn.opt_rust_string_to_c.html"><code>opt_rust_string_to_c</code></a>
+for <code>Option&lt;String&gt;</code> (None becomes <code>std::ptr::null_mut()</code>).</p>
+<p><strong>Important</strong>: In Kotlin, the type returned by a function that produces this
+must be <code>Pointer</code>, and not <code>String</code>, and the parameter that the destructor takes
+as input must also be <code>Pointer</code>.</p>
+<p>Using <code>String</code> will <em>almost</em> work. JNA will convert the return value to
+<code>String</code> automatically, leaking the value rust provides. Then, when passing
+to the destructor, it will allocate a temporary buffer, pass it to Rust, which
+we'll free, corrupting both heaps 💥. Oops!</p>
+</li>
+<li>
+<p>If the string is passed into Rust from Kotlin/Swift, the rust code should
+declare the parameter as a <a href="https://docs.rs/ffi-support/*/ffi_support/struct.FfiStr.html"><code>FfiStr&lt;'_&gt;</code></a>.
+and things should then work more or less automatically. The <code>FfiStr</code> has methods
+for extracting it's data as <code>&amp;str</code>, <code>Option&lt;&amp;str&gt;</code>, <code>String</code>, and <code>Option&lt;String&gt;</code>.</p>
+</li>
+</ol>
+<p>It's also completely fine to use Protobufs or JSON for this case!</p>
+<h3 id="aggregates"><a class="header" href="#aggregates">Aggregates</a></h3>
+<p>This is any type that's more complex than a primitive or a string (arrays,
+structures, and combinations there-in). There are two options we recommend for
+these cases:</p>
+<ol>
+<li>
+<p>Passing data using protobufs. See the
+&quot;<a href="passing-protobuf-data-over-ffi.html">Using protobuf-encoded data over Rust FFI</a>&quot;
+document for details on how to do this. We recommend this for all new use cases, unless
+you have a specific reason that JSON is better (e.g. semi-opaque JSON encoded data is
+desired on the other side).</p>
+</li>
+<li>
+<p>Passing data as JSON. This is very easy, and useful for prototyping, however
+much slower, requires a great deal of copying and redundant encode/decode
+steps (in general, the data will be copied at least 4 times to make this
+work, and almost certainly more in practice), and can be done relatively
+easily by <code>derive(Serialize, Deserialize)</code>, and adding
+<a href="https://docs.rs/ffi-support/*/ffi_support/macro.implement_into_ffi_by_json.html"><code>ffi_support::implement_into_ffi_by_json</code></a>
+into the crate that defines the type.</p>
+<p>Again, for new code, this is not a recommended approach for new code, unless
+there's some reason it's preferrable for you.</p>
+</li>
+</ol>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/howtos/when-to-use-what-in-the-ffi.md">Edit this file on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../howtos/converting-a-component-to-uniffi.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                            <a rel="next" href="../android-faqs.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../howtos/converting-a-component-to-uniffi.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="../android-faqs.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        <script type="text/javascript" src="../shared/tabs.js"></script>
+        <script type="text/javascript" src="../shared/mermaid.min.js"></script>
+        <script type="text/javascript" src="../shared/mermaid-init.js"></script>
+    </body>
+</html>

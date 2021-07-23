@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["LogLevel",""]],"fn":[["rc_log_adapter_create",""],["rc_log_adapter_destroy","Safety"],["rc_log_adapter_destroy_string","Public destructor for strings managed by the other side of the FFI."],["rc_log_adapter_set_max_level",""],["rc_log_adapter_test__log_msg",""]],"mod":[["ios",""]]});

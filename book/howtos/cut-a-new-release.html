@@ -1,0 +1,335 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>How to cut a new release - Cross-platform Rust Components</title>
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="../shared/a-s.css">
+        <link rel="stylesheet" href="../shared/mermaid.css">
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../index.html">application-services Rust Components</a></li><li class="chapter-item expanded "><a href="../contributing.html"><strong aria-hidden="true">1.</strong> Contributing</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../building.html"><strong aria-hidden="true">1.1.</strong> Building</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-fenix.html"><strong aria-hidden="true">1.1.1.</strong> How to use the local development autopublish flow for Fenix</a></li><li class="chapter-item expanded "><a href="../howtos/locally-published-components-in-ios.html"><strong aria-hidden="true">1.1.2.</strong> How to use the local development flow for Firefox iOS</a></li><li class="chapter-item expanded "><a href="../howtos/locally-building-jna.html"><strong aria-hidden="true">1.1.3.</strong> How to locally build JNA</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/testing-a-rust-component.html"><strong aria-hidden="true">1.2.</strong> How we test Rust Components</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/smoke-testing-app-services.html"><strong aria-hidden="true">1.2.1.</strong> How to integration (smoke) test application-services</a></li><li class="chapter-item expanded "><a href="../design/test-faster.html"><strong aria-hidden="true">1.2.2.</strong> Writing efficient tests</a></li></ol></li><li class="chapter-item expanded "><a href="../dependency-management.html"><strong aria-hidden="true">1.3.</strong> Dependency management</a></li><li class="chapter-item expanded "><a href="../howtos/adding-a-new-component.html"><strong aria-hidden="true">1.4.</strong> How to add a new component</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../howtos/building-a-rust-component.html"><strong aria-hidden="true">1.4.1.</strong> How to build a new syncable component</a></li><li class="chapter-item expanded "><a href="../naming-conventions.html"><strong aria-hidden="true">1.4.2.</strong> Naming Conventions</a></li><li class="chapter-item expanded "><a href="../howtos/converting-a-component-to-uniffi.html"><strong aria-hidden="true">1.4.3.</strong> How to convert a Rust Component to Uniffi</a></li><li class="chapter-item expanded "><a href="../howtos/when-to-use-what-in-the-ffi.html"><strong aria-hidden="true">1.4.4.</strong> How to know what to use when in the FFI</a></li><li class="chapter-item expanded "><a href="../android-faqs.html"><strong aria-hidden="true">1.4.5.</strong> How to use Rust Components in Android</a></li><li class="chapter-item expanded "><a href="../howtos/consuming-rust-components-on-ios.html"><strong aria-hidden="true">1.4.6.</strong> How to use Rust Components on iOS</a></li></ol></li><li class="chapter-item expanded "><a href="../logging.html"><strong aria-hidden="true">1.5.</strong> Logging</a></li></ol></li><li class="chapter-item expanded "><a href="../adr/index.html"><strong aria-hidden="true">2.</strong> Architectural Decision Records</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../adr/0000-use-markdown-architectural-decision-records.html"><strong aria-hidden="true">2.1.</strong> ADR-0000</a></li><li class="chapter-item expanded "><a href="../adr/0001-update-logins-api.html"><strong aria-hidden="true">2.2.</strong> ADR-0001</a></li><li class="chapter-item expanded "><a href="../adr/0002-database-corruption.html"><strong aria-hidden="true">2.3.</strong> ADR-0002</a></li></ol></li><li class="chapter-item expanded "><a href="../howtos/cut-a-new-release.html" class="active"><strong aria-hidden="true">3.</strong> How to cut a new release</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../design/megazords.html"><strong aria-hidden="true">3.1.</strong> How we distribute the application-services library</a></li><li class="chapter-item expanded "><a href="../build-and-publish-pipeline.html"><strong aria-hidden="true">3.2.</strong> CI Publishing tools and flow</a></li><li class="chapter-item expanded "><a href="../howtos/upgrading-nss-guide.html"><strong aria-hidden="true">3.3.</strong> How to upgrade NSS</a></li></ol></li><li class="chapter-item expanded "><a href="../sync-overview.html"><strong aria-hidden="true">4.</strong> Sync overview</a></li><li class="chapter-item expanded "><a href="../metrics.html"><strong aria-hidden="true">5.</strong> Metrics - (Glean Telemetry)</a></li><li class="chapter-item expanded "><a href="../rust-docs/fxa_client/index.html"><strong aria-hidden="true">6.</strong> Rustdocs for components</a></li><li class="chapter-item expanded "><a href="../adding-docs.html"><strong aria-hidden="true">7.</strong> Adding to these documents</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Cross-platform Rust Components</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/mozilla/application-services" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="application-services-release-process"><a class="header" href="#application-services-release-process">Application Services Release Process</a></h1>
+<h2 id="make-a-new-release-from-latest-main"><a class="header" href="#make-a-new-release-from-latest-main">Make a new release from latest main.</a></h2>
+<ol>
+<li>
+<p>Create a release commit.</p>
+<ul>
+<li>
+<p><strong>Automated process:</strong> run the <code>./automation/prepare-release.py</code> script to create a release commit and open a pull-request.</p>
+<p>Note that after this script is executed, the following should be true:</p>
+<ul>
+<li>The library version has been updated in <code>.buildconfig-android.yml</code>.</li>
+<li>The entries in <code>CHANGES_UNRELEASED.md</code> have been moved to <code>CHANGELOG.md</code> under a header with the new version number and a link to the full changelog since the previous release.</li>
+<li>The full changelog link in <code>CHANGES_UNRELEASED.md</code> has been updated with the new release version.</li>
+</ul>
+</li>
+<li>
+<p><strong>Manual process:</strong> if the automated process above fails, refer to the <a href="#create-a-release-commit-manually">Create a release commit manually</a> section.</p>
+</li>
+</ul>
+<p><strong>Note:</strong> Because the release commit must be on the main branch, your PR will need to be approved, CI successful, and merged before a release can be cut.</p>
+</li>
+<li>
+<p>Cut the actual release.</p>
+<ol>
+<li>Click &quot;Releases&quot;, and then &quot;Draft a New Release&quot; in the github UI.</li>
+<li>Enter <code>v&lt;myversion&gt;</code> as the tag. It's important this is the same as the tags that are in the changelog.</li>
+<li>Under the description, paste the contents of the release notes from CHANGELOG.md.</li>
+<li>Note that the release is not avaliable until the taskcluster build completes for that tag.
+<ul>
+<li>Finding this out takes a little navigation in the github UI. It's available at <code>https://github.com/mozilla/application-services/commits/v&lt;VERSION NUMBER&gt;</code> in the build status info (the emoji) next to the last commit.</li>
+<li>If the taskcluster tag and/or release tasks fail, ping someone in slack and we'll figure out what to do.</li>
+</ul>
+</li>
+<li>Click &quot;Publish Release&quot;.</li>
+</ol>
+</li>
+<li>
+<p>Inform consumers that the new release is available so that <a href="https://github.com/mozilla-mobile/android-components">android-components</a> can be updated. If you will be creating the update, do the following:</p>
+<ol>
+<li>If the changes expose new functionality, or otherwise require changes to code or documentation in https://github.com/mozilla-mobile/android-components, perform those. This part is often done at the same time as the changes in application-services, to avoid being blocked on steps 3-4 of this document.</li>
+<li>Change the versions of our dependencies in <a href="https://github.com/mozilla-mobile/android-components/blob/master/buildSrc/src/main/java/Dependencies.kt">buildSrc/src/main/java/Dependencies.kt</a>.</li>
+<li>Note the relevant changes in their <a href="https://github.com/mozilla-mobile/android-components/blob/master/docs/changelog.md">docs/changelog.md</a>, and update the application-services version there as well in their list of dependency versions.</li>
+<li><em><strong>Important: Manually test the changes versus the samples in android-components.</strong></em>
+<ul>
+<li>We do not have automated test coverage for much of the network functionality at this point, so this is crucial.</li>
+<li>You can do this using the smoketest instructions below.
+<strong>Note:</strong> iOS smoke tests can only be run on macs.
+<ul>
+<li>Run the <code>./automation/smoke-test-firefox-ios.py</code> script to test integration with Firefox for iOS.</li>
+<li>Run the <code>./automation/smoke-test-android-components.py</code> script to test integration with Android Components.</li>
+<li>Run the <code>./automation/smoke-test-fenix.py</code> script to test integration with Fenix.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Get it PRed and landed.</li>
+</ol>
+</li>
+</ol>
+<p><strong>Note:</strong> If you need to manually produce the iOS build for some reason (for example, if CircleCI cannot), someone with a mac needs to do the following steps:</p>
+<ol>
+<li>If necessary, set up for performing iOS builds using <code>./libs/verify-ios-environment.sh</code>.</li>
+<li>Run <code>./build-carthage.sh</code> in the root of the repository.</li>
+<li>Upload the resulting <code>MozillaAppServices.framework.zip</code> as an attachment on the github release.</li>
+</ol>
+<hr />
+<h2 id="make-a-new-point-release-from-an-existing-release-that-is-behind-latest-main"><a class="header" href="#make-a-new-point-release-from-an-existing-release-that-is-behind-latest-main">Make a new point-release from an existing release that is behind latest main.</a></h2>
+<ol>
+<li>If necessary, make a new branch named <code>release-vXX</code> which will be used for all point-releases on the <code>vXX.YY.ZZ</code>
+series. Example:
+<pre><code>git checkout -b release-v72 v72.1.0
+git push -u origin release-v72
+</code></pre>
+</li>
+<li>Make a new branch with any fixes to be included in the release, <em>remembering not to make any breaking API changes.</em>. This may involve cherry-picking fixes from main, or developing a new fix directly against the branch. Example:
+<pre><code>git checkout -b fixes-for-v72.1.1 release-v72
+git cherry-pick 37d35304a4d1d285c8f6f3ce3df3c412fcd2d6c6
+git push -u origin fixes-for-v72.1.1
+</code></pre>
+</li>
+<li>Get a PR up with your changes and land them into the &quot;base&quot; branch.
+For example, if you are making a <code>release-v72.1.1</code> release, all the changes
+you want in that release must already be in the <code>release-v72</code> branch before
+following the steps below.</li>
+<li>Follow the above steps for cutting a new release from main, except that:
+<ul>
+<li>When running the <code>./automation/prepare-release.py</code> script, use the <code>--base-branch</code> argument to point it at your release branch, and specify <code>patch</code> as the release type. Example:
+<pre><code>./automation/prepare-release.py --base-branch=release-v72 patch
+</code></pre>
+</li>
+<li>When opening a PR to land the commits, target the <code>release-vXX</code> branch rather than main.</li>
+<li>When cutting the new release via github's UI, target the <code>release-vXX</code> branch rather than main.</li>
+</ul>
+</li>
+<li>Merge the new release back to main.
+<ul>
+<li>This will typically require a PR and involve resolving merge conflicts in the changelog.</li>
+<li>This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
+and also helps ensure that every release has an easily-discoverable changelog entry in main.</li>
+</ul>
+</li>
+</ol>
+<hr />
+<h3 id="create-a-release-commit-manually"><a class="header" href="#create-a-release-commit-manually">Create a release commit manually</a></h3>
+<ol>
+<li>
+<p>Update the changelog.</p>
+<ol>
+<li>
+<p>Copy the contents from <code>CHANGES_UNRELEASED.md</code> into the top of <code>CHANGELOG.md</code>, except for the part that links to this document.</p>
+</li>
+<li>
+<p>In <code>CHANGELOG.md</code>:</p>
+<ol>
+<li>Replace <code># Unreleased Changes</code> with <code># v&lt;new-version-number&gt; (_&lt;current date&gt;_)</code>.</li>
+<li>Replace <code>main</code> in the Full Changelog link (which you pasted in from <code>CHANGES_UNRELEASED.md</code>) to be <code>v&lt;new-version-number&gt;</code>. E.g. if you are releasing 0.13.2, the link should be
+<pre><code>[Full Changelog](https://github.com/mozilla/application-services/compare/v0.13.1...v0.13.2)
+</code></pre>
+Note that this needs three dots (<code>...</code>) between the two tags (two dots is different). Yes, the second tag doesn't exist yet, you'll make it later.</li>
+<li>Optionally, go over the commits between the past release and this one and see if anything is worth including.</li>
+<li>Make sure the changelog follows the format of the other changelog entries. If you have access, <a href="https://docs.google.com/document/d/1oxdGm7OQcsy78NzXjMQKTbfzn21tl9Nopmvo8NCMWmU">this document</a> is fairly comprehensive. For a concrete example, at the time of this writing, see the <a href="https://github.com/mozilla/application-services/blob/main/CHANGELOG.md#0130-2019-01-09">0.13.0</a> release notes.
+<ul>
+<li>Note that we try to provide PR or issue numbers (and links) for each change. Please add these if they are missing.</li>
+</ul>
+</li>
+</ol>
+</li>
+<li>
+<p>In <code>CHANGES_UNRELEASED.md</code>:</p>
+<ol>
+<li>Delete the list of changes that are now in the changelog.</li>
+<li>Update the &quot;Full Changelog&quot; link so that it starts at your new version and continues to main. E.g. for 60.0.6 this would be
+<pre><code>[Full Changelog](https://github.com/mozilla/application-services/compare/v60.0.6...main)
+</code></pre>
+Again, this needs 3 dots.</li>
+</ol>
+</li>
+</ol>
+</li>
+<li>
+<p>Bump <code>libraryVersion</code> in the top-level <a href="https://github.com/mozilla/application-services/blob/main/.buildconfig-android.yml">.buildconfig-android.yml</a> file. Be sure you're following semver, and if in doubt, ask.</p>
+</li>
+<li>
+<p>Land the commits that perform the steps above. This takes a PR, typically, because of branch protection on main.</p>
+</li>
+</ol>
+<footer id="open-on-gh">Found a bug? <a href="https://github.com/mozilla/application-services/edit/main/docs/howtos/cut-a-new-release.md">Edit this file on GitHub.</a></footer>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../adr/0002-database-corruption.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                            <a rel="next" href="../design/megazords.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../adr/0002-database-corruption.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="../design/megazords.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        <script type="text/javascript" src="../shared/tabs.js"></script>
+        <script type="text/javascript" src="../shared/mermaid.min.js"></script>
+        <script type="text/javascript" src="../shared/mermaid-init.js"></script>
+    </body>
+</html>
