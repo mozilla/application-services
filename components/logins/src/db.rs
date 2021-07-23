@@ -23,9 +23,10 @@
 ///   - After we sync, we move all records from loginsL to loginsM, overwriting any previous data.
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::error::*;
-use crate::login::{Login, SyncStatus};
+use crate::login::Login;
 use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
+use crate::sync::SyncStatus;
 use crate::util;
 use lazy_static::lazy_static;
 use rusqlite::{
@@ -214,38 +215,6 @@ impl LoginDb {
             named_params! { ":key": key },
         )?;
         Ok(())
-    }
-
-    // It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
-    // for each one if they exist)... I can't think of how to write that query, though.
-    // NOTE: currently used only by sync - maybe it should move to the sync engine?
-    // It doesn't *feel* sync specific though?
-    pub(crate) fn find_dupe(&self, l: &Login) -> Result<Option<Login>> {
-        let form_submit_host_port = l
-            .form_action_origin
-            .as_ref()
-            .and_then(|s| util::url_host_port(&s));
-        let args = named_params! {
-            ":origin": l.origin,
-            ":http_realm": l.http_realm,
-            ":username": l.username_enc,
-            ":form_submit": form_submit_host_port,
-        };
-        let mut query = format!(
-            "SELECT {common}
-             FROM loginsL
-             WHERE origin IS :origin
-               AND httpRealm IS :http_realm
-               AND username IS :username",
-            common = schema::COMMON_COLS,
-        );
-        if form_submit_host_port.is_some() {
-            // Stolen from iOS
-            query += " AND (formActionOrigin = '' OR (instr(formActionOrigin, :form_submit) > 0))";
-        } else {
-            query += " AND formActionOrigin IS :form_submit"
-        }
-        self.try_query_row(&query, args, |row| Login::from_row(row), false)
     }
 
     pub fn get_all(&self) -> Result<Vec<Login>> {

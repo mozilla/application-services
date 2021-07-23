@@ -2,15 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::merge::{LocalLogin, MirrorLogin, SyncLoginData};
+use super::update_plan::UpdatePlan;
+use super::SyncStatus;
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{LocalLogin, Login, MirrorLogin, SyncLoginData, SyncStatus};
+use crate::login::Login;
 use crate::schema;
-use crate::update_plan::UpdatePlan;
+use crate::util;
 use crate::LoginDb;
 use crate::LoginStore;
-use rusqlite::NO_PARAMS;
+use rusqlite::{named_params, NO_PARAMS};
 use sql_support::SqlInterruptScope;
 use sql_support::{self, ConnExt};
 use std::collections::HashSet;
@@ -75,7 +78,7 @@ impl LoginsSyncEngine {
                     telem.reconciled(1);
                 }
                 (None, None) => {
-                    if let Some(dupe) = self.store.db.lock().unwrap().find_dupe(&upstream)? {
+                    if let Some(dupe) = self.find_dupe_login(&upstream)? {
                         log::debug!(
                             "  Incoming record {} was is a dupe of local record {}",
                             upstream.guid(),
@@ -354,6 +357,39 @@ impl LoginsSyncEngine {
         db.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
         tx.commit()?;
         Ok(())
+    }
+
+    // It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
+    // for each one if they exist)... I can't think of how to write that query, though.
+    // This is subtly different from dupe handling by the main API and maybe
+    // could be consolidated, but for now it remains sync specific.
+    pub(crate) fn find_dupe_login(&self, l: &Login) -> Result<Option<Login>> {
+        let form_submit_host_port = l
+            .form_action_origin
+            .as_ref()
+            .and_then(|s| util::url_host_port(&s));
+        let args = named_params! {
+            ":origin": l.origin,
+            ":http_realm": l.http_realm,
+            ":username": l.username_enc,
+            ":form_submit": form_submit_host_port,
+        };
+        let mut query = format!(
+            "SELECT {common}
+             FROM loginsL
+             WHERE origin IS :origin
+               AND httpRealm IS :http_realm
+               AND username IS :username",
+            common = schema::COMMON_COLS,
+        );
+        if form_submit_host_port.is_some() {
+            // Stolen from iOS
+            query += " AND (formActionOrigin = '' OR (instr(formActionOrigin, :form_submit) > 0))";
+        } else {
+            query += " AND formActionOrigin IS :form_submit"
+        }
+        let db = self.store.db.lock().unwrap();
+        db.try_query_row(&query, args, |row| Login::from_row(row), false)
     }
 }
 
