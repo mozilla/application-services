@@ -542,7 +542,7 @@ fn main() -> Result<()> {
                             log::warn!("BT: {:?}", e.backtrace());
                         },
                         Ok(result) => {
-                            log::info!("Base domain result: {}", serde_json::to_string_pretty(&result).unwrap());
+                            log::info!("Base domain result: {:?}", result);
                         }
                     }
                 }

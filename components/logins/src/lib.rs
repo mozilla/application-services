@@ -11,17 +11,16 @@ mod login;
 
 mod db;
 pub mod encryption;
-mod engine;
 mod migrate_sqlcipher_db;
 mod schema;
 mod store;
-mod update_plan;
+mod sync;
 mod util;
 
 uniffi_macros::include_scaffolding!("logins");
 
 pub use crate::db::{LoginDb, MigrationMetrics, MigrationPhaseMetrics};
-pub use crate::engine::LoginsSyncEngine;
 pub use crate::error::*;
 pub use crate::login::*;
 pub use crate::store::*;
+pub use crate::sync::LoginsSyncEngine;
