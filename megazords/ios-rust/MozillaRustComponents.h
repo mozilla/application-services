@@ -4,5 +4,7 @@
 
 #import "uniffi_crashtest-Bridging-Header.h"
 #import "uniffi_nimbus-Bridging-Header.h"
+#import "uniffi_fxa-client-Bridging-Header.h"
+#import "uniffi_logins-Bridging-Header.h"
 #import "RustViaductFFI.h"
 #import "RustLogFFI.h"

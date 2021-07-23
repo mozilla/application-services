@@ -14,3 +14,5 @@ viaduct = { path = "../../components/viaduct" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
+fxa-client = { path = "../../components/fxa-client" }
+logins = { path = "../../components/logins" }
