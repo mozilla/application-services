@@ -12,8 +12,7 @@
 //  We'll figure out a more scalable approach to maintaining all those docs at some point...
 
 //!
-//! Login Struct
-//! ============
+//! # Login Struct
 //!
 //! The core datatype managed by this component is a "Login" struct. Very closely related is the
 //! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization
@@ -50,20 +49,12 @@
 //!   **XXX TODO:**
 //!   - Add a field with the original unicode versions of the URLs instead of punycode?
 //!
-//! - `password_enc`:  The saved password, as an encrypted string.
+//! - `enc_fields`: The `username` and `password` for the site, stored as a encrypted JSON
+//!    representation of an `EncryptedFields`.
 //!
 //!   This field is required and usually encryted.  There are two different value types:
 //!       - Plantext empty string: Used for deleted records
-//!       - Encrypted value: The password associated with the login.  This must not be empty or
-//!         contain null bytes.
-//!
-//! - `username_enc`:  The username associated with this login, if any, as an encrypted string.
-//!
-//!   This field is required and usually encrypted.  There are several different value types:
-//!       - Plaintext empty string: Used for deleted records
-//!       - Encrypted empty string: Indicates no username associated with the login
-//!       - Encrypted value: The username associated with the login.  This must not contain null
-//!         bytes.
+//!       - Encrypted value: The credentials associated with the login.
 //!
 //! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
 //!
@@ -219,43 +210,33 @@
 //!
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
+//!
+//!
+//! # UpdatableLogin Struct
+//! This struct is a subset of the Login struct, consisting only of the fields which an 'update()'
+//! call can change. It also has the decrypted version of the credentials - they will be encrypted
+//! before being added to the database. Thus, almost all uses of an UpdatableLogin struct will
+//! also require the encryption key.
 
-use crate::error::*;
+use crate::{encryption::EncryptorDecryptor, error::*};
 use rusqlite::Row;
+use serde_derive::*;
 use sync_guid::Guid;
 use url::Url;
 
+// This is used to add or update items. It has no meta-data and has the "encrypted" fields as plain
+// text. To use this, you almost certainly also need an `EncryptorDecryptor` too.
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
-pub struct Login {
-    pub id: String,
+pub struct UpdatableLogin {
     pub origin: String,
     pub form_action_origin: Option<String>,
     pub http_realm: Option<String>,
-    pub username_enc: String,
-    pub password_enc: String,
     pub username_field: String,
     pub password_field: String,
-    pub time_created: i64,
-    pub time_password_changed: i64,
-    pub time_last_used: i64,
-    pub times_used: i64,
+    pub enc_fields: EncryptedFields,
 }
 
-fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
-    Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
-}
-
-impl Login {
-    #[inline]
-    pub fn guid(&self) -> Guid {
-        Guid::from_string(self.id.clone())
-    }
-    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
-    #[inline]
-    pub fn guid_str(&self) -> &str {
-        &self.id
-    }
-
+impl UpdatableLogin {
     /// Checks whether the Login is valid, without attempting to fix any fields.
     /// Returns an error if invalid data is found, even if it could have been fixed.
     pub fn check_valid(&self) -> Result<()> {
@@ -346,8 +327,8 @@ impl Login {
                     if !fixup {
                         throw!($err)
                     }
-                    log::warn!("Fixing login record {}: {:?}", self.guid(), $err);
-                    let fixed: Result<&mut Login> =
+                    log::warn!("Fixing login record {:?}", $err);
+                    let fixed: Result<&mut Self> =
                         Ok(maybe_fixed.get_or_insert_with(|| self.clone()));
                     fixed
                 }
@@ -358,10 +339,9 @@ impl Login {
             throw!(InvalidLogin::EmptyOrigin);
         }
 
-        // TODO-sqlcipher: this should check the decrypted value
-        // if self.password_enc.is_empty() {
-        //     throw!(InvalidLogin::EmptyPassword);
-        // }
+        if self.enc_fields.password.is_empty() {
+            throw!(InvalidLogin::EmptyPassword);
+        }
 
         if self.form_action_origin.is_some() && self.http_realm.is_some() {
             get_fixed_or_throw!(InvalidLogin::BothTargets)?.http_realm = None;
@@ -385,9 +365,8 @@ impl Login {
             ("origin", &self.origin),
             ("username_field", &self.username_field),
             ("password_field", &self.password_field),
-            // TODO-sqlcipher: update code to use the decrypted values here
-            // ("username", &self.username_enc),
-            // ("password", &self.password_enc),
+            ("username", &self.enc_fields.username),
+            ("password", &self.enc_fields.password),
         ];
 
         for (field_name, field_value) in &field_data {
@@ -418,7 +397,7 @@ impl Login {
         }
 
         // Check we can parse the origin, then use the normalized version of it.
-        if let Some(fixed) = Login::validate_and_fixup_origin(&self.origin)? {
+        if let Some(fixed) = Self::validate_and_fixup_origin(&self.origin)? {
             get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                 field_info: "Origin is not normalized".into()
             })?
@@ -455,7 +434,7 @@ impl Login {
                             .form_action_origin = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
-                    if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
+                    if let Some(fixed) = Self::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "form_action_origin is not normalized".into()
                         })?
@@ -467,12 +446,44 @@ impl Login {
 
         Ok(maybe_fixed)
     }
+}
+
+/// This is what you get when reading from the store. It has all metadata but
+/// the encrypted fields are encrypted.
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
+pub struct Login {
+    pub id: String,
+    pub origin: String,
+    pub form_action_origin: Option<String>,
+    pub http_realm: Option<String>,
+    pub username_field: String,
+    pub password_field: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+    pub enc_fields: String,
+}
+
+impl Login {
+    #[inline]
+    pub fn guid(&self) -> Guid {
+        Guid::from_string(self.id.clone())
+    }
+    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
+    #[inline]
+    pub fn guid_str(&self) -> &str {
+        &self.id
+    }
+
+    pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<EncryptedFields> {
+        encdec.decrypt_struct(&self.enc_fields)
+    }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         let login = Login {
             id: row.get("guid")?,
-            password_enc: row.get("passwordEnc")?,
-            username_enc: string_or_default(row, "usernameEnc")?,
+            enc_fields: row.get("encFields")?,
 
             origin: row.get("origin")?,
             http_realm: row.get("httpRealm")?,
@@ -491,28 +502,68 @@ impl Login {
             time_password_changed: row.get("timePasswordChanged")?,
             times_used: row.get("timesUsed")?,
         };
-        // For now, we want to apply fixups but still return the record if
-        // there is unfixably invalid data in the db.
-        Ok(login.maybe_fixup().unwrap_or(None).unwrap_or(login))
+        // XXX - we used to perform a fixup here, but that seems heavy-handed
+        // and difficult - we now only do that on add/insert when we have the
+        // encryption key.
+        Ok(login)
     }
+
+    // This is useful for tests, and rust consumers, like the sync-pass example.
+    // It helps with a read/update cycle. Consumes the item.
+    pub fn into_updatable(self, encdec: &EncryptorDecryptor) -> Result<UpdatableLogin> {
+        Ok(UpdatableLogin {
+            enc_fields: self.decrypt_fields(encdec)?,
+            origin: self.origin,
+            form_action_origin: self.form_action_origin,
+            http_realm: self.http_realm,
+            username_field: self.username_field,
+            password_field: self.password_field,
+        })
+    }
+}
+
+/// The encrypted fields.
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+pub struct EncryptedFields {
+    // prior to per-field encryption the `username` was allowed to be null.
+    // We could make it `Option<String>` but that doesn't seem valuable, as
+    // an empty string and None mean the same thing anyway.
+    // XXX - although this might end up being important in the sync payload (as
+    // in, the item missing entirely from the payload?)
+    // We should check desktop's semantics.
+    pub username: String,
+    pub password: String,
+}
+
+impl EncryptedFields {
+    pub fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
+        encdec.encrypt_struct(&self)
+    }
+}
+
+fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
+    Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
 }
 
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
-    use crate::encryption::test_utils::encrypt;
+    use crate::encryption::test_utils::encrypt_struct;
 
     // Factory function to make a new login
     //
     // It uses the guid to create a unique origin/form_action_origin
     pub fn login(id: &str, password: &str) -> Login {
+        let enc_fields = EncryptedFields {
+            username: "user".to_string(),
+            password: password.to_string(),
+        };
         Login {
-            id: id.into(),
+            id: id.to_string(),
             form_action_origin: Some(format!("https://{}.example.com", id)),
             origin: format!("https://{}.example.com", id),
-            username_enc: encrypt("user"),
-            password_enc: encrypt(password),
-            ..Login::default()
+            enc_fields: encrypt_struct(&enc_fields),
+            ..Default::default()
         }
     }
 }
@@ -520,7 +571,6 @@ pub mod test_utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::encrypt;
 
     #[test]
     fn test_url_fixups() -> Result<()> {
@@ -535,7 +585,7 @@ mod tests {
             "file://",
             "https://[::1]",
         ] {
-            assert_eq!(Login::validate_and_fixup_origin(input)?, None);
+            assert_eq!(UpdatableLogin::validate_and_fixup_origin(input)?, None);
         }
 
         // And URLs which get normalized.
@@ -567,182 +617,222 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                Login::validate_and_fixup_origin(input)?,
+                UpdatableLogin::validate_and_fixup_origin(input)?,
                 Some((*output).into())
             );
         }
         Ok(())
     }
 
-    // TODO-sqlcipher: remove the ignore flag once we figure out validation
-    #[ignore]
     #[test]
     fn test_check_valid() {
         #[derive(Debug, Clone)]
         struct TestCase {
-            login: Login,
+            login: UpdatableLogin,
             should_err: bool,
             expected_err: &'static str,
         }
 
-        let valid_login = Login {
+        let valid_login = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_empty_origin = Login {
+        let login_with_empty_origin = UpdatableLogin {
             origin: "".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_empty_password = Login {
+        let login_with_empty_password = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt(""),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_form_submit_and_http_realm = Login {
+        let login_with_form_submit_and_http_realm = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
             form_action_origin: Some("https://www.example.com".into()),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_without_form_submit_or_http_realm = Login {
+        let login_without_form_submit_or_http_realm = UpdatableLogin {
             origin: "https://www.example.com".into(),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_null_http_realm = Login {
+        let login_with_null_http_realm = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.\0com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_null_username = Login {
+        let login_with_null_username = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("\0"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "\0".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_null_password = Login {
+        let login_with_null_password = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("username"),
-            password_enc: encrypt("test\0"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "username".into(),
+                password: "test\0".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_newline_origin = Login {
+        let login_with_newline_origin = UpdatableLogin {
             origin: "\rhttps://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_newline_username_field = Login {
+        let login_with_newline_username_field = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
             username_field: "\n".into(),
-            ..Login::default()
+            ..Default::default()
         };
 
-        let login_with_newline_realm = Login {
+        let login_with_newline_realm = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("foo\nbar".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_newline_password = Login {
+        let login_with_newline_password = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test\n"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test\n".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_period_username_field = Login {
+        let login_with_period_username_field = UpdatableLogin {
             origin: "https://www.example.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
             username_field: ".".into(),
-            ..Login::default()
+            ..Default::default()
         };
 
-        let login_with_period_form_action_origin = Login {
+        let login_with_period_form_action_origin = UpdatableLogin {
             form_action_origin: Some(".".into()),
             origin: "https://www.example.com".into(),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_javascript_form_action_origin = Login {
+        let login_with_javascript_form_action_origin = UpdatableLogin {
             form_action_origin: Some("javascript:".into()),
             origin: "https://www.example.com".into(),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_malformed_origin_parens = Login {
+        let login_with_malformed_origin_parens = UpdatableLogin {
             origin: " (".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_host_unicode = Login {
+        let login_with_host_unicode = UpdatableLogin {
             origin: "http://💖.com".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_origin_trailing_slash = Login {
+        let login_with_origin_trailing_slash = UpdatableLogin {
             origin: "https://www.example.com/".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_origin_expanded_ipv6 = Login {
+        let login_with_origin_expanded_ipv6 = UpdatableLogin {
             origin: "https://[0:0:0:0:0:0:1:1]".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_unknown_protocol = Login {
+        let login_with_unknown_protocol = UpdatableLogin {
             origin: "moz-proxy://127.0.0.1:8888".into(),
             http_realm: Some("https://www.example.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
         let test_cases = [
@@ -874,50 +964,56 @@ mod tests {
         }
     }
 
-    // TODO-sqlcipher: remove the ignore flag once we figure out validation
-    #[ignore]
     #[test]
     fn test_fixup() {
         #[derive(Debug, Default)]
         struct TestCase {
-            login: Login,
+            login: UpdatableLogin,
             fixedup_host: Option<&'static str>,
             fixedup_form_action_origin: Option<String>,
         }
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
-        let login_with_full_url = Login {
+        let login_with_full_url = UpdatableLogin {
             origin: "http://example.com/foo?query=wtf#bar".into(),
             form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_host_unicode = Login {
+        let login_with_host_unicode = UpdatableLogin {
             origin: "http://😍.com".into(),
             form_action_origin: Some("http://😍.com".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_period_fsu = Login {
+        let login_with_period_fsu = UpdatableLogin {
             origin: "https://example.com".into(),
             form_action_origin: Some(".".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
-        let login_with_empty_fsu = Login {
+        let login_with_empty_fsu = UpdatableLogin {
             origin: "https://example.com".into(),
             form_action_origin: Some("".into()),
-            username_enc: encrypt("test"),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
-        let login_with_form_submit_and_http_realm = Login {
+        let login_with_form_submit_and_http_realm = UpdatableLogin {
             origin: "https://www.example.com".into(),
             form_action_origin: Some("https://www.example.com".into()),
             // If both http_realm and form_action_origin are specified, we drop
@@ -925,8 +1021,11 @@ mod tests {
             // invalid value in http_realm to ensure we don't validate a value
             // we end up dropping.
             http_realm: Some("\n".into()),
-            password_enc: encrypt("test"),
-            ..Login::default()
+            enc_fields: EncryptedFields {
+                username: "".into(),
+                password: "test".into(),
+            },
+            ..Default::default()
         };
 
         let test_cases = [

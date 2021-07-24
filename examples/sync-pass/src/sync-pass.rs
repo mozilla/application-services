@@ -8,24 +8,23 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
-use logins::{Login, LoginStore, LoginsSyncEngine};
+use logins::{EncryptedFields, Login, LoginStore, LoginsSyncEngine, UpdatableLogin};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::{OptionalExtension, NO_PARAMS};
 use std::sync::Arc;
 use sync15::{EngineSyncAssociation, SyncEngine};
-use sync_guid::Guid;
 
 // I'm completely punting on good error handling here.
 use anyhow::{bail, Result};
 
-fn read_login(encdec: &EncryptorDecryptor) -> Login {
+fn read_login() -> UpdatableLogin {
     let login = loop {
         match prompt_char("Choose login kind: [F]orm based, [A]uth based").unwrap() {
             'F' | 'f' => {
-                break read_form_based_login(encdec);
+                break read_form_based_login();
             }
             'A' | 'a' => {
-                break read_auth_based_login(encdec);
+                break read_auth_based_login();
             }
             c => {
                 println!("Unknown choice '{}', exiting.", c);
@@ -39,43 +38,37 @@ fn read_login(encdec: &EncryptorDecryptor) -> Login {
     login
 }
 
-fn read_form_based_login(encdec: &EncryptorDecryptor) -> Login {
+fn read_form_based_login() -> UpdatableLogin {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
     let form_action_origin = prompt_string("form_action_origin (example: https://www.example.com)");
     let origin = prompt_string("origin (example: https://www.example.com)").unwrap_or_default();
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
-    Login {
-        id: Guid::random().to_string(),
-        username_enc: encdec.encrypt(&username).unwrap(),
-        password_enc: encdec.encrypt(&password).unwrap(),
+    UpdatableLogin {
+        enc_fields: EncryptedFields { username, password },
         username_field,
         password_field,
         form_action_origin,
         http_realm: None,
         origin,
-        ..Login::default()
     }
 }
 
-fn read_auth_based_login(encdec: &EncryptorDecryptor) -> Login {
+fn read_auth_based_login() -> UpdatableLogin {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
     let origin = prompt_string("origin (example: https://www.example.com)").unwrap_or_default();
     let http_realm = prompt_string("http_realm (example: My Auth Realm)");
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
-    Login {
-        id: Guid::random().into(),
-        username_enc: encdec.encrypt(&username).unwrap(),
-        password_enc: encdec.encrypt(&password).unwrap(),
+    UpdatableLogin {
+        enc_fields: EncryptedFields { username, password },
         username_field,
         password_field,
         form_action_origin: None,
         http_realm,
         origin,
-        ..Login::default()
     }
 }
 
@@ -89,24 +82,13 @@ fn update_string(field_name: &str, field: &mut String, extra: &str) -> bool {
     }
 }
 
-fn update_encrypted_string(
-    field_name: &str,
-    field: &mut String,
-    extra: &str,
-    encdec: &EncryptorDecryptor,
-) -> bool {
-    let opt_s = prompt_string(format!(
-        "new {} [now {}{}]",
-        field_name,
-        encdec.decrypt(field).unwrap(),
-        extra
-    ));
-    if let Some(s) = opt_s {
-        *field = encdec.encrypt(&s).unwrap();
-        true
-    } else {
-        false
-    }
+fn update_encrypted_fields(fields: &mut EncryptedFields, extra: &str) {
+    if let Some(v) = prompt_string(format!("new username [now {}{}]", fields.username, extra)) {
+        fields.username = v;
+    };
+    if let Some(v) = prompt_string(format!("new password [now {}{}]", fields.password, extra)) {
+        fields.password = v;
+    };
 }
 
 fn string_opt(o: &Option<String>) -> Option<&str> {
@@ -117,19 +99,9 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
     string_opt(o).unwrap_or(or)
 }
 
-fn update_login(record: &mut Login, encdec: &EncryptorDecryptor) {
-    update_encrypted_string(
-        "username",
-        &mut record.username_enc,
-        ", leave blank to keep",
-        encdec,
-    );
-    update_encrypted_string(
-        "password",
-        &mut record.password_enc,
-        ", leave blank to keep",
-        encdec,
-    );
+fn update_login(login: Login, encdec: &EncryptorDecryptor) -> UpdatableLogin {
+    let mut record = login.into_updatable(encdec).unwrap();
+    update_encrypted_fields(&mut record.enc_fields, ", leave blank to keep");
     update_string("origin", &mut record.origin, ", leave blank to keep");
 
     update_string(
@@ -163,7 +135,9 @@ fn update_login(record: &mut Login, encdec: &EncryptorDecryptor) {
 
     if let Err(e) = record.check_valid() {
         log::warn!("Warning: produced invalid record: {}", e);
+        // but we return it anyway!
     }
+    record
 }
 
 fn prompt_bool(msg: &str) -> Option<bool> {
@@ -248,13 +222,14 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
     let mut record_copy = records.clone();
     record_copy.sort_by_key(|a| a.guid());
     for rec in records.iter() {
+        let enc_fields = rec.decrypt_fields(encdec).unwrap();
         table.add_row(row![
             r->v.len(),
             Fr->&rec.guid(),
-            &encdec.decrypt(&rec.username_enc).unwrap(),
-            Fb->&encdec.decrypt(&rec.password_enc).unwrap(),
-
+            &enc_fields.username,
+            &enc_fields.password,
             &rec.origin,
+
             string_opt_or(&rec.form_action_origin, ""),
             string_opt_or(&rec.http_realm, ""),
 
@@ -451,8 +426,8 @@ fn main() -> Result<()> {
         match prompt_char("[A]dd, [D]elete, [U]pdate, [S]ync, [V]iew, [B]ase-domain search, [R]eset, [W]ipe, [T]ouch, E[x]ecute SQL Query, or [Q]uit").unwrap_or('?') {
             'A' | 'a' => {
                 log::info!("Adding new record");
-                let record = read_login(&encdec);
-                if let Err(e) = store.add(record) {
+                let record = read_login();
+                if let Err(e) = store.add(record, &encryption_key) {
                     log::warn!("Failed to create record! {}", e);
                 }
             }
@@ -488,8 +463,7 @@ fn main() -> Result<()> {
                                 continue;
                             }
                         };
-                        update_login(&mut login_record.clone(), &encdec);
-                        if let Err(e) = store.update(login_record) {
+                        if let Err(e) = store.update(&id, update_login(login_record.clone(), &encdec), &encryption_key) {
                             log::warn!("Failed to update record! {}", e);
                         }
                     }

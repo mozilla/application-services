@@ -20,9 +20,6 @@ pub enum ErrorKind {
     #[error("The `sync_status` column in DB has an illegal value: {0}")]
     BadSyncStatus(u8),
 
-    #[error("A duplicate GUID is present: {0:?}")]
-    DuplicateGuid(String),
-
     #[error("No record with guid exists (when one was required): {0:?}")]
     NoSuchRecord(String),
 
@@ -100,7 +97,6 @@ impl Error {
     pub fn label(&self) -> &'static str {
         match self.kind() {
             ErrorKind::BadSyncStatus(_) => "BadSyncStatus",
-            ErrorKind::DuplicateGuid(_) => "DuplicateGuid",
             ErrorKind::NoSuchRecord(_) => "NoSuchRecord",
             ErrorKind::NonEmptyTable => "NonEmptyTable",
             ErrorKind::InvalidSalt => "InvalidSalt",
@@ -146,11 +142,6 @@ pub enum LoginsStorageError {
     /// does not exist.
     #[error("NoSuchRecord error: {0}")]
     NoSuchRecord(String),
-
-    /// This is thrown if `add()` is given a record that has an ID, and
-    /// that ID does not exist.
-    #[error("IdCollision error: {0}")]
-    IdCollision(String),
 
     // This is thrown on attempts to insert or update a record so that it
     // is no longer valid. See [InvalidLoginReason] for a list of reasons
@@ -213,10 +204,6 @@ impl From<Error> for LoginsStorageError {
                     Sync15ErrorKind::RequestError(_) => LoginsStorageError::RequestFailed(label),
                     _ => LoginsStorageError::UnexpectedLoginsStorageError(label),
                 }
-            }
-            ErrorKind::DuplicateGuid(id) => {
-                log::error!("Guid already exists: {}", id);
-                LoginsStorageError::IdCollision(label)
             }
             ErrorKind::NoSuchRecord(id) => {
                 log::error!("No record exists with id {}", id);
