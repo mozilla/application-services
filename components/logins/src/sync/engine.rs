@@ -676,8 +676,8 @@ mod tests {
                 (
                     sync15::Payload::from_json(serde_json::json!({
                         "id": "dummy_000003",
-                        "formActionOrigin": "https://www.example.com/submit",
-                        "origin": "https://www.example.com",
+                        "formSubmitURL": "https://www.example.com/submit",
+                        "hostname": "https://www.example.com",
                         "username": "test",
                         "password": "test",
                     }))

@@ -343,8 +343,8 @@ mod tests {
         let bad_timestamp = 18446732429235952000u64;
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
-            "formActionOrigin": "https://www.example.com/submit",
-            "origin": "https://www.example.com",
+            "formSubmitURL": "https://www.example.com/submit",
+            "hostname": "https://www.example.com",
             "username": "test",
             "password": "test",
             "timeCreated": bad_timestamp,
@@ -365,8 +365,8 @@ mod tests {
         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
         let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
-            "formActionOrigin": "https://www.example.com/submit",
-            "origin": "https://www.example.com",
+            "formSubmitURL": "https://www.example.com/submit",
+            "hostname": "https://www.example.com",
             "username": "test",
             "password": "test",
             "timeCreated": now64 - 100,

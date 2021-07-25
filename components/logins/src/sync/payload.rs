@@ -13,19 +13,22 @@ use crate::Login;
 use serde_derive::*;
 use sync_guid::Guid;
 
+/// The JSON payload that lives on the storage servers.
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct LoginPayload {
     #[serde(rename = "id")]
     pub guid: Guid,
 
-    pub origin: String,
+    // This is 'origin' in our Login struct.
+    pub hostname: String,
 
-    // rename_all = "camelCase" by default will do formActionOrigin, but we can just
+    // This is 'form_action_origin' in our Login struct.
+    // rename_all = "camelCase" by default will do formSubmitUrl, but we can just
     // override this one field.
-    #[serde(rename = "formActionOrigin")]
+    #[serde(rename = "formSubmitURL")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub form_action_origin: Option<String>,
+    pub form_submit_url: Option<String>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub http_realm: Option<String>,
@@ -67,8 +70,8 @@ impl Login {
 
         Ok(Login {
             id: p.guid.to_string(),
-            origin: p.origin,
-            form_action_origin: p.form_action_origin,
+            origin: p.hostname,
+            form_action_origin: p.form_submit_url,
             http_realm: p.http_realm,
             username_enc: encdec.encrypt(&p.username)?,
             password_enc: encdec.encrypt(&p.password)?,
@@ -84,8 +87,8 @@ impl Login {
     pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
         Ok(sync15::Payload::from_record(crate::sync::LoginPayload {
             guid: self.guid(),
-            origin: self.origin,
-            form_action_origin: self.form_action_origin,
+            hostname: self.origin,
+            form_submit_url: self.form_action_origin,
             http_realm: self.http_realm,
             username: encdec.decrypt(&self.username_enc)?,
             password: encdec.decrypt(&self.password_enc)?,
@@ -122,10 +125,10 @@ mod tests {
 
     #[test]
     fn test_payload_to_login() {
-        let payload: sync15::Payload = serde_json::from_value(serde_json::json!({
+        let payload = sync15::Payload::from_json(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
-            "origin": "https://www.example.com",
+            "hostname": "https://www.example.com",
             "username": "user",
             "password": "password",
         }))
@@ -134,6 +137,31 @@ mod tests {
         assert_eq!(login.id, "123412341234");
         assert_eq!(login.http_realm, Some("test".to_string()));
         assert_eq!(login.origin, "https://www.example.com");
+        assert_eq!(login.form_action_origin, None);
+        assert_eq!(decrypt(&login.username_enc), "user");
+        assert_eq!(decrypt(&login.password_enc), "password");
+    }
+
+    #[test]
+    fn test_form_submit_payload_to_login() {
+        let payload = sync15::Payload::from_json(serde_json::json!({
+            "id": "123412341234",
+            "hostname": "https://www.example.com",
+            "formSubmitURL": "https://www.example.com",
+            "usernameField": "username-field",
+            "username": "user",
+            "password": "password",
+        }))
+        .unwrap();
+        let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
+        assert_eq!(login.id, "123412341234");
+        assert_eq!(login.http_realm, None);
+        assert_eq!(login.origin, "https://www.example.com");
+        assert_eq!(
+            login.form_action_origin,
+            Some("https://www.example.com".to_string())
+        );
+        assert_eq!(login.username_field, "username-field");
         assert_eq!(decrypt(&login.username_enc), "user");
         assert_eq!(decrypt(&login.password_enc), "password");
     }
@@ -153,7 +181,7 @@ mod tests {
         assert_eq!(payload.id, "123412341234");
         assert_eq!(payload.deleted, false);
         assert_eq!(payload.data["httpRealm"], "test".to_string());
-        assert_eq!(payload.data["origin"], "https://www.example.com");
+        assert_eq!(payload.data["hostname"], "https://www.example.com");
         assert_eq!(payload.data["username"], "user");
         assert_eq!(payload.data["password"], "password");
         assert!(!payload.data.contains_key("formActionOrigin"));
@@ -164,7 +192,7 @@ mod tests {
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
-            "origin": "https://www.example.com",
+            "hostname": "https://www.example.com",
             "username": "test",
             "password": "test",
             "usernameField": "invalid"
@@ -191,7 +219,7 @@ mod tests {
         let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
             "id": "123412341234",
             "httpRealm": "test",
-            "origin": "https://www.example.com",
+            "hostname": "https://www.example.com",
             "username": "test",
             "password": "test",
             "passwordField": "invalid"
