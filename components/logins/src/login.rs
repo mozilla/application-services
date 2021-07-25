@@ -764,14 +764,13 @@ mod tests {
             TestCase {
                 login: login_with_form_submit_and_http_realm,
                 should_err: true,
-                expected_err:
-                    "Invalid login: Both `form_action_origin` and `http_realm` are present",
+                expected_err: "Invalid login: Both `formActionOrigin` and `httpRealm` are present",
             },
             TestCase {
                 login: login_without_form_submit_or_http_realm,
                 should_err: true,
                 expected_err:
-                    "Invalid login: Neither `form_action_origin` or `http_realm` are present",
+                    "Invalid login: Neither `formActionOrigin` or `httpRealm` are present",
             },
             TestCase {
                 login: login_with_null_http_realm,
