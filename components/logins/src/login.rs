@@ -12,10 +12,13 @@
 //  We'll figure out a more scalable approach to maintaining all those docs at some point...
 
 //!
-//! Login Records
-//! =============
+//! Login Struct
+//! ============
 //!
-//! The core datatype managed by this component is a "login record", which contains the following fields:
+//! The core datatype managed by this component is a "Login" struct. Very closely related is the
+//! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization
+//! and deserialization to and from these structs - but all validation etc. is done by this core
+//! Login struct. It contains the following fields:
 //!
 //! - `id`:  A unique string identifier for this record.
 //!
@@ -45,9 +48,7 @@
 //!   - converting values with non-ascii characters into punycode
 //!
 //!   **XXX TODO:**
-//!   - return a "display" field (exact name TBD) in the serialized
-//!     version, which will be the unicode version of punycode urls.
-//!   - the great renaming
+//!   - Add a field with the original unicode versions of the URLs instead of punycode?
 //!
 //! - `password_enc`:  The saved password, as an encrypted string.
 //!
@@ -64,7 +65,7 @@
 //!       - Encrypted value: The username associated with the login.  This must not contain null
 //!         bytes.
 //!
-//! - `httpRealm`:  The challenge string for HTTP Basic authentication, if any.
+//! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
 //!
 //!   If present, the login should only be used in response to a HTTP Basic Auth
 //!   challenge that specifies a matching realm. For legacy reasons this string may not
@@ -72,11 +73,11 @@
 //!
 //!   If this field is set to the empty string, this indicates a wildcard match on realm.
 //!
-//!   This field must not be present if `formActionOrigin` is set, since they indicate different types
-//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionOrigin`
+//!   This field must not be present if `form_action_origin` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin`
 //!   must be present.
 //!
-//! - `formActionOrigin`:  The target origin of forms in which this login can be used, if any, as a string.
+//! - `form_action_origin`:  The target origin of forms in which this login can be used, if any, as a string.
 //!
 //!   If present, the login should only be used in forms whose target submission URL matches this origin.
 //!   This field must be a valid origin or one of the following special cases:
@@ -84,42 +85,34 @@
 //!   - The single character ".", which is equivalent to the empty string
 //!   - The string "javascript:", which matches any form with javascript target URL.
 //!
-//!   **YES, THIS FIELD IS CONFUSINGLY NAMED. IT SHOULD BE AN ORIGIN, NOT A FULL URL. WE INTEND TO
-//!   RENAME THIS TO `formActionOrigin` IN A FUTURE RELEASE.**
-//!
-//!   This field must not be present if `httpRealm` is set, since they indicate different types of login
-//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionOrigin` must be present.
+//!   This field must not be present if `http_realm` is set, since they indicate different types of login
+//!   (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin` must be present.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync) then the
 //!   logins store will attempt to coerce it into valid data by:
 //!   - truncating full URLs to just their origin component
 //!   - converting origins with non-ascii characters into punycode
-//!   - replacing invalid values with null if a valid 'httpRealm' field is present
+//!   - replacing invalid values with null if a valid 'http_realm' field is present
 //!
-//!   **XXX TODO**:
-//!   - return a "display" field (exact name TBD) in the serialized
-//!     version, which will be the unicode version of punycode urls.
-//!   - the great renaming (maybe we can do the punycode thing at the same time?)
-//!
-//! - `usernameField`:  The name of the form field into which the 'username' should be filled, if any.
+//! - `username_field`:  The name of the form field into which the 'username' should be filled, if any.
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formActionOrigin` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formActionOrigin' is not present
+//!   - setting to the empty string if 'form_action_origin' is not present
 //!
-//! - `passwordField`:  The name of the form field into which the 'password' should be filled, if any.
+//! - `password_field`:  The name of the form field into which the 'password' should be filled, if any.
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formActionOrigin` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formActionOrigin' is not present
+//!   - setting to the empty string if 'form_action_origin' is not present
 //!
 //! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
 //!
@@ -147,7 +140,7 @@
 //!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
-//! - `timeCreated`: An upper bound on the time of creation of this login, in integer milliseconds from the unix epoch.
+//! - `time_created`: An upper bound on the time of creation of this login, in integer milliseconds from the unix epoch.
 //!
 //!   This is an upper bound because some legacy sync clients do not record this information.
 //!
@@ -169,7 +162,7 @@
 //!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
-//! - `timeLastUsed`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
+//! - `time_last_used`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
 //!
 //!   This is a lower bound because some legacy sync clients do not record this information;
 //!   in that case newer clients set `timeLastUsed` when they use the record for the first time.
@@ -192,12 +185,12 @@
 //!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
-//! - `timePasswordChanged`: A lower bound on the time that the `password` field was last changed, in integer
+//! - `time_password_changed`: A lower bound on the time that the `password` field was last changed, in integer
 //!                          milliseconds from the unix epoch.
 //!
 //!   Changes to other fields (such as `username`) are not reflected in this timestamp.
 //!   This is a lower bound because some legacy sync clients do not record this information;
-//!   in that case newer clients set `timePasswordChanged` when they change the `password` field.
+//!   in that case newer clients set `time_password_changed` when they change the `password` field.
 //!
 //!   Note that this field is typically a timestamp taken from the local machine clock, so it
 //!   may be wildly inaccurate if the client does not have an accurate clock.
@@ -387,11 +380,11 @@ impl Login {
             .unwrap_or_default();
 
         let field_data = [
-            ("formActionOrigin", &form_action_origin),
-            ("httpRealm", &http_realm),
+            ("form_action_origin", &form_action_origin),
+            ("http_realm", &http_realm),
             ("origin", &self.origin),
-            ("usernameField", &self.username_field),
-            ("passwordField", &self.password_field),
+            ("username_field", &self.username_field),
+            ("password_field", &self.password_field),
             // TODO-sqlcipher: update code to use the decrypted values here
             // ("username", &self.username_enc),
             // ("password", &self.password_enc),
@@ -420,7 +413,7 @@ impl Login {
         // Desktop doesn't like fields with the below patterns
         if self.username_field == "." {
             throw!(InvalidLogin::IllegalFieldValue {
-                field_info: "`usernameField` is a period".into()
+                field_info: "`username_field` is a period".into()
             });
         }
 
@@ -436,7 +429,7 @@ impl Login {
             None => {
                 if !self.username_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "usernameField must be empty when formActionOrigin is null"
+                        field_info: "username_field must be empty when form_action_origin is null"
                             .into()
                     })?
                     .username_field
@@ -444,7 +437,7 @@ impl Login {
                 }
                 if !self.password_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "passwordField must be empty when formActionOrigin is null"
+                        field_info: "password_field must be empty when form_action_origin is null"
                             .into()
                     })?
                     .password_field
@@ -464,7 +457,7 @@ impl Login {
                 } else if !href.is_empty() && href != "javascript:" {
                     if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                            field_info: "formActionOrigin is not normalized".into()
+                            field_info: "form_action_origin is not normalized".into()
                         })?
                         .form_action_origin = Some(fixed);
                     }
@@ -771,18 +764,19 @@ mod tests {
             TestCase {
                 login: login_with_form_submit_and_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Both `formActionOrigin` and `httpRealm` are present",
+                expected_err:
+                    "Invalid login: Both `form_action_origin` and `http_realm` are present",
             },
             TestCase {
                 login: login_without_form_submit_or_http_realm,
                 should_err: true,
                 expected_err:
-                    "Invalid login: Neither `formActionOrigin` or `httpRealm` are present",
+                    "Invalid login: Neither `form_action_origin` or `http_realm` are present",
             },
             TestCase {
                 login: login_with_null_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal field: `httpRealm` contains Nul",
+                expected_err: "Invalid login: Login has illegal field: `http_realm` contains Nul",
             },
             TestCase {
                 login: login_with_null_username,
@@ -803,13 +797,13 @@ mod tests {
                 login: login_with_newline_realm,
                 should_err: true,
                 expected_err:
-                    "Invalid login: Login has illegal field: `httpRealm` contains newline",
+                    "Invalid login: Login has illegal field: `http_realm` contains newline",
             },
             TestCase {
                 login: login_with_newline_username_field,
                 should_err: true,
                 expected_err:
-                    "Invalid login: Login has illegal field: `usernameField` contains newline",
+                    "Invalid login: Login has illegal field: `username_field` contains newline",
             },
             TestCase {
                 login: login_with_newline_password,
@@ -819,7 +813,8 @@ mod tests {
             TestCase {
                 login: login_with_period_username_field,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal field: `usernameField` is a period",
+                expected_err:
+                    "Invalid login: Login has illegal field: `username_field` is a period",
             },
             TestCase {
                 login: login_with_period_form_action_origin,
