@@ -13,3 +13,11 @@ style:
     active: false
   ProtectedMemberInFinalClass:
     active: false
+  UnusedPrivateMember:
+    active: false
+
+exceptions:
+  RethrowCaughtException:
+    active: false
+  SwallowedException:
+    active: false

@@ -89,7 +89,7 @@ ext.configurePublish = { jnaForTestConfiguration = null ->
         publications {
             aar(MavenPublication) {
                 project.afterEvaluate {
-                    from components.findByName("androidRelease")
+                    from components.release
                 }
                 artifact sourcesJar
                 // Can't publish Javadoc yet: fxaclient isn't well behaved.
