@@ -9,6 +9,7 @@
 //! provided by the consuming client.
 //!
 use serde_derive::*;
+use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct Matcher {
@@ -52,6 +53,7 @@ pub struct Matcher {
 /// - `os_version`: The user-visible version of the operating system (e.g. "1.2.3")
 /// - `android_sdk_version`: Android specific for targeting specific sdk versions
 /// - `debug_tag`: Used for debug purposes as a way to match only developer builds, etc.
+/// - `custom_targeting_attributes`: Contains attributes specific to the application, derived by the application
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct AppContext {
     pub app_name: String,
@@ -67,4 +69,6 @@ pub struct AppContext {
     pub os_version: Option<String>,
     pub android_sdk_version: Option<String>,
     pub debug_tag: Option<String>,
+    #[serde(flatten)]
+    pub custom_targeting_attributes: Option<HashMap<String, String>>,
 }

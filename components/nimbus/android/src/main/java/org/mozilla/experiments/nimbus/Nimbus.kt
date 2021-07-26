@@ -261,7 +261,13 @@ data class NimbusAppInfo(
      *
      * Examples: "nightly", "beta", "release"
      */
-    val channel: String
+    val channel: String,
+    /**
+     * Application derived attributes measured by the application, but useful for targeting of experiments.
+     *
+     * Example: mapOf("userType": "casual", "isFirstTime": "true")
+     */
+    val customTargetingAttributes: Map<String, String> = mapOf()
 )
 
 /**
@@ -609,6 +615,7 @@ open class Nimbus(
             deviceModel = Build.MODEL,
             locale = deviceInfo.localeTag,
             os = "Android",
-            osVersion = Build.VERSION.RELEASE)
+            osVersion = Build.VERSION.RELEASE,
+            customTargetingAttributes = appInfo.customTargetingAttributes)
     }
 }

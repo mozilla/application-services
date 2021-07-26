@@ -80,7 +80,8 @@ public extension Nimbus {
             os: device.systemName,
             osVersion: device.systemVersion,
             androidSdkVersion: nil,
-            debugTag: "Nimbus.rs"
+            debugTag: "Nimbus.rs",
+            customTargetingAttributes: appSettings.customTargetingAttributes
         )
     }
 }
