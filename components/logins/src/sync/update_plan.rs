@@ -2,8 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use super::merge::{LocalLogin, MirrorLogin};
+use super::SyncStatus;
 use crate::error::*;
-use crate::login::{LocalLogin, Login, MirrorLogin, SyncStatus};
+use crate::login::Login;
 use crate::util;
 use rusqlite::{named_params, Connection};
 use sql_support::SqlInterruptScope;

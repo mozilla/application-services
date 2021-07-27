@@ -12,10 +12,13 @@
 //  We'll figure out a more scalable approach to maintaining all those docs at some point...
 
 //!
-//! Login Records
-//! =============
+//! Login Struct
+//! ============
 //!
-//! The core datatype managed by this component is a "login record", which contains the following fields:
+//! The core datatype managed by this component is a "Login" struct. Very closely related is the
+//! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization
+//! and deserialization to and from these structs - but all validation etc. is done by this core
+//! Login struct. It contains the following fields:
 //!
 //! - `id`:  A unique string identifier for this record.
 //!
@@ -45,9 +48,7 @@
 //!   - converting values with non-ascii characters into punycode
 //!
 //!   **XXX TODO:**
-//!   - return a "display" field (exact name TBD) in the serialized
-//!     version, which will be the unicode version of punycode urls.
-//!   - the great renaming
+//!   - Add a field with the original unicode versions of the URLs instead of punycode?
 //!
 //! - `password_enc`:  The saved password, as an encrypted string.
 //!
@@ -64,7 +65,7 @@
 //!       - Encrypted value: The username associated with the login.  This must not contain null
 //!         bytes.
 //!
-//! - `httpRealm`:  The challenge string for HTTP Basic authentication, if any.
+//! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
 //!
 //!   If present, the login should only be used in response to a HTTP Basic Auth
 //!   challenge that specifies a matching realm. For legacy reasons this string may not
@@ -72,11 +73,11 @@
 //!
 //!   If this field is set to the empty string, this indicates a wildcard match on realm.
 //!
-//!   This field must not be present if `formActionOrigin` is set, since they indicate different types
-//!   of login (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionOrigin`
+//!   This field must not be present if `form_action_origin` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin`
 //!   must be present.
 //!
-//! - `formActionOrigin`:  The target origin of forms in which this login can be used, if any, as a string.
+//! - `form_action_origin`:  The target origin of forms in which this login can be used, if any, as a string.
 //!
 //!   If present, the login should only be used in forms whose target submission URL matches this origin.
 //!   This field must be a valid origin or one of the following special cases:
@@ -84,42 +85,34 @@
 //!   - The single character ".", which is equivalent to the empty string
 //!   - The string "javascript:", which matches any form with javascript target URL.
 //!
-//!   **YES, THIS FIELD IS CONFUSINGLY NAMED. IT SHOULD BE AN ORIGIN, NOT A FULL URL. WE INTEND TO
-//!   RENAME THIS TO `formActionOrigin` IN A FUTURE RELEASE.**
-//!
-//!   This field must not be present if `httpRealm` is set, since they indicate different types of login
-//!   (HTTP-Auth based versus form-based). Exactly one of `httpRealm` and `formActionOrigin` must be present.
+//!   This field must not be present if `http_realm` is set, since they indicate different types of login
+//!   (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin` must be present.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync) then the
 //!   logins store will attempt to coerce it into valid data by:
 //!   - truncating full URLs to just their origin component
 //!   - converting origins with non-ascii characters into punycode
-//!   - replacing invalid values with null if a valid 'httpRealm' field is present
+//!   - replacing invalid values with null if a valid 'http_realm' field is present
 //!
-//!   **XXX TODO**:
-//!   - return a "display" field (exact name TBD) in the serialized
-//!     version, which will be the unicode version of punycode urls.
-//!   - the great renaming (maybe we can do the punycode thing at the same time?)
-//!
-//! - `usernameField`:  The name of the form field into which the 'username' should be filled, if any.
+//! - `username_field`:  The name of the form field into which the 'username' should be filled, if any.
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formActionOrigin` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formActionOrigin' is not present
+//!   - setting to the empty string if 'form_action_origin' is not present
 //!
-//! - `passwordField`:  The name of the form field into which the 'password' should be filled, if any.
+//! - `password_field`:  The name of the form field into which the 'password' should be filled, if any.
 //!
 //!   This value is stored if provided by the application, but does not imply any restrictions on
 //!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `formActionOrigin` is set.
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
 //!
 //!   If invalid data is received in this field (either from the application, or via sync)
 //!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'formActionOrigin' is not present
+//!   - setting to the empty string if 'form_action_origin' is not present
 //!
 //! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
 //!
@@ -147,7 +140,7 @@
 //!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
-//! - `timeCreated`: An upper bound on the time of creation of this login, in integer milliseconds from the unix epoch.
+//! - `time_created`: An upper bound on the time of creation of this login, in integer milliseconds from the unix epoch.
 //!
 //!   This is an upper bound because some legacy sync clients do not record this information.
 //!
@@ -169,7 +162,7 @@
 //!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
-//! - `timeLastUsed`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
+//! - `time_last_used`: A lower bound on the time of last use of this login, in integer milliseconds from the unix epoch.
 //!
 //!   This is a lower bound because some legacy sync clients do not record this information;
 //!   in that case newer clients set `timeLastUsed` when they use the record for the first time.
@@ -192,12 +185,12 @@
 //!   - test fixups of missing or negative values
 //!   - test that we correctly merge dupes
 //!
-//! - `timePasswordChanged`: A lower bound on the time that the `password` field was last changed, in integer
+//! - `time_password_changed`: A lower bound on the time that the `password` field was last changed, in integer
 //!                          milliseconds from the unix epoch.
 //!
 //!   Changes to other fields (such as `username`) are not reflected in this timestamp.
 //!   This is a lower bound because some legacy sync clients do not record this information;
-//!   in that case newer clients set `timePasswordChanged` when they change the `password` field.
+//!   in that case newer clients set `time_password_changed` when they change the `password` field.
 //!
 //!   Note that this field is typically a timestamp taken from the local machine clock, so it
 //!   may be wildly inaccurate if the client does not have an accurate clock.
@@ -227,17 +220,12 @@
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
 
-use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::util;
 use rusqlite::Row;
-use serde_derive::*;
-use std::time::{self, SystemTime};
-use sync15::ServerTimestamp;
 use sync_guid::Guid;
 use url::Url;
 
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Default)]
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
 pub struct Login {
     pub id: String,
     pub origin: String,
@@ -253,114 +241,11 @@ pub struct Login {
     pub times_used: i64,
 }
 
-// Login entry from a server payload
-//
-// This struct is used for fetching/sending login records to the server.  The differences between
-// this and Login is that the username/passwords are plaintext rather than encrypted.  We normally
-// encrypt those fields with the local encryption key, which isn't going to work with shared data
-// on the server.  Instead, the entire payload is encrypted using a separate encryption scheme.
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-struct LoginPayload {
-    #[serde(rename = "id")]
-    pub guid: Guid,
-
-    pub origin: String,
-
-    // rename_all = "camelCase" by default will do formActionOrigin, but we can just
-    // override this one field.
-    #[serde(rename = "formActionOrigin")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub form_action_origin: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub http_realm: Option<String>,
-
-    #[serde(default)]
-    pub username: String,
-
-    pub password: String,
-
-    #[serde(default)]
-    pub username_field: String,
-
-    #[serde(default)]
-    pub password_field: String,
-
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    pub time_created: i64,
-
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    pub time_password_changed: i64,
-
-    #[serde(default)]
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    pub time_last_used: i64,
-
-    #[serde(default)]
-    pub times_used: i64,
-}
-
-// Quiet clippy, since this function is passed to deserialiaze_with...
-#[allow(clippy::unnecessary_wraps)]
-fn deserialize_timestamp<'de, D>(deserializer: D) -> std::result::Result<i64, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    use serde::de::Deserialize;
-    // Invalid and negative timestamps are all replaced with 0. Eventually we
-    // should investigate replacing values that are unreasonable but still fit
-    // in an i64 (a date 1000 years in the future, for example), but
-    // appropriately handling that is complex.
-    Ok(i64::deserialize(deserializer).unwrap_or_default().max(0))
-}
-
 fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
     Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
 }
 
 impl Login {
-    pub fn from_payload(
-        sync_payload: sync15::Payload,
-        encdec: &EncryptorDecryptor,
-    ) -> Result<Self> {
-        let p: LoginPayload = sync_payload.into_record()?;
-
-        Ok(Login {
-            id: p.guid.to_string(),
-            origin: p.origin,
-            form_action_origin: p.form_action_origin,
-            http_realm: p.http_realm,
-            username_enc: encdec.encrypt(&p.username)?,
-            password_enc: encdec.encrypt(&p.password)?,
-            username_field: p.username_field,
-            password_field: p.password_field,
-            time_created: p.time_created,
-            time_password_changed: p.time_password_changed,
-            time_last_used: p.time_last_used,
-            times_used: p.times_used,
-        })
-    }
-
-    pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
-        Ok(sync15::Payload::from_record(LoginPayload {
-            guid: self.guid(),
-            origin: self.origin,
-            form_action_origin: self.form_action_origin,
-            http_realm: self.http_realm,
-            username: encdec.decrypt(&self.username_enc)?,
-            password: encdec.decrypt(&self.password_enc)?,
-            username_field: self.username_field,
-            password_field: self.password_field,
-            time_created: self.time_created,
-            time_password_changed: self.time_password_changed,
-            time_last_used: self.time_last_used,
-            times_used: self.times_used,
-        })?)
-    }
-
     #[inline]
     pub fn guid(&self) -> Guid {
         Guid::from_string(self.id.clone())
@@ -495,11 +380,11 @@ impl Login {
             .unwrap_or_default();
 
         let field_data = [
-            ("formActionOrigin", &form_action_origin),
-            ("httpRealm", &http_realm),
+            ("form_action_origin", &form_action_origin),
+            ("http_realm", &http_realm),
             ("origin", &self.origin),
-            ("usernameField", &self.username_field),
-            ("passwordField", &self.password_field),
+            ("username_field", &self.username_field),
+            ("password_field", &self.password_field),
             // TODO-sqlcipher: update code to use the decrypted values here
             // ("username", &self.username_enc),
             // ("password", &self.password_enc),
@@ -528,7 +413,7 @@ impl Login {
         // Desktop doesn't like fields with the below patterns
         if self.username_field == "." {
             throw!(InvalidLogin::IllegalFieldValue {
-                field_info: "`usernameField` is a period".into()
+                field_info: "`username_field` is a period".into()
             });
         }
 
@@ -544,7 +429,7 @@ impl Login {
             None => {
                 if !self.username_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "usernameField must be empty when formActionOrigin is null"
+                        field_info: "username_field must be empty when form_action_origin is null"
                             .into()
                     })?
                     .username_field
@@ -552,7 +437,7 @@ impl Login {
                 }
                 if !self.password_field.is_empty() {
                     get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                        field_info: "passwordField must be empty when formActionOrigin is null"
+                        field_info: "password_field must be empty when form_action_origin is null"
                             .into()
                     })?
                     .password_field
@@ -572,7 +457,7 @@ impl Login {
                 } else if !href.is_empty() && href != "javascript:" {
                     if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
-                            field_info: "formActionOrigin is not normalized".into()
+                            field_info: "form_action_origin is not normalized".into()
                         })?
                         .form_action_origin = Some(fixed);
                     }
@@ -612,346 +497,6 @@ impl Login {
     }
 }
 
-#[derive(Clone, Debug)]
-pub(crate) struct MirrorLogin {
-    pub login: Login,
-    pub is_overridden: bool,
-    pub server_modified: ServerTimestamp,
-}
-
-impl MirrorLogin {
-    #[inline]
-    pub fn guid_str(&self) -> &str {
-        &self.login.id
-    }
-
-    pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
-        Ok(MirrorLogin {
-            login: Login::from_row(row)?,
-            is_overridden: row.get("is_overridden")?,
-            server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
-        })
-    }
-}
-
-// This doesn't really belong here.
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-#[repr(u8)]
-pub(crate) enum SyncStatus {
-    Synced = 0,
-    Changed = 1,
-    New = 2,
-}
-
-impl SyncStatus {
-    #[inline]
-    pub fn from_u8(v: u8) -> Result<Self> {
-        match v {
-            0 => Ok(SyncStatus::Synced),
-            1 => Ok(SyncStatus::Changed),
-            2 => Ok(SyncStatus::New),
-            v => throw!(ErrorKind::BadSyncStatus(v)),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub(crate) struct LocalLogin {
-    pub login: Login,
-    pub sync_status: SyncStatus,
-    pub is_deleted: bool,
-    pub local_modified: SystemTime,
-}
-
-impl LocalLogin {
-    #[inline]
-    pub fn guid_str(&self) -> &str {
-        self.login.guid_str()
-    }
-
-    pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
-        Ok(LocalLogin {
-            login: Login::from_row(row)?,
-            sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
-            is_deleted: row.get("is_deleted")?,
-            local_modified: util::system_time_millis_from_row(row, "local_modified")?,
-        })
-    }
-}
-
-macro_rules! impl_login {
-    ($ty:ty { $($fields:tt)* }) => {
-        impl AsRef<Login> for $ty {
-            #[inline]
-            fn as_ref(&self) -> &Login {
-                &self.login
-            }
-        }
-
-        impl AsMut<Login> for $ty {
-            #[inline]
-            fn as_mut(&mut self) -> &mut Login {
-                &mut self.login
-            }
-        }
-
-        impl From<$ty> for Login {
-            #[inline]
-            fn from(l: $ty) -> Self {
-                l.login
-            }
-        }
-
-        impl From<Login> for $ty {
-            #[inline]
-            fn from(login: Login) -> Self {
-                Self { login, $($fields)* }
-            }
-        }
-    };
-}
-
-impl_login!(LocalLogin {
-    sync_status: SyncStatus::New,
-    is_deleted: false,
-    local_modified: time::UNIX_EPOCH
-});
-
-impl_login!(MirrorLogin {
-    is_overridden: false,
-    server_modified: ServerTimestamp(0)
-});
-
-// Stores data needed to do a 3-way merge
-#[derive(Debug)]
-pub(crate) struct SyncLoginData {
-    pub guid: Guid,
-    pub local: Option<LocalLogin>,
-    pub mirror: Option<MirrorLogin>,
-    // None means it's a deletion
-    pub inbound: (Option<Login>, ServerTimestamp),
-}
-
-impl SyncLoginData {
-    #[inline]
-    pub fn guid_str(&self) -> &str {
-        &self.guid.as_str()
-    }
-
-    #[inline]
-    pub fn guid(&self) -> &Guid {
-        &self.guid
-    }
-
-    pub fn from_payload(
-        payload: sync15::Payload,
-        ts: ServerTimestamp,
-        encdec: &EncryptorDecryptor,
-    ) -> Result<Self> {
-        let guid = payload.id.clone();
-        let login: Option<Login> = if payload.is_tombstone() {
-            None
-        } else {
-            let record = Login::from_payload(payload, encdec)?;
-            // If we can fixup incoming records from sync, do so.
-            // But if we can't then keep the invalid data.
-            record.maybe_fixup().unwrap_or(None).or(Some(record))
-        };
-        Ok(Self {
-            guid,
-            local: None,
-            mirror: None,
-            inbound: (login, ts),
-        })
-    }
-}
-
-macro_rules! impl_login_setter {
-    ($setter_name:ident, $field:ident, $Login:ty) => {
-        impl SyncLoginData {
-            pub(crate) fn $setter_name(&mut self, record: $Login) -> Result<()> {
-                // TODO: We probably shouldn't panic in this function!
-                if self.$field.is_some() {
-                    // Shouldn't be possible (only could happen if UNIQUE fails in sqlite, or if we
-                    // get duplicate guids somewhere,but we check).
-                    panic!(
-                        "SyncLoginData::{} called on object that already has {} data",
-                        stringify!($setter_name),
-                        stringify!($field)
-                    );
-                }
-
-                if self.guid_str() != record.guid_str() {
-                    // This is almost certainly a bug in our code.
-                    panic!(
-                        "Wrong guid on login in {}: {:?} != {:?}",
-                        stringify!($setter_name),
-                        self.guid_str(),
-                        record.guid_str()
-                    );
-                }
-
-                self.$field = Some(record);
-                Ok(())
-            }
-        }
-    };
-}
-
-impl_login_setter!(set_local, local, LocalLogin);
-impl_login_setter!(set_mirror, mirror, MirrorLogin);
-
-#[derive(Debug, Default, Clone)]
-pub(crate) struct LoginDelta {
-    // "non-commutative" fields
-    pub origin: Option<String>,
-    pub password_enc: Option<String>,
-    pub username_enc: Option<String>,
-    pub http_realm: Option<String>,
-    pub form_action_origin: Option<String>,
-
-    pub time_created: Option<i64>,
-    pub time_last_used: Option<i64>,
-    pub time_password_changed: Option<i64>,
-
-    // "non-conflicting" fields (which are the same)
-    pub password_field: Option<String>,
-    pub username_field: Option<String>,
-
-    // Commutative field
-    pub times_used: i64,
-}
-
-macro_rules! merge_field {
-    ($merged:ident, $b:ident, $prefer_b:expr, $field:ident) => {
-        if let Some($field) = $b.$field.take() {
-            if $merged.$field.is_some() {
-                log::warn!("Collision merging login field {}", stringify!($field));
-                if $prefer_b {
-                    $merged.$field = Some($field);
-                }
-            } else {
-                $merged.$field = Some($field);
-            }
-        }
-    };
-}
-
-impl LoginDelta {
-    #[allow(clippy::cognitive_complexity)] // Looks like clippy considers this after macro-expansion...
-    pub fn merge(self, mut b: LoginDelta, b_is_newer: bool) -> LoginDelta {
-        let mut merged = self;
-        merge_field!(merged, b, b_is_newer, origin);
-        merge_field!(merged, b, b_is_newer, password_enc);
-        merge_field!(merged, b, b_is_newer, username_enc);
-        merge_field!(merged, b, b_is_newer, http_realm);
-        merge_field!(merged, b, b_is_newer, form_action_origin);
-
-        merge_field!(merged, b, b_is_newer, time_created);
-        merge_field!(merged, b, b_is_newer, time_last_used);
-        merge_field!(merged, b, b_is_newer, time_password_changed);
-
-        merge_field!(merged, b, b_is_newer, password_field);
-        merge_field!(merged, b, b_is_newer, username_field);
-
-        // commutative fields
-        merged.times_used += b.times_used;
-
-        merged
-    }
-}
-
-macro_rules! apply_field {
-    ($login:ident, $delta:ident, $field:ident) => {
-        if let Some($field) = $delta.$field.take() {
-            $login.$field = $field.into();
-        }
-    };
-}
-
-impl Login {
-    pub(crate) fn apply_delta(&mut self, mut delta: LoginDelta) {
-        apply_field!(self, delta, origin);
-
-        apply_field!(self, delta, password_enc);
-        apply_field!(self, delta, username_enc);
-
-        apply_field!(self, delta, time_created);
-        apply_field!(self, delta, time_last_used);
-        apply_field!(self, delta, time_password_changed);
-
-        apply_field!(self, delta, password_field);
-        apply_field!(self, delta, username_field);
-
-        // Use Some("") to indicate that it should be changed to be None (hacky...)
-        if let Some(realm) = delta.http_realm.take() {
-            self.http_realm = if realm.is_empty() { None } else { Some(realm) };
-        }
-
-        if let Some(url) = delta.form_action_origin.take() {
-            self.form_action_origin = if url.is_empty() { None } else { Some(url) };
-        }
-
-        self.times_used += delta.times_used;
-    }
-
-    pub(crate) fn delta(&self, older: &Login) -> LoginDelta {
-        let mut delta = LoginDelta::default();
-
-        if self.form_action_origin != older.form_action_origin {
-            delta.form_action_origin = Some(self.form_action_origin.clone().unwrap_or_default());
-        }
-
-        if self.http_realm != older.http_realm {
-            delta.http_realm = Some(self.http_realm.clone().unwrap_or_default());
-        }
-
-        if self.origin != older.origin {
-            delta.origin = Some(self.origin.clone());
-        }
-        // TODO-sqlcipher -- should we be decrypting these?
-        if self.username_enc != older.username_enc {
-            delta.username_enc = Some(self.username_enc.clone());
-        }
-        if self.password_enc != older.password_enc {
-            delta.password_enc = Some(self.password_enc.clone());
-        }
-        if self.password_field != older.password_field {
-            delta.password_field = Some(self.password_field.clone());
-        }
-        if self.username_field != older.username_field {
-            delta.username_field = Some(self.username_field.clone());
-        }
-
-        // We discard zero (and negative numbers) for timestamps so that a
-        // record that doesn't contain this information (these are
-        // `#[serde(default)]`) doesn't skew our records.
-        //
-        // Arguably, we should also also ignore values later than our
-        // `time_created`, or earlier than our `time_last_used` or
-        // `time_password_changed`. Doing this properly would probably require
-        // a scheme analogous to Desktop's weak-reupload system, so I'm punting
-        // on it for now.
-        if self.time_created > 0 && self.time_created != older.time_created {
-            delta.time_created = Some(self.time_created);
-        }
-        if self.time_last_used > 0 && self.time_last_used != older.time_last_used {
-            delta.time_last_used = Some(self.time_last_used);
-        }
-        if self.time_password_changed > 0
-            && self.time_password_changed != older.time_password_changed
-        {
-            delta.time_password_changed = Some(self.time_password_changed);
-        }
-
-        if self.times_used > 0 && self.times_used != older.times_used {
-            delta.times_used = self.times_used - older.times_used;
-        }
-
-        delta
-    }
-}
-
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
@@ -975,57 +520,7 @@ pub mod test_utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encryption::test_utils::{decrypt, encrypt, TEST_ENCRYPTOR};
-
-    #[test]
-    fn test_invalid_payload_timestamps() {
-        #[allow(clippy::unreadable_literal)]
-        let bad_timestamp = 18446732429235952000u64;
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "formActionOrigin": "https://www.example.com/submit",
-            "origin": "https://www.example.com",
-            "username": "test",
-            "password": "test",
-            "timeCreated": bad_timestamp,
-            "timeLastUsed": "some other garbage",
-            "timePasswordChanged": -30, // valid i64 but negative
-        }))
-        .unwrap();
-        let login =
-            SyncLoginData::from_payload(bad_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
-                .unwrap()
-                .inbound
-                .0
-                .unwrap();
-        assert_eq!(login.time_created, 0);
-        assert_eq!(login.time_last_used, 0);
-        assert_eq!(login.time_password_changed, 0);
-
-        let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
-        let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "formActionOrigin": "https://www.example.com/submit",
-            "origin": "https://www.example.com",
-            "username": "test",
-            "password": "test",
-            "timeCreated": now64 - 100,
-            "timeLastUsed": now64 - 50,
-            "timePasswordChanged": now64 - 25,
-        }))
-        .unwrap();
-
-        let login =
-            SyncLoginData::from_payload(good_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
-                .unwrap()
-                .inbound
-                .0
-                .unwrap();
-
-        assert_eq!(login.time_created, now64 - 100);
-        assert_eq!(login.time_last_used, now64 - 50);
-        assert_eq!(login.time_password_changed, now64 - 25);
-    }
+    use crate::encryption::test_utils::encrypt;
 
     #[test]
     fn test_url_fixups() -> Result<()> {
@@ -1280,7 +775,7 @@ mod tests {
             TestCase {
                 login: login_with_null_http_realm,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal field: `httpRealm` contains Nul",
+                expected_err: "Invalid login: Login has illegal field: `http_realm` contains Nul",
             },
             TestCase {
                 login: login_with_null_username,
@@ -1301,13 +796,13 @@ mod tests {
                 login: login_with_newline_realm,
                 should_err: true,
                 expected_err:
-                    "Invalid login: Login has illegal field: `httpRealm` contains newline",
+                    "Invalid login: Login has illegal field: `http_realm` contains newline",
             },
             TestCase {
                 login: login_with_newline_username_field,
                 should_err: true,
                 expected_err:
-                    "Invalid login: Login has illegal field: `usernameField` contains newline",
+                    "Invalid login: Login has illegal field: `username_field` contains newline",
             },
             TestCase {
                 login: login_with_newline_password,
@@ -1317,7 +812,8 @@ mod tests {
             TestCase {
                 login: login_with_period_username_field,
                 should_err: true,
-                expected_err: "Invalid login: Login has illegal field: `usernameField` is a period",
+                expected_err:
+                    "Invalid login: Login has illegal field: `username_field` is a period",
             },
             TestCase {
                 login: login_with_period_form_action_origin,
@@ -1482,89 +978,5 @@ mod tests {
                 tc,
             );
         }
-    }
-
-    #[test]
-    fn test_payload_to_login() {
-        let payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "httpRealm": "test",
-            "origin": "https://www.example.com",
-            "username": "user",
-            "password": "password",
-        }))
-        .unwrap();
-        let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.id, "123412341234");
-        assert_eq!(login.http_realm, Some("test".to_string()));
-        assert_eq!(login.origin, "https://www.example.com");
-        assert_eq!(decrypt(&login.username_enc), "user");
-        assert_eq!(decrypt(&login.password_enc), "password");
-    }
-
-    #[test]
-    fn test_login_into_payload() {
-        let login = Login {
-            id: "123412341234".into(),
-            http_realm: Some("test".into()),
-            origin: "https://www.example.com".into(),
-            username_enc: encrypt("user"),
-            password_enc: encrypt("password"),
-            ..Login::default()
-        };
-        let payload = login.into_payload(&TEST_ENCRYPTOR).unwrap();
-
-        assert_eq!(payload.id, "123412341234");
-        assert_eq!(payload.deleted, false);
-        assert_eq!(payload.data["httpRealm"], "test".to_string());
-        assert_eq!(payload.data["origin"], "https://www.example.com");
-        assert_eq!(payload.data["username"], "user");
-        assert_eq!(payload.data["password"], "password");
-        assert!(!payload.data.contains_key("formActionOrigin"));
-    }
-
-    #[test]
-    fn test_username_field_requires_a_form_target() {
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "httpRealm": "test",
-            "origin": "https://www.example.com",
-            "username": "test",
-            "password": "test",
-            "usernameField": "invalid"
-        }))
-        .unwrap();
-
-        let login = Login::from_payload(bad_payload.clone(), &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.username_field, "invalid");
-        assert!(login.check_valid().is_err());
-        assert_eq!(login.fixup().unwrap().username_field, "");
-
-        // Incoming sync data gets fixed automatically.
-        let login =
-            SyncLoginData::from_payload(bad_payload, ServerTimestamp::default(), &TEST_ENCRYPTOR)
-                .unwrap()
-                .inbound
-                .0
-                .unwrap();
-        assert_eq!(login.username_field, "");
-    }
-
-    #[test]
-    fn test_password_field_requires_a_form_target() {
-        let bad_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
-            "id": "123412341234",
-            "httpRealm": "test",
-            "origin": "https://www.example.com",
-            "username": "test",
-            "password": "test",
-            "passwordField": "invalid"
-        }))
-        .unwrap();
-
-        let login = Login::from_payload(bad_payload, &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.password_field, "invalid");
-        assert!(login.check_valid().is_err());
-        assert_eq!(login.fixup().unwrap().password_field, "");
     }
 }
