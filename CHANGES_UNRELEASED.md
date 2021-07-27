@@ -24,3 +24,7 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
 
   - The bundled version of Glean has been updated to v39.0.4.
+
+### What's New
+
+  - Added content signature and chain of trust verification features in `rc_crypto` ([#4195](https://github.com/mozilla/application-services/pull/4195))
