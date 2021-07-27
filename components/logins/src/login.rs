@@ -11,100 +11,29 @@
 //
 //  We'll figure out a more scalable approach to maintaining all those docs at some point...
 
+//! # Login Structs
 //!
-//! # Login Struct
+//! This module defines a number of core structs for Logins. They are:
+//! * [UpdatableLogin] - a struct used when the consumer wants to add or update a login. This
+//!   includes the fields that can be updated and the plain-text version of the credentials.
+//! * [Login] - a struct used mainly when returning existing logins. This contains all login fields,
+//!   all metadata of the login, and the encryptyed versions of the credentials.
+//! * [LoginFields] - a struct with the common login fields, and is used by both the [`Login`] and
+//!   [`UpdatableLogin`] structs.
+//! * [EncryptedFields] - a struct with the plain-text version of the encrypted credentials.
+//!   You will find one of these structs in `UpdatableLogin`, and can obtain one of these from
+//!   a `Login` struct by using the global decryption function for this purpose.
 //!
-//! The core datatype managed by this component is a "Login" struct. Very closely related is the
-//! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization
-//! and deserialization to and from these structs - but all validation etc. is done by this core
-//! Login struct. It contains the following fields:
-//!
+//! # Login
+//! This has the complete set of data about a login. Very closely related is the
+//! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization.
+//! It contains the following fields:
 //! - `id`:  A unique string identifier for this record.
 //!
 //!   Consumers may assume that `id` contains only "safe" ASCII characters but should otherwise
-//!   treat this it as an opaque identifier. It should be left blank when adding a new record,
-//!   in which case a new id will be automatically generated.
+//!   treat this it as an opaque identifier. These are generated as needed.
 //!
-//! - `origin`:  The origin at which this login can be used, as a string.
-//!
-//!   The login should only be used on sites that match this origin (for whatever definition
-//!   of "matches" makes sense at the application level, e.g. eTLD+1 matching).
-//!   This field is required, must be a valid origin in punycode format, and must not be
-//!   set to the empty string.
-//!
-//!   Examples of valid `origin` values include:
-//!   - "https://site.com"
-//!   - "http://site.com:1234"
-//!   - "ftp://ftp.site.com"
-//!   - "moz-proxy://127.0.0.1:8888"
-//!   - "chrome://MyLegacyExtension"
-//!   - "file://"
-//!   - "https://[::1]"
-//!
-//!   If invalid data is received in this field (either from the application, or via sync)
-//!   then the logins store will attempt to coerce it into valid data by:
-//!   - truncating full URLs to just their origin component, if it is not an opaque origin
-//!   - converting values with non-ascii characters into punycode
-//!
-//!   **XXX TODO:**
-//!   - Add a field with the original unicode versions of the URLs instead of punycode?
-//!
-//! - `enc_fields`: The `username` and `password` for the site, stored as a encrypted JSON
-//!    representation of an `EncryptedFields`.
-//!
-//!   This field is required and usually encryted.  There are two different value types:
-//!       - Plantext empty string: Used for deleted records
-//!       - Encrypted value: The credentials associated with the login.
-//!
-//! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
-//!
-//!   If present, the login should only be used in response to a HTTP Basic Auth
-//!   challenge that specifies a matching realm. For legacy reasons this string may not
-//!   contain null bytes, carriage returns or newlines.
-//!
-//!   If this field is set to the empty string, this indicates a wildcard match on realm.
-//!
-//!   This field must not be present if `form_action_origin` is set, since they indicate different types
-//!   of login (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin`
-//!   must be present.
-//!
-//! - `form_action_origin`:  The target origin of forms in which this login can be used, if any, as a string.
-//!
-//!   If present, the login should only be used in forms whose target submission URL matches this origin.
-//!   This field must be a valid origin or one of the following special cases:
-//!   - An empty string, which is a wildcard match for any origin.
-//!   - The single character ".", which is equivalent to the empty string
-//!   - The string "javascript:", which matches any form with javascript target URL.
-//!
-//!   This field must not be present if `http_realm` is set, since they indicate different types of login
-//!   (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin` must be present.
-//!
-//!   If invalid data is received in this field (either from the application, or via sync) then the
-//!   logins store will attempt to coerce it into valid data by:
-//!   - truncating full URLs to just their origin component
-//!   - converting origins with non-ascii characters into punycode
-//!   - replacing invalid values with null if a valid 'http_realm' field is present
-//!
-//! - `username_field`:  The name of the form field into which the 'username' should be filled, if any.
-//!
-//!   This value is stored if provided by the application, but does not imply any restrictions on
-//!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
-//!
-//!   If invalid data is received in this field (either from the application, or via sync)
-//!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'form_action_origin' is not present
-//!
-//! - `password_field`:  The name of the form field into which the 'password' should be filled, if any.
-//!
-//!   This value is stored if provided by the application, but does not imply any restrictions on
-//!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
-//!
-//!   If invalid data is received in this field (either from the application, or via sync)
-//!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'form_action_origin' is not present
-//!
+//! - `fields`: A [`LoginFields`] struct.
 //! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
 //!
 //!   Applications should use the `touch()` method of the logins store to indicate when a password
@@ -201,8 +130,108 @@
 //!   - test that we don't set this for changes to other fields.
 //!   - test that we correctly merge dupes
 //!
+//! # UpdatableLogin
+//! The struct used to add or update logins. This has the plain-text version of the fields that are
+//! stored encrypted, so almost all uses of an UpdatableLogin struct will also require the
+//! encryption key to be known and passed in.
+//! It contains the following fields:
+//! - fields: A [`LoginFields`] struct.
+//! - enc_fields: An [`EncryptedFields`] struct.
+//!
+//! # EncryptedFields
+//! The struct used to hold the fields which are stored encrypted. It contains:
+//! - username: A string.
+//! - password: A string.
+//!
+//! # LoginFields
+//!
+//! The core set of fields, use by both [`Login`] and [`UpdatableLogin`]
+//! It contains the following fields:
+//!
+//! - `origin`:  The origin at which this login can be used, as a string.
+//!
+//!   The login should only be used on sites that match this origin (for whatever definition
+//!   of "matches" makes sense at the application level, e.g. eTLD+1 matching).
+//!   This field is required, must be a valid origin in punycode format, and must not be
+//!   set to the empty string.
+//!
+//!   Examples of valid `origin` values include:
+//!   - "https://site.com"
+//!   - "http://site.com:1234"
+//!   - "ftp://ftp.site.com"
+//!   - "moz-proxy://127.0.0.1:8888"
+//!   - "chrome://MyLegacyExtension"
+//!   - "file://"
+//!   - "https://\[::1\]"
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - truncating full URLs to just their origin component, if it is not an opaque origin
+//!   - converting values with non-ascii characters into punycode
+//!
+//!   **XXX TODO:**
+//!   - Add a field with the original unicode versions of the URLs instead of punycode?
+//!
+//! - `enc_fields`: The `username` and `password` for the site, stored as a encrypted JSON
+//!    representation of an `EncryptedFields`.
+//!
+//!   This field is required and usually encryted.  There are two different value types:
+//!       - Plantext empty string: Used for deleted records
+//!       - Encrypted value: The credentials associated with the login.
+//!
+//! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
+//!
+//!   If present, the login should only be used in response to a HTTP Basic Auth
+//!   challenge that specifies a matching realm. For legacy reasons this string may not
+//!   contain null bytes, carriage returns or newlines.
+//!
+//!   If this field is set to the empty string, this indicates a wildcard match on realm.
+//!
+//!   This field must not be present if `form_action_origin` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin`
+//!   must be present.
+//!
+//! - `form_action_origin`:  The target origin of forms in which this login can be used, if any, as a string.
+//!
+//!   If present, the login should only be used in forms whose target submission URL matches this origin.
+//!   This field must be a valid origin or one of the following special cases:
+//!   - An empty string, which is a wildcard match for any origin.
+//!   - The single character ".", which is equivalent to the empty string
+//!   - The string "javascript:", which matches any form with javascript target URL.
+//!
+//!   This field must not be present if `http_realm` is set, since they indicate different types of login
+//!   (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin` must be present.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync) then the
+//!   logins store will attempt to coerce it into valid data by:
+//!   - truncating full URLs to just their origin component
+//!   - converting origins with non-ascii characters into punycode
+//!   - replacing invalid values with null if a valid 'http_realm' field is present
+//!
+//! - `username_field`:  The name of the form field into which the 'username' should be filled, if any.
+//!
+//!   This value is stored if provided by the application, but does not imply any restrictions on
+//!   how the login may be used in practice. For legacy reasons this string may not contain null
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - setting to the empty string if 'form_action_origin' is not present
+//!
+//! - `password_field`:  The name of the form field into which the 'password' should be filled, if any.
+//!
+//!   This value is stored if provided by the application, but does not imply any restrictions on
+//!   how the login may be used in practice. For legacy reasons this string may not contain null
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - setting to the empty string if 'form_action_origin' is not present
+//!
+//!
 //! In order to deal with data from legacy clients in a robust way, it is necessary to be able to build
-//! and manipulate `Login` structs that contain invalid data.  The following methods can be used by callers
+//! and manipulate all these `Login` structs that contain invalid data.  All these structs implement
+//! the `ValidateAndFixup` trait, providing the following methods which can be used by callers
 //! to ensure that they're only working with valid records:
 //!
 //! - `Login::check_valid()`:    Checks valdity of a login record, returning `()` if it is valid
@@ -210,13 +239,6 @@
 //!
 //! - `Login::fixup()`:   Returns either the existing login if it is valid, a clone with invalid fields
 //!                       fixed up if it was safe to do so, or an error if the login is irreparably invalid.
-//!
-//!
-//! # UpdatableLogin Struct
-//! This struct is a subset of the Login struct, consisting only of the fields which an 'update()'
-//! call can change. It also has the decrypted version of the credentials - they will be encrypted
-//! before being added to the database. Thus, almost all uses of an UpdatableLogin struct will
-//! also require the encryption key.
 
 use crate::{encryption::EncryptorDecryptor, error::*};
 use rusqlite::Row;
@@ -227,41 +249,15 @@ use url::Url;
 // This is used to add or update items. It has no meta-data and has the "encrypted" fields as plain
 // text. To use this, you almost certainly also need an `EncryptorDecryptor` too.
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
-pub struct UpdatableLogin {
+pub struct LoginFields {
     pub origin: String,
     pub form_action_origin: Option<String>,
     pub http_realm: Option<String>,
     pub username_field: String,
     pub password_field: String,
-    pub enc_fields: EncryptedFields,
 }
 
-impl UpdatableLogin {
-    /// Checks whether the Login is valid, without attempting to fix any fields.
-    /// Returns an error if invalid data is found, even if it could have been fixed.
-    pub fn check_valid(&self) -> Result<()> {
-        self.validate_and_fixup(false)?;
-        Ok(())
-    }
-
-    /// Return either the existing login, a fixed-up verion, or an error.
-    /// This consumes `self` to make it easy for callers to unconditionally
-    /// replace a Login with an owned fixed-up version, preventing them from
-    /// using one that is invalid.
-    pub fn fixup(self) -> Result<Self> {
-        match self.maybe_fixup()? {
-            None => Ok(self),
-            Some(login) => Ok(login),
-        }
-    }
-
-    /// Like `fixup()` above, but takes `self` by reference and returns
-    /// an Option for the fixed-up version, allowing the caller to make
-    /// more choices about what to do next.
-    pub fn maybe_fixup(&self) -> Result<Option<Self>> {
-        self.validate_and_fixup(true)
-    }
-
+impl LoginFields {
     /// Internal helper for validation and fixups of an "origin" stored as
     /// a string.
     fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
@@ -311,7 +307,9 @@ impl UpdatableLogin {
             }
         }
     }
+}
 
+impl ValidateAndFixup for LoginFields {
     /// Internal helper for doing validation and fixups.
     fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
         // XXX TODO: we've definitely got more validation and fixups to add here!
@@ -339,10 +337,6 @@ impl UpdatableLogin {
             throw!(InvalidLogin::EmptyOrigin);
         }
 
-        if self.enc_fields.password.is_empty() {
-            throw!(InvalidLogin::EmptyPassword);
-        }
-
         if self.form_action_origin.is_some() && self.http_realm.is_some() {
             get_fixed_or_throw!(InvalidLogin::BothTargets)?.http_realm = None;
         }
@@ -365,8 +359,6 @@ impl UpdatableLogin {
             ("origin", &self.origin),
             ("username_field", &self.username_field),
             ("password_field", &self.password_field),
-            ("username", &self.enc_fields.username),
-            ("password", &self.enc_fields.password),
         ];
 
         for (field_name, field_value) in &field_data {
@@ -377,12 +369,8 @@ impl UpdatableLogin {
                 });
             }
 
-            // Newlines are invalid in Desktop with the exception of the username
-            // and password fields.
-            if field_name != &"username"
-                && field_name != &"password"
-                && (field_value.contains('\n') || field_value.contains('\r'))
-            {
+            // Newlines are invalid in Desktop for all the fields here.
+            if field_value.contains('\n') || field_value.contains('\r') {
                 throw!(InvalidLogin::IllegalFieldValue {
                     field_info: format!("`{}` contains newline", field_name)
                 });
@@ -448,21 +436,42 @@ impl UpdatableLogin {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
+pub struct UpdatableLogin {
+    pub fields: LoginFields,
+    pub enc_fields: EncryptedFields,
+}
+
+impl ValidateAndFixup for UpdatableLogin {
+    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
+        let new_fields = self.fields.validate_and_fixup(fixup)?;
+        let new_enc_fields = self.enc_fields.validate_and_fixup(fixup)?;
+        Ok(match (new_fields, new_enc_fields) {
+            (Some(fields), Some(enc_fields)) => Some(Self { fields, enc_fields }),
+            (Some(fields), None) => Some(Self {
+                fields,
+                enc_fields: self.enc_fields.clone(),
+            }),
+            (None, Some(enc_fields)) => Some(Self {
+                fields: self.fields.clone(),
+                enc_fields,
+            }),
+            (None, None) => None,
+        })
+    }
+}
+
 /// This is what you get when reading from the store. It has all metadata but
 /// the encrypted fields are encrypted.
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
 pub struct Login {
     pub id: String,
-    pub origin: String,
-    pub form_action_origin: Option<String>,
-    pub http_realm: Option<String>,
-    pub username_field: String,
-    pub password_field: String,
+    pub fields: LoginFields,
+    pub enc_fields: String,
     pub time_created: i64,
     pub time_password_changed: i64,
     pub time_last_used: i64,
     pub times_used: i64,
-    pub enc_fields: String,
 }
 
 impl Login {
@@ -483,16 +492,15 @@ impl Login {
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
         let login = Login {
             id: row.get("guid")?,
-            enc_fields: row.get("encFields")?,
+            fields: LoginFields {
+                origin: row.get("origin")?,
+                http_realm: row.get("httpRealm")?,
 
-            origin: row.get("origin")?,
-            http_realm: row.get("httpRealm")?,
+                form_action_origin: row.get("formActionOrigin")?,
 
-            form_action_origin: row.get("formActionOrigin")?,
-
-            username_field: string_or_default(row, "usernameField")?,
-            password_field: string_or_default(row, "passwordField")?,
-
+                username_field: string_or_default(row, "usernameField")?,
+                password_field: string_or_default(row, "passwordField")?,
+            },
             time_created: row.get("timeCreated")?,
             // Might be null
             time_last_used: row
@@ -501,24 +509,30 @@ impl Login {
 
             time_password_changed: row.get("timePasswordChanged")?,
             times_used: row.get("timesUsed")?,
+            enc_fields: row.get("encFields")?,
         };
         // XXX - we used to perform a fixup here, but that seems heavy-handed
         // and difficult - we now only do that on add/insert when we have the
         // encryption key.
         Ok(login)
     }
+}
 
-    // This is useful for tests, and rust consumers, like the sync-pass example.
-    // It helps with a read/update cycle. Consumes the item.
-    pub fn into_updatable(self, encdec: &EncryptorDecryptor) -> Result<UpdatableLogin> {
-        Ok(UpdatableLogin {
-            enc_fields: self.decrypt_fields(encdec)?,
-            origin: self.origin,
-            form_action_origin: self.form_action_origin,
-            http_realm: self.http_realm,
-            username_field: self.username_field,
-            password_field: self.password_field,
-        })
+impl ValidateAndFixup for Login {
+    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
+        // We don't validate or fixup metadata, which we arguably should.
+        Ok(self
+            .fields
+            .validate_and_fixup(fixup)?
+            .map(|new_fields| Self {
+                id: self.id.clone(),
+                fields: new_fields,
+                enc_fields: self.enc_fields.clone(),
+                time_created: self.time_created,
+                time_password_changed: self.time_password_changed,
+                time_last_used: self.time_last_used,
+                times_used: self.times_used,
+            }))
     }
 }
 
@@ -541,8 +555,61 @@ impl EncryptedFields {
     }
 }
 
+impl ValidateAndFixup for EncryptedFields {
+    /// We don't actually have fixups.
+    fn validate_and_fixup(&self, _fixup: bool) -> Result<Option<Self>> {
+        // \r\n chars are valid in desktop for some reason, so we allow them here too.
+        if self.username.contains('\0') {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "`username` contains Nul".into()
+            });
+        }
+        if self.password.is_empty() {
+            throw!(InvalidLogin::EmptyPassword);
+        }
+        if self.password.contains('\0') {
+            throw!(InvalidLogin::IllegalFieldValue {
+                field_info: "`password` contains Nul".into()
+            });
+        }
+        Ok(None)
+    }
+}
+
 fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
     Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
+}
+
+pub trait ValidateAndFixup {
+    // Our validate and fixup functions.
+    fn check_valid(&self) -> Result<()>
+    where
+        Self: Sized,
+    {
+        self.validate_and_fixup(false)?;
+        Ok(())
+    }
+
+    fn fixup(self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        match self.maybe_fixup()? {
+            None => Ok(self),
+            Some(login) => Ok(login),
+        }
+    }
+
+    fn maybe_fixup(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        self.validate_and_fixup(true)
+    }
+
+    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>>
+    where
+        Self: Sized;
 }
 
 #[cfg(test)]
@@ -560,8 +627,11 @@ pub mod test_utils {
         };
         Login {
             id: id.to_string(),
-            form_action_origin: Some(format!("https://{}.example.com", id)),
-            origin: format!("https://{}.example.com", id),
+            fields: LoginFields {
+                form_action_origin: Some(format!("https://{}.example.com", id)),
+                origin: format!("https://{}.example.com", id),
+                ..Default::default()
+            },
             enc_fields: encrypt_struct(&enc_fields),
             ..Default::default()
         }
@@ -585,7 +655,7 @@ mod tests {
             "file://",
             "https://[::1]",
         ] {
-            assert_eq!(UpdatableLogin::validate_and_fixup_origin(input)?, None);
+            assert_eq!(LoginFields::validate_and_fixup_origin(input)?, None);
         }
 
         // And URLs which get normalized.
@@ -617,7 +687,7 @@ mod tests {
             ),
         ] {
             assert_eq!(
-                UpdatableLogin::validate_and_fixup_origin(input)?,
+                LoginFields::validate_and_fixup_origin(input)?,
                 Some((*output).into())
             );
         }
@@ -634,205 +704,245 @@ mod tests {
         }
 
         let valid_login = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_empty_origin = UpdatableLogin {
-            origin: "".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_empty_password = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "".into(),
             },
-            ..Default::default()
         };
 
         let login_with_form_submit_and_http_realm = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
-            form_action_origin: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                form_action_origin: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_without_form_submit_or_http_realm = UpdatableLogin {
-            origin: "https://www.example.com".into(),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_null_http_realm = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.\0com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.\0com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_null_username = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "\0".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_null_password = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "username".into(),
                 password: "test\0".into(),
             },
-            ..Default::default()
         };
 
         let login_with_newline_origin = UpdatableLogin {
-            origin: "\rhttps://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "\rhttps://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_newline_username_field = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username_field: "\n".into(),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            username_field: "\n".into(),
-            ..Default::default()
         };
 
         let login_with_newline_realm = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("foo\nbar".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("foo\nbar".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_newline_password = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test\n".into(),
             },
-            ..Default::default()
         };
 
         let login_with_period_username_field = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                username_field: ".".into(),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            username_field: ".".into(),
-            ..Default::default()
         };
 
         let login_with_period_form_action_origin = UpdatableLogin {
-            form_action_origin: Some(".".into()),
-            origin: "https://www.example.com".into(),
+            fields: LoginFields {
+                form_action_origin: Some(".".into()),
+                origin: "https://www.example.com".into(),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_javascript_form_action_origin = UpdatableLogin {
-            form_action_origin: Some("javascript:".into()),
-            origin: "https://www.example.com".into(),
+            fields: LoginFields {
+                form_action_origin: Some("javascript:".into()),
+                origin: "https://www.example.com".into(),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_malformed_origin_parens = UpdatableLogin {
-            origin: " (".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: " (".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_host_unicode = UpdatableLogin {
-            origin: "http://💖.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "http://💖.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_origin_trailing_slash = UpdatableLogin {
-            origin: "https://www.example.com/".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com/".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_origin_expanded_ipv6 = UpdatableLogin {
-            origin: "https://[0:0:0:0:0:0:1:1]".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://[0:0:0:0:0:0:1:1]".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_unknown_protocol = UpdatableLogin {
-            origin: "moz-proxy://127.0.0.1:8888".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "moz-proxy://127.0.0.1:8888".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let test_cases = [
@@ -975,57 +1085,67 @@ mod tests {
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
         let login_with_full_url = UpdatableLogin {
-            origin: "http://example.com/foo?query=wtf#bar".into(),
-            form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
+            fields: LoginFields {
+                origin: "http://example.com/foo?query=wtf#bar".into(),
+                form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_host_unicode = UpdatableLogin {
-            origin: "http://😍.com".into(),
-            form_action_origin: Some("http://😍.com".into()),
+            fields: LoginFields {
+                origin: "http://😍.com".into(),
+                form_action_origin: Some("http://😍.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_period_fsu = UpdatableLogin {
-            origin: "https://example.com".into(),
-            form_action_origin: Some(".".into()),
+            fields: LoginFields {
+                origin: "https://example.com".into(),
+                form_action_origin: Some(".".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
         let login_with_empty_fsu = UpdatableLogin {
-            origin: "https://example.com".into(),
-            form_action_origin: Some("".into()),
+            fields: LoginFields {
+                origin: "https://example.com".into(),
+                form_action_origin: Some("".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let login_with_form_submit_and_http_realm = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            form_action_origin: Some("https://www.example.com".into()),
-            // If both http_realm and form_action_origin are specified, we drop
-            // the former when fixing up. So for this test we must have an
-            // invalid value in http_realm to ensure we don't validate a value
-            // we end up dropping.
-            http_realm: Some("\n".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                form_action_origin: Some("https://www.example.com".into()),
+                // If both http_realm and form_action_origin are specified, we drop
+                // the former when fixing up. So for this test we must have an
+                // invalid value in http_realm to ensure we don't validate a value
+                // we end up dropping.
+                http_realm: Some("\n".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let test_cases = [
@@ -1060,10 +1180,14 @@ mod tests {
         for tc in &test_cases {
             let login = tc.login.clone().fixup().expect("should work");
             if let Some(expected) = tc.fixedup_host {
-                assert_eq!(login.origin, expected, "origin not fixed in {:#?}", tc);
+                assert_eq!(
+                    login.fields.origin, expected,
+                    "origin not fixed in {:#?}",
+                    tc
+                );
             }
             assert_eq!(
-                login.form_action_origin, tc.fixedup_form_action_origin,
+                login.fields.form_action_origin, tc.fixedup_form_action_origin,
                 "form_action_origin not fixed in {:#?}",
                 tc,
             );

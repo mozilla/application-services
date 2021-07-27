@@ -8,7 +8,10 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
-use logins::{EncryptedFields, Login, LoginStore, LoginsSyncEngine, UpdatableLogin};
+use logins::{
+    EncryptedFields, Login, LoginFields, LoginStore, LoginsSyncEngine, UpdatableLogin,
+    ValidateAndFixup,
+};
 use prettytable::{cell, row, Cell, Row, Table};
 use rusqlite::{OptionalExtension, NO_PARAMS};
 use std::sync::Arc;
@@ -46,12 +49,14 @@ fn read_form_based_login() -> UpdatableLogin {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     UpdatableLogin {
+        fields: LoginFields {
+            username_field,
+            password_field,
+            form_action_origin,
+            http_realm: None,
+            origin,
+        },
         enc_fields: EncryptedFields { username, password },
-        username_field,
-        password_field,
-        form_action_origin,
-        http_realm: None,
-        origin,
     }
 }
 
@@ -63,12 +68,14 @@ fn read_auth_based_login() -> UpdatableLogin {
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
     UpdatableLogin {
+        fields: LoginFields {
+            username_field,
+            password_field,
+            form_action_origin: None,
+            http_realm,
+            origin,
+        },
         enc_fields: EncryptedFields { username, password },
-        username_field,
-        password_field,
-        form_action_origin: None,
-        http_realm,
-        origin,
     }
 }
 
@@ -100,37 +107,40 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
 }
 
 fn update_login(login: Login, encdec: &EncryptorDecryptor) -> UpdatableLogin {
-    let mut record = login.into_updatable(encdec).unwrap();
+    let mut record = UpdatableLogin {
+        enc_fields: login.decrypt_fields(encdec).unwrap(),
+        fields: login.fields,
+    };
     update_encrypted_fields(&mut record.enc_fields, ", leave blank to keep");
-    update_string("origin", &mut record.origin, ", leave blank to keep");
+    update_string("origin", &mut record.fields.origin, ", leave blank to keep");
 
     update_string(
         "username_field",
-        &mut record.username_field,
+        &mut record.fields.username_field,
         ", leave blank to keep",
     );
     update_string(
         "password_field",
-        &mut record.password_field,
+        &mut record.fields.password_field,
         ", leave blank to keep",
     );
 
     if prompt_bool(&format!(
         "edit form_action_origin? (now {}) [yN]",
-        string_opt_or(&record.form_action_origin, "(none)")
+        string_opt_or(&record.fields.form_action_origin, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.form_action_origin = prompt_string("form_action_origin");
+        record.fields.form_action_origin = prompt_string("form_action_origin");
     }
 
     if prompt_bool(&format!(
         "edit http_realm? (now {}) [yN]",
-        string_opt_or(&record.http_realm, "(none)")
+        string_opt_or(&record.fields.http_realm, "(none)")
     ))
     .unwrap_or(false)
     {
-        record.http_realm = prompt_string("http_realm");
+        record.fields.http_realm = prompt_string("http_realm");
     }
 
     if let Err(e) = record.check_valid() {
@@ -228,13 +238,13 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
             Fr->&rec.guid(),
             &enc_fields.username,
             &enc_fields.password,
-            &rec.origin,
+            &rec.fields.origin,
 
-            string_opt_or(&rec.form_action_origin, ""),
-            string_opt_or(&rec.http_realm, ""),
+            string_opt_or(&rec.fields.form_action_origin, ""),
+            string_opt_or(&rec.fields.http_realm, ""),
 
-            &rec.username_field,
-            &rec.password_field,
+            &rec.fields.username_field,
+            &rec.fields.password_field,
 
             rec.times_used,
             timestamp_to_string(rec.time_created),

@@ -242,6 +242,14 @@ impl LoginDelta {
 macro_rules! apply_field {
     ($login:ident, $delta:ident, $field:ident) => {
         if let Some($field) = $delta.$field.take() {
+            $login.fields.$field = $field.into();
+        }
+    };
+}
+
+macro_rules! apply_metadata_field {
+    ($login:ident, $delta:ident, $field:ident) => {
+        if let Some($field) = $delta.$field.take() {
             $login.$field = $field.into();
         }
     };
@@ -255,9 +263,9 @@ impl Login {
     ) -> Result<()> {
         apply_field!(self, delta, origin);
 
-        apply_field!(self, delta, time_created);
-        apply_field!(self, delta, time_last_used);
-        apply_field!(self, delta, time_password_changed);
+        apply_metadata_field!(self, delta, time_created);
+        apply_metadata_field!(self, delta, time_last_used);
+        apply_metadata_field!(self, delta, time_password_changed);
 
         apply_field!(self, delta, password_field);
         apply_field!(self, delta, username_field);
@@ -273,11 +281,11 @@ impl Login {
 
         // Use Some("") to indicate that it should be changed to be None (hacky...)
         if let Some(realm) = delta.http_realm.take() {
-            self.http_realm = if realm.is_empty() { None } else { Some(realm) };
+            self.fields.http_realm = if realm.is_empty() { None } else { Some(realm) };
         }
 
         if let Some(url) = delta.form_action_origin.take() {
-            self.form_action_origin = if url.is_empty() { None } else { Some(url) };
+            self.fields.form_action_origin = if url.is_empty() { None } else { Some(url) };
         }
 
         self.times_used += delta.times_used;
@@ -287,16 +295,17 @@ impl Login {
     pub(crate) fn delta(&self, older: &Login, encdec: &EncryptorDecryptor) -> Result<LoginDelta> {
         let mut delta = LoginDelta::default();
 
-        if self.form_action_origin != older.form_action_origin {
-            delta.form_action_origin = Some(self.form_action_origin.clone().unwrap_or_default());
+        if self.fields.form_action_origin != older.fields.form_action_origin {
+            delta.form_action_origin =
+                Some(self.fields.form_action_origin.clone().unwrap_or_default());
         }
 
-        if self.http_realm != older.http_realm {
-            delta.http_realm = Some(self.http_realm.clone().unwrap_or_default());
+        if self.fields.http_realm != older.fields.http_realm {
+            delta.http_realm = Some(self.fields.http_realm.clone().unwrap_or_default());
         }
 
-        if self.origin != older.origin {
-            delta.origin = Some(self.origin.clone());
+        if self.fields.origin != older.fields.origin {
+            delta.origin = Some(self.fields.origin.clone());
         }
         let older_enc_fields = older.decrypt_fields(encdec)?;
         let self_enc_fields = self.decrypt_fields(encdec)?;
@@ -306,11 +315,11 @@ impl Login {
         if self_enc_fields.password != older_enc_fields.password {
             delta.password = Some(self_enc_fields.password);
         }
-        if self.password_field != older.password_field {
-            delta.password_field = Some(self.password_field.clone());
+        if self.fields.password_field != older.fields.password_field {
+            delta.password_field = Some(self.fields.password_field.clone());
         }
-        if self.username_field != older.username_field {
-            delta.username_field = Some(self.username_field.clone());
+        if self.fields.username_field != older.fields.username_field {
+            delta.username_field = Some(self.fields.username_field.clone());
         }
 
         // We discard zero (and negative numbers) for timestamps so that a

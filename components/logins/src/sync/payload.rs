@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::EncryptedFields;
-use crate::UpdatableLogin;
 // Login entry from a server payload
 //
 // This struct is used for fetching/sending login records to the server.  There are a number
@@ -11,7 +9,9 @@ use crate::UpdatableLogin;
 // locally encrypted, etc.
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::Login;
+use crate::login::ValidateAndFixup;
+use crate::EncryptedFields;
+use crate::{Login, LoginFields};
 use serde_derive::*;
 use sync_guid::Guid;
 
@@ -70,49 +70,43 @@ impl Login {
     ) -> Result<Self> {
         let p: crate::sync::LoginPayload = sync_payload.into_record()?;
 
-        // This attempts to fixup, and our fixup code is implemented on an
-        // UpdatableLogin, so we go via one of these.
-        let mut updatable = UpdatableLogin {
-            origin: p.hostname,
-            form_action_origin: p.form_submit_url,
-            http_realm: p.http_realm,
-            username_field: p.username_field,
-            password_field: p.password_field,
+        let mut login = Login {
+            id: p.guid.into(),
+            fields: LoginFields {
+                origin: p.hostname,
+                form_action_origin: p.form_submit_url,
+                http_realm: p.http_realm,
+                username_field: p.username_field,
+                password_field: p.password_field,
+            },
             enc_fields: EncryptedFields {
                 username: p.username,
                 password: p.password,
-            },
-        };
-        // If we can't fix it, we keep the invalid record.
-        if let Some(fixed) = updatable.maybe_fixup()? {
-            updatable = fixed;
-        }
-        Ok(Login {
-            id: p.guid.into(),
-            origin: updatable.origin,
-            form_action_origin: updatable.form_action_origin,
-            http_realm: updatable.http_realm,
-            username_field: updatable.username_field,
-            password_field: updatable.password_field,
+            }
+            .encrypt(encdec)?,
             time_created: p.time_created,
             time_password_changed: p.time_password_changed,
             time_last_used: p.time_last_used,
             times_used: p.times_used,
-            enc_fields: updatable.enc_fields.encrypt(encdec)?,
-        })
+        };
+        // If we can't fix it, we keep the invalid record.
+        if let Some(fixed) = login.maybe_fixup()? {
+            login = fixed;
+        }
+        Ok(login)
     }
 
     pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
         let enc_fields: EncryptedFields = encdec.decrypt_struct(&self.enc_fields)?;
         Ok(sync15::Payload::from_record(crate::sync::LoginPayload {
             guid: self.guid(),
-            hostname: self.origin,
-            form_submit_url: self.form_action_origin,
-            http_realm: self.http_realm,
+            hostname: self.fields.origin,
+            form_submit_url: self.fields.form_action_origin,
+            http_realm: self.fields.http_realm,
+            username_field: self.fields.username_field,
+            password_field: self.fields.password_field,
             username: enc_fields.username,
             password: enc_fields.password,
-            username_field: self.username_field,
-            password_field: self.password_field,
             time_created: self.time_created,
             time_password_changed: self.time_password_changed,
             time_last_used: self.time_last_used,
@@ -139,7 +133,7 @@ where
 mod tests {
     use crate::encryption::test_utils::{encrypt_struct, TEST_ENCRYPTOR};
     use crate::sync::merge::SyncLoginData;
-    use crate::{EncryptedFields, Login};
+    use crate::{EncryptedFields, Login, LoginFields};
     use sync15::ServerTimestamp;
 
     #[test]
@@ -154,9 +148,9 @@ mod tests {
         .unwrap();
         let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.id, "123412341234");
-        assert_eq!(login.http_realm, Some("test".to_string()));
-        assert_eq!(login.origin, "https://www.example.com");
-        assert_eq!(login.form_action_origin, None);
+        assert_eq!(login.fields.http_realm, Some("test".to_string()));
+        assert_eq!(login.fields.origin, "https://www.example.com");
+        assert_eq!(login.fields.form_action_origin, None);
         let enc_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(enc_fields.username, "user");
         assert_eq!(enc_fields.password, "password");
@@ -175,13 +169,13 @@ mod tests {
         .unwrap();
         let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.id, "123412341234");
-        assert_eq!(login.http_realm, None);
-        assert_eq!(login.origin, "https://www.example.com");
+        assert_eq!(login.fields.http_realm, None);
+        assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(
-            login.form_action_origin,
+            login.fields.form_action_origin,
             Some("https://www.example.com".to_string())
         );
-        assert_eq!(login.username_field, "username-field");
+        assert_eq!(login.fields.username_field, "username-field");
         let enc_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(enc_fields.username, "user");
         assert_eq!(enc_fields.password, "password");
@@ -191,8 +185,11 @@ mod tests {
     fn test_login_into_payload() {
         let login = Login {
             id: "123412341234".into(),
-            http_realm: Some("test".into()),
-            origin: "https://www.example.com".into(),
+            fields: LoginFields {
+                http_realm: Some("test".into()),
+                origin: "https://www.example.com".into(),
+                ..Default::default()
+            },
             enc_fields: encrypt_struct(&EncryptedFields {
                 username: "user".into(),
                 password: "password".into(),
@@ -224,7 +221,7 @@ mod tests {
 
         // Incoming sync data gets fixed automatically.
         let login = Login::from_payload(bad_payload.clone(), &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.username_field, "");
+        assert_eq!(login.fields.username_field, "");
 
         // SyncLoginData::from_payload also fixes up.
         let login =
@@ -233,7 +230,7 @@ mod tests {
                 .inbound
                 .0
                 .unwrap();
-        assert_eq!(login.username_field, "");
+        assert_eq!(login.fields.username_field, "");
     }
 
     #[test]
@@ -249,6 +246,6 @@ mod tests {
         .unwrap();
 
         let login = Login::from_payload(bad_payload, &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.password_field, "");
+        assert_eq!(login.fields.password_field, "");
     }
 }

@@ -370,6 +370,7 @@ impl LoginsSyncEngine {
     // could be consolidated, but for now it remains sync specific.
     pub(crate) fn find_dupe_login(&self, l: &Login) -> Result<Option<Login>> {
         let form_submit_host_port = l
+            .fields
             .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
@@ -379,8 +380,8 @@ impl LoginsSyncEngine {
             .expect("TODO: This should not be an Option!");
         let enc_fields = l.decrypt_fields(&encdec)?;
         let args = named_params! {
-            ":origin": l.origin,
-            ":http_realm": l.http_realm,
+            ":origin": l.fields.origin,
+            ":http_realm": l.fields.http_realm,
             ":username": enc_fields.username,
             ":form_submit": form_submit_host_port,
         };

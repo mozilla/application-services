@@ -4,14 +4,19 @@
 
 namespace logins { };
 
+// The fields you can add or update.
+dictionary LoginFields {
+    string origin;
+    string? http_realm;
+    string? form_action_origin;
+    string username_field;
+    string password_field;
+};
+
 // What you can add or update. You must pass the cleartext of encrypted fields
 // and the add/update APIs can encrypt (they need to know the key anyway)
 dictionary UpdatableLogin {
-    string origin;
-    string? form_action_origin;
-    string? http_realm;
-    string username_field;
-    string password_field;
+    LoginFields fields;
     EncryptedFields enc_fields;
 };
 
@@ -19,16 +24,12 @@ dictionary UpdatableLogin {
 // of encrypted fields.
 dictionary Login {
     string id;
-    string origin;
-    string? http_realm;
-    string? form_action_origin;
-    string username_field;
-    string password_field;
+    LoginFields fields;
+    string enc_fields; // ciphertext of an EncryptedFields
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
-    string enc_fields; // ciphertext of an EncryptedFields
 };
 
 // Fields available only while the encryption key is known.

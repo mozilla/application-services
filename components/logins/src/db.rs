@@ -24,7 +24,7 @@
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, UpdatableLogin};
+use crate::login::{EncryptedFields, Login, LoginFields, UpdatableLogin, ValidateAndFixup};
 use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
 use crate::sync::SyncStatus;
@@ -247,13 +247,13 @@ impl LoginDb {
                 let login = r
                     .as_ref()
                     .ok()
-                    .and_then(|login| Url::parse(&login.origin).ok());
+                    .and_then(|login| Url::parse(&login.fields.origin).ok());
                 let this_host = login.as_ref().and_then(|url| url.host());
                 match (&base_host, this_host) {
                     (Host::Domain(base), Some(Host::Domain(look))) => {
                         // a fairly long-winded way of saying
-                        // `login.origin == base_domain ||
-                        //  login.origin.ends_with('.' + base_domain);`
+                        // `fields.origin == base_domain ||
+                        //  fields.origin.ends_with('.' + base_domain);`
                         let mut rev_input = base.chars().rev();
                         let mut rev_host = look.chars().rev();
                         loop {
@@ -348,11 +348,11 @@ impl LoginDb {
         let rows_changed = self.execute_named(
             &sql,
             named_params! {
-                ":origin": login.origin,
-                ":http_realm": login.http_realm,
-                ":form_action_origin": login.form_action_origin,
-                ":username_field": login.username_field,
-                ":password_field": login.password_field,
+                ":origin": login.fields.origin,
+                ":http_realm": login.fields.http_realm,
+                ":form_action_origin": login.fields.form_action_origin,
+                ":username_field": login.fields.username_field,
+                ":password_field": login.fields.password_field,
                 ":time_created": login.time_created,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
@@ -392,11 +392,11 @@ impl LoginDb {
         self.db.execute_named(
             &sql,
             named_params! {
-                ":origin": login.origin,
-                ":http_realm": login.http_realm,
-                ":form_action_origin": login.form_action_origin,
-                ":username_field": login.username_field,
-                ":password_field": login.password_field,
+                ":origin": login.fields.origin,
+                ":http_realm": login.fields.http_realm,
+                ":form_action_origin": login.fields.form_action_origin,
+                ":username_field": login.fields.username_field,
+                ":password_field": login.fields.password_field,
                 ":time_last_used": login.time_last_used,
                 ":times_used": login.times_used,
                 ":time_password_changed": login.time_password_changed,
@@ -413,19 +413,16 @@ impl LoginDb {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
-        let login = self.fixup_and_check_for_dupes(&guid, login, &encdec)?;
+        let (new_fields, new_enc) =
+            self.fixup_and_check_for_dupes(&guid, login.fields, login.enc_fields, &encdec)?;
         let result = Login {
             id: guid.to_string(),
-            origin: login.origin,
-            form_action_origin: login.form_action_origin,
-            http_realm: login.http_realm,
-            username_field: login.username_field,
-            password_field: login.password_field,
+            fields: new_fields,
+            enc_fields: new_enc.encrypt(&encdec)?,
             time_created: now_ms,
             time_password_changed: now_ms,
             time_last_used: now_ms,
             times_used: 1,
-            enc_fields: login.enc_fields.encrypt(&encdec)?,
         };
         let tx = self.unchecked_transaction()?;
         self.insert_new_login(&result)?;
@@ -457,8 +454,23 @@ impl LoginDb {
 
         for login in logins.into_iter() {
             let old_guid = login.guid();
-            let mut login = match login.fixup_and_check_for_dupes(&self, encdec) {
-                Ok(l) => l,
+            let decrypted = login.decrypt_fields(encdec)?;
+            let login = match self.fixup_and_check_for_dupes(
+                &Guid::empty(),
+                login.fields,
+                decrypted,
+                encdec,
+            ) {
+                Ok((new_fields, new_enc)) => Login {
+                    id: if old_guid.is_valid_for_sync_server() {
+                        old_guid.to_string()
+                    } else {
+                        Guid::random().to_string()
+                    },
+                    fields: new_fields,
+                    enc_fields: new_enc.encrypt(encdec)?,
+                    ..login
+                },
                 Err(e) => {
                     log::warn!("Skipping login {} as it is invalid ({}).", old_guid, e);
                     fixup_errors.push(e.label().into());
@@ -467,11 +479,6 @@ impl LoginDb {
                 }
             };
             // Now we can safely insert it, knowing that it's valid data.
-            login.id = if old_guid.is_valid_for_sync_server() {
-                old_guid.to_string()
-            } else {
-                Guid::random().to_string()
-            };
             fixup_phase_duration = import_start.elapsed();
             match self.insert_new_login(&login) {
                 Ok(_) => log::info!(
@@ -542,7 +549,12 @@ impl LoginDb {
         // XXX - it's not clear that throwing here on a dupe is the correct thing to do - eg, a
         // user updated the username to one that already exists - the better thing to do is
         // probably just remove the dupe.
-        let login = self.fixup_and_check_for_dupes(&guid, login, &encdec)?;
+        let (new_fields, new_enc_fields) =
+            self.fixup_and_check_for_dupes(&guid, login.fields, login.enc_fields, &encdec)?;
+        let login = UpdatableLogin {
+            fields: new_fields,
+            enc_fields: new_enc_fields,
+        };
 
         // Note: These fail with DuplicateGuid if the record doesn't exist.
         self.ensure_local_overlay_exists(&guid)?;
@@ -563,16 +575,12 @@ impl LoginDb {
         // Make the final object here - every column will be updated.
         let result = Login {
             id: existing.id,
-            origin: login.origin,
-            form_action_origin: login.form_action_origin,
-            http_realm: login.http_realm,
-            username_field: login.username_field,
-            password_field: login.password_field,
+            fields: login.fields,
+            enc_fields: login.enc_fields.encrypt(&encdec)?,
             time_created: existing.time_created,
             time_password_changed,
             time_last_used: now_ms,
             times_used: existing.times_used + 1,
-            enc_fields: login.enc_fields.encrypt(&encdec)?,
         };
 
         self.update_existing_login(&result)?;
@@ -583,31 +591,34 @@ impl LoginDb {
     pub fn check_valid_with_no_dupes(
         &self,
         guid: &Guid,
-        login: &UpdatableLogin,
+        fields: &LoginFields,
+        enc_fields: &EncryptedFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<()> {
-        login.check_valid()?;
-        self.check_for_dupes(guid, login, encdec)
+        fields.check_valid()?;
+        self.check_for_dupes(guid, fields, enc_fields, encdec)
     }
 
     pub fn fixup_and_check_for_dupes(
         &self,
         guid: &Guid,
-        login: UpdatableLogin,
+        fields: LoginFields,
+        enc_fields: EncryptedFields,
         encdec: &EncryptorDecryptor,
-    ) -> Result<UpdatableLogin> {
-        let login = login.fixup()?;
-        self.check_for_dupes(guid, &login, encdec)?;
-        Ok(login)
+    ) -> Result<(LoginFields, EncryptedFields)> {
+        let fields = fields.fixup()?;
+        self.check_for_dupes(guid, &fields, &enc_fields, encdec)?;
+        Ok((fields, enc_fields.fixup()?))
     }
 
     pub fn check_for_dupes(
         &self,
         guid: &Guid,
-        login: &UpdatableLogin,
+        fields: &LoginFields,
+        enc_fields: &EncryptedFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<()> {
-        if self.dupe_exists(guid, login, encdec)? {
+        if self.dupe_exists(guid, fields, enc_fields, encdec)? {
             throw!(InvalidLogin::DuplicateLogin);
         }
         Ok(())
@@ -616,21 +627,23 @@ impl LoginDb {
     pub fn dupe_exists(
         &self,
         guid: &Guid,
-        login: &UpdatableLogin,
+        fields: &LoginFields,
+        enc_fields: &EncryptedFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<bool> {
-        Ok(self.find_dupe(guid, login, encdec)?.is_some())
+        Ok(self.find_dupe(guid, fields, enc_fields, encdec)?.is_some())
     }
 
     pub fn find_dupe(
         &self,
         guid: &Guid,
-        login: &UpdatableLogin,
+        fields: &LoginFields,
+        enc_fields: &EncryptedFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
-        for possible in self.potential_dupes_ignoring_username(guid, login)? {
-            let enc_fields = possible.decrypt_fields(encdec)?;
-            if enc_fields.username == login.enc_fields.username {
+        for possible in self.potential_dupes_ignoring_username(guid, fields)? {
+            let pos_enc_fields = possible.decrypt_fields(encdec)?;
+            if pos_enc_fields.username == enc_fields.username {
                 return Ok(Some(possible.guid()));
             }
         }
@@ -640,7 +653,7 @@ impl LoginDb {
     pub fn potential_dupes_ignoring_username(
         &self,
         guid: &Guid,
-        login: &UpdatableLogin,
+        fields: &LoginFields,
     ) -> Result<Vec<Login>> {
         // Could be lazy_static-ed...
         lazy_static::lazy_static! {
@@ -673,9 +686,9 @@ impl LoginDb {
         let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
         let params = named_params! {
             ":guid": guid,
-            ":origin": &login.origin,
-            ":http_realm": login.http_realm.as_ref(),
-            ":form_submit": login.form_action_origin.as_ref(),
+            ":origin": &fields.origin,
+            ":http_realm": fields.http_realm.as_ref(),
+            ":form_submit": fields.form_action_origin.as_ref(),
         };
         // Needs to be two lines for borrow checker
         let rows = stmt.query_and_then_named(params, Login::from_row)?;
@@ -859,6 +872,7 @@ lazy_static! {
 
 // In support of `import_mutiple`, we jump some hoops to validate a Login object and check
 // it it is a dupe. We do it as allocation-free as possible.
+/*
 impl Login {
     fn fixup_and_check_for_dupes(self, db: &LoginDb, encdec: &EncryptorDecryptor) -> Result<Self> {
         let mut updatable = UpdatableLogin {
@@ -894,6 +908,7 @@ impl Login {
         })
     }
 }
+*/
 
 #[cfg(test)]
 pub mod test_utils {
@@ -973,12 +988,12 @@ pub mod test_utils {
         stmt.execute_named(named_params! {
             ":is_overridden": is_overridden,
             ":server_modified": server_modified.as_millis(),
-            ":http_realm": login.http_realm,
-            ":form_action_origin": login.form_action_origin,
-            ":username_field": login.username_field,
-            ":password_field": login.password_field,
+            ":http_realm": login.fields.http_realm,
+            ":form_action_origin": login.fields.form_action_origin,
+            ":username_field": login.fields.username_field,
+            ":password_field": login.fields.password_field,
+            ":origin": login.fields.origin,
             ":enc_fields": login.enc_fields,
-            ":origin": login.origin,
             ":times_used": login.times_used,
             ":time_last_used": login.time_last_used,
             ":time_password_changed": login.time_password_changed,
@@ -1062,50 +1077,58 @@ mod tests {
         let added = db
             .add(
                 UpdatableLogin {
-                    form_action_origin: Some("https://www.example.com".into()),
-                    origin: "https://www.example.com".into(),
-                    http_realm: None,
+                    fields: LoginFields {
+                        form_action_origin: Some("https://www.example.com".into()),
+                        origin: "https://www.example.com".into(),
+                        http_realm: None,
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "test".into(),
                         password: "test".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
             .unwrap();
 
         let unique_login = UpdatableLogin {
-            form_action_origin: None,
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                form_action_origin: None,
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
             },
-            ..Default::default()
         };
 
         let duplicate_login = UpdatableLogin {
-            form_action_origin: Some("https://www.example.com".into()),
-            origin: "https://www.example.com".into(),
-            http_realm: None,
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example.com".into()),
+                origin: "https://www.example.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test2".into(),
             },
-            ..Default::default()
         };
 
         let updated_login = UpdatableLogin {
-            form_action_origin: None,
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                form_action_origin: None,
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test4".into(),
             },
-            ..Default::default()
         };
 
         struct TestCase {
@@ -1146,7 +1169,12 @@ mod tests {
         ];
 
         for tc in &test_cases {
-            let login_check = db.check_valid_with_no_dupes(&tc.guid, &tc.login, &TEST_ENCRYPTOR);
+            let login_check = db.check_valid_with_no_dupes(
+                &tc.guid,
+                &tc.login.fields,
+                &tc.login.enc_fields,
+                &TEST_ENCRYPTOR,
+            );
             if tc.should_err {
                 assert!(&login_check.is_err());
                 assert_eq!(&login_check.unwrap_err().to_string(), tc.expected_err)
@@ -1162,15 +1190,17 @@ mod tests {
         let added = db
             .add(
                 UpdatableLogin {
-                    form_action_origin: Some("http://😍.com".into()),
-                    origin: "http://😍.com".into(),
-                    http_realm: None,
+                    fields: LoginFields {
+                        form_action_origin: Some("http://😍.com".into()),
+                        origin: "http://😍.com".into(),
+                        http_realm: None,
+                        username_field: "😍".into(),
+                        password_field: "😍".into(),
+                    },
                     enc_fields: EncryptedFields {
                         username: "😍".into(),
                         password: "😍".into(),
                     },
-                    username_field: "😍".into(),
-                    password_field: "😍".into(),
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1180,13 +1210,13 @@ mod tests {
             .expect("should work")
             .expect("should get a record");
         assert_eq!(added, fetched);
-        assert_eq!(fetched.origin, "http://xn--r28h.com");
+        assert_eq!(fetched.fields.origin, "http://xn--r28h.com");
         assert_eq!(
-            fetched.form_action_origin,
+            fetched.fields.form_action_origin,
             Some("http://xn--r28h.com".to_string())
         );
-        assert_eq!(fetched.username_field, "😍");
-        assert_eq!(fetched.password_field, "😍");
+        assert_eq!(fetched.fields.username_field, "😍");
+        assert_eq!(fetched.fields.password_field, "😍");
         let enc_fields = fetched.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(enc_fields.username, "😍");
         assert_eq!(enc_fields.password, "😍");
@@ -1198,14 +1228,16 @@ mod tests {
         let added = db
             .add(
                 UpdatableLogin {
-                    form_action_origin: None,
-                    origin: "http://😍.com".into(),
-                    http_realm: Some("😍😍".into()),
+                    fields: LoginFields {
+                        form_action_origin: None,
+                        origin: "http://😍.com".into(),
+                        http_realm: Some("😍😍".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "😍".into(),
                         password: "😍".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1215,8 +1247,8 @@ mod tests {
             .expect("should work")
             .expect("should get a record");
         assert_eq!(added, fetched);
-        assert_eq!(fetched.origin, "http://xn--r28h.com");
-        assert_eq!(fetched.http_realm.unwrap(), "😍😍");
+        assert_eq!(fetched.fields.origin, "http://xn--r28h.com");
+        assert_eq!(fetched.fields.http_realm.unwrap(), "😍😍");
     }
 
     fn check_matches(db: &LoginDb, query: &str, expected: &[&str]) {
@@ -1224,7 +1256,7 @@ mod tests {
             .get_by_base_domain(query)
             .unwrap()
             .into_iter()
-            .map(|l| l.origin)
+            .map(|l| l.fields.origin)
             .collect::<Vec<String>>();
         results.sort_unstable();
         let mut sorted = expected.to_owned();
@@ -1242,13 +1274,15 @@ mod tests {
         for h in good.iter().chain(bad.iter()) {
             db.add(
                 UpdatableLogin {
-                    origin: (*h).into(),
-                    http_realm: Some((*h).into()),
+                    fields: LoginFields {
+                        origin: (*h).into(),
+                        http_realm: Some((*h).into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         password: "test".into(),
                         ..Default::default()
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1329,19 +1363,21 @@ mod tests {
     fn test_add() {
         let db = LoginDb::open_in_memory().unwrap();
         let to_add = UpdatableLogin {
-            origin: "https://www.example.com".into(),
-            http_realm: Some("https://www.example.com".into()),
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test_user".into(),
                 password: "test_password".into(),
             },
-            ..Default::default()
         };
         let login = db.add(to_add, &TEST_ENCRYPTOR).unwrap();
         let login2 = db.get_by_id(&login.id).unwrap().unwrap();
 
-        assert_eq!(login.origin, login2.origin);
-        assert_eq!(login.http_realm, login2.http_realm);
+        assert_eq!(login.fields.origin, login2.fields.origin);
+        assert_eq!(login.fields.http_realm, login2.fields.http_realm);
         assert_eq!(login.enc_fields, login2.enc_fields);
     }
 
@@ -1351,13 +1387,15 @@ mod tests {
         let login = db
             .add(
                 UpdatableLogin {
-                    origin: "https://www.example.com".into(),
-                    http_realm: Some("https://www.example.com".into()),
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        http_realm: Some("https://www.example.com".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "user1".into(),
                         password: "password1".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1365,15 +1403,15 @@ mod tests {
         db.update(
             &login.id,
             UpdatableLogin {
-                origin: "https://www.example2.com".into(),
-                http_realm: Some("https://www.example2.com".into()),
+                fields: LoginFields {
+                    origin: "https://www.example2.com".into(),
+                    http_realm: Some("https://www.example2.com".into()),
+                    ..login.fields
+                },
                 enc_fields: EncryptedFields {
                     username: "user2".into(),
                     password: "password2".into(),
                 },
-                form_action_origin: login.form_action_origin,
-                username_field: login.username_field,
-                password_field: login.password_field,
             },
             &TEST_ENCRYPTOR,
         )
@@ -1381,8 +1419,11 @@ mod tests {
 
         let login2 = db.get_by_id(&login.id).unwrap().unwrap();
 
-        assert_eq!(login2.origin, "https://www.example2.com");
-        assert_eq!(login2.http_realm, Some("https://www.example2.com".into()));
+        assert_eq!(login2.fields.origin, "https://www.example2.com");
+        assert_eq!(
+            login2.fields.http_realm,
+            Some("https://www.example2.com".into())
+        );
         let enc_fields = login2.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(enc_fields.username, "user2");
         assert_eq!(enc_fields.password, "password2");
@@ -1394,13 +1435,15 @@ mod tests {
         let login = db
             .add(
                 UpdatableLogin {
-                    origin: "https://www.example.com".into(),
-                    http_realm: Some("https://www.example.com".into()),
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        http_realm: Some("https://www.example.com".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "user1".into(),
                         password: "password1".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1417,13 +1460,15 @@ mod tests {
         let login = db
             .add(
                 UpdatableLogin {
-                    origin: "https://www.example.com".into(),
-                    http_realm: Some("https://www.example.com".into()),
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        http_realm: Some("https://www.example.com".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "test_user".into(),
                         password: "test_password".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1452,13 +1497,15 @@ mod tests {
         let login1 = db
             .add(
                 UpdatableLogin {
-                    origin: "https://www.example.com".into(),
-                    http_realm: Some("https://www.example.com".into()),
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        http_realm: Some("https://www.example.com".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "test_user_1".into(),
                         password: "test_password_1".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1467,13 +1514,15 @@ mod tests {
         let login2 = db
             .add(
                 UpdatableLogin {
-                    origin: "https://www.example2.com".into(),
-                    http_realm: Some("https://www.example2.com".into()),
+                    fields: LoginFields {
+                        origin: "https://www.example2.com".into(),
+                        http_realm: Some("https://www.example2.com".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "test_user_1".into(),
                         password: "test_password_2".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1530,13 +1579,15 @@ mod tests {
         let login = db
             .add(
                 UpdatableLogin {
-                    origin: "https://www.example.com".into(),
-                    http_realm: Some("https://www.example.com".into()),
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        http_realm: Some("https://www.example.com".into()),
+                        ..Default::default()
+                    },
                     enc_fields: EncryptedFields {
                         username: "test_user_1".into(),
                         password: "test_password_1".into(),
                     },
-                    ..Default::default()
                 },
                 &TEST_ENCRYPTOR,
             )
@@ -1556,9 +1607,12 @@ mod tests {
         let valid_login_guid1: Guid = Guid::random();
         let valid_login1 = Login {
             id: valid_login_guid1.to_string(),
-            form_action_origin: Some("https://www.example.com".into()),
-            origin: "https://www.example.com".into(),
-            http_realm: None,
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example.com".into()),
+                origin: "https://www.example.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test".into(),
@@ -1570,9 +1624,12 @@ mod tests {
         let valid_login_guid2: Guid = Guid::random();
         let valid_login2 = Login {
             id: valid_login_guid2.to_string(),
-            form_action_origin: Some("https://www.example2.com".into()),
-            origin: "https://www.example2.com".into(),
-            http_realm: None,
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example2.com".into()),
+                origin: "https://www.example2.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test2".into(),
                 password: "test2".into(),
@@ -1584,9 +1641,12 @@ mod tests {
         let valid_login_guid3: Guid = Guid::random();
         let valid_login3 = Login {
             id: valid_login_guid3.to_string(),
-            form_action_origin: Some("https://www.example3.com".into()),
-            origin: "https://www.example3.com".into(),
-            http_realm: None,
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example3.com".into()),
+                origin: "https://www.example3.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test3".into(),
                 password: "test3".into(),
@@ -1598,9 +1658,12 @@ mod tests {
         let duplicate_login_guid: Guid = Guid::random();
         let duplicate_login = Login {
             id: duplicate_login_guid.to_string(),
-            form_action_origin: Some("https://www.example.com".into()),
-            origin: "https://www.example.com".into(),
-            http_realm: None,
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example.com".into()),
+                origin: "https://www.example.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test2".into(),
@@ -1732,8 +1795,11 @@ mod tests {
         assert!(!bad_guid.is_valid_for_sync_server());
         let login = Login {
             id: bad_guid.to_string(),
-            form_action_origin: Some("https://www.example.com".into()),
-            origin: "https://www.example.com".into(),
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example.com".into()),
+                origin: "https://www.example.com".into(),
+                ..Default::default()
+            },
             enc_fields: EncryptedFields {
                 username: "test".into(),
                 password: "test2".into(),
