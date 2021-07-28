@@ -22,6 +22,14 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+// XXX - so yeah, lots to do here still :(
+// This test file compiles :) It doesn't pass.
+// Even after fixing the big commented-out block below is done, another challenge
+// will be fetching records with hard-coded GUIDs - eg:
+// > val b = test.get("bbbbbbbbbbbb")!!
+// fails because we no longer specify the GUID when adding. We'll have to work out
+// how to remember the IDs of the test-records we add.
+
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class DatabaseLoginsStorageTest {
@@ -38,129 +46,88 @@ class DatabaseLoginsStorageTest {
         return DatabaseLoginsStorage(dbPath = dbPath.absolutePath)
     }
 
-    protected val encryptionKey = "testEncryptionKey"
+    protected val encryptionKey = createKey()
 
     protected fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
-        store.unlock(encryptionKey)
+        store.add(UpdatableLogin(
+                fields = LoginFields(
+                    origin = "https://www.example.com",
+                    httpRealm = "Something",
+                    usernameField = "users_name",
+                    passwordField = "users_password",
+                    formActionOrigin = null
+                ),
+                encFields = EncryptedFields(
+                    username = "Foobar2000",
+                    password = "hunter2"
+                )
+        ), encryptionKey)
 
-        store.add(Login(
-                id = "aaaaaaaaaaaa",
-                hostname = "https://www.example.com",
-                httpRealm = "Something",
-                username = "Foobar2000",
-                password = "hunter2",
-                usernameField = "users_name",
-                passwordField = "users_password",
-                formSubmitUrl = null,
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
-        ))
-
-        store.add(Login(
-                id = "bbbbbbbbbbbb",
-                username = "Foobar2000",
-                hostname = "https://www.example.org",
-                httpRealm = "",
-                formSubmitUrl = "https://www.example.org/login",
-                password = "MyVeryCoolPassword",
-                usernameField = "users_name",
-                passwordField = "users_password",
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
-        ))
-
-        store.lock()
+        store.add(UpdatableLogin(
+                fields = LoginFields(
+                    origin = "https://www.example.org",
+                    httpRealm = "",
+                    formActionOrigin = "https://www.example.org/login",
+                    usernameField = "users_name",
+                    passwordField = "users_password"
+                ),
+                encFields = EncryptedFields(
+                    password = "MyVeryCoolPassword",
+                    username = "Foobar2000"
+                )
+        ), encryptionKey)
 
         return store
     }
 
     protected fun finishAndClose(store: DatabaseLoginsStorage) {
-        store.ensureLocked()
-        assertEquals(store.isLocked(), true)
         store.close()
+        // if this is all we need to do, then this helper should die!
     }
 
     @Test
     fun testMetricsGathering() {
         val store = createTestStore()
-        val key = "0123456789abcdef"
-
-        assert(!LoginsStoreMetrics.unlockCount.testHasValue())
-        assert(!LoginsStoreMetrics.unlockErrorCount["invalid_key"].testHasValue())
-
-        store.unlock(key)
-
-        assertEquals(LoginsStoreMetrics.unlockCount.testGetValue(), 1)
-        assert(!LoginsStoreMetrics.unlockErrorCount["invalid_key"].testHasValue())
-
-        store.lock()
-        try {
-            store.unlock("wrongkey")
-            fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidKey) {
-            // All good.
-        }
-        store.unlock(key)
-
-        assertEquals(LoginsStoreMetrics.unlockCount.testGetValue(), 3)
-        assert(LoginsStoreMetrics.unlockErrorCount["invalid_key"].testHasValue())
-        assertEquals(LoginsStoreMetrics.unlockErrorCount["invalid_key"].testGetValue(), 1)
-
-        try {
-            store.unlock(key)
-            fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.MismatchedLock) {
-            // All good.
-        }
-        assertEquals(LoginsStoreMetrics.unlockCount.testGetValue(), 4)
-        assert(LoginsStoreMetrics.unlockErrorCount["mismatched_lock"].testHasValue())
-        assertEquals(LoginsStoreMetrics.unlockErrorCount["mismatched_lock"].testGetValue(), 1)
 
         assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
-        store.add(Login(
-                id = "aaaaaaaaaaaa",
-                hostname = "https://www.example.com",
-                httpRealm = "Something",
-                username = "Foobar2000",
-                password = "hunter2",
-                usernameField = "users_name",
-                passwordField = "users_password",
-                formSubmitUrl = null,
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
-        ))
+        store.add(UpdatableLogin(
+                fields = LoginFields(
+                    origin = "https://www.example.com",
+                    httpRealm = "Something",
+                    usernameField = "users_name",
+                    passwordField = "users_password",
+                    formActionOrigin = null
+                ),
+                encFields = EncryptedFields(
+                    username = "Foobar2000",
+                    password = "hunter2"
+                )
+        ), encryptionKey)
 
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
-        // N.B. this is invalid due to `formSubmitURL` being an invalid url.
-        val invalid = Login(
-            id = "bbbbbbbbbbbb",
-            hostname = "https://test.example.com",
-            formSubmitUrl = "not a url",
-            httpRealm = "",
-            username = "Foobar2000",
-            password = "hunter2",
-            usernameField = "users_name",
-            passwordField = "users_password",
-            timesUsed = 0,
-            timeCreated = 0,
-            timeLastUsed = 0,
-            timePasswordChanged = 0
+        // N.B. this is invalid due to `formActionOrigin` being an invalid url.
+        val invalid = UpdatableLogin(
+            fields = LoginFields(
+                origin = "https://test.example.com",
+                formActionOrigin = "not a url",
+                httpRealm = "",
+                usernameField = "users_name",
+                passwordField = "users_password"
+            ),
+            encFields = EncryptedFields(
+                username = "Foobar2000",
+                password = "hunter2"
+            )
         )
 
         try {
-            store.add(invalid)
+            store.add(invalid, encryptionKey)
             fail("Should have thrown")
         } catch (e: LoginsStorageErrorException.InvalidRecord) {
             // All good.
@@ -173,14 +140,14 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
 
         val record = store.get("aaaaaaaaaaaa")!!
-        assertEquals(record.hostname, "https://www.example.com")
+        assertEquals(record.fields.origin, "https://www.example.com")
 
         assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
 
         // Ensure that ensureValid doesn't cause us to record invalid_record errors.
         try {
-            store.ensureValid(invalid)
+            store.ensureValid("", invalid, encryptionKey)
             fail("Should have thrown")
         } catch (e: LoginsStorageErrorException.InvalidRecord) {
             // All good.
@@ -193,51 +160,8 @@ class DatabaseLoginsStorageTest {
     }
 
     @Test
-    fun testLockedOperations() {
-        val test = getTestStore()
-        assertEquals(test.isLocked(), true)
-
-        assertThrows(LoginsStorageErrorException::class.java) { test.get("aaaaaaaaaaaa") }
-        assertThrows(LoginsStorageErrorException::class.java) { test.list() }
-        assertThrows(LoginsStorageErrorException::class.java) { test.delete("aaaaaaaaaaaa") }
-        assertThrows(LoginsStorageErrorException::class.java) { test.touch("bbbbbbbbbbbb") }
-        assertThrows(LoginsStorageErrorException::class.java) { test.wipe() }
-        assertThrows(LoginsStorageErrorException::class.java) {
-            @Suppress("DEPRECATION")
-            test.reset()
-        }
-
-        test.unlock(encryptionKey)
-        assertEquals(test.isLocked(), false)
-        // Make sure things didn't change despite being locked
-        assertNotNull(test.get("aaaaaaaaaaaa"))
-        // "bbbbbbbbbbbb" has a single use (from insertion)
-        assertEquals(1, test.get("bbbbbbbbbbbb")!!.timesUsed)
-        finishAndClose(test)
-    }
-
-    @Test
-    fun testEnsureLockUnlock() {
-        val test = getTestStore()
-        assertEquals(test.isLocked(), true)
-
-        test.ensureUnlocked(encryptionKey)
-        assertEquals(test.isLocked(), false)
-        test.ensureUnlocked(encryptionKey)
-        assertEquals(test.isLocked(), false)
-
-        test.ensureLocked()
-        assertEquals(test.isLocked(), true)
-        test.ensureLocked()
-        assertEquals(test.isLocked(), true)
-
-        finishAndClose(test)
-    }
-
-    @Test
     fun testTouch() {
         val test = getTestStore()
-        test.unlock(encryptionKey)
         assertEquals(test.list().size, 2)
         val b = test.get("bbbbbbbbbbbb")!!
 
@@ -260,7 +184,6 @@ class DatabaseLoginsStorageTest {
     fun testDelete() {
         val test = getTestStore()
 
-        test.unlock(encryptionKey)
         assertNotNull(test.get("aaaaaaaaaaaa"))
         assertTrue(test.delete("aaaaaaaaaaaa"))
         assertNull(test.get("aaaaaaaaaaaa"))
@@ -273,7 +196,6 @@ class DatabaseLoginsStorageTest {
     @Test
     fun testListWipe() {
         val test = getTestStore()
-        test.unlock(encryptionKey)
         assertEquals(2, test.list().size)
 
         test.wipe()
@@ -288,7 +210,6 @@ class DatabaseLoginsStorageTest {
     @Test
     fun testWipeLocal() {
         val test = getTestStore()
-        test.unlock(encryptionKey)
         assertEquals(2, test.list().size)
 
         test.wipeLocal()
@@ -300,28 +221,12 @@ class DatabaseLoginsStorageTest {
         finishAndClose(test)
     }
 
+// so yeah, as above, lots to do here still :(
+/*
     @Test
 
     fun testAdd() {
         val test = getTestStore()
-        test.unlock(encryptionKey)
-
-        assertThrows(LoginsStorageErrorException.IdCollision::class.java) {
-            test.add(Login(
-                    id = "aaaaaaaaaaaa",
-                    hostname = "https://www.foo.org",
-                    httpRealm = "Some Realm",
-                    password = "MyPassword",
-                    username = "MyUsername",
-                    usernameField = "",
-                    passwordField = "",
-                    formSubmitUrl = "",
-                    timesUsed = 0,
-                    timeCreated = 0,
-                    timeLastUsed = 0,
-                    timePasswordChanged = 0
-            ))
-        }
 
         for (record in INVALID_RECORDS) {
             assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
@@ -329,102 +234,99 @@ class DatabaseLoginsStorageTest {
             }
         }
 
-        val toInsert = Login(
-                id = "",
-                hostname = "https://www.foo.org",
+        val toInsert = UpdatableLogin(
+            fields = LoginFields(
+                origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
-                password = "MyPassword",
-                username = "Foobar2000",
                 usernameField = "",
                 passwordField = "",
-                formSubmitUrl = null,
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
+                formActionOrigin = null
+            ),
+            encFields = EncryptedFields(
+                password = "MyPassword",
+                username = "Foobar2000"
+            )
         )
 
-        val generatedID = test.add(toInsert)
+        val generatedID = test.add(toInsert, encryptionKey).id
 
         val record = test.get(generatedID)!!
         assertEquals(generatedID, record.id)
-        assertEquals(toInsert.hostname, record.hostname)
+        assertEquals(toInsert.origin, record.fields.origin)
         assertEquals(toInsert.httpRealm, record.httpRealm)
         assertEquals(toInsert.password, record.password)
         assertEquals(toInsert.username, record.username)
         assertEquals(toInsert.passwordField, record.passwordField)
         assertEquals(toInsert.usernameField, record.usernameField)
-        assertEquals(toInsert.formSubmitUrl, record.formSubmitUrl)
+        assertEquals(toInsert.formActionOrigin, record.formActionOrigin)
         assertEquals(1, record.timesUsed)
 
         assertNotEquals(0L, record.timeLastUsed)
         assertNotEquals(0L, record.timeCreated)
         assertNotEquals(0L, record.timePasswordChanged)
 
-        val specificID = test.add(Login(
-                id = "123412341234",
-                hostname = "http://www.bar.com",
-                formSubmitUrl = "http://login.bar.com",
-                password = "DummyPassword",
-                username = "DummyUsername",
+        val put = test.add(UpdatableLogin(
+            fields = EncryptedFields (
+                origin = "http://www.bar.com",
+                formActionOrigin = "http://login.bar.com",
                 usernameField = "users_name",
                 passwordField = "users_password",
-                httpRealm = null,
-                timesUsed = 0,
-                timeCreated = 0,
-                timeLastUsed = 0,
-                timePasswordChanged = 0
-        ))
+                httpRealm = null
+            ),
+            encFields = EncryptedFields(
+                password = "DummyPassword",
+                username = "DummyUsername"
+            )
+        ), encryptionKey).id
+        val got = test.get(put.id)!!
 
-        assertEquals("123412341234", specificID)
+        assertEquals(put, got)
 
         finishAndClose(test)
     }
-
     @Test
     fun testEnsureValid() {
         val test = getTestStore()
-        test.unlock(encryptionKey)
 
-        test.add(Login(
+        test.add(UpdatableLogin(
                 id = "bbbbb",
-                hostname = "https://www.foo.org",
+                origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MyUsername",
                 usernameField = "",
                 passwordField = "",
-                formSubmitUrl = null,
+                formActionOrigin = null,
                 timesUsed = 0,
                 timeCreated = 0,
                 timeLastUsed = 0,
                 timePasswordChanged = 0
         ))
 
-        val dupeLogin = Login(
+        val dupeLogin = UpdatableLogin(
                 id = "",
-                hostname = "https://www.foo.org",
+                origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MyUsername",
                 usernameField = "",
                 passwordField = "",
-                formSubmitUrl = "",
+                formActionOrigin = "",
                 timesUsed = 0,
                 timeCreated = 0,
                 timeLastUsed = 0,
                 timePasswordChanged = 0
         )
 
-        val nullValueLogin = Login(
+        val nullValueLogin = UpdatableLogin(
                 id = "",
-                hostname = "https://www.test.org",
+                origin = "https://www.test.org",
                 httpRealm = "Some Other Realm",
                 password = "MyPassword",
                 username = "\u0000MyUsername2",
                 usernameField = "",
                 passwordField = "",
-                formSubmitUrl = "",
+                formActionOrigin = "",
                 timesUsed = 0,
                 timeCreated = 0,
                 timeLastUsed = 0,
@@ -447,15 +349,15 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        val savedLogin1 = Login(
+        val savedLogin1 = UpdatableLogin(
                 id = "bbbbb",
-                hostname = "https://www.foo.org",
+                origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MyUsername",
                 usernameField = "",
                 passwordField = "",
-                                formSubmitUrl = "",
+                                formActionOrigin = "",
                 timesUsed = 0,
                 timeCreated = 0,
                 timeLastUsed = 0,
@@ -464,15 +366,15 @@ class DatabaseLoginsStorageTest {
 
         test.add(savedLogin1)
 
-        val dupeLogin = Login(
+        val dupeLogin = UpdatableLogin(
                 id = "",
-                hostname = "https://www.foo.org",
+                origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
                 password = "MyPassword",
                 username = "MySecondUsername",
                 usernameField = "",
                 passwordField = "",
-                                formSubmitUrl = "",
+                                formActionOrigin = "",
                 timesUsed = 0,
                 timeCreated = 0,
                 timeLastUsed = 0,
@@ -492,15 +394,15 @@ class DatabaseLoginsStorageTest {
         test.unlock(encryptionKey)
 
         assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) {
-            test.update(Login(
+            test.update(UpdatableLogin(
                     id = "123412341234",
-                    hostname = "https://www.foo.org",
+                    origin = "https://www.foo.org",
                     httpRealm = "Some Realm",
                     password = "MyPassword",
                     username = "MyUsername",
                     usernameField = "",
                     passwordField = "",
-                    formSubmitUrl = "",
+                    formActionOrigin = "",
                         timesUsed = 0,
                         timeCreated = 0,
                         timeLastUsed = 0,
@@ -526,13 +428,13 @@ class DatabaseLoginsStorageTest {
         test.update(toUpdate)
 
         val record = test.get(toUpdate.id)!!
-        assertEquals(toUpdate.hostname, record.hostname)
+        assertEquals(toUpdate.origin, record.fields.origin)
         assertEquals(toUpdate.httpRealm, record.httpRealm)
         assertEquals(toUpdate.password, record.password)
         assertEquals(toUpdate.username, record.username)
         assertEquals(toUpdate.passwordField, record.passwordField)
         assertEquals(toUpdate.usernameField, record.usernameField)
-        assertEquals(toUpdate.formSubmitUrl, record.formSubmitUrl)
+        assertEquals(toUpdate.formActionOrigin, record.formActionOrigin)
         assertEquals(toUpdate.timesUsed + 1, record.timesUsed)
         assertEquals(toUpdate.timeCreated, record.timeCreated)
 
@@ -541,10 +443,10 @@ class DatabaseLoginsStorageTest {
         assert(toUpdate.timeLastUsed < record.timeLastUsed)
         assert(toUpdate.timeLastUsed < record.timePasswordChanged)
 
-        val specificID = test.add(Login(
+        val specificID = test.add(UpdatableLogin(
                 id = "123412341234",
-                hostname = "http://www.bar.com",
-                formSubmitUrl = "http://login.bar.com",
+                origin = "http://www.bar.com",
+                formActionOrigin = "http://login.bar.com",
                 httpRealm = "",
                 password = "DummyPassword",
                 username = "DummyUsername",
@@ -561,30 +463,14 @@ class DatabaseLoginsStorageTest {
         finishAndClose(test)
     }
 
-    @Test
-    @Suppress("DEPRECATION")
-    fun testUnlockAfterError() {
-        val test = getTestStore()
-
-        assertThrows(LoginsStorageErrorException::class.java) {
-            test.reset()
-        }
-
-        test.unlock(encryptionKey)
-
-        test.reset()
-
-        finishAndClose(test)
-    }
-
     companion object {
         val INVALID_RECORDS: List<Login> = listOf(
-                // Invalid formSubmitUrl
-                Login(
+                // Invalid formActionOrigin
+                UpdatableLogin(
                         id = "",
-                        hostname = "https://www.foo.org",
+                        origin = "https://www.foo.org",
                         httpRealm = null,
-                        formSubmitUrl = "invalid\u0000value",
+                        formActionOrigin = "invalid\u0000value",
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "users_name",
@@ -594,46 +480,46 @@ class DatabaseLoginsStorageTest {
                         timeLastUsed = 0,
                         timePasswordChanged = 0
                 ),
-                // Neither formSubmitUrl nor httpRealm
-                Login(
+                // Neither formActionOrigin nor httpRealm
+                UpdatableLogin(
                         id = "",
-                        hostname = "https://www.foo.org",
+                        origin = "https://www.foo.org",
                         httpRealm = null,
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "",
                         passwordField = "",
-                        formSubmitUrl = null,
+                        formActionOrigin = null,
                         timesUsed = 0,
                         timeCreated = 0,
                         timeLastUsed = 0,
                         timePasswordChanged = 0
                 ),
                 // Empty password
-                Login(
+                UpdatableLogin(
                         id = "",
-                        hostname = "https://www.foo.org",
+                        origin = "https://www.foo.org",
                         httpRealm = "Some Realm",
                         password = "",
                         username = "MyUsername",
                         usernameField = "",
                         passwordField = "",
-                        formSubmitUrl = null,
+                        formActionOrigin = null,
                         timesUsed = 0,
                         timeCreated = 0,
                         timeLastUsed = 0,
                         timePasswordChanged = 0
                 ),
-                // Empty hostname
-                Login(
+                // Empty origin
+                UpdatableLogin(
                         id = "",
-                        hostname = "",
+                        origin = "",
                         httpRealm = "Some Realm",
                         password = "MyPassword",
                         username = "MyUsername",
                         usernameField = "",
                         passwordField = "",
-                        formSubmitUrl = null,
+                        formActionOrigin = null,
                         timesUsed = 0,
                         timeCreated = 0,
                         timeLastUsed = 0,
@@ -641,4 +527,6 @@ class DatabaseLoginsStorageTest {
                 )
         )
     }
+*/
+
 }
