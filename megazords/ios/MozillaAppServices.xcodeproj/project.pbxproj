@@ -488,6 +488,7 @@
 			children = (
 				99FAA19025E60D2C001E2231 /* Generated */,
 				CE0A9AB224E4A25C00914A16 /* fxa_client.udl */,
+				CE1B09A2231863D7006226E1 /* KeychainWrapper+.swift */,
 				CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */,
 				99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */,
 				CE1445AB23D6058B00B1E808 /* FxAccountConfig.swift */,
@@ -543,20 +544,11 @@
 			path = RustLog;
 			sourceTree = "<group>";
 		};
-		CE1B099D231862D5006226E1 /* Extensions */ = {
-			isa = PBXGroup;
-			children = (
-				CE1B09A2231863D7006226E1 /* KeychainWrapper+.swift */,
-			);
-			path = Extensions;
-			sourceTree = "<group>";
-		};
 		CE9D201620914D0D00F1C8FA = {
 			isa = PBXGroup;
 			children = (
 				C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */,
 				993D6D4D26B11D9E0075A820 /* Sync15 */,
-				CE1B099D231862D5006226E1 /* Extensions */,
 				CD85A44822361E880099BFA9 /* Places */,
 				CDC21B11221DCE3700AA71E5 /* RustLog */,
 				CE9FFA11242D4E5A0011029E /* Viaduct */,
