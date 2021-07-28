@@ -28,7 +28,7 @@ group.add_argument("--remote-ac-repo-url",
 parser.add_argument("--branch",
                     help="Branch of fenix to use.")
 parser.add_argument("--ac-branch",
-                    default="master",
+                    default="main",
                     help="Branch of android-components to use.")
 parser.add_argument("--action",
                     # XXX TODO: it would be very nice to have a "launch the app" helper here as well.
