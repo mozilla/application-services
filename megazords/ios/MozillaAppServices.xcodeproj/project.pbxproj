@@ -541,7 +541,8 @@
 				CDC21B12221DCE3700AA71E5 /* RustLog.swift */,
 				CDC21B13221DCE3700AA71E5 /* RustLogFFI.h */,
 			);
-			path = RustLog;
+			name = RustLog;
+			path = ../../components/rc_log/ios;
 			sourceTree = "<group>";
 		};
 		CE9D201620914D0D00F1C8FA = {
