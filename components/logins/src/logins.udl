@@ -2,7 +2,31 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-namespace logins { };
+namespace logins {
+    // We expose the crypto primitives on the namespace
+
+    // Create a new, random, encryption key.
+    [Throws=LoginsStorageError]
+    string create_key();
+
+    // Decrypt a string into an EncryptedFields struct. This will be used to get the credentials
+    // from a `Login` dict.
+    [Throws=LoginsStorageError]
+    EncryptedFields decrypt_fields([ByRef]string ciphertext, [ByRef]string encryption_key);
+
+    // Encrypt an EncryptedFields struct into a string. This will be used only rarely, eg, when
+    // putting together `Login` dicts to pass to `import_multiple`.
+    [Throws=LoginsStorageError]
+    string encrypt_fields([ByRef]EncryptedFields fields, [ByRef]string encryption_key);
+
+    // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure
+    // a given key is the correct key for the DB. `autofill` consumers do this by just encrypting
+    // some arbitrary string and storing the ciphertext, and as the app starts and the ciphertext
+    // is loaded, it checks the string decrypts.
+    // However, we don't otherwise need encryption and decryption of arbitrary strings. An
+    // alternative is we expose a specific `check_canary` or similar function, and we manage
+    // storage of the strings etc in our meta table?
+};
 
 // The fields you can add or update.
 dictionary LoginFields {
