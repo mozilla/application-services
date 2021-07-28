@@ -591,7 +591,8 @@
 				CE58B2F7242D54340089F091 /* RustViaductFFI.h */,
 				CE9FFA12242D4E7B0011029E /* Viaduct.swift */,
 			);
-			path = Viaduct;
+			name = Viaduct;
+			path = ../../components/viaduct/ios;
 			sourceTree = "<group>";
 		};
 		EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */ = {
