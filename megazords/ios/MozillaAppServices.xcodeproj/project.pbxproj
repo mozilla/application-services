@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 51;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -20,6 +20,7 @@
 		990863A125F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		990863A425F9D48400032083 /* CrashTestTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 990863A325F9D48400032083 /* CrashTestTests.swift */; };
 		9924024A25F789F200841837 /* nimbus.udl in Sources */ = {isa = PBXBuildFile; fileRef = 394A807325EE94C600FAF26F /* nimbus.udl */; };
+		993D6D4F26B11E410075A820 /* SyncUnlockInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 993D6D4E26B11E400075A820 /* SyncUnlockInfo.swift */; };
 		99FAA19B25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h in Headers */ = {isa = PBXBuildFile; fileRef = 99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */; };
 		BF1A879025064A4C00FED88E /* Dispatchers.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A878C25064A4C00FED88E /* Dispatchers.swift */; };
@@ -62,7 +63,6 @@
 		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
 		C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECD220A29FE00A6E79A /* LoginsStorage.swift */; };
 		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
-		CD02CF3922568BCC00124DA2 /* SyncUnlockInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */; };
 		CD440A422238A08E003F004B /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
 		CD440A452238A703003F004B /* SwiftProtobuf.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CD4CFDD3221DFA5100EB3B33 /* LogTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */; };
@@ -170,6 +170,7 @@
 		9908639F25F9D25A00032083 /* uniffi_crashtest-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_crashtest-Bridging-Header.h"; sourceTree = "<group>"; };
 		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
 		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
+		993D6D4E26B11E400075A820 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SyncUnlockInfo.swift; sourceTree = "<group>"; };
 		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = "<group>"; };
 		99FAA19A25E61D5D001E2231 /* uniffi_fxa_client-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "uniffi_fxa_client-Bridging-Header.h"; sourceTree = "<group>"; };
 		99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountOAuth.swift; sourceTree = "<group>"; };
@@ -215,7 +216,6 @@
 		C852EECD220A29FE00A6E79A /* LoginsStorage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LoginsStorage.swift; sourceTree = "<group>"; };
 		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
 		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
-		CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SyncUnlockInfo.swift; sourceTree = "<group>"; };
 		CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTest.swift; sourceTree = "<group>"; };
 		CD85A44922361E880099BFA9 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
 		CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
@@ -329,6 +329,16 @@
 			);
 			name = Generated;
 			path = ../Generated;
+			sourceTree = "<group>";
+		};
+		993D6D4D26B11D9E0075A820 /* Sync15 */ = {
+			isa = PBXGroup;
+			children = (
+				993D6D4E26B11E400075A820 /* SyncUnlockInfo.swift */,
+				CEFB1EAF22EF708B0001E20F /* ResultError.swift */,
+			);
+			name = Sync15;
+			path = ../../components/sync15/ios;
 			sourceTree = "<group>";
 		};
 		99FAA19025E60D2C001E2231 /* Generated */ = {
@@ -545,9 +555,8 @@
 			isa = PBXGroup;
 			children = (
 				C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */,
-				CD02CF3822568BCC00124DA2 /* SyncUnlockInfo.swift */,
+				993D6D4D26B11D9E0075A820 /* Sync15 */,
 				CE1B099D231862D5006226E1 /* Extensions */,
-				CEFB1EB122EF70960001E20F /* Errors */,
 				CD85A44822361E880099BFA9 /* Places */,
 				CDC21B11221DCE3700AA71E5 /* RustLog */,
 				CE9FFA11242D4E5A0011029E /* Viaduct */,
@@ -590,14 +599,6 @@
 				CE9FFA12242D4E7B0011029E /* Viaduct.swift */,
 			);
 			path = Viaduct;
-			sourceTree = "<group>";
-		};
-		CEFB1EB122EF70960001E20F /* Errors */ = {
-			isa = PBXGroup;
-			children = (
-				CEFB1EAF22EF708B0001E20F /* ResultError.swift */,
-			);
-			path = Errors;
 			sourceTree = "<group>";
 		};
 		EB879D7B221234EB00753DC9 /* MozillaAppServicesTests */ = {
@@ -811,8 +812,8 @@
 				99FAA19F25E65CA5001E2231 /* FxAccountOAuth.swift in Sources */,
 				398A4149264986E200AA22F1 /* FeatureVariables.swift in Sources */,
 				BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */,
-				CD02CF3922568BCC00124DA2 /* SyncUnlockInfo.swift in Sources */,
 				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
+				993D6D4F26B11E410075A820 /* SyncUnlockInfo.swift in Sources */,
 				BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */,
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
