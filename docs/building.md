@@ -80,8 +80,8 @@ The instructions here assume that you are building for Fenix in order test your 
    1. Set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to the Android Studio sdk location and add it to your rc file.
    1. Configure the required versions of NDK
   `Configure menu > System Settings > Android SDK > SDK Tools > NDK > Show Package Details > NDK (Side by side)`
-        - 21.3.6528147 (required by Fenix)
-        - 21.0.6113669 (required by a-s)
+        - 21.4.7075529 (required by Fenix; note: a specific NDK version isn't configured, this maps to default [NDK version](https://developer.android.com/studio/projects/install-ndk#default-ndk-per-agp) for the [AGP version](https://github.com/mozilla-mobile/fenix/blob/main/buildSrc/src/main/java/Dependencies.kt#L11))
+        - 21.3.6528147 (required by a-s, [as configured](https://github.com/mozilla/application-services/blob/main/build.gradle#L30))
 1. If you are on Windows using WSL - drop to the section below, Windows setup
 for Android (WSL) before proceeding.
 1. Check dependencies, environment variables and test
