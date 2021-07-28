@@ -28,3 +28,6 @@ Use the template below to make assigning a version number during the release cut
 ### What's New
 
   - Added content signature and chain of trust verification features in `rc_crypto` ([#4195](https://github.com/mozilla/application-services/pull/4195))
+## Nimbus
+### What's Changed
+  - The Nimbus API now accepts application specific context as a part of its `appSettings`. The consumers get to define this context for targeting purposes. This allows different consumers to target on different fields without the SDK having to acknowledge all the fields. ([#4359](https://github.com/mozilla/application-services/pull/4359))
