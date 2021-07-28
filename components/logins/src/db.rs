@@ -870,46 +870,6 @@ lazy_static! {
         format!("{} WHERE guid = :guid", &*CLONE_ENTIRE_MIRROR_SQL,);
 }
 
-// In support of `import_mutiple`, we jump some hoops to validate a Login object and check
-// it it is a dupe. We do it as allocation-free as possible.
-/*
-impl Login {
-    fn fixup_and_check_for_dupes(self, db: &LoginDb, encdec: &EncryptorDecryptor) -> Result<Self> {
-        let mut updatable = UpdatableLogin {
-            enc_fields: self.decrypt_fields(encdec)?,
-            origin: self.origin,
-            form_action_origin: self.form_action_origin,
-            http_realm: self.http_realm,
-            username_field: self.username_field,
-            password_field: self.password_field,
-        };
-        let maybe_fixed_login = updatable.maybe_fixup().and_then(|fixed| {
-            match &fixed {
-                None => db.check_for_dupes(&Guid::empty(), &updatable, encdec)?,
-                Some(l) => db.check_for_dupes(&Guid::empty(), &l, encdec)?,
-            };
-            Ok(fixed)
-        })?;
-        if let Some(l) = maybe_fixed_login {
-            updatable = l;
-        }
-        Ok(Login {
-            id: self.id,
-            enc_fields: self.enc_fields,
-            origin: updatable.origin,
-            form_action_origin: updatable.form_action_origin,
-            http_realm: updatable.http_realm,
-            username_field: updatable.username_field,
-            password_field: updatable.password_field,
-            time_created: self.time_created,
-            time_password_changed: self.time_password_changed,
-            time_last_used: self.time_last_used,
-            times_used: self.times_used,
-        })
-    }
-}
-*/
-
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
