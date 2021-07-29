@@ -7,7 +7,7 @@ import Foundation
 /**
  Represents a document type of a page.
  */
-public enum DocumentType: Int32 {
+public enum DocumentType: Int32, Codable {
     case regular = 0
     case media = 1
 
@@ -34,7 +34,7 @@ public struct HistoryMetadataKey: Codable {
 /**
  Represents an observation about a `HistoryMetadataKey`.
  */
-public struct HistoryMetadataObservation {
+public struct HistoryMetadataObservation: Codable {
     var titleObservation: String? = nil
     var viewTimeObservation: Int32? = nil
     var documentTypeObservation: DocumentType? = nil
