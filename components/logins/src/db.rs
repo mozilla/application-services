@@ -345,7 +345,7 @@ impl LoginDb {
             new = SyncStatus::New as u8
         );
 
-        let rows_changed = self.execute_named(
+        self.execute_named(
             &sql,
             named_params! {
                 ":origin": login.fields.origin,
@@ -362,10 +362,6 @@ impl LoginDb {
                 ":guid": login.guid(),
             },
         )?;
-        assert_eq!(
-            rows_changed, 1,
-            "adding a new record must have changed 1 row"
-        );
         Ok(())
     }
 
@@ -407,27 +403,6 @@ impl LoginDb {
             },
         )?;
         Ok(())
-    }
-
-    pub fn add(&self, login: UpdatableLogin, encdec: &EncryptorDecryptor) -> Result<Login> {
-        let guid = Guid::random();
-        let now_ms = util::system_time_ms_i64(SystemTime::now());
-
-        let (new_fields, new_enc) =
-            self.fixup_and_check_for_dupes(&guid, login.fields, login.enc_fields, &encdec)?;
-        let result = Login {
-            id: guid.to_string(),
-            fields: new_fields,
-            enc_fields: new_enc.encrypt(&encdec)?,
-            time_created: now_ms,
-            time_password_changed: now_ms,
-            time_last_used: now_ms,
-            times_used: 1,
-        };
-        let tx = self.unchecked_transaction()?;
-        self.insert_new_login(&result)?;
-        tx.commit()?;
-        Ok(result)
     }
 
     pub fn import_multiple(
@@ -536,6 +511,27 @@ impl LoginDb {
         Ok(metrics)
     }
 
+    pub fn add(&self, login: UpdatableLogin, encdec: &EncryptorDecryptor) -> Result<Login> {
+        let guid = Guid::random();
+        let now_ms = util::system_time_ms_i64(SystemTime::now());
+
+        let (new_fields, new_enc) =
+            self.fixup_and_check_for_dupes(&guid, login.fields, login.enc_fields, &encdec)?;
+        let result = Login {
+            id: guid.to_string(),
+            fields: new_fields,
+            enc_fields: new_enc.encrypt(&encdec)?,
+            time_created: now_ms,
+            time_password_changed: now_ms,
+            time_last_used: now_ms,
+            times_used: 1,
+        };
+        let tx = self.unchecked_transaction()?;
+        self.insert_new_login(&result)?;
+        tx.commit()?;
+        Ok(result)
+    }
+
     pub fn update(
         &self,
         sguid: &str,
@@ -607,8 +603,9 @@ impl LoginDb {
         encdec: &EncryptorDecryptor,
     ) -> Result<(LoginFields, EncryptedFields)> {
         let fields = fields.fixup()?;
+        let enc_fields = enc_fields.fixup()?;
         self.check_for_dupes(guid, &fields, &enc_fields, encdec)?;
-        Ok((fields, enc_fields.fixup()?))
+        Ok((fields, enc_fields))
     }
 
     pub fn check_for_dupes(

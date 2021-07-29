@@ -175,7 +175,7 @@
 //! - `enc_fields`: The `username` and `password` for the site, stored as a encrypted JSON
 //!    representation of an `EncryptedFields`.
 //!
-//!   This field is required and usually encryted.  There are two different value types:
+//!   This field is required and usually encrypted.  There are two different value types:
 //!       - Plantext empty string: Used for deleted records
 //!       - Encrypted value: The credentials associated with the login.
 //!
@@ -607,6 +607,10 @@ pub trait ValidateAndFixup {
         self.validate_and_fixup(true)
     }
 
+    // validates, and optionally fixes, a struct. If fixup is false and there is a validation
+    // issue, an `Err` is returned. If fixup is true and a problem was fixed, and `Ok(Some<Self>)`
+    // is returned with the fixed version. If there was no validation problem, `Ok(None)` is
+    // returned.
     fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>>
     where
         Self: Sized;
