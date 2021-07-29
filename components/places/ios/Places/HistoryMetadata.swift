@@ -10,6 +10,15 @@ import Foundation
 public enum DocumentType: Int32 {
     case regular = 0
     case media = 1
+    case unknown = -1
+    
+    public init(rawValue: Int32) {
+        switch rawValue {
+        case 0: self = .regular
+        case 1: self = .media
+        default: self = .unknown
+        }
+    }
 }
 
 /**
@@ -19,6 +28,12 @@ public struct HistoryMetadataKey {
     public let url: String
     public let searchTerm: String?
     public let referrerUrl: String?
+    
+    public init(url: String, searchTerm: String?, referrerUrl: String?) {
+        self.url = url
+        self.searchTerm = searchTerm
+        self.referrerUrl = referrerUrl
+    }
 }
 
 /**
@@ -28,6 +43,16 @@ public enum HistoryMetadataObservation {
     case titleObservation(String)
     case viewTimeObservation(Int32)
     case documentTypeObservation(DocumentType)
+    case unknown
+    
+    public init(value: Any) {
+        switch value {
+        case let title as String: self = .titleObservation(title)
+        case let time as Int32: self = .viewTimeObservation(time)
+        case let document as DocumentType: self = .documentTypeObservation(document)
+        default: self = .unknown
+        }
+    }
 }
 
 /**

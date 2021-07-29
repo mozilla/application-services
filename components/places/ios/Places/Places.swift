@@ -887,7 +887,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
 
     // MARK: History Metadata
 
-    open func noteHistoryMetadataObservation(
+    open func noteHistoryMetadataObservation (
         key: HistoryMetadataKey,
         observation: HistoryMetadataObservation
     ) throws {
@@ -910,6 +910,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
                 msg.documentType = documentType.rawValue
             case let .titleObservation(title):
                 msg.title = title
+            case .unknown:
+                break
             }
 
             let data = try! msg.serializedData()
