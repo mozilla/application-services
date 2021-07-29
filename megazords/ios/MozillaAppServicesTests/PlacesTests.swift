@@ -294,7 +294,7 @@ class PlacesTests: XCTestCase {
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
 
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 1337, documentTypeObservation: nil))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 3, documentTypeObservation: nil))
         dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertEqual(1340, dbMeta!.totalViewTime)
 
