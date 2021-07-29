@@ -887,7 +887,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
 
     // MARK: History Metadata
 
-    open func noteHistoryMetadataObservation (
+    open func noteHistoryMetadataObservation(
         key: HistoryMetadataKey,
         observation: HistoryMetadataObservation
     ) throws {
