@@ -94,7 +94,7 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
-        store.add(UpdatableLogin(
+        val login = store.add(UpdatableLogin(
                 fields = LoginFields(
                     origin = "https://www.example.com",
                     httpRealm = "Something",
@@ -139,7 +139,7 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.readQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
 
-        val record = store.get("aaaaaaaaaaaa")!!
+        val record = store.get(login.id)!!
         assertEquals(record.fields.origin, "https://www.example.com")
 
         assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
@@ -161,48 +161,48 @@ class DatabaseLoginsStorageTest {
 
     @Test
     fun testTouch() {
-        val test = getTestStore()
-        assertEquals(test.list().size, 2)
-        val b = test.get("bbbbbbbbbbbb")!!
-
+        val store = getTestStore()
+        val login = store.list()[0]
         // Wait 100ms so that touch is certain to change timeLastUsed.
         Thread.sleep(100)
-        test.touch("bbbbbbbbbbbb")
+        store.touch(login.id)
 
-        val newB = test.get("bbbbbbbbbbbb")
+        val updatedLogin = store.get(login.id)
 
-        assertNotNull(newB)
-        assertEquals(b.timesUsed + 1, newB!!.timesUsed)
-        assert(newB.timeLastUsed > b.timeLastUsed)
+        assertNotNull(updatedLogin)
+        assertEquals(login.timesUsed + 1, updatedLogin!!.timesUsed)
+        assert(updatedLogin.timeLastUsed > login.timeLastUsed)
 
-        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) { test.touch("abcdabcdabcd") }
+        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
 
-        finishAndClose(test)
+        finishAndClose(store)
     }
 
     @Test
     fun testDelete() {
-        val test = getTestStore()
+        val store = getTestStore()
+        val login = store.list()[0]
 
-        assertNotNull(test.get("aaaaaaaaaaaa"))
-        assertTrue(test.delete("aaaaaaaaaaaa"))
-        assertNull(test.get("aaaaaaaaaaaa"))
-        assertFalse(test.delete("aaaaaaaaaaaa"))
-        assertNull(test.get("aaaaaaaaaaaa"))
+        assertNotNull(store.get(login.id))
+        assertTrue(store.delete(login.id))
+        assertNull(store.get(login.id))
+        assertFalse(store.delete(login.id))
+        assertNull(store.get(login.id))
 
-        finishAndClose(test)
+        finishAndClose(store)
     }
 
     @Test
     fun testListWipe() {
         val test = getTestStore()
-        assertEquals(2, test.list().size)
+        val logins = test.list()
+        assertEquals(2, logins.size)
 
         test.wipe()
         assertEquals(0, test.list().size)
 
-        assertNull(test.get("aaaaaaaaaaaa"))
-        assertNull(test.get("bbbbbbbbbbbb"))
+        assertNull(test.get(logins[0].id))
+        assertNull(test.get(logins[1].id))
 
         finishAndClose(test)
     }
@@ -210,13 +210,14 @@ class DatabaseLoginsStorageTest {
     @Test
     fun testWipeLocal() {
         val test = getTestStore()
-        assertEquals(2, test.list().size)
+        val logins = test.list()
+        assertEquals(2, logins.size)
 
         test.wipeLocal()
         assertEquals(0, test.list().size)
 
-        assertNull(test.get("aaaaaaaaaaaa"))
-        assertNull(test.get("bbbbbbbbbbbb"))
+        assertNull(test.get(logins[0].id))
+        assertNull(test.get(logins[1].id))
 
         finishAndClose(test)
     }
