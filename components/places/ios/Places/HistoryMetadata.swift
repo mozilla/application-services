@@ -11,7 +11,7 @@ public enum DocumentType: Int32 {
     case regular = 0
     case media = 1
     case unknown = -1
-    
+
     public init(rawValue: Int32) {
         switch rawValue {
         case 0: self = .regular
@@ -28,7 +28,7 @@ public struct HistoryMetadataKey {
     public let url: String
     public let searchTerm: String?
     public let referrerUrl: String?
-    
+
     public init(url: String, searchTerm: String?, referrerUrl: String?) {
         self.url = url
         self.searchTerm = searchTerm
@@ -44,7 +44,7 @@ public enum HistoryMetadataObservation {
     case viewTimeObservation(Int32)
     case documentTypeObservation(DocumentType)
     case unknown
-    
+
     public init(value: Any) {
         switch value {
         case let title as String: self = .titleObservation(title)
