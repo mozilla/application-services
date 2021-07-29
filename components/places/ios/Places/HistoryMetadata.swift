@@ -35,10 +35,10 @@ public struct HistoryMetadataKey: Codable {
  Represents an observation about a `HistoryMetadataKey`.
  */
 public struct HistoryMetadataObservation: Codable {
-    var titleObservation: String? = nil
-    var viewTimeObservation: Int32? = nil
-    var documentTypeObservation: DocumentType? = nil
-    
+    var titleObservation: String?
+    var viewTimeObservation: Int32?
+    var documentTypeObservation: DocumentType?
+
     public init(titleObservation: String?, viewTimeObservation: Int32?, documentTypeObservation: DocumentType?) {
         self.titleObservation = titleObservation
         self.viewTimeObservation = viewTimeObservation
