@@ -4,6 +4,17 @@
 
 import Foundation
 
+// Depending on build setup, we may be importing Glean as a Swift module
+// or we may be compiled together with it. This detects whether Glean is
+// an external module and makes it available to our entire package if so.
+//
+// Note that the files under `./Utils` are copies of internal files from
+// Glean, and it's very important they they be excluded from any build
+// that is compiling us together with Glean.
+#if canImport(Glean)
+    @_exported import Glean
+#endif
+
 public class Nimbus: NimbusApi {
     private let nimbusClient: NimbusClientProtocol
 
