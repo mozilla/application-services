@@ -903,9 +903,13 @@ public class PlacesWriteConnection: PlacesReadConnection {
                 msg.searchTerm = s
             }
 
-            msg.documentType = observation.documentTypeObservation?.rawValue ?? 0
-            msg.title = observation.titleObservation ?? ""
-            msg.viewTime = observation.viewTimeObservation ?? 0
+            if let observation = observation.documentTypeObservation?.rawValue {
+                msg.documentType = observation
+            } else if let title = observation.titleObservation {
+                msg.title = title
+            } else if let viewTime = observation.viewTimeObservation {
+                msg.viewTime = viewTime
+            }
 
             let data = try! msg.serializedData()
             let size = Int32(data.count)
