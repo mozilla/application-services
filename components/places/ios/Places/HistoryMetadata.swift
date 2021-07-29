@@ -10,21 +10,16 @@ import Foundation
 public enum DocumentType: Int32 {
     case regular = 0
     case media = 1
-    case unknown = -1
 
-    public init(rawValue: Int32) {
-        switch rawValue {
-        case 0: self = .regular
-        case 1: self = .media
-        default: self = .unknown
-        }
+    public init?(value: Int32) {
+        self.init(rawValue: value)
     }
 }
 
 /**
  Represents a set of properties which uniquely identify a history metadata. In database terms this is a compound key.
  */
-public struct HistoryMetadataKey {
+public struct HistoryMetadataKey: Codable {
     public let url: String
     public let searchTerm: String?
     public let referrerUrl: String?
@@ -39,19 +34,15 @@ public struct HistoryMetadataKey {
 /**
  Represents an observation about a `HistoryMetadataKey`.
  */
-public enum HistoryMetadataObservation {
-    case titleObservation(String)
-    case viewTimeObservation(Int32)
-    case documentTypeObservation(DocumentType)
-    case unknown
-
-    public init(value: Any) {
-        switch value {
-        case let title as String: self = .titleObservation(title)
-        case let time as Int32: self = .viewTimeObservation(time)
-        case let document as DocumentType: self = .documentTypeObservation(document)
-        default: self = .unknown
-        }
+public struct HistoryMetadataObservation {
+    var titleObservation: String? = nil
+    var viewTimeObservation: Int32? = nil
+    var documentTypeObservation: DocumentType? = nil
+    
+    public init(titleObservation: String?, viewTimeObservation: Int32?, documentTypeObservation: DocumentType?) {
+        self.titleObservation = titleObservation
+        self.viewTimeObservation = viewTimeObservation
+        self.documentTypeObservation = documentTypeObservation
     }
 }
 

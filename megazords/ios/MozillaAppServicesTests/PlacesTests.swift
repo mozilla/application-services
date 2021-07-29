@@ -268,7 +268,7 @@ class PlacesTests: XCTestCase {
             searchTerm: nil,
             referrerUrl: nil
         )
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation.documentTypeObservation(DocumentType.media))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: nil, documentTypeObservation: .media))
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
 
@@ -282,8 +282,7 @@ class PlacesTests: XCTestCase {
         XCTAssertEqual(0, dbMeta!.totalViewTime)
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
-
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation.viewTimeObservation(1337))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 1337, documentTypeObservation: nil))
         dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertNotNil(dbMeta)
         XCTAssertEqual("http://www.mozilla.org/", dbMeta!.key.url)
@@ -295,7 +294,7 @@ class PlacesTests: XCTestCase {
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: beginning).count)
 
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation.viewTimeObservation(3))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey1, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 1337, documentTypeObservation: nil))
         dbMeta = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org")
         XCTAssertEqual(1340, dbMeta!.totalViewTime)
 
@@ -307,7 +306,7 @@ class PlacesTests: XCTestCase {
             searchTerm: "another firefox",
             referrerUrl: "https://www.google.com/search?client=firefox-b-d&q=another+firefox"
         )
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.titleObservation("some title"))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: "some title", viewTimeObservation: nil, documentTypeObservation: nil))
 
         XCTAssertEqual(1, try! db.getHistoryMetadataSince(since: afterLastMeta1Update).count)
         XCTAssertEqual(2, try! db.getHistoryMetadataSince(since: beginning).count)
@@ -321,9 +320,9 @@ class PlacesTests: XCTestCase {
         XCTAssertEqual(DocumentType.regular, dbMeta2!.documentType)
         XCTAssertEqual(0, dbMeta2!.totalViewTime)
 
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.documentTypeObservation(DocumentType.regular))
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.titleObservation("Some Title"))
-        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation.viewTimeObservation(52345))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: nil, documentTypeObservation: .regular))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: "some title", viewTimeObservation: nil, documentTypeObservation: nil))
+        _ = try! db.noteHistoryMetadataObservation(key: metaKey2, observation: HistoryMetadataObservation(titleObservation: nil, viewTimeObservation: 52345, documentTypeObservation: nil))
         dbMeta2 = try! db.getLatestHistoryMetadataForUrl(url: "http://www.mozilla.org/another/")
         XCTAssertNotNil(dbMeta2)
         XCTAssertEqual("http://www.mozilla.org/another/", dbMeta2!.key.url)
