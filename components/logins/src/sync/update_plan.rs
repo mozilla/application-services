@@ -113,7 +113,7 @@ impl UpdatePlan {
                 usernameField    = :username_field,
                 passwordField    = :password_field,
                 origin           = :origin,
-                encFields  = :enc_fields,
+                secFields        = :sec_fields,
                 -- Avoid zeroes if the remote has been overwritten by an older client.
                 timesUsed           = coalesce(nullif(:times_used,            0), timesUsed),
                 timeLastUsed        = coalesce(nullif(:time_last_used,        0), timeLastUsed),
@@ -136,7 +136,7 @@ impl UpdatePlan {
                 ":time_password_changed": login.time_password_changed,
                 ":time_created": login.time_created,
                 ":guid": login.guid_str(),
-                ":enc_fields": login.enc_fields,
+                ":sec_fields": login.sec_fields,
             })?;
             scope.err_if_interrupted()?;
         }
@@ -154,7 +154,7 @@ impl UpdatePlan {
                 usernameField,
                 passwordField,
                 origin,
-                encFields,
+                secFields,
 
                 timesUsed,
                 timeLastUsed,
@@ -171,7 +171,7 @@ impl UpdatePlan {
                 :username_field,
                 :password_field,
                 :origin,
-                :enc_fields,
+                :sec_fields,
 
                 :times_used,
                 :time_last_used,
@@ -197,7 +197,7 @@ impl UpdatePlan {
                 ":time_password_changed": login.time_password_changed,
                 ":time_created": login.time_created,
                 ":guid": login.guid_str(),
-                ":enc_fields": login.enc_fields,
+                ":sec_fields": login.sec_fields,
             })?;
             scope.err_if_interrupted()?;
         }
@@ -216,7 +216,7 @@ impl UpdatePlan {
                  timePasswordChanged = :time_password_changed,
                  timesUsed           = :times_used,
                  origin              = :origin,
-                 encFields     = :enc_fields,
+                 secFields     = :sec_fields,
                  sync_status         = {changed}
              WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
@@ -237,7 +237,7 @@ impl UpdatePlan {
                 ":time_password_changed": l.login.time_password_changed,
                 ":times_used": l.login.times_used,
                 ":guid": l.guid_str(),
-                ":enc_fields": l.login.enc_fields,
+                ":sec_fields": l.login.sec_fields,
             })?;
             scope.err_if_interrupted()?;
         }

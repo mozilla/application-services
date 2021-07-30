@@ -24,7 +24,7 @@
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{EncryptedFields, Login, LoginFields, UpdatableLogin, ValidateAndFixup};
+use crate::login::{Login, LoginFields, SecureLoginFields, UpdatableLogin, ValidateAndFixup};
 use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
 use crate::sync::SyncStatus;
@@ -318,7 +318,7 @@ impl LoginDb {
                 usernameField,
                 passwordField,
                 timesUsed,
-                encFields,
+                secFields,
                 guid,
                 timeCreated,
                 timeLastUsed,
@@ -333,7 +333,7 @@ impl LoginDb {
                 :username_field,
                 :password_field,
                 :times_used,
-                :enc_fields,
+                :sec_fields,
                 :guid,
                 :time_created,
                 :time_last_used,
@@ -358,7 +358,7 @@ impl LoginDb {
                 ":time_last_used": login.time_last_used,
                 ":time_password_changed": login.time_password_changed,
                 ":local_modified": login.time_created,
-                ":enc_fields": login.enc_fields,
+                ":sec_fields": login.sec_fields,
                 ":guid": login.guid(),
             },
         )?;
@@ -377,7 +377,7 @@ impl LoginDb {
                  usernameField       = :username_field,
                  passwordField       = :password_field,
                  timesUsed           = :times_used,
-                 encFields           = :enc_fields,
+                 secFields           = :sec_fields,
                  origin              = :origin,
                  -- leave New records as they are, otherwise update them to `changed`
                  sync_status         = max(sync_status, {changed})
@@ -396,7 +396,7 @@ impl LoginDb {
                 ":time_last_used": login.time_last_used,
                 ":times_used": login.times_used,
                 ":time_password_changed": login.time_password_changed,
-                ":enc_fields": login.enc_fields,
+                ":sec_fields": login.sec_fields,
                 ":guid": &login.id,
                 // time_last_used has been set to now.
                 ":now_millis": login.time_last_used,
@@ -436,14 +436,14 @@ impl LoginDb {
                 decrypted,
                 encdec,
             ) {
-                Ok((new_fields, new_enc)) => Login {
+                Ok((new_fields, new_sec_fields)) => Login {
                     id: if old_guid.is_valid_for_sync_server() {
                         old_guid.to_string()
                     } else {
                         Guid::random().to_string()
                     },
                     fields: new_fields,
-                    enc_fields: new_enc.encrypt(encdec)?,
+                    sec_fields: new_sec_fields.encrypt(encdec)?,
                     ..login
                 },
                 Err(e) => {
@@ -515,12 +515,12 @@ impl LoginDb {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
-        let (new_fields, new_enc) =
-            self.fixup_and_check_for_dupes(&guid, login.fields, login.enc_fields, &encdec)?;
+        let (new_fields, new_sec_fields) =
+            self.fixup_and_check_for_dupes(&guid, login.fields, login.sec_fields, &encdec)?;
         let result = Login {
             id: guid.to_string(),
             fields: new_fields,
-            enc_fields: new_enc.encrypt(&encdec)?,
+            sec_fields: new_sec_fields.encrypt(&encdec)?,
             time_created: now_ms,
             time_password_changed: now_ms,
             time_last_used: now_ms,
@@ -545,11 +545,11 @@ impl LoginDb {
         // XXX - it's not clear that throwing here on a dupe is the correct thing to do - eg, a
         // user updated the username to one that already exists - the better thing to do is
         // probably just remove the dupe.
-        let (new_fields, new_enc_fields) =
-            self.fixup_and_check_for_dupes(&guid, login.fields, login.enc_fields, &encdec)?;
+        let (new_fields, new_sec_fields) =
+            self.fixup_and_check_for_dupes(&guid, login.fields, login.sec_fields, &encdec)?;
         let login = UpdatableLogin {
             fields: new_fields,
-            enc_fields: new_enc_fields,
+            sec_fields: new_sec_fields,
         };
 
         // Note: These fail with DuplicateGuid if the record doesn't exist.
@@ -562,7 +562,7 @@ impl LoginDb {
             None => throw!(ErrorKind::NoSuchRecord(sguid.to_owned())),
         };
         let time_password_changed =
-            if existing.decrypt_fields(encdec)?.password == login.enc_fields.password {
+            if existing.decrypt_fields(encdec)?.password == login.sec_fields.password {
                 existing.time_password_changed
             } else {
                 now_ms
@@ -572,7 +572,7 @@ impl LoginDb {
         let result = Login {
             id: existing.id,
             fields: login.fields,
-            enc_fields: login.enc_fields.encrypt(&encdec)?,
+            sec_fields: login.sec_fields.encrypt(&encdec)?,
             time_created: existing.time_created,
             time_password_changed,
             time_last_used: now_ms,
@@ -588,34 +588,34 @@ impl LoginDb {
         &self,
         guid: &Guid,
         fields: &LoginFields,
-        enc_fields: &EncryptedFields,
+        sec_fields: &SecureLoginFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<()> {
         fields.check_valid()?;
-        self.check_for_dupes(guid, fields, enc_fields, encdec)
+        self.check_for_dupes(guid, fields, sec_fields, encdec)
     }
 
     pub fn fixup_and_check_for_dupes(
         &self,
         guid: &Guid,
         fields: LoginFields,
-        enc_fields: EncryptedFields,
+        sec_fields: SecureLoginFields,
         encdec: &EncryptorDecryptor,
-    ) -> Result<(LoginFields, EncryptedFields)> {
+    ) -> Result<(LoginFields, SecureLoginFields)> {
         let fields = fields.fixup()?;
-        let enc_fields = enc_fields.fixup()?;
-        self.check_for_dupes(guid, &fields, &enc_fields, encdec)?;
-        Ok((fields, enc_fields))
+        let sec_fields = sec_fields.fixup()?;
+        self.check_for_dupes(guid, &fields, &sec_fields, encdec)?;
+        Ok((fields, sec_fields))
     }
 
     pub fn check_for_dupes(
         &self,
         guid: &Guid,
         fields: &LoginFields,
-        enc_fields: &EncryptedFields,
+        sec_fields: &SecureLoginFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<()> {
-        if self.dupe_exists(guid, fields, enc_fields, encdec)? {
+        if self.dupe_exists(guid, fields, sec_fields, encdec)? {
             throw!(InvalidLogin::DuplicateLogin);
         }
         Ok(())
@@ -625,22 +625,22 @@ impl LoginDb {
         &self,
         guid: &Guid,
         fields: &LoginFields,
-        enc_fields: &EncryptedFields,
+        sec_fields: &SecureLoginFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<bool> {
-        Ok(self.find_dupe(guid, fields, enc_fields, encdec)?.is_some())
+        Ok(self.find_dupe(guid, fields, sec_fields, encdec)?.is_some())
     }
 
     pub fn find_dupe(
         &self,
         guid: &Guid,
         fields: &LoginFields,
-        enc_fields: &EncryptedFields,
+        sec_fields: &SecureLoginFields,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
         for possible in self.potential_dupes_ignoring_username(guid, fields)? {
-            let pos_enc_fields = possible.decrypt_fields(encdec)?;
-            if pos_enc_fields.username == enc_fields.username {
+            let pos_sec_fields = possible.decrypt_fields(encdec)?;
+            if pos_sec_fields.username == sec_fields.username {
                 return Ok(Some(possible.guid()));
             }
         }
@@ -720,7 +720,7 @@ impl LoginDb {
                  SET local_modified = :now_ms,
                      sync_status = {status_changed},
                      is_deleted = 1,
-                     encFields = '',
+                     secFields = '',
                      origin = ''
                  WHERE guid = :guid",
                 status_changed = SyncStatus::Changed as u8
@@ -738,7 +738,7 @@ impl LoginDb {
         // insert a tombstone.
         self.execute_named(&format!("
             INSERT OR IGNORE INTO loginsL
-                    (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, encFields)
+                    (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
             SELECT   guid, :now_ms,        1,          {changed},   '',     timeCreated, :now_ms,             ''
             FROM loginsM
             WHERE guid = :guid",
@@ -795,7 +795,7 @@ impl LoginDb {
                 SET local_modified = :now_ms,
                     sync_status = {changed},
                     is_deleted = 1,
-                    encFields = '',
+                    secFields = '',
                     origin = ''
                 WHERE is_deleted = 0",
                 changed = SyncStatus::Changed as u8
@@ -810,7 +810,7 @@ impl LoginDb {
         self.execute_named(
             &format!("
                 INSERT OR IGNORE INTO loginsL
-                      (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, encFields)
+                      (guid, local_modified, is_deleted, sync_status, origin, timeCreated, timePasswordChanged, secFields)
                 SELECT guid, :now_ms,        1,          {changed},   '',     timeCreated, :now_ms,             ''
                 FROM loginsM",
                 changed = SyncStatus::Changed as u8),
@@ -872,7 +872,7 @@ pub mod test_utils {
     use super::*;
     use crate::encryption::test_utils::decrypt_struct;
     use crate::login::test_utils::login;
-    use crate::EncryptedFields;
+    use crate::SecureLoginFields;
     use sync15::ServerTimestamp;
 
     // Insert a login into the local and/or mirror tables.
@@ -913,7 +913,7 @@ pub mod test_utils {
                 formActionOrigin,
                 usernameField,
                 passwordField,
-                encFields,
+                secFields,
                 origin,
 
                 timesUsed,
@@ -930,7 +930,7 @@ pub mod test_utils {
                 :form_action_origin,
                 :username_field,
                 :password_field,
-                :enc_fields,
+                :sec_fields,
                 :origin,
 
                 :times_used,
@@ -950,7 +950,7 @@ pub mod test_utils {
             ":username_field": login.fields.username_field,
             ":password_field": login.fields.password_field,
             ":origin": login.fields.origin,
-            ":enc_fields": login.enc_fields,
+            ":sec_fields": login.sec_fields,
             ":times_used": login.times_used,
             ":time_last_used": login.time_last_used,
             ":time_password_changed": login.time_password_changed,
@@ -990,12 +990,12 @@ pub mod test_utils {
     pub fn check_local_login(db: &LoginDb, guid: &str, password: &str, local_modified_gte: i64) {
         let row: (String, i64, bool) = db
             .query_row(
-                "SELECT encFields, local_modified, is_deleted FROM loginsL WHERE guid=?",
+                "SELECT secFields, local_modified, is_deleted FROM loginsL WHERE guid=?",
                 &[guid],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .unwrap();
-        let enc: EncryptedFields = decrypt_struct(row.0);
+        let enc: SecureLoginFields = decrypt_struct(row.0);
         assert_eq!(enc.password, password);
         assert!(row.1 >= local_modified_gte);
         assert!(!row.2);
@@ -1010,12 +1010,12 @@ pub mod test_utils {
     ) {
         let row: (String, i64, bool) = db
             .query_row(
-                "SELECT encFields, server_modified, is_overridden FROM loginsM WHERE guid=?",
+                "SELECT secFields, server_modified, is_overridden FROM loginsM WHERE guid=?",
                 &[guid],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )
             .unwrap();
-        let enc: EncryptedFields = decrypt_struct(row.0);
+        let enc: SecureLoginFields = decrypt_struct(row.0);
         assert_eq!(enc.password, password);
         assert_eq!(row.1, server_modified);
         assert_eq!(row.2, is_overridden);
@@ -1026,7 +1026,7 @@ pub mod test_utils {
 mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCRYPTOR;
-    use crate::EncryptedFields;
+    use crate::SecureLoginFields;
 
     #[test]
     fn test_check_valid_with_no_dupes() {
@@ -1040,7 +1040,7 @@ mod tests {
                         http_realm: None,
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "test".into(),
                         password: "test".into(),
                     },
@@ -1056,7 +1056,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -1069,7 +1069,7 @@ mod tests {
                 http_realm: None,
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test2".into(),
             },
@@ -1082,7 +1082,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test4".into(),
             },
@@ -1129,7 +1129,7 @@ mod tests {
             let login_check = db.check_valid_with_no_dupes(
                 &tc.guid,
                 &tc.login.fields,
-                &tc.login.enc_fields,
+                &tc.login.sec_fields,
                 &TEST_ENCRYPTOR,
             );
             if tc.should_err {
@@ -1154,7 +1154,7 @@ mod tests {
                         username_field: "😍".into(),
                         password_field: "😍".into(),
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "😍".into(),
                         password: "😍".into(),
                     },
@@ -1174,9 +1174,9 @@ mod tests {
         );
         assert_eq!(fetched.fields.username_field, "😍");
         assert_eq!(fetched.fields.password_field, "😍");
-        let enc_fields = fetched.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
-        assert_eq!(enc_fields.username, "😍");
-        assert_eq!(enc_fields.password, "😍");
+        let sec_fields = fetched.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(sec_fields.username, "😍");
+        assert_eq!(sec_fields.password, "😍");
     }
 
     #[test]
@@ -1191,7 +1191,7 @@ mod tests {
                         http_realm: Some("😍😍".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "😍".into(),
                         password: "😍".into(),
                     },
@@ -1236,7 +1236,7 @@ mod tests {
                         http_realm: Some((*h).into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         password: "test".into(),
                         ..Default::default()
                     },
@@ -1325,7 +1325,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test_user".into(),
                 password: "test_password".into(),
             },
@@ -1335,7 +1335,7 @@ mod tests {
 
         assert_eq!(login.fields.origin, login2.fields.origin);
         assert_eq!(login.fields.http_realm, login2.fields.http_realm);
-        assert_eq!(login.enc_fields, login2.enc_fields);
+        assert_eq!(login.sec_fields, login2.sec_fields);
     }
 
     #[test]
@@ -1349,7 +1349,7 @@ mod tests {
                         http_realm: Some("https://www.example.com".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "user1".into(),
                         password: "password1".into(),
                     },
@@ -1365,7 +1365,7 @@ mod tests {
                     http_realm: Some("https://www.example2.com".into()),
                     ..login.fields
                 },
-                enc_fields: EncryptedFields {
+                sec_fields: SecureLoginFields {
                     username: "user2".into(),
                     password: "password2".into(),
                 },
@@ -1381,9 +1381,9 @@ mod tests {
             login2.fields.http_realm,
             Some("https://www.example2.com".into())
         );
-        let enc_fields = login2.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
-        assert_eq!(enc_fields.username, "user2");
-        assert_eq!(enc_fields.password, "password2");
+        let sec_fields = login2.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(sec_fields.username, "user2");
+        assert_eq!(sec_fields.password, "password2");
     }
 
     #[test]
@@ -1397,7 +1397,7 @@ mod tests {
                         http_realm: Some("https://www.example.com".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "user1".into(),
                         password: "password1".into(),
                     },
@@ -1422,7 +1422,7 @@ mod tests {
                         http_realm: Some("https://www.example.com".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "test_user".into(),
                         password: "test_password".into(),
                     },
@@ -1459,7 +1459,7 @@ mod tests {
                         http_realm: Some("https://www.example.com".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "test_user_1".into(),
                         password: "test_password_1".into(),
                     },
@@ -1476,7 +1476,7 @@ mod tests {
                         http_realm: Some("https://www.example2.com".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "test_user_1".into(),
                         password: "test_password_2".into(),
                     },
@@ -1541,7 +1541,7 @@ mod tests {
                         http_realm: Some("https://www.example.com".into()),
                         ..Default::default()
                     },
-                    enc_fields: EncryptedFields {
+                    sec_fields: SecureLoginFields {
                         username: "test_user_1".into(),
                         password: "test_password_1".into(),
                     },
@@ -1570,7 +1570,7 @@ mod tests {
                 http_realm: None,
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             }
@@ -1587,7 +1587,7 @@ mod tests {
                 http_realm: None,
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test2".into(),
                 password: "test2".into(),
             }
@@ -1604,7 +1604,7 @@ mod tests {
                 http_realm: None,
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test3".into(),
                 password: "test3".into(),
             }
@@ -1621,7 +1621,7 @@ mod tests {
                 http_realm: None,
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test2".into(),
             }
@@ -1757,7 +1757,7 @@ mod tests {
                 origin: "https://www.example.com".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test2".into(),
             }

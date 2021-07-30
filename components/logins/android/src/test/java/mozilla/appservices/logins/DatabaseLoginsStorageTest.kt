@@ -59,7 +59,7 @@ class DatabaseLoginsStorageTest {
                     passwordField = "users_password",
                     formActionOrigin = null
                 ),
-                encFields = EncryptedFields(
+                secFields = SecureLoginFields(
                     username = "Foobar2000",
                     password = "hunter2"
                 )
@@ -73,7 +73,7 @@ class DatabaseLoginsStorageTest {
                     usernameField = "users_name",
                     passwordField = "users_password"
                 ),
-                encFields = EncryptedFields(
+                secFields = SecureLoginFields(
                     password = "MyVeryCoolPassword",
                     username = "Foobar2000"
                 )
@@ -102,7 +102,7 @@ class DatabaseLoginsStorageTest {
                     passwordField = "users_password",
                     formActionOrigin = null
                 ),
-                encFields = EncryptedFields(
+                secFields = SecureLoginFields(
                     username = "Foobar2000",
                     password = "hunter2"
                 )
@@ -120,7 +120,7 @@ class DatabaseLoginsStorageTest {
                 usernameField = "users_name",
                 passwordField = "users_password"
             ),
-            encFields = EncryptedFields(
+            secFields = SecureLoginFields(
                 username = "Foobar2000",
                 password = "hunter2"
             )
@@ -242,7 +242,7 @@ class DatabaseLoginsStorageTest {
                 passwordField = "",
                 formActionOrigin = null
             ),
-            encFields = EncryptedFields(
+            secFields = SecureLoginFields(
                 password = "MyPassword",
                 username = "Foobar2000"
             )
@@ -266,14 +266,14 @@ class DatabaseLoginsStorageTest {
         assertNotEquals(0L, record.timePasswordChanged)
 
         val put = test.add(UpdatableLogin(
-            fields = EncryptedFields (
+            fields = SecureLoginFields (
                 origin = "http://www.bar.com",
                 formActionOrigin = "http://login.bar.com",
                 usernameField = "users_name",
                 passwordField = "users_password",
                 httpRealm = null
             ),
-            encFields = EncryptedFields(
+            secFields = SecureLoginFields(
                 password = "DummyPassword",
                 username = "DummyUsername"
             )

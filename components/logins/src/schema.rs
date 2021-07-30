@@ -120,7 +120,7 @@ const SQLCIPHER_SWITCHOVER_VERSION: i64 = 5;
 /// `timePasswordChanged`/`timeCreated` timestamps.
 pub const COMMON_COLS: &str = "
     guid,
-    encFields,
+    secFields,
     origin,
     httpRealm,
     formActionOrigin,
@@ -144,7 +144,7 @@ const COMMON_SQL: &str = "
     timeCreated         INTEGER NOT NULL,
     timeLastUsed        INTEGER,
     timePasswordChanged INTEGER NOT NULL,
-    encFields     TEXT,
+    secFields           TEXT,
     guid                TEXT NOT NULL UNIQUE
 ";
 

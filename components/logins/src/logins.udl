@@ -9,15 +9,15 @@ namespace logins {
     [Throws=LoginsStorageError]
     string create_key();
 
-    // Decrypt a string into an EncryptedFields struct. This will be used to get the credentials
+    // Decrypt a string into an SecureLoginFields struct. This will be used to get the credentials
     // from a `Login` dict.
     [Throws=LoginsStorageError]
-    EncryptedFields decrypt_fields([ByRef]string ciphertext, [ByRef]string encryption_key);
+    SecureLoginFields decrypt_fields([ByRef]string ciphertext, [ByRef]string encryption_key);
 
-    // Encrypt an EncryptedFields struct into a string. This will be used only rarely, eg, when
+    // Encrypt an SecureLoginFields struct into a string. This will be used only rarely, eg, when
     // putting together `Login` dicts to pass to `import_multiple`.
     [Throws=LoginsStorageError]
-    string encrypt_fields([ByRef]EncryptedFields fields, [ByRef]string encryption_key);
+    string encrypt_fields([ByRef]SecureLoginFields fields, [ByRef]string encryption_key);
 
     // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure
     // a given key is the correct key for the DB. `autofill` consumers do this by just encrypting
@@ -41,7 +41,7 @@ dictionary LoginFields {
 // and the add/update APIs can encrypt (they need to know the key anyway)
 dictionary UpdatableLogin {
     LoginFields fields;
-    EncryptedFields enc_fields;
+    SecureLoginFields sec_fields;
 };
 
 // What we return for all the "read" APIs - we never return the cleartext
@@ -49,7 +49,7 @@ dictionary UpdatableLogin {
 dictionary Login {
     string id;
     LoginFields fields;
-    string enc_fields; // ciphertext of an EncryptedFields
+    string sec_fields; // ciphertext of a SecureLoginFields
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
@@ -57,7 +57,7 @@ dictionary Login {
 };
 
 // Fields available only while the encryption key is known.
-dictionary EncryptedFields {
+dictionary SecureLoginFields {
     string password;
     string username;
 };

@@ -28,12 +28,12 @@ pub use crate::sync::LoginsSyncEngine;
 
 // public encryption functions - not in encryption.rs as theoretically that file doesn't need to
 // know about any of our structs.
-fn encrypt_fields(fields: &EncryptedFields, enc_key: &str) -> Result<String> {
+fn encrypt_fields(fields: &SecureLoginFields, enc_key: &str) -> Result<String> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
     encdec.encrypt_struct(fields)
 }
 
-fn decrypt_fields(ciphertext: &str, enc_key: &str) -> Result<EncryptedFields> {
+fn decrypt_fields(ciphertext: &str, enc_key: &str) -> Result<SecureLoginFields> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
     encdec.decrypt_struct(ciphertext)
 }

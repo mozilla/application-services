@@ -148,7 +148,7 @@ impl LoginStore {
         self.db.lock().unwrap().check_valid_with_no_dupes(
             &Guid::new(id),
             &login.fields,
-            &login.enc_fields,
+            &login.sec_fields,
             &encdec,
         )
     }
@@ -235,7 +235,7 @@ mod test {
     use super::*;
     use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
     use crate::util;
-    use crate::{EncryptedFields, LoginFields};
+    use crate::{LoginFields, SecureLoginFields};
     use more_asserts::*;
     use std::cmp::Reverse;
     use std::time::SystemTime;
@@ -243,8 +243,8 @@ mod test {
     fn assert_logins_equiv(a: &UpdatableLogin, b: &Login) {
         let b_e = b.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(a.fields, b.fields);
-        assert_eq!(b_e.username, a.enc_fields.username);
-        assert_eq!(b_e.password, a.enc_fields.password);
+        assert_eq!(b_e.username, a.sec_fields.username);
+        assert_eq!(b_e.password, a.sec_fields.password);
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod test {
                 password_field: "pass_input".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "coolperson21".into(),
                 password: "p4ssw0rd".into(),
             },
@@ -274,7 +274,7 @@ mod test {
                 http_realm: Some("Some String Here".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "asdf".into(),
                 password: "fdsa".into(),
             },
@@ -342,8 +342,8 @@ mod test {
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
         let b2 = UpdatableLogin {
-            enc_fields: EncryptedFields {
-                username: b.enc_fields.username.to_owned(),
+            sec_fields: SecureLoginFields {
+                username: b.sec_fields.username.to_owned(),
                 password: "newpass".into(),
             },
             ..b

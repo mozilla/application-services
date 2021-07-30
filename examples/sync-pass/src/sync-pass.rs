@@ -9,7 +9,7 @@ use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
 use logins::{
-    EncryptedFields, Login, LoginFields, LoginStore, LoginsSyncEngine, UpdatableLogin,
+    Login, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields, UpdatableLogin,
     ValidateAndFixup,
 };
 use prettytable::{cell, row, Cell, Row, Table};
@@ -56,7 +56,7 @@ fn read_form_based_login() -> UpdatableLogin {
             http_realm: None,
             origin,
         },
-        enc_fields: EncryptedFields { username, password },
+        sec_fields: SecureLoginFields { username, password },
     }
 }
 
@@ -75,7 +75,7 @@ fn read_auth_based_login() -> UpdatableLogin {
             http_realm,
             origin,
         },
-        enc_fields: EncryptedFields { username, password },
+        sec_fields: SecureLoginFields { username, password },
     }
 }
 
@@ -89,7 +89,7 @@ fn update_string(field_name: &str, field: &mut String, extra: &str) -> bool {
     }
 }
 
-fn update_encrypted_fields(fields: &mut EncryptedFields, extra: &str) {
+fn update_encrypted_fields(fields: &mut SecureLoginFields, extra: &str) {
     if let Some(v) = prompt_string(format!("new username [now {}{}]", fields.username, extra)) {
         fields.username = v;
     };
@@ -108,10 +108,10 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
 
 fn update_login(login: Login, encdec: &EncryptorDecryptor) -> UpdatableLogin {
     let mut record = UpdatableLogin {
-        enc_fields: login.decrypt_fields(encdec).unwrap(),
+        sec_fields: login.decrypt_fields(encdec).unwrap(),
         fields: login.fields,
     };
-    update_encrypted_fields(&mut record.enc_fields, ", leave blank to keep");
+    update_encrypted_fields(&mut record.sec_fields, ", leave blank to keep");
     update_string("origin", &mut record.fields.origin, ", leave blank to keep");
 
     update_string(
@@ -232,12 +232,12 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
     let mut record_copy = records.clone();
     record_copy.sort_by_key(|a| a.guid());
     for rec in records.iter() {
-        let enc_fields = rec.decrypt_fields(encdec).unwrap();
+        let sec_fields = rec.decrypt_fields(encdec).unwrap();
         table.add_row(row![
             r->v.len(),
             Fr->&rec.guid(),
-            &enc_fields.username,
-            &enc_fields.password,
+            &sec_fields.username,
+            &sec_fields.password,
             &rec.fields.origin,
 
             string_opt_or(&rec.fields.form_action_origin, ""),

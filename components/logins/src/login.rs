@@ -20,7 +20,7 @@
 //!   all metadata of the login, and the encryptyed versions of the credentials.
 //! * [LoginFields] - a struct with the common login fields, and is used by both the [`Login`] and
 //!   [`UpdatableLogin`] structs.
-//! * [EncryptedFields] - a struct with the plain-text version of the encrypted credentials.
+//! * [SecureLoginFields] - a struct with the plain-text version of the encrypted credentials.
 //!   You will find one of these structs in `UpdatableLogin`, and can obtain one of these from
 //!   a `Login` struct by using the global decryption function for this purpose.
 //!
@@ -136,9 +136,9 @@
 //! encryption key to be known and passed in.
 //! It contains the following fields:
 //! - fields: A [`LoginFields`] struct.
-//! - enc_fields: An [`EncryptedFields`] struct.
+//! - sec_fields: A [`SecureLoginFields`] struct.
 //!
-//! # EncryptedFields
+//! # SecureLoginFields
 //! The struct used to hold the fields which are stored encrypted. It contains:
 //! - username: A string.
 //! - password: A string.
@@ -172,8 +172,8 @@
 //!   **XXX TODO:**
 //!   - Add a field with the original unicode versions of the URLs instead of punycode?
 //!
-//! - `enc_fields`: The `username` and `password` for the site, stored as a encrypted JSON
-//!    representation of an `EncryptedFields`.
+//! - `sec_fields`: The `username` and `password` for the site, stored as a encrypted JSON
+//!    representation of an `SecureLoginFields`.
 //!
 //!   This field is required and usually encrypted.  There are two different value types:
 //!       - Plantext empty string: Used for deleted records
@@ -439,22 +439,22 @@ impl ValidateAndFixup for LoginFields {
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
 pub struct UpdatableLogin {
     pub fields: LoginFields,
-    pub enc_fields: EncryptedFields,
+    pub sec_fields: SecureLoginFields,
 }
 
 impl ValidateAndFixup for UpdatableLogin {
     fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
         let new_fields = self.fields.validate_and_fixup(fixup)?;
-        let new_enc_fields = self.enc_fields.validate_and_fixup(fixup)?;
-        Ok(match (new_fields, new_enc_fields) {
-            (Some(fields), Some(enc_fields)) => Some(Self { fields, enc_fields }),
+        let new_sec_fields = self.sec_fields.validate_and_fixup(fixup)?;
+        Ok(match (new_fields, new_sec_fields) {
+            (Some(fields), Some(sec_fields)) => Some(Self { fields, sec_fields }),
             (Some(fields), None) => Some(Self {
                 fields,
-                enc_fields: self.enc_fields.clone(),
+                sec_fields: self.sec_fields.clone(),
             }),
-            (None, Some(enc_fields)) => Some(Self {
+            (None, Some(sec_fields)) => Some(Self {
                 fields: self.fields.clone(),
-                enc_fields,
+                sec_fields,
             }),
             (None, None) => None,
         })
@@ -467,7 +467,7 @@ impl ValidateAndFixup for UpdatableLogin {
 pub struct Login {
     pub id: String,
     pub fields: LoginFields,
-    pub enc_fields: String,
+    pub sec_fields: String,
     pub time_created: i64,
     pub time_password_changed: i64,
     pub time_last_used: i64,
@@ -485,8 +485,8 @@ impl Login {
         &self.id
     }
 
-    pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<EncryptedFields> {
-        encdec.decrypt_struct(&self.enc_fields)
+    pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {
+        encdec.decrypt_struct(&self.sec_fields)
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
@@ -509,7 +509,7 @@ impl Login {
 
             time_password_changed: row.get("timePasswordChanged")?,
             times_used: row.get("timesUsed")?,
-            enc_fields: row.get("encFields")?,
+            sec_fields: row.get("secFields")?,
         };
         // XXX - we used to perform a fixup here, but that seems heavy-handed
         // and difficult - we now only do that on add/insert when we have the
@@ -527,7 +527,7 @@ impl ValidateAndFixup for Login {
             .map(|new_fields| Self {
                 id: self.id.clone(),
                 fields: new_fields,
-                enc_fields: self.enc_fields.clone(),
+                sec_fields: self.sec_fields.clone(),
                 time_created: self.time_created,
                 time_password_changed: self.time_password_changed,
                 time_last_used: self.time_last_used,
@@ -538,7 +538,7 @@ impl ValidateAndFixup for Login {
 
 /// The encrypted fields.
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-pub struct EncryptedFields {
+pub struct SecureLoginFields {
     // prior to per-field encryption the `username` was allowed to be null.
     // We could make it `Option<String>` but that doesn't seem valuable, as
     // an empty string and None mean the same thing anyway.
@@ -549,13 +549,13 @@ pub struct EncryptedFields {
     pub password: String,
 }
 
-impl EncryptedFields {
+impl SecureLoginFields {
     pub fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
         encdec.encrypt_struct(&self)
     }
 }
 
-impl ValidateAndFixup for EncryptedFields {
+impl ValidateAndFixup for SecureLoginFields {
     /// We don't actually have fixups.
     fn validate_and_fixup(&self, _fixup: bool) -> Result<Option<Self>> {
         // \r\n chars are valid in desktop for some reason, so we allow them here too.
@@ -625,7 +625,7 @@ pub mod test_utils {
     //
     // It uses the guid to create a unique origin/form_action_origin
     pub fn login(id: &str, password: &str) -> Login {
-        let enc_fields = EncryptedFields {
+        let sec_fields = SecureLoginFields {
             username: "user".to_string(),
             password: password.to_string(),
         };
@@ -636,7 +636,7 @@ pub mod test_utils {
                 origin: format!("https://{}.example.com", id),
                 ..Default::default()
             },
-            enc_fields: encrypt_struct(&enc_fields),
+            sec_fields: encrypt_struct(&sec_fields),
             ..Default::default()
         }
     }
@@ -713,7 +713,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -725,7 +725,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -737,7 +737,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "".into(),
             },
@@ -750,7 +750,7 @@ mod tests {
                 form_action_origin: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "".into(),
                 password: "test".into(),
             },
@@ -761,7 +761,7 @@ mod tests {
                 origin: "https://www.example.com".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "".into(),
                 password: "test".into(),
             },
@@ -773,7 +773,7 @@ mod tests {
                 http_realm: Some("https://www.example.\0com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -785,7 +785,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "\0".into(),
                 password: "test".into(),
             },
@@ -797,7 +797,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "username".into(),
                 password: "test\0".into(),
             },
@@ -809,7 +809,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -822,7 +822,7 @@ mod tests {
                 username_field: "\n".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -834,7 +834,7 @@ mod tests {
                 http_realm: Some("foo\nbar".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -846,7 +846,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test\n".into(),
             },
@@ -859,7 +859,7 @@ mod tests {
                 username_field: ".".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -871,7 +871,7 @@ mod tests {
                 origin: "https://www.example.com".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -883,7 +883,7 @@ mod tests {
                 origin: "https://www.example.com".into(),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -895,7 +895,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -907,7 +907,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -919,7 +919,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -931,7 +931,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -943,7 +943,7 @@ mod tests {
                 http_realm: Some("https://www.example.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -1094,7 +1094,7 @@ mod tests {
                 form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -1106,7 +1106,7 @@ mod tests {
                 form_action_origin: Some("http://😍.com".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -1118,7 +1118,7 @@ mod tests {
                 form_action_origin: Some(".".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -1129,7 +1129,7 @@ mod tests {
                 form_action_origin: Some("".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "test".into(),
                 password: "test".into(),
             },
@@ -1146,7 +1146,7 @@ mod tests {
                 http_realm: Some("\n".into()),
                 ..Default::default()
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: "".into(),
                 password: "test".into(),
             },

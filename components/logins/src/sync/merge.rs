@@ -270,14 +270,14 @@ impl Login {
         apply_field!(self, delta, password_field);
         apply_field!(self, delta, username_field);
 
-        let mut enc_fields = self.decrypt_fields(encdec)?;
+        let mut sec_fields = self.decrypt_fields(encdec)?;
         if let Some(password) = delta.password.take() {
-            enc_fields.password = password;
+            sec_fields.password = password;
         }
         if let Some(username) = delta.username.take() {
-            enc_fields.username = username;
+            sec_fields.username = username;
         }
-        self.enc_fields = encdec.encrypt_struct(&enc_fields)?;
+        self.sec_fields = encdec.encrypt_struct(&sec_fields)?;
 
         // Use Some("") to indicate that it should be changed to be None (hacky...)
         if let Some(realm) = delta.http_realm.take() {
@@ -307,13 +307,13 @@ impl Login {
         if self.fields.origin != older.fields.origin {
             delta.origin = Some(self.fields.origin.clone());
         }
-        let older_enc_fields = older.decrypt_fields(encdec)?;
-        let self_enc_fields = self.decrypt_fields(encdec)?;
-        if self_enc_fields.username != older_enc_fields.username {
-            delta.username = Some(self_enc_fields.username.clone());
+        let older_sec_fields = older.decrypt_fields(encdec)?;
+        let self_sec_fields = self.decrypt_fields(encdec)?;
+        if self_sec_fields.username != older_sec_fields.username {
+            delta.username = Some(self_sec_fields.username.clone());
         }
-        if self_enc_fields.password != older_enc_fields.password {
-            delta.password = Some(self_enc_fields.password);
+        if self_sec_fields.password != older_sec_fields.password {
+            delta.password = Some(self_sec_fields.password);
         }
         if self.fields.password_field != older.fields.password_field {
             delta.password_field = Some(self.fields.password_field.clone());

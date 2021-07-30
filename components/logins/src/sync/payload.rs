@@ -10,7 +10,7 @@
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::ValidateAndFixup;
-use crate::EncryptedFields;
+use crate::SecureLoginFields;
 use crate::{Login, LoginFields};
 use serde_derive::*;
 use sync_guid::Guid;
@@ -79,7 +79,7 @@ impl Login {
                 username_field: p.username_field,
                 password_field: p.password_field,
             },
-            enc_fields: EncryptedFields {
+            sec_fields: SecureLoginFields {
                 username: p.username,
                 password: p.password,
             }
@@ -97,7 +97,7 @@ impl Login {
     }
 
     pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
-        let enc_fields: EncryptedFields = encdec.decrypt_struct(&self.enc_fields)?;
+        let sec_fields: SecureLoginFields = encdec.decrypt_struct(&self.sec_fields)?;
         Ok(sync15::Payload::from_record(crate::sync::LoginPayload {
             guid: self.guid(),
             hostname: self.fields.origin,
@@ -105,8 +105,8 @@ impl Login {
             http_realm: self.fields.http_realm,
             username_field: self.fields.username_field,
             password_field: self.fields.password_field,
-            username: enc_fields.username,
-            password: enc_fields.password,
+            username: sec_fields.username,
+            password: sec_fields.password,
             time_created: self.time_created,
             time_password_changed: self.time_password_changed,
             time_last_used: self.time_last_used,
@@ -133,7 +133,7 @@ where
 mod tests {
     use crate::encryption::test_utils::{encrypt_struct, TEST_ENCRYPTOR};
     use crate::sync::merge::SyncLoginData;
-    use crate::{EncryptedFields, Login, LoginFields};
+    use crate::{Login, LoginFields, SecureLoginFields};
     use sync15::ServerTimestamp;
 
     #[test]
@@ -151,9 +151,9 @@ mod tests {
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(login.fields.form_action_origin, None);
-        let enc_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
-        assert_eq!(enc_fields.username, "user");
-        assert_eq!(enc_fields.password, "password");
+        let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(sec_fields.username, "user");
+        assert_eq!(sec_fields.password, "password");
     }
 
     #[test]
@@ -176,9 +176,9 @@ mod tests {
             Some("https://www.example.com".to_string())
         );
         assert_eq!(login.fields.username_field, "username-field");
-        let enc_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
-        assert_eq!(enc_fields.username, "user");
-        assert_eq!(enc_fields.password, "password");
+        let sec_fields = login.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(sec_fields.username, "user");
+        assert_eq!(sec_fields.password, "password");
     }
 
     #[test]
@@ -190,7 +190,7 @@ mod tests {
                 origin: "https://www.example.com".into(),
                 ..Default::default()
             },
-            enc_fields: encrypt_struct(&EncryptedFields {
+            sec_fields: encrypt_struct(&SecureLoginFields {
                 username: "user".into(),
                 password: "password".into(),
             }),
