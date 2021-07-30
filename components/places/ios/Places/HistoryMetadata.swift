@@ -7,27 +7,43 @@ import Foundation
 /**
  Represents a document type of a page.
  */
-public enum DocumentType: Int32 {
+public enum DocumentType: Int32, Codable {
     case regular = 0
     case media = 1
+
+    public init?(value: Int32) {
+        self.init(rawValue: value)
+    }
 }
 
 /**
  Represents a set of properties which uniquely identify a history metadata. In database terms this is a compound key.
  */
-public struct HistoryMetadataKey {
+public struct HistoryMetadataKey: Codable {
     public let url: String
     public let searchTerm: String?
     public let referrerUrl: String?
+
+    public init(url: String, searchTerm: String?, referrerUrl: String?) {
+        self.url = url
+        self.searchTerm = searchTerm
+        self.referrerUrl = referrerUrl
+    }
 }
 
 /**
  Represents an observation about a `HistoryMetadataKey`.
  */
-public enum HistoryMetadataObservation {
-    case titleObservation(String)
-    case viewTimeObservation(Int32)
-    case documentTypeObservation(DocumentType)
+public struct HistoryMetadataObservation: Codable {
+    var titleObservation: String?
+    var viewTimeObservation: Int32?
+    var documentTypeObservation: DocumentType?
+
+    public init(titleObservation: String?, viewTimeObservation: Int32?, documentTypeObservation: DocumentType?) {
+        self.titleObservation = titleObservation
+        self.viewTimeObservation = viewTimeObservation
+        self.documentTypeObservation = documentTypeObservation
+    }
 }
 
 /**

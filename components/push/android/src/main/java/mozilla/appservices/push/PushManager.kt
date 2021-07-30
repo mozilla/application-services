@@ -185,7 +185,7 @@ class PushManager(
 enum class BridgeType {
     FCM, ADM, APNS, TEST;
 
-    override fun toString() = name.toLowerCase(Locale.US)
+    override fun toString() = name.lowercase(Locale.US)
 }
 
 /**

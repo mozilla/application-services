@@ -13,6 +13,7 @@ dictionary AppContext {
     string? os_version;
     string? android_sdk_version;
     string? debug_tag;
+    record<DOMString, string>? custom_targeting_attributes;
 };
 
 dictionary EnrolledExperiment {

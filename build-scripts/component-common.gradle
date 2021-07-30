@@ -69,6 +69,6 @@ dependencies {
     testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
     testImplementation "org.mockito:mockito-core:$mockito_core_version"
 
-    androidTestImplementation "com.android.support.test:runner:$android_test_runner_version"
-    androidTestImplementation "com.android.support.test.espresso:$espresso_core_version"
+    androidTestImplementation "androidx.test:runner:$androidx_test_runner_version"
+    androidTestImplementation "androidx.test.espresso:expresso-core:$espresso_core_version"
 }

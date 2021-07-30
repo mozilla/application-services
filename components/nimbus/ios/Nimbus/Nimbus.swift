@@ -65,11 +65,11 @@ extension Nimbus: NimbusTelemetryConfiguration {
             // Finally, if we do have an experiment for the given featureId, we will record the
             // exposure event in Glean. This is to protect against accidentally recording an event
             // for an experiment without an active enrollment.
-            GleanMetrics.NimbusEvents.exposure.record(extra: [
-                .experiment: experiment.slug,
-                .branch: experiment.branchSlug,
-                .enrollmentId: experiment.enrollmentId,
-            ])
+            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
+                branch: experiment.branchSlug,
+                enrollmentId: experiment.enrollmentId,
+                experiment: experiment.slug
+            ))
         }
     }
 
@@ -102,23 +102,23 @@ extension Nimbus: NimbusTelemetryConfiguration {
         for event in events {
             switch event.change {
             case .enrollment:
-                GleanMetrics.NimbusEvents.enrollment.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.enrollment.record(GleanMetrics.NimbusEvents.EnrollmentExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             case .disqualification:
-                GleanMetrics.NimbusEvents.disqualification.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.disqualification.record(GleanMetrics.NimbusEvents.DisqualificationExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             case .unenrollment:
-                GleanMetrics.NimbusEvents.unenrollment.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.unenrollment.record(GleanMetrics.NimbusEvents.UnenrollmentExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             }
         }
     }

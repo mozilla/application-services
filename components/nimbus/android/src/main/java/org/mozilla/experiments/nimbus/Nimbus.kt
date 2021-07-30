@@ -261,7 +261,13 @@ data class NimbusAppInfo(
      *
      * Examples: "nightly", "beta", "release"
      */
-    val channel: String
+    val channel: String,
+    /**
+     * Application derived attributes measured by the application, but useful for targeting of experiments.
+     *
+     * Example: mapOf("userType": "casual", "isFirstTime": "true")
+     */
+    val customTargetingAttributes: Map<String, String> = mapOf()
 )
 
 /**
@@ -540,24 +546,24 @@ open class Nimbus(
         enrollmentChangeEvents.forEach { event ->
             when (event.change) {
                 EnrollmentChangeEventType.ENROLLMENT -> {
-                    NimbusEvents.enrollment.record(mapOf(
-                        NimbusEvents.enrollmentKeys.experiment to event.experimentSlug,
-                        NimbusEvents.enrollmentKeys.branch to event.branchSlug,
-                        NimbusEvents.enrollmentKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.enrollment.record(NimbusEvents.EnrollmentExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
-                    NimbusEvents.disqualification.record(mapOf(
-                        NimbusEvents.disqualificationKeys.experiment to event.experimentSlug,
-                        NimbusEvents.disqualificationKeys.branch to event.branchSlug,
-                        NimbusEvents.disqualificationKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.disqualification.record(NimbusEvents.DisqualificationExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
                 EnrollmentChangeEventType.UNENROLLMENT -> {
-                    NimbusEvents.unenrollment.record(mapOf(
-                        NimbusEvents.unenrollmentKeys.experiment to event.experimentSlug,
-                        NimbusEvents.unenrollmentKeys.branch to event.branchSlug,
-                        NimbusEvents.unenrollmentKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.unenrollment.record(NimbusEvents.UnenrollmentExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
             }
@@ -578,10 +584,10 @@ open class Nimbus(
     internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
         activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
-            NimbusEvents.exposure.record(mapOf(
-                NimbusEvents.exposureKeys.experiment to experiment.slug,
-                NimbusEvents.exposureKeys.branch to experiment.branchSlug,
-                NimbusEvents.exposureKeys.enrollmentId to experiment.enrollmentId
+            NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
+                experiment = experiment.slug,
+                branch = experiment.branchSlug,
+                enrollmentId = experiment.enrollmentId
             ))
         }
     }
@@ -609,6 +615,7 @@ open class Nimbus(
             deviceModel = Build.MODEL,
             locale = deviceInfo.localeTag,
             os = "Android",
-            osVersion = Build.VERSION.RELEASE)
+            osVersion = Build.VERSION.RELEASE,
+            customTargetingAttributes = appInfo.customTargetingAttributes)
     }
 }

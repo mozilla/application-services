@@ -249,6 +249,7 @@ mod tests {
             os_version: Some("10".to_string()),
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
+            custom_targeting_attributes: None,
         };
         assert_eq!(targeting(expression_statement, &ctx), None);
 
@@ -267,6 +268,7 @@ mod tests {
             os_version: Some("10".to_string()),
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
+            custom_targeting_attributes: None,
         };
         assert_eq!(targeting(expression_statement, &ctx), None);
 
@@ -285,6 +287,7 @@ mod tests {
             os_version: Some("10".to_string()),
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
+            custom_targeting_attributes: None,
         };
         assert!(matches!(
             targeting(expression_statement, &non_matching_ctx),
@@ -308,12 +311,65 @@ mod tests {
             os_version: Some("10".to_string()),
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
+            custom_targeting_attributes: None,
         };
         assert!(matches!(
             targeting(expression_statement, &non_matching_ctx),
             Some(EnrollmentStatus::NotEnrolled {
                 reason: NotEnrolledReason::NotTargeted
             })
+        ));
+    }
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_targeting_custom_targeting_attributes() {
+        // Here's our valid jexl statement
+        let expression_statement =
+            "app_id == '1010' && (app_version == '4.4' || locale == \"en-US\") && is_first_run == 'true' && ios_version == '8.8'";
+
+        let mut custom_targeting_attributes = HashMap::new();
+        custom_targeting_attributes.insert("is_first_run".into(), "true".into());
+        custom_targeting_attributes.insert("ios_version".into(), "8.8".into());
+        // A matching context that includes the appropriate specific context
+        let ctx = AppContext {
+            app_name: "nimbus_test".to_string(),
+            app_id: "1010".to_string(),
+            channel: "test".to_string(),
+            app_version: Some("4.4".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
+            locale: Some("en-US".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
+            debug_tag: None,
+            custom_targeting_attributes: Some(custom_targeting_attributes),
+        };
+        assert_eq!(targeting(expression_statement, &ctx), None);
+
+        // A matching context without the specific context
+        let ctx = AppContext {
+            app_name: "nimbus_test".to_string(),
+            app_id: "1010".to_string(),
+            channel: "test".to_string(),
+            app_version: Some("4.4".to_string()),
+            app_build: Some("1234".to_string()),
+            architecture: Some("x86_64".to_string()),
+            device_manufacturer: Some("Samsung".to_string()),
+            device_model: Some("Galaxy S10".to_string()),
+            locale: Some("en-US".to_string()),
+            os: Some("Android".to_string()),
+            os_version: Some("10".to_string()),
+            android_sdk_version: Some("29".to_string()),
+            debug_tag: None,
+            custom_targeting_attributes: None,
+        };
+        assert!(matches!(
+            targeting(expression_statement, &ctx),
+            Some(EnrollmentStatus::Error { .. })
         ));
     }
 

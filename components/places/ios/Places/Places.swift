@@ -903,13 +903,12 @@ public class PlacesWriteConnection: PlacesReadConnection {
                 msg.searchTerm = s
             }
 
-            switch observation {
-            case let .viewTimeObservation(viewTime):
-                msg.viewTime = viewTime
-            case let .documentTypeObservation(documentType):
-                msg.documentType = documentType.rawValue
-            case let .titleObservation(title):
+            if let observation = observation.documentTypeObservation?.rawValue {
+                msg.documentType = observation
+            } else if let title = observation.titleObservation {
                 msg.title = title
+            } else if let viewTime = observation.viewTimeObservation {
+                msg.viewTime = viewTime
             }
 
             let data = try! msg.serializedData()
