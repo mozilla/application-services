@@ -1,3 +1,16 @@
+# v82.1.0 (_2021-07-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.0.0...v82.1.0)
+
+## Places
+
+### What's New
+
+- The Swift bindings for history metadata enums and structs now have
+  public initializers, allowing them to be used properly from Swift.
+  ([#4371](https://github.com/mozilla/application-services/pull/4371))
+
+
 # v82.0.0 (_2021-07-29_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.1...v82.0.0)
