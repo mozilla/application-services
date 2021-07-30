@@ -252,8 +252,8 @@ impl LoginDb {
                 match (&base_host, this_host) {
                     (Host::Domain(base), Some(Host::Domain(look))) => {
                         // a fairly long-winded way of saying
-                        // `fields.origin == base_domain ||
-                        //  fields.origin.ends_with('.' + base_domain);`
+                        // `login.fields.origin == base_domain ||
+                        //  login.fields.origin.ends_with('.' + base_domain);`
                         let mut rev_input = base.chars().rev();
                         let mut rev_host = look.chars().rev();
                         loop {
