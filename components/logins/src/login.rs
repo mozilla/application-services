@@ -545,7 +545,12 @@ pub struct SecureLoginFields {
     // XXX - although this might end up being important in the sync payload (as
     // in, the item missing entirely from the payload?)
     // We should check desktop's semantics.
+
+    // Because we store the json version of this in the DB, and that's the only place the json
+    // is used, we rename the fields to short names, just to reduce the overhead in the DB.
+    #[serde(rename = "u")]
     pub username: String,
+    #[serde(rename = "p")]
     pub password: String,
 }
 
@@ -1205,5 +1210,23 @@ mod tests {
                 tc,
             );
         }
+    }
+
+    #[test]
+    fn test_secure_fields_serde() {
+        let sf = SecureLoginFields {
+            username: "foo".into(),
+            password: "pwd".into(),
+        };
+        assert_eq!(
+            serde_json::to_string(&sf).unwrap(),
+            r#"{"u":"foo","p":"pwd"}"#
+        );
+        let got: SecureLoginFields = serde_json::from_str(r#"{"u": "user", "p": "p"}"#).unwrap();
+        let expected = SecureLoginFields {
+            username: "user".into(),
+            password: "p".into(),
+        };
+        assert_eq!(got, expected);
     }
 }
