@@ -77,6 +77,11 @@ impl LoginStore {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
+    pub fn find_existing(&self, look: UpdatableLogin, enc_key: &str) -> Result<Option<String>> {
+        let encdec = EncryptorDecryptor::new(&enc_key)?;
+        self.db.lock().unwrap().find_existing(&look, &encdec)
+    }
+
     pub fn potential_dupes_ignoring_username(
         &self,
         id: &str,

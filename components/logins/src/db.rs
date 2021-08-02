@@ -36,8 +36,7 @@ use rusqlite::{
     Connection, NO_PARAMS,
 };
 use serde_derive::*;
-use sql_support::{self, ConnExt};
-use sql_support::{SqlInterruptHandle, SqlInterruptScope};
+use sql_support::{self, ConnExt, SqlInterruptHandle, SqlInterruptScope};
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::{atomic::AtomicUsize, Arc};
@@ -692,6 +691,56 @@ impl LoginDb {
         rows.collect()
     }
 
+    // Find an existing Login in the database for login data.
+    //
+    // This is used when there is new login data to save.  The UI needs to distinguish if that is
+    // going to update an existing login vs create a new one.
+    pub fn find_existing(
+        &self,
+        look: &UpdatableLogin,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<Option<String>> {
+        // Make sure to use `IS NULL` not `= NULL` in the WHERE clause
+        let origin_and_realm_where =
+            match (&look.fields.form_action_origin, &look.fields.http_realm) {
+                (Some(_), None) => {
+                    "formActionOrigin = :form_action_origin AND httpRealm IS :http_realm"
+                }
+                (None, Some(_)) => {
+                    "formActionOrigin IS :form_action_origin AND httpRealm = :http_realm"
+                }
+                (None, None) => panic!("form_action_origin and http_realm both None"),
+                (Some(_), Some(_)) => panic!("form_action_origin and http_realm both Some"),
+            };
+
+        let mut stmt = self.db.prepare(&format!(
+            "SELECT guid, secFields FROM loginsL
+                 WHERE origin = :origin
+                 AND {}
+
+             UNION
+
+             SELECT guid, secFields FROM loginsM
+                 WHERE origin = :origin
+                 AND {}
+                 AND is_overridden = 0
+             ",
+            origin_and_realm_where, origin_and_realm_where,
+        ))?;
+        let mut rows = stmt.query_named(named_params! {
+            ":origin": look.fields.origin,
+            ":form_action_origin": look.fields.form_action_origin,
+            ":http_realm": look.fields.http_realm,
+        })?;
+        while let Some(row) = rows.next()? {
+            let sec_fields: SecureLoginFields = encdec.decrypt_struct(&row.get::<_, String>(1)?)?;
+            if sec_fields.username == look.sec_fields.username {
+                return Ok(Some(row.get(0)?));
+            }
+        }
+        Ok(None)
+    }
+
     pub fn exists(&self, id: &str) -> Result<bool> {
         Ok(self.db.query_row_named(
             "SELECT EXISTS(
@@ -966,6 +1015,11 @@ pub mod test_utils {
 
     pub fn get_mirror_guids(db: &LoginDb) -> Vec<String> {
         get_guids(db, "SELECT guid FROM loginsM")
+    }
+
+    pub fn delete_local_login(db: &LoginDb, guid: &str) {
+        db.execute("DELETE FROM loginsL WHERE guid=?", &[guid])
+            .unwrap();
     }
 
     fn get_guids(db: &LoginDb, sql: &str) -> Vec<String> {
@@ -1769,5 +1823,153 @@ mod tests {
         let logins = db.get_by_base_domain("www.example.com").unwrap();
         assert_eq!(logins.len(), 1);
         assert_ne!(logins[0].id, bad_guid, "guid was fixed");
+    }
+
+    #[test]
+    fn test_find() {
+        let db = LoginDb::open_in_memory().unwrap();
+        let updatable_login = UpdatableLogin {
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("The Website".into()),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "user1".into(),
+                password: "password1".into(),
+            },
+        };
+        let login = db.add(updatable_login.clone(), &TEST_ENCRYPTOR).unwrap();
+        println!("{:?} {:?}", login.fields.origin, login.fields.http_realm);
+        assert_eq!(
+            db.find_existing(&updatable_login, &TEST_ENCRYPTOR).unwrap(),
+            Some(login.id.clone())
+        );
+
+        // different origin
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    fields: LoginFields {
+                        origin: "https://www.somewhere-else.com".into(),
+                        ..updatable_login.fields.clone()
+                    },
+                    ..updatable_login.clone()
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            None
+        );
+
+        // different realm
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    fields: LoginFields {
+                        http_realm: Some("The Other Website".into()),
+                        ..updatable_login.fields.clone()
+                    },
+                    ..updatable_login.clone()
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            None
+        );
+
+        // form_action_origin instead of realm
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    fields: LoginFields {
+                        http_realm: None,
+                        form_action_origin: Some("http://example.com/my-form".into()),
+                        ..updatable_login.fields.clone()
+                    },
+                    ..updatable_login.clone()
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            None
+        );
+
+        // different username
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    sec_fields: SecureLoginFields {
+                        username: "user2".into(),
+                        ..updatable_login.sec_fields.clone()
+                    },
+                    ..updatable_login.clone()
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            None
+        );
+
+        // different password (which should still match)
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    sec_fields: SecureLoginFields {
+                        password: "password2".into(),
+                        ..updatable_login.sec_fields.clone()
+                    },
+                    ..updatable_login.clone()
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            Some(login.id.clone())
+        );
+
+        // If we commit the local data to the mirror table it should still match
+        test_utils::add_mirror(&db, &login, &sync15::ServerTimestamp(10000), false).unwrap();
+        test_utils::delete_local_login(&db, &login.id);
+
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    ..updatable_login.clone()
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            Some(login.id.clone())
+        );
+
+        // But if we then update the local record it shouldn't
+        db.insert_new_login(&Login {
+            sec_fields: SecureLoginFields {
+                username: "username2".to_owned(),
+                ..updatable_login.sec_fields.clone()
+            }
+            .encrypt(&TEST_ENCRYPTOR)
+            .unwrap(),
+            ..login.clone()
+        })
+        .unwrap();
+        db.mark_mirror_overridden(&login.id).unwrap();
+
+        assert_eq!(
+            db.find_existing(
+                &UpdatableLogin {
+                    fields: LoginFields {
+                        ..updatable_login.fields.clone()
+                    },
+                    sec_fields: SecureLoginFields {
+                        password: "password2".into(),
+                        ..updatable_login.sec_fields
+                    },
+                },
+                &TEST_ENCRYPTOR
+            )
+            .unwrap(),
+            None
+        );
     }
 }

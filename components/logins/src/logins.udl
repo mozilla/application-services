@@ -108,6 +108,9 @@ interface LoginStore {
     [Throws=LoginsStorageError]
     sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
+    [Throws=LoginsStorageError]
+    string? find_existing(UpdatableLogin look, [ByRef]string encryption_key);
+
     // XXX - Can we kill this, and just fix the semantics of add/update?
     [Throws=LoginsStorageError]
     sequence<Login> potential_dupes_ignoring_username([ByRef]string id, UpdatableLogin login);
