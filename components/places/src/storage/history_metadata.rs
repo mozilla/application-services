@@ -4,13 +4,81 @@
 
 use crate::db::{PlacesDb, PlacesTransaction};
 use crate::error::Result;
-use crate::msg_types::{HistoryMetadata, HistoryMetadataList, HistoryMetadataObservation};
-use sql_support::{self, ConnExt};
+use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+use sql_support::ConnExt;
+use std::vec::Vec;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
 
 use lazy_static::lazy_static;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum DocumentType {
+    Regular = 0,
+    Media = 1,
+}
+
+impl FromSql for DocumentType {
+    #[inline]
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        Ok(match value.as_i64()? {
+            0 => DocumentType::Regular,
+            1 => DocumentType::Media,
+            other => {
+                // seems safe to ignore?
+                log::warn!("invalid DocumentType {}", other);
+                DocumentType::Regular
+            }
+        })
+    }
+}
+
+impl ToSql for DocumentType {
+    #[inline]
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(*self as u32))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct HistoryMetadataObservation {
+    pub url: String,
+    pub view_time: Option<i32>,
+    pub search_term: Option<String>,
+    pub document_type: Option<DocumentType>,
+    pub referrer_url: Option<String>,
+    pub title: Option<String>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct HistoryMetadata {
+    pub url: String,
+    pub title: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub total_view_time: i32,
+    pub search_term: Option<String>,
+    pub document_type: DocumentType,
+    pub referrer_url: Option<String>,
+}
+
+impl HistoryMetadata {
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let created_at: Timestamp = row.get("created_at")?;
+        let updated_at: Timestamp = row.get("updated_at")?;
+
+        Ok(Self {
+            url: row.get("url")?,
+            title: row.get("title")?,
+            created_at: created_at.0 as i64,
+            updated_at: updated_at.0 as i64,
+            total_view_time: row.get("total_view_time")?,
+            search_term: row.get("search_term")?,
+            document_type: row.get("document_type")?,
+            referrer_url: row.get("referrer_url")?,
+        })
+    }
+}
 
 enum PlaceEntry {
     Existing(i64),
@@ -104,7 +172,7 @@ struct HistoryMetadataCompoundKey {
 }
 
 struct MetadataObservation {
-    document_type: Option<i32>,
+    document_type: Option<DocumentType>,
     view_time: Option<i32>,
 }
 
@@ -223,39 +291,36 @@ pub fn get_latest_for_url(db: &PlacesDb, url: &Url) -> Result<Option<HistoryMeta
     Ok(metadata)
 }
 
-pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<HistoryMetadataList> {
-    let metadata = db.query_rows_and_then_named_cached(
+pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_named_cached(
         GET_BETWEEN_SQL.as_str(),
         rusqlite::named_params! {
             ":start": start,
             ":end": end,
         },
         HistoryMetadata::from_row,
-    )?;
-    Ok(HistoryMetadataList { metadata })
+    )
 }
 
-pub fn get_since(db: &PlacesDb, start: i64) -> Result<HistoryMetadataList> {
-    let metadata = db.query_rows_and_then_named_cached(
+pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_named_cached(
         GET_SINCE_SQL.as_str(),
         rusqlite::named_params! {
             ":start": start
         },
         HistoryMetadata::from_row,
-    )?;
-    Ok(HistoryMetadataList { metadata })
+    )
 }
 
-pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<HistoryMetadataList> {
-    let metadata = db.query_rows_and_then_named_cached(
+pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_named_cached(
         QUERY_SQL.as_str(),
         rusqlite::named_params! {
             ":query": format!("%{}%", query),
             ":limit": limit
         },
         HistoryMetadata::from_row,
-    )?;
-    Ok(HistoryMetadataList { metadata })
+    )
 }
 
 pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
@@ -408,7 +473,10 @@ fn insert_metadata_in_tx(
             (":updated_at", &now),
             (":search_query_id", &search_query_id),
             (":referrer_place_id", &referrer_place_id),
-            (":document_type", &observation.document_type.unwrap_or(0)),
+            (
+                ":document_type",
+                &observation.document_type.unwrap_or(DocumentType::Regular),
+            ),
             (":total_view_time", &observation.view_time.unwrap_or(0)),
         ],
     )?;
@@ -552,7 +620,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1500),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -564,7 +632,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -576,7 +644,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
@@ -588,7 +656,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(2000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://news.website"),
             title None
         );
@@ -600,7 +668,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1100),
             search_term Some("firefox"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=firefox"),
             title None
         );
@@ -612,7 +680,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(5000),
             search_term Some("firefox"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=firefox"),
             title None
         );
@@ -624,7 +692,7 @@ mod tests {
             url "http://mozilla.com/another",
             view_time Some(3000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://news.website/tech"),
             title None
         );
@@ -636,7 +704,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             view_time Some(100000),
             search_term Some("cute cat"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
             title None
         );
@@ -648,7 +716,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=daff43jif3",
             view_time Some(80000),
             search_term Some(""),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some(""),
             title None
         );
@@ -659,7 +727,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=daff43jif3",
             view_time Some(10000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
@@ -671,7 +739,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=fds32fds",
             view_time None,
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
@@ -711,7 +779,7 @@ mod tests {
             document_type None,
             referrer_url None,
             title None,
-            assertion |m: HistoryMetadata| { assert_eq!(0, m.document_type) }
+            assertion |m: HistoryMetadata| { assert_eq!(DocumentType::Regular, m.document_type) }
         );
 
         assert_after_observation!(&conn,
@@ -720,10 +788,10 @@ mod tests {
             url "https://www.youtube.com/watch?v=dasdg34d",
             view_time None,
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None,
-            assertion |m: HistoryMetadata| { assert_eq!(1, m.document_type) }
+            assertion |m: HistoryMetadata| { assert_eq!(DocumentType::Media, m.document_type) }
         );
 
         // document type not overwritten (e.g. remains 1, not default 0).
@@ -736,7 +804,7 @@ mod tests {
             document_type None,
             referrer_url None,
             title None,
-            assertion |m: HistoryMetadata| { assert_eq!(1, m.document_type) }
+            assertion |m: HistoryMetadata| { assert_eq!(DocumentType::Media, m.document_type) }
         );
 
         // can set title on creating a new record
@@ -770,27 +838,21 @@ mod tests {
     fn test_get_between() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        assert_eq!(0, get_between(&conn, 0, 0).unwrap().metadata.len());
+        assert_eq!(0, get_between(&conn, 0, 0).unwrap().len());
 
         let beginning = Timestamp::now().as_millis() as i64;
         note_observation!(&conn,
             url "http://mozilla.com/another",
             view_time Some(3000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://news.website/tech"),
             title None
         );
         let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        assert_eq!(
-            0,
-            get_between(&conn, 0, beginning - 1).unwrap().metadata.len()
-        );
-        assert_eq!(
-            1,
-            get_between(&conn, 0, after_meta1).unwrap().metadata.len()
-        );
+        assert_eq!(0, get_between(&conn, 0, beginning - 1).unwrap().len());
+        assert_eq!(1, get_between(&conn, 0, after_meta1).unwrap().len());
 
         thread::sleep(time::Duration::from_millis(10));
 
@@ -798,38 +860,22 @@ mod tests {
             url "http://mozilla.com/video/",
             view_time Some(1000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
         let after_meta2 = Timestamp::now().as_millis() as i64;
 
+        assert_eq!(1, get_between(&conn, beginning, after_meta1).unwrap().len());
+        assert_eq!(2, get_between(&conn, beginning, after_meta2).unwrap().len());
         assert_eq!(
             1,
-            get_between(&conn, beginning, after_meta1)
-                .unwrap()
-                .metadata
-                .len()
-        );
-        assert_eq!(
-            2,
-            get_between(&conn, beginning, after_meta2)
-                .unwrap()
-                .metadata
-                .len()
-        );
-        assert_eq!(
-            1,
-            get_between(&conn, after_meta1, after_meta2)
-                .unwrap()
-                .metadata
-                .len()
+            get_between(&conn, after_meta1, after_meta2).unwrap().len()
         );
         assert_eq!(
             0,
             get_between(&conn, after_meta2, after_meta2 + 1)
                 .unwrap()
-                .metadata
                 .len()
         );
     }
@@ -838,22 +884,22 @@ mod tests {
     fn test_get_since() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        assert_eq!(0, get_since(&conn, 0).unwrap().metadata.len());
+        assert_eq!(0, get_since(&conn, 0).unwrap().len());
 
         let beginning = Timestamp::now().as_millis() as i64;
         note_observation!(&conn,
             url "http://mozilla.com/another",
             view_time Some(3000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://news.website/tech"),
             title None
         );
         let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        assert_eq!(1, get_since(&conn, 0).unwrap().metadata.len());
-        assert_eq!(1, get_since(&conn, beginning).unwrap().metadata.len());
-        assert_eq!(0, get_since(&conn, after_meta1).unwrap().metadata.len());
+        assert_eq!(1, get_since(&conn, 0).unwrap().len());
+        assert_eq!(1, get_since(&conn, beginning).unwrap().len());
+        assert_eq!(0, get_since(&conn, after_meta1).unwrap().len());
 
         // thread::sleep(time::Duration::from_millis(50));
 
@@ -861,14 +907,14 @@ mod tests {
             url "http://mozilla.com/video/",
             view_time Some(1000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
         let after_meta2 = Timestamp::now().as_millis() as i64;
-        assert_eq!(2, get_since(&conn, beginning).unwrap().metadata.len());
-        assert_eq!(1, get_since(&conn, after_meta1).unwrap().metadata.len());
-        assert_eq!(0, get_since(&conn, after_meta2).unwrap().metadata.len());
+        assert_eq!(2, get_since(&conn, beginning).unwrap().len());
+        assert_eq!(1, get_since(&conn, after_meta1).unwrap().len());
+        assert_eq!(0, get_since(&conn, after_meta2).unwrap().len());
     }
 
     #[test]
@@ -893,7 +939,7 @@ mod tests {
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
             view_time Some(20000),
             search_term Some("cbc federal budget 2021"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
             title None
         );
@@ -903,7 +949,7 @@ mod tests {
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
             view_time Some(20000),
             search_term Some("rust string format"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
             title None
         );
@@ -913,7 +959,7 @@ mod tests {
             url "https://www.sqlite.org/lang_corefunc.html#instr",
             view_time Some(20000),
             search_term Some("sqlite like"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
             title None
         );
@@ -923,53 +969,53 @@ mod tests {
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             view_time Some(100000),
             search_term Some("cute cat"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
             title None
         );
 
         // query by title
         let meta = query(&conn, "child care", 10).expect("query should work");
-        assert_eq!(1, meta.metadata.len(), "expected exactly one result");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_eq!(1, meta.len(), "expected exactly one result");
+        assert_history_metadata_record!(&meta[0],
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
             total_time 20000,
             search_term Some("cbc federal budget 2021"),
-            document_type 0,
+            document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
             title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")
         );
 
         // query by search term
         let meta = query(&conn, "string format", 10).expect("query should work");
-        assert_eq!(1, meta.metadata.len(), "expected exactly one result");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_eq!(1, meta.len(), "expected exactly one result");
+        assert_history_metadata_record!(&meta[0],
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
             total_time 20000,
             search_term Some("rust string format"),
-            document_type 0,
+            document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
             title None
         );
 
         // query by url
         let meta = query(&conn, "instr", 10).expect("query should work");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_history_metadata_record!(&meta[0],
             url "https://www.sqlite.org/lang_corefunc.html#instr",
             total_time 20000,
             search_term Some("sqlite like"),
-            document_type 0,
+            document_type DocumentType::Regular,
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
             title None
         );
 
         // by url, referrer domain is different
         let meta = query(&conn, "youtube", 10).expect("query should work");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_history_metadata_record!(&meta[0],
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             total_time 100000,
             search_term Some("cute cat"),
-            document_type 1,
+            document_type DocumentType::Media,
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
             title None
         );
@@ -985,7 +1031,7 @@ mod tests {
             url "http://mozilla.com/1",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -997,7 +1043,7 @@ mod tests {
             url "http://mozilla.com/2",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -1008,7 +1054,7 @@ mod tests {
             url "http://mozilla.com/3",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -1016,23 +1062,11 @@ mod tests {
 
         // deleting nothing.
         delete_older_than(&conn, beginning).expect("delete worked");
-        assert_eq!(
-            3,
-            get_since(&conn, beginning)
-                .expect("get worked")
-                .metadata
-                .len()
-        );
+        assert_eq!(3, get_since(&conn, beginning).expect("get worked").len());
 
         // boundary condition, should only delete the last one.
         delete_older_than(&conn, after_meta1).expect("delete worked");
-        assert_eq!(
-            2,
-            get_since(&conn, beginning)
-                .expect("get worked")
-                .metadata
-                .len()
-        );
+        assert_eq!(2, get_since(&conn, beginning).expect("get worked").len());
         assert_eq!(
             None,
             get_latest_for_url(&conn, &Url::parse("http://mozilla.com/1").expect("url"))
@@ -1041,13 +1075,7 @@ mod tests {
 
         // delete everything now.
         delete_older_than(&conn, after_meta3).expect("delete worked");
-        assert_eq!(
-            0,
-            get_since(&conn, beginning)
-                .expect("get worked")
-                .metadata
-                .len()
-        );
+        assert_eq!(0, get_since(&conn, beginning).expect("get worked").len());
     }
 
     #[test]
@@ -1059,7 +1087,7 @@ mod tests {
             url "https://www.mozilla.org/first/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1069,7 +1097,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1157,7 +1185,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term Some("mozilla firefox"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1207,7 +1235,7 @@ mod tests {
             url "https://www.mozilla.org/first/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1217,7 +1245,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1227,7 +1255,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term Some("mozilla"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1237,7 +1265,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(25000),
             search_term Some("firefox"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1247,7 +1275,7 @@ mod tests {
             url "https://www.mozilla.org/another/",
             view_time Some(20000),
             search_term Some("mozilla"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );

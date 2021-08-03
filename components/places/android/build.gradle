@@ -20,5 +20,6 @@ dependencies {
     testImplementation "org.mozilla.telemetry:glean-forUnitTests:$project.ext.glean_version"
 }
 
+ext.configureUniFFIBindgen("../src/places.udl")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

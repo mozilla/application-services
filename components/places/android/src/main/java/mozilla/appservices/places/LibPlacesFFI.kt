@@ -9,9 +9,13 @@ import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import com.sun.jna.StringArray
-import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.places.BuildConfig
+
+// yay - 2 RustBuffers :) This one is for the "old" hand-written FFI...
+import mozilla.appservices.support.native.RustBuffer
+// ...and this one is for stuff implemented via uniffi.
+import mozilla.appservices.places.uniffi.RustBuffer as UniFFIRustBuffer
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPlacesFFI : Library {
@@ -200,32 +204,31 @@ internal interface LibPlacesFFI : Library {
         handle: PlacesConnectionHandle,
         url: String,
         error: RustError.ByReference
-    ): RustBuffer.ByValue
+    ): UniFFIRustBuffer.ByValue
 
     fun places_get_history_metadata_between(
         handle: PlacesConnectionHandle,
         start: Long,
         end: Long,
         error: RustError.ByReference
-    ): RustBuffer.ByValue
+    ): UniFFIRustBuffer.ByValue
 
     fun places_get_history_metadata_since(
         handle: PlacesConnectionHandle,
         since: Long,
         error: RustError.ByReference
-    ): RustBuffer.ByValue
+    ): UniFFIRustBuffer.ByValue
 
     fun places_query_history_metadata(
         handle: PlacesConnectionHandle,
         query: String,
         limit: Int,
         error: RustError.ByReference
-    ): RustBuffer.ByValue
+    ): UniFFIRustBuffer.ByValue
 
     fun places_note_history_metadata_observation(
         handle: PlacesConnectionHandle,
-        data: Pointer,
-        len: Int,
+        observation: UniFFIRustBuffer.ByValue,
         out_err: RustError.ByReference
     )
 
