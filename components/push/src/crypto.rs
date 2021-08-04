@@ -135,6 +135,8 @@ fn extract_value(string: Option<&str>, target: &str) -> Option<Vec<u8>> {
 impl Cryptography for Crypto {
     /// Generate a new cryptographic Key
     fn generate_key() -> error::Result<Key> {
+        rc_crypto::ensure_initialized();
+
         let key = RcCryptoLocalKeyPair::generate_random().map_err(|e| {
             error::ErrorKind::CryptoError(format!("Could not generate key: {:?}", e))
         })?;

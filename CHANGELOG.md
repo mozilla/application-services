@@ -1,3 +1,43 @@
+# v82.1.0 (_2021-07-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.0.0...v82.1.0)
+
+## Places
+
+### What's New
+
+- The Swift bindings for history metadata enums and structs now have
+  public initializers, allowing them to be used properly from Swift.
+  ([#4371](https://github.com/mozilla/application-services/pull/4371))
+
+
+# v82.0.0 (_2021-07-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.1...v82.0.0)
+
+## General
+
+### ⚠️ Breaking Changes ⚠️
+
+  - The bundled version of Glean has been updated to v39.0.4, which includes a new API
+    for recording extra event fields that have an explicit type..
+    ([#4356](https://github.com/mozilla/application-services/pull/4356))
+
+### What's New
+
+  - Added content signature and chain of trust verification features in `rc_crypto`,
+    and updated NSS to version 3.66.
+    ([#4195](https://github.com/mozilla/application-services/pull/4195))
+
+## Nimbus
+
+### What's Changed
+
+  - The Nimbus API now accepts application specific context as a part of its `appSettings`.
+    The consumers get to define this context for targeting purposes. This allows different consumers
+    to target on different fields without the SDK having to acknowledge all the fields.
+    ([#4359](https://github.com/mozilla/application-services/pull/4359))
+
 # v81.0.1 (_2021-07-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.0...v81.0.1)

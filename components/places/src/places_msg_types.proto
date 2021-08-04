@@ -27,30 +27,6 @@ message HistoryVisitInfosWithBound {
     required int64 offset = 3;
 }
 
-message HistoryMetadataObservation {
-    required string url = 1;
-    optional int32 view_time = 2;
-    optional string search_term = 3;
-    optional int32 document_type = 4;
-    optional string referrer_url = 5;
-    optional string title = 6;
-}
-
-message HistoryMetadata {
-    required string url = 1;
-    optional string title = 2;
-    required int64 created_at = 3;
-    required int64 updated_at = 4;
-    required int32 total_view_time = 5;
-    optional string search_term = 6;
-    required int32 document_type = 7;
-    optional string referrer_url = 8;
-}
-
-message HistoryMetadataList {
-    repeated HistoryMetadata metadata = 1;
-}
-
 /**
  * A bookmark node.
  *

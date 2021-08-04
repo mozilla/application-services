@@ -10,16 +10,16 @@
 
 use ffi_support::{
     define_box_destructor, define_bytebuffer_destructor, define_handle_map_deleter,
-    define_string_destructor, ByteBuffer, ConcurrentHandleMap, ExternError, FfiStr,
+    define_string_destructor, ByteBuffer, ExternError, FfiStr,
 };
 use places::error::*;
-use places::msg_types::{BookmarkNodeList, HistoryMetadataObservation, SearchResultList};
+pub use places::ffi::{APIS, CONNECTIONS};
+use places::msg_types::{BookmarkNodeList, SearchResultList};
 use places::storage::bookmarks;
 use places::types::VisitTransitionSet;
-use places::{storage, ConnectionType, PlacesApi, PlacesDb};
+use places::{storage, ConnectionType, PlacesApi};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
-use std::sync::Arc;
 use sync_guid::Guid as SyncGuid;
 
 use places::api::matcher::{self, match_url, search_frecent, SearchParams};
@@ -27,11 +27,6 @@ use places::api::matcher::{self, match_url, search_frecent, SearchParams};
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> places::Result<url::Url> {
     Ok(url::Url::parse(url)?)
-}
-
-lazy_static::lazy_static! {
-    pub static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
-    static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
 }
 
 /// Instantiate a places API. Returned api must be freed with
@@ -466,88 +461,6 @@ pub extern "C" fn places_get_visit_page_with_bound(
             VisitTransitionSet::from_u16(exclude_types as u16)
                 .expect("Bug: Invalid VisitTransitionSet"),
         )
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_latest_history_metadata_for_url(
-    handle: u64,
-    url: FfiStr<'_>,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_get_latest_history_metadata_for_url");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let url = parse_url(url.as_str())?;
-        let metadata = storage::history_metadata::get_latest_for_url(conn, &url)?;
-        Ok(metadata)
-    })
-}
-
-/// # Safety
-/// Deref pointer, thus unsafe
-#[no_mangle]
-pub unsafe extern "C" fn places_note_history_metadata_observation(
-    handle: u64,
-    data: *const u8,
-    len: i32,
-    error: &mut ExternError,
-) {
-    log::debug!("places_note_history_metadata_observation");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let buffer = get_buffer(data, len);
-        let observation: HistoryMetadataObservation = prost::Message::decode(buffer)?;
-        storage::history_metadata::apply_metadata_observation(conn, observation)?;
-        Ok(())
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_metadata_delete_older_than(
-    handle: u64,
-    older_than: i64,
-    error: &mut ExternError,
-) {
-    log::debug!("places_metadata_delete_older_than");
-    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
-        storage::history_metadata::delete_older_than(conn, older_than)
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_history_metadata_between(
-    handle: u64,
-    start: i64,
-    end: i64,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_get_history_metadata_between");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history_metadata::get_between(conn, start, end)
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_history_metadata_since(
-    handle: u64,
-    start: i64,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_get_history_metadata_since");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history_metadata::get_since(conn, start)
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_query_history_metadata(
-    handle: u64,
-    query: FfiStr<'_>,
-    limit: i32,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_query_history_metadata");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history_metadata::query(conn, query.as_str(), limit)
     })
 }
 

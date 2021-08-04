@@ -228,7 +228,7 @@ mod test {
     #[test]
     fn full() -> Result<()> {
         use rc_crypto::ece;
-
+        rc_crypto::ensure_initialized();
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
         let test_config = PushConfiguration {
             sender_id: "test".to_owned(),

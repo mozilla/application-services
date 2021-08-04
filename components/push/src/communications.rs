@@ -20,13 +20,17 @@ use viaduct::{header_names, status_codes, Headers, Request};
 use crate::config::PushConfiguration;
 use crate::error::{
     self,
-    ErrorKind::{AlreadyRegisteredError, CommunicationError, CommunicationServerError},
+    ErrorKind::{
+        AlreadyRegisteredError, CommunicationError, CommunicationServerError,
+        UAIDNotRecognizedError,
+    },
 };
 use crate::storage::Store;
 
 mod rate_limiter;
 pub use rate_limiter::PersistedRateLimiter;
 
+const UAID_NOT_FOUND_ERRNO: u32 = 103;
 #[derive(Debug)]
 pub struct RegisterResponse {
     /// The UAID associated with the request
@@ -140,6 +144,38 @@ impl ConnectHttp {
         };
         Ok(headers)
     }
+
+    fn check_response_error(&self, response: &viaduct::Response) -> error::Result<()> {
+        // An error response, the extended object structure is retrieved from
+        // https://autopush.readthedocs.io/en/latest/http.html#response
+        #[derive(Deserialize)]
+        struct ResponseError {
+            pub errno: u32,
+            pub message: String,
+        }
+        if response.is_server_error() {
+            let response_error = response.json::<ResponseError>()?;
+            return Err(CommunicationServerError(format!(
+                "General Server Error: {}",
+                response_error.message
+            ))
+            .into());
+        }
+        if response.is_client_error() {
+            let response_error = response.json::<ResponseError>()?;
+            if response.status == status_codes::CONFLICT {
+                return Err(AlreadyRegisteredError.into());
+            }
+            if response.status == status_codes::GONE && response_error.errno == UAID_NOT_FOUND_ERRNO
+            {
+                return Err(UAIDNotRecognizedError(response_error.message).into());
+            }
+            return Err(
+                CommunicationError(format!("Unhandled client error {:?}", response)).into(),
+            );
+        }
+        Ok(())
+    }
 }
 
 impl Connection for ConnectHttp {
@@ -193,40 +229,12 @@ impl Connection for ConnectHttp {
             });
         }
         let url = Url::parse(&url)?;
-        let requested = match Request::post(url)
+        let response = Request::post(url)
             .headers(self.headers()?)
             .json(&body)
-            .send()
-        {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(
-                    CommunicationServerError(format!("Could not fetch endpoint: {}", e)).into(),
-                );
-            }
-        };
-        if requested.is_server_error() {
-            return Err(CommunicationServerError("General Server error".to_string()).into());
-        }
-        if requested.is_client_error() {
-            if requested.status == status_codes::CONFLICT {
-                return Err(AlreadyRegisteredError.into());
-            }
-            return Err(CommunicationError(format!(
-                "Unhandled client error {} : {:?}",
-                requested.status,
-                String::from_utf8_lossy(&requested.body)
-            ))
-            .into());
-        }
-        let response: Value = match requested.json() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(
-                    CommunicationServerError(format!("Could not parse response: {:?}", e)).into(),
-                );
-            }
-        };
+            .send()?;
+        self.check_response_error(&response)?;
+        let response: Value = response.json()?;
 
         if self.uaid.is_none() {
             self.uaid = response["uaid"].as_str().map(ToString::to_string);
@@ -248,6 +256,9 @@ impl Connection for ConnectHttp {
     }
 
     /// Drop a channel and stop receiving updates.
+    ///
+    /// A `None` channel_id indicates that we are unsubscribing
+    /// from all channels
     fn unsubscribe(&mut self, channel_id: Option<&str>) -> error::Result<bool> {
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());
@@ -270,18 +281,15 @@ impl Connection for ConnectHttp {
         if &self.options.sender_id == "test" {
             return Ok(true);
         }
-        match Request::delete(Url::parse(&url)?)
+        let response = Request::delete(Url::parse(&url)?)
             .headers(self.headers()?)
-            .send()
-        {
-            Ok(_) => {
-                if channel_id.is_none() {
-                    self.uaid = None;
-                }
-                Ok(true)
-            }
-            Err(e) => Err(CommunicationServerError(format!("Could not unsubscribe: {}", e)).into()),
+            .send()?;
+        self.check_response_error(&response)?;
+        if channel_id.is_none() {
+            self.uaid = None;
+            self.auth = None;
         }
+        Ok(true)
     }
 
     /// Update the push server with the new OS push authorization token
@@ -309,16 +317,12 @@ impl Connection for ConnectHttp {
         );
         let mut body = HashMap::new();
         body.insert("token", new_token);
-        match Request::put(Url::parse(&url)?)
+        let response = Request::put(Url::parse(&url)?)
             .json(&body)
             .headers(self.headers()?)
-            .send()
-        {
-            Ok(_) => Ok(true),
-            Err(e) => {
-                Err(CommunicationServerError(format!("Could not update token: {}", e)).into())
-            }
-        }
+            .send()?;
+        self.check_response_error(&response)?;
+        Ok(true)
     }
 
     /// Get a list of server known channels. If it differs from what we have, reset the UAID, and refresh channels.
@@ -349,7 +353,7 @@ impl Connection for ConnectHttp {
             &options.sender_id,
             &self.uaid.clone().unwrap(),
         );
-        let request = match Request::get(Url::parse(&url)?)
+        let response = match Request::get(Url::parse(&url)?)
             .headers(self.headers()?)
             .send()
         {
@@ -362,22 +366,8 @@ impl Connection for ConnectHttp {
                 .into());
             }
         };
-        if request.is_server_error() {
-            return Err(CommunicationServerError("Server error".to_string()).into());
-        }
-        if request.is_client_error() {
-            return Err(CommunicationError(format!("Unhandled client error {:?}", request)).into());
-        }
-        let payload: Payload = match request.json() {
-            Ok(p) => p,
-            Err(e) => {
-                return Err(CommunicationServerError(format!(
-                    "Could not fetch channel_list: Bad Response {:?}",
-                    e
-                ))
-                .into());
-            }
-        };
+        self.check_response_error(&response)?;
+        let payload: Payload = response.json()?;
         if payload.uaid != self.uaid.clone().unwrap() {
             return Err(
                 CommunicationServerError("Invalid Response from server".to_string()).into(),
@@ -411,7 +401,19 @@ impl Connection for ConnectHttp {
             return Ok(false);
         }
         let local_channels: HashSet<String> = channels.iter().cloned().collect();
-        let remote_channels: HashSet<String> = HashSet::from_iter(self.channel_list()?);
+        let remote_channels: HashSet<String> = match self.channel_list() {
+            Ok(v) => HashSet::from_iter(v),
+            Err(e) => match e.kind() {
+                UAIDNotRecognizedError(_) => {
+                    // We do not unsubscribe, because the
+                    // server already lost our UAID
+                    self.uaid = None;
+                    self.auth = None;
+                    return Ok(false);
+                }
+                _ => return Err(e),
+            },
+        };
 
         // verify both lists match. Either side could have lost it's mind.
         if remote_channels != local_channels {
@@ -443,6 +445,7 @@ mod test {
     // Local test SENDER_ID ("test*" reserved for Kotlin testing.)
     const SENDER_ID: &str = "FakeSenderID";
     const SECRET: &str = "SuP3rS1kRet";
+    const SECRET2: &str = "S1kRetC0dE";
 
     #[test]
     fn test_communications() {
@@ -680,7 +683,7 @@ mod test {
                 "channelID": DUMMY_CHID,
                 "endpoint": "https://example.com/update",
                 "senderid": SENDER_ID,
-                "secret": SECRET,
+                "secret": SECRET2,
             })
             .to_string();
             let ap_mock = mock(
@@ -696,6 +699,235 @@ mod test {
             // we verify that the UAID is the new one we got from
             // the server
             assert_eq!(conn.uaid.unwrap(), DUMMY_UAID2);
+            assert_eq!(conn.auth.unwrap(), SECRET2);
+        }
+        // We test that the client detects that the server lost its
+        // UAID, and verify_connection doesn't return an error
+        {
+            let config = PushConfiguration {
+                http_protocol: Some("http".to_owned()),
+                server_host: server_address().to_string(),
+                sender_id: SENDER_ID.to_owned(),
+                bridge_type: Some("test".to_owned()),
+                registration_id: Some("SomeRegistrationValue".to_owned()),
+                ..Default::default()
+            };
+            // We first subscribe to get a UAID
+            let body = json!({
+                "uaid": DUMMY_UAID,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": SECRET,
+            })
+            .to_string();
+            let ap_mock = mock(
+                "POST",
+                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(config, None, None).unwrap();
+            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let response = conn.subscribe(&channel_id, None).unwrap();
+            ap_mock.assert();
+            assert_eq!(response.uaid, conn.uaid.clone().unwrap());
+            assert_eq!(response.secret.unwrap(), conn.auth.clone().unwrap());
+            // We mock that the server lost our UAID
+            // and returns a client error
+            let channel_list_body = json!({
+                "code": status_codes::GONE,
+                "errno": UAID_NOT_FOUND_ERRNO,
+                "error": "",
+                "message": "UAID not found"
+
+            })
+            .to_string();
+            let channel_list_mock = mock(
+                "GET",
+                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+            )
+            .with_status(status_codes::GONE as usize)
+            .with_header("content-type", "application/json")
+            .with_body(channel_list_body)
+            .create();
+            // we verify that the call to `verify_connection` didn't error out
+            // and instead is instructing its caller to wipe the UAID from
+            // persisted storage
+            let is_ok = conn.verify_connection(&[channel_id]).unwrap();
+            assert!(!is_ok);
+            channel_list_mock.assert();
+            assert!(conn.uaid.is_none());
+            assert!(conn.auth.is_none());
+        }
+
+        // We test what happens when the server responds with a different client error
+        // than losing the UAID
+        {
+            let config = PushConfiguration {
+                http_protocol: Some("http".to_owned()),
+                server_host: server_address().to_string(),
+                sender_id: SENDER_ID.to_owned(),
+                bridge_type: Some("test".to_owned()),
+                registration_id: Some("SomeRegistrationValue".to_owned()),
+                ..Default::default()
+            };
+            // We first subscribe to get a UAID
+            let body = json!({
+                "uaid": DUMMY_UAID,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": SECRET,
+            })
+            .to_string();
+            let ap_mock = mock(
+                "POST",
+                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(config, None, None).unwrap();
+            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let response = conn.subscribe(&channel_id, None).unwrap();
+            ap_mock.assert();
+            assert_eq!(response.uaid, conn.uaid.clone().unwrap());
+            assert_eq!(response.secret.unwrap(), conn.auth.clone().unwrap());
+            // We mock that the server is returning a client error
+            let channel_list_body = json!({
+                "code": status_codes::UNAUTHORIZED,
+                "errno": 109,
+                "error": "",
+                "message": "Unauthroized"
+
+            })
+            .to_string();
+            let channel_list_mock = mock(
+                "GET",
+                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+            )
+            .with_status(status_codes::UNAUTHORIZED as usize)
+            .with_header("content-type", "application/json")
+            .with_body(channel_list_body)
+            .create();
+            // we verify that the verify connection call will error out with a
+            // communication error
+            let err = conn.verify_connection(&[channel_id]).unwrap_err();
+            channel_list_mock.assert();
+            assert!(matches!(
+                err.kind(),
+                error::ErrorKind::CommunicationError(_)
+            ));
+            // we double check that we did not wipe our uaid
+            assert!(conn.uaid.is_some());
+            assert!(conn.auth.is_some());
+        }
+
+        // We test what happens when the server responds with a server error
+        {
+            let config = PushConfiguration {
+                http_protocol: Some("http".to_owned()),
+                server_host: server_address().to_string(),
+                sender_id: SENDER_ID.to_owned(),
+                bridge_type: Some("test".to_owned()),
+                registration_id: Some("SomeRegistrationValue".to_owned()),
+                ..Default::default()
+            };
+            // We first subscribe to get a UAID
+            let body = json!({
+                "uaid": DUMMY_UAID,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": SECRET,
+            })
+            .to_string();
+            let ap_mock = mock(
+                "POST",
+                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(config, None, None).unwrap();
+            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let response = conn.subscribe(&channel_id, None).unwrap();
+            ap_mock.assert();
+            assert_eq!(response.uaid, conn.uaid.clone().unwrap());
+            assert_eq!(response.secret.unwrap(), conn.auth.clone().unwrap());
+            // We mock that the server is returning a client error
+            let channel_list_body = json!({
+                "code": status_codes::INTERNAL_SERVER_ERROR,
+                "errno": 999,
+                "error": "",
+                "message": "Unknown Error"
+
+            })
+            .to_string();
+            let channel_list_mock = mock(
+                "GET",
+                format!("/v1/test/{}/registration/{}", SENDER_ID, DUMMY_UAID).as_ref(),
+            )
+            .with_status(status_codes::INTERNAL_SERVER_ERROR as usize)
+            .with_header("content-type", "application/json")
+            .with_body(channel_list_body)
+            .create();
+
+            // we verify that the verify connection call will error out with a
+            // server error
+            let err = conn.verify_connection(&[channel_id]).unwrap_err();
+            channel_list_mock.assert();
+            assert!(matches!(
+                err.kind(),
+                error::ErrorKind::CommunicationServerError(_)
+            ));
+            // we double check that we did not wipe our uaid
+            assert!(conn.uaid.is_some());
+            assert!(conn.auth.is_some());
+        }
+
+        // we test that we properly return a `AlreadyRegisteredError` when a client
+        // gets a `CONFLICT` status code
+        {
+            let config = PushConfiguration {
+                http_protocol: Some("http".to_owned()),
+                server_host: server_address().to_string(),
+                sender_id: SENDER_ID.to_owned(),
+                bridge_type: Some("test".to_owned()),
+                registration_id: Some("SomeRegistrationValue".to_owned()),
+                ..Default::default()
+            };
+            // We mock that the server thinks
+            // we already registered!
+            let body = json!({
+                "code": status_codes::CONFLICT,
+                "errno": 999,
+                "error": "",
+                "message": "Already registered"
+
+            })
+            .to_string();
+            let ap_mock = mock(
+                "POST",
+                format!("/v1/test/{}/registration", SENDER_ID).as_ref(),
+            )
+            .with_status(status_codes::CONFLICT as usize)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(config, None, None).unwrap();
+            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let err = conn.subscribe(&channel_id, None).unwrap_err();
+            ap_mock.assert();
+            assert!(matches!(
+                err.kind(),
+                error::ErrorKind::AlreadyRegisteredError
+            ));
         }
     }
 }
