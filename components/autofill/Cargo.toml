@@ -23,7 +23,7 @@ sync15 = { path = "../sync15" }
 sync15-traits = {path = "../support/sync15-traits"}
 thiserror = "1.0"
 types = { path = "../support/types" }
-uniffi = "^0.12"
+uniffi = "^0.13"
 url = { version = "2.1", features = ["serde"] }
 
 [dependencies.rusqlite]
@@ -36,4 +36,4 @@ libsqlite3-sys = "0.20.1"
 
 [build-dependencies]
 nss_build_common = { path = "../support/rc_crypto/nss/nss_build_common" }
-uniffi_build = { version = "^0.12", features = [ "builtin-bindgen" ]}
+uniffi_build = { version = "^0.13", features = [ "builtin-bindgen" ]}

@@ -1,3 +1,6 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.logins"
 cdylib_name = "megazord"
+
+[bindings.swift]
+generate_module_map = false

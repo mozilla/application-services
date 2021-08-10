@@ -1,3 +1,6 @@
 [bindings.kotlin]
 package_name = "org.mozilla.experiments.nimbus.internal"
 cdylib = "megazord"
+
+[bindings.swift]
+generate_module_map = false

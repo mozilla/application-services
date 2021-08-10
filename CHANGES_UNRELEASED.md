@@ -19,7 +19,26 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
+## Android
+
+### ⚠️ Breaking Changes ⚠️
+  - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
+    to be more in keeping with Java/Kotlin idioms.
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+  - Members of the `LoginsStoreError` enum no longer have a `message` property giving a detailed error message.
+    It is now just a plain enum with no associated data.
+
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with
+    builtin names.
+
 ## Push
+
 ### What's changed
   - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
     - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)

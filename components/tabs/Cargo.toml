@@ -23,8 +23,8 @@ interrupt-support = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "^0.12.0"
-uniffi_macros = "^0.12"
+uniffi = "^0.13.0"
+uniffi_macros = "^0.13"
 
 [build-dependencies]
-uniffi_build = { version = "^0.12.0", features = [ "builtin-bindgen" ]}
+uniffi_build = { version = "^0.13.0", features = [ "builtin-bindgen" ]}

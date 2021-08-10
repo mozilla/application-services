@@ -2,16 +2,16 @@ namespace autofill {
     // We expose the crypto primitives on the namespace
 
     // Create a new, random, encryption key.
-    [Throws=Error]
+    [Throws=AutofillError]
     string create_key();
 
     // Encrypt an arbitrary string - `key` must have come from `create_key()`
-    [Throws=Error]
+    [Throws=AutofillError]
     string encrypt_string(string key, string cleartext);
 
     // Decrypt an arbitrary string - `key` must have come from `create_key()`
     // and `ciphertext` must have come from `encrypt_string()`
-    [Throws=Error]
+    [Throws=AutofillError]
     string decrypt_string(string key, string ciphertext);
 };
 
@@ -80,53 +80,53 @@ dictionary Address {
 };
 
 [Error]
-enum Error {
+enum AutofillError {
    "OpenDatabaseError", "SqlError", "IoError", "InterruptedError",
    "IllegalDatabasePath", "Utf8Error", "JsonError", "InvalidSyncPayload",
    "MissingEncryptionKey", "CryptoError", "NoSuchRecord",
 };
 
 interface Store {
-    [Throws=Error]
+    [Throws=AutofillError]
     constructor(string dbpath);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     CreditCard add_credit_card(UpdatableCreditCardFields cc);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     CreditCard get_credit_card(string guid);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     sequence<CreditCard> get_all_credit_cards();
 
-    [Throws=Error]
+    [Throws=AutofillError]
     void update_credit_card(string guid, UpdatableCreditCardFields cc);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     boolean delete_credit_card(string guid);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     void touch_credit_card(string guid);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     Address add_address(UpdatableAddressFields a);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     Address get_address(string guid);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     sequence<Address> get_all_addresses();
 
-    [Throws=Error]
+    [Throws=AutofillError]
     void update_address(string guid, UpdatableAddressFields a);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     boolean delete_address(string guid);
 
-    [Throws=Error]
+    [Throws=AutofillError]
     void touch_address(string guid);
 
-    [Throws=Error, Self=ByArc]
+    [Throws=AutofillError, Self=ByArc]
     void scrub_encrypted_data();
 
     [Self=ByArc]

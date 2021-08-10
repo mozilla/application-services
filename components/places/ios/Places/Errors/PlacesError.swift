@@ -177,7 +177,7 @@ public enum PlacesError: LocalizedError {
                 // If we couldn't get the right code, default to unexpected error
                 let code = Int32(splitError[0]) ?? 1
                 let message = splitError[1]
-                throw makeException(code: PlacesErrorCode(rawValue: code), message: message)!
+                throw makeException(code: PlacesErrorCode(code), message: message)!
             default:
                 throw PlacesError.unexpected(message: "Unexpected Error")
             }

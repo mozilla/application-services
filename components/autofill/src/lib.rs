@@ -19,6 +19,6 @@ use crate::db::models::address::*;
 use crate::db::models::credit_card::*;
 use crate::db::store::Store;
 use crate::encryption::{create_key, decrypt_string, encrypt_string};
-use error::Error;
+use error::Error as AutofillError;
 
 include!(concat!(env!("OUT_DIR"), "/autofill.uniffi.rs"));
