@@ -160,6 +160,7 @@ internal extension Nimbus {
 
     func fetchExperimentsOnThisThread() throws {
         try nimbusClient.fetchExperiments()
+        notifyOnExperimentsFetched()
     }
 
     func applyPendingExperimentsOnThisThread() throws {

@@ -26,3 +26,7 @@ Use the template below to make assigning a version number during the release cut
     - Two other new errors were defined that were used to be reported under a generic error:
       - `JSONDeserializeError` for errors in deserialization
       - `RequestError` for errors in sending a network request
+
+## Nimbus
+### What's changed
+   - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
