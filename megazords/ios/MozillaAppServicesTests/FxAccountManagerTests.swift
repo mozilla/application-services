@@ -173,7 +173,7 @@ class FxAccountManagerTests: XCTestCase {
     func testAccountRestorationEnsureCapabilitiesNonAuthError() {
         class MockAccount: MockFxAccount {
             override func ensureCapabilities(supportedCapabilities _: [DeviceCapability]) throws {
-                throw FxaError.Network(message: "The WiFi cable is detached.")
+                throw FxaError.Network
             }
         }
         let mgr = mockFxAManager()
@@ -203,7 +203,7 @@ class FxAccountManagerTests: XCTestCase {
         class MockAccount: MockFxAccount {
             override func ensureCapabilities(supportedCapabilities _: [DeviceCapability]) throws {
                 notifyAuthError()
-                throw FxaError.Authentication(message: "Your token is expired yo.")
+                throw FxaError.Authentication
             }
 
             override func checkAuthorizationStatus() throws -> AuthorizationInfo {
@@ -301,7 +301,7 @@ class FxAccountManagerTests: XCTestCase {
                 profileCallCount += 1
                 if profileCallCount == 1 {
                     notifyAuthError()
-                    throw FxaError.Authentication(message: "Uh oh.")
+                    throw FxaError.Authentication
                 } else {
                     return profile
                 }

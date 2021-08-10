@@ -18,9 +18,6 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
 import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
-// uniffi has unfortunate names for errors: https://github.com/mozilla/uniffi-rs/issues/442
-typealias LoginsStorageException = LoginsStorageErrorException
-
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a
    LoginStore.
@@ -33,7 +30,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
     }
 
     private fun checkUnlocked(): LoginStore {
-        val store = this.store.get() ?: throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
+        val store = this.store.get() ?: throw LoginsStorageException.UnexpectedLoginsStorageException() // ("Using DatabaseLoginsStorage without unlocking first")
         return store
     }
 
@@ -42,7 +39,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
     fun lock() {
         val store = this.store.getAndSet(null)
         if (store == null) {
-            throw LoginsStorageErrorException.MismatchedLock("Lock called when we are already locked")
+            throw LoginsStorageException.MismatchedLock() // ("Lock called when we are already locked")
         }
         store.destroy()
     }
@@ -54,7 +51,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
             val store = LoginStore(dbPath, encryptionKey)
             if (this.store.getAndSet(store) != null) {
                 // this seems wrong?
-                throw LoginsStorageErrorException.MismatchedLock("Unlock called when we are already unlocked")
+                throw LoginsStorageException.MismatchedLock() // ("Unlock called when we are already unlocked")
             }
         }
     }
@@ -153,9 +150,9 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
         }
     }
 
-    @Throws(LoginsStorageErrorException.InvalidRecord::class)
+    @Throws(LoginsStorageException.InvalidRecord::class)
     fun ensureValid(login: Login) {
-        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageErrorException.InvalidRecord }) {
+        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageException.InvalidRecord }) {
             checkUnlocked().checkValidWithNoDupes(login)
         }
     }
@@ -227,22 +224,22 @@ class LoginsStoreCounterMetrics(
                 throw e
             }
             when (e) {
-                is LoginsStorageErrorException.MismatchedLock -> {
+                is LoginsStorageException.MismatchedLock -> {
                     errCount["mismatched_lock"].add()
                 }
-                is LoginsStorageErrorException.NoSuchRecord -> {
+                is LoginsStorageException.NoSuchRecord -> {
                     errCount["no_such_record"].add()
                 }
-                is LoginsStorageErrorException.IdCollision -> {
+                is LoginsStorageException.IdCollision -> {
                     errCount["id_collision"].add()
                 }
-                is LoginsStorageErrorException.InvalidKey -> {
+                is LoginsStorageException.InvalidKey -> {
                     errCount["invalid_key"].add()
                 }
-                is LoginsStorageErrorException.Interrupted -> {
+                is LoginsStorageException.Interrupted -> {
                     errCount["interrupted"].add()
                 }
-                is LoginsStorageErrorException.InvalidRecord -> {
+                is LoginsStorageException.InvalidRecord -> {
                     errCount["invalid_record"].add()
                 }
                 is LoginsStorageException -> {

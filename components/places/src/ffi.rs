@@ -240,26 +240,30 @@ fn get_error_number(err: &Error) -> i32 {
 /// `ExternError` in the first place.
 #[derive(Debug)]
 enum ErrorWrapper {
-    Wrapped(String),
+    Wrapped { msg: String },
 }
 
 impl ToString for ErrorWrapper {
     fn to_string(&self) -> String {
         match self {
-            ErrorWrapper::Wrapped(e) => e.to_string(),
+            ErrorWrapper::Wrapped { msg } => msg.to_string(),
         }
     }
 }
 
 impl From<Error> for ErrorWrapper {
     fn from(e: Error) -> ErrorWrapper {
-        ErrorWrapper::Wrapped(format!("{}|{}", get_error_number(&e), e.to_string()))
+        ErrorWrapper::Wrapped {
+            msg: format!("{}|{}", get_error_number(&e), e.to_string()),
+        }
     }
 }
 
 impl From<HandleError> for ErrorWrapper {
     fn from(e: HandleError) -> ErrorWrapper {
-        ErrorWrapper::Wrapped(format!("{}|{}", error_codes::UNEXPECTED, e.to_string()))
+        ErrorWrapper::Wrapped {
+            msg: format!("{}|{}", error_codes::UNEXPECTED, e.to_string()),
+        }
     }
 }
 
@@ -279,32 +283,6 @@ implement_into_ffi_by_delegation!(
     crate::storage::bookmarks::PublicNode,
     msg_types::BookmarkNode
 );
-
-/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) implementing
-/// `uniffi::ViaFfi` (UniFFI auto-generated serialization) by delegating to that implementation.
-///
-/// This is only necessary because we have a kinda "hybrid" FFI situation -
-/// some things generated via UniFFI, others by hand. Because this macro only
-/// makes sense in this Frankenstein world it's not in UniFFI itself.
-#[macro_export]
-macro_rules! implement_into_ffi_by_uniffi {
-    ($($FFIType:ty),* $(,)*) => {$(
-        unsafe impl ffi_support::IntoFfi for $FFIType where $FFIType: uniffi::ViaFfi {
-            type Value = <Self as uniffi::ViaFfi>::FfiType;
-            #[inline]
-            fn ffi_default() -> Self::Value {
-                Default::default()
-            }
-
-            #[inline]
-            fn into_ffi_value(self) -> Self::Value {
-                <Self as uniffi::ViaFfi>::lower(self)
-            }
-        }
-    )*}
-}
-
-implement_into_ffi_by_uniffi!(crate::storage::history_metadata::HistoryMetadata);
 
 uniffi_macros::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!

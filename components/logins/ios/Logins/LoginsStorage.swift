@@ -48,7 +48,7 @@ open class LoginsStorage {
     // since we expect the caller to do so.
     private func getUnlockedStore() throws -> LoginStore {
         if store == nil {
-            throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
+            throw LoginsStoreError.MismatchedLock
         }
         return store!
     }
@@ -62,7 +62,7 @@ open class LoginsStorage {
     open func getDbSaltForKey(key: String) throws -> String {
         try queue.sync {
             if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
+                throw LoginsStoreError.MismatchedLock
             }
             return try openAndGetSalt(path: self.dbPath, encryptionKey: key)
         }
@@ -79,7 +79,7 @@ open class LoginsStorage {
     open func migrateToPlaintextHeader(key: String, salt: String) throws {
         try queue.sync {
             if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
+                throw LoginsStoreError.MismatchedLock
             }
             try openAndMigrateToPlaintextHeader(path: self.dbPath, encryptionKey: key, salt: salt)
         }
@@ -107,7 +107,7 @@ open class LoginsStorage {
     open func unlockWithKeyAndSalt(key: String, salt: String) throws {
         try queue.sync {
             if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
+                throw LoginsStoreError.MismatchedLock
             }
             try self.doOpen(key, salt: salt)
         }
@@ -131,7 +131,7 @@ open class LoginsStorage {
     open func unlock(withEncryptionKey key: String) throws {
         try queue.sync {
             if self.store != nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
+                throw LoginsStoreError.MismatchedLock
             }
             try self.doOpen(key, salt: nil)
         }
@@ -152,7 +152,7 @@ open class LoginsStorage {
     open func lock() throws {
         try queue.sync {
             if self.store == nil {
-                throw LoginsStoreError.MismatchedLock(message: "Mismatched Lock")
+                throw LoginsStoreError.MismatchedLock
             }
             self.doDestroy()
         }

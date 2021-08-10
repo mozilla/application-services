@@ -194,9 +194,9 @@ open class FxAccountManager {
         completionHandler: @escaping (Result<Void, Error>) -> Void
     ) {
         if latestOAuthStateParam == nil {
-            DispatchQueue.main.async { completionHandler(.failure(FxaError.NoExistingAuthFlow(message: ""))) }
+            DispatchQueue.main.async { completionHandler(.failure(FxaError.NoExistingAuthFlow)) }
         } else if authData.state != latestOAuthStateParam {
-            DispatchQueue.main.async { completionHandler(.failure(FxaError.WrongAuthFlow(message: ""))) }
+            DispatchQueue.main.async { completionHandler(.failure(FxaError.WrongAuthFlow)) }
         } else { /* state == latestAuthState */
             processEvent(event: .authenticated(authData: authData)) {
                 DispatchQueue.main.async { completionHandler(.success(())) }

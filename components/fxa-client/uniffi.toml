@@ -1,3 +1,6 @@
 [bindings.kotlin]
 package_name = "mozilla.appservices.fxaclient"
 cdylib_name = "megazord"
+
+[bindings.swift]
+generate_module_map = false

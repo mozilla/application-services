@@ -3,3 +3,6 @@
 # kotlin errors about being unable to resolve which `rustCall` to use.
 package_name = "mozilla.appservices.places.uniffi"
 cdylib_name = "megazord"
+
+[bindings.swift]
+generate_module_map = false
