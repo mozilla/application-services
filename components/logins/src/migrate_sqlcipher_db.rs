@@ -4,49 +4,26 @@
 
 // Code to migrate from an sqlcipher DB to a plaintext DB
 
-use crate::db::MigrationMetrics;
+use crate::db::{MigrationMetrics, MigrationPhaseMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
+use crate::sync::SyncStatus;
+use crate::sync::{LocalLogin, MirrorLogin};
+use crate::util;
 use crate::Login;
 use crate::LoginStore;
 use lazy_static::lazy_static;
-use rusqlite::{Connection, Row, NO_PARAMS};
+use rusqlite::{named_params, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use std::path::Path;
-use std::time::Instant;
-
-// Keep it around to be easy to reference the old schema
-pub const SQL_CIPHER_COLS: &str = "
-    guid,
-    username,
-    password,
-    hostname,
-    httpRealm,
-    formSubmitURL,
-    usernameField,
-    passwordField,
-    timeCreated,
-    timeLastUsed,
-    timePasswordChanged,
-    timesUsed
-";
+use std::time::{Duration, Instant};
+use sync15::ServerTimestamp;
+use sync_guid::Guid;
 
 lazy_static! {
-    // pub static ref GET_JOINED_LOGINS_SQL: String =
-    //     format!("SELECT * FROM loginsL LEFT JOIN loginsM ON loginsL.guid = loginsM.guid");
-    pub static ref GET_ALL_SQL: String = format!(
-        "SELECT {common_cols}
-         FROM loginsL
-         WHERE is_deleted = 0
-
-         UNION ALL
-    
-         SELECT {common_cols}
-         FROM loginsM
-         WHERE is_overridden IS NOT 1
-        ",
-        common_cols = SQL_CIPHER_COLS,
-    );
+    pub static ref GET_LOGINSL_SQL: String = format!("SELECT * FROM loginsL");
+    pub static ref GET_LOGINSM_SQL: String = format!("SELECT * FROM loginsM");
+    pub static ref GET_SYNC_META_SQL: String = format!("SELECT * FROM loginsSyncMeta");
 }
 
 pub fn migrate_sqlcipher_db_to_plaintext(
@@ -107,38 +84,436 @@ pub fn migrate_from_sqlcipher_db(
     new_db_store: LoginStore,
     encryption_key: &str,
 ) -> Result<MigrationMetrics> {
-    let start_time = Instant::now();
-
-    let mut metrics: MigrationMetrics = MigrationMetrics::default();
-
-    // Select From both LoginsL and LoginsM with a union to ensure we're covering our
-    // migration cases (one table has but not the other, etc)
-    let mut select_stmt = cipher_conn.prepare(&GET_ALL_SQL)?;
-
     // encrypt the username/password data
     let encryptor = EncryptorDecryptor::new(encryption_key)?;
 
-    // Use raw rows to avoid extra copying since we're looping over an entire table
+    // Migrate tables separately due to specific columns in each needing
+    // to be ported over
+    let local_metrics = migrate_local_logins(&cipher_conn, &new_db_store, &encryptor)?;
+    let mirror_metrics = migrate_mirror_logins(&cipher_conn, &new_db_store, &encryptor)?;
+    migrate_sync_metadata(&cipher_conn, &new_db_store)?;
+
+    // A little ugly but necessary due to individual migrations of both tables
+    Ok(MigrationMetrics {
+        fixup_phase: MigrationPhaseMetrics {
+            num_processed: local_metrics.fixup_phase.num_processed
+                + mirror_metrics.fixup_phase.num_processed,
+            num_succeeded: local_metrics.fixup_phase.num_succeeded
+                + mirror_metrics.fixup_phase.num_succeeded,
+            num_failed: local_metrics.fixup_phase.num_failed
+                + mirror_metrics.fixup_phase.num_failed,
+            total_duration: local_metrics.fixup_phase.total_duration
+                + mirror_metrics.fixup_phase.total_duration,
+            errors: [
+                &local_metrics.fixup_phase.errors[..],
+                &mirror_metrics.fixup_phase.errors[..],
+            ]
+            .concat(),
+        },
+        insert_phase: MigrationPhaseMetrics {
+            num_processed: local_metrics.insert_phase.num_processed
+                + mirror_metrics.insert_phase.num_processed,
+            num_succeeded: local_metrics.insert_phase.num_succeeded
+                + mirror_metrics.insert_phase.num_succeeded,
+            num_failed: local_metrics.insert_phase.num_failed
+                + mirror_metrics.insert_phase.num_failed,
+            total_duration: local_metrics.insert_phase.total_duration
+                + mirror_metrics.insert_phase.total_duration,
+            errors: [
+                &local_metrics.insert_phase.errors[..],
+                &mirror_metrics.insert_phase.errors[..],
+            ]
+            .concat(),
+        },
+        num_processed: local_metrics.num_processed + mirror_metrics.num_processed,
+        num_succeeded: local_metrics.num_succeeded + mirror_metrics.num_succeeded,
+        num_failed: local_metrics.num_failed + mirror_metrics.num_failed,
+        total_duration: local_metrics.total_duration + mirror_metrics.total_duration,
+        errors: [&local_metrics.errors[..], &mirror_metrics.errors[..]].concat(),
+    })
+}
+
+fn migrate_sync_metadata(conn: &Connection, store: &LoginStore) -> Result<()> {
+    let mut select_stmt = conn.prepare(&GET_SYNC_META_SQL)?;
     let mut rows = select_stmt.query(NO_PARAMS)?;
+
     while let Some(row) = rows.next()? {
-        metrics.num_processed += 1;
-        match get_login_from_row(row, &encryptor) {
-            Ok(login) => {
-                metrics.num_succeeded += 1;
-                // TODO: Discuss
-                // Need to handle in loginsL: local_modified, is_deleted
-                // Need to handle in loginsM: is_overridden, server_modified
-                // Could create a LocalLogin/Mirror Login but sql probably easier
-                new_db_store.add_or_update(login)?;
+        let key: String = row.get("key")?;
+        let value: String = row.get("value")?;
+
+        store.db.lock().unwrap().execute_named(
+            "INSERT INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
+            named_params! { ":key": &key, ":value": &value },
+        )?;
+    }
+    Ok(())
+}
+
+// This was copied from import_multiple in db.rs with a focus on LocalLogin
+pub fn migrate_local_logins(
+    cipher_conn: &Connection,
+    store: &LoginStore,
+    encryptor: &EncryptorDecryptor,
+) -> Result<MigrationMetrics> {
+    let logins = get_local_logins(&cipher_conn, &encryptor)?;
+
+    let new_db = store.db.lock().unwrap();
+    let conn = new_db.conn();
+    let tx = conn.unchecked_transaction()?;
+
+    let import_start = Instant::now();
+    let sql = format!(
+        "INSERT OR IGNORE INTO loginsL (
+            origin,
+            httpRealm,
+            formActionOrigin,
+            usernameField,
+            passwordField,
+            timesUsed,
+            usernameEnc,
+            passwordEnc,
+            guid,
+            timeCreated,
+            timeLastUsed,
+            timePasswordChanged,
+            local_modified,
+            is_deleted,
+            sync_status
+        ) VALUES (
+            :origin,
+            :http_realm,
+            :form_action_origin,
+            :username_field,
+            :password_field,
+            :times_used,
+            :username_enc,
+            :password_enc,
+            :guid,
+            :time_created,
+            :time_last_used,
+            :time_password_changed,
+            :local_modified,
+            :is_deleted,
+            :sync_status
+        )",
+    );
+    let import_start_total_logins: u64 = logins.len() as u64;
+    let mut num_failed_fixup: u64 = 0;
+    let mut num_failed_insert: u64 = 0;
+    let mut fixup_phase_duration = Duration::new(0, 0);
+    let mut fixup_errors: Vec<String> = Vec::new();
+    let mut insert_errors: Vec<String> = Vec::new();
+
+    for local_login in logins {
+        // This is a little bit of hoop-jumping to avoid cloning each borrowed item
+        // in order to *possibly* created a fixed-up version.
+        let mut login = local_login.login;
+        let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
+            match &fixed {
+                None => new_db.check_for_dupes(&login)?,
+                Some(l) => new_db.check_for_dupes(&l)?,
+            };
+            Ok(fixed)
+        });
+        match maybe_fixed_login {
+            Ok(None) => {} // The provided login was fine all along
+            Ok(Some(l)) => {
+                // We made a new, fixed-up Login.
+                login = l;
             }
             Err(e) => {
-                metrics.num_failed += 1;
-                metrics.errors.push(e.to_string());
+                log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
+                fixup_errors.push(e.label().into());
+                num_failed_fixup += 1;
+                continue;
+            }
+        };
+        // Now we can safely insert it, knowing that it's valid data.
+        let old_guid = login.guid(); // Keep the old GUID around so we can debug errors easily.
+        let guid = if old_guid.is_valid_for_sync_server() {
+            old_guid.clone()
+        } else {
+            Guid::random()
+        };
+        fixup_phase_duration = import_start.elapsed();
+        match conn.execute_named_cached(
+            &sql,
+            named_params! {
+                ":origin": login.origin,
+                ":http_realm": login.http_realm,
+                ":form_action_origin": login.form_action_origin,
+                ":username_field": login.username_field,
+                ":password_field": login.password_field,
+                ":username_enc": login.username_enc,
+                ":password_enc": login.password_enc,
+                ":guid": guid,
+                ":time_created": login.time_created,
+                ":times_used": login.times_used,
+                ":time_last_used": login.time_last_used,
+                ":time_password_changed": login.time_password_changed,
+                // Local login specific stuff
+                ":local_modified": util::system_time_ms_i64(local_login.local_modified),
+                ":is_deleted": local_login.is_deleted,
+                ":sync_status": local_login.sync_status as u8
+            },
+        ) {
+            Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
+            Err(e) => {
+                log::warn!("Could not import {} ({}).", old_guid, e);
+                insert_errors.push(Error::from(e).label().into());
+                num_failed_insert += 1;
+            }
+        };
+    }
+    tx.commit()?;
+
+    let num_post_fixup = import_start_total_logins - num_failed_fixup;
+    let num_failed = num_failed_fixup + num_failed_insert;
+    let insert_phase_duration = import_start
+        .elapsed()
+        .checked_sub(fixup_phase_duration)
+        .unwrap_or_else(|| Duration::new(0, 0));
+    let mut all_errors = Vec::new();
+    all_errors.extend(fixup_errors.clone());
+    all_errors.extend(insert_errors.clone());
+    let metrics = MigrationMetrics {
+        fixup_phase: MigrationPhaseMetrics {
+            num_processed: import_start_total_logins,
+            num_succeeded: num_post_fixup,
+            num_failed: num_failed_fixup,
+            total_duration: fixup_phase_duration.as_millis() as u64,
+            errors: fixup_errors,
+        },
+        insert_phase: MigrationPhaseMetrics {
+            num_processed: num_post_fixup,
+            num_succeeded: num_post_fixup - num_failed_insert,
+            num_failed: num_failed_insert,
+            total_duration: insert_phase_duration.as_millis() as u64,
+            errors: insert_errors,
+        },
+        num_processed: import_start_total_logins,
+        num_succeeded: import_start_total_logins - num_failed,
+        num_failed,
+        total_duration: fixup_phase_duration
+            .checked_add(insert_phase_duration)
+            .unwrap_or_else(|| Duration::new(0, 0))
+            .as_millis() as u64,
+        errors: all_errors,
+    };
+    log::info!(
+        "Finished importing logins with the following metrics: {:#?}",
+        metrics
+    );
+    Ok(metrics)
+}
+
+fn get_local_logins(conn: &Connection, encryptor: &EncryptorDecryptor) -> Result<Vec<LocalLogin>> {
+    let mut select_stmt = conn.prepare(&GET_LOGINSL_SQL)?;
+    let mut rows = select_stmt.query(NO_PARAMS)?;
+    let mut local_logins: Vec<LocalLogin> = Vec::new();
+    // Use raw rows to avoid extra copying since we're looping over an entire table
+    while let Some(row) = rows.next()? {
+        match get_login_from_row(row, &encryptor) {
+            Ok(login) => {
+                // This is very close to what is in merge.rs from_row but this login is the old schema
+                let l_login = LocalLogin {
+                    login: login,
+                    local_modified: util::system_time_millis_from_row(row, "local_modified")?,
+                    is_deleted: row.get("is_deleted")?,
+                    sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
+                };
+                local_logins.push(l_login);
+            }
+            Err(e) => {
+                // We should probably just skip if we can't successfully fetch the row
+                println!("{:?}", e);
             }
         }
     }
+    Ok(local_logins)
+}
 
-    metrics.total_duration = start_time.elapsed().as_millis() as u64;
+fn get_mirror_logins(
+    conn: &Connection,
+    encryptor: &EncryptorDecryptor,
+) -> Result<Vec<MirrorLogin>> {
+    let mut select_stmt = conn.prepare(&GET_LOGINSM_SQL)?;
+    let mut rows = select_stmt.query(NO_PARAMS)?;
+    let mut mirror_logins: Vec<MirrorLogin> = Vec::new();
+    // Use raw rows to avoid extra copying since we're looping over an entire table
+    while let Some(row) = rows.next()? {
+        match get_login_from_row(row, &encryptor) {
+            Ok(login) => {
+                // This is very close to what is in merge.rs from_row but this login is the old schema
+                let m_login = MirrorLogin {
+                    login: login,
+                    server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
+                    is_overridden: row.get("is_overridden")?,
+                };
+                mirror_logins.push(m_login);
+            }
+            Err(e) => {
+                // We should probably just skip if we can't successfully fetch the row
+                println!("{:?}", e);
+            }
+        }
+    }
+    Ok(mirror_logins)
+}
+
+// This was lifted from import_multiple in db.rs with a focus on LocalLogin
+pub fn migrate_mirror_logins(
+    cipher_conn: &Connection,
+    store: &LoginStore,
+    encryptor: &EncryptorDecryptor,
+) -> Result<MigrationMetrics> {
+    let logins = get_mirror_logins(&cipher_conn, &encryptor)?;
+
+    let new_db = store.db.lock().unwrap();
+    let conn = new_db.conn();
+    let tx = conn.unchecked_transaction()?;
+
+    let import_start = Instant::now();
+    let sql = format!(
+        "INSERT OR IGNORE INTO loginsM (
+            origin,
+            httpRealm,
+            formActionOrigin,
+            usernameField,
+            passwordField,
+            timesUsed,
+            usernameEnc,
+            passwordEnc,
+            guid,
+            timeCreated,
+            timeLastUsed,
+            timePasswordChanged,
+            server_modified,
+            is_overridden
+        ) VALUES (
+            :origin,
+            :http_realm,
+            :form_action_origin,
+            :username_field,
+            :password_field,
+            :times_used,
+            :username_enc,
+            :password_enc,
+            :guid,
+            :time_created,
+            :time_last_used,
+            :time_password_changed,
+            :server_modified,
+            :is_overridden
+        )",
+    );
+    let import_start_total_logins: u64 = logins.len() as u64;
+    let mut num_failed_fixup: u64 = 0;
+    let mut num_failed_insert: u64 = 0;
+    let mut fixup_phase_duration = Duration::new(0, 0);
+    let mut fixup_errors: Vec<String> = Vec::new();
+    let mut insert_errors: Vec<String> = Vec::new();
+
+    for mirror_login in logins {
+        // This is a little bit of hoop-jumping to avoid cloning each borrowed item
+        // in order to *possibly* created a fixed-up version.
+        let mut login = mirror_login.login;
+        let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
+            match &fixed {
+                None => new_db.check_for_dupes(&login)?,
+                Some(l) => new_db.check_for_dupes(&l)?,
+            };
+            Ok(fixed)
+        });
+        match maybe_fixed_login {
+            Ok(None) => {} // The provided login was fine all along
+            Ok(Some(l)) => {
+                // We made a new, fixed-up Login.
+                login = l;
+            }
+            Err(e) => {
+                log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
+                fixup_errors.push(e.label().into());
+                num_failed_fixup += 1;
+                continue;
+            }
+        };
+        // Now we can safely insert it, knowing that it's valid data.
+        let old_guid = login.guid(); // Keep the old GUID around so we can debug errors easily.
+        let guid = if old_guid.is_valid_for_sync_server() {
+            old_guid.clone()
+        } else {
+            Guid::random()
+        };
+        fixup_phase_duration = import_start.elapsed();
+        match conn.execute_named_cached(
+            &sql,
+            named_params! {
+                ":origin": login.origin,
+                ":http_realm": login.http_realm,
+                ":form_action_origin": login.form_action_origin,
+                ":username_field": login.username_field,
+                ":password_field": login.password_field,
+                ":username_enc": login.username_enc,
+                ":password_enc": login.password_enc,
+                ":guid": guid,
+                ":time_created": login.time_created,
+                ":times_used": login.times_used,
+                ":time_last_used": login.time_last_used,
+                ":time_password_changed": login.time_password_changed,
+                // Mirror login specific stuff
+                ":server_modified": mirror_login.server_modified.as_millis(),
+                ":is_overridden": mirror_login.is_overridden,
+            },
+        ) {
+            Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
+            Err(e) => {
+                log::warn!("Could not import {} ({}).", old_guid, e);
+                insert_errors.push(Error::from(e).label().into());
+                num_failed_insert += 1;
+            }
+        };
+    }
+    tx.commit()?;
+
+    let num_post_fixup = import_start_total_logins - num_failed_fixup;
+    let num_failed = num_failed_fixup + num_failed_insert;
+    let insert_phase_duration = import_start
+        .elapsed()
+        .checked_sub(fixup_phase_duration)
+        .unwrap_or_else(|| Duration::new(0, 0));
+    let mut all_errors = Vec::new();
+    all_errors.extend(fixup_errors.clone());
+    all_errors.extend(insert_errors.clone());
+
+    let metrics = MigrationMetrics {
+        fixup_phase: MigrationPhaseMetrics {
+            num_processed: import_start_total_logins,
+            num_succeeded: num_post_fixup,
+            num_failed: num_failed_fixup,
+            total_duration: fixup_phase_duration.as_millis() as u64,
+            errors: fixup_errors,
+        },
+        insert_phase: MigrationPhaseMetrics {
+            num_processed: num_post_fixup,
+            num_succeeded: num_post_fixup - num_failed_insert,
+            num_failed: num_failed_insert,
+            total_duration: insert_phase_duration.as_millis() as u64,
+            errors: insert_errors,
+        },
+        num_processed: import_start_total_logins,
+        num_succeeded: import_start_total_logins - num_failed,
+        num_failed,
+        total_duration: fixup_phase_duration
+            .checked_add(insert_phase_duration)
+            .unwrap_or_else(|| Duration::new(0, 0))
+            .as_millis() as u64,
+        errors: all_errors,
+    };
+    log::info!(
+        "Finished importing logins with the following metrics: {:#?}",
+        metrics
+    );
     Ok(metrics)
 }
 
@@ -169,20 +544,12 @@ fn get_login_from_row(row: &Row<'_>, encryptor: &EncryptorDecryptor) -> Result<L
         form_action_origin,
         username_field: username_field.unwrap_or_default(),
         password_field: password_field.unwrap_or_default(),
-        // TO_DO: Do we need to convert from microsecond timestamps to milliseconds??
         time_created,
         time_last_used,
         time_password_changed,
         times_used,
     };
-
-    match login.fixup() {
-        Ok(fixed_login) => {
-            return Ok(fixed_login);
-        }
-        // We want to skip any invalid logins
-        Err(e) => return Err(e),
-    }
+    Ok(login)
 }
 
 #[cfg(test)]
@@ -207,38 +574,90 @@ mod tests {
         let mut db = open_old_db(db_path, salt);
         let tx = db.transaction().unwrap();
         schema::init(&tx).unwrap();
+
         // Manually migrate back to schema v4 and insert some data
-        tx.execute_batch(
-            "
+        // These all need to be executed as separate statements or
+        // sqlite will not execute them
+        const RENAME_LOCAL_USERNAME: &str = "
             ALTER TABLE loginsL RENAME usernameEnc to username;
+        ";
+
+        const RENAME_LOCAL_PASSWORD: &str = "
             ALTER TABLE loginsL RENAME passwordEnc to password;
-            ALTER TABLE loginsM RENAME usernameEnc to username;
-            ALTER TABLE loginsM RENAME passwordEnc to password;
-            ALTER TABLE loginsL RENAME origin to hostname;
-            ALTER TABLE loginsL RENAME formActionOrigin to formSubmitURL;
-            ALTER TABLE loginsM RENAME origin to hostname;
-            ALTER TABLE loginsM RENAME formActionOrigin to formSubmitURL;
+        ";
+
+        const RENAME_MIRROR_USERNAME: &str = "
+            ALTER TABLE loginsM RENAME usernameEnc to username
+        ";
+
+        const RENAME_MIRROR_PASSWORD: &str = "
+            ALTER TABLE loginsM RENAME passwordEnc to password
+        ";
+
+        const RENAME_LOCAL_HOSTNAME: &str = "
+            ALTER TABLE loginsL RENAME origin TO hostname
+        ";
+
+        const RENAME_LOCAL_SUBMIT_URL: &str = "
+            ALTER TABLE loginsL RENAME formActionOrigin TO formSubmitURL
+        ";
+
+        const RENAME_MIRROR_HOSTNAME: &str = "
+            ALTER TABLE loginsM RENAME origin TO hostname
+        ";
+
+        const RENAME_MIRROR_SUBMIT_URL: &str = "
+            ALTER TABLE loginsM RENAME formActionOrigin TO formSubmitURL
+        ";
+
+        const INSERT_LOGINS_L: &str = "
             INSERT INTO loginsL(guid, username, password, hostname,
-            httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
-            timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
-            VALUES
-            ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
-            'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
-            ('b', 'test', 'password', 'https://www.example.com', 'https://www.example.com', 'https://www.example.com',
-            'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2);
+                httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
+                timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
+                VALUES
+                ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
+                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
+                ('b', 'test', 'password', 'https://www.example.com', 'https://www.example.com', 'https://www.example.com',
+                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2);
+        ";
+
+        const INSERT_LOGINS_M: &str = "
             INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
-            usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
-            is_overridden, server_modified)
-            VALUES
-            ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
-            '', '', 1000, 1000, 1, 10, 0, 1000),
-            ('c', 'test', 'password', 'http://example.com:1234/', 'Test Realm', NULL,
-            '', '', 1000, 1000, 1, 10, 0, 1000),
-            ('d', 'test', 'password', 'http://example.com/foo?query=bbq#bar', 'Test Realm', NULL,
-            '', '', 1000, 1000, 1, 10, 0, 1000);
-            PRAGMA user_version = 4;
-            ",
-        ).unwrap();
+                usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
+                is_overridden, server_modified)
+                VALUES
+                ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
+                '', '', 1000, 1000, 1, 10, 0, 1000),
+                ('c', 'test', 'password', 'http://example.com:1234/', 'Test Realm', NULL,
+                '', '', 1000, 1000, 1, 10, 0, 1000),
+                ('d', 'test', 'password', '', 'Test Realm', NULL,
+                '', '', 1000, 1000, 1, 10, 1, 1000);
+        ";
+
+        // Need to test migrating sync meta else we'll be resyncing everything
+        tx.execute_named(
+            "INSERT INTO loginsSyncMeta (key, value)
+             VALUES (:key, :value)",
+            rusqlite::named_params! {
+                ":key": "last_sync",
+                ":value": "some_payload_data",
+            },
+        )
+        .unwrap();
+        tx.execute_all(&[
+            RENAME_LOCAL_USERNAME,
+            RENAME_MIRROR_USERNAME,
+            RENAME_LOCAL_PASSWORD,
+            RENAME_MIRROR_PASSWORD,
+            RENAME_LOCAL_HOSTNAME,
+            RENAME_MIRROR_HOSTNAME,
+            RENAME_LOCAL_SUBMIT_URL,
+            RENAME_MIRROR_SUBMIT_URL,
+            // Inserts
+            INSERT_LOGINS_L,
+            INSERT_LOGINS_M,
+        ])
+        .unwrap();
         tx.commit().unwrap();
     }
 
@@ -288,10 +707,8 @@ mod tests {
         assert_eq!(row.get_raw("timeLastUsed").as_i64().unwrap(), 1000);
         assert_eq!(row.get_raw("timePasswordChanged").as_i64().unwrap(), 1);
         assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
-        // See todo discuss above
-        //assert_eq!(row.get_raw("local_modified").as_i64().unwrap(), 1000);
-        //assert_eq!(row.get_raw("is_deleted").as_i64().unwrap(), 0);
-        //assert_eq!(row.get_raw("sync_status").as_i64().unwrap(), 2);
+        assert_eq!(row.get_raw("is_deleted").as_i64().unwrap(), 0);
+        assert_eq!(row.get_raw("sync_status").as_i64().unwrap(), 2);
 
         let mut stmt = db
             .prepare("SELECT * FROM loginsM WHERE guid = 'b'")
@@ -319,9 +736,16 @@ mod tests {
         assert_eq!(row.get_raw("timePasswordChanged").as_i64().unwrap(), 1);
         assert_eq!(row.get_raw("timesUsed").as_i64().unwrap(), 10);
 
-        // See todo discussion above
-        //assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 0);
-        //assert_eq!(row.get_raw("server_modified").as_i64().unwrap(), 1000);
+        assert_eq!(row.get_raw("is_overridden").as_i64().unwrap(), 0);
+        assert_eq!(row.get_raw("server_modified").as_i64().unwrap(), 1000);
+
+        // Ensure loginsSyncMeta migrated correctly
+        let mut stmt = db.prepare("SELECT * FROM loginsSyncMeta").unwrap();
+        let mut rows = stmt.query(NO_PARAMS).unwrap();
+        let row = rows.next().unwrap().unwrap();
+
+        assert_eq!(row.get_raw("key").as_str().unwrap(), "last_sync");
+        assert_eq!(row.get_raw("value").as_str().unwrap(), "some_payload_data");
 
         // The schema version should reset to 1 after the migration
         assert_eq!(db.query_one::<i64>("PRAGMA user_version").unwrap(), 1);
@@ -346,11 +770,10 @@ mod tests {
         check_migrated_data(&db);
 
         // Check migration numbers
-        assert_eq!(metrics.num_processed, 2);
-        assert_eq!(metrics.num_succeeded, 2);
-        assert_eq!(metrics.num_failed, 0);
-        assert!(metrics.total_duration > 0);
-        assert_eq!(metrics.errors, Vec::<String>::new());
+        assert_eq!(metrics.num_processed, 5);
+        assert_eq!(metrics.num_succeeded, 4);
+        assert_eq!(metrics.num_failed, 1);
+        assert_eq!(metrics.errors, ["InvalidLogin::EmptyOrigin"]);
     }
 
     #[ignore]
@@ -388,8 +811,8 @@ mod tests {
         );
 
         // Check metrics
-        assert_eq!(metrics.num_processed, 2);
-        assert_eq!(metrics.num_succeeded, 1);
+        assert_eq!(metrics.num_processed, 5);
+        assert_eq!(metrics.num_succeeded, 4);
         assert_eq!(metrics.num_failed, 1);
         assert!(metrics.total_duration > 0);
         assert_eq!(metrics.errors.len(), 1);
