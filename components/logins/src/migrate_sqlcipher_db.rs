@@ -12,19 +12,12 @@ use crate::sync::{LocalLogin, MirrorLogin};
 use crate::util;
 use crate::Login;
 use crate::LoginStore;
-use lazy_static::lazy_static;
 use rusqlite::{named_params, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
-
-lazy_static! {
-    pub static ref GET_LOGINSL_SQL: String = format!("SELECT * FROM loginsL");
-    pub static ref GET_LOGINSM_SQL: String = format!("SELECT * FROM loginsM");
-    pub static ref GET_SYNC_META_SQL: String = format!("SELECT * FROM loginsSyncMeta");
-}
 
 pub fn migrate_sqlcipher_db_to_plaintext(
     old_db_path: impl AsRef<Path>,
@@ -134,7 +127,7 @@ pub fn migrate_from_sqlcipher_db(
 }
 
 fn migrate_sync_metadata(conn: &Connection, store: &LoginStore) -> Result<()> {
-    let mut select_stmt = conn.prepare(&GET_SYNC_META_SQL)?;
+    let mut select_stmt = conn.prepare("SELECT * FROM loginsSyncMeta")?;
     let mut rows = select_stmt.query(NO_PARAMS)?;
 
     while let Some(row) = rows.next()? {
@@ -162,8 +155,7 @@ pub fn migrate_local_logins(
     let tx = conn.unchecked_transaction()?;
 
     let import_start = Instant::now();
-    let sql = format!(
-        "INSERT OR IGNORE INTO loginsL (
+    let sql = "INSERT OR IGNORE INTO loginsL (
             origin,
             httpRealm,
             formActionOrigin,
@@ -195,8 +187,7 @@ pub fn migrate_local_logins(
             :local_modified,
             :is_deleted,
             :sync_status
-        )",
-    );
+        )";
     let import_start_total_logins: u64 = logins.len() as u64;
     let mut num_failed_fixup: u64 = 0;
     let mut num_failed_insert: u64 = 0;
@@ -308,7 +299,7 @@ pub fn migrate_local_logins(
 }
 
 fn get_local_logins(conn: &Connection, encryptor: &EncryptorDecryptor) -> Result<Vec<LocalLogin>> {
-    let mut select_stmt = conn.prepare(&GET_LOGINSL_SQL)?;
+    let mut select_stmt = conn.prepare("SELECT * FROM loginsL")?;
     let mut rows = select_stmt.query(NO_PARAMS)?;
     let mut local_logins: Vec<LocalLogin> = Vec::new();
     // Use raw rows to avoid extra copying since we're looping over an entire table
@@ -317,7 +308,7 @@ fn get_local_logins(conn: &Connection, encryptor: &EncryptorDecryptor) -> Result
             Ok(login) => {
                 // This is very close to what is in merge.rs from_row but this login is the old schema
                 let l_login = LocalLogin {
-                    login: login,
+                    login,
                     local_modified: util::system_time_millis_from_row(row, "local_modified")?,
                     is_deleted: row.get("is_deleted")?,
                     sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
@@ -337,7 +328,7 @@ fn get_mirror_logins(
     conn: &Connection,
     encryptor: &EncryptorDecryptor,
 ) -> Result<Vec<MirrorLogin>> {
-    let mut select_stmt = conn.prepare(&GET_LOGINSM_SQL)?;
+    let mut select_stmt = conn.prepare("SELECT * FROM loginsM")?;
     let mut rows = select_stmt.query(NO_PARAMS)?;
     let mut mirror_logins: Vec<MirrorLogin> = Vec::new();
     // Use raw rows to avoid extra copying since we're looping over an entire table
@@ -346,7 +337,7 @@ fn get_mirror_logins(
             Ok(login) => {
                 // This is very close to what is in merge.rs from_row but this login is the old schema
                 let m_login = MirrorLogin {
-                    login: login,
+                    login,
                     server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
                     is_overridden: row.get("is_overridden")?,
                 };
@@ -374,8 +365,7 @@ pub fn migrate_mirror_logins(
     let tx = conn.unchecked_transaction()?;
 
     let import_start = Instant::now();
-    let sql = format!(
-        "INSERT OR IGNORE INTO loginsM (
+    let sql = "INSERT OR IGNORE INTO loginsM (
             origin,
             httpRealm,
             formActionOrigin,
@@ -405,8 +395,7 @@ pub fn migrate_mirror_logins(
             :time_password_changed,
             :server_modified,
             :is_overridden
-        )",
-    );
+        )";
     let import_start_total_logins: u64 = logins.len() as u64;
     let mut num_failed_fixup: u64 = 0;
     let mut num_failed_insert: u64 = 0;
@@ -536,7 +525,7 @@ fn get_login_from_row(row: &Row<'_>, encryptor: &EncryptorDecryptor) -> Result<L
     let times_used: i64 = row.get("timesUsed")?;
 
     let login: Login = Login {
-        id: guid.to_string(),
+        id: guid,
         username_enc: encryptor.encrypt(&username)?,
         password_enc: encryptor.encrypt(&password)?,
         origin,
@@ -814,7 +803,6 @@ mod tests {
         assert_eq!(metrics.num_processed, 5);
         assert_eq!(metrics.num_succeeded, 4);
         assert_eq!(metrics.num_failed, 1);
-        assert!(metrics.total_duration > 0);
         assert_eq!(metrics.errors.len(), 1);
     }
 
