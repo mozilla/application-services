@@ -313,8 +313,8 @@ class PersistedFirefoxAccount {
         do {
             return try cb()
         } catch let error as FxaError {
-            if case .Authentication = error {
-                FxALog.debug("Auth error caught")
+            if case let .Authentication(msg) = error {
+                FxALog.debug("Auth error caught: \(msg)")
                 notifyAuthError()
             }
             throw error

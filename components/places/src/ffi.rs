@@ -240,30 +240,26 @@ fn get_error_number(err: &Error) -> i32 {
 /// `ExternError` in the first place.
 #[derive(Debug)]
 enum ErrorWrapper {
-    Wrapped { msg: String },
+    Wrapped(String),
 }
 
 impl ToString for ErrorWrapper {
     fn to_string(&self) -> String {
         match self {
-            ErrorWrapper::Wrapped { msg } => msg.to_string(),
+            ErrorWrapper::Wrapped(e) => e.to_string(),
         }
     }
 }
 
 impl From<Error> for ErrorWrapper {
     fn from(e: Error) -> ErrorWrapper {
-        ErrorWrapper::Wrapped {
-            msg: format!("{}|{}", get_error_number(&e), e.to_string()),
-        }
+        ErrorWrapper::Wrapped(format!("{}|{}", get_error_number(&e), e.to_string()))
     }
 }
 
 impl From<HandleError> for ErrorWrapper {
     fn from(e: HandleError) -> ErrorWrapper {
-        ErrorWrapper::Wrapped {
-            msg: format!("{}|{}", error_codes::UNEXPECTED, e.to_string()),
-        }
+        ErrorWrapper::Wrapped(format!("{}|{}", error_codes::UNEXPECTED, e.to_string()))
     }
 }
 
