@@ -21,16 +21,24 @@ public protocol NimbusApi: AnyObject,
 public protocol NimbusFeatureConfiguration {
     /// Get the currently enrolled branch for the given experiment
     ///
-    /// - Parameter featureId The string feature id that applies to the feature under experiment.
+    /// - Parameter experimentId The string feature id that applies to the feature under experiment.
     /// - Returns A String representing the branch-id or "slug"; or `nil` if not enrolled in this experiment.
     ///
     func getExperimentBranch(experimentId: String) -> String?
+
+    /// Get the currently enrolled branch for the given experiment and execute
+    /// the callback asynchronously on the main thread
+    ///
+    /// - Parameter experimentId: The string feature id that applied to the feature under experiment.
+    /// - Parameter callback: A callback that will be executed on the main thread once the branch-id or "slug" is ready
+    ///
+    func getExperimentBranchAsync(experimentId: String, callback: @escaping (String?) -> Void)
 
     /// Get the variables needed to configure the feature given by `featureId`.
     ///
     /// - Parameters:
     ///     - featureId The string feature id that identifies to the feature under experiment.
-    ///     - recordExposureEvent Passing `true` to this parameter will record the exposure
+    ///     - sendExposureEvent Passing `true` to this parameter will record the exposure
     ///         event automatically if the client is enrolled in an experiment for the given `featureId`.
     ///         Passing `false` here indicates that the application will manually record the exposure
     ///         event by calling `recordExposureEvent`.
@@ -39,6 +47,21 @@ public protocol NimbusFeatureConfiguration {
     ///
     /// - Returns a `Variables` object used to configure the feature.
     func getVariables(featureId: String, sendExposureEvent: Bool) -> Variables
+
+    /// Get the variables needed to configure the feature given by `featureId`.
+    ///
+    /// - Parameters:
+    ///     - featureId The string feature id that identifies to the feature under experiment.
+    ///     - sendExposureEvent Passing `true` to this parameter will record the exposure
+    ///         event automatically if the client is enrolled in an experiment for the given `featureId`.
+    ///         Passing `false` here indicates that the application will manually record the exposure
+    ///         event by calling `recordExposureEvent`.
+    ///     - callback: a callback that will be executed on the main thread once the variables object is ready
+    ///
+    /// See `recordExposureEvent` for more information on manually recording the event.
+    ///
+    /// - Returns a `Variables` object used to configure the feature.
+    func getVariablesAsync(featureId: String, sendExposureEvent: Bool, callback: @escaping (Variables) -> Void)
 }
 
 public extension NimbusFeatureConfiguration {
@@ -117,6 +140,13 @@ public protocol NimbusStartup {
     /// Notifies `.nimbusExperimentsApplied` once enrollments are recalculated.
     ///
     func applyPendingExperiments()
+
+    /// Fetches experiment and calculates the enrollment. Both operations will run
+    /// sequencially.
+    ///
+    /// Both operations are performed on a background thread.
+    ///
+    func fetchAndApplyExperiments()
 
     /// Set the experiments as the passed string, just as `fetchExperiments` gets the string from
     /// the server. Like `fetchExperiments`, this requires `applyPendingExperiments` to be called

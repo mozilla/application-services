@@ -189,6 +189,15 @@ internal extension Nimbus {
 }
 
 extension Nimbus: NimbusFeatureConfiguration {
+    public func getExperimentBranchAsync(experimentId: String, callback: @escaping (String?) -> Void) {
+        catchAll(dbQueue) {
+            let result = try self.nimbusClient.getExperimentBranch(id: experimentId)
+            DispatchQueue.main.async {
+                callback(result)
+            }
+        }
+    }
+
     public func getExperimentBranch(experimentId: String) -> String? {
         return catchAll {
             try nimbusClient.getExperimentBranch(id: experimentId)
@@ -217,6 +226,22 @@ extension Nimbus: NimbusFeatureConfiguration {
         }
 
         return JSONVariables(with: json, in: resourceBundles)
+    }
+
+    public func getVariablesAsync(featureId: String, sendExposureEvent: Bool, callback: @escaping (Variables) -> Void) {
+        dbQueue.addOperation {
+            let json = self.getFeatureConfigVariablesJson(featureId: featureId)
+            DispatchQueue.main.async {
+                if json == nil {
+                    callback(NilVariables.instance)
+                    return
+                }
+                if sendExposureEvent {
+                    self.recordExposureEvent(featureId: featureId)
+                }
+                callback(JSONVariables(with: json!, in: self.resourceBundles))
+            }
+        }
     }
 }
 
@@ -285,6 +310,13 @@ extension Nimbus: NimbusStartup {
         }
     }
 
+    public func fetchAndApplyExperiments() {
+        catchAll(dbQueue) {
+            try self.fetchExperimentsOnThisThread()
+            try self.applyPendingExperimentsOnThisThread()
+        }
+    }
+
     public func applyPendingExperiments() {
         catchAll(dbQueue) {
             try self.applyPendingExperimentsOnThisThread()
@@ -333,6 +365,12 @@ public extension NimbusDisabled {
     func fetchExperiments() {}
 
     func applyPendingExperiments() {}
+
+    func fetchAndApplyExperiments() {}
+
+    func getExperimentBranchAsync(experimentId _: String, callback _: @escaping (String?) -> Void) {}
+
+    func getVariablesAsync(featureId _: String, sendExposureEvent _: Bool, callback _: @escaping (Variables) -> Void) {}
 
     func setExperimentsLocally(_: URL) {}
 
