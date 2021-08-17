@@ -26,8 +26,7 @@ class CrashTestHelpersTest {
         try {
             triggerRustError()
         } catch (e: CrashTestException) {
-            // TODO: get the actual messages back
-            // assertEquals(e.message, "Error! From The Rust Code.")
+            assertEquals(e.message, "Error! From The Rust Code.")
         }
     }
 

@@ -30,7 +30,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
     }
 
     private fun checkUnlocked(): LoginStore {
-        val store = this.store.get() ?: throw LoginsStorageException.UnexpectedLoginsStorageException() // ("Using DatabaseLoginsStorage without unlocking first")
+        val store = this.store.get() ?: throw LoginsStorageException.UnexpectedLoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
         return store
     }
 
@@ -39,7 +39,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
     fun lock() {
         val store = this.store.getAndSet(null)
         if (store == null) {
-            throw LoginsStorageException.MismatchedLock() // ("Lock called when we are already locked")
+            throw LoginsStorageException.MismatchedLock("Lock called when we are already locked")
         }
         store.destroy()
     }
@@ -51,7 +51,7 @@ class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
             val store = LoginStore(dbPath, encryptionKey)
             if (this.store.getAndSet(store) != null) {
                 // this seems wrong?
-                throw LoginsStorageException.MismatchedLock() // ("Unlock called when we are already unlocked")
+                throw LoginsStorageException.MismatchedLock("Unlock called when we are already unlocked")
             }
         }
     }

@@ -60,6 +60,6 @@ dictionary Dummy {
 };
 
 [Error]
-interface ErrorWrapper {
-    Wrapped(string msg);
+enum ErrorWrapper {
+    "Wrapped"
 };
