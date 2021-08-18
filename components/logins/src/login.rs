@@ -518,24 +518,6 @@ impl Login {
     }
 }
 
-impl ValidateAndFixup for Login {
-    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
-        // We don't validate or fixup metadata, which we arguably should.
-        Ok(self
-            .fields
-            .validate_and_fixup(fixup)?
-            .map(|new_fields| Self {
-                id: self.id.clone(),
-                fields: new_fields,
-                sec_fields: self.sec_fields.clone(),
-                time_created: self.time_created,
-                time_password_changed: self.time_password_changed,
-                time_last_used: self.time_last_used,
-                times_used: self.times_used,
-            }))
-    }
-}
-
 /// The encrypted fields.
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 pub struct SecureLoginFields {

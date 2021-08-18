@@ -70,30 +70,31 @@ impl Login {
     ) -> Result<Self> {
         let p: crate::sync::LoginPayload = sync_payload.into_record()?;
 
-        let mut login = Login {
+        let fields = LoginFields {
+            origin: p.hostname,
+            form_action_origin: p.form_submit_url,
+            http_realm: p.http_realm,
+            username_field: p.username_field,
+            password_field: p.password_field,
+        };
+        let sec_fields = SecureLoginFields {
+            username: p.username,
+            password: p.password,
+        };
+
+        // If we can't fix the parts we keep the invalid bits.
+        Ok(Login {
             id: p.guid.into(),
-            fields: LoginFields {
-                origin: p.hostname,
-                form_action_origin: p.form_submit_url,
-                http_realm: p.http_realm,
-                username_field: p.username_field,
-                password_field: p.password_field,
-            },
-            sec_fields: SecureLoginFields {
-                username: p.username,
-                password: p.password,
-            }
-            .encrypt(encdec)?,
+            fields: fields.maybe_fixup()?.unwrap_or(fields),
+            sec_fields: sec_fields
+                .maybe_fixup()?
+                .unwrap_or(sec_fields)
+                .encrypt(encdec)?,
             time_created: p.time_created,
             time_password_changed: p.time_password_changed,
             time_last_used: p.time_last_used,
             times_used: p.times_used,
-        };
-        // If we can't fix it, we keep the invalid record.
-        if let Some(fixed) = login.maybe_fixup()? {
-            login = fixed;
-        }
-        Ok(login)
+        })
     }
 
     pub fn into_payload(self, encdec: &EncryptorDecryptor) -> Result<sync15::Payload> {
