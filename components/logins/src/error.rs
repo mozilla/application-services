@@ -149,12 +149,16 @@ pub enum LoginsStorageError {
     #[error("{0}")]
     InvalidRecord(String, InvalidLoginReason),
 
-    /// This error is emitted in two cases:
+    /// This error is emitted when migrating from a sqlcipher database in two cases:
     /// 1. An incorrect key is used to to open the login database
     /// 2. The file at the path specified is not a sqlite database.
     /// NOTE: Dropping sqlcipher means we will drop (1), so should rename it
     #[error("InvalidKey error: {0}")]
     InvalidKey(String),
+
+    /// Error encrypting/decrypting logins data
+    #[error("Crypto Error: {0}")]
+    CryptoError(String),
 
     /// This error is emitted if a request to a sync server failed.
     /// We can probably kill this? The sync manager is what cares about this.
@@ -259,6 +263,11 @@ impl From<Error> for LoginsStorageError {
                 // In the old world, this had an error code (7) but no Kotlin
                 // error type, meaning it got the "base" error.
                 LoginsStorageError::UnexpectedLoginsStorageError(label)
+            }
+
+            ErrorKind::CryptoError(_) => {
+                log::error!("Crypto error");
+                LoginsStorageError::CryptoError(label)
             }
 
             err => {
