@@ -86,7 +86,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: bitflags</name>
-    <url>https://github.com/bitflags/bitflags/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/bitflags/bitflags/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: block-buffer</name>
@@ -422,7 +422,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: uuid</name>
-    <url>https://github.com/uuid-rs/uuid/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/uuid-rs/uuid/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: version_check</name>

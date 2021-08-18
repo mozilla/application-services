@@ -19,3 +19,6 @@ copy the latest changes over into the consuming app.
 
 Firefox for iOS also has a helper script that automates these steps:
 [`appservices_local_dev.sh`](https://github.com/mozilla-mobile/firefox-ios/blob/main/appservices_local_dev.sh).
+
+Note that for firefox-ios specifically, you may also need to copy the Glean `sdk_generator.sh` script
+from the appservices build into the root of the firefox-ios repository.

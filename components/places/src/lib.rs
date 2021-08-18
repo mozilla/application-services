@@ -39,3 +39,4 @@ pub use crate::observation::VisitObservation;
 pub use crate::storage::PageInfo;
 pub use crate::storage::RowId;
 pub use crate::types::*;
+pub use ffi::{APIS, CONNECTIONS};

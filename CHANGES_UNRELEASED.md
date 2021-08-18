@@ -18,3 +18,15 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Push
+### What's changed
+  - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
+    - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)
+    - Two other new errors were defined that were used to be reported under a generic error:
+      - `JSONDeserializeError` for errors in deserialization
+      - `RequestError` for errors in sending a network request
+
+## Nimbus
+### What's changed
+   - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
