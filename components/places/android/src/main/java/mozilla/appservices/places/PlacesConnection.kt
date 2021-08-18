@@ -192,13 +192,15 @@ internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
             // type, which inside its message is the underlying error code
             // and message, which we can use to construct the actual error
             // from the hand-written FFI.
-            try {
-                val (code, message) = e.msg.split('|', limit = 2)
-                throw RustError.makeException(code.toInt(), message)
-            } catch (_: NumberFormatException) {
-                // how to log? Not clear it matters TBH - all the details
-                // should be visible in the generic exception we throw below,
-                // and it should be impossible anyway!
+            if (e.message != null) {
+                try {
+                    val (code, message) = e.message.split('|', limit = 2)
+                    throw RustError.makeException(code.toInt(), message)
+                } catch (_: NumberFormatException) {
+                    // how to log? Not clear it matters TBH - all the details
+                    // should be visible in the generic exception we throw below,
+                    // and it should be impossible anyway!
+                }
             }
             throw RuntimeException("Unexpected error: $e")
         }

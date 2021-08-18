@@ -239,7 +239,7 @@ fn get_error_number(err: &Error) -> i32 {
 /// unpacks this and returns the exact same error objects as if it was an
 /// `ExternError` in the first place.
 #[derive(Debug)]
-enum ErrorWrapper {
+pub enum ErrorWrapper {
     Wrapped(String),
 }
 
@@ -282,6 +282,6 @@ implement_into_ffi_by_delegation!(
 
 uniffi_macros::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
-struct Dummy {
+pub struct Dummy {
     md: Option<Vec<HistoryMetadata>>,
 }
