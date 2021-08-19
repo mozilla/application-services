@@ -10,7 +10,7 @@ tasks:
     - $let:
           taskgraph:
               branch: taskgraph
-              revision: 0c74426138739b1cad3bb4ff169af67eef6003fc
+              revision: 644b0b15ef3ac3888701b3e6c68e26137210dcbc
           trustDomain: app-services
       in:
           $let:
@@ -231,7 +231,7 @@ tasks:
                               # Note: This task is built server side without the context or tooling that
                               # exist in tree so we must hard code the hash
                               image:
-                                  mozillareleases/taskgraph:decision-mobile-6607973bc60e32323a541861cc5856cd6a0f51ea9fd664ef7d43bca8df53db47@sha256:8c471aacc469ea8e7bb4846c16efe086f7350a5cc1df570cc6c86b22895a2456
+                                  mozillareleases/taskgraph:decision-mobile-0e1cefb4ec46060d53bcd0eb2c0dd296210fa969998af468d693d1c6922efd1d@sha256:7cfb913bee636f1ab1477a09f8ad746e1f8c68fab0e2a3e1408c985d2ddc27f7
 
                               maxRunTime: 1800
 
