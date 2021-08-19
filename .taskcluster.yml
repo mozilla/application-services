@@ -244,8 +244,8 @@ tasks:
                                   - bash
                                   - -cx
                                   - >
-                                    PIP_IGNORE_INSTALLED=0 pip install --user /builds/worker/checkouts/taskgraph &&
-                                    PIP_IGNORE_INSTALLED=0 pip install --user arrow taskcluster pyyaml &&
+                                    PIP_IGNORE_INSTALLED=0 pip3 install --user /builds/worker/checkouts/taskgraph &&
+                                    PIP_IGNORE_INSTALLED=0 pip3 install --user arrow taskcluster pyyaml &&
                                     ln -s /builds/worker/artifacts artifacts &&
                                     ~/.local/bin/taskgraph decision
                                     --pushlog-id='0'

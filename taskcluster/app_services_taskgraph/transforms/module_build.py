@@ -19,7 +19,7 @@ def rustup_setup(config, tasks):
             [
                 "source",
                 "taskcluster/scripts/toolchain/rustup-setup.sh",
-                unicode(config.params["tasks_for"])
+                config.params["tasks_for"]
             ]
         )
         yield task
@@ -34,7 +34,7 @@ def release_upload_symbols(config, tasks):
                     [
                         "source",
                         "automation/upload_android_symbols.sh",
-                        unicode(task["attributes"]["buildconfig"]["path"])
+                        task["attributes"]["buildconfig"]["path"]
                     ]
                 )
 

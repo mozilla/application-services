@@ -20,7 +20,7 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
         return filter_for_tasks_for(task, parameters) \
             and task.attributes.get("run-on-pr-type", "all") in ("full-ci", "all")
 
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task)]
+    return [l for l, task in full_task_graph.tasks.items() if filter(task)]
 
 
 @_target_task('pr-normal')
@@ -31,4 +31,4 @@ def target_tasks_default(full_task_graph, parameters, graph_config):
         return filter_for_tasks_for(task, parameters) \
                 and task.attributes.get("run-on-pr-type", "all") in ("normal-ci", "all")
 
-    return [l for l, task in full_task_graph.tasks.iteritems() if filter(task)]
+    return [l for l, task in full_task_graph.tasks.items() if filter(task)]

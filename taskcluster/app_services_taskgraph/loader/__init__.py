@@ -27,7 +27,7 @@ def group_tasks(config, tasks):
 
     groups = group_by_fn(config, tasks)
 
-    for combinations in groups.itervalues():
+    for combinations in groups.values():
         dependencies = [copy.deepcopy(t) for t in combinations]
         yield dependencies
 
@@ -50,7 +50,7 @@ def component_grouping(config, tasks):
         task for task in tasks
         if task.attributes.get("buildconfig", {}).get("name", "") == "all"
     ]
-    for _, tasks in groups.iteritems():
+    for _, tasks in groups.items():
         tasks.extend(copy.deepcopy(tasks_for_all_components))
 
     return groups
