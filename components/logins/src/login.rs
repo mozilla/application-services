@@ -524,9 +524,11 @@ pub struct SecureLoginFields {
     // prior to per-field encryption the `username` was allowed to be null.
     // We could make it `Option<String>` but that doesn't seem valuable, as
     // an empty string and None mean the same thing anyway.
-    // XXX - although this might end up being important in the sync payload (as
-    // in, the item missing entirely from the payload?)
-    // We should check desktop's semantics.
+    // Note that desktop rejects a null 'username' and explicitly wants an empty string, and like
+    // us, insists on a non-empty password.
+    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
+    // and desktop sync explicitly converts null etc in username to that empty string.
+    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
 
     // Because we store the json version of this in the DB, and that's the only place the json
     // is used, we rename the fields to short names, just to reduce the overhead in the DB.
