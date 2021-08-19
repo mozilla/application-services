@@ -90,6 +90,9 @@ interface LoginStore {
     Login update([ByRef] string id, UpdatableLogin login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
+    Login add_or_update(UpdatableLogin login, [ByRef]string encryption_key);
+
+    [Throws=LoginsStorageError]
     boolean delete([ByRef] string id);
 
     [Throws=LoginsStorageError]

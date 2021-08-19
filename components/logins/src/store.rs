@@ -137,6 +137,15 @@ impl LoginStore {
         self.db.lock().unwrap().add(login, &encdec)
     }
 
+    pub fn add_or_update(&self, login: UpdatableLogin, enc_key: &str) -> Result<Login> {
+        let encdec = EncryptorDecryptor::new(&enc_key)?;
+        let db = self.db.lock().unwrap();
+        match db.find_existing(&login, &encdec)? {
+            Some(id) => db.update(&id, login, &encdec),
+            None => db.add(login, &encdec),
+        }
+    }
+
     pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         let metrics = self.db.lock().unwrap().import_multiple(logins, &encdec)?;
