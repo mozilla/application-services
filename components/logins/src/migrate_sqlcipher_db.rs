@@ -14,10 +14,41 @@ use crate::Login;
 use crate::LoginStore;
 use rusqlite::{named_params, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
+use std::ops::Add;
 use std::path::Path;
 use std::time::{Duration, Instant};
 use sync15::ServerTimestamp;
 use sync_guid::Guid;
+
+// Simplify the code for combining migration metrics
+// the impl is only in this file as this should dissapear once we're done with sql migrations
+impl Add for MigrationMetrics {
+    type Output = MigrationMetrics;
+    fn add(self, rhs: MigrationMetrics) -> MigrationMetrics {
+        MigrationMetrics {
+            insert_phase: self.insert_phase + rhs.insert_phase,
+            fixup_phase: self.fixup_phase + rhs.fixup_phase,
+            num_processed: self.num_processed + rhs.num_processed,
+            num_succeeded: self.num_succeeded + rhs.num_succeeded,
+            num_failed: self.num_failed + rhs.num_failed,
+            total_duration: self.total_duration + rhs.total_duration,
+            errors: [&self.errors[..], &rhs.errors[..]].concat(),
+        }
+    }
+}
+
+impl Add for MigrationPhaseMetrics {
+    type Output = MigrationPhaseMetrics;
+    fn add(self, rhs: MigrationPhaseMetrics) -> MigrationPhaseMetrics {
+        MigrationPhaseMetrics {
+            num_processed: self.num_processed + rhs.num_processed,
+            num_succeeded: self.num_succeeded + rhs.num_succeeded,
+            num_failed: self.num_failed + rhs.num_failed,
+            total_duration: self.total_duration + rhs.total_duration,
+            errors: [&self.errors[..], &rhs.errors[..]].concat(),
+        }
+    }
+}
 
 pub fn migrate_sqlcipher_db_to_plaintext(
     old_db_path: impl AsRef<Path>,
@@ -84,62 +115,48 @@ pub fn migrate_from_sqlcipher_db(
     // to be ported over
     let local_metrics = migrate_local_logins(&cipher_conn, &new_db_store, &encryptor)?;
     let mirror_metrics = migrate_mirror_logins(&cipher_conn, &new_db_store, &encryptor)?;
-    migrate_sync_metadata(&cipher_conn, &new_db_store)?;
+    let metadata_metrics = migrate_sync_metadata(&cipher_conn, &new_db_store)?;
 
-    // A little ugly but necessary due to individual migrations of both tables
-    Ok(MigrationMetrics {
-        fixup_phase: MigrationPhaseMetrics {
-            num_processed: local_metrics.fixup_phase.num_processed
-                + mirror_metrics.fixup_phase.num_processed,
-            num_succeeded: local_metrics.fixup_phase.num_succeeded
-                + mirror_metrics.fixup_phase.num_succeeded,
-            num_failed: local_metrics.fixup_phase.num_failed
-                + mirror_metrics.fixup_phase.num_failed,
-            total_duration: local_metrics.fixup_phase.total_duration
-                + mirror_metrics.fixup_phase.total_duration,
-            errors: [
-                &local_metrics.fixup_phase.errors[..],
-                &mirror_metrics.fixup_phase.errors[..],
-            ]
-            .concat(),
-        },
-        insert_phase: MigrationPhaseMetrics {
-            num_processed: local_metrics.insert_phase.num_processed
-                + mirror_metrics.insert_phase.num_processed,
-            num_succeeded: local_metrics.insert_phase.num_succeeded
-                + mirror_metrics.insert_phase.num_succeeded,
-            num_failed: local_metrics.insert_phase.num_failed
-                + mirror_metrics.insert_phase.num_failed,
-            total_duration: local_metrics.insert_phase.total_duration
-                + mirror_metrics.insert_phase.total_duration,
-            errors: [
-                &local_metrics.insert_phase.errors[..],
-                &mirror_metrics.insert_phase.errors[..],
-            ]
-            .concat(),
-        },
-        num_processed: local_metrics.num_processed + mirror_metrics.num_processed,
-        num_succeeded: local_metrics.num_succeeded + mirror_metrics.num_succeeded,
-        num_failed: local_metrics.num_failed + mirror_metrics.num_failed,
-        total_duration: local_metrics.total_duration + mirror_metrics.total_duration,
-        errors: [&local_metrics.errors[..], &mirror_metrics.errors[..]].concat(),
-    })
+    Ok(local_metrics + mirror_metrics + metadata_metrics)
 }
 
-fn migrate_sync_metadata(conn: &Connection, store: &LoginStore) -> Result<()> {
-    let mut select_stmt = conn.prepare("SELECT * FROM loginsSyncMeta")?;
+fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result<MigrationMetrics> {
+    let new_db = store.db.lock().unwrap();
+    let conn = new_db.conn();
+    let import_start = Instant::now();
+
+    let mut select_stmt = cipher_conn.prepare("SELECT * FROM loginsSyncMeta")?;
     let mut rows = select_stmt.query(NO_PARAMS)?;
 
+    let sql = "INSERT INTO loginsSyncMeta (key, value) VALUES (:key, :value)";
+
+    let mut num_processed: u64 = 0;
+    let mut num_failed_insert: u64 = 0;
+    let mut insert_errors: Vec<String> = Vec::new();
+
     while let Some(row) = rows.next()? {
+        num_processed += 1;
         let key: String = row.get("key")?;
         let value: String = row.get("value")?;
 
-        store.db.lock().unwrap().execute_named(
-            "INSERT INTO loginsSyncMeta (key, value) VALUES (:key, :value)",
-            named_params! { ":key": &key, ":value": &value },
-        )?;
+        match conn.execute_named_cached(&sql, named_params! { ":key": &key, ":value": &value }) {
+            Ok(_) => log::info!("Imported {} successfully", key),
+            Err(e) => {
+                log::warn!("Could not import {}.", key);
+                insert_errors.push(Error::from(e).label().into());
+                num_failed_insert += 1;
+            }
+        }
     }
-    Ok(())
+    Ok(MigrationMetrics {
+        fixup_phase: MigrationPhaseMetrics::default(),
+        insert_phase: MigrationPhaseMetrics::default(),
+        errors: insert_errors,
+        num_processed,
+        num_failed: num_failed_insert,
+        num_succeeded: num_processed - num_failed_insert,
+        total_duration: import_start.elapsed().as_millis() as u64,
+    })
 }
 
 // This was copied from import_multiple in db.rs with a focus on LocalLogin
@@ -759,8 +776,8 @@ mod tests {
         check_migrated_data(&db);
 
         // Check migration numbers
-        assert_eq!(metrics.num_processed, 5);
-        assert_eq!(metrics.num_succeeded, 4);
+        assert_eq!(metrics.num_processed, 6);
+        assert_eq!(metrics.num_succeeded, 5);
         assert_eq!(metrics.num_failed, 1);
         assert_eq!(metrics.errors, ["InvalidLogin::EmptyOrigin"]);
     }
@@ -800,8 +817,8 @@ mod tests {
         );
 
         // Check metrics
-        assert_eq!(metrics.num_processed, 5);
-        assert_eq!(metrics.num_succeeded, 4);
+        assert_eq!(metrics.num_processed, 6);
+        assert_eq!(metrics.num_succeeded, 5);
         assert_eq!(metrics.num_failed, 1);
         assert_eq!(metrics.errors.len(), 1);
     }
