@@ -6,9 +6,7 @@
 # `.buildconfig-android.yml`
 
 
-import os
 
-from copy import deepcopy
 from taskgraph.loader.transform import loader as base_loader
 
 from ..build_config import get_components

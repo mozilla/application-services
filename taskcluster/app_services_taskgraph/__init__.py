@@ -6,8 +6,6 @@
 from importlib import import_module
 import os
 
-from six import text_type
-from voluptuous import Required, Any
 
 from .build_config import get_version
 

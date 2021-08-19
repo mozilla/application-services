@@ -8,7 +8,6 @@ import copy
 from voluptuous import Required
 
 from taskgraph.task import Task
-from taskgraph.util.attributes import sorted_unique_list
 from taskgraph.util.schema import Schema
 
 from . import group_tasks
