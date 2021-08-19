@@ -6,7 +6,6 @@
 # charge of taking every task in the kind, applying job-defaults and
 # finding what are the right upstream dependencies
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 import copy
 

@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 
@@ -27,7 +26,7 @@ def rustup_setup(config, tasks):
 @transforms.add
 def release_upload_symbols(config, tasks):
     for task in tasks:
-        if (config.params["tasks_for"] == u"github-release" and
+        if (config.params["tasks_for"] == "github-release" and
             task["attributes"]["buildconfig"]["uploadSymbols"]):
                 task["run"].setdefault("post-gradlew", [])
                 task["run"]["post-gradlew"].append(
@@ -56,10 +55,10 @@ def build_task(config, tasks):
         all_extensions = get_extensions(name)
         for publication_name, extensions in all_extensions.items():
             for extension in extensions:
-                artifact_filename = "{}-{}{}".format(publication_name, version, extension)
+                artifact_filename = f"{publication_name}-{version}{extension}"
                 artifacts.append({
-                    "name": "public/build/{}".format(artifact_filename),
-                    "path": "/builds/worker/checkouts/src/build/maven/org/mozilla/appservices/{}/{}/{}".format(publication_name, version, artifact_filename),
+                    "name": f"public/build/{artifact_filename}",
+                    "path": f"/builds/worker/checkouts/src/build/maven/org/mozilla/appservices/{publication_name}/{version}/{artifact_filename}",
                     "type": "file",
                 })
 

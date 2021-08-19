@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 import subprocess
 
@@ -24,7 +23,7 @@ TOOLCHAIN_OLD_INDEX = {
 
 @memoize
 def git_sha_for_directory(directory):
-    output = subprocess.check_output(["git", "rev-parse", "HEAD:{}".format(directory)])
+    output = subprocess.check_output(["git", "rev-parse", f"HEAD:{directory}"])
     sha = output.decode("utf8").strip()
     return sha
 
