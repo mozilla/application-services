@@ -8,7 +8,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import mozilla.appservices.places.uniffi.DocumentType
-import mozilla.appservices.places.uniffi.ErrorWrapperException
+import mozilla.appservices.places.uniffi.ErrorWrapper
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
 import mozilla.appservices.support.native.toNioDirectBuffer
@@ -187,7 +187,7 @@ internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
     synchronized(syncOn) {
         try {
             return callback()
-        } catch (e: ErrorWrapperException.Wrapped) {
+        } catch (e: ErrorWrapper.Wrapped) {
             // uniffi-generated functions currently return just a single error
             // type, which inside its message is the underlying error code
             // and message, which we can use to construct the actual error

@@ -239,7 +239,7 @@ fn get_error_number(err: &Error) -> i32 {
 /// unpacks this and returns the exact same error objects as if it was an
 /// `ExternError` in the first place.
 #[derive(Debug)]
-enum ErrorWrapper {
+pub enum ErrorWrapper {
     Wrapped(String),
 }
 
@@ -280,34 +280,8 @@ implement_into_ffi_by_delegation!(
     msg_types::BookmarkNode
 );
 
-/// Implements [`IntoFfi`] for the provided types (more than one may be passed in) implementing
-/// `uniffi::ViaFfi` (UniFFI auto-generated serialization) by delegating to that implementation.
-///
-/// This is only necessary because we have a kinda "hybrid" FFI situation -
-/// some things generated via UniFFI, others by hand. Because this macro only
-/// makes sense in this Frankenstein world it's not in UniFFI itself.
-#[macro_export]
-macro_rules! implement_into_ffi_by_uniffi {
-    ($($FFIType:ty),* $(,)*) => {$(
-        unsafe impl ffi_support::IntoFfi for $FFIType where $FFIType: uniffi::ViaFfi {
-            type Value = <Self as uniffi::ViaFfi>::FfiType;
-            #[inline]
-            fn ffi_default() -> Self::Value {
-                Default::default()
-            }
-
-            #[inline]
-            fn into_ffi_value(self) -> Self::Value {
-                <Self as uniffi::ViaFfi>::lower(self)
-            }
-        }
-    )*}
-}
-
-implement_into_ffi_by_uniffi!(crate::storage::history_metadata::HistoryMetadata);
-
 uniffi_macros::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
-struct Dummy {
+pub struct Dummy {
     md: Option<Vec<HistoryMetadata>>,
 }

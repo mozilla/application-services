@@ -1,3 +1,19 @@
+# v82.2.0 (_2021-08-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.1.0...v82.2.0)
+
+## Push
+### What's changed
+  - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
+    - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)
+    - Two other new errors were defined that were used to be reported under a generic error:
+      - `JSONDeserializeError` for errors in deserialization
+      - `RequestError` for errors in sending a network request
+
+## Nimbus
+### What's changed
+   - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
+
 # v82.1.0 (_2021-07-30_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v82.0.0...v82.1.0)

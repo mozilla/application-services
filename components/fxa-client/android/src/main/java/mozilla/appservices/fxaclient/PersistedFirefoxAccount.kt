@@ -86,7 +86,7 @@ class PersistedFirefoxAccount(inner: FirefoxAccount, persistCallback: PersistCal
             val json: String
             try {
                 json = this.toJSONString()
-            } catch (e: FxaErrorException) {
+            } catch (e: FxaException) {
                 Log.e("FirefoxAccount", "Error serializing the FirefoxAccount state.")
                 return
             }

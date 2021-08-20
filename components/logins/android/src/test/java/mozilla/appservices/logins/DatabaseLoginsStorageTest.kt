@@ -129,7 +129,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.add(invalid, encryptionKey)
             fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidRecord) {
+        } catch (e: LoginsStorageException.InvalidRecord) {
             // All good.
         }
 
@@ -149,7 +149,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.ensureValid("", invalid, encryptionKey)
             fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidRecord) {
+        } catch (e: LoginsStorageException.InvalidRecord) {
             // All good.
         }
 
@@ -173,7 +173,7 @@ class DatabaseLoginsStorageTest {
         assertEquals(login.timesUsed + 1, updatedLogin!!.timesUsed)
         assert(updatedLogin.timeLastUsed > login.timeLastUsed)
 
-        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
+        assertThrows(LoginsStorageException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
 
         finishAndClose(store)
     }
@@ -230,7 +230,7 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
 
         for (record in INVALID_RECORDS) {
-            assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+            assertThrows(LoginsStorageException.InvalidRecord::class.java) {
                 test.add(record)
             }
         }
@@ -334,11 +334,11 @@ class DatabaseLoginsStorageTest {
                 timePasswordChanged = 0
         )
 
-        assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+        assertThrows(LoginsStorageException.InvalidRecord::class.java) {
             test.ensureValid(dupeLogin)
         }
 
-        assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+        assertThrows(LoginsStorageException.InvalidRecord::class.java) {
             test.ensureValid(nullValueLogin)
         }
 
@@ -394,7 +394,7 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) {
+        assertThrows(LoginsStorageException.NoSuchRecord::class.java) {
             test.update(UpdatableLogin(
                     id = "123412341234",
                     origin = "https://www.foo.org",
@@ -413,7 +413,7 @@ class DatabaseLoginsStorageTest {
 
         for (record in INVALID_RECORDS) {
             val updateArg = record.copy(id = "aaaaaaaaaaaa")
-            assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+            assertThrows(LoginsStorageException.InvalidRecord::class.java) {
                 test.update(updateArg)
             }
         }

@@ -61,5 +61,5 @@ dictionary Dummy {
 
 [Error]
 enum ErrorWrapper {
-    "Wrapped",
+    "Wrapped"
 };

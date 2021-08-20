@@ -117,3 +117,13 @@ lto = "thin"
 # We always want to use the local version of our own crates in that case.
 [patch."https://github.com/mozilla/application-services"]
 viaduct = { path = "components/viaduct" }
+
+# If you need to test some local changes to UniFFI, uncomment these lines
+# for a convenient way to use a local checkout rather than the published version.
+# You just have to make sure that the version number in your local checkout
+# matches the one used in the `Cargo.toml` files in this workspace.
+#[patch.crates-io]
+#uniffi = { path = "../uniffi-rs/uniffi" }
+#uniffi_bindgen = { path = "../uniffi-rs/uniffi_bindgen" }
+#uniffi_build = { path = "../uniffi-rs/uniffi_build" }
+#uniffi_macros = { path = "../uniffi-rs/uniffi_macros" }

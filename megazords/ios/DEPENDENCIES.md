@@ -468,7 +468,7 @@ The following text applies to code linked from these dependencies:
 [env_logger](https://github.com/sebasmagri/env_logger/),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
-[ffi-support](https://github.com/mozilla/application-services),
+[ffi-support](https://github.com/mozilla/ffi-support),
 [flate2](https://github.com/rust-lang/flate2-rs),
 [fnv](https://github.com/servo/rust-fnv),
 [form_urlencoded](https://github.com/servo/rust-url),
@@ -806,7 +806,7 @@ SOFTWARE.
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
-[memchr](https://github.com/BurntSushi/rust-memchr),
+[memchr](https://github.com/BurntSushi/memchr),
 [termcolor](https://github.com/BurntSushi/termcolor)
 
 ```

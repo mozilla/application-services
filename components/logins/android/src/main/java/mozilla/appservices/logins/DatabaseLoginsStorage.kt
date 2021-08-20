@@ -18,16 +18,11 @@ import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMet
 import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 
-// uniffi has unfortunate names for errors: https://github.com/mozilla/uniffi-rs/issues/442
-typealias LoginsStorageException = LoginsStorageErrorException
-
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a
    LoginStore.
-   XXX - can we kill this entirely?
-   TODO: Kill  LoginsStorageErrorException.MismatchedLock?
-
  */
+
 class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     private var store: LoginStore
 
@@ -114,9 +109,9 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
         }
     }
 
-    @Throws(LoginsStorageErrorException.InvalidRecord::class)
+    @Throws(LoginsStorageException.InvalidRecord::class)
     fun ensureValid(id: String, login: UpdatableLogin, encryptionKey: String) {
-        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageErrorException.InvalidRecord }) {
+        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageException.InvalidRecord }) {
             store.checkValidWithNoDupes(id, login, encryptionKey)
         }
     }
@@ -176,19 +171,19 @@ class LoginsStoreCounterMetrics(
                 throw e
             }
             when (e) {
-                is LoginsStorageErrorException.MismatchedLock -> {
+                is LoginsStorageException.MismatchedLock -> {
                     errCount["mismatched_lock"].add()
                 }
-                is LoginsStorageErrorException.NoSuchRecord -> {
+                is LoginsStorageException.NoSuchRecord -> {
                     errCount["no_such_record"].add()
                 }
-                is LoginsStorageErrorException.InvalidKey -> {
+                is LoginsStorageException.InvalidKey -> {
                     errCount["invalid_key"].add()
                 }
-                is LoginsStorageErrorException.Interrupted -> {
+                is LoginsStorageException.Interrupted -> {
                     errCount["interrupted"].add()
                 }
-                is LoginsStorageErrorException.InvalidRecord -> {
+                is LoginsStorageException.InvalidRecord -> {
                     errCount["invalid_record"].add()
                 }
                 is LoginsStorageException -> {
