@@ -774,7 +774,7 @@ SOFTWARE.
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
-[memchr](https://github.com/BurntSushi/rust-memchr)
+[memchr](https://github.com/BurntSushi/memchr)
 
 ```
 The MIT License (MIT)
