@@ -202,7 +202,7 @@ impl<'a> Driver<'a> {
         ClientRecord {
             id: settings.fxa_device_id.clone(),
             name: settings.device_name.clone(),
-            typ: Some(settings.device_type.as_str().into()),
+            typ: settings.device_type.into(),
             commands: Vec::new(),
             fxa_device_id: Some(settings.fxa_device_id.clone()),
             version: None,

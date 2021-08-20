@@ -7,37 +7,8 @@ const URI_LENGTH_MAX: usize = 65536;
 // https://searchfox.org/mozilla-central/rev/ea63a0888d406fae720cf24f4727d87569a8cab5/services/sync/modules/engines/tabs.js#8
 const TAB_ENTRIES_LIMIT: usize = 5;
 
-use serde_derive::{Deserialize, Serialize};
+use crate::DeviceType;
 use std::cell::RefCell;
-
-// As of right now, this local type is unavoidable due
-// to uniffi requiring all exposed types defined in the current crate
-// https://github.com/mozilla/uniffi-rs/issues/478
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum DeviceType {
-    #[serde(rename = "desktop")]
-    Desktop,
-    #[serde(rename = "mobile")]
-    Mobile,
-    #[serde(rename = "tablet")]
-    Tablet,
-    #[serde(rename = "vr")]
-    VR,
-    #[serde(rename = "tv")]
-    TV,
-}
-
-impl From<sync15::clients::DeviceType> for DeviceType {
-    fn from(device_type: sync15::clients::DeviceType) -> Self {
-        match device_type {
-            sync15::clients::DeviceType::Desktop => DeviceType::Desktop,
-            sync15::clients::DeviceType::Mobile => DeviceType::Mobile,
-            sync15::clients::DeviceType::Tablet => DeviceType::Tablet,
-            sync15::clients::DeviceType::VR => DeviceType::VR,
-            sync15::clients::DeviceType::TV => DeviceType::TV,
-        }
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RemoteTab {

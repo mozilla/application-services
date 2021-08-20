@@ -958,6 +958,7 @@ dependencies = [
  "cli-support",
  "dialoguer",
  "fxa-client",
+ "sync15",
  "url",
  "viaduct-reqwest",
  "webbrowser",

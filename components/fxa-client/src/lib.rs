@@ -40,6 +40,8 @@
 #![warn(rust_2018_idioms)]
 use serde_derive::*;
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use sync15::DeviceType;
 use thiserror::Error;
 
 // All the implementation details live in this "internal" module.
@@ -445,7 +447,7 @@ impl FirefoxAccount {
             supported_capabilities.into_iter().map(Into::into).collect();
         Ok(self.internal.lock().unwrap().initialize_device(
             name,
-            device_type.into(),
+            device_type,
             &supported_capabilities,
         )?)
     }
@@ -1103,29 +1105,12 @@ pub struct AuthorizationParameters {
 pub struct Device {
     pub id: String,
     pub display_name: String,
-    pub device_type: DeviceType,
+    pub device_type: sync15::DeviceType,
     pub capabilities: Vec<DeviceCapability>,
     pub push_subscription: Option<DevicePushSubscription>,
     pub push_endpoint_expired: bool,
     pub is_current_device: bool,
     pub last_access_time: Option<i64>,
-}
-
-/// Enumeration for the different types of device.
-///
-/// Firefox Accounts seprates devices into broad categories for display purposes,
-/// such as distinguishing a desktop PC from a mobile phone. Upon signin, the
-/// application should inspect the device it is running on and select an appropriate
-/// [`DeviceType`] to include in its device registration record.
-///
-#[derive(Debug)]
-pub enum DeviceType {
-    Desktop,
-    Mobile,
-    Tablet,
-    VR,
-    TV,
-    Unknown,
 }
 
 /// Details of a web-push subscription endpoint.
