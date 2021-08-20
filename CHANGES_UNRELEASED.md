@@ -24,13 +24,7 @@ Use the template below to make assigning a version number during the release cut
 ### ⚠️ Breaking Changes ⚠️
   - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
     to be more in keeping with Java/Kotlin idioms.
-
-## Logins
-
-### ⚠️ Breaking Changes ⚠️
-  - Members of the `LoginsStoreError` enum no longer have a `message` property giving a detailed error message.
-    It is now just a plain enum with no associated data.
-
+    - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
 ## Autofill
 
 ### ⚠️ Breaking Changes ⚠️
