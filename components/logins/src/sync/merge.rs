@@ -6,8 +6,8 @@
 use super::SyncStatus;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
+use crate::login::Login;
 use crate::util;
-use crate::Login;
 use rusqlite::Row;
 use std::time::{self, SystemTime};
 use sync15::ServerTimestamp;
@@ -132,10 +132,8 @@ impl SyncLoginData {
         let login: Option<Login> = if payload.is_tombstone() {
             None
         } else {
-            let record = Login::from_payload(payload, encdec)?;
-            // If we can fixup incoming records from sync, do so.
-            // But if we can't then keep the invalid data.
-            record.maybe_fixup().unwrap_or(None).or(Some(record))
+            // from_payload does fixups if necessary and possible.
+            Some(Login::from_payload(payload, encdec)?)
         };
         Ok(Self {
             guid,
@@ -185,8 +183,8 @@ impl_login_setter!(set_mirror, mirror, MirrorLogin);
 pub(crate) struct LoginDelta {
     // "non-commutative" fields
     pub origin: Option<String>,
-    pub password_enc: Option<String>,
-    pub username_enc: Option<String>,
+    pub password: Option<String>,
+    pub username: Option<String>,
     pub http_realm: Option<String>,
     pub form_action_origin: Option<String>,
 
@@ -222,8 +220,8 @@ impl LoginDelta {
     pub fn merge(self, mut b: LoginDelta, b_is_newer: bool) -> LoginDelta {
         let mut merged = self;
         merge_field!(merged, b, b_is_newer, origin);
-        merge_field!(merged, b, b_is_newer, password_enc);
-        merge_field!(merged, b, b_is_newer, username_enc);
+        merge_field!(merged, b, b_is_newer, password);
+        merge_field!(merged, b, b_is_newer, username);
         merge_field!(merged, b, b_is_newer, http_realm);
         merge_field!(merged, b, b_is_newer, form_action_origin);
 
@@ -244,63 +242,84 @@ impl LoginDelta {
 macro_rules! apply_field {
     ($login:ident, $delta:ident, $field:ident) => {
         if let Some($field) = $delta.$field.take() {
+            $login.fields.$field = $field.into();
+        }
+    };
+}
+
+macro_rules! apply_metadata_field {
+    ($login:ident, $delta:ident, $field:ident) => {
+        if let Some($field) = $delta.$field.take() {
             $login.$field = $field.into();
         }
     };
 }
 
 impl Login {
-    pub(crate) fn apply_delta(&mut self, mut delta: LoginDelta) {
+    pub(crate) fn apply_delta(
+        &mut self,
+        mut delta: LoginDelta,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<()> {
         apply_field!(self, delta, origin);
 
-        apply_field!(self, delta, password_enc);
-        apply_field!(self, delta, username_enc);
-
-        apply_field!(self, delta, time_created);
-        apply_field!(self, delta, time_last_used);
-        apply_field!(self, delta, time_password_changed);
+        apply_metadata_field!(self, delta, time_created);
+        apply_metadata_field!(self, delta, time_last_used);
+        apply_metadata_field!(self, delta, time_password_changed);
 
         apply_field!(self, delta, password_field);
         apply_field!(self, delta, username_field);
 
+        let mut sec_fields = self.decrypt_fields(encdec)?;
+        if let Some(password) = delta.password.take() {
+            sec_fields.password = password;
+        }
+        if let Some(username) = delta.username.take() {
+            sec_fields.username = username;
+        }
+        self.sec_fields = encdec.encrypt_struct(&sec_fields)?;
+
         // Use Some("") to indicate that it should be changed to be None (hacky...)
         if let Some(realm) = delta.http_realm.take() {
-            self.http_realm = if realm.is_empty() { None } else { Some(realm) };
+            self.fields.http_realm = if realm.is_empty() { None } else { Some(realm) };
         }
 
         if let Some(url) = delta.form_action_origin.take() {
-            self.form_action_origin = if url.is_empty() { None } else { Some(url) };
+            self.fields.form_action_origin = if url.is_empty() { None } else { Some(url) };
         }
 
         self.times_used += delta.times_used;
+        Ok(())
     }
 
-    pub(crate) fn delta(&self, older: &Login) -> LoginDelta {
+    pub(crate) fn delta(&self, older: &Login, encdec: &EncryptorDecryptor) -> Result<LoginDelta> {
         let mut delta = LoginDelta::default();
 
-        if self.form_action_origin != older.form_action_origin {
-            delta.form_action_origin = Some(self.form_action_origin.clone().unwrap_or_default());
+        if self.fields.form_action_origin != older.fields.form_action_origin {
+            delta.form_action_origin =
+                Some(self.fields.form_action_origin.clone().unwrap_or_default());
         }
 
-        if self.http_realm != older.http_realm {
-            delta.http_realm = Some(self.http_realm.clone().unwrap_or_default());
+        if self.fields.http_realm != older.fields.http_realm {
+            delta.http_realm = Some(self.fields.http_realm.clone().unwrap_or_default());
         }
 
-        if self.origin != older.origin {
-            delta.origin = Some(self.origin.clone());
+        if self.fields.origin != older.fields.origin {
+            delta.origin = Some(self.fields.origin.clone());
         }
-        // TODO-sqlcipher -- should we be decrypting these?
-        if self.username_enc != older.username_enc {
-            delta.username_enc = Some(self.username_enc.clone());
+        let older_sec_fields = older.decrypt_fields(encdec)?;
+        let self_sec_fields = self.decrypt_fields(encdec)?;
+        if self_sec_fields.username != older_sec_fields.username {
+            delta.username = Some(self_sec_fields.username.clone());
         }
-        if self.password_enc != older.password_enc {
-            delta.password_enc = Some(self.password_enc.clone());
+        if self_sec_fields.password != older_sec_fields.password {
+            delta.password = Some(self_sec_fields.password);
         }
-        if self.password_field != older.password_field {
-            delta.password_field = Some(self.password_field.clone());
+        if self.fields.password_field != older.fields.password_field {
+            delta.password_field = Some(self.fields.password_field.clone());
         }
-        if self.username_field != older.username_field {
-            delta.username_field = Some(self.username_field.clone());
+        if self.fields.username_field != older.fields.username_field {
+            delta.username_field = Some(self.fields.username_field.clone());
         }
 
         // We discard zero (and negative numbers) for timestamps so that a
@@ -328,7 +347,7 @@ impl Login {
             delta.times_used = self.times_used - older.times_used;
         }
 
-        delta
+        Ok(delta)
     }
 }
 

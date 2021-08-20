@@ -20,9 +20,6 @@ pub enum ErrorKind {
     #[error("The `sync_status` column in DB has an illegal value: {0}")]
     BadSyncStatus(u8),
 
-    #[error("A duplicate GUID is present: {0:?}")]
-    DuplicateGuid(String),
-
     #[error("No record with guid exists (when one was required): {0:?}")]
     NoSuchRecord(String),
 
@@ -100,7 +97,6 @@ impl Error {
     pub fn label(&self) -> &'static str {
         match self.kind() {
             ErrorKind::BadSyncStatus(_) => "BadSyncStatus",
-            ErrorKind::DuplicateGuid(_) => "DuplicateGuid",
             ErrorKind::NoSuchRecord(_) => "NoSuchRecord",
             ErrorKind::NonEmptyTable => "NonEmptyTable",
             ErrorKind::InvalidSalt => "InvalidSalt",
@@ -147,23 +143,22 @@ pub enum LoginsStorageError {
     #[error("NoSuchRecord error: {0}")]
     NoSuchRecord(String),
 
-    /// This is thrown if `add()` is given a record that has an ID, and
-    /// that ID does not exist.
-    #[error("IdCollision error: {0}")]
-    IdCollision(String),
-
     // This is thrown on attempts to insert or update a record so that it
     // is no longer valid. See [InvalidLoginReason] for a list of reasons
     // a record may be considered invalid
     #[error("{0}")]
     InvalidRecord(String, InvalidLoginReason),
 
-    /// This error is emitted in two cases:
+    /// This error is emitted when migrating from a sqlcipher database in two cases:
     /// 1. An incorrect key is used to to open the login database
     /// 2. The file at the path specified is not a sqlite database.
     /// NOTE: Dropping sqlcipher means we will drop (1), so should rename it
     #[error("InvalidKey error: {0}")]
     InvalidKey(String),
+
+    /// Error encrypting/decrypting logins data
+    #[error("Crypto Error: {0}")]
+    CryptoError(String),
 
     /// This error is emitted if a request to a sync server failed.
     /// We can probably kill this? The sync manager is what cares about this.
@@ -213,10 +208,6 @@ impl From<Error> for LoginsStorageError {
                     Sync15ErrorKind::RequestError(_) => LoginsStorageError::RequestFailed(label),
                     _ => LoginsStorageError::UnexpectedLoginsStorageError(label),
                 }
-            }
-            ErrorKind::DuplicateGuid(id) => {
-                log::error!("Guid already exists: {}", id);
-                LoginsStorageError::IdCollision(label)
             }
             ErrorKind::NoSuchRecord(id) => {
                 log::error!("No record exists with id {}", id);
@@ -272,6 +263,11 @@ impl From<Error> for LoginsStorageError {
                 // In the old world, this had an error code (7) but no Kotlin
                 // error type, meaning it got the "base" error.
                 LoginsStorageError::UnexpectedLoginsStorageError(label)
+            }
+
+            ErrorKind::CryptoError(_) => {
+                log::error!("Crypto error");
+                LoginsStorageError::CryptoError(label)
             }
 
             err => {

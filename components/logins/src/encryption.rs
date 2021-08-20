@@ -30,6 +30,7 @@
 
 use crate::error::*;
 use jwcrypto::{self};
+use serde::{de::DeserializeOwned, Serialize};
 
 // Rather than passing keys around everywhere we abstract the encryption
 // and decryption behind this struct.
@@ -54,6 +55,11 @@ impl EncryptorDecryptor {
         )?)
     }
 
+    pub fn encrypt_struct<T: Serialize>(&self, fields: &T) -> Result<String> {
+        let str = serde_json::to_string(fields)?;
+        self.encrypt(&str)
+    }
+
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
         Ok(jwcrypto::decrypt_jwe(
             &ciphertext,
@@ -61,6 +67,11 @@ impl EncryptorDecryptor {
                 jwk: self.jwk.clone(),
             },
         )?)
+    }
+
+    pub fn decrypt_struct<T: DeserializeOwned>(&self, ciphertext: &str) -> Result<T> {
+        let json = self.decrypt(ciphertext)?;
+        Ok(serde_json::from_str(&json)?)
     }
 }
 
@@ -92,6 +103,12 @@ pub mod test_utils {
     }
     pub fn decrypt(value: &str) -> String {
         TEST_ENCRYPTOR.decrypt(value).unwrap()
+    }
+    pub fn encrypt_struct<T: Serialize>(fields: &T) -> String {
+        TEST_ENCRYPTOR.encrypt_struct(fields).unwrap()
+    }
+    pub fn decrypt_struct<T: DeserializeOwned>(ciphertext: String) -> T {
+        TEST_ENCRYPTOR.decrypt_struct(&ciphertext).unwrap()
     }
 }
 

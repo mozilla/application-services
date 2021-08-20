@@ -4,6 +4,7 @@
 
 use super::merge::{LocalLogin, MirrorLogin};
 use super::SyncStatus;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::Login;
 use crate::util;
@@ -40,14 +41,15 @@ impl UpdatePlan {
         upstream: Login,
         upstream_time: ServerTimestamp,
         server_now: ServerTimestamp,
-    ) {
+        encdec: &EncryptorDecryptor,
+    ) -> Result<()> {
         let local_age = SystemTime::now()
             .duration_since(local.local_modified)
             .unwrap_or_default();
         let remote_age = server_now.duration_since(upstream_time).unwrap_or_default();
 
-        let local_delta = local.login.delta(&shared.login);
-        let upstream_delta = upstream.delta(&shared.login);
+        let local_delta = local.login.delta(&shared.login, encdec)?;
+        let upstream_delta = upstream.delta(&shared.login, encdec)?;
 
         let merged_delta = local_delta.merge(upstream_delta, remote_age < local_age);
 
@@ -56,9 +58,10 @@ impl UpdatePlan {
             .push((upstream, upstream_time.as_millis() as i64));
         let mut new = shared;
 
-        new.login.apply_delta(merged_delta);
+        new.login.apply_delta(merged_delta, encdec)?;
         new.server_modified = upstream_time;
         self.local_updates.push(new);
+        Ok(())
     }
 
     pub fn plan_delete(&mut self, id: Guid) {
@@ -109,9 +112,8 @@ impl UpdatePlan {
                 formActionOrigin = :form_action_origin,
                 usernameField    = :username_field,
                 passwordField    = :password_field,
-                passwordEnc      = :password_enc,
                 origin           = :origin,
-                usernameEnc      = :username_enc,
+                secFields        = :sec_fields,
                 -- Avoid zeroes if the remote has been overwritten by an older client.
                 timesUsed           = coalesce(nullif(:times_used,            0), timesUsed),
                 timeLastUsed        = coalesce(nullif(:time_last_used,        0), timeLastUsed),
@@ -124,18 +126,17 @@ impl UpdatePlan {
             log::trace!("Updating mirror {:?}", login.guid_str());
             stmt.execute_named(named_params! {
                 ":server_modified": *timestamp,
-                ":http_realm": login.http_realm,
-                ":form_action_origin": login.form_action_origin,
-                ":username_field": login.username_field,
-                ":password_field": login.password_field,
-                ":password_enc": login.password_enc,
-                ":origin": login.origin,
-                ":username_enc": login.username_enc,
+                ":http_realm": login.fields.http_realm,
+                ":form_action_origin": login.fields.form_action_origin,
+                ":username_field": login.fields.username_field,
+                ":password_field": login.fields.password_field,
+                ":origin": login.fields.origin,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
                 ":time_password_changed": login.time_password_changed,
                 ":time_created": login.time_created,
                 ":guid": login.guid_str(),
+                ":sec_fields": login.sec_fields,
             })?;
             scope.err_if_interrupted()?;
         }
@@ -152,9 +153,8 @@ impl UpdatePlan {
                 formActionOrigin,
                 usernameField,
                 passwordField,
-                passwordEnc,
                 origin,
-                usernameEnc,
+                secFields,
 
                 timesUsed,
                 timeLastUsed,
@@ -170,9 +170,8 @@ impl UpdatePlan {
                 :form_action_origin,
                 :username_field,
                 :password_field,
-                :password_enc,
                 :origin,
-                :username_enc,
+                :sec_fields,
 
                 :times_used,
                 :time_last_used,
@@ -188,18 +187,17 @@ impl UpdatePlan {
             stmt.execute_named(named_params! {
                 ":is_overridden": *is_overridden,
                 ":server_modified": *timestamp,
-                ":http_realm": login.http_realm,
-                ":form_action_origin": login.form_action_origin,
-                ":username_field": login.username_field,
-                ":password_field": login.password_field,
-                ":password_enc": login.password_enc,
-                ":origin": login.origin,
-                ":username_enc": login.username_enc,
+                ":http_realm": login.fields.http_realm,
+                ":form_action_origin": login.fields.form_action_origin,
+                ":username_field": login.fields.username_field,
+                ":password_field": login.fields.password_field,
+                ":origin": login.fields.origin,
                 ":times_used": login.times_used,
                 ":time_last_used": login.time_last_used,
                 ":time_password_changed": login.time_password_changed,
                 ":time_created": login.time_created,
                 ":guid": login.guid_str(),
+                ":sec_fields": login.sec_fields,
             })?;
             scope.err_if_interrupted()?;
         }
@@ -217,9 +215,8 @@ impl UpdatePlan {
                  timeLastUsed        = :time_last_used,
                  timePasswordChanged = :time_password_changed,
                  timesUsed           = :times_used,
-                 passwordEnc         = :password_enc,
                  origin              = :origin,
-                 usernameEnc         = :username_enc,
+                 secFields     = :sec_fields,
                  sync_status         = {changed}
              WHERE guid = :guid",
             changed = SyncStatus::Changed as u8
@@ -231,17 +228,16 @@ impl UpdatePlan {
             log::trace!("Updating local {:?}", l.guid_str());
             stmt.execute_named(named_params! {
                 ":local_modified": local_ms,
-                ":http_realm": l.login.http_realm,
-                ":form_action_origin": l.login.form_action_origin,
-                ":username_field": l.login.username_field,
-                ":password_field": l.login.password_field,
-                ":password_enc": l.login.password_enc,
-                ":origin": l.login.origin,
-                ":username_enc": l.login.username_enc,
+                ":http_realm": l.login.fields.http_realm,
+                ":form_action_origin": l.login.fields.form_action_origin,
+                ":username_field": l.login.fields.username_field,
+                ":password_field": l.login.fields.password_field,
+                ":origin": l.login.fields.origin,
                 ":time_last_used": l.login.time_last_used,
                 ":time_password_changed": l.login.time_password_changed,
                 ":times_used": l.login.times_used,
                 ":guid": l.guid_str(),
+                ":sec_fields": l.login.sec_fields,
             })?;
             scope.err_if_interrupted()?;
         }

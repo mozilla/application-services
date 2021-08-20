@@ -217,6 +217,7 @@ mod tests {
         assert_eq!(db.query_one::<i64>("PRAGMA user_version").unwrap(), 1);
     }
 
+    #[ignore]
     #[test]
     fn test_migrate_data() {
         let testpaths = TestPaths::new();
@@ -242,6 +243,7 @@ mod tests {
         assert_eq!(metrics.errors, Vec::<String>::new());
     }
 
+    #[ignore]
     #[test]
     fn test_migration_errors() {
         let testpaths = TestPaths::new();
@@ -283,6 +285,7 @@ mod tests {
         assert_eq!(metrics.errors.len(), 1);
     }
 
+    #[ignore]
     #[test]
     fn test_migrate_with_manual_salt() {
         let testpaths = TestPaths::new();

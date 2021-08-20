@@ -24,162 +24,111 @@ typealias LoginsStorageException = LoginsStorageErrorException
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a
    LoginStore.
+   XXX - can we kill this entirely?
+   TODO: Kill  LoginsStorageErrorException.MismatchedLock?
+
  */
-class DatabaseLoginsStorage(private val dbPath: String) : AutoCloseable {
-    private var store: AtomicReference<LoginStore> = AtomicReference()
+class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
+    private var store: LoginStore
 
-    fun isLocked(): Boolean {
-        return this.store.get() == null
-    }
-
-    private fun checkUnlocked(): LoginStore {
-        val store = this.store.get() ?: throw LoginsStorageException("Using DatabaseLoginsStorage without unlocking first")
-        return store
-    }
-
-    @Synchronized
-    @Throws(LoginsStorageException::class)
-    fun lock() {
-        val store = this.store.getAndSet(null)
-        if (store == null) {
-            throw LoginsStorageErrorException.MismatchedLock("Lock called when we are already locked")
-        }
-        store.destroy()
-    }
-
-    @Synchronized
-    @Throws(LoginsStorageException::class)
-    fun unlock(encryptionKey: String) {
-        return unlockCounters.measure {
-            val store = LoginStore(dbPath, encryptionKey)
-            if (this.store.getAndSet(store) != null) {
-                // this seems wrong?
-                throw LoginsStorageErrorException.MismatchedLock("Unlock called when we are already unlocked")
-            }
-        }
-    }
-
-    @Synchronized
-    @Throws(LoginsStorageException::class)
-    fun ensureUnlocked(encryptionKey: String) {
-        if (isLocked()) {
-            this.unlock(encryptionKey)
-        }
-    }
-
-    @Synchronized
-    fun ensureLocked() {
-        if (!isLocked()) {
-            this.lock()
-        }
+    init {
+        this.store = LoginStore(dbPath)
     }
 
     @Throws(LoginsStorageException::class)
     fun reset() {
-        this.checkUnlocked().reset()
+        this.store.reset()
     }
 
     @Throws(LoginsStorageException::class)
     fun wipe() {
-        this.checkUnlocked().wipe()
+        this.store.wipe()
     }
 
     @Throws(LoginsStorageException::class)
     fun wipeLocal() {
-        this.checkUnlocked().wipeLocal()
+        this.store.wipeLocal()
     }
 
     @Throws(LoginsStorageException::class)
     fun delete(id: String): Boolean {
         return writeQueryCounters.measure {
-            checkUnlocked().delete(id)
+            store.delete(id)
         }
     }
 
     @Throws(LoginsStorageException::class)
     fun get(id: String): Login? {
         return readQueryCounters.measure {
-            checkUnlocked().get(id)
+            store.get(id)
         }
     }
 
     @Throws(LoginsStorageException::class)
     fun touch(id: String) {
         writeQueryCounters.measure {
-            checkUnlocked().touch(id)
+            store.touch(id)
         }
     }
 
     @Throws(LoginsStorageException::class)
     fun list(): List<Login> {
         return readQueryCounters.measure {
-            checkUnlocked().list()
+            store.list()
         }
     }
 
     @Throws(LoginsStorageException::class)
     fun getByBaseDomain(baseDomain: String): List<Login> {
         return readQueryCounters.measure {
-            checkUnlocked().getByBaseDomain(baseDomain)
+            store.getByBaseDomain(baseDomain)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun add(login: Login): String {
+    fun add(login: UpdatableLogin, encryptionKey: String): Login {
         return writeQueryCounters.measure {
-            checkUnlocked().add(login)
+            store.add(login, encryptionKey)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun importLogins(logins: List<Login>): String {
+    fun importLogins(logins: List<Login>, encryptionKey: String): String {
         return writeQueryCounters.measure {
-            checkUnlocked().importMultiple(logins)
+            store.importMultiple(logins, encryptionKey)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun update(login: Login) {
+    fun update(id: String, login: UpdatableLogin, encryptionKey: String): Login {
         return writeQueryCounters.measure {
-            checkUnlocked().update(login)
+            store.update(id, login, encryptionKey)
         }
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    fun potentialDupesIgnoringUsername(login: Login): List<Login> {
+    fun potentialDupesIgnoringUsername(id: String, login: UpdatableLogin): List<Login> {
         return readQueryCounters.measure {
-            checkUnlocked().potentialDupesIgnoringUsername(login)
+            store.potentialDupesIgnoringUsername(id, login)
         }
     }
 
     @Throws(LoginsStorageErrorException.InvalidRecord::class)
-    fun ensureValid(login: Login) {
+    fun ensureValid(id: String, login: UpdatableLogin, encryptionKey: String) {
         readQueryCounters.measureIgnoring({ e -> e is LoginsStorageErrorException.InvalidRecord }) {
-            checkUnlocked().checkValidWithNoDupes(login)
+            store.checkValidWithNoDupes(id, login, encryptionKey)
         }
     }
 
-    @Throws(LoginsStorageException::class)
-    fun rekeyDatabase(newEncryptionKey: String) {
-        return checkUnlocked().rekeyDatabase(newEncryptionKey)
-    }
-
     fun registerWithSyncManager() {
-        return checkUnlocked().registerWithSyncManager()
+        return store.registerWithSyncManager()
     }
 
     @Synchronized
     @Throws(LoginsStorageException::class)
     override fun close() {
-        this.store.getAndSet(null)?.destroy()
-    }
-
-    private val unlockCounters: LoginsStoreCounterMetrics by lazy {
-        LoginsStoreCounterMetrics(
-            LoginsStoreMetrics.unlockCount,
-            LoginsStoreMetrics.unlockErrorCount
-        )
+        store.close()
     }
 
     private val readQueryCounters: LoginsStoreCounterMetrics by lazy {
@@ -232,9 +181,6 @@ class LoginsStoreCounterMetrics(
                 }
                 is LoginsStorageErrorException.NoSuchRecord -> {
                     errCount["no_such_record"].add()
-                }
-                is LoginsStorageErrorException.IdCollision -> {
-                    errCount["id_collision"].add()
                 }
                 is LoginsStorageErrorException.InvalidKey -> {
                     errCount["invalid_key"].add()

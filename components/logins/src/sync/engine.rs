@@ -49,6 +49,7 @@ impl LoginsSyncEngine {
         scope: &SqlInterruptScope,
     ) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
+        let encdec = self.encdec.as_ref().expect("TODO: should not be option");
 
         for mut record in records {
             scope.err_if_interrupted()?;
@@ -64,7 +65,14 @@ impl LoginsSyncEngine {
             match (record.mirror.take(), record.local.take()) {
                 (Some(mirror), Some(local)) => {
                     log::debug!("  Conflict between remote and local, Resolving with 3WM");
-                    plan.plan_three_way_merge(local, mirror, upstream, upstream_time, server_now);
+                    plan.plan_three_way_merge(
+                        local,
+                        mirror,
+                        upstream,
+                        upstream_time,
+                        server_now,
+                        &encdec,
+                    )?;
                     telem.reconciled(1);
                 }
                 (Some(_mirror), None) => {
@@ -121,9 +129,6 @@ impl LoginsSyncEngine {
         {
             let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
             for incoming in records.iter() {
-                if seen_ids.contains(&incoming.0.id) {
-                    throw!(ErrorKind::DuplicateGuid(incoming.0.id.to_string()))
-                }
                 seen_ids.insert(incoming.0.id.clone());
                 match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, encdec) {
                     Ok(v) => sync_data.push(v),
@@ -365,13 +370,19 @@ impl LoginsSyncEngine {
     // could be consolidated, but for now it remains sync specific.
     pub(crate) fn find_dupe_login(&self, l: &Login) -> Result<Option<Login>> {
         let form_submit_host_port = l
+            .fields
             .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(&s));
+        let encdec = self
+            .encdec
+            .as_ref()
+            .expect("TODO: This should not be an Option!");
+        let enc_fields = l.decrypt_fields(&encdec)?;
         let args = named_params! {
-            ":origin": l.origin,
-            ":http_realm": l.http_realm,
-            ":username": l.username_enc,
+            ":origin": l.fields.origin,
+            ":http_realm": l.fields.http_realm,
+            ":username": enc_fields.username,
             ":form_submit": form_submit_host_port,
         };
         let mut query = format!(
@@ -470,7 +481,7 @@ impl SyncEngine for LoginsSyncEngine {
 mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
-    use crate::encryption::test_utils::{decrypt, TEST_ENCRYPTOR};
+    use crate::encryption::test_utils::TEST_ENCRYPTOR;
     use crate::login::test_utils::login;
     use std::collections::HashMap;
     use std::sync::Arc;
@@ -564,16 +575,24 @@ mod tests {
                 let mut guids_seen = HashSet::new();
                 let passwords = SyncPasswords {
                     local: sync_login_data.local.map(|local_login| {
-                        guids_seen.insert(local_login.login.id);
-                        decrypt(&local_login.login.password_enc)
+                        guids_seen.insert(local_login.login.id.clone());
+                        local_login
+                            .login
+                            .decrypt_fields(&TEST_ENCRYPTOR)
+                            .unwrap()
+                            .password
                     }),
                     mirror: sync_login_data.mirror.map(|mirror_login| {
-                        guids_seen.insert(mirror_login.login.id);
-                        decrypt(&mirror_login.login.password_enc)
+                        guids_seen.insert(mirror_login.login.id.clone());
+                        mirror_login
+                            .login
+                            .decrypt_fields(&TEST_ENCRYPTOR)
+                            .unwrap()
+                            .password
                     }),
                     inbound: sync_login_data.inbound.0.map(|login| {
-                        guids_seen.insert(login.id);
-                        decrypt(&login.password_enc)
+                        guids_seen.insert(login.id.clone());
+                        login.decrypt_fields(&TEST_ENCRYPTOR).unwrap().password
                     }),
                 };
                 (guids_seen.into_iter().next().unwrap(), passwords)

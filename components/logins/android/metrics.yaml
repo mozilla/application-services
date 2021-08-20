@@ -24,50 +24,6 @@ logins_store:
   # graph e.g. the error rate of applications trying to use the logins store,
   # and identify application or platform features that lead to unusually
   # high error rates.
-
-  unlock_count:
-    type: counter
-    description: >
-      The number of times the login store was unlocked.
-      It is intended to be used together with `unlock_error_count` to measure
-      the overall error rate of unlocking the logins store.
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - mhammond@mozilla.com
-      - synced-client-integrations@mozilla.com
-    expires: "never"
-
-  unlock_error_count:
-    type: labeled_counter
-    description: >
-      The number of errors encountered when unlocking the logins store, labeled
-      by type.
-      It is intended to be used together with `unlock_count` to measure the
-      overall error rate of unlocking the logins store.
-    labels:
-      - invalid_key
-      - mismatched_lock
-      - storage_error
-    bugs:
-      - https://github.com/mozilla/application-services/issues/2225
-    data_reviews:
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1597895
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1649044
-      - https://bugzilla.mozilla.org/show_bug.cgi?id=1694316
-    data_sensitivity:
-      - interaction
-    notification_emails:
-      - mhammond@mozilla.com
-      - synced-client-integrations@mozilla.com
-    expires: "never"
-
   read_query_count:
     type: counter
     description: >
@@ -142,7 +98,6 @@ logins_store:
       the overall error rate of write operations on the logins store.
     labels:
       - no_such_record
-      - id_collision
       - interrupted
       - invalid_record
       - storage_error

@@ -2,23 +2,64 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-namespace logins { };
+namespace logins {
+    // We expose the crypto primitives on the namespace
 
+    // Create a new, random, encryption key.
+    [Throws=LoginsStorageError]
+    string create_key();
 
-// Converted from mozilla.appservices.logins.protobuf.rs
-dictionary Login {
-    string id;
+    // Decrypt a string into an SecureLoginFields struct. This will be used to get the credentials
+    // from a `Login` dict.
+    [Throws=LoginsStorageError]
+    SecureLoginFields decrypt_fields([ByRef]string ciphertext, [ByRef]string encryption_key);
+
+    // Encrypt an SecureLoginFields struct into a string. This will be used only rarely, eg, when
+    // putting together `Login` dicts to pass to `import_multiple`.
+    [Throws=LoginsStorageError]
+    string encrypt_fields([ByRef]SecureLoginFields fields, [ByRef]string encryption_key);
+
+    // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure
+    // a given key is the correct key for the DB. `autofill` consumers do this by just encrypting
+    // some arbitrary string and storing the ciphertext, and as the app starts and the ciphertext
+    // is loaded, it checks the string decrypts.
+    // However, we don't otherwise need encryption and decryption of arbitrary strings. An
+    // alternative is we expose a specific `check_canary` or similar function, and we manage
+    // storage of the strings etc in our meta table?
+};
+
+// The fields you can add or update.
+dictionary LoginFields {
     string origin;
-    string password_enc;
-    string username_enc;
     string? http_realm;
     string? form_action_origin;
     string username_field;
     string password_field;
+};
+
+// What you can add or update. You must pass the cleartext of encrypted fields
+// and the add/update APIs can encrypt (they need to know the key anyway)
+dictionary UpdatableLogin {
+    LoginFields fields;
+    SecureLoginFields sec_fields;
+};
+
+// What we return for all the "read" APIs - we never return the cleartext
+// of encrypted fields.
+dictionary Login {
+    string id;
+    LoginFields fields;
+    string sec_fields; // ciphertext of a SecureLoginFields
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+};
+
+// Fields available only while the encryption key is known.
+dictionary SecureLoginFields {
+    string password;
+    string username;
 };
 
 [Error]
@@ -27,8 +68,8 @@ enum LoginsStorageError {
     "SyncAuthInvalid",
     "MismatchedLock",
     "NoSuchRecord",
-    "IdCollision",
     "InvalidRecord",
+    "CryptoError",
     "InvalidKey",
     "RequestFailed",
     "Interrupted",
@@ -38,17 +79,25 @@ interface LoginStore {
     [Throws=LoginsStorageError]
     constructor(string path);
 
+    // XXX - Can we kill this, and just fix the semantics of add/update?
     [Throws=LoginsStorageError]
-    void check_valid_with_no_dupes([ByRef] Login login);
+    void check_valid_with_no_dupes([ByRef] string id, [ByRef] UpdatableLogin login, [ByRef] string encryption_key);
 
     [Throws=LoginsStorageError]
-    string add(Login login);
+    Login add(UpdatableLogin login, [ByRef]string encryption_key);
+
+    [Throws=LoginsStorageError]
+    Login update([ByRef] string id, UpdatableLogin login, [ByRef]string encryption_key);
+
+    [Throws=LoginsStorageError]
+    Login add_or_update(UpdatableLogin login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
     boolean delete([ByRef] string id);
 
     [Throws=LoginsStorageError]
     void wipe();
+
     [Throws=LoginsStorageError]
     void wipe_local();
 
@@ -65,16 +114,17 @@ interface LoginStore {
     sequence<Login> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsStorageError]
-    sequence<Login> potential_dupes_ignoring_username(Login login);
+    string? find_existing(UpdatableLogin look, [ByRef]string encryption_key);
+
+    // XXX - Can we kill this, and just fix the semantics of add/update?
+    [Throws=LoginsStorageError]
+    sequence<Login> potential_dupes_ignoring_username([ByRef]string id, UpdatableLogin login);
 
     [Throws=LoginsStorageError]
     Login? get([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    void update(Login login);
-
-    [Throws=LoginsStorageError]
-    string import_multiple(sequence<Login> login);
+    string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
 
     [Self=ByArc]
     void register_with_sync_manager();
