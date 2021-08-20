@@ -24,7 +24,7 @@
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, LoginFields, SecureLoginFields, UpdatableLogin, ValidateAndFixup};
+use crate::login::{Login, LoginEntry, LoginFields, SecureLoginFields, ValidateAndFixup};
 use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
 use crate::sync::SyncStatus;
@@ -510,7 +510,7 @@ impl LoginDb {
         Ok(metrics)
     }
 
-    pub fn add(&self, login: UpdatableLogin, encdec: &EncryptorDecryptor) -> Result<Login> {
+    pub fn add(&self, login: LoginEntry, encdec: &EncryptorDecryptor) -> Result<Login> {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
@@ -534,7 +534,7 @@ impl LoginDb {
     pub fn update(
         &self,
         sguid: &str,
-        login: UpdatableLogin,
+        login: LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Login> {
         let guid = Guid::new(sguid);
@@ -546,7 +546,7 @@ impl LoginDb {
         // probably just remove the dupe.
         let (new_fields, new_sec_fields) =
             self.fixup_and_check_for_dupes(&guid, login.fields, login.sec_fields, &encdec)?;
-        let login = UpdatableLogin {
+        let login = LoginEntry {
             fields: new_fields,
             sec_fields: new_sec_fields,
         };
@@ -697,7 +697,7 @@ impl LoginDb {
     // going to update an existing login vs create a new one.
     pub fn find_existing(
         &self,
-        look: &UpdatableLogin,
+        look: &LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<String>> {
         // Make sure to use `IS NULL` not `= NULL` in the WHERE clause
@@ -1087,7 +1087,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let added = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         form_action_origin: Some("https://www.example.com".into()),
                         origin: "https://www.example.com".into(),
@@ -1103,7 +1103,7 @@ mod tests {
             )
             .unwrap();
 
-        let unique_login = UpdatableLogin {
+        let unique_login = LoginEntry {
             fields: LoginFields {
                 form_action_origin: None,
                 origin: "https://www.example.com".into(),
@@ -1116,7 +1116,7 @@ mod tests {
             },
         };
 
-        let duplicate_login = UpdatableLogin {
+        let duplicate_login = LoginEntry {
             fields: LoginFields {
                 form_action_origin: Some("https://www.example.com".into()),
                 origin: "https://www.example.com".into(),
@@ -1129,7 +1129,7 @@ mod tests {
             },
         };
 
-        let updated_login = UpdatableLogin {
+        let updated_login = LoginEntry {
             fields: LoginFields {
                 form_action_origin: None,
                 origin: "https://www.example.com".into(),
@@ -1144,7 +1144,7 @@ mod tests {
 
         struct TestCase {
             guid: Guid,
-            login: UpdatableLogin,
+            login: LoginEntry,
             should_err: bool,
             expected_err: &'static str,
         }
@@ -1200,7 +1200,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let added = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         form_action_origin: Some("http://😍.com".into()),
                         origin: "http://😍.com".into(),
@@ -1238,7 +1238,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let added = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         form_action_origin: None,
                         origin: "http://😍.com".into(),
@@ -1284,7 +1284,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         for h in good.iter().chain(bad.iter()) {
             db.add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: (*h).into(),
                         http_realm: Some((*h).into()),
@@ -1373,7 +1373,7 @@ mod tests {
     #[test]
     fn test_add() {
         let db = LoginDb::open_in_memory().unwrap();
-        let to_add = UpdatableLogin {
+        let to_add = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -1397,7 +1397,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let login = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.example.com".into(),
                         http_realm: Some("https://www.example.com".into()),
@@ -1413,7 +1413,7 @@ mod tests {
             .unwrap();
         db.update(
             &login.id,
-            UpdatableLogin {
+            LoginEntry {
                 fields: LoginFields {
                     origin: "https://www.example2.com".into(),
                     http_realm: Some("https://www.example2.com".into()),
@@ -1445,7 +1445,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let login = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.example.com".into(),
                         http_realm: Some("https://www.example.com".into()),
@@ -1470,7 +1470,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let login = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.example.com".into(),
                         http_realm: Some("https://www.example.com".into()),
@@ -1507,7 +1507,7 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let login1 = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.example.com".into(),
                         http_realm: Some("https://www.example.com".into()),
@@ -1524,7 +1524,7 @@ mod tests {
 
         let login2 = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.example2.com".into(),
                         http_realm: Some("https://www.example2.com".into()),
@@ -1589,7 +1589,7 @@ mod tests {
         // Adding login to trigger non-empty table error
         let login = db
             .add(
-                UpdatableLogin {
+                LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.example.com".into(),
                         http_realm: Some("https://www.example.com".into()),
@@ -1828,7 +1828,7 @@ mod tests {
     #[test]
     fn test_find() {
         let db = LoginDb::open_in_memory().unwrap();
-        let updatable_login = UpdatableLogin {
+        let updatable_login = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("The Website".into()),
@@ -1849,7 +1849,7 @@ mod tests {
         // different origin
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.somewhere-else.com".into(),
                         ..updatable_login.fields.clone()
@@ -1865,7 +1865,7 @@ mod tests {
         // different realm
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     fields: LoginFields {
                         http_realm: Some("The Other Website".into()),
                         ..updatable_login.fields.clone()
@@ -1881,7 +1881,7 @@ mod tests {
         // form_action_origin instead of realm
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     fields: LoginFields {
                         http_realm: None,
                         form_action_origin: Some("http://example.com/my-form".into()),
@@ -1898,7 +1898,7 @@ mod tests {
         // different username
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     sec_fields: SecureLoginFields {
                         username: "user2".into(),
                         ..updatable_login.sec_fields.clone()
@@ -1914,7 +1914,7 @@ mod tests {
         // different password (which should still match)
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     sec_fields: SecureLoginFields {
                         password: "password2".into(),
                         ..updatable_login.sec_fields.clone()
@@ -1933,7 +1933,7 @@ mod tests {
 
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     ..updatable_login.clone()
                 },
                 &TEST_ENCRYPTOR
@@ -1957,7 +1957,7 @@ mod tests {
 
         assert_eq!(
             db.find_existing(
-                &UpdatableLogin {
+                &LoginEntry {
                     fields: LoginFields {
                         ..updatable_login.fields.clone()
                     },

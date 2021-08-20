@@ -9,7 +9,7 @@ use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
 use logins::{
-    Login, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields, UpdatableLogin,
+    Login, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
     ValidateAndFixup,
 };
 use prettytable::{cell, row, Cell, Row, Table};
@@ -20,7 +20,7 @@ use sync15::{EngineSyncAssociation, SyncEngine};
 // I'm completely punting on good error handling here.
 use anyhow::{bail, Result};
 
-fn read_login() -> UpdatableLogin {
+fn read_login() -> LoginEntry {
     let login = loop {
         match prompt_char("Choose login kind: [F]orm based, [A]uth based").unwrap() {
             'F' | 'f' => {
@@ -41,14 +41,14 @@ fn read_login() -> UpdatableLogin {
     login
 }
 
-fn read_form_based_login() -> UpdatableLogin {
+fn read_form_based_login() -> LoginEntry {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
     let form_action_origin = prompt_string("form_action_origin (example: https://www.example.com)");
     let origin = prompt_string("origin (example: https://www.example.com)").unwrap_or_default();
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
-    UpdatableLogin {
+    LoginEntry {
         fields: LoginFields {
             username_field,
             password_field,
@@ -60,14 +60,14 @@ fn read_form_based_login() -> UpdatableLogin {
     }
 }
 
-fn read_auth_based_login() -> UpdatableLogin {
+fn read_auth_based_login() -> LoginEntry {
     let username = prompt_string("username").unwrap_or_default();
     let password = prompt_string("password").unwrap_or_default();
     let origin = prompt_string("origin (example: https://www.example.com)").unwrap_or_default();
     let http_realm = prompt_string("http_realm (example: My Auth Realm)");
     let username_field = prompt_string("username_field").unwrap_or_default();
     let password_field = prompt_string("password_field").unwrap_or_default();
-    UpdatableLogin {
+    LoginEntry {
         fields: LoginFields {
             username_field,
             password_field,
@@ -106,8 +106,8 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
     string_opt(o).unwrap_or(or)
 }
 
-fn update_login(login: Login, encdec: &EncryptorDecryptor) -> UpdatableLogin {
-    let mut record = UpdatableLogin {
+fn update_login(login: Login, encdec: &EncryptorDecryptor) -> LoginEntry {
+    let mut record = LoginEntry {
         sec_fields: login.decrypt_fields(encdec).unwrap(),
         fields: login.fields,
     };

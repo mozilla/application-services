@@ -4,7 +4,7 @@
 use crate::db::{LoginDb, MigrationMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, UpdatableLogin};
+use crate::login::{Login, LoginEntry};
 use crate::LoginsSyncEngine;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
@@ -77,7 +77,7 @@ impl LoginStore {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
-    pub fn find_existing(&self, look: UpdatableLogin, enc_key: &str) -> Result<Option<String>> {
+    pub fn find_existing(&self, look: LoginEntry, enc_key: &str) -> Result<Option<String>> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         self.db.lock().unwrap().find_existing(&look, &encdec)
     }
@@ -85,7 +85,7 @@ impl LoginStore {
     pub fn potential_dupes_ignoring_username(
         &self,
         id: &str,
-        login: UpdatableLogin,
+        login: LoginEntry,
     ) -> Result<Vec<Login>> {
         self.db
             .lock()
@@ -127,17 +127,17 @@ impl LoginStore {
         Ok(())
     }
 
-    pub fn update(&self, id: &str, login: UpdatableLogin, enc_key: &str) -> Result<Login> {
+    pub fn update(&self, id: &str, login: LoginEntry, enc_key: &str) -> Result<Login> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         self.db.lock().unwrap().update(id, login, &encdec)
     }
 
-    pub fn add(&self, login: UpdatableLogin, enc_key: &str) -> Result<Login> {
+    pub fn add(&self, login: LoginEntry, enc_key: &str) -> Result<Login> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         self.db.lock().unwrap().add(login, &encdec)
     }
 
-    pub fn add_or_update(&self, login: UpdatableLogin, enc_key: &str) -> Result<Login> {
+    pub fn add_or_update(&self, login: LoginEntry, enc_key: &str) -> Result<Login> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         let db = self.db.lock().unwrap();
         match db.find_existing(&login, &encdec)? {
@@ -155,7 +155,7 @@ impl LoginStore {
     pub fn check_valid_with_no_dupes(
         &self,
         id: &str,
-        login: &UpdatableLogin,
+        login: &LoginEntry,
         enc_key: &str,
     ) -> Result<()> {
         let encdec = crate::encryption::EncryptorDecryptor::new(enc_key)?;
@@ -254,7 +254,7 @@ mod test {
     use std::cmp::Reverse;
     use std::time::SystemTime;
 
-    fn assert_logins_equiv(a: &UpdatableLogin, b: &Login) {
+    fn assert_logins_equiv(a: &LoginEntry, b: &Login) {
         let b_e = b.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(a.fields, b.fields);
         assert_eq!(b_e.username, a.sec_fields.username);
@@ -268,7 +268,7 @@ mod test {
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
-        let a = UpdatableLogin {
+        let a = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 form_action_origin: Some("https://www.example.com".into()),
@@ -282,7 +282,7 @@ mod test {
             },
         };
 
-        let b = UpdatableLogin {
+        let b = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example2.com".into(),
                 http_realm: Some("Some String Here".into()),
@@ -318,7 +318,7 @@ mod test {
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        assert_logins_equiv(&UpdatableLogin { ..b.clone() }, &b_from_db);
+        assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
         assert_ge!(b_from_db.time_created, start_us);
         assert_ge!(b_from_db.time_password_changed, start_us);
         assert_ge!(b_from_db.time_last_used, start_us);
@@ -355,7 +355,7 @@ mod test {
         assert_eq!(list.len(), 0);
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
-        let b2 = UpdatableLogin {
+        let b2 = LoginEntry {
             sec_fields: SecureLoginFields {
                 username: b.sec_fields.username.to_owned(),
                 password: "newpass".into(),

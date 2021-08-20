@@ -14,14 +14,14 @@
 //! # Login Structs
 //!
 //! This module defines a number of core structs for Logins. They are:
-//! * [UpdatableLogin] - a struct used when the consumer wants to add or update a login. This
+//! * [LoginEntry] - a struct used when the consumer wants to add or update a login. This
 //!   includes the fields that can be updated and the plain-text version of the credentials.
 //! * [Login] - a struct used mainly when returning existing logins. This contains all login fields,
 //!   all metadata of the login, and the encryptyed versions of the credentials.
 //! * [LoginFields] - a struct with the common login fields, and is used by both the [`Login`] and
-//!   [`UpdatableLogin`] structs.
+//!   [`LoginEntry`] structs.
 //! * [SecureLoginFields] - a struct with the plain-text version of the encrypted credentials.
-//!   You will find one of these structs in `UpdatableLogin`, and can obtain one of these from
+//!   You will find one of these structs in `LoginEntry`, and can obtain one of these from
 //!   a `Login` struct by using the global decryption function for this purpose.
 //!
 //! # Login
@@ -130,9 +130,9 @@
 //!   - test that we don't set this for changes to other fields.
 //!   - test that we correctly merge dupes
 //!
-//! # UpdatableLogin
+//! # LoginEntry
 //! The struct used to add or update logins. This has the plain-text version of the fields that are
-//! stored encrypted, so almost all uses of an UpdatableLogin struct will also require the
+//! stored encrypted, so almost all uses of an LoginEntry struct will also require the
 //! encryption key to be known and passed in.
 //! It contains the following fields:
 //! - fields: A [`LoginFields`] struct.
@@ -145,7 +145,7 @@
 //!
 //! # LoginFields
 //!
-//! The core set of fields, use by both [`Login`] and [`UpdatableLogin`]
+//! The core set of fields, use by both [`Login`] and [`LoginEntry`]
 //! It contains the following fields:
 //!
 //! - `origin`:  The origin at which this login can be used, as a string.
@@ -437,12 +437,12 @@ impl ValidateAndFixup for LoginFields {
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
-pub struct UpdatableLogin {
+pub struct LoginEntry {
     pub fields: LoginFields,
     pub sec_fields: SecureLoginFields,
 }
 
-impl ValidateAndFixup for UpdatableLogin {
+impl ValidateAndFixup for LoginEntry {
     fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
         let new_fields = self.fields.validate_and_fixup(fixup)?;
         let new_sec_fields = self.sec_fields.validate_and_fixup(fixup)?;
@@ -691,12 +691,12 @@ mod tests {
     fn test_check_valid() {
         #[derive(Debug, Clone)]
         struct TestCase {
-            login: UpdatableLogin,
+            login: LoginEntry,
             should_err: bool,
             expected_err: &'static str,
         }
 
-        let valid_login = UpdatableLogin {
+        let valid_login = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -708,7 +708,7 @@ mod tests {
             },
         };
 
-        let login_with_empty_origin = UpdatableLogin {
+        let login_with_empty_origin = LoginEntry {
             fields: LoginFields {
                 origin: "".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -720,7 +720,7 @@ mod tests {
             },
         };
 
-        let login_with_empty_password = UpdatableLogin {
+        let login_with_empty_password = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -732,7 +732,7 @@ mod tests {
             },
         };
 
-        let login_with_form_submit_and_http_realm = UpdatableLogin {
+        let login_with_form_submit_and_http_realm = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -745,7 +745,7 @@ mod tests {
             },
         };
 
-        let login_without_form_submit_or_http_realm = UpdatableLogin {
+        let login_without_form_submit_or_http_realm = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 ..Default::default()
@@ -756,7 +756,7 @@ mod tests {
             },
         };
 
-        let login_with_null_http_realm = UpdatableLogin {
+        let login_with_null_http_realm = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.\0com".into()),
@@ -768,7 +768,7 @@ mod tests {
             },
         };
 
-        let login_with_null_username = UpdatableLogin {
+        let login_with_null_username = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -780,7 +780,7 @@ mod tests {
             },
         };
 
-        let login_with_null_password = UpdatableLogin {
+        let login_with_null_password = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -792,7 +792,7 @@ mod tests {
             },
         };
 
-        let login_with_newline_origin = UpdatableLogin {
+        let login_with_newline_origin = LoginEntry {
             fields: LoginFields {
                 origin: "\rhttps://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -804,7 +804,7 @@ mod tests {
             },
         };
 
-        let login_with_newline_username_field = UpdatableLogin {
+        let login_with_newline_username_field = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -817,7 +817,7 @@ mod tests {
             },
         };
 
-        let login_with_newline_realm = UpdatableLogin {
+        let login_with_newline_realm = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("foo\nbar".into()),
@@ -829,7 +829,7 @@ mod tests {
             },
         };
 
-        let login_with_newline_password = UpdatableLogin {
+        let login_with_newline_password = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -841,7 +841,7 @@ mod tests {
             },
         };
 
-        let login_with_period_username_field = UpdatableLogin {
+        let login_with_period_username_field = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -854,7 +854,7 @@ mod tests {
             },
         };
 
-        let login_with_period_form_action_origin = UpdatableLogin {
+        let login_with_period_form_action_origin = LoginEntry {
             fields: LoginFields {
                 form_action_origin: Some(".".into()),
                 origin: "https://www.example.com".into(),
@@ -866,7 +866,7 @@ mod tests {
             },
         };
 
-        let login_with_javascript_form_action_origin = UpdatableLogin {
+        let login_with_javascript_form_action_origin = LoginEntry {
             fields: LoginFields {
                 form_action_origin: Some("javascript:".into()),
                 origin: "https://www.example.com".into(),
@@ -878,7 +878,7 @@ mod tests {
             },
         };
 
-        let login_with_malformed_origin_parens = UpdatableLogin {
+        let login_with_malformed_origin_parens = LoginEntry {
             fields: LoginFields {
                 origin: " (".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -890,7 +890,7 @@ mod tests {
             },
         };
 
-        let login_with_host_unicode = UpdatableLogin {
+        let login_with_host_unicode = LoginEntry {
             fields: LoginFields {
                 origin: "http://💖.com".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -902,7 +902,7 @@ mod tests {
             },
         };
 
-        let login_with_origin_trailing_slash = UpdatableLogin {
+        let login_with_origin_trailing_slash = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com/".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -914,7 +914,7 @@ mod tests {
             },
         };
 
-        let login_with_origin_expanded_ipv6 = UpdatableLogin {
+        let login_with_origin_expanded_ipv6 = LoginEntry {
             fields: LoginFields {
                 origin: "https://[0:0:0:0:0:0:1:1]".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -926,7 +926,7 @@ mod tests {
             },
         };
 
-        let login_with_unknown_protocol = UpdatableLogin {
+        let login_with_unknown_protocol = LoginEntry {
             fields: LoginFields {
                 origin: "moz-proxy://127.0.0.1:8888".into(),
                 http_realm: Some("https://www.example.com".into()),
@@ -1071,13 +1071,13 @@ mod tests {
     fn test_fixup() {
         #[derive(Debug, Default)]
         struct TestCase {
-            login: UpdatableLogin,
+            login: LoginEntry,
             fixedup_host: Option<&'static str>,
             fixedup_form_action_origin: Option<String>,
         }
 
         // Note that most URL fixups are tested above, but we have one or 2 here.
-        let login_with_full_url = UpdatableLogin {
+        let login_with_full_url = LoginEntry {
             fields: LoginFields {
                 origin: "http://example.com/foo?query=wtf#bar".into(),
                 form_action_origin: Some("http://example.com/foo?query=wtf#bar".into()),
@@ -1089,7 +1089,7 @@ mod tests {
             },
         };
 
-        let login_with_host_unicode = UpdatableLogin {
+        let login_with_host_unicode = LoginEntry {
             fields: LoginFields {
                 origin: "http://😍.com".into(),
                 form_action_origin: Some("http://😍.com".into()),
@@ -1101,7 +1101,7 @@ mod tests {
             },
         };
 
-        let login_with_period_fsu = UpdatableLogin {
+        let login_with_period_fsu = LoginEntry {
             fields: LoginFields {
                 origin: "https://example.com".into(),
                 form_action_origin: Some(".".into()),
@@ -1112,7 +1112,7 @@ mod tests {
                 password: "test".into(),
             },
         };
-        let login_with_empty_fsu = UpdatableLogin {
+        let login_with_empty_fsu = LoginEntry {
             fields: LoginFields {
                 origin: "https://example.com".into(),
                 form_action_origin: Some("".into()),
@@ -1124,7 +1124,7 @@ mod tests {
             },
         };
 
-        let login_with_form_submit_and_http_realm = UpdatableLogin {
+        let login_with_form_submit_and_http_realm = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 form_action_origin: Some("https://www.example.com".into()),
