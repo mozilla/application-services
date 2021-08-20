@@ -1,0 +1,24 @@
+[package]
+name = "ios_rust"
+edition = "2018"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+rc_log_ffi = { path = "../../components/rc_log" }
+viaduct = { path = "../../components/viaduct" }
+viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+nimbus-sdk = { path = "../../components/nimbus" }
+crashtest = { path = "../../components/crashtest" }
+
+# TODO: can't include fxa-client until we get NSS working on M1 simulator,
+# ref https://github.com/mozilla/application-services/issues/4352.
+#fxa-client = { path = "../../components/fxa-client" }
+# TODO: can't include logins until we get SQLCipher working on M1 simulator,
+# ref https://github.com/mozilla/application-services/issues/4352.
+# (or until we entirely get rid of SQLCipher)
+#logins = { path = "../../components/logins" }

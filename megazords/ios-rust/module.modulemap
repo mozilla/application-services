@@ -1,0 +1,6 @@
+framework module MozillaRustComponents {
+  umbrella header "MozillaRustComponents.h"
+
+  export *
+  module * { export * }
+}
