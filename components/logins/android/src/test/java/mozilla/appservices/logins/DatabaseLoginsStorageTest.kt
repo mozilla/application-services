@@ -51,7 +51,7 @@ class DatabaseLoginsStorageTest {
     protected fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
-        store.add(UpdatableLogin(
+        store.add(LoginEntry(
                 fields = LoginFields(
                     origin = "https://www.example.com",
                     httpRealm = "Something",
@@ -65,7 +65,7 @@ class DatabaseLoginsStorageTest {
                 )
         ), encryptionKey)
 
-        store.add(UpdatableLogin(
+        store.add(LoginEntry(
                 fields = LoginFields(
                     origin = "https://www.example.org",
                     httpRealm = "",
@@ -94,7 +94,7 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
-        val login = store.add(UpdatableLogin(
+        val login = store.add(LoginEntry(
                 fields = LoginFields(
                     origin = "https://www.example.com",
                     httpRealm = "Something",
@@ -112,7 +112,7 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
         // N.B. this is invalid due to `formActionOrigin` being an invalid url.
-        val invalid = UpdatableLogin(
+        val invalid = LoginEntry(
             fields = LoginFields(
                 origin = "https://test.example.com",
                 formActionOrigin = "not a url",
@@ -235,7 +235,7 @@ class DatabaseLoginsStorageTest {
             }
         }
 
-        val toInsert = UpdatableLogin(
+        val toInsert = LoginEntry(
             fields = LoginFields(
                 origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
@@ -266,7 +266,7 @@ class DatabaseLoginsStorageTest {
         assertNotEquals(0L, record.timeCreated)
         assertNotEquals(0L, record.timePasswordChanged)
 
-        val put = test.add(UpdatableLogin(
+        val put = test.add(LoginEntry(
             fields = SecureLoginFields (
                 origin = "http://www.bar.com",
                 formActionOrigin = "http://login.bar.com",
@@ -289,7 +289,7 @@ class DatabaseLoginsStorageTest {
     fun testEnsureValid() {
         val test = getTestStore()
 
-        test.add(UpdatableLogin(
+        test.add(LoginEntry(
                 id = "bbbbb",
                 origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
@@ -304,7 +304,7 @@ class DatabaseLoginsStorageTest {
                 timePasswordChanged = 0
         ))
 
-        val dupeLogin = UpdatableLogin(
+        val dupeLogin = LoginEntry(
                 id = "",
                 origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
@@ -319,7 +319,7 @@ class DatabaseLoginsStorageTest {
                 timePasswordChanged = 0
         )
 
-        val nullValueLogin = UpdatableLogin(
+        val nullValueLogin = LoginEntry(
                 id = "",
                 origin = "https://www.test.org",
                 httpRealm = "Some Other Realm",
@@ -350,7 +350,7 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        val savedLogin1 = UpdatableLogin(
+        val savedLogin1 = LoginEntry(
                 id = "bbbbb",
                 origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
@@ -367,7 +367,7 @@ class DatabaseLoginsStorageTest {
 
         test.add(savedLogin1)
 
-        val dupeLogin = UpdatableLogin(
+        val dupeLogin = LoginEntry(
                 id = "",
                 origin = "https://www.foo.org",
                 httpRealm = "Some Realm",
@@ -395,7 +395,7 @@ class DatabaseLoginsStorageTest {
         test.unlock(encryptionKey)
 
         assertThrows(LoginsStorageException.NoSuchRecord::class.java) {
-            test.update(UpdatableLogin(
+            test.update(LoginEntry(
                     id = "123412341234",
                     origin = "https://www.foo.org",
                     httpRealm = "Some Realm",
@@ -444,7 +444,7 @@ class DatabaseLoginsStorageTest {
         assert(toUpdate.timeLastUsed < record.timeLastUsed)
         assert(toUpdate.timeLastUsed < record.timePasswordChanged)
 
-        val specificID = test.add(UpdatableLogin(
+        val specificID = test.add(LoginEntry(
                 id = "123412341234",
                 origin = "http://www.bar.com",
                 formActionOrigin = "http://login.bar.com",
@@ -467,7 +467,7 @@ class DatabaseLoginsStorageTest {
     companion object {
         val INVALID_RECORDS: List<Login> = listOf(
                 // Invalid formActionOrigin
-                UpdatableLogin(
+                LoginEntry(
                         id = "",
                         origin = "https://www.foo.org",
                         httpRealm = null,
@@ -482,7 +482,7 @@ class DatabaseLoginsStorageTest {
                         timePasswordChanged = 0
                 ),
                 // Neither formActionOrigin nor httpRealm
-                UpdatableLogin(
+                LoginEntry(
                         id = "",
                         origin = "https://www.foo.org",
                         httpRealm = null,
@@ -497,7 +497,7 @@ class DatabaseLoginsStorageTest {
                         timePasswordChanged = 0
                 ),
                 // Empty password
-                UpdatableLogin(
+                LoginEntry(
                         id = "",
                         origin = "https://www.foo.org",
                         httpRealm = "Some Realm",
@@ -512,7 +512,7 @@ class DatabaseLoginsStorageTest {
                         timePasswordChanged = 0
                 ),
                 // Empty origin
-                UpdatableLogin(
+                LoginEntry(
                         id = "",
                         origin = "",
                         httpRealm = "Some Realm",

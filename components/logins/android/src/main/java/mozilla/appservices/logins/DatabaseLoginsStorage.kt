@@ -81,7 +81,7 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun add(login: UpdatableLogin, encryptionKey: String): Login {
+    fun add(login: LoginEntry, encryptionKey: String): Login {
         return writeQueryCounters.measure {
             store.add(login, encryptionKey)
         }
@@ -95,7 +95,7 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun update(id: String, login: UpdatableLogin, encryptionKey: String): Login {
+    fun update(id: String, login: LoginEntry, encryptionKey: String): Login {
         return writeQueryCounters.measure {
             store.update(id, login, encryptionKey)
         }
@@ -103,14 +103,14 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
 
     @Synchronized
     @Throws(LoginsStorageException::class)
-    fun potentialDupesIgnoringUsername(id: String, login: UpdatableLogin): List<Login> {
+    fun potentialDupesIgnoringUsername(id: String, login: LoginEntry): List<Login> {
         return readQueryCounters.measure {
             store.potentialDupesIgnoringUsername(id, login)
         }
     }
 
     @Throws(LoginsStorageException.InvalidRecord::class)
-    fun ensureValid(id: String, login: UpdatableLogin, encryptionKey: String) {
+    fun ensureValid(id: String, login: LoginEntry, encryptionKey: String) {
         readQueryCounters.measureIgnoring({ e -> e is LoginsStorageException.InvalidRecord }) {
             store.checkValidWithNoDupes(id, login, encryptionKey)
         }
