@@ -103,7 +103,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.unlock("wrongkey")
             fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidKey) {
+        } catch (e: LoginsStorageException.InvalidKey) {
             // All good.
         }
         store.unlock(key)
@@ -115,7 +115,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.unlock(key)
             fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.MismatchedLock) {
+        } catch (e: LoginsStorageException.MismatchedLock) {
             // All good.
         }
         assertEquals(LoginsStoreMetrics.unlockCount.testGetValue(), 4)
@@ -162,7 +162,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.add(invalid)
             fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidRecord) {
+        } catch (e: LoginsStorageException.InvalidRecord) {
             // All good.
         }
 
@@ -182,7 +182,7 @@ class DatabaseLoginsStorageTest {
         try {
             store.ensureValid(invalid)
             fail("Should have thrown")
-        } catch (e: LoginsStorageErrorException.InvalidRecord) {
+        } catch (e: LoginsStorageException.InvalidRecord) {
             // All good.
         }
 
@@ -197,12 +197,12 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         assertEquals(test.isLocked(), true)
 
-        assertThrows(LoginsStorageErrorException::class.java) { test.get("aaaaaaaaaaaa") }
-        assertThrows(LoginsStorageErrorException::class.java) { test.list() }
-        assertThrows(LoginsStorageErrorException::class.java) { test.delete("aaaaaaaaaaaa") }
-        assertThrows(LoginsStorageErrorException::class.java) { test.touch("bbbbbbbbbbbb") }
-        assertThrows(LoginsStorageErrorException::class.java) { test.wipe() }
-        assertThrows(LoginsStorageErrorException::class.java) {
+        assertThrows(LoginsStorageException::class.java) { test.get("aaaaaaaaaaaa") }
+        assertThrows(LoginsStorageException::class.java) { test.list() }
+        assertThrows(LoginsStorageException::class.java) { test.delete("aaaaaaaaaaaa") }
+        assertThrows(LoginsStorageException::class.java) { test.touch("bbbbbbbbbbbb") }
+        assertThrows(LoginsStorageException::class.java) { test.wipe() }
+        assertThrows(LoginsStorageException::class.java) {
             @Suppress("DEPRECATION")
             test.reset()
         }
@@ -251,7 +251,7 @@ class DatabaseLoginsStorageTest {
         assertEquals(b.timesUsed + 1, newB!!.timesUsed)
         assert(newB.timeLastUsed > b.timeLastUsed)
 
-        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) { test.touch("abcdabcdabcd") }
+        assertThrows(LoginsStorageException.NoSuchRecord::class.java) { test.touch("abcdabcdabcd") }
 
         finishAndClose(test)
     }
@@ -306,7 +306,7 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        assertThrows(LoginsStorageErrorException.IdCollision::class.java) {
+        assertThrows(LoginsStorageException.IdCollision::class.java) {
             test.add(Login(
                     id = "aaaaaaaaaaaa",
                     hostname = "https://www.foo.org",
@@ -324,7 +324,7 @@ class DatabaseLoginsStorageTest {
         }
 
         for (record in INVALID_RECORDS) {
-            assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+            assertThrows(LoginsStorageException.InvalidRecord::class.java) {
                 test.add(record)
             }
         }
@@ -431,11 +431,11 @@ class DatabaseLoginsStorageTest {
                 timePasswordChanged = 0
         )
 
-        assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+        assertThrows(LoginsStorageException.InvalidRecord::class.java) {
             test.ensureValid(dupeLogin)
         }
 
-        assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+        assertThrows(LoginsStorageException.InvalidRecord::class.java) {
             test.ensureValid(nullValueLogin)
         }
 
@@ -491,7 +491,7 @@ class DatabaseLoginsStorageTest {
         val test = getTestStore()
         test.unlock(encryptionKey)
 
-        assertThrows(LoginsStorageErrorException.NoSuchRecord::class.java) {
+        assertThrows(LoginsStorageException.NoSuchRecord::class.java) {
             test.update(Login(
                     id = "123412341234",
                     hostname = "https://www.foo.org",
@@ -510,7 +510,7 @@ class DatabaseLoginsStorageTest {
 
         for (record in INVALID_RECORDS) {
             val updateArg = record.copy(id = "aaaaaaaaaaaa")
-            assertThrows(LoginsStorageErrorException.InvalidRecord::class.java) {
+            assertThrows(LoginsStorageException.InvalidRecord::class.java) {
                 test.update(updateArg)
             }
         }
@@ -566,7 +566,7 @@ class DatabaseLoginsStorageTest {
     fun testUnlockAfterError() {
         val test = getTestStore()
 
-        assertThrows(LoginsStorageErrorException::class.java) {
+        assertThrows(LoginsStorageException::class.java) {
             test.reset()
         }
 

@@ -19,7 +19,7 @@ buildscript {
         junit_version = '4.13'
         maven_publish_version = '3.6.2'
         mockito_core_version = '2.24.5'
-        roboelectric_core_version = '4.3.1'
+        robolectric_core_version = '4.5.1'
         rust_android_gradle_version = '0.8.3'
         espresso_core_version = '3.3.0'
         protobuf_version = '3.11.4'

@@ -446,7 +446,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: memchr</name>
-    <url>https://github.com/BurntSushi/rust-memchr/blob/master/LICENSE-MIT</url>
+    <url>https://github.com/BurntSushi/memchr/blob/master/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: bincode</name>
