@@ -25,21 +25,8 @@ Use the template below to make assigning a version number during the release cut
   - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
     to be more in keeping with Java/Kotlin idioms.
     - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
+
 ## Autofill
 
 ### ⚠️ Breaking Changes ⚠️
-  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with
-    builtin names.
-
-## Push
-
-### What's changed
-  - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
-    - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)
-    - Two other new errors were defined that were used to be reported under a generic error:
-      - `JSONDeserializeError` for errors in deserialization
-      - `RequestError` for errors in sending a network request
-
-## Nimbus
-### What's changed
-   - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
+  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
