@@ -62,7 +62,7 @@ fn test_live_server() -> Result<()> {
     println!("Server Known channels: {:?}", ll);
 
     println!("\n == Unsubscribing single channel");
-    pm.unsubscribe(Some(&channel1)).expect("chid unsub failed");
+    pm.unsubscribe(&channel1).expect("chid unsub failed");
     println!("\n == Fetching channel list 2");
     let ll = pm.conn.channel_list().expect("channel list failed");
     println!("Server Known channels: {:?}", ll);
@@ -77,7 +77,7 @@ fn test_live_server() -> Result<()> {
 
     println!("\n == Unsubscribing all.");
     // Unsubscribe all channels.
-    pm.unsubscribe(None)?;
+    pm.unsubscribe_all()?;
 
     println!("Done");
     Ok(())
