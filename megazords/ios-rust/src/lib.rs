@@ -6,6 +6,7 @@
 #![warn(rust_2018_idioms)]
 
 pub use crashtest;
+pub use fxa_client;
 pub use nimbus;
 pub use rc_log_ffi;
 pub use viaduct_reqwest;
