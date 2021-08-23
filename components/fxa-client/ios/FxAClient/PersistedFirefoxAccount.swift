@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+#if canImport(MozillaRustComponents)
+    import MozillaRustComponents
+#endif
 
 /// This class inherits from the Rust `FirefoxAccount` and adds:
 /// - Automatic state persistence through `PersistCallback`.
