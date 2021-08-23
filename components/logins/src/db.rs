@@ -1027,6 +1027,38 @@ mod tests {
     }
 
     #[test]
+    fn test_username_dupe_semantics() {
+        let mut login = Login {
+            id: Guid::empty().to_string(),
+            hostname: "https://www.example.com".into(),
+            http_realm: Some("https://www.example.com".into()),
+            username: "test".into(),
+            password: "sekret".into(),
+            ..Login::default()
+        };
+
+        let db = LoginDb::open_in_memory(Some("testing")).unwrap();
+        db.add(login.clone())
+            .expect("should be able to add first login");
+
+        // We will reject new logins with the same username value...
+        let exp_err = "Invalid login: Login already exists";
+        assert_eq!(db.add(login.clone()).unwrap_err().to_string(), exp_err);
+
+        // ... unless it is an empty string.
+        login.username = "".to_string();
+        db.add(login.clone()).expect("empty login isn't a dupe");
+
+        // and we will allow any number of duplicates with an empty username (which doesn't really
+        // make sense if the passwords are identical)
+        db.add(login)
+            .expect("multiple with empty login still isn't a dupe");
+
+        // First one with a username, 2 without.
+        assert_eq!(db.get_all().unwrap().len(), 3);
+    }
+
+    #[test]
     fn test_unicode_submit() {
         let db = LoginDb::open_in_memory(Some("testing")).unwrap();
         db.add(Login {
