@@ -510,12 +510,12 @@ impl LoginDb {
         Ok(metrics)
     }
 
-    pub fn add(&self, login: LoginEntry, encdec: &EncryptorDecryptor) -> Result<Login> {
+    pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> Result<Login> {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         let (new_fields, new_sec_fields) =
-            self.fixup_and_check_for_dupes(&guid, login.fields, login.sec_fields, &encdec)?;
+            self.fixup_and_check_for_dupes(&guid, entry.fields, entry.sec_fields, &encdec)?;
         let result = Login {
             id: guid.to_string(),
             fields: new_fields,
@@ -534,7 +534,7 @@ impl LoginDb {
     pub fn update(
         &self,
         sguid: &str,
-        login: LoginEntry,
+        entry: LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Login> {
         let guid = Guid::new(sguid);
@@ -545,8 +545,8 @@ impl LoginDb {
         // user updated the username to one that already exists - the better thing to do is
         // probably just remove the dupe.
         let (new_fields, new_sec_fields) =
-            self.fixup_and_check_for_dupes(&guid, login.fields, login.sec_fields, &encdec)?;
-        let login = LoginEntry {
+            self.fixup_and_check_for_dupes(&guid, entry.fields, entry.sec_fields, &encdec)?;
+        let entry = LoginEntry {
             fields: new_fields,
             sec_fields: new_sec_fields,
         };
@@ -561,7 +561,7 @@ impl LoginDb {
             None => throw!(ErrorKind::NoSuchRecord(sguid.to_owned())),
         };
         let time_password_changed =
-            if existing.decrypt_fields(encdec)?.password == login.sec_fields.password {
+            if existing.decrypt_fields(encdec)?.password == entry.sec_fields.password {
                 existing.time_password_changed
             } else {
                 now_ms
@@ -570,8 +570,8 @@ impl LoginDb {
         // Make the final object here - every column will be updated.
         let result = Login {
             id: existing.id,
-            fields: login.fields,
-            sec_fields: login.sec_fields.encrypt(&encdec)?,
+            fields: entry.fields,
+            sec_fields: entry.sec_fields.encrypt(&encdec)?,
             time_created: existing.time_created,
             time_password_changed,
             time_last_used: now_ms,
@@ -1144,7 +1144,7 @@ mod tests {
 
         struct TestCase {
             guid: Guid,
-            login: LoginEntry,
+            entry: LoginEntry,
             should_err: bool,
             expected_err: &'static str,
         }
@@ -1155,7 +1155,7 @@ mod tests {
                 // unique_login should not error because it does not share the same origin,
                 // username, and formActionOrigin or httpRealm with the pre-existing login
                 // (login with guid `added.id`).
-                login: unique_login,
+                entry: unique_login,
                 should_err: false,
                 expected_err: "",
             },
@@ -1165,7 +1165,7 @@ mod tests {
                 // login (guid `added.id`) and duplicate_login has no guid value, i.e. its guid
                 // doesn't match with that of a pre-existing record so it can't be considered update,
                 // so it should error.
-                login: duplicate_login,
+                entry: duplicate_login,
                 should_err: true,
                 expected_err: "Invalid login: Login already exists",
             },
@@ -1173,7 +1173,7 @@ mod tests {
                 // updated_login is an update to the existing record (has the same guid) so it is not a dupe
                 // and should not error.
                 guid: added.id.into(),
-                login: updated_login,
+                entry: updated_login,
                 should_err: false,
                 expected_err: "",
             },
@@ -1182,8 +1182,8 @@ mod tests {
         for tc in &test_cases {
             let login_check = db.check_valid_with_no_dupes(
                 &tc.guid,
-                &tc.login.fields,
-                &tc.login.sec_fields,
+                &tc.entry.fields,
+                &tc.entry.sec_fields,
                 &TEST_ENCRYPTOR,
             );
             if tc.should_err {
@@ -1828,7 +1828,7 @@ mod tests {
     #[test]
     fn test_find() {
         let db = LoginDb::open_in_memory().unwrap();
-        let updatable_login = LoginEntry {
+        let entry = LoginEntry {
             fields: LoginFields {
                 origin: "https://www.example.com".into(),
                 http_realm: Some("The Website".into()),
@@ -1839,10 +1839,10 @@ mod tests {
                 password: "password1".into(),
             },
         };
-        let login = db.add(updatable_login.clone(), &TEST_ENCRYPTOR).unwrap();
+        let login = db.add(entry.clone(), &TEST_ENCRYPTOR).unwrap();
         println!("{:?} {:?}", login.fields.origin, login.fields.http_realm);
         assert_eq!(
-            db.find_existing(&updatable_login, &TEST_ENCRYPTOR).unwrap(),
+            db.find_existing(&entry, &TEST_ENCRYPTOR).unwrap(),
             Some(login.id.clone())
         );
 
@@ -1852,9 +1852,9 @@ mod tests {
                 &LoginEntry {
                     fields: LoginFields {
                         origin: "https://www.somewhere-else.com".into(),
-                        ..updatable_login.fields.clone()
+                        ..entry.fields.clone()
                     },
-                    ..updatable_login.clone()
+                    ..entry.clone()
                 },
                 &TEST_ENCRYPTOR
             )
@@ -1868,9 +1868,9 @@ mod tests {
                 &LoginEntry {
                     fields: LoginFields {
                         http_realm: Some("The Other Website".into()),
-                        ..updatable_login.fields.clone()
+                        ..entry.fields.clone()
                     },
-                    ..updatable_login.clone()
+                    ..entry.clone()
                 },
                 &TEST_ENCRYPTOR
             )
@@ -1885,9 +1885,9 @@ mod tests {
                     fields: LoginFields {
                         http_realm: None,
                         form_action_origin: Some("http://example.com/my-form".into()),
-                        ..updatable_login.fields.clone()
+                        ..entry.fields.clone()
                     },
-                    ..updatable_login.clone()
+                    ..entry.clone()
                 },
                 &TEST_ENCRYPTOR
             )
@@ -1901,9 +1901,9 @@ mod tests {
                 &LoginEntry {
                     sec_fields: SecureLoginFields {
                         username: "user2".into(),
-                        ..updatable_login.sec_fields.clone()
+                        ..entry.sec_fields.clone()
                     },
-                    ..updatable_login.clone()
+                    ..entry.clone()
                 },
                 &TEST_ENCRYPTOR
             )
@@ -1917,9 +1917,9 @@ mod tests {
                 &LoginEntry {
                     sec_fields: SecureLoginFields {
                         password: "password2".into(),
-                        ..updatable_login.sec_fields.clone()
+                        ..entry.sec_fields.clone()
                     },
-                    ..updatable_login.clone()
+                    ..entry.clone()
                 },
                 &TEST_ENCRYPTOR
             )
@@ -1934,7 +1934,7 @@ mod tests {
         assert_eq!(
             db.find_existing(
                 &LoginEntry {
-                    ..updatable_login.clone()
+                    ..entry.clone()
                 },
                 &TEST_ENCRYPTOR
             )
@@ -1946,7 +1946,7 @@ mod tests {
         db.insert_new_login(&Login {
             sec_fields: SecureLoginFields {
                 username: "username2".to_owned(),
-                ..updatable_login.sec_fields.clone()
+                ..entry.sec_fields.clone()
             }
             .encrypt(&TEST_ENCRYPTOR)
             .unwrap(),
@@ -1959,11 +1959,11 @@ mod tests {
             db.find_existing(
                 &LoginEntry {
                     fields: LoginFields {
-                        ..updatable_login.fields.clone()
+                        ..entry.fields.clone()
                     },
                     sec_fields: SecureLoginFields {
                         password: "password2".into(),
-                        ..updatable_login.sec_fields
+                        ..entry.sec_fields
                     },
                 },
                 &TEST_ENCRYPTOR

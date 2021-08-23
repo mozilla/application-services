@@ -85,12 +85,12 @@ impl LoginStore {
     pub fn potential_dupes_ignoring_username(
         &self,
         id: &str,
-        login: LoginEntry,
+        entry: LoginEntry,
     ) -> Result<Vec<Login>> {
         self.db
             .lock()
             .unwrap()
-            .potential_dupes_ignoring_username(&Guid::new(id), &login.fields)
+            .potential_dupes_ignoring_username(&Guid::new(id), &entry.fields)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
@@ -127,22 +127,22 @@ impl LoginStore {
         Ok(())
     }
 
-    pub fn update(&self, id: &str, login: LoginEntry, enc_key: &str) -> Result<Login> {
+    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<Login> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
-        self.db.lock().unwrap().update(id, login, &encdec)
+        self.db.lock().unwrap().update(id, entry, &encdec)
     }
 
-    pub fn add(&self, login: LoginEntry, enc_key: &str) -> Result<Login> {
+    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<Login> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
-        self.db.lock().unwrap().add(login, &encdec)
+        self.db.lock().unwrap().add(entry, &encdec)
     }
 
-    pub fn add_or_update(&self, login: LoginEntry, enc_key: &str) -> Result<Login> {
+    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Login> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         let db = self.db.lock().unwrap();
-        match db.find_existing(&login, &encdec)? {
-            Some(id) => db.update(&id, login, &encdec),
-            None => db.add(login, &encdec),
+        match db.find_existing(&entry, &encdec)? {
+            Some(id) => db.update(&id, entry, &encdec),
+            None => db.add(entry, &encdec),
         }
     }
 
@@ -155,14 +155,14 @@ impl LoginStore {
     pub fn check_valid_with_no_dupes(
         &self,
         id: &str,
-        login: &LoginEntry,
+        entry: &LoginEntry,
         enc_key: &str,
     ) -> Result<()> {
         let encdec = crate::encryption::EncryptorDecryptor::new(enc_key)?;
         self.db.lock().unwrap().check_valid_with_no_dupes(
             &Guid::new(id),
-            &login.fields,
-            &login.sec_fields,
+            &entry.fields,
+            &entry.sec_fields,
             &encdec,
         )
     }

@@ -14,26 +14,159 @@
 //! # Login Structs
 //!
 //! This module defines a number of core structs for Logins. They are:
-//! * [LoginEntry] - a struct used when the consumer wants to add or update a login. This
-//!   includes the fields that can be updated and the plain-text version of the credentials.
-//! * [Login] - a struct used mainly when returning existing logins. This contains all login fields,
-//!   all metadata of the login, and the encryptyed versions of the credentials.
-//! * [LoginFields] - a struct with the common login fields, and is used by both the [`Login`] and
-//!   [`LoginEntry`] structs.
-//! * [SecureLoginFields] - a struct with the plain-text version of the encrypted credentials.
-//!   You will find one of these structs in `LoginEntry`, and can obtain one of these from
-//!   a `Login` struct by using the global decryption function for this purpose.
+//! * [`LoginEntry`] A login entry by the user.  This includes the username/passward, the site it
+//!   was submitted to, etc.  [`LoginEntry`] does not store data specific to a DB record.
+//! * [`Login`] - A [`LoginEntry`] plus DB record information.  This includes the GUID and metadata
+//!   like time_last_used.
+//! * [`EncryptedLogin`] -- A Login above with the username/password data encrypted.
+//! * [`LoginFields`], [`SecureLoginFields`], [`RecordFields`] -- These group the common fields in the
+//!   structs above.
+//!
+//! Why so many structs for similar data?  Consider some common use cases in a hypothetical browser:
+//!
+//! - User visits a page with a login form.
+//!   - We inform the user if there are saved logins that can be autofilled.  We use the
+//!     `LoginDb.get_by_base_domain()` which returns a `Vec<EncryptedLogin>`.  We don't decrypt the
+//!     logins because we want to avoid requiring the encryption key at this point, which would
+//!     force the user to authenticate.  Note: this is aspirational at this point, no actual
+//!     implementations follow this flow.  Still, we want application-services to support it.
+//!   - If the user chooses to autofill, we decrypt the logins into a `Vec<Login>`.  We need to
+//!     decrypt at this point to display the username and autofill the password if they select one.
+//! - User chooses to save a login for autofilling later.
+//!    - We present the user with a dialog that:
+//!       - Displays a header that differentiates between different types of save: adding a new
+//!         login, updating an existing login, filling in a blank username, etc.
+//!       - Allows the user to tweak the username, in case we failed to detect the form field
+//!         correctly.  This may affect which header should be shown.
+//!    - Here we use `find_existing()` which has the signature `(LoginEntry, &[Login]) -> Login`
+//!      because it's matching a new login entry against a list of existing login records.
 //!
 //! # Login
 //! This has the complete set of data about a login. Very closely related is the
 //! "sync payload", defined in sync/payload.rs, which handles all aspects of the JSON serialization.
+//! It contains the following fields:
+//! - `record`: A [`RecordFields`] struct.
+//! - fields: A [`LoginFields`] struct.
+//! - sec_fields: A [`SecureLoginFields`] struct.
+//!
+//! # LoginEntry
+//! The struct used to add or update logins. This has the plain-text version of the fields that are
+//! stored encrypted, so almost all uses of an LoginEntry struct will also require the
+//! encryption key to be known and passed in.    [LoginDB] methods that save data typically input
+//! [LoginEntry] instances.  This allows the DB code to handle dupe-checking issues like
+//! determining which login record should be updated for a newly sumbitted [LoginEntry].
+//! It contains the following fields:
+//! - fields: A [`LoginFields`] struct.
+//! - sec_fields: A [`SecureLoginFields`] struct.
+//!
+//! # EncryptedLogin
+//! Encrypted version of [`Login`].  [LoginDB] methods that return data typically return [EncryptedLogin]
+//! this allows deferring decryption, and therefore user authentication, until the secure data is needed.
+//! It contains the following fields
+//! - `record`: A [`RecordFields`] struct.
+//! - `fields`: A [`LoginFields`] struct.
+//! - `sec_fields`: The secure fields as an encrypted string
+//!
+//! # SecureLoginFields
+//! The struct used to hold the fields which are stored encrypted. It contains:
+//! - username: A string.
+//! - password: A string.
+//!
+//! # LoginFields
+//!
+//! The core set of fields, use by both [`Login`] and [`LoginEntry`]
+//! It contains the following fields:
+//!
+//! - `origin`:  The origin at which this login can be used, as a string.
+//!
+//!   The login should only be used on sites that match this origin (for whatever definition
+//!   of "matches" makes sense at the application level, e.g. eTLD+1 matching).
+//!   This field is required, must be a valid origin in punycode format, and must not be
+//!   set to the empty string.
+//!
+//!   Examples of valid `origin` values include:
+//!   - "https://site.com"
+//!   - "http://site.com:1234"
+//!   - "ftp://ftp.site.com"
+//!   - "moz-proxy://127.0.0.1:8888"
+//!   - "chrome://MyLegacyExtension"
+//!   - "file://"
+//!   - "https://\[::1\]"
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - truncating full URLs to just their origin component, if it is not an opaque origin
+//!   - converting values with non-ascii characters into punycode
+//!
+//!   **XXX TODO:**
+//!   - Add a field with the original unicode versions of the URLs instead of punycode?
+//!
+//! - `sec_fields`: The `username` and `password` for the site, stored as a encrypted JSON
+//!    representation of an `SecureLoginFields`.
+//!
+//!   This field is required and usually encrypted.  There are two different value types:
+//!       - Plantext empty string: Used for deleted records
+//!       - Encrypted value: The credentials associated with the login.
+//!
+//! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
+//!
+//!   If present, the login should only be used in response to a HTTP Basic Auth
+//!   challenge that specifies a matching realm. For legacy reasons this string may not
+//!   contain null bytes, carriage returns or newlines.
+//!
+//!   If this field is set to the empty string, this indicates a wildcard match on realm.
+//!
+//!   This field must not be present if `form_action_origin` is set, since they indicate different types
+//!   of login (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin`
+//!   must be present.
+//!
+//! - `form_action_origin`:  The target origin of forms in which this login can be used, if any, as a string.
+//!
+//!   If present, the login should only be used in forms whose target submission URL matches this origin.
+//!   This field must be a valid origin or one of the following special cases:
+//!   - An empty string, which is a wildcard match for any origin.
+//!   - The single character ".", which is equivalent to the empty string
+//!   - The string "javascript:", which matches any form with javascript target URL.
+//!
+//!   This field must not be present if `http_realm` is set, since they indicate different types of login
+//!   (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin` must be present.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync) then the
+//!   logins store will attempt to coerce it into valid data by:
+//!   - truncating full URLs to just their origin component
+//!   - converting origins with non-ascii characters into punycode
+//!   - replacing invalid values with null if a valid 'http_realm' field is present
+//!
+//! - `username_field`:  The name of the form field into which the 'username' should be filled, if any.
+//!
+//!   This value is stored if provided by the application, but does not imply any restrictions on
+//!   how the login may be used in practice. For legacy reasons this string may not contain null
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - setting to the empty string if 'form_action_origin' is not present
+//!
+//! - `password_field`:  The name of the form field into which the 'password' should be filled, if any.
+//!
+//!   This value is stored if provided by the application, but does not imply any restrictions on
+//!   how the login may be used in practice. For legacy reasons this string may not contain null
+//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
+//!
+//!   If invalid data is received in this field (either from the application, or via sync)
+//!   then the logins store will attempt to coerce it into valid data by:
+//!   - setting to the empty string if 'form_action_origin' is not present
+//!
+//! # RecordFields
+//!
+//! This contains data relating to the login database record -- both on the local instance and
+//! synced to other browsers.
 //! It contains the following fields:
 //! - `id`:  A unique string identifier for this record.
 //!
 //!   Consumers may assume that `id` contains only "safe" ASCII characters but should otherwise
 //!   treat this it as an opaque identifier. These are generated as needed.
 //!
-//! - `fields`: A [`LoginFields`] struct.
 //! - `timesUsed`:  A lower bound on the number of times the password from this record has been used, as an integer.
 //!
 //!   Applications should use the `touch()` method of the logins store to indicate when a password
@@ -130,109 +263,11 @@
 //!   - test that we don't set this for changes to other fields.
 //!   - test that we correctly merge dupes
 //!
-//! # LoginEntry
-//! The struct used to add or update logins. This has the plain-text version of the fields that are
-//! stored encrypted, so almost all uses of an LoginEntry struct will also require the
-//! encryption key to be known and passed in.
-//! It contains the following fields:
-//! - fields: A [`LoginFields`] struct.
-//! - sec_fields: A [`SecureLoginFields`] struct.
-//!
-//! # SecureLoginFields
-//! The struct used to hold the fields which are stored encrypted. It contains:
-//! - username: A string.
-//! - password: A string.
-//!
-//! # LoginFields
-//!
-//! The core set of fields, use by both [`Login`] and [`LoginEntry`]
-//! It contains the following fields:
-//!
-//! - `origin`:  The origin at which this login can be used, as a string.
-//!
-//!   The login should only be used on sites that match this origin (for whatever definition
-//!   of "matches" makes sense at the application level, e.g. eTLD+1 matching).
-//!   This field is required, must be a valid origin in punycode format, and must not be
-//!   set to the empty string.
-//!
-//!   Examples of valid `origin` values include:
-//!   - "https://site.com"
-//!   - "http://site.com:1234"
-//!   - "ftp://ftp.site.com"
-//!   - "moz-proxy://127.0.0.1:8888"
-//!   - "chrome://MyLegacyExtension"
-//!   - "file://"
-//!   - "https://\[::1\]"
-//!
-//!   If invalid data is received in this field (either from the application, or via sync)
-//!   then the logins store will attempt to coerce it into valid data by:
-//!   - truncating full URLs to just their origin component, if it is not an opaque origin
-//!   - converting values with non-ascii characters into punycode
-//!
-//!   **XXX TODO:**
-//!   - Add a field with the original unicode versions of the URLs instead of punycode?
-//!
-//! - `sec_fields`: The `username` and `password` for the site, stored as a encrypted JSON
-//!    representation of an `SecureLoginFields`.
-//!
-//!   This field is required and usually encrypted.  There are two different value types:
-//!       - Plantext empty string: Used for deleted records
-//!       - Encrypted value: The credentials associated with the login.
-//!
-//! - `http_realm`:  The challenge string for HTTP Basic authentication, if any.
-//!
-//!   If present, the login should only be used in response to a HTTP Basic Auth
-//!   challenge that specifies a matching realm. For legacy reasons this string may not
-//!   contain null bytes, carriage returns or newlines.
-//!
-//!   If this field is set to the empty string, this indicates a wildcard match on realm.
-//!
-//!   This field must not be present if `form_action_origin` is set, since they indicate different types
-//!   of login (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin`
-//!   must be present.
-//!
-//! - `form_action_origin`:  The target origin of forms in which this login can be used, if any, as a string.
-//!
-//!   If present, the login should only be used in forms whose target submission URL matches this origin.
-//!   This field must be a valid origin or one of the following special cases:
-//!   - An empty string, which is a wildcard match for any origin.
-//!   - The single character ".", which is equivalent to the empty string
-//!   - The string "javascript:", which matches any form with javascript target URL.
-//!
-//!   This field must not be present if `http_realm` is set, since they indicate different types of login
-//!   (HTTP-Auth based versus form-based). Exactly one of `http_realm` and `form_action_origin` must be present.
-//!
-//!   If invalid data is received in this field (either from the application, or via sync) then the
-//!   logins store will attempt to coerce it into valid data by:
-//!   - truncating full URLs to just their origin component
-//!   - converting origins with non-ascii characters into punycode
-//!   - replacing invalid values with null if a valid 'http_realm' field is present
-//!
-//! - `username_field`:  The name of the form field into which the 'username' should be filled, if any.
-//!
-//!   This value is stored if provided by the application, but does not imply any restrictions on
-//!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
-//!
-//!   If invalid data is received in this field (either from the application, or via sync)
-//!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'form_action_origin' is not present
-//!
-//! - `password_field`:  The name of the form field into which the 'password' should be filled, if any.
-//!
-//!   This value is stored if provided by the application, but does not imply any restrictions on
-//!   how the login may be used in practice. For legacy reasons this string may not contain null
-//!   bytes, carriage returns or newlines. This field must be empty unless `form_action_origin` is set.
-//!
-//!   If invalid data is received in this field (either from the application, or via sync)
-//!   then the logins store will attempt to coerce it into valid data by:
-//!   - setting to the empty string if 'form_action_origin' is not present
-//!
 //!
 //! In order to deal with data from legacy clients in a robust way, it is necessary to be able to build
-//! and manipulate all these `Login` structs that contain invalid data.  All these structs implement
-//! the `ValidateAndFixup` trait, providing the following methods which can be used by callers
-//! to ensure that they're only working with valid records:
+//! and manipulate all these `Login` structs that contain invalid data.  The non-encrypted structs
+//! implement the `ValidateAndFixup` trait, providing the following methods which can be used by
+//! callers to ensure that they're only working with valid records:
 //!
 //! - `Login::check_valid()`:    Checks valdity of a login record, returning `()` if it is valid
 //!                              or an error if it is not.
@@ -246,8 +281,7 @@ use serde_derive::*;
 use sync_guid::Guid;
 use url::Url;
 
-// This is used to add or update items. It has no meta-data and has the "encrypted" fields as plain
-// text. To use this, you almost certainly also need an `EncryptorDecryptor` too.
+// LoginEntry fields that are stored in cleartext
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
 pub struct LoginFields {
     pub origin: String,
@@ -307,6 +341,135 @@ impl LoginFields {
             }
         }
     }
+}
+
+/// LoginEntry fields that are stored encrypted
+#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
+pub struct SecureLoginFields {
+    // prior to per-field encryption the `username` was allowed to be null.
+    // We could make it `Option<String>` but that doesn't seem valuable, as
+    // an empty string and None mean the same thing anyway.
+    // Note that desktop rejects a null 'username' and explicitly wants an empty string, and like
+    // us, insists on a non-empty password.
+    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
+    // and desktop sync explicitly converts null etc in username to that empty string.
+    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
+
+    // Because we store the json version of this in the DB, and that's the only place the json
+    // is used, we rename the fields to short names, just to reduce the overhead in the DB.
+    #[serde(rename = "u")]
+    pub username: String,
+    #[serde(rename = "p")]
+    pub password: String,
+}
+
+impl SecureLoginFields {
+    pub fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
+        encdec.encrypt_struct(&self)
+    }
+}
+
+/// A login entered by the user
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
+pub struct LoginEntry {
+    pub fields: LoginFields,
+    pub sec_fields: SecureLoginFields,
+}
+
+/// A login stored in the database
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
+pub struct Login {
+    pub id: String,
+    pub fields: LoginFields,
+    pub sec_fields: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+}
+
+impl Login {
+    #[inline]
+    pub fn guid(&self) -> Guid {
+        Guid::from_string(self.id.clone())
+    }
+    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
+    #[inline]
+    pub fn guid_str(&self) -> &str {
+        &self.id
+    }
+
+    pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {
+        encdec.decrypt_struct(&self.sec_fields)
+    }
+
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
+        let login = Login {
+            id: row.get("guid")?,
+            fields: LoginFields {
+                origin: row.get("origin")?,
+                http_realm: row.get("httpRealm")?,
+
+                form_action_origin: row.get("formActionOrigin")?,
+
+                username_field: string_or_default(row, "usernameField")?,
+                password_field: string_or_default(row, "passwordField")?,
+            },
+            time_created: row.get("timeCreated")?,
+            // Might be null
+            time_last_used: row
+                .get::<_, Option<i64>>("timeLastUsed")?
+                .unwrap_or_default(),
+
+            time_password_changed: row.get("timePasswordChanged")?,
+            times_used: row.get("timesUsed")?,
+            sec_fields: row.get("secFields")?,
+        };
+        // XXX - we used to perform a fixup here, but that seems heavy-handed
+        // and difficult - we now only do that on add/insert when we have the
+        // encryption key.
+        Ok(login)
+    }
+}
+
+fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
+    Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
+}
+
+pub trait ValidateAndFixup {
+    // Our validate and fixup functions.
+    fn check_valid(&self) -> Result<()>
+    where
+        Self: Sized,
+    {
+        self.validate_and_fixup(false)?;
+        Ok(())
+    }
+
+    fn fixup(self) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        match self.maybe_fixup()? {
+            None => Ok(self),
+            Some(login) => Ok(login),
+        }
+    }
+
+    fn maybe_fixup(&self) -> Result<Option<Self>>
+    where
+        Self: Sized,
+    {
+        self.validate_and_fixup(true)
+    }
+
+    // validates, and optionally fixes, a struct. If fixup is false and there is a validation
+    // issue, an `Err` is returned. If fixup is true and a problem was fixed, and `Ok(Some<Self>)`
+    // is returned with the fixed version. If there was no validation problem, `Ok(None)` is
+    // returned.
+    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>>
+    where
+        Self: Sized;
 }
 
 impl ValidateAndFixup for LoginFields {
@@ -436,114 +599,6 @@ impl ValidateAndFixup for LoginFields {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
-pub struct LoginEntry {
-    pub fields: LoginFields,
-    pub sec_fields: SecureLoginFields,
-}
-
-impl ValidateAndFixup for LoginEntry {
-    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
-        let new_fields = self.fields.validate_and_fixup(fixup)?;
-        let new_sec_fields = self.sec_fields.validate_and_fixup(fixup)?;
-        Ok(match (new_fields, new_sec_fields) {
-            (Some(fields), Some(sec_fields)) => Some(Self { fields, sec_fields }),
-            (Some(fields), None) => Some(Self {
-                fields,
-                sec_fields: self.sec_fields.clone(),
-            }),
-            (None, Some(sec_fields)) => Some(Self {
-                fields: self.fields.clone(),
-                sec_fields,
-            }),
-            (None, None) => None,
-        })
-    }
-}
-
-/// This is what you get when reading from the store. It has all metadata but
-/// the encrypted fields are encrypted.
-#[derive(Debug, Clone, Hash, PartialEq, Default)]
-pub struct Login {
-    pub id: String,
-    pub fields: LoginFields,
-    pub sec_fields: String,
-    pub time_created: i64,
-    pub time_password_changed: i64,
-    pub time_last_used: i64,
-    pub times_used: i64,
-}
-
-impl Login {
-    #[inline]
-    pub fn guid(&self) -> Guid {
-        Guid::from_string(self.id.clone())
-    }
-    // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
-    #[inline]
-    pub fn guid_str(&self) -> &str {
-        &self.id
-    }
-
-    pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {
-        encdec.decrypt_struct(&self.sec_fields)
-    }
-
-    pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
-        let login = Login {
-            id: row.get("guid")?,
-            fields: LoginFields {
-                origin: row.get("origin")?,
-                http_realm: row.get("httpRealm")?,
-
-                form_action_origin: row.get("formActionOrigin")?,
-
-                username_field: string_or_default(row, "usernameField")?,
-                password_field: string_or_default(row, "passwordField")?,
-            },
-            time_created: row.get("timeCreated")?,
-            // Might be null
-            time_last_used: row
-                .get::<_, Option<i64>>("timeLastUsed")?
-                .unwrap_or_default(),
-
-            time_password_changed: row.get("timePasswordChanged")?,
-            times_used: row.get("timesUsed")?,
-            sec_fields: row.get("secFields")?,
-        };
-        // XXX - we used to perform a fixup here, but that seems heavy-handed
-        // and difficult - we now only do that on add/insert when we have the
-        // encryption key.
-        Ok(login)
-    }
-}
-
-/// The encrypted fields.
-#[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
-pub struct SecureLoginFields {
-    // prior to per-field encryption the `username` was allowed to be null.
-    // We could make it `Option<String>` but that doesn't seem valuable, as
-    // an empty string and None mean the same thing anyway.
-    // Note that desktop rejects a null 'username' and explicitly wants an empty string, and like
-    // us, insists on a non-empty password.
-    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
-    // and desktop sync explicitly converts null etc in username to that empty string.
-    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
-
-    // Because we store the json version of this in the DB, and that's the only place the json
-    // is used, we rename the fields to short names, just to reduce the overhead in the DB.
-    #[serde(rename = "u")]
-    pub username: String,
-    #[serde(rename = "p")]
-    pub password: String,
-}
-
-impl SecureLoginFields {
-    pub fn encrypt(&self, encdec: &EncryptorDecryptor) -> Result<String> {
-        encdec.encrypt_struct(&self)
-    }
-}
-
 impl ValidateAndFixup for SecureLoginFields {
     /// We don't actually have fixups.
     fn validate_and_fixup(&self, _fixup: bool) -> Result<Option<Self>> {
@@ -565,44 +620,23 @@ impl ValidateAndFixup for SecureLoginFields {
     }
 }
 
-fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
-    Ok(row.get::<_, Option<String>>(col)?.unwrap_or_default())
-}
-
-pub trait ValidateAndFixup {
-    // Our validate and fixup functions.
-    fn check_valid(&self) -> Result<()>
-    where
-        Self: Sized,
-    {
-        self.validate_and_fixup(false)?;
-        Ok(())
+impl ValidateAndFixup for LoginEntry {
+    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>> {
+        let new_fields = self.fields.validate_and_fixup(fixup)?;
+        let new_sec_fields = self.sec_fields.validate_and_fixup(fixup)?;
+        Ok(match (new_fields, new_sec_fields) {
+            (Some(fields), Some(sec_fields)) => Some(Self { fields, sec_fields }),
+            (Some(fields), None) => Some(Self {
+                fields,
+                sec_fields: self.sec_fields.clone(),
+            }),
+            (None, Some(sec_fields)) => Some(Self {
+                fields: self.fields.clone(),
+                sec_fields,
+            }),
+            (None, None) => None,
+        })
     }
-
-    fn fixup(self) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        match self.maybe_fixup()? {
-            None => Ok(self),
-            Some(login) => Ok(login),
-        }
-    }
-
-    fn maybe_fixup(&self) -> Result<Option<Self>>
-    where
-        Self: Sized,
-    {
-        self.validate_and_fixup(true)
-    }
-
-    // validates, and optionally fixes, a struct. If fixup is false and there is a validation
-    // issue, an `Err` is returned. If fixup is true and a problem was fixed, and `Ok(Some<Self>)`
-    // is returned with the fixed version. If there was no validation problem, `Ok(None)` is
-    // returned.
-    fn validate_and_fixup(&self, fixup: bool) -> Result<Option<Self>>
-    where
-        Self: Sized;
 }
 
 #[cfg(test)]

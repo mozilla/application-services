@@ -37,6 +37,12 @@ dictionary LoginFields {
     string password_field;
 };
 
+// Fields available only while the encryption key is known.
+dictionary SecureLoginFields {
+    string password;
+    string username;
+};
+
 // What you can add or update. You must pass the cleartext of encrypted fields
 // and the add/update APIs can encrypt (they need to know the key anyway)
 dictionary LoginEntry {
@@ -54,12 +60,6 @@ dictionary Login {
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
-};
-
-// Fields available only while the encryption key is known.
-dictionary SecureLoginFields {
-    string password;
-    string username;
 };
 
 [Error]
