@@ -8,7 +8,7 @@ use super::SyncStatus;
 use crate::db::CLONE_ENTIRE_MIRROR_SQL;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::Login;
+use crate::login::EncryptedLogin;
 use crate::schema;
 use crate::util;
 use crate::LoginDb;
@@ -233,7 +233,7 @@ impl LoginsSyncEngine {
                 Payload::new_tombstone(row.get::<_, String>("guid")?)
                     .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
-                Login::from_row(row)?
+                EncryptedLogin::from_row(row)?
                     .into_payload(encdec)?
                     .with_sortindex(DEFAULT_SORTINDEX)
             })
@@ -368,7 +368,7 @@ impl LoginsSyncEngine {
     // for each one if they exist)... I can't think of how to write that query, though.
     // This is subtly different from dupe handling by the main API and maybe
     // could be consolidated, but for now it remains sync specific.
-    pub(crate) fn find_dupe_login(&self, l: &Login) -> Result<Option<Login>> {
+    pub(crate) fn find_dupe_login(&self, l: &EncryptedLogin) -> Result<Option<EncryptedLogin>> {
         let form_submit_host_port = l
             .fields
             .form_action_origin
@@ -400,7 +400,7 @@ impl LoginsSyncEngine {
             query += " AND formActionOrigin IS :form_submit"
         }
         let db = self.store.db.lock().unwrap();
-        db.try_query_row(&query, args, |row| Login::from_row(row), false)
+        db.try_query_row(&query, args, |row| EncryptedLogin::from_row(row), false)
     }
 }
 
@@ -482,7 +482,7 @@ mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
     use crate::encryption::test_utils::TEST_ENCRYPTOR;
-    use crate::login::test_utils::login;
+    use crate::login::test_utils::enc_login;
     use std::collections::HashMap;
     use std::sync::Arc;
 
@@ -543,19 +543,19 @@ mod tests {
                     sync15::ServerTimestamp(10000),
                 ),
                 (
-                    login("added_remotely", "password")
+                    enc_login("added_remotely", "password")
                         .into_payload(&TEST_ENCRYPTOR)
                         .unwrap(),
                     sync15::ServerTimestamp(10000),
                 ),
                 (
-                    login("updated_remotely", "new-password")
+                    enc_login("updated_remotely", "new-password")
                         .into_payload(&TEST_ENCRYPTOR)
                         .unwrap(),
                     sync15::ServerTimestamp(10000),
                 ),
                 (
-                    login("three_way_merge", "new-remote-password")
+                    enc_login("three_way_merge", "new-remote-password")
                         .into_payload(&TEST_ENCRYPTOR)
                         .unwrap(),
                     sync15::ServerTimestamp(10000),
@@ -575,7 +575,7 @@ mod tests {
                 let mut guids_seen = HashSet::new();
                 let passwords = SyncPasswords {
                     local: sync_login_data.local.map(|local_login| {
-                        guids_seen.insert(local_login.login.id.clone());
+                        guids_seen.insert(local_login.login.record.id.clone());
                         local_login
                             .login
                             .decrypt_fields(&TEST_ENCRYPTOR)
@@ -583,7 +583,7 @@ mod tests {
                             .password
                     }),
                     mirror: sync_login_data.mirror.map(|mirror_login| {
-                        guids_seen.insert(mirror_login.login.id.clone());
+                        guids_seen.insert(mirror_login.login.record.id.clone());
                         mirror_login
                             .login
                             .decrypt_fields(&TEST_ENCRYPTOR)
@@ -591,7 +591,7 @@ mod tests {
                             .password
                     }),
                     inbound: sync_login_data.inbound.0.map(|login| {
-                        guids_seen.insert(login.id.clone());
+                        guids_seen.insert(login.record.id.clone());
                         login.decrypt_fields(&TEST_ENCRYPTOR).unwrap().password
                     }),
                 };

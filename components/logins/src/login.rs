@@ -369,6 +369,16 @@ impl SecureLoginFields {
     }
 }
 
+/// Login data specific to database records
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
+pub struct RecordFields {
+    pub id: String,
+    pub time_created: i64,
+    pub time_password_changed: i64,
+    pub time_last_used: i64,
+    pub times_used: i64,
+}
+
 /// A login entered by the user
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
 pub struct LoginEntry {
@@ -378,34 +388,41 @@ pub struct LoginEntry {
 
 /// A login stored in the database
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
-pub struct Login {
-    pub id: String,
+pub struct EncryptedLogin {
+    pub record: RecordFields,
     pub fields: LoginFields,
     pub sec_fields: String,
-    pub time_created: i64,
-    pub time_password_changed: i64,
-    pub time_last_used: i64,
-    pub times_used: i64,
 }
 
-impl Login {
+impl EncryptedLogin {
     #[inline]
     pub fn guid(&self) -> Guid {
-        Guid::from_string(self.id.clone())
+        Guid::from_string(self.record.id.clone())
     }
+
     // TODO: Remove this: https://github.com/mozilla/application-services/issues/4185
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.id
+        &self.record.id
     }
 
     pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {
         encdec.decrypt_struct(&self.sec_fields)
     }
 
-    pub(crate) fn from_row(row: &Row<'_>) -> Result<Login> {
-        let login = Login {
-            id: row.get("guid")?,
+    pub(crate) fn from_row(row: &Row<'_>) -> Result<EncryptedLogin> {
+        let login = EncryptedLogin {
+            record: RecordFields {
+                id: row.get("guid")?,
+                time_created: row.get("timeCreated")?,
+                // Might be null
+                time_last_used: row
+                    .get::<_, Option<i64>>("timeLastUsed")?
+                    .unwrap_or_default(),
+
+                time_password_changed: row.get("timePasswordChanged")?,
+                times_used: row.get("timesUsed")?,
+            },
             fields: LoginFields {
                 origin: row.get("origin")?,
                 http_realm: row.get("httpRealm")?,
@@ -415,14 +432,6 @@ impl Login {
                 username_field: string_or_default(row, "usernameField")?,
                 password_field: string_or_default(row, "passwordField")?,
             },
-            time_created: row.get("timeCreated")?,
-            // Might be null
-            time_last_used: row
-                .get::<_, Option<i64>>("timeLastUsed")?
-                .unwrap_or_default(),
-
-            time_password_changed: row.get("timePasswordChanged")?,
-            times_used: row.get("timesUsed")?,
             sec_fields: row.get("secFields")?,
         };
         // XXX - we used to perform a fixup here, but that seems heavy-handed
@@ -647,20 +656,22 @@ pub mod test_utils {
     // Factory function to make a new login
     //
     // It uses the guid to create a unique origin/form_action_origin
-    pub fn login(id: &str, password: &str) -> Login {
+    pub fn enc_login(id: &str, password: &str) -> EncryptedLogin {
         let sec_fields = SecureLoginFields {
             username: "user".to_string(),
             password: password.to_string(),
         };
-        Login {
-            id: id.to_string(),
+        EncryptedLogin {
+            record: RecordFields {
+                id: id.to_string(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 form_action_origin: Some(format!("https://{}.example.com", id)),
                 origin: format!("https://{}.example.com", id),
                 ..Default::default()
             },
             sec_fields: encrypt_struct(&sec_fields),
-            ..Default::default()
         }
     }
 }

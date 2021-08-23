@@ -4,7 +4,7 @@
 use crate::db::{LoginDb, MigrationMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, LoginEntry};
+use crate::login::{EncryptedLogin, LoginEntry};
 use crate::LoginsSyncEngine;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
@@ -65,15 +65,15 @@ impl LoginStore {
         Ok((Self { db: Mutex::new(db) }, metrics))
     }
 
-    pub fn list(&self) -> Result<Vec<Login>> {
+    pub fn list(&self) -> Result<Vec<EncryptedLogin>> {
         self.db.lock().unwrap().get_all()
     }
 
-    pub fn get(&self, id: &str) -> Result<Option<Login>> {
+    pub fn get(&self, id: &str) -> Result<Option<EncryptedLogin>> {
         self.db.lock().unwrap().get_by_id(id)
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
@@ -86,7 +86,7 @@ impl LoginStore {
         &self,
         id: &str,
         entry: LoginEntry,
-    ) -> Result<Vec<Login>> {
+    ) -> Result<Vec<EncryptedLogin>> {
         self.db
             .lock()
             .unwrap()
@@ -127,17 +127,17 @@ impl LoginStore {
         Ok(())
     }
 
-    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<Login> {
+    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         self.db.lock().unwrap().update(id, entry, &encdec)
     }
 
-    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<Login> {
+    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         self.db.lock().unwrap().add(entry, &encdec)
     }
 
-    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Login> {
+    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         let db = self.db.lock().unwrap();
         match db.find_existing(&entry, &encdec)? {
@@ -146,7 +146,7 @@ impl LoginStore {
         }
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
+    pub fn import_multiple(&self, logins: Vec<EncryptedLogin>, enc_key: &str) -> Result<String> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         let metrics = self.db.lock().unwrap().import_multiple(logins, &encdec)?;
         Ok(serde_json::to_string(&metrics)?)
@@ -254,7 +254,7 @@ mod test {
     use std::cmp::Reverse;
     use std::time::SystemTime;
 
-    fn assert_logins_equiv(a: &LoginEntry, b: &Login) {
+    fn assert_logins_equiv(a: &LoginEntry, b: &EncryptedLogin) {
         let b_e = b.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
         assert_eq!(a.fields, b.fields);
         assert_eq!(b_e.username, a.sec_fields.username);
@@ -296,10 +296,12 @@ mod test {
         let a_id = store
             .add(a.clone(), &TEST_ENCRYPTION_KEY)
             .expect("added a")
+            .record
             .id;
         let b_id = store
             .add(b.clone(), &TEST_ENCRYPTION_KEY)
             .expect("added b")
+            .record
             .id;
 
         let a_from_db = store
@@ -308,10 +310,10 @@ mod test {
             .expect("a to exist");
 
         assert_logins_equiv(&a, &a_from_db);
-        assert_ge!(a_from_db.time_created, start_us);
-        assert_ge!(a_from_db.time_password_changed, start_us);
-        assert_ge!(a_from_db.time_last_used, start_us);
-        assert_eq!(a_from_db.times_used, 1);
+        assert_ge!(a_from_db.record.time_created, start_us);
+        assert_ge!(a_from_db.record.time_password_changed, start_us);
+        assert_ge!(a_from_db.record.time_last_used, start_us);
+        assert_eq!(a_from_db.record.times_used, 1);
 
         let b_from_db = store
             .get(&b_id)
@@ -319,10 +321,10 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
-        assert_ge!(b_from_db.time_created, start_us);
-        assert_ge!(b_from_db.time_password_changed, start_us);
-        assert_ge!(b_from_db.time_last_used, start_us);
-        assert_eq!(b_from_db.times_used, 1);
+        assert_ge!(b_from_db.record.time_created, start_us);
+        assert_ge!(b_from_db.record.time_password_changed, start_us);
+        assert_ge!(b_from_db.record.time_last_used, start_us);
+        assert_eq!(b_from_db.record.times_used, 1);
 
         let mut list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
@@ -373,12 +375,12 @@ mod test {
             .expect("b to exist");
 
         assert_logins_equiv(&b2, &b_after_update);
-        assert_ge!(b_after_update.time_created, start_us);
-        assert_le!(b_after_update.time_created, now_us);
-        assert_ge!(b_after_update.time_password_changed, now_us);
-        assert_ge!(b_after_update.time_last_used, now_us);
+        assert_ge!(b_after_update.record.time_created, start_us);
+        assert_le!(b_after_update.record.time_created, now_us);
+        assert_ge!(b_after_update.record.time_password_changed, now_us);
+        assert_ge!(b_after_update.record.time_last_used, now_us);
         // Should be two even though we updated twice
-        assert_eq!(b_after_update.times_used, 2);
+        assert_eq!(b_after_update.record.times_used, 2);
     }
 
     #[test]

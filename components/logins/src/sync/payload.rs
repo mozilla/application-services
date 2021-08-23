@@ -11,7 +11,7 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::ValidateAndFixup;
 use crate::SecureLoginFields;
-use crate::{Login, LoginFields};
+use crate::{EncryptedLogin, LoginFields, RecordFields};
 use serde_derive::*;
 use sync_guid::Guid;
 
@@ -63,11 +63,11 @@ pub struct LoginPayload {
 }
 
 // These probably should be on the payload itself, but one refactor at a time!
-impl Login {
+impl EncryptedLogin {
     pub fn from_payload(
         sync_payload: sync15::Payload,
         encdec: &EncryptorDecryptor,
-    ) -> Result<Self> {
+    ) -> Result<EncryptedLogin> {
         let p: crate::sync::LoginPayload = sync_payload.into_record()?;
 
         let fields = LoginFields {
@@ -83,17 +83,19 @@ impl Login {
         };
 
         // If we can't fix the parts we keep the invalid bits.
-        Ok(Login {
-            id: p.guid.into(),
+        Ok(EncryptedLogin {
+            record: RecordFields {
+                id: p.guid.into(),
+                time_created: p.time_created,
+                time_password_changed: p.time_password_changed,
+                time_last_used: p.time_last_used,
+                times_used: p.times_used,
+            },
             fields: fields.maybe_fixup()?.unwrap_or(fields),
             sec_fields: sec_fields
                 .maybe_fixup()?
                 .unwrap_or(sec_fields)
                 .encrypt(encdec)?,
-            time_created: p.time_created,
-            time_password_changed: p.time_password_changed,
-            time_last_used: p.time_last_used,
-            times_used: p.times_used,
         })
     }
 
@@ -108,10 +110,10 @@ impl Login {
             password_field: self.fields.password_field,
             username: sec_fields.username,
             password: sec_fields.password,
-            time_created: self.time_created,
-            time_password_changed: self.time_password_changed,
-            time_last_used: self.time_last_used,
-            times_used: self.times_used,
+            time_created: self.record.time_created,
+            time_password_changed: self.record.time_password_changed,
+            time_last_used: self.record.time_last_used,
+            times_used: self.record.times_used,
         })?)
     }
 }
@@ -134,7 +136,7 @@ where
 mod tests {
     use crate::encryption::test_utils::{encrypt_struct, TEST_ENCRYPTOR};
     use crate::sync::merge::SyncLoginData;
-    use crate::{Login, LoginFields, SecureLoginFields};
+    use crate::{EncryptedLogin, LoginFields, RecordFields, SecureLoginFields};
     use sync15::ServerTimestamp;
 
     #[test]
@@ -147,8 +149,8 @@ mod tests {
             "password": "password",
         }))
         .unwrap();
-        let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.id, "123412341234");
+        let login = EncryptedLogin::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
+        assert_eq!(login.record.id, "123412341234");
         assert_eq!(login.fields.http_realm, Some("test".to_string()));
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(login.fields.form_action_origin, None);
@@ -168,8 +170,8 @@ mod tests {
             "password": "password",
         }))
         .unwrap();
-        let login = Login::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
-        assert_eq!(login.id, "123412341234");
+        let login = EncryptedLogin::from_payload(payload, &TEST_ENCRYPTOR).unwrap();
+        assert_eq!(login.record.id, "123412341234");
         assert_eq!(login.fields.http_realm, None);
         assert_eq!(login.fields.origin, "https://www.example.com");
         assert_eq!(
@@ -184,8 +186,11 @@ mod tests {
 
     #[test]
     fn test_login_into_payload() {
-        let login = Login {
-            id: "123412341234".into(),
+        let login = EncryptedLogin {
+            record: RecordFields {
+                id: "123412341234".into(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 http_realm: Some("test".into()),
                 origin: "https://www.example.com".into(),
@@ -195,7 +200,6 @@ mod tests {
                 username: "user".into(),
                 password: "password".into(),
             }),
-            ..Login::default()
         };
         let payload = login.into_payload(&TEST_ENCRYPTOR).unwrap();
 
@@ -221,7 +225,7 @@ mod tests {
         .unwrap();
 
         // Incoming sync data gets fixed automatically.
-        let login = Login::from_payload(bad_payload.clone(), &TEST_ENCRYPTOR).unwrap();
+        let login = EncryptedLogin::from_payload(bad_payload.clone(), &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.fields.username_field, "");
 
         // SyncLoginData::from_payload also fixes up.
@@ -246,7 +250,7 @@ mod tests {
         }))
         .unwrap();
 
-        let login = Login::from_payload(bad_payload, &TEST_ENCRYPTOR).unwrap();
+        let login = EncryptedLogin::from_payload(bad_payload, &TEST_ENCRYPTOR).unwrap();
         assert_eq!(login.fields.password_field, "");
     }
 }

@@ -6,7 +6,7 @@ use super::merge::{LocalLogin, MirrorLogin};
 use super::SyncStatus;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::Login;
+use crate::login::EncryptedLogin;
 use crate::util;
 use rusqlite::{named_params, Connection};
 use sql_support::SqlInterruptScope;
@@ -20,13 +20,18 @@ pub(crate) struct UpdatePlan {
     pub delete_local: Vec<Guid>,
     pub local_updates: Vec<MirrorLogin>,
     // the bool is the `is_overridden` flag, the i64 is ServerTimestamp in millis
-    pub mirror_inserts: Vec<(Login, i64, bool)>,
-    pub mirror_updates: Vec<(Login, i64)>,
+    pub mirror_inserts: Vec<(EncryptedLogin, i64, bool)>,
+    pub mirror_updates: Vec<(EncryptedLogin, i64)>,
 }
 
 impl UpdatePlan {
-    pub fn plan_two_way_merge(&mut self, local: &Login, upstream: (Login, ServerTimestamp)) {
-        let is_override = local.time_password_changed > upstream.0.time_password_changed;
+    pub fn plan_two_way_merge(
+        &mut self,
+        local: &EncryptedLogin,
+        upstream: (EncryptedLogin, ServerTimestamp),
+    ) {
+        let is_override =
+            local.record.time_password_changed > upstream.0.record.time_password_changed;
         self.mirror_inserts
             .push((upstream.0, upstream.1.as_millis() as i64, is_override));
         if !is_override {
@@ -38,7 +43,7 @@ impl UpdatePlan {
         &mut self,
         local: LocalLogin,
         shared: MirrorLogin,
-        upstream: Login,
+        upstream: EncryptedLogin,
         upstream_time: ServerTimestamp,
         server_now: ServerTimestamp,
         encdec: &EncryptorDecryptor,
@@ -69,11 +74,16 @@ impl UpdatePlan {
         self.delete_mirror.push(id);
     }
 
-    pub fn plan_mirror_update(&mut self, login: Login, time: ServerTimestamp) {
+    pub fn plan_mirror_update(&mut self, login: EncryptedLogin, time: ServerTimestamp) {
         self.mirror_updates.push((login, time.as_millis() as i64));
     }
 
-    pub fn plan_mirror_insert(&mut self, login: Login, time: ServerTimestamp, is_override: bool) {
+    pub fn plan_mirror_insert(
+        &mut self,
+        login: EncryptedLogin,
+        time: ServerTimestamp,
+        is_override: bool,
+    ) {
         self.mirror_inserts
             .push((login, time.as_millis() as i64, is_override));
     }
@@ -131,10 +141,10 @@ impl UpdatePlan {
                 ":username_field": login.fields.username_field,
                 ":password_field": login.fields.password_field,
                 ":origin": login.fields.origin,
-                ":times_used": login.times_used,
-                ":time_last_used": login.time_last_used,
-                ":time_password_changed": login.time_password_changed,
-                ":time_created": login.time_created,
+                ":times_used": login.record.times_used,
+                ":time_last_used": login.record.time_last_used,
+                ":time_password_changed": login.record.time_password_changed,
+                ":time_created": login.record.time_created,
                 ":guid": login.guid_str(),
                 ":sec_fields": login.sec_fields,
             })?;
@@ -192,10 +202,10 @@ impl UpdatePlan {
                 ":username_field": login.fields.username_field,
                 ":password_field": login.fields.password_field,
                 ":origin": login.fields.origin,
-                ":times_used": login.times_used,
-                ":time_last_used": login.time_last_used,
-                ":time_password_changed": login.time_password_changed,
-                ":time_created": login.time_created,
+                ":times_used": login.record.times_used,
+                ":time_last_used": login.record.time_last_used,
+                ":time_password_changed": login.record.time_password_changed,
+                ":time_created": login.record.time_created,
                 ":guid": login.guid_str(),
                 ":sec_fields": login.sec_fields,
             })?;
@@ -233,9 +243,9 @@ impl UpdatePlan {
                 ":username_field": l.login.fields.username_field,
                 ":password_field": l.login.fields.password_field,
                 ":origin": l.login.fields.origin,
-                ":time_last_used": l.login.time_last_used,
-                ":time_password_changed": l.login.time_password_changed,
-                ":times_used": l.login.times_used,
+                ":time_last_used": l.login.record.time_last_used,
+                ":time_password_changed": l.login.record.time_password_changed,
+                ":times_used": l.login.record.times_used,
                 ":guid": l.guid_str(),
                 ":sec_fields": l.login.sec_fields,
             })?;
@@ -265,7 +275,7 @@ mod tests {
         get_server_modified, insert_login,
     };
     use crate::db::LoginDb;
-    use crate::login::test_utils::login;
+    use crate::login::test_utils::enc_login;
 
     #[test]
     fn test_deletes() {
@@ -302,8 +312,8 @@ mod tests {
 
         UpdatePlan {
             mirror_updates: vec![
-                (login("changed", "new-password"), 20000),
-                (login("changed2", "new-password2"), 21000),
+                (enc_login("changed", "new-password"), 20000),
+                (enc_login("changed2", "new-password2"), 21000),
             ],
             ..UpdatePlan::default()
         }
@@ -319,8 +329,8 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         UpdatePlan {
             mirror_inserts: vec![
-                (login("login1", "new-password"), 20000, false),
-                (login("login2", "new-password2"), 21000, true),
+                (enc_login("login1", "new-password"), 20000, false),
+                (enc_login("login2", "new-password2"), 21000, true),
             ],
             ..UpdatePlan::default()
         }
@@ -338,7 +348,7 @@ mod tests {
 
         UpdatePlan {
             local_updates: vec![MirrorLogin {
-                login: login("login", "new-password"),
+                login: enc_login("login", "new-password"),
                 server_modified: ServerTimestamp(10000),
                 is_overridden: false,
             }],

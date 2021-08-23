@@ -6,7 +6,7 @@
 use super::SyncStatus;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::Login;
+use crate::login::EncryptedLogin;
 use crate::util;
 use rusqlite::Row;
 use std::time::{self, SystemTime};
@@ -15,7 +15,7 @@ use sync_guid::Guid;
 
 #[derive(Clone, Debug)]
 pub(crate) struct MirrorLogin {
-    pub login: Login,
+    pub login: EncryptedLogin,
     pub is_overridden: bool,
     pub server_modified: ServerTimestamp,
 }
@@ -23,12 +23,12 @@ pub(crate) struct MirrorLogin {
 impl MirrorLogin {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.login.id
+        &self.login.record.id
     }
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<MirrorLogin> {
         Ok(MirrorLogin {
-            login: Login::from_row(row)?,
+            login: EncryptedLogin::from_row(row)?,
             is_overridden: row.get("is_overridden")?,
             server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
         })
@@ -37,7 +37,7 @@ impl MirrorLogin {
 
 #[derive(Clone, Debug)]
 pub(crate) struct LocalLogin {
-    pub login: Login,
+    pub login: EncryptedLogin,
     pub sync_status: SyncStatus,
     pub is_deleted: bool,
     pub local_modified: SystemTime,
@@ -51,7 +51,7 @@ impl LocalLogin {
 
     pub(crate) fn from_row(row: &Row<'_>) -> Result<LocalLogin> {
         Ok(LocalLogin {
-            login: Login::from_row(row)?,
+            login: EncryptedLogin::from_row(row)?,
             sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
             is_deleted: row.get("is_deleted")?,
             local_modified: util::system_time_millis_from_row(row, "local_modified")?,
@@ -61,30 +61,30 @@ impl LocalLogin {
 
 macro_rules! impl_login {
     ($ty:ty { $($fields:tt)* }) => {
-        impl AsRef<Login> for $ty {
+        impl AsRef<EncryptedLogin> for $ty {
             #[inline]
-            fn as_ref(&self) -> &Login {
+            fn as_ref(&self) -> &EncryptedLogin {
                 &self.login
             }
         }
 
-        impl AsMut<Login> for $ty {
+        impl AsMut<EncryptedLogin> for $ty {
             #[inline]
-            fn as_mut(&mut self) -> &mut Login {
+            fn as_mut(&mut self) -> &mut EncryptedLogin {
                 &mut self.login
             }
         }
 
-        impl From<$ty> for Login {
+        impl From<$ty> for EncryptedLogin {
             #[inline]
             fn from(l: $ty) -> Self {
                 l.login
             }
         }
 
-        impl From<Login> for $ty {
+        impl From<EncryptedLogin> for $ty {
             #[inline]
-            fn from(login: Login) -> Self {
+            fn from(login: EncryptedLogin) -> Self {
                 Self { login, $($fields)* }
             }
         }
@@ -109,7 +109,7 @@ pub(crate) struct SyncLoginData {
     pub local: Option<LocalLogin>,
     pub mirror: Option<MirrorLogin>,
     // None means it's a deletion
-    pub inbound: (Option<Login>, ServerTimestamp),
+    pub inbound: (Option<EncryptedLogin>, ServerTimestamp),
 }
 
 impl SyncLoginData {
@@ -129,11 +129,11 @@ impl SyncLoginData {
         encdec: &EncryptorDecryptor,
     ) -> Result<Self> {
         let guid = payload.id.clone();
-        let login: Option<Login> = if payload.is_tombstone() {
+        let login: Option<EncryptedLogin> = if payload.is_tombstone() {
             None
         } else {
             // from_payload does fixups if necessary and possible.
-            Some(Login::from_payload(payload, encdec)?)
+            Some(EncryptedLogin::from_payload(payload, encdec)?)
         };
         Ok(Self {
             guid,
@@ -250,12 +250,12 @@ macro_rules! apply_field {
 macro_rules! apply_metadata_field {
     ($login:ident, $delta:ident, $field:ident) => {
         if let Some($field) = $delta.$field.take() {
-            $login.$field = $field.into();
+            $login.record.$field = $field.into();
         }
     };
 }
 
-impl Login {
+impl EncryptedLogin {
     pub(crate) fn apply_delta(
         &mut self,
         mut delta: LoginDelta,
@@ -288,11 +288,15 @@ impl Login {
             self.fields.form_action_origin = if url.is_empty() { None } else { Some(url) };
         }
 
-        self.times_used += delta.times_used;
+        self.record.times_used += delta.times_used;
         Ok(())
     }
 
-    pub(crate) fn delta(&self, older: &Login, encdec: &EncryptorDecryptor) -> Result<LoginDelta> {
+    pub(crate) fn delta(
+        &self,
+        older: &EncryptedLogin,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<LoginDelta> {
         let mut delta = LoginDelta::default();
 
         if self.fields.form_action_origin != older.fields.form_action_origin {
@@ -331,20 +335,22 @@ impl Login {
         // `time_password_changed`. Doing this properly would probably require
         // a scheme analogous to Desktop's weak-reupload system, so I'm punting
         // on it for now.
-        if self.time_created > 0 && self.time_created != older.time_created {
-            delta.time_created = Some(self.time_created);
+        if self.record.time_created > 0 && self.record.time_created != older.record.time_created {
+            delta.time_created = Some(self.record.time_created);
         }
-        if self.time_last_used > 0 && self.time_last_used != older.time_last_used {
-            delta.time_last_used = Some(self.time_last_used);
-        }
-        if self.time_password_changed > 0
-            && self.time_password_changed != older.time_password_changed
+        if self.record.time_last_used > 0
+            && self.record.time_last_used != older.record.time_last_used
         {
-            delta.time_password_changed = Some(self.time_password_changed);
+            delta.time_last_used = Some(self.record.time_last_used);
+        }
+        if self.record.time_password_changed > 0
+            && self.record.time_password_changed != older.record.time_password_changed
+        {
+            delta.time_password_changed = Some(self.record.time_password_changed);
         }
 
-        if self.times_used > 0 && self.times_used != older.times_used {
-            delta.times_used = self.times_used - older.times_used;
+        if self.record.times_used > 0 && self.record.times_used != older.record.times_used {
+            delta.times_used = self.record.times_used - older.record.times_used;
         }
 
         Ok(delta)
@@ -377,9 +383,9 @@ mod tests {
                 .inbound
                 .0
                 .unwrap();
-        assert_eq!(login.time_created, 0);
-        assert_eq!(login.time_last_used, 0);
-        assert_eq!(login.time_password_changed, 0);
+        assert_eq!(login.record.time_created, 0);
+        assert_eq!(login.record.time_last_used, 0);
+        assert_eq!(login.record.time_password_changed, 0);
 
         let now64 = util::system_time_ms_i64(std::time::SystemTime::now());
         let good_payload: sync15::Payload = serde_json::from_value(serde_json::json!({
@@ -401,8 +407,8 @@ mod tests {
                 .0
                 .unwrap();
 
-        assert_eq!(login.time_created, now64 - 100);
-        assert_eq!(login.time_last_used, now64 - 50);
-        assert_eq!(login.time_password_changed, now64 - 25);
+        assert_eq!(login.record.time_created, now64 - 100);
+        assert_eq!(login.record.time_last_used, now64 - 50);
+        assert_eq!(login.record.time_password_changed, now64 - 25);
     }
 }

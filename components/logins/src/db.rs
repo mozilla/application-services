@@ -24,7 +24,7 @@
 ///     loginsL will be an empty table after this.  See mark_as_synchronized() for the details.
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{Login, LoginEntry, LoginFields, SecureLoginFields, ValidateAndFixup};
+use crate::login::*;
 use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
 use crate::sync::SyncStatus;
@@ -217,13 +217,13 @@ impl LoginDb {
         Ok(())
     }
 
-    pub fn get_all(&self) -> Result<Vec<Login>> {
+    pub fn get_all(&self) -> Result<Vec<EncryptedLogin>> {
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
-        let rows = stmt.query_and_then(NO_PARAMS, Login::from_row)?;
+        let rows = stmt.query_and_then(NO_PARAMS, EncryptedLogin::from_row)?;
         rows.collect::<Result<_>>()
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
         // We first parse the input string as a host so it is normalized.
         let base_host = match Host::parse(base_domain) {
             Ok(d) => d,
@@ -241,7 +241,7 @@ impl LoginDb {
         // in a regex lib just for this.
         let mut stmt = self.db.prepare_cached(&GET_ALL_SQL)?;
         let rows = stmt
-            .query_and_then(NO_PARAMS, Login::from_row)?
+            .query_and_then(NO_PARAMS, EncryptedLogin::from_row)?
             .filter(|r| {
                 let login = r
                     .as_ref()
@@ -274,11 +274,11 @@ impl LoginDb {
         rows.collect::<Result<_>>()
     }
 
-    pub fn get_by_id(&self, id: &str) -> Result<Option<Login>> {
+    pub fn get_by_id(&self, id: &str) -> Result<Option<EncryptedLogin>> {
         self.try_query_row(
             &GET_BY_GUID_SQL,
             &[(":guid", &id as &dyn ToSql)],
-            Login::from_row,
+            EncryptedLogin::from_row,
             true,
         )
     }
@@ -308,7 +308,7 @@ impl LoginDb {
 
     // The single place we insert new rows or update existing local rows.
     // just the SQL - no validation or anything.
-    fn insert_new_login(&self, login: &Login) -> Result<()> {
+    fn insert_new_login(&self, login: &EncryptedLogin) -> Result<()> {
         let sql = format!(
             "INSERT INTO loginsL (
                 origin,
@@ -352,11 +352,11 @@ impl LoginDb {
                 ":form_action_origin": login.fields.form_action_origin,
                 ":username_field": login.fields.username_field,
                 ":password_field": login.fields.password_field,
-                ":time_created": login.time_created,
-                ":times_used": login.times_used,
-                ":time_last_used": login.time_last_used,
-                ":time_password_changed": login.time_password_changed,
-                ":local_modified": login.time_created,
+                ":time_created": login.record.time_created,
+                ":times_used": login.record.times_used,
+                ":time_last_used": login.record.time_last_used,
+                ":time_password_changed": login.record.time_password_changed,
+                ":local_modified": login.record.time_created,
                 ":sec_fields": login.sec_fields,
                 ":guid": login.guid(),
             },
@@ -364,7 +364,7 @@ impl LoginDb {
         Ok(())
     }
 
-    fn update_existing_login(&self, login: &Login) -> Result<()> {
+    fn update_existing_login(&self, login: &EncryptedLogin) -> Result<()> {
         // assumes the "local overlay" exists, so the guid must too.
         let sql = format!(
             "UPDATE loginsL
@@ -392,13 +392,13 @@ impl LoginDb {
                 ":form_action_origin": login.fields.form_action_origin,
                 ":username_field": login.fields.username_field,
                 ":password_field": login.fields.password_field,
-                ":time_last_used": login.time_last_used,
-                ":times_used": login.times_used,
-                ":time_password_changed": login.time_password_changed,
+                ":time_last_used": login.record.time_last_used,
+                ":times_used": login.record.times_used,
+                ":time_password_changed": login.record.time_password_changed,
                 ":sec_fields": login.sec_fields,
-                ":guid": &login.id,
+                ":guid": &login.record.id,
                 // time_last_used has been set to now.
-                ":now_millis": login.time_last_used,
+                ":now_millis": login.record.time_last_used,
             },
         )?;
         Ok(())
@@ -406,7 +406,7 @@ impl LoginDb {
 
     pub fn import_multiple(
         &self,
-        logins: Vec<Login>,
+        logins: Vec<EncryptedLogin>,
         encdec: &EncryptorDecryptor,
     ) -> Result<MigrationMetrics> {
         // Check if the logins table is empty first.
@@ -435,15 +435,17 @@ impl LoginDb {
                 decrypted,
                 encdec,
             ) {
-                Ok((new_fields, new_sec_fields)) => Login {
-                    id: if old_guid.is_valid_for_sync_server() {
-                        old_guid.to_string()
-                    } else {
-                        Guid::random().to_string()
+                Ok((new_fields, new_sec_fields)) => EncryptedLogin {
+                    record: RecordFields {
+                        id: if old_guid.is_valid_for_sync_server() {
+                            old_guid.to_string()
+                        } else {
+                            Guid::random().to_string()
+                        },
+                        ..login.record
                     },
                     fields: new_fields,
                     sec_fields: new_sec_fields.encrypt(encdec)?,
-                    ..login
                 },
                 Err(e) => {
                     log::warn!("Skipping login {} as it is invalid ({}).", old_guid, e);
@@ -458,7 +460,7 @@ impl LoginDb {
                 Ok(_) => log::info!(
                     "Imported {} (new GUID {}) successfully.",
                     old_guid,
-                    login.id
+                    login.record.id
                 ),
                 Err(e) => {
                     log::warn!("Could not import {} ({}).", old_guid, e);
@@ -510,20 +512,22 @@ impl LoginDb {
         Ok(metrics)
     }
 
-    pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> Result<Login> {
+    pub fn add(&self, entry: LoginEntry, encdec: &EncryptorDecryptor) -> Result<EncryptedLogin> {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
         let (new_fields, new_sec_fields) =
             self.fixup_and_check_for_dupes(&guid, entry.fields, entry.sec_fields, &encdec)?;
-        let result = Login {
-            id: guid.to_string(),
+        let result = EncryptedLogin {
+            record: RecordFields {
+                id: guid.to_string(),
+                time_created: now_ms,
+                time_password_changed: now_ms,
+                time_last_used: now_ms,
+                times_used: 1,
+            },
             fields: new_fields,
             sec_fields: new_sec_fields.encrypt(&encdec)?,
-            time_created: now_ms,
-            time_password_changed: now_ms,
-            time_last_used: now_ms,
-            times_used: 1,
         };
         let tx = self.unchecked_transaction()?;
         self.insert_new_login(&result)?;
@@ -536,7 +540,7 @@ impl LoginDb {
         sguid: &str,
         entry: LoginEntry,
         encdec: &EncryptorDecryptor,
-    ) -> Result<Login> {
+    ) -> Result<EncryptedLogin> {
         let guid = Guid::new(sguid);
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         let tx = self.unchecked_transaction()?;
@@ -562,20 +566,22 @@ impl LoginDb {
         };
         let time_password_changed =
             if existing.decrypt_fields(encdec)?.password == entry.sec_fields.password {
-                existing.time_password_changed
+                existing.record.time_password_changed
             } else {
                 now_ms
             };
 
         // Make the final object here - every column will be updated.
-        let result = Login {
-            id: existing.id,
+        let result = EncryptedLogin {
+            record: RecordFields {
+                id: existing.record.id,
+                time_created: existing.record.time_created,
+                time_password_changed,
+                time_last_used: now_ms,
+                times_used: existing.record.times_used + 1,
+            },
             fields: entry.fields,
             sec_fields: entry.sec_fields.encrypt(&encdec)?,
-            time_created: existing.time_created,
-            time_password_changed,
-            time_last_used: now_ms,
-            times_used: existing.times_used + 1,
         };
 
         self.update_existing_login(&result)?;
@@ -650,7 +656,7 @@ impl LoginDb {
         &self,
         guid: &Guid,
         fields: &LoginFields,
-    ) -> Result<Vec<Login>> {
+    ) -> Result<Vec<EncryptedLogin>> {
         // Could be lazy_static-ed...
         lazy_static::lazy_static! {
             static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
@@ -687,7 +693,7 @@ impl LoginDb {
             ":form_submit": fields.form_action_origin.as_ref(),
         };
         // Needs to be two lines for borrow checker
-        let rows = stmt.query_and_then_named(params, Login::from_row)?;
+        let rows = stmt.query_and_then_named(params, EncryptedLogin::from_row)?;
         rows.collect()
     }
 
@@ -920,7 +926,7 @@ lazy_static! {
 pub mod test_utils {
     use super::*;
     use crate::encryption::test_utils::decrypt_struct;
-    use crate::login::test_utils::login;
+    use crate::login::test_utils::enc_login;
     use crate::SecureLoginFields;
     use sync15::ServerTimestamp;
 
@@ -936,20 +942,20 @@ pub mod test_utils {
         if let Some(password) = mirror_login {
             add_mirror(
                 &db,
-                &login(guid, password),
+                &enc_login(guid, password),
                 &ServerTimestamp(util::system_time_ms_i64(std::time::SystemTime::now())),
                 local_login.is_some(),
             )
             .unwrap();
         }
         if let Some(password) = local_login {
-            db.insert_new_login(&login(guid, password)).unwrap();
+            db.insert_new_login(&enc_login(guid, password)).unwrap();
         }
     }
 
     pub fn add_mirror(
         db: &LoginDb,
-        login: &Login,
+        login: &EncryptedLogin,
         server_modified: &ServerTimestamp,
         is_overridden: bool,
     ) -> Result<()> {
@@ -1000,10 +1006,10 @@ pub mod test_utils {
             ":password_field": login.fields.password_field,
             ":origin": login.fields.origin,
             ":sec_fields": login.sec_fields,
-            ":times_used": login.times_used,
-            ":time_last_used": login.time_last_used,
-            ":time_password_changed": login.time_password_changed,
-            ":time_created": login.time_created,
+            ":times_used": login.record.times_used,
+            ":time_last_used": login.record.time_last_used,
+            ":time_password_changed": login.record.time_password_changed,
+            ":time_created": login.record.time_created,
             ":guid": login.guid_str(),
         })?;
         Ok(())
@@ -1172,7 +1178,7 @@ mod tests {
             TestCase {
                 // updated_login is an update to the existing record (has the same guid) so it is not a dupe
                 // and should not error.
-                guid: added.id.into(),
+                guid: added.record.id.into(),
                 entry: updated_login,
                 should_err: false,
                 expected_err: "",
@@ -1217,7 +1223,7 @@ mod tests {
             )
             .unwrap();
         let fetched = db
-            .get_by_id(&added.id)
+            .get_by_id(&added.record.id)
             .expect("should work")
             .expect("should get a record");
         assert_eq!(added, fetched);
@@ -1254,7 +1260,7 @@ mod tests {
             )
             .unwrap();
         let fetched = db
-            .get_by_id(&added.id)
+            .get_by_id(&added.record.id)
             .expect("should work")
             .expect("should get a record");
         assert_eq!(added, fetched);
@@ -1385,7 +1391,7 @@ mod tests {
             },
         };
         let login = db.add(to_add, &TEST_ENCRYPTOR).unwrap();
-        let login2 = db.get_by_id(&login.id).unwrap().unwrap();
+        let login2 = db.get_by_id(&login.record.id).unwrap().unwrap();
 
         assert_eq!(login.fields.origin, login2.fields.origin);
         assert_eq!(login.fields.http_realm, login2.fields.http_realm);
@@ -1412,7 +1418,7 @@ mod tests {
             )
             .unwrap();
         db.update(
-            &login.id,
+            &login.record.id,
             LoginEntry {
                 fields: LoginFields {
                     origin: "https://www.example2.com".into(),
@@ -1428,7 +1434,7 @@ mod tests {
         )
         .unwrap();
 
-        let login2 = db.get_by_id(&login.id).unwrap().unwrap();
+        let login2 = db.get_by_id(&login.record.id).unwrap().unwrap();
 
         assert_eq!(login2.fields.origin, "https://www.example2.com");
         assert_eq!(
@@ -1459,10 +1465,10 @@ mod tests {
                 &TEST_ENCRYPTOR,
             )
             .unwrap();
-        db.touch(&login.id).unwrap();
-        let login2 = db.get_by_id(&login.id).unwrap().unwrap();
-        assert!(login2.time_last_used > login.time_last_used);
-        assert_eq!(login2.times_used, login.times_used + 1);
+        db.touch(&login.record.id).unwrap();
+        let login2 = db.get_by_id(&login.record.id).unwrap().unwrap();
+        assert!(login2.record.time_last_used > login.record.time_last_used);
+        assert_eq!(login2.record.times_used, login.record.times_used + 1);
     }
 
     #[test]
@@ -1579,7 +1585,7 @@ mod tests {
     #[test]
     fn test_import_multiple() {
         struct TestCase {
-            logins: Vec<Login>,
+            logins: Vec<EncryptedLogin>,
             has_populated_metrics: bool,
             expected_metrics: MigrationMetrics,
         }
@@ -1612,12 +1618,15 @@ mod tests {
         );
 
         // Removing added login so the test cases below don't fail
-        delete_logins(&db, &[login.id]).unwrap();
+        delete_logins(&db, &[login.record.id]).unwrap();
 
         // Setting up test cases
         let valid_login_guid1: Guid = Guid::random();
-        let valid_login1 = Login {
-            id: valid_login_guid1.to_string(),
+        let valid_login1 = EncryptedLogin {
+            record: RecordFields {
+                id: valid_login_guid1.to_string(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 form_action_origin: Some("https://www.example.com".into()),
                 origin: "https://www.example.com".into(),
@@ -1630,11 +1639,13 @@ mod tests {
             }
             .encrypt(&TEST_ENCRYPTOR)
             .unwrap(),
-            ..Default::default()
         };
         let valid_login_guid2: Guid = Guid::random();
-        let valid_login2 = Login {
-            id: valid_login_guid2.to_string(),
+        let valid_login2 = EncryptedLogin {
+            record: RecordFields {
+                id: valid_login_guid2.to_string(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 form_action_origin: Some("https://www.example2.com".into()),
                 origin: "https://www.example2.com".into(),
@@ -1647,11 +1658,13 @@ mod tests {
             }
             .encrypt(&TEST_ENCRYPTOR)
             .unwrap(),
-            ..Default::default()
         };
         let valid_login_guid3: Guid = Guid::random();
-        let valid_login3 = Login {
-            id: valid_login_guid3.to_string(),
+        let valid_login3 = EncryptedLogin {
+            record: RecordFields {
+                id: valid_login_guid3.to_string(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 form_action_origin: Some("https://www.example3.com".into()),
                 origin: "https://www.example3.com".into(),
@@ -1664,11 +1677,13 @@ mod tests {
             }
             .encrypt(&TEST_ENCRYPTOR)
             .unwrap(),
-            ..Default::default()
         };
         let duplicate_login_guid: Guid = Guid::random();
-        let duplicate_login = Login {
-            id: duplicate_login_guid.to_string(),
+        let duplicate_login = EncryptedLogin {
+            record: RecordFields {
+                id: duplicate_login_guid.to_string(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 form_action_origin: Some("https://www.example.com".into()),
                 origin: "https://www.example.com".into(),
@@ -1681,7 +1696,6 @@ mod tests {
             }
             .encrypt(&TEST_ENCRYPTOR)
             .unwrap(),
-            ..Default::default()
         };
 
         let duplicate_logins = vec![valid_login1.clone(), duplicate_login, valid_login2.clone()];
@@ -1804,8 +1818,11 @@ mod tests {
         let db = LoginDb::open_in_memory().unwrap();
         let bad_guid = Guid::new("😍");
         assert!(!bad_guid.is_valid_for_sync_server());
-        let login = Login {
-            id: bad_guid.to_string(),
+        let login = EncryptedLogin {
+            record: RecordFields {
+                id: bad_guid.to_string(),
+                ..Default::default()
+            },
             fields: LoginFields {
                 form_action_origin: Some("https://www.example.com".into()),
                 origin: "https://www.example.com".into(),
@@ -1817,12 +1834,11 @@ mod tests {
             }
             .encrypt(&TEST_ENCRYPTOR)
             .unwrap(),
-            ..Default::default()
         };
         db.import_multiple(vec![login], &TEST_ENCRYPTOR).unwrap();
         let logins = db.get_by_base_domain("www.example.com").unwrap();
         assert_eq!(logins.len(), 1);
-        assert_ne!(logins[0].id, bad_guid, "guid was fixed");
+        assert_ne!(logins[0].record.id, bad_guid, "guid was fixed");
     }
 
     #[test]
@@ -1843,7 +1859,7 @@ mod tests {
         println!("{:?} {:?}", login.fields.origin, login.fields.http_realm);
         assert_eq!(
             db.find_existing(&entry, &TEST_ENCRYPTOR).unwrap(),
-            Some(login.id.clone())
+            Some(login.record.id.clone())
         );
 
         // different origin
@@ -1924,12 +1940,12 @@ mod tests {
                 &TEST_ENCRYPTOR
             )
             .unwrap(),
-            Some(login.id.clone())
+            Some(login.record.id.clone())
         );
 
         // If we commit the local data to the mirror table it should still match
         test_utils::add_mirror(&db, &login, &sync15::ServerTimestamp(10000), false).unwrap();
-        test_utils::delete_local_login(&db, &login.id);
+        test_utils::delete_local_login(&db, &login.record.id);
 
         assert_eq!(
             db.find_existing(
@@ -1939,11 +1955,11 @@ mod tests {
                 &TEST_ENCRYPTOR
             )
             .unwrap(),
-            Some(login.id.clone())
+            Some(login.record.id.clone())
         );
 
         // But if we then update the local record it shouldn't
-        db.insert_new_login(&Login {
+        db.insert_new_login(&EncryptedLogin {
             sec_fields: SecureLoginFields {
                 username: "username2".to_owned(),
                 ..entry.sec_fields.clone()
@@ -1953,7 +1969,7 @@ mod tests {
             ..login.clone()
         })
         .unwrap();
-        db.mark_mirror_overridden(&login.id).unwrap();
+        db.mark_mirror_overridden(&login.record.id).unwrap();
 
         assert_eq!(
             db.find_existing(

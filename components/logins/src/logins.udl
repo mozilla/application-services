@@ -43,6 +43,15 @@ dictionary SecureLoginFields {
     string username;
 };
 
+// Fields specific to database records
+dictionary RecordFields {
+    string id;
+    i64 times_used;
+    i64 time_created;
+    i64 time_last_used;
+    i64 time_password_changed;
+};
+
 // What you can add or update. You must pass the cleartext of encrypted fields
 // and the add/update APIs can encrypt (they need to know the key anyway)
 dictionary LoginEntry {
@@ -52,14 +61,10 @@ dictionary LoginEntry {
 
 // What we return for all the "read" APIs - we never return the cleartext
 // of encrypted fields.
-dictionary Login {
-    string id;
+dictionary EncryptedLogin {
+    RecordFields record;
     LoginFields fields;
     string sec_fields; // ciphertext of a SecureLoginFields
-    i64 times_used;
-    i64 time_created;
-    i64 time_last_used;
-    i64 time_password_changed;
 };
 
 [Error]
@@ -84,13 +89,13 @@ interface LoginStore {
     void check_valid_with_no_dupes([ByRef] string id, [ByRef] LoginEntry login, [ByRef] string encryption_key);
 
     [Throws=LoginsStorageError]
-    Login add(LoginEntry login, [ByRef]string encryption_key);
+    EncryptedLogin add(LoginEntry login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
-    Login update([ByRef] string id, LoginEntry login, [ByRef]string encryption_key);
+    EncryptedLogin update([ByRef] string id, LoginEntry login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
-    Login add_or_update(LoginEntry login, [ByRef]string encryption_key);
+    EncryptedLogin add_or_update(LoginEntry login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
     boolean delete([ByRef] string id);
@@ -108,23 +113,23 @@ interface LoginStore {
     void touch([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    sequence<Login> list();
+    sequence<EncryptedLogin> list();
 
     [Throws=LoginsStorageError]
-    sequence<Login> get_by_base_domain([ByRef] string base_domain);
+    sequence<EncryptedLogin> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsStorageError]
     string? find_existing(LoginEntry look, [ByRef]string encryption_key);
 
     // XXX - Can we kill this, and just fix the semantics of add/update?
     [Throws=LoginsStorageError]
-    sequence<Login> potential_dupes_ignoring_username([ByRef]string id, LoginEntry login);
+    sequence<EncryptedLogin> potential_dupes_ignoring_username([ByRef]string id, LoginEntry login);
 
     [Throws=LoginsStorageError]
-    Login? get([ByRef] string id);
+    EncryptedLogin? get([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
+    string import_multiple(sequence<EncryptedLogin> login, [ByRef]string encryption_key);
 
     [Self=ByArc]
     void register_with_sync_manager();

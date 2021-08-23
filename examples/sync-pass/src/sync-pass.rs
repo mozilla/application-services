@@ -9,7 +9,7 @@ use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
 use logins::{
-    Login, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
+    EncryptedLogin, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
     ValidateAndFixup,
 };
 use prettytable::{cell, row, Cell, Row, Table};
@@ -106,7 +106,7 @@ fn string_opt_or<'a>(o: &'a Option<String>, or: &'a str) -> &'a str {
     string_opt(o).unwrap_or(or)
 }
 
-fn update_login(login: Login, encdec: &EncryptorDecryptor) -> LoginEntry {
+fn update_login(login: EncryptedLogin, encdec: &EncryptorDecryptor) -> LoginEntry {
     let mut record = LoginEntry {
         sec_fields: login.decrypt_fields(encdec).unwrap(),
         fields: login.fields,
@@ -205,7 +205,7 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
 }
 
 fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<String>> {
-    let records = store.list()?;
+    let logins = store.list()?;
 
     let mut table = prettytable::Table::new();
 
@@ -228,34 +228,34 @@ fn show_all(store: &LoginStore, encdec: &EncryptorDecryptor) -> Result<Vec<Strin
         "Last Used"
     ]);
 
-    let mut v = Vec::with_capacity(records.len());
-    let mut record_copy = records.clone();
-    record_copy.sort_by_key(|a| a.guid());
-    for rec in records.iter() {
-        let sec_fields = rec.decrypt_fields(encdec).unwrap();
+    let mut v = Vec::with_capacity(logins.len());
+    let mut logins_copy = logins.clone();
+    logins_copy.sort_by_key(|a| a.guid());
+    for login in logins.iter() {
+        let sec_fields = login.decrypt_fields(encdec).unwrap();
         table.add_row(row![
             r->v.len(),
-            Fr->&rec.guid(),
+            Fr->&login.guid(),
             &sec_fields.username,
             &sec_fields.password,
-            &rec.fields.origin,
+            &login.fields.origin,
 
-            string_opt_or(&rec.fields.form_action_origin, ""),
-            string_opt_or(&rec.fields.http_realm, ""),
+            string_opt_or(&login.fields.form_action_origin, ""),
+            string_opt_or(&login.fields.http_realm, ""),
 
-            &rec.fields.username_field,
-            &rec.fields.password_field,
+            &login.fields.username_field,
+            &login.fields.password_field,
 
-            rec.times_used,
-            timestamp_to_string(rec.time_created),
-            timestamp_to_string(rec.time_password_changed),
-            if rec.time_last_used == 0 {
+            login.record.times_used,
+            timestamp_to_string(login.record.time_created),
+            timestamp_to_string(login.record.time_password_changed),
+            if login.record.time_last_used == 0 {
                 "Never".to_owned()
             } else {
-                timestamp_to_string(rec.time_last_used)
+                timestamp_to_string(login.record.time_last_used)
             }
         ]);
-        v.push(rec.guid().to_string());
+        v.push(login.guid().to_string());
     }
     table.printstd();
     Ok(v)
