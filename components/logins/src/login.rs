@@ -388,6 +388,36 @@ pub struct LoginEntry {
 
 /// A login stored in the database
 #[derive(Debug, Clone, Hash, PartialEq, Default)]
+pub struct Login {
+    pub record: RecordFields,
+    pub fields: LoginFields,
+    pub sec_fields: SecureLoginFields,
+}
+
+impl Login {
+    #[inline]
+    pub fn guid(&self) -> Guid {
+        Guid::from_string(self.record.id.clone())
+    }
+
+    pub fn entry(&self) -> LoginEntry {
+        LoginEntry {
+            fields: self.fields.clone(),
+            sec_fields: self.sec_fields.clone(),
+        }
+    }
+
+    pub fn encrypt(self, encdec: &EncryptorDecryptor) -> Result<EncryptedLogin> {
+        Ok(EncryptedLogin {
+            record: self.record,
+            fields: self.fields,
+            sec_fields: encdec.encrypt_struct(&self.sec_fields)?,
+        })
+    }
+}
+
+/// A login stored in the database
+#[derive(Debug, Clone, Hash, PartialEq, Default)]
 pub struct EncryptedLogin {
     pub record: RecordFields,
     pub fields: LoginFields,
@@ -404,6 +434,14 @@ impl EncryptedLogin {
     #[inline]
     pub fn guid_str(&self) -> &str {
         &self.record.id
+    }
+
+    pub fn decrypt(self, encdec: &EncryptorDecryptor) -> Result<Login> {
+        Ok(Login {
+            record: self.record,
+            fields: self.fields,
+            sec_fields: encdec.decrypt_struct(&self.sec_fields)?,
+        })
     }
 
     pub fn decrypt_fields(&self, encdec: &EncryptorDecryptor) -> Result<SecureLoginFields> {

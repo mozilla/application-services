@@ -9,15 +9,13 @@ namespace logins {
     [Throws=LoginsStorageError]
     string create_key();
 
-    // Decrypt a string into an SecureLoginFields struct. This will be used to get the credentials
-    // from a `Login` dict.
+    // Decrypt an `EncryptedLogin` to a `Login`
     [Throws=LoginsStorageError]
-    SecureLoginFields decrypt_fields([ByRef]string ciphertext, [ByRef]string encryption_key);
+    Login decrypt_login(EncryptedLogin login, [ByRef]string encryption_key);
 
-    // Encrypt an SecureLoginFields struct into a string. This will be used only rarely, eg, when
-    // putting together `Login` dicts to pass to `import_multiple`.
+    // Encrypt a `Login` to an `EncryptedLogin`
     [Throws=LoginsStorageError]
-    string encrypt_fields([ByRef]SecureLoginFields fields, [ByRef]string encryption_key);
+    EncryptedLogin encrypt_login(Login login, [ByRef]string encryption_key);
 
     // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure
     // a given key is the correct key for the DB. `autofill` consumers do this by just encrypting
@@ -52,15 +50,22 @@ dictionary RecordFields {
     i64 time_password_changed;
 };
 
-// What you can add or update. You must pass the cleartext of encrypted fields
-// and the add/update APIs can encrypt (they need to know the key anyway)
+// A login entry from the user, not linked to any database record.
+// The add/update APIs input these, alongside an encryption key.
 dictionary LoginEntry {
     LoginFields fields;
     SecureLoginFields sec_fields;
 };
 
-// What we return for all the "read" APIs - we never return the cleartext
-// of encrypted fields.
+// A login stored in the database
+dictionary Login {
+    RecordFields record;
+    LoginFields fields;
+    SecureLoginFields sec_fields;
+};
+
+// An encrypted version of [Login].  This is what we return for all the "read"
+// APIs - we never return the cleartext of encrypted fields.
 dictionary EncryptedLogin {
     RecordFields record;
     LoginFields fields;
@@ -129,7 +134,7 @@ interface LoginStore {
     EncryptedLogin? get([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    string import_multiple(sequence<EncryptedLogin> login, [ByRef]string encryption_key);
+    string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
 
     [Self=ByArc]
     void register_with_sync_manager();

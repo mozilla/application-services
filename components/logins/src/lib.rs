@@ -26,14 +26,14 @@ pub use crate::login::*;
 pub use crate::store::*;
 pub use crate::sync::LoginsSyncEngine;
 
-// public encryption functions - not in encryption.rs as theoretically that file doesn't need to
-// know about any of our structs.
-fn encrypt_fields(fields: &SecureLoginFields, enc_key: &str) -> Result<String> {
+// Public encryption functions.  We create need to publish these as top-level functions to expose
+// them across UniFFI
+fn encrypt_login(login: Login, enc_key: &str) -> Result<EncryptedLogin> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    encdec.encrypt_struct(fields)
+    login.encrypt(&encdec)
 }
 
-fn decrypt_fields(ciphertext: &str, enc_key: &str) -> Result<SecureLoginFields> {
+fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> Result<Login> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
-    encdec.decrypt_struct(ciphertext)
+    login.decrypt(&encdec)
 }

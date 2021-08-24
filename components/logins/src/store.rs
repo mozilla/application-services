@@ -4,7 +4,7 @@
 use crate::db::{LoginDb, MigrationMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::{EncryptedLogin, LoginEntry};
+use crate::login::{EncryptedLogin, Login, LoginEntry};
 use crate::LoginsSyncEngine;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
@@ -146,7 +146,7 @@ impl LoginStore {
         }
     }
 
-    pub fn import_multiple(&self, logins: Vec<EncryptedLogin>, enc_key: &str) -> Result<String> {
+    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
         let metrics = self.db.lock().unwrap().import_multiple(logins, &encdec)?;
         Ok(serde_json::to_string(&metrics)?)
@@ -159,12 +159,10 @@ impl LoginStore {
         enc_key: &str,
     ) -> Result<()> {
         let encdec = crate::encryption::EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().unwrap().check_valid_with_no_dupes(
-            &Guid::new(id),
-            &entry.fields,
-            &entry.sec_fields,
-            &encdec,
-        )
+        self.db
+            .lock()
+            .unwrap()
+            .check_valid_with_no_dupes(&Guid::new(id), &entry, &encdec)
     }
 
     /// A convenience wrapper around sync_multiple.
