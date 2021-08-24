@@ -55,7 +55,7 @@ To add a new crate to the distribution:
     ffi_module_filename = "<crate_name>FFI"
     ```
 1. Add it as a dependency in `Cargo.toml`.
-1. Add a `pub use` declaration for it in `./src/lib.rs`.
+1. Add a `pub use` declaration for it in this `./src/lib.rs`.
 1. Add logic to `build-xcframework.sh` to copy or generate its header file into the build.
 1. Add a `#import` for its header file to `MozillaRustComponents.h`
 
@@ -64,6 +64,8 @@ To add a new crate to the distribution:
 For testing out local changes in a consuming app, you can:
 
 * Take a local checkout of https://github.com/mozilla/rust-components-swift.
+> Note: `rust-components-swift` contains a submodule of `application-services`, if you're testing any code changes you'll need
+> to push/publish your branch and update the submodule in that repo.
 * Run `./build-xcframework.sh` to build the XCFramework bundle.
 * Unzip the resulting bundle inside the root of the `rust-components-swift` checkout, and `git add` it.
 * Edit `rust-components-swift/Package.swift` and follow the comments on the `MozillaRustComponents`
