@@ -30,3 +30,8 @@ Use the template below to make assigning a version number during the release cut
 
 ### ⚠️ Breaking Changes ⚠️
   - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
+
+## Push
+### What's Changed
+ - The push `unsubscribe` API will no longer accept a null `channel_id` value, a valid `channel_id` must be presented, otherwise rust will panic and an error will be thrown to android.
+  note that this is not a breaking change, since our hand-written Kotlin code already ensures that the function can only be called with a valid, non-empty, non-nullable string.

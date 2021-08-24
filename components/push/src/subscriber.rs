@@ -100,18 +100,14 @@ impl PushManager {
     }
 
     // XXX: maybe -> Result<()> instead
-    pub fn unsubscribe(&mut self, channel_id: Option<&str>) -> Result<bool> {
+    pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
-        Ok(if let Some(chid) = channel_id {
-            self.conn.unsubscribe(channel_id)?
-                && self
-                    .store
-                    .delete_record(self.conn.uaid.as_ref().unwrap(), chid)?
-        } else {
-            false
-        })
+        Ok(self.conn.unsubscribe(channel_id)?
+            && self
+                .store
+                .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id)?)
     }
 
     pub fn unsubscribe_all(&mut self) -> Result<bool> {
@@ -121,7 +117,7 @@ impl PushManager {
         let uaid = self.conn.uaid.as_ref().unwrap();
         Ok({
             self.store.delete_all_records(uaid)?;
-            self.conn.unsubscribe(None)?
+            self.conn.unsubscribe_all()?
         })
     }
 
@@ -216,11 +212,9 @@ mod test {
         );
         assert_eq!(info.endpoint, info2.endpoint);
         assert_eq!(key, key2);
-        assert!(pm.unsubscribe(Some(TEST_CHANNEL_ID))?);
+        assert!(pm.unsubscribe(TEST_CHANNEL_ID)?);
         // It's already deleted, so return false.
-        assert!(!pm.unsubscribe(Some(TEST_CHANNEL_ID))?);
-        // No channel specified, so nothing done.
-        assert!(!pm.unsubscribe(None)?);
+        assert!(!pm.unsubscribe(TEST_CHANNEL_ID)?);
         assert!(pm.unsubscribe_all()?);
         Ok(())
     }
