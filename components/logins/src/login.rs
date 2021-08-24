@@ -38,8 +38,9 @@
 //!         login, updating an existing login, filling in a blank username, etc.
 //!       - Allows the user to tweak the username, in case we failed to detect the form field
 //!         correctly.  This may affect which header should be shown.
-//!    - Here we use `find_existing()` which has the signature `(LoginEntry, &[Login]) -> Login`
-//!      because it's matching a new login entry against a list of existing login records.
+//!    - Here we use `find_login_to_update()` which has the signature
+//!      `(LoginEntry, &[Login]) -> Login` because it's matching a new login entry against a list
+//!      of existing login records.
 //!
 //! # Login
 //! This has the complete set of data about a login. Very closely related is the
@@ -686,6 +687,31 @@ impl ValidateAndFixup for LoginEntry {
     }
 }
 
+// Find an existing `LoginEntry` from a list of `Logins`
+//
+// This is used when there is new login data to save.  The UI needs this to distinguish between 3 cases:
+//
+//  - User adding a new login
+//  - User updating an existing login with the same username
+//  - User updating an login with the blank username
+//
+// `find_login_to_update()` uses a `Vec<Login>` rather than hitting the database Vbecause Fenix
+// shows a username field and runs it on every keypress, so it needs to be fast.
+pub fn find_login_to_update(look: &LoginEntry, search: &[Login]) -> Option<Login> {
+    // Try to match the username
+    search
+        .iter()
+        .find(|login| login.sec_fields.username == look.sec_fields.username)
+        // Fall back on a blank username
+        .or_else(|| {
+            search
+                .iter()
+                .find(|login| login.sec_fields.username.is_empty())
+        })
+        // Clone the login to avoid ref issues when returning across the FFI
+        .cloned()
+}
+
 #[cfg(test)]
 pub mod test_utils {
     use super::*;
@@ -1295,5 +1321,104 @@ mod tests {
             password: "p".into(),
         };
         assert_eq!(got, expected);
+    }
+
+    #[test]
+    fn test_find_login_to_update() {
+        let entry = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("the website".into()),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "user1".into(),
+                password: "password1".into(),
+            },
+        };
+        let login = Login {
+            record: RecordFields {
+                id: "A".into(),
+                ..Default::default()
+            },
+            fields: entry.fields.clone(),
+            sec_fields: entry.sec_fields.clone(),
+        };
+        assert_eq!(
+            find_login_to_update(&entry, &vec![login.clone()]),
+            Some(login.clone()),
+        );
+
+        // different username
+        assert_eq!(
+            find_login_to_update(
+                &LoginEntry {
+                    sec_fields: SecureLoginFields {
+                        username: "user2".into(),
+                        ..entry.sec_fields.clone()
+                    },
+                    ..entry.clone()
+                },
+                &vec![login.clone()],
+            ),
+            None
+        );
+
+        // different password (which should still match)
+        assert_eq!(
+            find_login_to_update(
+                &LoginEntry {
+                    sec_fields: SecureLoginFields {
+                        password: "password2".into(),
+                        ..entry.sec_fields.clone()
+                    },
+                    ..entry.clone()
+                },
+                &vec![login.clone()],
+            ),
+            Some(login.clone()),
+        );
+
+        // A blank username should match as well
+        let blank_username_login = Login {
+            record: RecordFields {
+                id: "B".into(),
+                ..Default::default()
+            },
+            fields: entry.fields.clone(),
+            sec_fields: SecureLoginFields {
+                username: "".into(),
+                ..entry.sec_fields.clone()
+            },
+        };
+
+        assert_eq!(
+            find_login_to_update(
+                &LoginEntry {
+                    sec_fields: SecureLoginFields {
+                        password: "password2".into(),
+                        ..entry.sec_fields.clone()
+                    },
+                    ..entry.clone()
+                },
+                &vec![blank_username_login.clone()],
+            ),
+            Some(blank_username_login.clone()),
+        );
+
+        // But a username match should be preferred to a blank username
+        assert_eq!(
+            find_login_to_update(
+                &LoginEntry {
+                    sec_fields: SecureLoginFields {
+                        password: "password2".into(),
+                        ..entry.sec_fields.clone()
+                    },
+                    ..entry
+                },
+                &vec![blank_username_login, login.clone()],
+            ),
+            Some(login),
+        );
     }
 }

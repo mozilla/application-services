@@ -77,11 +77,6 @@ impl LoginStore {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
-    pub fn find_existing(&self, look: LoginEntry, enc_key: &str) -> Result<Option<String>> {
-        let encdec = EncryptorDecryptor::new(&enc_key)?;
-        self.db.lock().unwrap().find_existing(&look, &encdec)
-    }
-
     pub fn potential_dupes_ignoring_username(
         &self,
         id: &str,
@@ -139,11 +134,7 @@ impl LoginStore {
 
     pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(&enc_key)?;
-        let db = self.db.lock().unwrap();
-        match db.find_existing(&entry, &encdec)? {
-            Some(id) => db.update(&id, entry, &encdec),
-            None => db.add(entry, &encdec),
-        }
+        self.db.lock().unwrap().add_or_update(entry, &encdec)
     }
 
     pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
