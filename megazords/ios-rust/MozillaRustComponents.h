@@ -7,6 +7,6 @@
 
 #import "crashtestFFI.h"
 #import "nimbusFFI.h"
-#import "fxaclientFFI.h"
+#import "fxa_clientFFI.h"
 #import "RustViaductFFI.h"
 #import "RustLogFFI.h"
