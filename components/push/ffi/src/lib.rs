@@ -112,7 +112,7 @@ pub extern "C" fn push_unsubscribe(
 ) -> u8 {
     log::debug!("push_unsubscribe");
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<bool> {
-        let channel = channel_id.as_opt_str();
+        let channel = channel_id.as_str();
         mgr.unsubscribe(channel)
     })
 }

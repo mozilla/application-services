@@ -55,7 +55,6 @@ pub enum BroadcastValue {
     Value(String),
     Nested(HashMap<String, BroadcastValue>),
 }
-
 /// A new communication link to the Autopush server
 pub trait Connection {
     // get the connection UAID
@@ -69,7 +68,10 @@ pub trait Connection {
     ) -> error::Result<RegisterResponse>;
 
     /// Drop an endpoint
-    fn unsubscribe(&mut self, channel_id: Option<&str>) -> error::Result<bool>;
+    fn unsubscribe(&self, channel_id: &str) -> error::Result<bool>;
+
+    /// drop all endpoints
+    fn unsubscribe_all(&mut self) -> error::Result<bool>;
 
     /// Update the autopush server with the new native OS Messaging authorization token
     fn update(&mut self, new_token: &str) -> error::Result<bool>;
@@ -176,6 +178,17 @@ impl ConnectHttp {
         }
         Ok(())
     }
+
+    fn format_unsubscribe_url(&self) -> String {
+        format!(
+            "{}://{}/v1/{}/{}/registration/{}",
+            &self.options.http_protocol.as_ref().unwrap(),
+            &self.options.server_host,
+            &self.options.bridge_type.as_ref().unwrap(),
+            &self.options.sender_id,
+            &self.uaid.clone().unwrap(),
+        )
+    }
 }
 
 impl Connection for ConnectHttp {
@@ -256,39 +269,47 @@ impl Connection for ConnectHttp {
     }
 
     /// Drop a channel and stop receiving updates.
-    ///
-    /// A `None` channel_id indicates that we are unsubscribing
-    /// from all channels
-    fn unsubscribe(&mut self, channel_id: Option<&str>) -> error::Result<bool> {
+    fn unsubscribe(&self, channel_id: &str) -> error::Result<bool> {
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());
         }
         if self.uaid.is_none() {
             return Err(CommunicationError("No UAID set".into()).into());
         }
-        let options = self.options.clone();
-        let mut url = format!(
-            "{}://{}/v1/{}/{}/registration/{}",
-            &options.http_protocol.unwrap(),
-            &options.server_host,
-            &options.bridge_type.unwrap(),
-            &options.sender_id,
-            &self.uaid.clone().unwrap(),
-        );
-        if let Some(channel_id) = channel_id {
-            url = format!("{}/subscription/{}", url, channel_id)
-        }
         if &self.options.sender_id == "test" {
             return Ok(true);
         }
+        let url = format!(
+            "{}/subscription/{}",
+            self.format_unsubscribe_url(),
+            channel_id
+        );
         let response = Request::delete(Url::parse(&url)?)
             .headers(self.headers()?)
             .send()?;
         self.check_response_error(&response)?;
-        if channel_id.is_none() {
-            self.uaid = None;
-            self.auth = None;
+        Ok(true)
+    }
+
+    /// Drops all channels and stops receiving notifications.
+    /// this also wipes the `uaid` and the `auth` fields.
+    fn unsubscribe_all(&mut self) -> error::Result<bool> {
+        if self.auth.is_none() {
+            return Err(CommunicationError("Connection is unauthorized".into()).into());
         }
+        if self.uaid.is_none() {
+            return Err(CommunicationError("No UAID set".into()).into());
+        }
+        if &self.options.sender_id == "test" {
+            return Ok(true);
+        }
+        let url = self.format_unsubscribe_url();
+        let response = Request::delete(Url::parse(&url)?)
+            .headers(self.headers()?)
+            .send()?;
+        self.check_response_error(&response)?;
+        self.uaid = None;
+        self.auth = None;
         Ok(true)
     }
 
@@ -418,7 +439,7 @@ impl Connection for ConnectHttp {
         // verify both lists match. Either side could have lost it's mind.
         if remote_channels != local_channels {
             // Unsubscribe all the channels (just to be sure and avoid a loop).
-            self.unsubscribe(None)?;
+            self.unsubscribe_all()?;
             return Ok(false);
         }
         Ok(true)
@@ -527,13 +548,13 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body("{}")
             .create();
-            let mut conn = connect(
+            let conn = connect(
                 config.clone(),
                 Some(DUMMY_UAID.to_owned()),
                 Some(SECRET.to_owned()),
             )
             .unwrap();
-            let response = conn.unsubscribe(Some(DUMMY_CHID)).unwrap();
+            let response = conn.unsubscribe(DUMMY_CHID).unwrap();
             ap_mock.assert();
             assert!(response);
         }
@@ -555,7 +576,7 @@ mod test {
             )
             .unwrap();
             //TODO: Add record to nuke.
-            let response = conn.unsubscribe(None).unwrap();
+            let response = conn.unsubscribe_all().unwrap();
             ap_mock.assert();
             assert!(response);
         }
