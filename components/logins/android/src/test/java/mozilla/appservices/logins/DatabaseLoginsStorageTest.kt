@@ -139,22 +139,11 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.readQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
 
-        val record = store.get(login.id)!!
+        val record = store.get(login.record.id)!!
         assertEquals(record.fields.origin, "https://www.example.com")
 
         assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.readQueryErrorCount["storage_error"].testHasValue())
-
-        // Ensure that ensureValid doesn't cause us to record invalid_record errors.
-        try {
-            store.ensureValid("", invalid, encryptionKey)
-            fail("Should have thrown")
-        } catch (e: LoginsStorageException.InvalidRecord) {
-            // All good.
-        }
-
-        assertEquals(LoginsStoreMetrics.readQueryCount.testGetValue(), 2)
-        assert(!LoginsStoreMetrics.readQueryErrorCount["invalid_record"].testHasValue())
 
         finishAndClose(store)
     }
@@ -165,13 +154,13 @@ class DatabaseLoginsStorageTest {
         val login = store.list()[0]
         // Wait 100ms so that touch is certain to change timeLastUsed.
         Thread.sleep(100)
-        store.touch(login.id)
+        store.touch(login.record.id)
 
-        val updatedLogin = store.get(login.id)
+        val updatedLogin = store.get(login.record.id)
 
         assertNotNull(updatedLogin)
-        assertEquals(login.timesUsed + 1, updatedLogin!!.timesUsed)
-        assert(updatedLogin.timeLastUsed > login.timeLastUsed)
+        assertEquals(login.record.timesUsed + 1, updatedLogin!!.record.timesUsed)
+        assert(updatedLogin.record.timeLastUsed > login.record.timeLastUsed)
 
         assertThrows(LoginsStorageException.NoSuchRecord::class.java) { store.touch("abcdabcdabcd") }
 
@@ -183,11 +172,11 @@ class DatabaseLoginsStorageTest {
         val store = getTestStore()
         val login = store.list()[0]
 
-        assertNotNull(store.get(login.id))
-        assertTrue(store.delete(login.id))
-        assertNull(store.get(login.id))
-        assertFalse(store.delete(login.id))
-        assertNull(store.get(login.id))
+        assertNotNull(store.get(login.record.id))
+        assertTrue(store.delete(login.record.id))
+        assertNull(store.get(login.record.id))
+        assertFalse(store.delete(login.record.id))
+        assertNull(store.get(login.record.id))
 
         finishAndClose(store)
     }
@@ -201,8 +190,8 @@ class DatabaseLoginsStorageTest {
         test.wipe()
         assertEquals(0, test.list().size)
 
-        assertNull(test.get(logins[0].id))
-        assertNull(test.get(logins[1].id))
+        assertNull(test.get(logins[0].record.id))
+        assertNull(test.get(logins[1].record.id))
 
         finishAndClose(test)
     }
@@ -216,8 +205,8 @@ class DatabaseLoginsStorageTest {
         test.wipeLocal()
         assertEquals(0, test.list().size)
 
-        assertNull(test.get(logins[0].id))
-        assertNull(test.get(logins[1].id))
+        assertNull(test.get(logins[0].record.id))
+        assertNull(test.get(logins[1].record.id))
 
         finishAndClose(test)
     }
@@ -285,8 +274,7 @@ class DatabaseLoginsStorageTest {
 
         finishAndClose(test)
     }
-    @Test
-    fun testEnsureValid() {
+    fun testValidation() {
         val test = getTestStore()
 
         test.add(LoginEntry(
@@ -335,11 +323,11 @@ class DatabaseLoginsStorageTest {
         )
 
         assertThrows(LoginsStorageException.InvalidRecord::class.java) {
-            test.ensureValid(dupeLogin)
+            test.add(dupeLogin, encryptionKey)
         }
 
         assertThrows(LoginsStorageException.InvalidRecord::class.java) {
-            test.ensureValid(nullValueLogin)
+            test.add(nullValueLogin, encryptionKey)
         }
 
         test.delete("bbbbb")

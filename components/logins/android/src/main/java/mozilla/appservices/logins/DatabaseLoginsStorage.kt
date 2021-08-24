@@ -53,7 +53,7 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun get(id: String): Login? {
+    fun get(id: String): EncryptedLogin? {
         return readQueryCounters.measure {
             store.get(id)
         }
@@ -67,23 +67,23 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun list(): List<Login> {
+    fun list(): List<EncryptedLogin> {
         return readQueryCounters.measure {
             store.list()
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun getByBaseDomain(baseDomain: String): List<Login> {
+    fun getByBaseDomain(baseDomain: String): List<EncryptedLogin> {
         return readQueryCounters.measure {
             store.getByBaseDomain(baseDomain)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun add(login: LoginEntry, encryptionKey: String): Login {
+    fun add(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.add(login, encryptionKey)
+            store.add(entry, encryptionKey)
         }
     }
 
@@ -95,24 +95,9 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun update(id: String, login: LoginEntry, encryptionKey: String): Login {
+    fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.update(id, login, encryptionKey)
-        }
-    }
-
-    @Synchronized
-    @Throws(LoginsStorageException::class)
-    fun potentialDupesIgnoringUsername(id: String, login: LoginEntry): List<Login> {
-        return readQueryCounters.measure {
-            store.potentialDupesIgnoringUsername(id, login)
-        }
-    }
-
-    @Throws(LoginsStorageException.InvalidRecord::class)
-    fun ensureValid(id: String, login: LoginEntry, encryptionKey: String) {
-        readQueryCounters.measureIgnoring({ e -> e is LoginsStorageException.InvalidRecord }) {
-            store.checkValidWithNoDupes(id, login, encryptionKey)
+            store.update(id, entry, encryptionKey)
         }
     }
 
