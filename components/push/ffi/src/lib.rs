@@ -175,8 +175,7 @@ pub extern "C" fn push_decrypt(
         let r_encoding = encoding.as_str();
         let r_salt: Option<&str> = salt.as_opt_str();
         let r_dh: Option<&str> = dh.as_opt_str();
-        let uaid = mgr.conn.uaid.clone().unwrap();
-        mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_salt, r_dh)
+        mgr.decrypt(r_chid, r_body, r_encoding, r_salt, r_dh)
     })
 }
 

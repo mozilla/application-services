@@ -7,7 +7,7 @@
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
 use crate::communications::{
-    connect, ConnectHttp, Connection, PersistedRateLimiter, RegisterResponse,
+    connect, ConnectHttp, Connection, ConnectionState, PersistedRateLimiter, RegisterResponse,
 };
 use crate::config::PushConfiguration;
 use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
@@ -32,9 +32,15 @@ impl PushManager {
             Store::open_in_memory()?
         };
         let uaid = store.get_meta("uaid")?;
+        let auth = store.get_meta("auth")?;
+        let connection_state = if let Some(uaid) = uaid {
+            ConnectionState::Connected { uaid, auth }
+        } else {
+            ConnectionState::NotConnected
+        };
         Ok(Self {
             config: config.clone(),
-            conn: connect(config, uaid, store.get_meta("auth")?)?,
+            conn: connect(config, connection_state)?,
             store,
             update_rate_limiter: PersistedRateLimiter::new(
                 "update_token",
@@ -53,15 +59,15 @@ impl PushManager {
     ) -> Result<(RegisterResponse, Key)> {
         let reg_token = self.config.registration_id.clone().unwrap();
         let subscription_key: Key;
-        if let Some(uaid) = self.conn.uaid.clone() {
+        if let ConnectionState::Connected { uaid, auth } = &self.conn.state {
             // Don't fetch the connection from the server if we've already got one.
             if let Some(record) = self.store.get_record(&uaid, channel_id)? {
                 return Ok((
                     RegisterResponse {
-                        uaid,
+                        uaid: uaid.clone(),
                         channel_id: record.channel_id,
                         endpoint: record.endpoint,
-                        secret: self.store.get_meta("auth")?,
+                        secret: auth.clone(),
                         senderid: Some(reg_token),
                     },
                     Key::deserialize(&record.key)?,
@@ -101,87 +107,86 @@ impl PushManager {
 
     // XXX: maybe -> Result<()> instead
     pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        if let ConnectionState::Connected { uaid, .. } = &self.conn.state {
+            return Ok(
+                self.conn.unsubscribe(channel_id)? && self.store.delete_record(uaid, channel_id)?
+            );
         }
-        Ok(self.conn.unsubscribe(channel_id)?
-            && self
-                .store
-                .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id)?)
+        Err(ErrorKind::GeneralError("Client not connected".into()).into())
     }
 
     pub fn unsubscribe_all(&mut self) -> Result<bool> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        if let ConnectionState::Connected { uaid, .. } = &self.conn.state {
+            return Ok({
+                self.store.delete_all_records(uaid)?;
+                self.conn.unsubscribe_all()?
+            });
         }
-        let uaid = self.conn.uaid.as_ref().unwrap();
-        Ok({
-            self.store.delete_all_records(uaid)?;
-            self.conn.unsubscribe_all()?
-        })
+        Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into())
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        // XX: To avoid the clone here, maybe the state management
+        // should be done by the PushManager instead
+        if let ConnectionState::Connected { uaid, .. } = &self.conn.state.clone() {
+            if !self.update_rate_limiter.check(&self.store) {
+                return Ok(false);
+            }
+            let result = self.conn.update(&new_token)?;
+            self.store.update_native_id(uaid, new_token)?;
+            return Ok(result);
         }
-        if !self.update_rate_limiter.check(&self.store) {
-            return Ok(false);
-        }
-        let result = self.conn.update(&new_token)?;
-        self.store
-            .update_native_id(self.conn.uaid.as_ref().unwrap(), new_token)?;
-        Ok(result)
+        Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into())
     }
 
     pub fn verify_connection(&mut self) -> Result<Vec<PushRecord>> {
-        let uaid = self
-            .conn
-            .uaid
-            .as_ref()
-            .ok_or_else(|| ErrorKind::GeneralError("No subscriptions created yet.".into()))?
-            .to_owned();
-
-        let channels = self.store.get_channel_list(&uaid)?;
-        if self.conn.verify_connection(&channels)? {
-            // Everything is fine, our subscriptions in the db match the remote server.
-            return Ok(Vec::new());
-        }
-
-        let mut subscriptions: Vec<PushRecord> = Vec::new();
-        for channel in channels {
-            if let Some(record) = self.store.get_record_by_chid(&channel)? {
-                subscriptions.push(record);
+        // XX: To avoid the clone here, maybe the state management
+        // should be done by the PushManager instead
+        if let ConnectionState::Connected { uaid, .. } = &self.conn.state.clone() {
+            let channels = self.store.get_channel_list(&uaid)?;
+            if self.conn.verify_connection(&channels)? {
+                // Everything is fine, our subscriptions in the db match the remote server.
+                return Ok(Vec::new());
             }
+
+            let mut subscriptions: Vec<PushRecord> = Vec::new();
+            for channel in channels {
+                if let Some(record) = self.store.get_record_by_chid(&channel)? {
+                    subscriptions.push(record);
+                }
+            }
+            // we wipe the UAID if there is a mismatch, forcing us to later
+            // re-generate a new one when we do the next first subscription.
+            // this is to prevent us from attempting to communicate with the server using an outdated
+            // UAID, the in-memory uaid was already wiped in the `verify_connection` call
+            // when we unsubscribe
+            self.store.delete_all_records(&uaid)?;
+            return Ok(subscriptions);
         }
-        // we wipe the UAID if there is a mismatch, forcing us to later
-        // re-generate a new one when we do the next first subscription.
-        // this is to prevent us from attempting to communicate with the server using an outdated
-        // UAID, the in-memory uaid was already wiped in the `verify_connection` call
-        // when we unsubscribe
-        self.store.delete_all_records(&uaid)?;
-        Ok(subscriptions)
+        Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into())
     }
 
     pub fn decrypt(
         &self,
-        uaid: &str,
         chid: &str,
         body: &str,
         encoding: &str,
         salt: Option<&str>,
         dh: Option<&str>,
     ) -> Result<String> {
-        let val = self
-            .store
-            .get_record(&uaid, chid)
-            .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
-            .ok_or_else(|| ErrorKind::RecordNotFoundError(uaid.to_owned(), chid.to_owned()))?;
-        let key = Key::deserialize(&val.key)?;
-        let decrypted = Crypto::decrypt(&key, body, encoding, salt, dh)
-            .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)))?;
-        serde_json::to_string(&decrypted)
-            .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into())
+        if let ConnectionState::Connected { uaid, .. } = &self.conn.state {
+            let val = self
+                .store
+                .get_record(&uaid, chid)
+                .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
+                .ok_or_else(|| ErrorKind::RecordNotFoundError(uaid.to_owned(), chid.to_owned()))?;
+            let key = Key::deserialize(&val.key)?;
+            let decrypted = Crypto::decrypt(&key, body, encoding, salt, dh)
+                .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)))?;
+            return serde_json::to_string(&decrypted)
+                .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into());
+        }
+        Err(ErrorKind::GeneralError("Client not connected".into()).into())
     }
 
     pub fn get_record_by_chid(
@@ -236,7 +241,7 @@ mod test {
         let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
 
         let result = pm
-            .decrypt(&info.uaid, &info.channel_id, &body, "aes128gcm", None, None)
+            .decrypt(&info.channel_id, &body, "aes128gcm", None, None)
             .unwrap();
         assert_eq!(
             serde_json::to_string(&data_string.to_vec()).unwrap(),

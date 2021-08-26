@@ -49,7 +49,7 @@ fn test_live_server() -> Result<()> {
     println!("\n == Subscribing channels");
     let sub1 = pm.subscribe(&channel1, "", None).expect("subscribe failed");
     // These are normally opaque values, displayed here for debug.
-    println!("Connection info: {:?}", (&pm.conn.uaid, &pm.conn.auth));
+    println!("Connection info: {:?}", &pm.conn.state);
     println!("## Subscription 1: {:?}", sub1);
     println!("## Info: {:?}", pm.get_record_by_chid(&channel1));
     let sub2 = pm.subscribe(&channel2, "", None)?;

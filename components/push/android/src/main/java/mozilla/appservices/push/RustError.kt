@@ -30,6 +30,7 @@ open class GeneralError(msg: String) : PushError(msg)
 open class JSONDeserializeError(msg: String) : PushError(msg)
 open class UAIDNotRecognizedError(msg: String) : PushError(msg)
 open class RequestError(msg: String) : PushError(msg)
+open class ReconnectError : PushError("Client needs to reconnect to the server")
 
 /**
  * This should be considered private, but it needs to be public for JNA.

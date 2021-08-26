@@ -70,6 +70,10 @@ pub enum ErrorKind {
     /// Was unable to send request to server
     #[error("Unable to send request to server: {0}")]
     RequestError(#[from] viaduct::Error),
+
+    /// Client needs to reconnect to the server
+    #[error("Client needs to reconnect to the server")]
+    ReconnectError,
 }
 
 // Note, be sure to duplicate errors in the Kotlin side
@@ -91,6 +95,7 @@ impl ErrorKind {
             ErrorKind::JSONDeserializeError(_) => 34,
             ErrorKind::UAIDNotRecognizedError(_) => 35,
             ErrorKind::RequestError(_) => 36,
+            ErrorKind::ReconnectError => 37,
         };
         ffi_support::ErrorCode::new(code)
     }
