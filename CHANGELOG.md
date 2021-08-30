@@ -1,3 +1,12 @@
+# v82.3.0 (_2021-08-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.2.0...v82.3.0)
+
+### What's New
+  - Changed how shared libraries are loaded to avoid an issue when both uniffi
+    and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
+
+
 # v82.2.0 (_2021-08-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v82.1.0...v82.2.0)
