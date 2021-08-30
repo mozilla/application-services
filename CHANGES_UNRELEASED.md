@@ -6,6 +6,10 @@
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
+### What's New
+  - Changed how shared libraries are loaded to avoid an issue when both uniffi
+    and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
+
 Use the template below to make assigning a version number during the release cutting process easier.
 
 ## [Component Name]
