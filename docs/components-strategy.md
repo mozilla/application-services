@@ -34,6 +34,14 @@ The Rust components not only unify the different implementations of sync, they a
 In other words, the apps can use the components for storage, with or without syncing to the server.
 ![Diagram showing how firefox sync is now, with iOS and Fenix platform sharing some implementations](diagrams/now-cross-components.png)
 
+#### Current Status
+The following table has the status of each of our sync Rust Components
+| Application\Component | Bookmarks | History | Tabs | Passwords | Autofill | Web Extension Storage | FxA Client |
+|-----------------------|-----------|---------|------|-----------|----------|-----------------------|------------|
+| Fenix                 | ✔️         | ✔️       | ✔️    | ✔️         | ✔️        |                       | ✔️          |
+| Firefox iOS           | ✔️         |         |      | ✔️         |          |                       | ✔️          |
+| Firefox Desktop       |           |         |      |           |          | ✔️                     |            |
+| Focus                 |           |         |      |           |          |                       |            |
 
 ### Future: Only one implementation for each sync engine
 In an aspirational future, all the applications would use the same implementation for Sync.
@@ -41,3 +49,9 @@ However, it's unlikely that we would migrate everything to use the Rust componen
 may not be prioritized, this is especially true for desktop which already has stable implementations.
 That said, we can get close to this future and minimize duplicate logic and the likelihood of errors.
 ![Diagram showing how firefox sync should be, with all platforms using one implementation](diagrams/future-cross-components.png)
+
+
+You can edit the diagrams in the following lucid chart (Note: Currently only Mozilla Employees can edit those diagrams): https://lucid.app/lucidchart/invitations/accept/inv_ab72e218-3ad9-4604-a7cd-7e0b0c259aa2
+
+Once they are edited, you can re-import them here by replacing the old diagrams in the `docs/diagrams` directory on GitHub. As long as the
+names are the same, you shouldn't need to edit those docs!
