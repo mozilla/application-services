@@ -52,7 +52,7 @@ internal interface LibPushFFI : Library {
     fun push_unsubscribe_all(
         mgr: PushManagerHandle,
         out_err: RustError.ByReference
-    ): Byte
+    )
 
     fun push_update(
         mgr: PushManagerHandle,

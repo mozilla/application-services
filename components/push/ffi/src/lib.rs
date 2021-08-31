@@ -119,11 +119,9 @@ pub extern "C" fn push_unsubscribe(
 
 // Unsubscribe a channel
 #[no_mangle]
-pub extern "C" fn push_unsubscribe_all(handle: u64, error: &mut ExternError) -> u8 {
+pub extern "C" fn push_unsubscribe_all(handle: u64, error: &mut ExternError) {
     log::debug!("push_unsubscribe");
-    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<bool> {
-        mgr.unsubscribe_all()
-    })
+    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<()> { mgr.unsubscribe_all() })
 }
 
 // Update the OS token

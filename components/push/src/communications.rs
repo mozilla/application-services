@@ -68,13 +68,13 @@ pub trait Connection {
     ) -> error::Result<RegisterResponse>;
 
     /// Drop an endpoint
-    fn unsubscribe(&self, channel_id: &str) -> error::Result<bool>;
+    fn unsubscribe(&self, channel_id: &str) -> error::Result<()>;
 
     /// drop all endpoints
-    fn unsubscribe_all(&mut self) -> error::Result<bool>;
+    fn unsubscribe_all(&mut self) -> error::Result<()>;
 
     /// Update the autopush server with the new native OS Messaging authorization token
-    fn update(&mut self, new_token: &str) -> error::Result<bool>;
+    fn update(&mut self, new_token: &str) -> error::Result<()>;
 
     /// Get a list of server known channels.
     fn channel_list(&self) -> error::Result<Vec<String>>;
@@ -269,7 +269,7 @@ impl Connection for ConnectHttp {
     }
 
     /// Drop a channel and stop receiving updates.
-    fn unsubscribe(&self, channel_id: &str) -> error::Result<bool> {
+    fn unsubscribe(&self, channel_id: &str) -> error::Result<()> {
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());
         }
@@ -277,7 +277,7 @@ impl Connection for ConnectHttp {
             return Err(CommunicationError("No UAID set".into()).into());
         }
         if &self.options.sender_id == "test" {
-            return Ok(true);
+            return Ok(());
         }
         let url = format!(
             "{}/subscription/{}",
@@ -288,12 +288,12 @@ impl Connection for ConnectHttp {
             .headers(self.headers()?)
             .send()?;
         self.check_response_error(&response)?;
-        Ok(true)
+        Ok(())
     }
 
     /// Drops all channels and stops receiving notifications.
     /// this also wipes the `uaid` and the `auth` fields.
-    fn unsubscribe_all(&mut self) -> error::Result<bool> {
+    fn unsubscribe_all(&mut self) -> error::Result<()> {
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());
         }
@@ -301,7 +301,7 @@ impl Connection for ConnectHttp {
             return Err(CommunicationError("No UAID set".into()).into());
         }
         if &self.options.sender_id == "test" {
-            return Ok(true);
+            return Ok(());
         }
         let url = self.format_unsubscribe_url();
         let response = Request::delete(Url::parse(&url)?)
@@ -310,15 +310,15 @@ impl Connection for ConnectHttp {
         self.check_response_error(&response)?;
         self.uaid = None;
         self.auth = None;
-        Ok(true)
+        Ok(())
     }
 
     /// Update the push server with the new OS push authorization token
-    fn update(&mut self, new_token: &str) -> error::Result<bool> {
+    fn update(&mut self, new_token: &str) -> error::Result<()> {
         if self.options.sender_id == "test" {
             self.uaid = Some("abad1d3a00000000aabbccdd00000000".to_owned());
             self.auth = Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned());
-            return Ok(true);
+            return Ok(());
         }
         if self.auth.is_none() {
             return Err(CommunicationError("Connection is unauthorized".into()).into());
@@ -343,7 +343,7 @@ impl Connection for ConnectHttp {
             .headers(self.headers()?)
             .send()?;
         self.check_response_error(&response)?;
-        Ok(true)
+        Ok(())
     }
 
     /// Get a list of server known channels. If it differs from what we have, reset the UAID, and refresh channels.
@@ -554,9 +554,8 @@ mod test {
                 Some(SECRET.to_owned()),
             )
             .unwrap();
-            let response = conn.unsubscribe(DUMMY_CHID).unwrap();
+            conn.unsubscribe(DUMMY_CHID).unwrap();
             ap_mock.assert();
-            assert!(response);
         }
         // UNSUBSCRIBE - All for UAID
         {
@@ -576,9 +575,8 @@ mod test {
             )
             .unwrap();
             //TODO: Add record to nuke.
-            let response = conn.unsubscribe_all().unwrap();
+            conn.unsubscribe_all().unwrap();
             ap_mock.assert();
-            assert!(response);
         }
         // UPDATE
         {
@@ -598,13 +596,12 @@ mod test {
             )
             .unwrap();
 
-            let response = conn.update("NewTokenValue").unwrap();
+            conn.update("NewTokenValue").unwrap();
             ap_mock.assert();
             assert_eq!(
                 conn.options.registration_id,
                 Some("NewTokenValue".to_owned())
             );
-            assert!(response);
         }
         // CHANNEL LIST
         {
