@@ -160,14 +160,6 @@ pub fn migrate_from_sqlcipher_db(
     // encrypt the username/password data
     let encdec = EncryptorDecryptor::new(encryption_key)?;
 
-    // MIGRATION Plan
-    // Step 1: We need to iterate through the old DB and throw it all into a struct that contains all the relevant information
-    // Step 2: We need to perform options on the struct before throwing it into the new DB
-    //      Step 2a: Find any mismatched data between local/mirro and either throw away or attempt to reconcile
-    //      Step 2b: Find any logins we can fixup [LOCAL ONLY] and perform the proper operations
-    // Step 3: Insert the struct data into the new DB
-    //      Step 3a: Capture the right metrics
-
     // Step 1
     let mut migration_plan: MigrationPlan = generate_plan_from_db(&cipher_conn, &encdec)?;
 
@@ -567,10 +559,13 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
 mod tests {
     use super::*;
     use crate::db::LoginDb;
-    use crate::encryption::test_utils::{decrypt, TEST_ENCRYPTION_KEY};
+    use crate::encryption::test_utils::{decrypt_struct, TEST_ENCRYPTION_KEY};
     use crate::schema;
+    use crate::EncryptedLogin;
     use rusqlite::types::ValueRef;
     use std::path::PathBuf;
+    use std::time::SystemTime;
+    use sync_guid::Guid;
 
     static TEST_SALT: &str = "01010101010101010101010101010101";
 
@@ -590,19 +585,19 @@ mod tests {
         // These all need to be executed as separate statements or
         // sqlite will not execute them
         const RENAME_LOCAL_USERNAME: &str = "
-            ALTER TABLE loginsL RENAME usernameEnc to username;
+            ALTER TABLE loginsL ADD COLUMN username
         ";
 
         const RENAME_LOCAL_PASSWORD: &str = "
-            ALTER TABLE loginsL RENAME passwordEnc to password;
+            ALTER TABLE loginsL ADD COLUMN password
         ";
 
         const RENAME_MIRROR_USERNAME: &str = "
-            ALTER TABLE loginsM RENAME usernameEnc to username
+            ALTER TABLE loginsM ADD COLUMN username
         ";
 
         const RENAME_MIRROR_PASSWORD: &str = "
-            ALTER TABLE loginsM RENAME passwordEnc to password
+            ALTER TABLE loginsM ADD COLUMN password
         ";
 
         const RENAME_LOCAL_HOSTNAME: &str = "
@@ -689,20 +684,42 @@ mod tests {
         }
     }
 
+    fn create_local_login(
+        login: EncryptedLogin,
+        sync_status: SyncStatus,
+        is_deleted: bool,
+        local_modified: SystemTime,
+    ) -> LocalLogin {
+        LocalLogin {
+            login,
+            sync_status,
+            is_deleted,
+            local_modified,
+        }
+    }
+
+    fn create_mirror_login(
+        login: EncryptedLogin,
+        is_overridden: bool,
+        server_modified: ServerTimestamp,
+    ) -> MirrorLogin {
+        MirrorLogin {
+            login,
+            is_overridden,
+            server_modified,
+        }
+    }
+
     fn check_migrated_data(db: &LoginDb) {
         let mut stmt = db
             .prepare("SELECT * FROM loginsL where guid = 'a'")
             .unwrap();
         let mut rows = stmt.query(NO_PARAMS).unwrap();
         let row = rows.next().unwrap().unwrap();
-        assert_eq!(
-            decrypt(row.get_raw("usernameEnc").as_str().unwrap()),
-            "test"
-        );
-        assert_eq!(
-            decrypt(row.get_raw("passwordEnc").as_str().unwrap()),
-            "password"
-        );
+        let enc: SecureLoginFields =
+            decrypt_struct(row.get_raw("secFields").as_str().unwrap().to_string());
+        assert_eq!(enc.username, "test");
+        assert_eq!(enc.password, "password");
         assert_eq!(
             row.get_raw("origin").as_str().unwrap(),
             "https://www.example.com"
@@ -726,14 +743,10 @@ mod tests {
             .unwrap();
         let mut rows = stmt.query(NO_PARAMS).unwrap();
         let row = rows.next().unwrap().unwrap();
-        assert_eq!(
-            decrypt(row.get_raw("usernameEnc").as_str().unwrap()),
-            "test"
-        );
-        assert_eq!(
-            decrypt(row.get_raw("passwordEnc").as_str().unwrap()),
-            "password"
-        );
+        let enc: SecureLoginFields =
+            decrypt_struct(row.get_raw("secFields").as_str().unwrap().to_string());
+        assert_eq!(enc.username, "test");
+        assert_eq!(enc.password, "password");
         assert_eq!(
             row.get_raw("origin").as_str().unwrap(),
             "https://www.example.com"
@@ -762,7 +775,6 @@ mod tests {
         assert_eq!(db.query_one::<i64>("PRAGMA user_version").unwrap(), 1);
     }
 
-    #[ignore]
     #[test]
     fn test_migrate_data() {
         let testpaths = TestPaths::new();
@@ -787,7 +799,6 @@ mod tests {
         assert_eq!(metrics.errors, ["InvalidLogin::EmptyOrigin"]);
     }
 
-    #[ignore]
     #[test]
     fn test_migration_errors() {
         let testpaths = TestPaths::new();
@@ -828,7 +839,6 @@ mod tests {
         assert_eq!(metrics.errors.len(), 1);
     }
 
-    #[ignore]
     #[test]
     fn test_migrate_with_manual_salt() {
         let testpaths = TestPaths::new();
@@ -843,5 +853,129 @@ mod tests {
         .unwrap();
         let db = LoginDb::open(testpaths.new_db).unwrap();
         check_migrated_data(&db);
+    }
+
+    fn gen_migrate_plan() -> MigrationPlan {
+        let encdec = EncryptorDecryptor::new(&TEST_ENCRYPTION_KEY).unwrap();
+        let mut migrate_plan = MigrationPlan::new();
+
+        // Taken from db.rs
+        let valid_login1 = Login {
+            record: RecordFields {
+                id: "a".to_string(),
+                ..Default::default()
+            },
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example.com".into()),
+                origin: "https://www.example.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+        };
+        let valid_login_guid2: Guid = Guid::random();
+        let valid_login2 = Login {
+            record: RecordFields {
+                id: valid_login_guid2.to_string(),
+                ..Default::default()
+            },
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example2.com".into()),
+                origin: "https://www.example2.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test2".into(),
+                password: "test2".into(),
+            },
+        };
+        let valid_login_guid3: Guid = Guid::random();
+        let valid_login3 = Login {
+            record: RecordFields {
+                id: valid_login_guid3.to_string(),
+                ..Default::default()
+            },
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example3.com".into()),
+                origin: "https://www.example3.com".into(),
+                http_realm: None,
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test3".into(),
+                password: "test3".into(),
+            },
+        };
+        // local login + mirror login with override
+        migrate_plan.logins.insert(
+            valid_login1.guid().to_string(),
+            MigrationLogin {
+                local_login: Some(create_local_login(
+                    valid_login1.clone().encrypt(&encdec).unwrap(),
+                    SyncStatus::Synced,
+                    false,
+                    SystemTime::now(),
+                )),
+                mirror_login: Some(create_mirror_login(
+                    valid_login1.clone().encrypt(&encdec).unwrap(),
+                    true,
+                    ServerTimestamp::from_millis(1000),
+                )),
+                status: MigrationStatus::Processing,
+            },
+        );
+
+        // NO local login + mirror with override (should not be migrated)
+        migrate_plan.logins.insert(
+            valid_login2.guid().to_string(),
+            MigrationLogin {
+                local_login: None,
+                mirror_login: Some(create_mirror_login(
+                    valid_login2.clone().encrypt(&encdec).unwrap(),
+                    true,
+                    ServerTimestamp::from_millis(1000),
+                )),
+                status: MigrationStatus::Processing,
+            },
+        );
+
+        // local +  NO mirror
+        migrate_plan.logins.insert(
+            valid_login2.guid().to_string(),
+            MigrationLogin {
+                local_login: Some(create_local_login(
+                    valid_login3.clone().encrypt(&encdec).unwrap(),
+                    SyncStatus::Synced,
+                    false,
+                    SystemTime::now(),
+                )),
+                mirror_login: None,
+                status: MigrationStatus::Processing,
+            },
+        );
+
+        migrate_plan
+    }
+
+    #[test]
+    fn test_migrate_plan() {
+        let testpaths = TestPaths::new();
+        let store = LoginStore::new(testpaths.new_db.as_path()).unwrap();
+        let migration_plan = gen_migrate_plan();
+        migrate_logins(&migration_plan, &store).unwrap();
+
+        let db = LoginDb::open(testpaths.new_db.as_path()).unwrap();
+        assert_eq!(
+            db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
+            2
+        );
+        assert_eq!(
+            db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(),
+            1
+        );
     }
 }
