@@ -10,15 +10,64 @@ use crate::error::*;
 use crate::sync::SyncStatus;
 use crate::sync::{LocalLogin, MirrorLogin};
 use crate::util;
-use crate::Login;
 use crate::LoginStore;
+use crate::{Login, LoginFields, RecordFields, SecureLoginFields};
 use rusqlite::{named_params, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
+use std::collections::HashMap;
 use std::ops::Add;
 use std::path::Path;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use sync15::ServerTimestamp;
-use sync_guid::Guid;
+
+#[derive(Debug)]
+struct MigrationPlan {
+    // We use guid as the identifier since MigrationLogin has both local and mirror
+    logins: HashMap<String, MigrationLogin>,
+}
+
+impl MigrationPlan {
+    fn new() -> MigrationPlan {
+        MigrationPlan {
+            logins: HashMap::new(),
+        }
+    }
+
+    fn fix_mismatched_records(mut self) -> Result<Self> {
+        let mut guids_to_remove: Vec<String> = Vec::new();
+        for (guid, login) in &self.logins {
+            // Case 1: If the mirror record has is_overridden and no local records -> delete
+            if let Some(mirror_login) = &login.mirror_login {
+                if mirror_login.is_overridden && login.local_login.is_none() {
+                    guids_to_remove.push(guid.to_string());
+                }
+            }
+        }
+        // Secondary loop to prevent mutating while iterating the hashmap
+        for guid in guids_to_remove {
+            // Delete the record
+            log::warn!("Mirror was overridden but no local record was found. Deleting...");
+            self.logins.remove(&guid);
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Debug)]
+struct MigrationLogin {
+    //guid: String,
+    local_login: Option<LocalLogin>,
+    mirror_login: Option<MirrorLogin>,
+    status: MigrationStatus,
+}
+
+#[derive(Debug)]
+enum MigrationStatus {
+    Processing,
+    Success,
+    Fixed,
+    Failed,
+}
 
 // Simplify the code for combining migration metrics
 // the impl is only in this file as this should dissapear once we're done with sql migrations
@@ -109,15 +158,370 @@ pub fn migrate_from_sqlcipher_db(
     encryption_key: &str,
 ) -> Result<MigrationMetrics> {
     // encrypt the username/password data
-    let encryptor = EncryptorDecryptor::new(encryption_key)?;
+    let encdec = EncryptorDecryptor::new(encryption_key)?;
 
-    // Migrate tables separately due to specific columns in each needing
-    // to be ported over
-    let local_metrics = migrate_local_logins(&cipher_conn, &new_db_store, &encryptor)?;
-    let mirror_metrics = migrate_mirror_logins(&cipher_conn, &new_db_store, &encryptor)?;
+    // MIGRATION Plan
+    // Step 1: We need to iterate through the old DB and throw it all into a struct that contains all the relevant information
+    // Step 2: We need to perform options on the struct before throwing it into the new DB
+    //      Step 2a: Find any mismatched data between local/mirro and either throw away or attempt to reconcile
+    //      Step 2b: Find any logins we can fixup [LOCAL ONLY] and perform the proper operations
+    // Step 3: Insert the struct data into the new DB
+    //      Step 3a: Capture the right metrics
+
+    // Step 1
+    let mut migration_plan: MigrationPlan = generate_plan_from_db(&cipher_conn, &encdec)?;
+
+    // Step 2: Handle mismatch records, edge cases before fixup
+    migration_plan = migration_plan.fix_mismatched_records()?;
+
+    // Step 3: Apply fixups to LOCAL logins
+
+    // TODO Step 4: Insert (raw SQL) into new DB
+    migrate_logins(&migration_plan, &new_db_store)?;
+
     let metadata_metrics = migrate_sync_metadata(&cipher_conn, &new_db_store)?;
 
-    Ok(local_metrics + mirror_metrics + metadata_metrics)
+    // TODO: Replace this with all metrics
+    Ok(metadata_metrics)
+}
+
+fn generate_plan_from_db(
+    cipher_conn: &Connection,
+    encryptor: &EncryptorDecryptor,
+) -> Result<MigrationPlan> {
+    let mut migration_plan = MigrationPlan::new();
+
+    // Process local logins and add to MigrationPlan
+    let mut local_stmt = cipher_conn.prepare("SELECT * FROM loginsL")?;
+    let mut local_rows = local_stmt.query(NO_PARAMS)?;
+    while let Some(row) = local_rows.next()? {
+        match get_login_from_row(row) {
+            Ok(login) => {
+                let l_login = LocalLogin {
+                    login: login.encrypt(&encryptor)?,
+                    local_modified: util::system_time_millis_from_row(row, "local_modified")?,
+                    is_deleted: row.get("is_deleted")?,
+                    sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
+                };
+                let key = l_login.login.record.id.clone();
+
+                migration_plan
+                    .logins
+                    .entry(key)
+                    .and_modify(|l| l.local_login = Some(l_login.clone()))
+                    .or_insert(MigrationLogin {
+                        //guid: key,
+                        local_login: Some(l_login),
+                        mirror_login: None,
+                        status: MigrationStatus::Processing,
+                    });
+            }
+            Err(e) => {
+                // We should probably just skip if we can't successfully fetch the row
+                log::warn!("Error getting record from DB: {:?}", e);
+            }
+        }
+    }
+    // Process mirror logins and add to MigrationPlan
+    let mut mirror_stmt = cipher_conn.prepare("SELECT * FROM loginsM")?;
+    let mut mirror_rows = mirror_stmt.query(NO_PARAMS)?;
+    while let Some(row) = mirror_rows.next()? {
+        match get_login_from_row(row) {
+            Ok(login) => {
+                let m_login = MirrorLogin {
+                    login: login.encrypt(&encryptor)?,
+                    server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
+                    is_overridden: row.get("is_overridden")?,
+                };
+
+                let key = m_login.login.record.id.clone();
+
+                migration_plan
+                    .logins
+                    .entry(key)
+                    .and_modify(|l| l.mirror_login = Some(m_login.clone()))
+                    .or_insert(MigrationLogin {
+                        //guid: key,
+                        local_login: None,
+                        mirror_login: Some(m_login),
+                        status: MigrationStatus::Processing,
+                    });
+            }
+            Err(e) => {
+                // We should probably just skip if we can't successfully fetch the row
+                log::warn!("Error getting record from DB: {:?}", e);
+            }
+        }
+    }
+    Ok(migration_plan)
+}
+
+fn migrate_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<()> {
+    for (guid, login) in &migration_plan.logins {
+        // Migrate local login first
+        if let Some(local_login) = &login.local_login {
+            match migrate_local_login(store, local_login) {
+                Ok(_) => {
+                    println!("Successfully migrated local record ");
+                    if let Some(mirror_login) = &login.mirror_login {
+                        // If successful, then migrate mirror
+                        migrate_mirror_login(&store, &mirror_login)?;
+                        println!("Successfully migrated mirror record");
+                    }
+                }
+                Err(e) => {
+                    // If not successful on local, but we have a mirror???
+                }
+            }
+        // If we just have mirror, try to import
+        } else {
+            if let Some(mirror_login) = &login.mirror_login {
+                match migrate_mirror_login(&*store, &mirror_login) {
+                    Ok(_) => {
+                        println!("Successfully migrated mirror record");
+                    }
+                    Err(e) => {}
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// This was copied from import_multiple in db.rs with a focus on LocalLogin
+fn migrate_local_login(store: &LoginStore, local_login: &LocalLogin) -> Result<()> {
+    let new_db = store.db.lock().unwrap();
+    let conn = new_db.conn();
+    let tx = conn.unchecked_transaction()?;
+
+    let import_start = Instant::now();
+    let sql = "INSERT OR IGNORE INTO loginsL (
+            origin,
+            httpRealm,
+            formActionOrigin,
+            usernameField,
+            passwordField,
+            timesUsed,
+            secFields,
+            guid,
+            timeCreated,
+            timeLastUsed,
+            timePasswordChanged,
+            local_modified,
+            is_deleted,
+            sync_status
+        ) VALUES (
+            :origin,
+            :http_realm,
+            :form_action_origin,
+            :username_field,
+            :password_field,
+            :times_used,
+            :sec_fields,
+            :guid,
+            :time_created,
+            :time_last_used,
+            :time_password_changed,
+            :local_modified,
+            :is_deleted,
+            :sync_status
+        )";
+
+    let login = &local_login.login;
+
+    // TODO: Figure out how to fixup fields
+    // let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
+    //     match &fixed {
+    //         None => new_db.check_for_dupes(&login)?,
+    //         Some(l) => new_db.check_for_dupes(&l)?,
+    //     };
+    //     Ok(fixed)
+    // });
+    // match maybe_fixed_login {
+    //     Ok(None) => {} // The provided login was fine all along
+    //     Ok(Some(l)) => {
+    //         // We made a new, fixed-up Login.
+    //         login = l;
+    //     }
+    //     Err(e) => {
+    //         log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
+    //         // fixup_errors.push(e.label().into());
+    //         // num_failed_fixup += 1;
+    //         // continue;
+    //     }
+    // };
+
+    match conn.execute_named_cached(
+        &sql,
+        named_params! {
+            ":origin": login.fields.origin,
+            ":http_realm": login.fields.http_realm,
+            ":form_action_origin": login.fields.form_action_origin,
+            ":username_field": login.fields.username_field,
+            ":password_field": login.fields.password_field,
+            ":sec_fields": login.sec_fields,
+            ":guid": login.record.id,
+            ":time_created": login.record.time_created,
+            ":times_used": login.record.times_used,
+            ":time_last_used": login.record.time_last_used,
+            ":time_password_changed": login.record.time_password_changed,
+            // Local login specific stuff
+            ":local_modified": util::system_time_ms_i64(local_login.local_modified),
+            ":is_deleted": local_login.is_deleted,
+            ":sync_status": local_login.sync_status as u8
+        },
+    ) {
+        Ok(_) => log::info!("Imported {} successfully.", login.record.id),
+        Err(e) => {
+            log::warn!("Could not import {} ({}).", login.record.id, e);
+            //insert_errors.push(Error::from(e).label().into());
+            //num_failed_insert += 1;
+        }
+    };
+    tx.commit()?;
+
+    // log::info!(
+    //     "Finished importing logins with the following metrics: {:#?}",
+    //     metrics
+    // );
+    // Ok(metrics)
+    Ok(())
+}
+
+// This was copied from import_multiple in db.rs with a focus on LocalLogin
+fn migrate_mirror_login(store: &LoginStore, mirror_login: &MirrorLogin) -> Result<()> {
+    let new_db = store.db.lock().unwrap();
+    let conn = new_db.conn();
+    let tx = conn.unchecked_transaction()?;
+
+    let import_start = Instant::now();
+    let sql = "INSERT OR IGNORE INTO loginsM (
+        origin,
+        httpRealm,
+        formActionOrigin,
+        usernameField,
+        passwordField,
+        timesUsed,
+        secFields,
+        guid,
+        timeCreated,
+        timeLastUsed,
+        timePasswordChanged,
+        server_modified,
+        is_overridden
+    ) VALUES (
+        :origin,
+        :http_realm,
+        :form_action_origin,
+        :username_field,
+        :password_field,
+        :times_used,
+        :sec_fields,
+        :guid,
+        :time_created,
+        :time_last_used,
+        :time_password_changed,
+        :server_modified,
+        :is_overridden
+    )";
+
+    // Need to revisit this clone
+    let login = &mirror_login.login;
+
+    // let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
+    //     match &fixed {
+    //         None => new_db.check_for_dupes(&login)?,
+    //         Some(l) => new_db.check_for_dupes(&l)?,
+    //     };
+    //     Ok(fixed)
+    // });
+    // match maybe_fixed_login {
+    //     Ok(None) => {} // The provided login was fine all along
+    //     Ok(Some(l)) => {
+    //         // We made a new, fixed-up Login.
+    //         login = l;
+    //     }
+    //     Err(e) => {
+    //         log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
+    //         // fixup_errors.push(e.label().into());
+    //         // num_failed_fixup += 1;
+    //         // continue;
+    //     }
+    // };
+
+    match conn.execute_named_cached(
+        &sql,
+        named_params! {
+            ":origin": login.fields.origin,
+            ":http_realm": login.fields.http_realm,
+            ":form_action_origin": login.fields.form_action_origin,
+            ":username_field": login.fields.username_field,
+            ":password_field": login.fields.password_field,
+            ":sec_fields": login.sec_fields,
+            ":guid": login.record.id,
+            ":time_created": login.record.time_created,
+            ":times_used": login.record.times_used,
+            ":time_last_used": login.record.time_last_used,
+            ":time_password_changed": login.record.time_password_changed,
+             // Mirror login specific stuff
+             ":server_modified": mirror_login.server_modified.as_millis(),
+             ":is_overridden": mirror_login.is_overridden
+        },
+    ) {
+        Ok(_) => log::info!("Imported {} successfully.", login.record.id),
+        Err(e) => {
+            log::warn!("Could not import {} ({}).", login.record.id, e);
+            //insert_errors.push(Error::from(e).label().into());
+            //num_failed_insert += 1;
+        }
+    };
+    tx.commit()?;
+
+    // log::info!(
+    //     "Finished importing logins with the following metrics: {:#?}",
+    //     metrics
+    // );
+    // Ok(metrics)
+    Ok(())
+}
+
+// Convert rows from old schema to match new fields in the Login struct
+fn get_login_from_row(row: &Row<'_>) -> Result<Login> {
+    // We want to grab the "old" schema
+    let guid: String = row.get("guid")?;
+    let username: String = row.get("username").unwrap_or_default();
+    let password: String = row.get("password").unwrap_or_default();
+    // migrating hostname to the new column origin
+    let origin: String = row.get("hostname").unwrap_or_default();
+    let http_realm: Option<String> = row.get("httpRealm").unwrap_or_default();
+    // migrating formSubmitURL to the new column action origin
+    let form_action_origin: Option<String> = row.get("formSubmitURL").unwrap_or_default();
+    let username_field: String = row.get("usernameField").unwrap_or_default();
+    let password_field: String = row.get("passwordField").unwrap_or_default();
+    let time_created: i64 = row.get("timeCreated").unwrap_or_default();
+    let time_last_used: i64 = row.get("timeLastUsed").unwrap_or_default();
+    let time_password_changed: i64 = row.get("timePasswordChanged").unwrap_or_default();
+    let times_used: i64 = row.get("timesUsed").unwrap_or_default();
+
+    let login = Login {
+        record: RecordFields {
+            id: guid,
+            time_created,
+            time_password_changed,
+            time_last_used,
+            times_used,
+        },
+        fields: LoginFields {
+            origin,
+            form_action_origin,
+            http_realm,
+            username_field,
+            password_field,
+        },
+        sec_fields: SecureLoginFields { username, password },
+    };
+    Ok(login)
 }
 
 fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result<MigrationMetrics> {
@@ -157,405 +561,6 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
         num_succeeded: num_processed - num_failed_insert,
         total_duration: import_start.elapsed().as_millis() as u64,
     })
-}
-
-// This was copied from import_multiple in db.rs with a focus on LocalLogin
-pub fn migrate_local_logins(
-    cipher_conn: &Connection,
-    store: &LoginStore,
-    encryptor: &EncryptorDecryptor,
-) -> Result<MigrationMetrics> {
-    let logins = get_local_logins(&cipher_conn, &encryptor)?;
-
-    let new_db = store.db.lock().unwrap();
-    let conn = new_db.conn();
-    let tx = conn.unchecked_transaction()?;
-
-    let import_start = Instant::now();
-    let sql = "INSERT OR IGNORE INTO loginsL (
-            origin,
-            httpRealm,
-            formActionOrigin,
-            usernameField,
-            passwordField,
-            timesUsed,
-            usernameEnc,
-            passwordEnc,
-            guid,
-            timeCreated,
-            timeLastUsed,
-            timePasswordChanged,
-            local_modified,
-            is_deleted,
-            sync_status
-        ) VALUES (
-            :origin,
-            :http_realm,
-            :form_action_origin,
-            :username_field,
-            :password_field,
-            :times_used,
-            :username_enc,
-            :password_enc,
-            :guid,
-            :time_created,
-            :time_last_used,
-            :time_password_changed,
-            :local_modified,
-            :is_deleted,
-            :sync_status
-        )";
-    let import_start_total_logins: u64 = logins.len() as u64;
-    let mut num_failed_fixup: u64 = 0;
-    let mut num_failed_insert: u64 = 0;
-    let mut fixup_phase_duration = Duration::new(0, 0);
-    let mut fixup_errors: Vec<String> = Vec::new();
-    let mut insert_errors: Vec<String> = Vec::new();
-
-    for local_login in logins {
-        // This is a little bit of hoop-jumping to avoid cloning each borrowed item
-        // in order to *possibly* created a fixed-up version.
-        let mut login = local_login.login;
-        let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
-            match &fixed {
-                None => new_db.check_for_dupes(&login)?,
-                Some(l) => new_db.check_for_dupes(&l)?,
-            };
-            Ok(fixed)
-        });
-        match maybe_fixed_login {
-            Ok(None) => {} // The provided login was fine all along
-            Ok(Some(l)) => {
-                // We made a new, fixed-up Login.
-                login = l;
-            }
-            Err(e) => {
-                log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
-                fixup_errors.push(e.label().into());
-                num_failed_fixup += 1;
-                continue;
-            }
-        };
-        // Now we can safely insert it, knowing that it's valid data.
-        let old_guid = login.guid(); // Keep the old GUID around so we can debug errors easily.
-        let guid = if old_guid.is_valid_for_sync_server() {
-            old_guid.clone()
-        } else {
-            Guid::random()
-        };
-        fixup_phase_duration = import_start.elapsed();
-        match conn.execute_named_cached(
-            &sql,
-            named_params! {
-                ":origin": login.origin,
-                ":http_realm": login.http_realm,
-                ":form_action_origin": login.form_action_origin,
-                ":username_field": login.username_field,
-                ":password_field": login.password_field,
-                ":username_enc": login.username_enc,
-                ":password_enc": login.password_enc,
-                ":guid": guid,
-                ":time_created": login.time_created,
-                ":times_used": login.times_used,
-                ":time_last_used": login.time_last_used,
-                ":time_password_changed": login.time_password_changed,
-                // Local login specific stuff
-                ":local_modified": util::system_time_ms_i64(local_login.local_modified),
-                ":is_deleted": local_login.is_deleted,
-                ":sync_status": local_login.sync_status as u8
-            },
-        ) {
-            Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
-            Err(e) => {
-                log::warn!("Could not import {} ({}).", old_guid, e);
-                insert_errors.push(Error::from(e).label().into());
-                num_failed_insert += 1;
-            }
-        };
-    }
-    tx.commit()?;
-
-    let num_post_fixup = import_start_total_logins - num_failed_fixup;
-    let num_failed = num_failed_fixup + num_failed_insert;
-    let insert_phase_duration = import_start
-        .elapsed()
-        .checked_sub(fixup_phase_duration)
-        .unwrap_or_else(|| Duration::new(0, 0));
-    let mut all_errors = Vec::new();
-    all_errors.extend(fixup_errors.clone());
-    all_errors.extend(insert_errors.clone());
-    let metrics = MigrationMetrics {
-        fixup_phase: MigrationPhaseMetrics {
-            num_processed: import_start_total_logins,
-            num_succeeded: num_post_fixup,
-            num_failed: num_failed_fixup,
-            total_duration: fixup_phase_duration.as_millis() as u64,
-            errors: fixup_errors,
-        },
-        insert_phase: MigrationPhaseMetrics {
-            num_processed: num_post_fixup,
-            num_succeeded: num_post_fixup - num_failed_insert,
-            num_failed: num_failed_insert,
-            total_duration: insert_phase_duration.as_millis() as u64,
-            errors: insert_errors,
-        },
-        num_processed: import_start_total_logins,
-        num_succeeded: import_start_total_logins - num_failed,
-        num_failed,
-        total_duration: fixup_phase_duration
-            .checked_add(insert_phase_duration)
-            .unwrap_or_else(|| Duration::new(0, 0))
-            .as_millis() as u64,
-        errors: all_errors,
-    };
-    log::info!(
-        "Finished importing logins with the following metrics: {:#?}",
-        metrics
-    );
-    Ok(metrics)
-}
-
-fn get_local_logins(conn: &Connection, encryptor: &EncryptorDecryptor) -> Result<Vec<LocalLogin>> {
-    let mut select_stmt = conn.prepare("SELECT * FROM loginsL")?;
-    let mut rows = select_stmt.query(NO_PARAMS)?;
-    let mut local_logins: Vec<LocalLogin> = Vec::new();
-    // Use raw rows to avoid extra copying since we're looping over an entire table
-    while let Some(row) = rows.next()? {
-        match get_login_from_row(row, &encryptor) {
-            Ok(login) => {
-                // This is very close to what is in merge.rs from_row but this login is the old schema
-                let l_login = LocalLogin {
-                    login,
-                    local_modified: util::system_time_millis_from_row(row, "local_modified")?,
-                    is_deleted: row.get("is_deleted")?,
-                    sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
-                };
-                local_logins.push(l_login);
-            }
-            Err(e) => {
-                // We should probably just skip if we can't successfully fetch the row
-                println!("{:?}", e);
-            }
-        }
-    }
-    Ok(local_logins)
-}
-
-fn get_mirror_logins(
-    conn: &Connection,
-    encryptor: &EncryptorDecryptor,
-) -> Result<Vec<MirrorLogin>> {
-    let mut select_stmt = conn.prepare("SELECT * FROM loginsM")?;
-    let mut rows = select_stmt.query(NO_PARAMS)?;
-    let mut mirror_logins: Vec<MirrorLogin> = Vec::new();
-    // Use raw rows to avoid extra copying since we're looping over an entire table
-    while let Some(row) = rows.next()? {
-        match get_login_from_row(row, &encryptor) {
-            Ok(login) => {
-                // This is very close to what is in merge.rs from_row but this login is the old schema
-                let m_login = MirrorLogin {
-                    login,
-                    server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
-                    is_overridden: row.get("is_overridden")?,
-                };
-                mirror_logins.push(m_login);
-            }
-            Err(e) => {
-                // We should probably just skip if we can't successfully fetch the row
-                println!("{:?}", e);
-            }
-        }
-    }
-    Ok(mirror_logins)
-}
-
-// This was lifted from import_multiple in db.rs with a focus on LocalLogin
-pub fn migrate_mirror_logins(
-    cipher_conn: &Connection,
-    store: &LoginStore,
-    encryptor: &EncryptorDecryptor,
-) -> Result<MigrationMetrics> {
-    let logins = get_mirror_logins(&cipher_conn, &encryptor)?;
-
-    let new_db = store.db.lock().unwrap();
-    let conn = new_db.conn();
-    let tx = conn.unchecked_transaction()?;
-
-    let import_start = Instant::now();
-    let sql = "INSERT OR IGNORE INTO loginsM (
-            origin,
-            httpRealm,
-            formActionOrigin,
-            usernameField,
-            passwordField,
-            timesUsed,
-            usernameEnc,
-            passwordEnc,
-            guid,
-            timeCreated,
-            timeLastUsed,
-            timePasswordChanged,
-            server_modified,
-            is_overridden
-        ) VALUES (
-            :origin,
-            :http_realm,
-            :form_action_origin,
-            :username_field,
-            :password_field,
-            :times_used,
-            :username_enc,
-            :password_enc,
-            :guid,
-            :time_created,
-            :time_last_used,
-            :time_password_changed,
-            :server_modified,
-            :is_overridden
-        )";
-    let import_start_total_logins: u64 = logins.len() as u64;
-    let mut num_failed_fixup: u64 = 0;
-    let mut num_failed_insert: u64 = 0;
-    let mut fixup_phase_duration = Duration::new(0, 0);
-    let mut fixup_errors: Vec<String> = Vec::new();
-    let mut insert_errors: Vec<String> = Vec::new();
-
-    for mirror_login in logins {
-        // This is a little bit of hoop-jumping to avoid cloning each borrowed item
-        // in order to *possibly* created a fixed-up version.
-        let mut login = mirror_login.login;
-        let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
-            match &fixed {
-                None => new_db.check_for_dupes(&login)?,
-                Some(l) => new_db.check_for_dupes(&l)?,
-            };
-            Ok(fixed)
-        });
-        match maybe_fixed_login {
-            Ok(None) => {} // The provided login was fine all along
-            Ok(Some(l)) => {
-                // We made a new, fixed-up Login.
-                login = l;
-            }
-            Err(e) => {
-                log::warn!("Skipping login {} as it is invalid ({}).", login.guid(), e);
-                fixup_errors.push(e.label().into());
-                num_failed_fixup += 1;
-                continue;
-            }
-        };
-        // Now we can safely insert it, knowing that it's valid data.
-        let old_guid = login.guid(); // Keep the old GUID around so we can debug errors easily.
-        let guid = if old_guid.is_valid_for_sync_server() {
-            old_guid.clone()
-        } else {
-            Guid::random()
-        };
-        fixup_phase_duration = import_start.elapsed();
-        match conn.execute_named_cached(
-            &sql,
-            named_params! {
-                ":origin": login.origin,
-                ":http_realm": login.http_realm,
-                ":form_action_origin": login.form_action_origin,
-                ":username_field": login.username_field,
-                ":password_field": login.password_field,
-                ":username_enc": login.username_enc,
-                ":password_enc": login.password_enc,
-                ":guid": guid,
-                ":time_created": login.time_created,
-                ":times_used": login.times_used,
-                ":time_last_used": login.time_last_used,
-                ":time_password_changed": login.time_password_changed,
-                // Mirror login specific stuff
-                ":server_modified": mirror_login.server_modified.as_millis(),
-                ":is_overridden": mirror_login.is_overridden,
-            },
-        ) {
-            Ok(_) => log::info!("Imported {} (new GUID {}) successfully.", old_guid, guid),
-            Err(e) => {
-                log::warn!("Could not import {} ({}).", old_guid, e);
-                insert_errors.push(Error::from(e).label().into());
-                num_failed_insert += 1;
-            }
-        };
-    }
-    tx.commit()?;
-
-    let num_post_fixup = import_start_total_logins - num_failed_fixup;
-    let num_failed = num_failed_fixup + num_failed_insert;
-    let insert_phase_duration = import_start
-        .elapsed()
-        .checked_sub(fixup_phase_duration)
-        .unwrap_or_else(|| Duration::new(0, 0));
-    let mut all_errors = Vec::new();
-    all_errors.extend(fixup_errors.clone());
-    all_errors.extend(insert_errors.clone());
-
-    let metrics = MigrationMetrics {
-        fixup_phase: MigrationPhaseMetrics {
-            num_processed: import_start_total_logins,
-            num_succeeded: num_post_fixup,
-            num_failed: num_failed_fixup,
-            total_duration: fixup_phase_duration.as_millis() as u64,
-            errors: fixup_errors,
-        },
-        insert_phase: MigrationPhaseMetrics {
-            num_processed: num_post_fixup,
-            num_succeeded: num_post_fixup - num_failed_insert,
-            num_failed: num_failed_insert,
-            total_duration: insert_phase_duration.as_millis() as u64,
-            errors: insert_errors,
-        },
-        num_processed: import_start_total_logins,
-        num_succeeded: import_start_total_logins - num_failed,
-        num_failed,
-        total_duration: fixup_phase_duration
-            .checked_add(insert_phase_duration)
-            .unwrap_or_else(|| Duration::new(0, 0))
-            .as_millis() as u64,
-        errors: all_errors,
-    };
-    log::info!(
-        "Finished importing logins with the following metrics: {:#?}",
-        metrics
-    );
-    Ok(metrics)
-}
-
-// Convert rows from old schema to match new fields in the Login struct
-fn get_login_from_row(row: &Row<'_>, encryptor: &EncryptorDecryptor) -> Result<Login> {
-    // We want to grab the "old" schema
-    let guid: String = row.get("guid")?;
-    let username: String = row.get("username").unwrap_or_default();
-    let password: String = row.get("password")?;
-    // migrating hostname to the new column origin
-    let origin: String = row.get("hostname")?;
-    let http_realm: Option<String> = row.get("httpRealm")?;
-    // migrating formSubmitURL to the new column action origin
-    let form_action_origin: Option<String> = row.get("formSubmitURL")?;
-    let username_field: Option<String> = row.get("usernameField")?;
-    let password_field: Option<String> = row.get("passwordField")?;
-    let time_created: i64 = row.get("timeCreated")?;
-    let time_last_used: i64 = row.get("timeLastUsed").unwrap_or_default();
-    let time_password_changed: i64 = row.get("timePasswordChanged")?;
-    let times_used: i64 = row.get("timesUsed")?;
-
-    let login: Login = Login {
-        id: guid,
-        username_enc: encryptor.encrypt(&username)?,
-        password_enc: encryptor.encrypt(&password)?,
-        origin,
-        http_realm,
-        form_action_origin,
-        username_field: username_field.unwrap_or_default(),
-        password_field: password_field.unwrap_or_default(),
-        time_created,
-        time_last_used,
-        time_password_changed,
-        times_used,
-    };
-    Ok(login)
 }
 
 #[cfg(test)]
