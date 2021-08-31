@@ -68,6 +68,8 @@
     * This will typically require a PR and involve resolving merge conflicts in the changelog.
     * This ensures we do not accidentally orphan any fixes that were made directly against the release branch,
       and also helps ensure that every release has an easily-discoverable changelog entry in main.
+    * When merging the PR, create a merge commit instead of squashing and merging. You can do this by choosing "Merge Pull Request" in GitHub's UI.
+    * GitHub may require you to use admin privileges to merge the PR since the `release-vXX` branch is most likely not up to date with main. If there are no merge conflicts to resolve and CI checks pass, you can check the checkbox once the PR is approved.
 
 ---
 ### Create a release commit manually
