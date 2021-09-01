@@ -7,8 +7,7 @@
 use crate::db::{MigrationMetrics, MigrationPhaseMetrics};
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::sync::SyncStatus;
-use crate::sync::{LocalLogin, MirrorLogin};
+use crate::sync::{LocalLogin, MirrorLogin, SyncStatus};
 use crate::util;
 use crate::LoginStore;
 use crate::{EncryptedLogin, Login, LoginFields, RecordFields, SecureLoginFields};
@@ -17,7 +16,7 @@ use sql_support::ConnExt;
 use std::collections::HashMap;
 use std::ops::Add;
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use sync15::ServerTimestamp;
 
 #[derive(Debug)]
@@ -60,12 +59,13 @@ struct MigrationLogin {
     status: MigrationStatus,
 }
 
+// TODO: Kept this here as part of the initial design but doesn't seem needed as we go through this
 #[derive(Debug)]
 enum MigrationStatus {
     Processing,
-    Success,
-    Fixed,
-    Failed,
+    // Success,
+    // Fixed,
+    // Failed,
 }
 
 // Simplify the code for combining migration metrics
@@ -190,9 +190,11 @@ fn generate_plan_from_db(
             Ok(login) => {
                 let l_login = LocalLogin {
                     login: login.encrypt(&encryptor)?,
-                    local_modified: util::system_time_millis_from_row(row, "local_modified")?,
-                    is_deleted: row.get("is_deleted")?,
-                    sync_status: SyncStatus::from_u8(row.get("sync_status")?)?,
+                    local_modified: util::system_time_millis_from_row(row, "local_modified")
+                        .unwrap_or(SystemTime::now()),
+                    is_deleted: row.get("is_deleted").unwrap_or_default(),
+                    sync_status: SyncStatus::from_u8(row.get("sync_status").unwrap_or_default())
+                        .unwrap_or(SyncStatus::New),
                 };
                 let key = l_login.login.record.id.clone();
                 migration_plan
@@ -220,8 +222,10 @@ fn generate_plan_from_db(
             Ok(login) => {
                 let m_login = MirrorLogin {
                     login: login.encrypt(&encryptor)?,
-                    server_modified: ServerTimestamp(row.get::<_, i64>("server_modified")?),
-                    is_overridden: row.get("is_overridden")?,
+                    server_modified: ServerTimestamp(
+                        row.get::<_, i64>("server_modified").unwrap_or_default(),
+                    ),
+                    is_overridden: row.get("is_overridden").unwrap_or_default(),
                 };
 
                 let key = m_login.login.record.id.clone();
@@ -571,7 +575,6 @@ mod tests {
     use crate::EncryptedLogin;
     use rusqlite::types::ValueRef;
     use std::path::PathBuf;
-    use std::time::SystemTime;
     use sync_guid::Guid;
 
     static TEST_SALT: &str = "01010101010101010101010101010101";
@@ -631,7 +634,9 @@ mod tests {
                 ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
                 'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
                 ('b', 'test', 'password', 'https://www.example.com', 'https://www.example.com', 'https://www.example.com',
-                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2);
+                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
+                ('bad_sync_status', 'test', 'password', 'https://www.example2.com', 'https://www.example.com', 'https://www.example.com',
+                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 'invalid_status');
         ";
 
         const INSERT_LOGINS_M: &str = "
@@ -989,7 +994,6 @@ mod tests {
 
         assert_eq!(metrics.num_processed, 2);
         assert_eq!(metrics.num_succeeded, 2);
-        assert_eq!(metrics.num_failed, 1);
         assert_eq!(metrics.total_duration > 0, true);
     }
 }
