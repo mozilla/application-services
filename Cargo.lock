@@ -780,7 +780,6 @@ name = "error-support"
 version = "0.1.0"
 dependencies = [
  "backtrace",
- "thiserror",
 ]
 
 [[package]]
@@ -1068,7 +1067,6 @@ dependencies = [
  "log",
  "mockiato",
  "mockito",
- "rand_rccrypto",
  "rate-limiter",
  "rc_crypto",
  "serde",
