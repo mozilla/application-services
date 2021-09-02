@@ -84,11 +84,11 @@ class PushManager(
         }.toInt() == 1
     }
 
-    override fun unsubscribeAll(): Boolean {
-        return rustCall { error ->
+    override fun unsubscribeAll() {
+        rustCall { error ->
             LibPushFFI.INSTANCE.push_unsubscribe_all(
                 this.handle.get(), error)
-        }.toInt() == 1
+        }
     }
 
     override fun update(registrationToken: String): Boolean {
@@ -360,9 +360,8 @@ interface PushAPI : AutoCloseable {
     /**
      * Unsubscribe all channels for the user.
      *
-     * @return bool
      */
-    fun unsubscribeAll(): Boolean
+    fun unsubscribeAll()
 
     /**
      * Updates the Native OS push registration ID.

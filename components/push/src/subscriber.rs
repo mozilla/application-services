@@ -99,26 +99,23 @@ impl PushManager {
         Ok((info, subscription_key))
     }
 
-    // XXX: maybe -> Result<()> instead
     pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
-        Ok(self.conn.unsubscribe(channel_id)?
-            && self
-                .store
-                .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id)?)
+        self.conn.unsubscribe(channel_id)?;
+        self.store
+            .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id)
     }
 
-    pub fn unsubscribe_all(&mut self) -> Result<bool> {
+    pub fn unsubscribe_all(&mut self) -> Result<()> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
         let uaid = self.conn.uaid.as_ref().unwrap();
-        Ok({
-            self.store.delete_all_records(uaid)?;
-            self.conn.unsubscribe_all()?
-        })
+        self.store.delete_all_records(uaid)?;
+        self.conn.unsubscribe_all()?;
+        Ok(())
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
@@ -128,10 +125,10 @@ impl PushManager {
         if !self.update_rate_limiter.check(&self.store) {
             return Ok(false);
         }
-        let result = self.conn.update(&new_token)?;
+        self.conn.update(&new_token)?;
         self.store
             .update_native_id(self.conn.uaid.as_ref().unwrap(), new_token)?;
-        Ok(result)
+        Ok(true)
     }
 
     pub fn verify_connection(&mut self) -> Result<Vec<PushRecord>> {
@@ -215,7 +212,7 @@ mod test {
         assert!(pm.unsubscribe(TEST_CHANNEL_ID)?);
         // It's already deleted, so return false.
         assert!(!pm.unsubscribe(TEST_CHANNEL_ID)?);
-        assert!(pm.unsubscribe_all()?);
+        pm.unsubscribe_all()?;
         Ok(())
     }
 
