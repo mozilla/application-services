@@ -1062,7 +1062,6 @@ dependencies = [
  "anyhow",
  "base64 0.12.3",
  "error-support",
- "ffi-support",
  "hex",
  "jwcrypto",
  "lazy_static",
@@ -1560,7 +1559,6 @@ dependencies = [
  "anyhow",
  "env_logger",
  "error-support",
- "ffi-support",
  "interrupt-support",
  "lazy_static",
  "log",
@@ -3156,7 +3154,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "error-support",
- "ffi-support",
  "interrupt-support",
  "lazy_static",
  "log",
