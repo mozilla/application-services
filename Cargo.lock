@@ -780,7 +780,6 @@ name = "error-support"
 version = "0.1.0"
 dependencies = [
  "backtrace",
- "thiserror",
 ]
 
 [[package]]
@@ -1062,14 +1061,12 @@ dependencies = [
  "anyhow",
  "base64 0.12.3",
  "error-support",
- "ffi-support",
  "hex",
  "jwcrypto",
  "lazy_static",
  "log",
  "mockiato",
  "mockito",
- "rand_rccrypto",
  "rate-limiter",
  "rc_crypto",
  "serde",
@@ -1560,7 +1557,6 @@ dependencies = [
  "anyhow",
  "env_logger",
  "error-support",
- "ffi-support",
  "interrupt-support",
  "lazy_static",
  "log",
@@ -3156,7 +3152,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "error-support",
- "ffi-support",
  "interrupt-support",
  "lazy_static",
  "log",
