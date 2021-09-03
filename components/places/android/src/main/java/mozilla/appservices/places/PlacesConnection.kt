@@ -697,6 +697,19 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         }
     }
 
+    override suspend fun deleteHistoryMetadata(key: HistoryMetadataKey) {
+        return writeQueryCounters.measure {
+            rustCallUniffi(this) {
+                mozilla.appservices.places.uniffi.placesMetadataDelete(
+                    this.handle.get(),
+                    key.url,
+                    key.referrerUrl,
+                    key.searchTerm
+                )
+            }
+        }
+    }
+
     // Does the shared insert work, takes the position just because
     // its a little tedious to type out setting it
     private fun doInsert(builder: MsgTypes.BookmarkNode.Builder, position: Int?): String {
@@ -956,6 +969,13 @@ interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection 
      * @param olderThan A timestamp to delete records by. Exclusive.
      */
     suspend fun deleteHistoryMetadataOlderThan(olderThan: Long)
+
+    /**
+     * Deletes metadata records that match [key].
+     *
+     * @param key A [HistoryMetadataKey] for which to delete metadata records.
+     */
+    suspend fun deleteHistoryMetadata(key: HistoryMetadataKey)
 }
 
 interface ReadableHistoryConnection : InterruptibleConnection {

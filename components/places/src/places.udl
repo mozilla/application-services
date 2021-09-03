@@ -19,6 +19,9 @@ namespace places {
     void places_note_history_metadata_observation(i64 handle, HistoryMetadataObservation data);
 
     [Throws=ErrorWrapper]
+    void places_metadata_delete(i64 handle, string url, string? referrer_url, string? search_term);
+
+    [Throws=ErrorWrapper]
     void places_metadata_delete_older_than(i64 handle, i64 older_than);
 };
 
