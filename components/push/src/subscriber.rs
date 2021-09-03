@@ -13,9 +13,55 @@ use crate::config::PushConfiguration;
 use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
 use crate::error::{self, ErrorKind, Result};
 use crate::storage::{PushRecord, Storage, Store};
+// TODO(teshaq): those will be replaced with rust structs in the next
+// uniffication step
+use crate::msg_types::{
+    DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
+};
 
 const UPDATE_RATE_LIMITER_INTERVAL: u64 = 24 * 60 * 60; // 500 calls per 24 hours.
 const UPDATE_RATE_LIMITER_MAX_CALLS: u16 = 500;
+
+impl From<(RegisterResponse, Key)> for SubscriptionResponse {
+    fn from(val: (RegisterResponse, Key)) -> Self {
+        SubscriptionResponse {
+            channel_id: val.0.channel_id,
+            subscription_info: SubscriptionInfo {
+                endpoint: val.0.endpoint,
+                keys: val.1.into(),
+            },
+        }
+    }
+}
+
+impl From<Key> for KeyInfo {
+    fn from(key: Key) -> Self {
+        KeyInfo {
+            auth: base64::encode_config(&key.auth, base64::URL_SAFE_NO_PAD),
+            p256dh: base64::encode_config(&key.public_key(), base64::URL_SAFE_NO_PAD),
+        }
+    }
+}
+
+impl From<PushRecord> for PushSubscriptionChanged {
+    fn from(record: PushRecord) -> Self {
+        PushSubscriptionChanged {
+            channel_id: record.channel_id,
+            scope: record.scope,
+        }
+    }
+}
+
+impl From<PushRecord> for DispatchInfo {
+    fn from(record: PushRecord) -> Self {
+        DispatchInfo {
+            uaid: record.uaid,
+            scope: record.scope,
+            endpoint: record.endpoint,
+            app_server_key: record.app_server_key,
+        }
+    }
+}
 
 pub struct PushManager {
     config: PushConfiguration,
@@ -50,7 +96,14 @@ impl PushManager {
         channel_id: &str,
         scope: &str,
         server_key: Option<&str>,
-    ) -> Result<(RegisterResponse, Key)> {
+    ) -> Result<SubscriptionResponse> {
+        // While potentially an error, a misconfigured system may use "" as
+        // an application key. In that case, we drop the application key.
+        let server_key = if let Some("") = server_key {
+            None
+        } else {
+            server_key
+        };
         let reg_token = self.config.registration_id.clone().unwrap();
         let subscription_key: Key;
         if let Some(uaid) = self.conn.uaid.clone() {
@@ -65,7 +118,8 @@ impl PushManager {
                         senderid: Some(reg_token),
                     },
                     Key::deserialize(&record.key)?,
-                ));
+                )
+                    .into());
             }
         }
         let info = self.conn.subscribe(channel_id, server_key)?;
@@ -96,10 +150,15 @@ impl PushManager {
                 self.store.set_meta("auth", &secret)?;
             }
         }
-        Ok((info, subscription_key))
+        Ok((info, subscription_key).into())
     }
 
     pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
+        // TODO(teshaq): This should throw an error instead of return false
+        // keeping this as false in the meantime while uniffing to not change behavior
+        if channel_id.is_empty() {
+            return Ok(false);
+        }
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
@@ -131,7 +190,7 @@ impl PushManager {
         Ok(true)
     }
 
-    pub fn verify_connection(&mut self) -> Result<Vec<PushRecord>> {
+    pub fn verify_connection(&mut self) -> Result<Vec<PushSubscriptionChanged>> {
         let uaid = self
             .conn
             .uaid
@@ -145,10 +204,10 @@ impl PushManager {
             return Ok(Vec::new());
         }
 
-        let mut subscriptions: Vec<PushRecord> = Vec::new();
+        let mut subscriptions: Vec<PushSubscriptionChanged> = Vec::new();
         for channel in channels {
             if let Some(record) = self.store.get_record_by_chid(&channel)? {
-                subscriptions.push(record);
+                subscriptions.push(record.into());
             }
         }
         // we wipe the UAID if there is a mismatch, forcing us to later
@@ -162,13 +221,16 @@ impl PushManager {
 
     pub fn decrypt(
         &self,
-        uaid: &str,
         chid: &str,
         body: &str,
         encoding: &str,
         salt: Option<&str>,
         dh: Option<&str>,
     ) -> Result<String> {
+        if self.conn.uaid.is_none() {
+            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        }
+        let uaid = self.conn.uaid.as_ref().unwrap();
         let val = self
             .store
             .get_record(&uaid, chid)
@@ -181,11 +243,8 @@ impl PushManager {
             .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into())
     }
 
-    pub fn get_record_by_chid(
-        &self,
-        chid: &str,
-    ) -> error::Result<Option<crate::storage::PushRecord>> {
-        self.store.get_record_by_chid(chid)
+    pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<DispatchInfo>> {
+        Ok(self.store.get_record_by_chid(chid)?.map(Into::into))
     }
 }
 
@@ -200,15 +259,18 @@ mod test {
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, key) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let resp = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
         // verify that a subsequent request for the same channel ID returns the same subscription
-        let (info2, key2) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let resp2 = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
         assert_eq!(
             Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned()),
             pm.store.get_meta("auth")?
         );
-        assert_eq!(info.endpoint, info2.endpoint);
-        assert_eq!(key, key2);
+        assert_eq!(
+            resp.subscription_info.endpoint,
+            resp2.subscription_info.endpoint
+        );
+        assert_eq!(resp.subscription_info.keys, resp2.subscription_info.keys);
         assert!(pm.unsubscribe(TEST_CHANNEL_ID)?);
         // It's already deleted, so return false.
         assert!(!pm.unsubscribe(TEST_CHANNEL_ID)?);
@@ -227,13 +289,16 @@ mod test {
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, key) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let resp = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let key_info = resp.subscription_info.keys;
+        let remote_pub = base64::decode_config(&key_info.p256dh, base64::URL_SAFE_NO_PAD).unwrap();
+        let auth = base64::decode_config(&key_info.auth, base64::URL_SAFE_NO_PAD).unwrap();
         // Act like a subscription provider, so create a "local" key to encrypt the data
-        let ciphertext = ece::encrypt(&key.public_key(), &key.auth, data_string).unwrap();
+        let ciphertext = ece::encrypt(&remote_pub, &auth, data_string).unwrap();
         let body = base64::encode_config(&ciphertext, base64::URL_SAFE_NO_PAD);
 
         let result = pm
-            .decrypt(&info.uaid, &info.channel_id, &body, "aes128gcm", None, None)
+            .decrypt(&resp.channel_id, &body, "aes128gcm", None, None)
             .unwrap();
         assert_eq!(
             serde_json::to_string(&data_string.to_vec()).unwrap(),
@@ -249,13 +314,13 @@ mod test {
             ..Default::default()
         };
         let mut pm = PushManager::new(test_config)?;
-        let (info, _) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
-        // verify that the uaid got added to our store and
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        // verify that a uaid got added to our store and
         // that there is a record associated with the channel ID provided
-        assert_eq!(pm.store.get_meta("uaid")?.unwrap(), info.uaid);
+        let uaid = pm.store.get_meta("uaid")?.unwrap();
         assert_eq!(
             pm.store
-                .get_record(&info.uaid, TEST_CHANNEL_ID)?
+                .get_record(&uaid, TEST_CHANNEL_ID)?
                 .unwrap()
                 .channel_id,
             TEST_CHANNEL_ID
@@ -266,17 +331,17 @@ mod test {
         // since verify_connection failed,
         // we wipe the uaid and all associated records from our store
         assert!(pm.store.get_meta("uaid")?.is_none());
-        assert!(pm.store.get_record(&info.uaid, TEST_CHANNEL_ID)?.is_none());
+        assert!(pm.store.get_record(&uaid, TEST_CHANNEL_ID)?.is_none());
 
         // we now check that a new subscription will cause us to
         // re-generate a uaid and store it in our store
-        let (info, _) = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
         // verify that the uaid got added to our store and
         // that there is a record associated with the channel ID provided
-        assert_eq!(pm.store.get_meta("uaid")?.unwrap(), info.uaid);
+        let uaid = pm.store.get_meta("uaid")?.unwrap();
         assert_eq!(
             pm.store
-                .get_record(&info.uaid, TEST_CHANNEL_ID)?
+                .get_record(&uaid, TEST_CHANNEL_ID)?
                 .unwrap()
                 .channel_id,
             TEST_CHANNEL_ID

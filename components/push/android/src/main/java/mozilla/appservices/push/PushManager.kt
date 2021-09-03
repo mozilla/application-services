@@ -75,9 +75,6 @@ class PushManager(
     }
 
     override fun unsubscribe(channelID: String): Boolean {
-        if (channelID == "") {
-            return false
-        }
         return rustCall { error ->
             LibPushFFI.INSTANCE.push_unsubscribe(
                 this.handle.get(), channelID, error)
@@ -123,6 +120,9 @@ class PushManager(
         LibPushFFI.INSTANCE.push_decrypt(
             this.handle.get(), channelID, body, encoding, salt, dh, error
         ) }
+        // TODO(teshaq): The logic here will be removed when uniffing the component
+        // for now, keeping this since Vec<u8> doesn't implement IntoFFI on the rust
+        // side, so we send a String
         val jarray = JSONArray(result)
         val retarray = ByteArray(jarray.length())
         // `for` is inclusive.
