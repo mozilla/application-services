@@ -106,6 +106,27 @@ fn places_metadata_delete_older_than(handle: i64, older_than: i64) -> Result<(),
     )
 }
 
+fn places_metadata_delete(
+    handle: i64,
+    url: String,
+    referrer_url: Option<String>,
+    search_term: Option<String>,
+) -> Result<(), ErrorWrapper> {
+    log::debug!("places_metadata_delete_metadata");
+    CONNECTIONS.get(
+        Handle::from_u64(handle as u64)?,
+        |conn| -> Result<_, ErrorWrapper> {
+            crate::storage::history_metadata::delete_metadata(
+                conn,
+                url.as_str(),
+                referrer_url.as_deref(),
+                search_term.as_deref(),
+            )?;
+            Ok(())
+        },
+    )
+}
+
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
 
