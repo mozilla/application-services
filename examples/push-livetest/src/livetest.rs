@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use push::communications::Connection;
-use push::config::PushConfiguration;
-use push::crypto::get_random_bytes;
-use push::error::Result;
-use push::subscriber::PushManager;
+use push::get_random_bytes;
+use push::Connection;
+use push::InternalPushManager as PushManager;
+use push::InternalResult as Result;
+use push::PushConfiguration;
 
 /** Perform a "Live" test against a locally configured push server
  *

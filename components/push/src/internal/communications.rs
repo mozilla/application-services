@@ -17,15 +17,15 @@ use std::iter::FromIterator;
 use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
-use crate::config::PushConfiguration;
-use crate::error::{
+use crate::internal::config::PushConfiguration;
+use crate::internal::error::{
     self,
     ErrorKind::{
         AlreadyRegisteredError, CommunicationError, CommunicationServerError,
         UAIDNotRecognizedError,
     },
 };
-use crate::storage::Store;
+use crate::internal::storage::Store;
 
 mod rate_limiter;
 pub use rate_limiter::PersistedRateLimiter;
@@ -500,7 +500,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
@@ -526,7 +526,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config.clone(), None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_ns_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
@@ -655,7 +655,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config, None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, DUMMY_UAID);
@@ -748,7 +748,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config, None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, conn.uaid.clone().unwrap());
@@ -810,7 +810,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config, None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, conn.uaid.clone().unwrap());
@@ -873,7 +873,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config, None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
             assert_eq!(response.uaid, conn.uaid.clone().unwrap());
@@ -939,7 +939,7 @@ mod test {
             .with_body(body)
             .create();
             let mut conn = connect(config, None, None).unwrap();
-            let channel_id = hex::encode(crate::crypto::get_random_bytes(16).unwrap());
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let err = conn.subscribe(&channel_id, None).unwrap_err();
             ap_mock.assert();
             assert!(matches!(

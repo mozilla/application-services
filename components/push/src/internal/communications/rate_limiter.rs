@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::storage::{Storage, Store};
+use crate::internal::storage::{Storage, Store};
 use std::{
     str::FromStr,
     time::{SystemTime, UNIX_EPOCH},
@@ -113,7 +113,7 @@ fn now_secs() -> u64 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::error::Result;
+    use crate::internal::error::Result;
 
     static PERIODIC_INTERVAL: u64 = 24 * 3600;
     static VERIFY_NOW_INTERVAL: u64 = PERIODIC_INTERVAL + 3600;

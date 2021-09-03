@@ -6,13 +6,13 @@
 //!
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
-use crate::communications::{
+use crate::internal::communications::{
     connect, ConnectHttp, Connection, PersistedRateLimiter, RegisterResponse,
 };
-use crate::config::PushConfiguration;
-use crate::crypto::{Crypto, Cryptography, KeyV1 as Key};
-use crate::error::{self, ErrorKind, Result};
-use crate::storage::{PushRecord, Storage, Store};
+use crate::internal::config::PushConfiguration;
+use crate::internal::crypto::{Crypto, Cryptography, KeyV1 as Key};
+use crate::internal::error::{self, ErrorKind, Result};
+use crate::internal::storage::{PushRecord, Storage, Store};
 // TODO(teshaq): those will be replaced with rust structs in the next
 // uniffication step
 use crate::msg_types::{
@@ -130,10 +130,10 @@ impl PushManager {
                 "LsuUOBKVQRY6-l7_Ajo-Ag"
             )
         } else {
-            subscription_key = Crypto::generate_key().unwrap();
+            subscription_key = Crypto::generate_key()?;
         }
         // store the channel_id => auth + subscription_key
-        let mut record = crate::storage::PushRecord::new(
+        let mut record = crate::internal::storage::PushRecord::new(
             &info.uaid,
             &info.channel_id,
             &info.endpoint,

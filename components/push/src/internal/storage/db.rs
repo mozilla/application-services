@@ -6,7 +6,7 @@ use std::{ops::Deref, path::Path};
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-use crate::error::{ErrorKind, Result};
+use crate::internal::error::{ErrorKind, Result};
 
 use super::{record::PushRecord, schema};
 
@@ -232,12 +232,12 @@ impl Storage for PushDb {
 
 #[cfg(test)]
 mod test {
-    use crate::crypto::{Crypto, Cryptography};
-    use crate::error::Result;
+    use crate::internal::crypto::{Crypto, Cryptography};
+    use crate::internal::error::Result;
 
     use super::PushDb;
-    use crate::crypto::get_random_bytes;
-    use crate::storage::{db::Storage, record::PushRecord};
+    use crate::internal::crypto::get_random_bytes;
+    use crate::internal::storage::{db::Storage, record::PushRecord};
 
     const DUMMY_UAID: &str = "abad1dea00000000aabbccdd00000000";
 
