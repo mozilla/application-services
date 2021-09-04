@@ -9,8 +9,9 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::sync::{LocalLogin, MirrorLogin, SyncStatus};
 use crate::util;
-use crate::LoginStore;
-use crate::{EncryptedLogin, Login, LoginFields, RecordFields, SecureLoginFields};
+use crate::{
+    EncryptedLogin, Login, LoginDb, LoginFields, LoginStore, RecordFields, SecureLoginFields,
+};
 use rusqlite::{named_params, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use std::collections::HashMap;
@@ -31,41 +32,12 @@ impl MigrationPlan {
             logins: HashMap::new(),
         }
     }
-
-    fn fix_mismatched_records(mut self) -> Result<Self> {
-        let mut guids_to_remove: Vec<String> = Vec::new();
-        for (guid, login) in &self.logins {
-            // Case 1: If the mirror record has is_overridden and no local records -> delete
-            if let Some(mirror_login) = &login.mirror_login {
-                if mirror_login.is_overridden && login.local_login.is_none() {
-                    guids_to_remove.push(guid.to_string());
-                }
-            }
-        }
-        // Secondary loop to prevent mutating while iterating the hashmap
-        for guid in guids_to_remove {
-            // Delete the record
-            log::warn!("Mirror was overridden but no local record was found. Deleting...");
-            self.logins.remove(&guid);
-        }
-        Ok(self)
-    }
 }
 
 #[derive(Debug)]
 struct MigrationLogin {
     local_login: Option<LocalLogin>,
     mirror_login: Option<MirrorLogin>,
-    status: MigrationStatus,
-}
-
-// TODO: Kept this here as part of the initial design but doesn't seem needed as we go through this
-#[derive(Debug)]
-enum MigrationStatus {
-    Processing,
-    // Success,
-    // Fixed,
-    // Failed,
 }
 
 // Simplify the code for combining migration metrics
@@ -159,21 +131,12 @@ pub fn migrate_from_sqlcipher_db(
     // encrypt the username/password data
     let encdec = EncryptorDecryptor::new(encryption_key)?;
 
-    // Step 1
-    let mut migration_plan: MigrationPlan = generate_plan_from_db(&cipher_conn, &encdec)?;
+    let migration_plan: MigrationPlan = generate_plan_from_db(&cipher_conn, &encdec)?;
 
-    // Step 2: Handle mismatch records, edge cases before fixup
-    migration_plan = migration_plan.fix_mismatched_records()?;
-
-    // Step 3: Apply fixups to LOCAL logins
-
-    // TODO Step 4: Insert (raw SQL) into new DB
-    migrate_logins(&migration_plan, &new_db_store, &encdec)?;
-
+    let migration_metrics = migrate_logins(&migration_plan, &new_db_store, &encdec)?;
     let metadata_metrics = migrate_sync_metadata(&cipher_conn, &new_db_store)?;
 
-    // TODO: Replace this with all metrics
-    Ok(metadata_metrics)
+    Ok(migration_metrics + metadata_metrics)
 }
 
 fn generate_plan_from_db(
@@ -191,7 +154,7 @@ fn generate_plan_from_db(
                 let l_login = LocalLogin {
                     login: login.encrypt(&encryptor)?,
                     local_modified: util::system_time_millis_from_row(row, "local_modified")
-                        .unwrap_or(SystemTime::now()),
+                        .unwrap_or_else(|_| SystemTime::now()),
                     is_deleted: row.get("is_deleted").unwrap_or_default(),
                     sync_status: SyncStatus::from_u8(row.get("sync_status").unwrap_or_default())
                         .unwrap_or(SyncStatus::New),
@@ -205,7 +168,6 @@ fn generate_plan_from_db(
                         //guid: key,
                         local_login: Some(l_login),
                         mirror_login: None,
-                        status: MigrationStatus::Processing,
                     });
             }
             Err(e) => {
@@ -237,7 +199,6 @@ fn generate_plan_from_db(
                         //guid: key,
                         local_login: None,
                         mirror_login: Some(m_login),
-                        status: MigrationStatus::Processing,
                     });
             }
             Err(e) => {
@@ -259,44 +220,54 @@ fn migrate_logins(
     let mut num_failed_insert: u64 = 0;
     let mut insert_errors: Vec<String> = Vec::new();
 
-    for (_, login) in &migration_plan.logins {
+    let new_db = store.db.lock().unwrap();
+    let conn = new_db.conn();
+    let tx = conn.unchecked_transaction()?;
+
+    for login in migration_plan.logins.values() {
         // Migrate local login first
         if let Some(local_login) = &login.local_login {
-            match migrate_local_login(store, local_login, &encdec) {
+            match migrate_local_login(&new_db, &conn, local_login, &encdec) {
                 Ok(_) => {
                     if let Some(mirror_login) = &login.mirror_login {
                         // If successful, then migrate mirror
-                        migrate_mirror_login(&store, &mirror_login)?;
+                        match migrate_mirror_login(&conn, &mirror_login) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                num_failed_insert += 1;
+                                insert_errors.push(e.label().into());
+                            }
+                        }
                     }
                 }
                 Err(e) => {
-                    // If not successful on local, but we have a mirror
-                    // If there is an override -> delete skip both
-                    // IF no override -> attempt to import as normal
+                    num_failed_insert += 1;
+                    insert_errors.push(e.label().into());
+                    // Weren't successful with local login, if we have a mirror we should
+                    // attempt to migrate it and flip the `is_overridden` to false
                     if let Some(mirror_login) = &login.mirror_login {
-                        if mirror_login.is_overridden {
-                            num_failed_insert += 1;
-                            insert_errors.push(Error::from(e).label().into());
-                            continue;
-                        } else {
-                            migrate_mirror_login(&store, &mirror_login)?;
+                        match migrate_mirror_login(&conn, &mirror_login) {
+                            Ok(_) => {}
+                            Err(e) => {
+                                num_failed_insert += 1;
+                                insert_errors.push(e.label().into());
+                            }
                         }
                     }
                 }
             }
         // If we just have mirror, import as normal
-        } else {
-            if let Some(mirror_login) = &login.mirror_login {
-                match migrate_mirror_login(&*store, &mirror_login) {
-                    Ok(_) => {}
-                    Err(e) => {
-                        num_failed_insert += 1;
-                        insert_errors.push(Error::from(e).label().into());
-                    }
+        } else if let Some(mirror_login) = &login.mirror_login {
+            match migrate_mirror_login(&conn, &mirror_login) {
+                Ok(_) => {}
+                Err(e) => {
+                    num_failed_insert += 1;
+                    insert_errors.push(e.label().into());
                 }
             }
         }
     }
+    tx.commit()?;
     let insert_phase_duration = import_start.elapsed();
     let mut all_errors = Vec::new();
     all_errors.extend(insert_errors.clone());
@@ -330,15 +301,12 @@ fn migrate_logins(
 
 // This was copied from import_multiple in db.rs with a focus on LocalLogin
 fn migrate_local_login(
-    store: &LoginStore,
+    db: &LoginDb,
+    conn: &Connection,
     local_login: &LocalLogin,
     encdec: &EncryptorDecryptor,
 ) -> Result<()> {
-    let new_db = store.db.lock().unwrap();
-    let conn = new_db.conn();
-    let tx = conn.unchecked_transaction()?;
-
-    let sql = "INSERT OR IGNORE INTO loginsL (
+    let sql = "INSERT INTO loginsL (
             origin,
             httpRealm,
             formActionOrigin,
@@ -372,7 +340,7 @@ fn migrate_local_login(
 
     // TODO: Identify a way to prevent cloning on every row
     let login = &local_login.login.clone().decrypt(&encdec)?;
-    let login = match new_db.fixup_and_check_for_dupes(&login.guid(), login.entry(), encdec) {
+    let login = match db.fixup_and_check_for_dupes(&login.guid(), login.entry(), encdec) {
         Ok(new_entry) => EncryptedLogin {
             //record doesn't get fixed up
             record: RecordFields {
@@ -388,7 +356,7 @@ fn migrate_local_login(
                 &local_login.login.guid(),
                 e
             );
-            return Err(e);
+            throw!(e)
         }
     };
 
@@ -418,17 +386,12 @@ fn migrate_local_login(
             return Err(e.into());
         }
     };
-    tx.commit()?;
     Ok(())
 }
 
 // This was copied from import_multiple in db.rs with a focus on LocalLogin
-fn migrate_mirror_login(store: &LoginStore, mirror_login: &MirrorLogin) -> Result<()> {
-    let new_db = store.db.lock().unwrap();
-    let conn = new_db.conn();
-    let tx = conn.unchecked_transaction()?;
-
-    let sql = "INSERT OR IGNORE INTO loginsM (
+fn migrate_mirror_login(conn: &Connection, mirror_login: &MirrorLogin) -> Result<()> {
+    let sql = "INSERT INTO loginsM (
         origin,
         httpRealm,
         formActionOrigin,
@@ -485,7 +448,6 @@ fn migrate_mirror_login(store: &LoginStore, mirror_login: &MirrorLogin) -> Resul
             return Err(e.into());
         }
     };
-    tx.commit()?;
     Ok(())
 }
 
@@ -618,20 +580,22 @@ mod tests {
                 VALUES
                 ('a', 'test', 'password', 'https://www.example.com', NULL, 'https://www.example.com',
                 'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
-                ('b', 'test', 'password', 'https://www.example.com', 'https://www.example.com', 'https://www.example.com',
+                ('b', 'test', 'password', 'https://www.example1.com', 'https://www.example1.com', 'https://www.example1.com',
                 'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
                 ('bad_sync_status', 'test', 'password', 'https://www.example2.com', 'https://www.example.com', 'https://www.example.com',
-                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 'invalid_status');
+                'username', 'password', 1000, 1000, 1, 10, 1000, 0, 'invalid_status'),
+                ('d', 'test', 'password', '', 'Test Realm', NULL,
+                '', '', 1000, 1000, 1, 10, 1, 0, 1000);
 
             INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
                 usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
                 is_overridden, server_modified)
                 VALUES
-                ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
+                ('b', 'test', 'password', 'https://www.example1.com', 'Test Realm', NULL,
                 '', '', 1000, 1000, 1, 10, 0, 1000),
                 ('c', 'test', 'password', 'http://example.com:1234/', 'Test Realm', NULL,
                 '', '', 1000, 1000, 1, 10, 0, 1000),
-                ('d', 'test', 'password', '', 'Test Realm', NULL,
+                ('e', 'test', 'password', 'www.mirror_only.com', 'Test Realm', NULL,
                 '', '', 1000, 1000, 1, 10, 1, 1000);
 
             -- Need to test migrating sync meta else we'll be resyncing everything
@@ -722,7 +686,7 @@ mod tests {
         assert_eq!(enc.password, "password");
         assert_eq!(
             row.get_raw("origin").as_str().unwrap(),
-            "https://www.example.com"
+            "https://www.example1.com"
         );
         assert_eq!(row.get_raw("httpRealm").as_str().unwrap(), "Test Realm");
         assert_eq!(row.get_raw("formActionOrigin"), ValueRef::Null);
@@ -767,8 +731,8 @@ mod tests {
 
         // Check migration numbers
         // We should treat success per guid (localL + localM) rather than per record
-        assert_eq!(metrics.num_processed, 3);
-        assert_eq!(metrics.num_succeeded, 2);
+        assert_eq!(metrics.num_processed, 7);
+        assert_eq!(metrics.num_succeeded, 6);
         assert_eq!(metrics.num_failed, 1);
         assert_eq!(metrics.errors, ["InvalidLogin::EmptyOrigin"]);
     }
@@ -799,16 +763,16 @@ mod tests {
         let db = LoginDb::open(testpaths.new_db).unwrap();
         assert_eq!(
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
-            2
+            3
         );
         assert_eq!(
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsM").unwrap(),
-            2
+            3
         );
 
         // Check metrics
-        assert_eq!(metrics.num_processed, 6);
-        assert_eq!(metrics.num_succeeded, 5);
+        assert_eq!(metrics.num_processed, 7);
+        assert_eq!(metrics.num_succeeded, 6);
         assert_eq!(metrics.num_failed, 1);
         assert_eq!(metrics.errors.len(), 1);
     }
@@ -948,11 +912,10 @@ mod tests {
                     SystemTime::now(),
                 )),
                 mirror_login: Some(create_mirror_login(
-                    valid_login1.clone().encrypt(&encdec).unwrap(),
+                    valid_login1.encrypt(&encdec).unwrap(),
                     true,
                     ServerTimestamp::from_millis(1000),
                 )),
-                status: MigrationStatus::Processing,
             },
         );
 
@@ -966,7 +929,6 @@ mod tests {
                     true,
                     ServerTimestamp::from_millis(1000),
                 )),
-                status: MigrationStatus::Processing,
             },
         );
 
@@ -975,13 +937,12 @@ mod tests {
             valid_login2.guid().to_string(),
             MigrationLogin {
                 local_login: Some(create_local_login(
-                    valid_login3.clone().encrypt(&encdec).unwrap(),
+                    valid_login3.encrypt(&encdec).unwrap(),
                     SyncStatus::Synced,
                     false,
                     SystemTime::now(),
                 )),
                 mirror_login: None,
-                status: MigrationStatus::Processing,
             },
         );
 
