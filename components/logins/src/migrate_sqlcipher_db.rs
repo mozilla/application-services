@@ -586,47 +586,32 @@ mod tests {
         db
     }
 
-    fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
+    fn create_old_db_with_test_data(db_path: impl AsRef<Path>, salt: Option<&str>, inserts: &str) {
         let mut db = open_old_db(db_path, salt);
         let tx = db.transaction().unwrap();
         schema::init(&tx).unwrap();
 
-        // Manually migrate back to schema v4 and insert some data
-        // These all need to be executed as separate statements or
-        // sqlite will not execute them
-        const RENAME_LOCAL_USERNAME: &str = "
-            ALTER TABLE loginsL ADD COLUMN username
+        // Note that we still abuse our current schema for this. As part of the migration away
+        // from sqlcipher we renamed some columns, which we need to rename back.
+        // (The alternative would be to clone the entire schema from the last sqlcipher version,
+        // which isn't really any better than this, so meh.)
+        const RENAMES: &str = "
+            ALTER TABLE loginsL ADD COLUMN username;
+            ALTER TABLE loginsL ADD COLUMN password;
+            ALTER TABLE loginsM ADD COLUMN username;
+            ALTER TABLE loginsM ADD COLUMN password;
+            ALTER TABLE loginsL RENAME origin TO hostname;
+            ALTER TABLE loginsL RENAME formActionOrigin TO formSubmitURL;
+            ALTER TABLE loginsM RENAME origin TO hostname;
+            ALTER TABLE loginsM RENAME formActionOrigin TO formSubmitURL;
         ";
+        tx.execute_batch(&RENAMES).unwrap();
+        tx.execute_batch(inserts).unwrap();
+        tx.commit().unwrap();
+    }
 
-        const RENAME_LOCAL_PASSWORD: &str = "
-            ALTER TABLE loginsL ADD COLUMN password
-        ";
-
-        const RENAME_MIRROR_USERNAME: &str = "
-            ALTER TABLE loginsM ADD COLUMN username
-        ";
-
-        const RENAME_MIRROR_PASSWORD: &str = "
-            ALTER TABLE loginsM ADD COLUMN password
-        ";
-
-        const RENAME_LOCAL_HOSTNAME: &str = "
-            ALTER TABLE loginsL RENAME origin TO hostname
-        ";
-
-        const RENAME_LOCAL_SUBMIT_URL: &str = "
-            ALTER TABLE loginsL RENAME formActionOrigin TO formSubmitURL
-        ";
-
-        const RENAME_MIRROR_HOSTNAME: &str = "
-            ALTER TABLE loginsM RENAME origin TO hostname
-        ";
-
-        const RENAME_MIRROR_SUBMIT_URL: &str = "
-            ALTER TABLE loginsM RENAME formActionOrigin TO formSubmitURL
-        ";
-
-        const INSERT_LOGINS_L: &str = "
+    fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
+        const INSERTS: &str = r#"
             INSERT INTO loginsL(guid, username, password, hostname,
                 httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
                 timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
@@ -637,9 +622,7 @@ mod tests {
                 'username', 'password', 1000, 1000, 1, 10, 1000, 0, 2),
                 ('bad_sync_status', 'test', 'password', 'https://www.example2.com', 'https://www.example.com', 'https://www.example.com',
                 'username', 'password', 1000, 1000, 1, 10, 1000, 0, 'invalid_status');
-        ";
 
-        const INSERT_LOGINS_M: &str = "
             INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
                 usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
                 is_overridden, server_modified)
@@ -650,33 +633,11 @@ mod tests {
                 '', '', 1000, 1000, 1, 10, 0, 1000),
                 ('d', 'test', 'password', '', 'Test Realm', NULL,
                 '', '', 1000, 1000, 1, 10, 1, 1000);
-        ";
 
-        // Need to test migrating sync meta else we'll be resyncing everything
-        tx.execute_named(
-            "INSERT INTO loginsSyncMeta (key, value)
-             VALUES (:key, :value)",
-            rusqlite::named_params! {
-                ":key": "last_sync",
-                ":value": "some_payload_data",
-            },
-        )
-        .unwrap();
-        tx.execute_all(&[
-            RENAME_LOCAL_USERNAME,
-            RENAME_MIRROR_USERNAME,
-            RENAME_LOCAL_PASSWORD,
-            RENAME_MIRROR_PASSWORD,
-            RENAME_LOCAL_HOSTNAME,
-            RENAME_MIRROR_HOSTNAME,
-            RENAME_LOCAL_SUBMIT_URL,
-            RENAME_MIRROR_SUBMIT_URL,
-            // Inserts
-            INSERT_LOGINS_L,
-            INSERT_LOGINS_M,
-        ])
-        .unwrap();
-        tx.commit().unwrap();
+            -- Need to test migrating sync meta else we'll be resyncing everything
+            INSERT INTO loginsSyncMeta (key, value) VALUES ("last_sync", "some_payload_data");
+        "#;
+        create_old_db_with_test_data(db_path, salt, INSERTS);
     }
 
     struct TestPaths {
@@ -850,6 +811,59 @@ mod tests {
         assert_eq!(metrics.num_succeeded, 5);
         assert_eq!(metrics.num_failed, 1);
         assert_eq!(metrics.errors.len(), 1);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_migrate_broken_mirror_with_local() {
+        let inserts = format!(
+            r#"
+            INSERT INTO loginsL(guid, username, password, hostname,
+                httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
+                timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
+                VALUES
+                ('b', 'test', 'password', 'https://www.example.com', 'https://www.example.com', 'https://www.example.com',
+                'username', 'password', 1000, 1000, 1, 10, 1000, 0, {status_new});
+
+            INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
+                usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
+                is_overridden, server_modified)
+                VALUES
+                ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
+                '', '', "corrupt_time_created", "corrupt_time_last_used", "corrupt_time_changes", "corrupt_times_used", "corrupt_is_overridden", 1000);
+        "#,
+            status_new = SyncStatus::New as u8
+        );
+        let testpaths = TestPaths::new();
+        create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
+        let _metrics = migrate_sqlcipher_db_to_plaintext(
+            testpaths.old_db.as_path(),
+            testpaths.new_db.as_path(),
+            "old-key",
+            &TEST_ENCRYPTION_KEY,
+            None,
+        )
+        .unwrap();
+        // This *should not* migrate the corrupt mirror record but should mark the sync_status as
+        // SyncStatus::New - that will force us to grab a new mirror record from the server.
+        todo!("check the above!");
+    }
+
+    #[test]
+    #[ignore]
+    fn test_migrate_broken_mirror_without_local() {
+        // Just like the above, but *only* the mirror exists - so discarding it would be data-loss.
+        // In that case we should take the record with the fixed up data.
+        todo!("implement the above");
+    }
+
+    #[test]
+    #[ignore]
+    fn test_migrate_broken_local_without_mirror() {
+        // Just like the above - corrupt data in the local record, but mirror is fine.
+        // We should discard the local record keeping the mirror, but ensuring `is_overridden`
+        // and SyncStatus are correct.
+        todo!("implement the above");
     }
 
     #[test]
