@@ -9,6 +9,7 @@ mod update_plan;
 
 use crate::error::*;
 pub use engine::LoginsSyncEngine;
+pub(crate) use merge::{LocalLogin, MirrorLogin};
 pub(crate) use payload::LoginPayload;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
