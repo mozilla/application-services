@@ -2347,8 +2347,6 @@ dependencies = [
  "lazy_static",
  "log",
  "mockito",
- "prost",
- "prost-derive",
  "rc_crypto",
  "rusqlite",
  "serde",

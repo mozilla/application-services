@@ -13,9 +13,7 @@ use crate::internal::config::PushConfiguration;
 use crate::internal::crypto::{Crypto, Cryptography, KeyV1 as Key};
 use crate::internal::error::{self, ErrorKind, Result};
 use crate::internal::storage::{PushRecord, Storage, Store};
-// TODO(teshaq): those will be replaced with rust structs in the next
-// uniffication step
-use crate::msg_types::{
+use crate::{
     DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
 };
 

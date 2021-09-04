@@ -181,15 +181,11 @@
 //!```
 
 uniffi_macros::include_scaffolding!("push");
-
 // All implementation detail lives in the `internal` module
 mod internal;
 use std::sync::Mutex;
 
 pub use crate::internal::error::*;
-pub use msg_types::{
-    DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
-};
 
 // The following are only exposed for use by the examples
 pub use internal::communications::Connection;
@@ -198,10 +194,6 @@ pub use internal::error::Result as InternalResult;
 pub use internal::PushConfiguration;
 pub use internal::PushManager as InternalPushManager;
 // =====================
-
-pub mod msg_types {
-    include!("mozilla.appservices.push.protobuf.rs");
-}
 
 /// Object representing the PushManager used to manage subscriptions
 ///
@@ -524,4 +516,44 @@ impl From<internal::error::Error> for PushError {
             ErrorKind::RequestError(e) => PushError::RequestError(e.to_string()),
         }
     }
+}
+
+/// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DispatchInfo {
+    pub uaid: String,
+    pub scope: String,
+    pub endpoint: String,
+    pub app_server_key: Option<String>,
+}
+
+/// Key Information that can be used to encrypt payloads
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeyInfo {
+    pub auth: String,
+    pub p256dh: String,
+}
+/// Subscription Information, the endpoint to send push messages to and
+/// the key information that can be used to encrypt payloads
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubscriptionInfo {
+    pub endpoint: String,
+    pub keys: KeyInfo,
+}
+
+/// The subscription response object returned from [`PushManager::subscribe`]
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubscriptionResponse {
+    pub channel_id: String,
+    pub subscription_info: SubscriptionInfo,
+}
+
+/// An dictionary describing the push subscription that changed, the caller
+/// will receive a list of [`PushSubscriptionChanged`] when calling
+/// [`PushManager::verify_connection`], one entry for each channel that the
+/// caller should resubscribe to
+#[derive(Debug, Clone, PartialEq)]
+pub struct PushSubscriptionChanged {
+    pub channel_id: String,
+    pub scope: String,
 }

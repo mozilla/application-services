@@ -23,8 +23,6 @@ viaduct = { path = "../viaduct" }
 sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
-prost = "0.8"
-prost-derive = "0.8"
 thiserror = "1.0"
 uniffi = "^0.14"
 uniffi_macros = "^0.14"
