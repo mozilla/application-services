@@ -1602,7 +1602,7 @@ dependencies = [
  "logins",
  "nimbus-sdk",
  "places-ffi",
- "push-ffi",
+ "push",
  "rc_log_ffi",
  "sync_manager_ffi",
  "viaduct",
@@ -2343,7 +2343,6 @@ dependencies = [
  "base64 0.12.3",
  "bincode",
  "error-support",
- "ffi-support",
  "hex",
  "lazy_static",
  "log",
@@ -2363,21 +2362,6 @@ dependencies = [
  "url",
  "viaduct",
  "viaduct-reqwest",
-]
-
-[[package]]
-name = "push-ffi"
-version = "0.1.0"
-dependencies = [
- "base64 0.12.3",
- "ffi-support",
- "lazy_static",
- "log",
- "prost",
- "push",
- "serde_json",
- "url",
- "viaduct",
 ]
 
 [[package]]

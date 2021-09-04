@@ -6,7 +6,6 @@ pub mod communications;
 pub mod config;
 pub mod crypto;
 pub mod error;
-pub mod ffi;
 pub mod storage;
 pub mod subscriber;
 

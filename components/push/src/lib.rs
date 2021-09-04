@@ -191,15 +191,12 @@ pub use msg_types::{
     DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
 };
 
-// ===== The following are only used by the FFI crate and will be removed ====
-pub use internal::error::Result as InternalResult;
-pub use internal::PushConfiguration;
-pub use internal::PushManager as InternalPushManager;
-// ====================================
-
 // The following are only exposed for use by the examples
 pub use internal::communications::Connection;
 pub use internal::crypto::get_random_bytes;
+pub use internal::error::Result as InternalResult;
+pub use internal::PushConfiguration;
+pub use internal::PushManager as InternalPushManager;
 // =====================
 
 pub mod msg_types {
