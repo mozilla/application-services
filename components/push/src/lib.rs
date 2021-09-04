@@ -238,11 +238,12 @@ impl PushManager {
             BridgeType::Apns => "apns",
             BridgeType::Fcm => "fcm",
             BridgeType::Test => "test",
-        };
-        let config = internal::PushConfiguration {
+        }
+        .to_string();
+        let config = PushConfiguration {
             server_host,
             http_protocol: Some(http_protocol),
-            bridge_type: Some(bridge_type.to_owned()),
+            bridge_type: Some(bridge_type),
             registration_id: Some(registration_id),
             sender_id,
             database_path: Some(database_path),
@@ -362,7 +363,9 @@ impl PushManager {
     ///   - `dh` - The "dh" field (if present in the raw message, defaults to "")
     ///
     /// # Returns
-    /// Decrypted message body
+    /// Decrypted message body as a signed byte array
+    /// they byte array is signed to allow consumers (Kotlin only at the time of this documentation)
+    /// to work easily with the message. (They can directly call `.toByteArray` on it)
     ///
     /// # Errors
     /// Returns an error in the following cases:
