@@ -2996,6 +2996,7 @@ dependencies = [
 name = "sql-support"
 version = "0.1.0"
 dependencies = [
+ "env_logger",
  "ffi-support",
  "interrupt-support",
  "lazy_static",
