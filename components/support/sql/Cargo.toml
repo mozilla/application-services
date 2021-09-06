@@ -21,5 +21,8 @@ tempfile = "3.1.0"
 version = "0.24.2"
 features = ["functions", "limits", "bundled", "unlock_notify"]
 
+[dev-dependencies]
+env_logger = {version = "0.7", default-features = false}
+
 [build-dependencies]
 nss_build_common = { path = "../rc_crypto/nss/nss_build_common" }

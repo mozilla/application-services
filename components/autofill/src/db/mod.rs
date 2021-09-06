@@ -47,7 +47,7 @@ impl AutofillDb {
         let conn = open_database::open_database_with_flags(
             db_path,
             flags,
-            &schema::AutofillMigrationLogic,
+            &schema::AutofillConnectionInitializer,
         )?;
 
         Ok(Self {
