@@ -5,9 +5,6 @@
 ["places_msg_types.proto"]
 dir = "../components/places/src/"
 
-["push_msg_types.proto"]
-dir = "../components/push/src/"
-
 ["manager_msg_types.proto"]
 dir = "../components/sync_manager/src/"
 
