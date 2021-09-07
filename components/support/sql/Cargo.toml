@@ -20,3 +20,6 @@ tempfile = "3.1.0"
 [dependencies.rusqlite]
 version = "0.24.2"
 features = ["functions", "limits", "bundled", "unlock_notify"]
+
+[build-dependencies]
+nss_build_common = { path = "../rc_crypto/nss/nss_build_common" }
