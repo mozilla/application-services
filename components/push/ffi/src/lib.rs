@@ -11,9 +11,9 @@ use ffi_support::{
 };
 use std::os::raw::c_char;
 
-use push::config::PushConfiguration;
-use push::error::Result;
-use push::subscriber::PushManager;
+use push::InternalPushManager as PushManager;
+use push::InternalResult as Result;
+use push::PushConfiguration;
 
 lazy_static::lazy_static! {
     static ref MANAGER: ConcurrentHandleMap<PushManager> = ConcurrentHandleMap::new();

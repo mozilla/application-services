@@ -376,8 +376,8 @@ interface PushAPI : AutoCloseable {
     /**
      * Verifies the connection state.
      *
-     * @return bool indicating if connection state is valid (true) or if channels should get a
-     * `pushsubscriptionchange` event (false).
+     * @return a List of PushSubscriptionChanged indicating the channels
+     * a client should resubscribe to
      */
     fun verifyConnection(): List<PushSubscriptionChanged>
 

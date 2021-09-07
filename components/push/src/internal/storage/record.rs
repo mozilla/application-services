@@ -4,8 +4,8 @@
 
 use rusqlite::Row;
 
-use crate::crypto::KeyV1 as Key;
-use crate::error::Result;
+use crate::internal::crypto::KeyV1 as Key;
+use crate::internal::error::Result;
 
 use super::types::Timestamp;
 

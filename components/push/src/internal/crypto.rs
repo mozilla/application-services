@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::error;
+use crate::internal::error;
 use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
