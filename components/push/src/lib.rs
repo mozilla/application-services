@@ -180,6 +180,8 @@
 //!     return result.toString(Charset.forName("UTF-8"))
 //!```
 
+uniffi_macros::include_scaffolding!("push");
+
 // All implementation detail lives in the `internal` module
 mod internal;
 use std::sync::Mutex;
@@ -238,14 +240,20 @@ impl PushManager {
         sender_id: String,
         server_host: String,
         http_protocol: String,
-        bridge_type: String,
+        bridge_type: BridgeType,
         registration_id: String,
         database_path: String,
     ) -> Result<Self> {
+        let bridge_type = match bridge_type {
+            BridgeType::Adm => "adm",
+            BridgeType::Apns => "apns",
+            BridgeType::Fcm => "fcm",
+            BridgeType::Test => "test",
+        };
         let config = internal::PushConfiguration {
             server_host,
             http_protocol: Some(http_protocol),
-            bridge_type: Some(bridge_type),
+            bridge_type: Some(bridge_type.to_owned()),
             registration_id: Some(registration_id),
             sender_id,
             database_path: Some(database_path),
@@ -380,17 +388,18 @@ impl PushManager {
         encoding: &str,
         salt: &str,
         dh: &str,
-    ) -> Result<Vec<u8>> {
-        // TODO(teshaq): Modify the decrypt function to return the Vec<u8> directly
-        // once the ffi crate is no longer using it
-        let ret = self.internal.lock().unwrap().decrypt(
+    ) -> Result<Vec<i8>> {
+        let decrypted = self.internal.lock().unwrap().decrypt(
             channel_id,
             body,
             encoding,
             Some(salt),
             Some(dh),
         )?;
-        Ok(ret.as_bytes().to_vec())
+
+        // NOTE: this returns a `Vec<i8>` since the kotlin consumer is expecting
+        // signed bytes.
+        Ok(decrypted.into_iter().map(|ub| ub as i8).collect())
     }
 
     /// Get the dispatch info for a given subscription channel
@@ -406,5 +415,116 @@ impl PushManager {
     ///   - An error occurred accessing the persisted storage
     pub fn dispatch_info_for_chid(&self, channel_id: &str) -> Result<Option<DispatchInfo>> {
         self.internal.lock().unwrap().get_record_by_chid(channel_id)
+    }
+}
+
+/// Public facing Error that the crate produces
+///
+/// This is created from an internal error as the error passes through the FFI
+
+#[derive(Debug, thiserror::Error)]
+pub enum PushError {
+    /// An unspecified general error has occured
+    #[error("General Error: {0:?}")]
+    GeneralError(String),
+
+    /// An error occurred while running a cryptographic operation
+    #[error("Crypto error: {0}")]
+    CryptoError(String),
+
+    /// A Client communication error
+    #[error("Communication Error: {0:?}")]
+    CommunicationError(String),
+
+    /// An error returned from the registration Server
+    #[error("Communication Server Error: {0}")]
+    CommunicationServerError(String),
+
+    /// Channel is already registered, generate new channelID
+    #[error("Channel already registered.")]
+    AlreadyRegisteredError,
+
+    /// An error with Storage
+    #[error("Storage Error: {0:?}")]
+    StorageError(String),
+
+    #[error("No record for uaid:chid {0:?}:{1:?}")]
+    RecordNotFoundError(String, String),
+
+    /// A failure to encode data to/from storage.
+    #[error("Error executing SQL: {0}")]
+    StorageSqlError(String),
+
+    /// The registration token could not be found
+    #[error("Missing Registration Token")]
+    MissingRegistrationTokenError,
+
+    #[error("Transcoding Error: {0}")]
+    TranscodingError(String),
+
+    /// A failure to parse a URL.
+    #[error("URL parse error: {0:?}")]
+    UrlParseError(String),
+
+    /// A failure deserializing json.
+    #[error("Failed to parse json: {0}")]
+    JSONDeserializeError(String),
+
+    /// The UAID was not recognized by the server
+    #[error("Unrecognized UAID: {0}")]
+    UAIDNotRecognizedError(String),
+
+    /// Was unable to send request to server
+    #[error("Unable to send request to server: {0}")]
+    RequestError(String),
+}
+
+/// The types of supported native bridges.
+///
+/// FCM = Google Android Firebase Cloud Messaging
+/// ADM = Amazon Device Messaging for FireTV
+/// APNS = Apple Push Notification System for iOS
+///
+/// Please contact services back-end for any additional bridge protocols.
+///
+pub enum BridgeType {
+    Fcm,
+    Adm,
+    Apns,
+    Test,
+}
+
+// We define how to convert from an internal error
+// into the external facing [`PushError`]
+// note that the some variants of the internal error
+// carry another error they were generated from
+// this information is dropped and replaced with a message
+// which is the stringified error
+impl From<internal::error::Error> for PushError {
+    fn from(err: internal::error::Error) -> Self {
+        match err.kind() {
+            ErrorKind::GeneralError(message) => PushError::GeneralError(message.clone()),
+            ErrorKind::CryptoError(message) => PushError::CryptoError(message.clone()),
+            ErrorKind::CommunicationError(message) => {
+                PushError::CommunicationError(message.clone())
+            }
+            ErrorKind::CommunicationServerError(message) => {
+                PushError::CommunicationServerError(message.clone())
+            }
+            ErrorKind::AlreadyRegisteredError => PushError::AlreadyRegisteredError,
+            ErrorKind::StorageError(message) => PushError::StorageError(message.clone()),
+            ErrorKind::RecordNotFoundError(uaid, chid) => {
+                PushError::RecordNotFoundError(uaid.clone(), chid.clone())
+            }
+            ErrorKind::StorageSqlError(e) => PushError::StorageSqlError(e.to_string()),
+            ErrorKind::MissingRegistrationTokenError => PushError::MissingRegistrationTokenError,
+            ErrorKind::TranscodingError(message) => PushError::TranscodingError(message.clone()),
+            ErrorKind::UrlParseError(e) => PushError::UrlParseError(e.to_string()),
+            ErrorKind::JSONDeserializeError(e) => PushError::JSONDeserializeError(e.to_string()),
+            ErrorKind::UAIDNotRecognizedError(message) => {
+                PushError::UAIDNotRecognizedError(message.clone())
+            }
+            ErrorKind::RequestError(e) => PushError::RequestError(e.to_string()),
+        }
     }
 }
