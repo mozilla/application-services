@@ -851,6 +851,7 @@ dependencies = [
  "tempdir",
  "types",
  "url",
+ "viaduct-reqwest",
 ]
 
 [[package]]
