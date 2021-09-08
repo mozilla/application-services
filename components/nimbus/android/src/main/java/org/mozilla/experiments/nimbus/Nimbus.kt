@@ -393,11 +393,13 @@ open class Nimbus(
         try {
             thunk()
         } catch (e: Throwable) {
-            try {
-                errorReporter("Error in Nimbus Rust", e)
-            } catch (e1: Throwable) {
-                logger("Exception calling rust: $e")
-                logger("Exception reporting the exception: $e1")
+            if (e !is NimbusException.DatabaseNotReady) {
+                try {
+                    errorReporter("Error in Nimbus Rust", e)
+                } catch (e1: Throwable) {
+                    logger("Exception calling rust: $e")
+                    logger("Exception reporting the exception: $e1")
+                }
             }
             null
         }
