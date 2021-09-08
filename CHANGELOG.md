@@ -1,3 +1,9 @@
+# v81.0.0 (_2021-09-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.1...v81.0.0)
+
+
+
 # v80.0.1 (_2021-07-06_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v80.0.0...v80.0.1)
