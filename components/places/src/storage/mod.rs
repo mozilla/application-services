@@ -68,6 +68,7 @@ pub struct PageInfo {
     pub row_id: RowId,
     pub title: String,
     pub hidden: bool,
+    pub preview_image_url: Option<Url>,
     pub typed: u32,
     pub frecency: i32,
     pub visit_count_local: i32,
@@ -86,6 +87,10 @@ impl PageInfo {
             row_id: row.get("id")?,
             title: row.get::<_, Option<String>>("title")?.unwrap_or_default(),
             hidden: row.get("hidden")?,
+            preview_image_url: match row.get::<_, Option<String>>("preview_image_url")? {
+                Some(ref preview_image_url) => Some(Url::parse(preview_image_url)?),
+                None => None,
+            },
             typed: row.get("typed")?,
 
             frecency: row.get("frecency")?,
@@ -131,7 +136,7 @@ pub fn fetch_page_info(db: &PlacesDb, url: &Url) -> Result<Option<FetchedPageInf
       SELECT guid, url, id, title, hidden, typed, frecency,
              visit_count_local, visit_count_remote,
              last_visit_date_local, last_visit_date_remote,
-             sync_status, sync_change_counter,
+             sync_status, sync_change_counter, preview_image_url,
              (SELECT id FROM moz_historyvisits
               WHERE place_id = h.id
                 AND (visit_date = h.last_visit_date_local OR
@@ -165,6 +170,7 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
         row_id: RowId(db.conn().last_insert_rowid()),
         title: "".into(),
         hidden: true, // will be set to false as soon as a non-hidden visit appears.
+        preview_image_url: None,
         typed: 0,
         frecency: -1,
         visit_count_local: 0,
@@ -190,6 +196,7 @@ impl HistoryVisitInfo {
             timestamp: visit_date.0 as i64,
             visit_type: visit_type as i32,
             is_hidden: row.get("hidden")?,
+            preview_image_url: row.get("preview_image_url")?,
         })
     }
 }

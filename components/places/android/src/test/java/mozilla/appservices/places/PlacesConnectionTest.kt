@@ -10,6 +10,7 @@ import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
@@ -174,6 +175,40 @@ class PlacesConnectionTest {
         // Actual visit had no www
         assertEquals(null, db.matchUrl("www.mozilla.com/a1"))
         assertEquals("https://news.ycombinator.com/", db.matchUrl("news"))
+    }
+
+    @Test
+    fun testObservingPreviewImage() {
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/0",
+            visitType = VisitType.LINK)
+        )
+
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/1",
+            visitType = VisitType.LINK)
+        )
+
+        // Can change preview image.
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/1",
+            visitType = VisitType.LINK,
+            previewImageUrl = "https://www.example.com/1/previewImage.png")
+        )
+
+        // Can make an initial observation with the preview image.
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/2",
+            visitType = VisitType.LINK,
+            previewImageUrl = "https://www.example.com/2/previewImage.png")
+        )
+
+        val all = db.getVisitInfos(0)
+        assertEquals(4, all.count())
+        assertNull(all[0].previewImageUrl)
+        assertEquals("https://www.example.com/1/previewImage.png", all[1].previewImageUrl)
+        assertEquals("https://www.example.com/1/previewImage.png", all[2].previewImageUrl)
+        assertEquals("https://www.example.com/2/previewImage.png", all[3].previewImageUrl)
     }
 
     @Test

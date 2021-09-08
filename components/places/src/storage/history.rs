@@ -53,6 +53,19 @@ pub fn apply_observation_direct(
     if url.as_str().len() > super::URL_LENGTH_MAX {
         return Ok(None);
     }
+    // Make sure we have a valid preview URL - it should parse, and not exceed max size.
+    // In case the URL is too long, ignore it and proceed with the rest of the observation.
+    // In case the URL is entirely invalid, let the caller know by failing.
+    let preview_image_url = if let Some(ref piu) = visit_ob.preview_image_url {
+        let url = Url::parse(piu)?;
+        if url.as_str().len() > super::URL_LENGTH_MAX {
+            None
+        } else {
+            Some(url)
+        }
+    } else {
+        None
+    };
     let mut page_info = match fetch_page_info(db, &url)? {
         Some(info) => info.page,
         None => new_page_info(db, &url, None)?,
@@ -65,6 +78,15 @@ pub fn apply_observation_direct(
         page_info.title = crate::util::slice_up_to(title, super::TITLE_LENGTH_MAX).into();
         updates.push(("title", ":title", &page_info.title));
         update_change_counter = true;
+    }
+    let preview_image_url_str;
+    if let Some(ref preview_image_url) = preview_image_url {
+        preview_image_url_str = preview_image_url.as_str();
+        updates.push((
+            "preview_image_url",
+            ":preview_image_url",
+            &preview_image_url_str,
+        ));
     }
     // There's a new visit, so update everything that implies. To help with
     // testing we return the rowid of the visit we added.
@@ -931,7 +953,7 @@ pub mod history_sync {
             SELECT guid, url, id, title, hidden, typed, frecency,
                 visit_count_local, visit_count_remote,
                 last_visit_date_local, last_visit_date_remote,
-                sync_status, sync_change_counter
+                sync_status, sync_change_counter, preview_image_url
             FROM moz_places
             WHERE (sync_change_counter > 0 OR sync_status != {}) AND
                   NOT hidden
@@ -1246,7 +1268,7 @@ pub fn get_visit_infos(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1291,7 +1313,7 @@ pub fn get_visit_page(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1319,7 +1341,7 @@ pub fn get_visit_page_with_bound(
 ) -> Result<HistoryVisitInfosWithBound> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1827,6 +1849,22 @@ mod tests {
             .expect("page should exist")
             .page;
         assert_eq!(pi.title, "new title");
+        assert_eq!(pi.preview_image_url, None);
+        assert_eq!(pi.sync_change_counter, 2);
+        // An observation with just a preview_image_url should not update it.
+        apply_observation(
+            &conn,
+            VisitObservation::new(pi.url.clone())
+                .with_preview_image_url(Some("https://www.example.com/preview.png".to_string())),
+        )?;
+        pi = fetch_page_info(&conn, &pi.url)?
+            .expect("page should exist")
+            .page;
+        assert_eq!(pi.title, "new title");
+        assert_eq!(
+            pi.preview_image_url,
+            Some(Url::parse("https://www.example.com/preview.png").expect("parsed"))
+        );
         assert_eq!(pi.sync_change_counter, 2);
         Ok(())
     }
@@ -2724,6 +2762,105 @@ mod tests {
     }
 
     #[test]
+    fn test_preview_url() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        let url1 = Url::parse("https://www.example.com/").unwrap();
+        // Can observe preview url without an associated visit.
+        assert!(apply_observation(
+            &conn,
+            VisitObservation::new(url1.clone())
+                .with_preview_image_url(Some("https://www.example.com/image.png".to_string()))
+        )
+        .unwrap()
+        .is_none());
+
+        // We don't get a visit id back above, so just assume an id of the corresponding moz_places entry.
+        let mut db_preview_url = conn
+            .query_row_and_then_named(
+                "SELECT preview_image_url FROM moz_places WHERE id = 1",
+                &[],
+                |row| row.get(0),
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            Some("https://www.example.com/image.png".to_string()),
+            db_preview_url
+        );
+
+        // Observing a visit afterwards doesn't erase a preview url.
+        let visit_id = apply_observation(
+            &conn,
+            VisitObservation::new(url1).with_visit_type(VisitTransition::Link),
+        )
+        .unwrap();
+        assert!(visit_id.is_some());
+
+        db_preview_url = conn
+            .query_row_and_then_named(
+                "SELECT h.preview_image_url FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
+                &[(":id", &visit_id.unwrap())],
+                |row| row.get(0),
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            Some("https://www.example.com/image.png".to_string()),
+            db_preview_url
+        );
+
+        // Can observe a preview image url as part of a visit observation.
+        let another_visit_id = apply_observation(
+            &conn,
+            VisitObservation::new(Url::parse("https://www.example.com/another/").unwrap())
+                .with_preview_image_url(Some("https://www.example.com/funky/image.png".to_string()))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap();
+        assert!(another_visit_id.is_some());
+
+        db_preview_url = conn
+            .query_row_and_then_named(
+                "SELECT h.preview_image_url FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
+                &[(":id", &another_visit_id.unwrap())],
+                |row| row.get(0),
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            Some("https://www.example.com/funky/image.png".to_string()),
+            db_preview_url
+        );
+    }
+
+    #[test]
+    fn test_bad_preview_url() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        // Observing a bad preview url as part of a visit observation fails.
+        match apply_observation(
+            &conn,
+            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                .with_visit_type(VisitTransition::Link)
+                .with_preview_image_url(Some("not at all a url".to_string())),
+        ) {
+            Ok(_) => assert!(false, "expected bad preview url to fail an observation"),
+            Err(_) => {}
+        }
+
+        // Observing a bad preview url by itself also fails.
+        match apply_observation(
+            &conn,
+            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                .with_preview_image_url(Some("not at all a url".to_string())),
+        ) {
+            Ok(_) => assert!(false, "expected bad preview url to fail an observation"),
+            Err(_) => {}
+        }
+    }
+
+    #[test]
     fn test_long_strings() {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
@@ -2739,6 +2876,19 @@ mod tests {
         )
         .unwrap();
         assert!(maybe_row.is_none(), "Shouldn't insert overlong URL");
+
+        let maybe_row_preview = apply_observation(
+            &conn,
+            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                .with_visit_type(VisitTransition::Link)
+                .with_preview_image_url(url),
+        )
+        .unwrap();
+        assert!(
+            maybe_row_preview.is_some(),
+            "Shouldn't avoid a visit observation due to an overly long preview url"
+        );
+
         let mut title = "example 1 2 3".to_string();
         // Make sure whatever we use here surpasses the length.
         while title.len() < crate::storage::TITLE_LENGTH_MAX + 10 {
