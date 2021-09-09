@@ -486,6 +486,7 @@ class PlacesConnectionTest {
             VisitObservation(
                 url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
                 title = "Are All Wireless Earbuds As Evil As AirPods?",
+                previewImageUrl = "https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg",
                 visitType = VisitType.LINK
             )
         )
@@ -506,6 +507,9 @@ class PlacesConnectionTest {
             assertEquals(1, this.size)
             // view time is zero, since we didn't record it yet.
             assertEquals(0, this[0].totalViewTime)
+            // assert that we get the preview image and title
+            assertEquals("Are All Wireless Earbuds As Evil As AirPods?", this[0].title)
+            assertEquals("https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg", this[0].previewImageUrl)
         }
 
         db.noteHistoryMetadataObservationViewTime(metaKey1, 1337)
