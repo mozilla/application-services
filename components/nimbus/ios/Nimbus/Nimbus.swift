@@ -50,6 +50,8 @@ private extension Nimbus {
     func catchAll<T>(_ thunk: () throws -> T?) -> T? {
         do {
             return try thunk()
+        } catch NimbusError.DatabaseNotReady {
+            return nil
         } catch {
             errorReporter(error)
             return nil
