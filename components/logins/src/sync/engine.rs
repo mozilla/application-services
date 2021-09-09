@@ -364,6 +364,14 @@ impl LoginsSyncEngine {
         Ok(())
     }
 
+    pub fn delete_local_sync_data(&self) -> Result<()> {
+        let db = self.store.db.lock().unwrap();
+        db.execute_all(&["DELETE FROM loginsM"])?;
+        self.set_last_sync(&db, ServerTimestamp(0))?;
+        db.delete_meta(schema::GLOBAL_STATE_META_KEY)?;
+        Ok(())
+    }
+
     // It would be nice if this were a batch-ish api (e.g. takes a slice of records and finds dupes
     // for each one if they exist)... I can't think of how to write that query, though.
     // This is subtly different from dupe handling by the main API and maybe
@@ -709,5 +717,70 @@ mod tests {
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].guid, "dummy_000001");
         assert_eq!(res[1].guid, "dummy_000003");
+    }
+
+    #[test]
+    fn test_delete_local_sync_data() {
+        let store = LoginStore::new_in_memory().unwrap();
+        let engine = LoginsSyncEngine::new(Arc::new(store));
+        let random_server_time = ServerTimestamp(678);
+        engine
+            .set_last_sync(&engine.store.db.lock().unwrap(), random_server_time)
+            .unwrap();
+
+        // create sync metadata
+        let global_state_val = "fake_global_guid".to_string();
+        let guid = "fake_guid";
+        engine
+            .set_global_state(&Some(global_state_val.clone()))
+            .unwrap();
+
+        insert_login(
+            &engine.store.db.lock().unwrap(),
+            guid,
+            None,
+            Some("fake_password"),
+        );
+
+        // check that last sync and global state were set
+        let last_sync = engine
+            .get_last_sync(&engine.store.db.lock().unwrap())
+            .unwrap();
+        assert!(last_sync.is_some());
+        assert_eq!(last_sync.unwrap(), random_server_time);
+
+        let global_state = engine.get_global_state().unwrap();
+        assert!(global_state.is_some());
+        assert_eq!(global_state.unwrap(), global_state_val);
+
+        engine.delete_local_sync_data().unwrap();
+
+        {
+            let db = &engine.store.db.lock().unwrap();
+
+            // check that the mirror table was emptied
+            let mirror_has_records: bool = db
+                .query_row(
+                    "SELECT EXISTS (
+                    SELECT 1
+                    FROM loginsM
+                )",
+                    NO_PARAMS,
+                    |row| row.get(0),
+                )
+                .unwrap();
+
+            assert!(!mirror_has_records);
+        }
+
+        // check that last sync and global state were reset
+        assert_eq!(
+            engine
+                .get_last_sync(&engine.store.db.lock().unwrap())
+                .unwrap()
+                .unwrap(),
+            ServerTimestamp(0)
+        );
+        assert!(engine.get_global_state().unwrap().is_none());
     }
 }

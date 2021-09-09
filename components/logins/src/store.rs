@@ -212,6 +212,15 @@ impl LoginStore {
         }
     }
 
+    /// Deletes all records from local and mirror tables and some sync meta data when the
+    /// logins per-field encryption key has been corrupted or lost.
+    pub fn delete_encrypted_login_data(self: Arc<Self>) -> Result<()> {
+        let engine = LoginsSyncEngine::new(Arc::clone(&self));
+        engine.delete_local_sync_data()?;
+        self.db.lock().unwrap().delete_encrypted_login_data()?;
+        Ok(())
+    }
+
     // This allows the embedding app to say "make this instance available to
     // the sync manager". The implementation is more like "offer to sync mgr"
     // (thereby avoiding us needing to link with the sync manager) but

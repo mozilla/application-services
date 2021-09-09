@@ -752,6 +752,13 @@ impl LoginDb {
         Ok(exists)
     }
 
+    pub fn delete_encrypted_login_data(&self) -> Result<()> {
+        let tx = self.unchecked_transaction_imm()?;
+        tx.execute("DELETE FROM loginsL", NO_PARAMS)?;
+        tx.commit()?;
+        Ok(())
+    }
+
     fn mark_mirror_overridden(&self, guid: &str) -> Result<()> {
         self.execute_named_cached(
             "UPDATE loginsM SET is_overridden = 1 WHERE guid = :guid",
@@ -1768,5 +1775,49 @@ mod tests {
         let logins = db.get_by_base_domain("www.example.com").unwrap();
         assert_eq!(logins.len(), 1);
         assert_ne!(logins[0].record.id, bad_guid, "guid was fixed");
+    }
+
+    #[test]
+    fn test_delete_encrypted_login_data() {
+        let db = LoginDb::open_in_memory().unwrap();
+
+        db.add(
+            LoginEntry {
+                fields: LoginFields {
+                    form_action_origin: Some("https://www.example.com".into()),
+                    origin: "https://www.example.com".into(),
+                    ..Default::default()
+                },
+                sec_fields: SecureLoginFields {
+                    username: "test username".to_string(),
+                    password: "test password".to_string(),
+                },
+            },
+            &TEST_ENCRYPTOR,
+        )
+        .unwrap();
+
+        db.add(
+            LoginEntry {
+                fields: LoginFields {
+                    form_action_origin: Some("https://www.example2.com".into()),
+                    origin: "https://www.example2.com".into(),
+                    ..Default::default()
+                },
+                sec_fields: SecureLoginFields {
+                    username: "test username2".to_string(),
+                    password: "test password2".to_string(),
+                },
+            },
+            &TEST_ENCRYPTOR,
+        )
+        .unwrap();
+
+        db.delete_encrypted_login_data().unwrap();
+
+        assert_eq!(
+            db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
+            0
+        );
     }
 }

@@ -4,7 +4,6 @@
 
 package mozilla.appservices.logins
 
-import java.util.concurrent.atomic.AtomicReference
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**

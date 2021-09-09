@@ -135,6 +135,13 @@ interface LoginStore {
     [Throws=LoginsStorageError]
     string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
 
+    // This function should only be called when the logins per-field encryption key
+    // has been corrupted, lost, or can no longer decrypt the existing username and
+    // password data. It will remove all local login data as the username and password
+    // fields will be useless in the encrypted state.
+    [Throws=LoginsStorageError, Self=ByArc]
+    void delete_encrypted_login_data();
+
     [Self=ByArc]
     void register_with_sync_manager();
 
