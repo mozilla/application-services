@@ -653,10 +653,15 @@ mod tests {
             match $preview_image_url as Option<&str> {
                 Some(t) => assert_eq!(
                     String::from(t),
-                    meta.preview_image_url.expect("preview_image_url must be Some"),
+                    meta.preview_image_url
+                        .expect("preview_image_url must be Some"),
                     "preview_image_url must match"
                 ),
-                None => assert_eq!(true, meta.preview_image_url.is_none(), "preview_image_url expected to be None"),
+                None => assert_eq!(
+                    true,
+                    meta.preview_image_url.is_none(),
+                    "preview_image_url expected to be None"
+                ),
             };
         };
     }

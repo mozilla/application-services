@@ -2839,25 +2839,27 @@ mod tests {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
 
         // Observing a bad preview url as part of a visit observation fails.
-        match apply_observation(
-            &conn,
-            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                .with_visit_type(VisitTransition::Link)
-                .with_preview_image_url(Some("not at all a url".to_string())),
-        ) {
-            Ok(_) => assert!(false, "expected bad preview url to fail an observation"),
-            Err(_) => {}
-        }
+        assert!(
+            apply_observation(
+                &conn,
+                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                    .with_visit_type(VisitTransition::Link)
+                    .with_preview_image_url(Some("not at all a url".to_string())),
+            )
+            .is_err(),
+            "expected bad preview url to fail an observation"
+        );
 
         // Observing a bad preview url by itself also fails.
-        match apply_observation(
-            &conn,
-            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                .with_preview_image_url(Some("not at all a url".to_string())),
-        ) {
-            Ok(_) => assert!(false, "expected bad preview url to fail an observation"),
-            Err(_) => {}
-        }
+        assert!(
+            apply_observation(
+                &conn,
+                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                    .with_preview_image_url(Some("not at all a url".to_string())),
+            )
+            .is_err(),
+            "expected bad preview url to fail an observation"
+        );
     }
 
     #[test]
