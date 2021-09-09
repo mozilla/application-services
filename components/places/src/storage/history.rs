@@ -2894,7 +2894,7 @@ mod tests {
         while title.len() < crate::storage::TITLE_LENGTH_MAX + 10 {
             title += " test test";
         }
-        let maybe_row = apply_observation(
+        let maybe_visit_row = apply_observation(
             &conn,
             VisitObservation::new(Url::parse("http://www.example.com/123").unwrap())
                 .with_title(title.clone())
@@ -2903,16 +2903,16 @@ mod tests {
         )
         .unwrap();
 
-        assert!(maybe_row.is_some());
+        assert!(maybe_visit_row.is_some());
         let db_title: String = conn
             .query_row_and_then_named(
-                "SELECT title FROM moz_places WHERE id = :id",
-                &[(":id", &maybe_row.unwrap())],
+                "SELECT h.title FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
+                &[(":id", &maybe_visit_row.unwrap())],
                 |row| row.get(0),
                 false,
             )
             .unwrap();
-        // Ensure what we get back sta
+        // Ensure what we get back the trimmed title.
         assert_eq!(db_title.len(), crate::storage::TITLE_LENGTH_MAX);
         assert!(title.starts_with(&db_title));
     }
