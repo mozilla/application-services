@@ -10,6 +10,8 @@ pub struct HistoryVisitInfo {
     pub visit_type: i32,
     #[prost(bool, required, tag="5")]
     pub is_hidden: bool,
+    #[prost(string, optional, tag="6")]
+    pub preview_image_url: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HistoryVisitInfos {

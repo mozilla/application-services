@@ -54,6 +54,7 @@ pub struct HistoryMetadataObservation {
 pub struct HistoryMetadata {
     pub url: String,
     pub title: Option<String>,
+    pub preview_image_url: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     pub total_view_time: i32,
@@ -70,6 +71,7 @@ impl HistoryMetadata {
         Ok(Self {
             url: row.get("url")?,
             title: row.get("title")?,
+            preview_image_url: row.get("preview_image_url")?,
             created_at: created_at.0 as i64,
             updated_at: updated_at.0 as i64,
             total_view_time: row.get("total_view_time")?,
@@ -277,8 +279,8 @@ const MAX_QUERY_RESULTS: i32 = 1000;
 
 const COMMON_METADATA_SELECT: &str = "
 SELECT
-    m.id as metadata_id, p.url as url, p.title as title, m.created_at as created_at,
-    m.updated_at as updated_at, m.total_view_time as total_view_time,
+    m.id as metadata_id, p.url as url, p.title as title, p.preview_image_url as preview_image_url,
+    m.created_at as created_at, m.updated_at as updated_at, m.total_view_time as total_view_time,
     m.document_type as document_type, o.url as referrer_url, s.term as search_term
 FROM moz_places_metadata m
 LEFT JOIN moz_places p ON m.place_id = p.id
@@ -609,7 +611,7 @@ mod tests {
     }
 
     macro_rules! assert_history_metadata_record {
-        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
+        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr, preview_image_url $preview_image_url:expr) => {
             assert_eq!(String::from($url), $record.url, "url must match");
             assert_eq!($tvt, $record.total_view_time, "total_view_time must match");
             assert_eq!($document_type, $record.document_type, "is_media must match");
@@ -647,6 +649,19 @@ mod tests {
                     "title must match"
                 ),
                 None => assert_eq!(true, meta.title.is_none(), "title expected to be None"),
+            };
+            match $preview_image_url as Option<&str> {
+                Some(t) => assert_eq!(
+                    String::from(t),
+                    meta.preview_image_url
+                        .expect("preview_image_url must be Some"),
+                    "preview_image_url must match"
+                ),
+                None => assert_eq!(
+                    true,
+                    meta.preview_image_url.is_none(),
+                    "preview_image_url expected to be None"
+                ),
             };
         };
     }
@@ -1031,6 +1046,7 @@ mod tests {
         let observation1 = VisitObservation::new(Url::parse("https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021").unwrap())
                 .with_at(now)
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
+                .with_preview_image_url(Some(String::from("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         apply_observation(&conn, observation1).unwrap();
@@ -1084,7 +1100,8 @@ mod tests {
             search_term Some("cbc federal budget 2021"),
             document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
-            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")
+            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News"),
+            preview_image_url Some("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")
         );
 
         // query by search term
@@ -1096,7 +1113,8 @@ mod tests {
             search_term Some("rust string format"),
             document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
-            title None
+            title None,
+            preview_image_url None
         );
 
         // query by url
@@ -1107,7 +1125,8 @@ mod tests {
             search_term Some("sqlite like"),
             document_type DocumentType::Regular,
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
-            title None
+            title None,
+            preview_image_url None
         );
 
         // by url, referrer domain is different
@@ -1118,7 +1137,8 @@ mod tests {
             search_term Some("cute cat"),
             document_type DocumentType::Media,
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
-            title None
+            title None,
+            preview_image_url None
         );
     }
 
