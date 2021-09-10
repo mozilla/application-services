@@ -75,20 +75,17 @@ class PushManager(
     }
 
     override fun unsubscribe(channelID: String): Boolean {
-        if (channelID == "") {
-            return false
-        }
         return rustCall { error ->
             LibPushFFI.INSTANCE.push_unsubscribe(
                 this.handle.get(), channelID, error)
         }.toInt() == 1
     }
 
-    override fun unsubscribeAll(): Boolean {
-        return rustCall { error ->
+    override fun unsubscribeAll() {
+        rustCall { error ->
             LibPushFFI.INSTANCE.push_unsubscribe_all(
                 this.handle.get(), error)
-        }.toInt() == 1
+        }
     }
 
     override fun update(registrationToken: String): Boolean {
@@ -123,6 +120,9 @@ class PushManager(
         LibPushFFI.INSTANCE.push_decrypt(
             this.handle.get(), channelID, body, encoding, salt, dh, error
         ) }
+        // TODO(teshaq): The logic here will be removed when uniffing the component
+        // for now, keeping this since Vec<u8> doesn't implement IntoFFI on the rust
+        // side, so we send a String
         val jarray = JSONArray(result)
         val retarray = ByteArray(jarray.length())
         // `for` is inclusive.
@@ -360,9 +360,8 @@ interface PushAPI : AutoCloseable {
     /**
      * Unsubscribe all channels for the user.
      *
-     * @return bool
      */
-    fun unsubscribeAll(): Boolean
+    fun unsubscribeAll()
 
     /**
      * Updates the Native OS push registration ID.
@@ -377,8 +376,8 @@ interface PushAPI : AutoCloseable {
     /**
      * Verifies the connection state.
      *
-     * @return bool indicating if connection state is valid (true) or if channels should get a
-     * `pushsubscriptionchange` event (false).
+     * @return a List of PushSubscriptionChanged indicating the channels
+     * a client should resubscribe to
      */
     fun verifyConnection(): List<PushSubscriptionChanged>
 

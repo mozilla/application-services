@@ -1,3 +1,43 @@
+# v83.0.0 (_2021-09-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.3.0...v83.0.0)
+
+## Android
+
+### ⚠️ Breaking Changes ⚠️
+  - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
+    to be more in keeping with Java/Kotlin idioms.
+    - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
+
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
+
+## Push
+### ⚠️ Breaking Changes ⚠️
+- The `unsubscribeAll` API will now return nothing as opposed to a boolean. The boolean was misleading as it only ever returned true.
+  errors can be caught using exceptions. ([#4418](https://github.com/mozilla/application-services/pull/4418))
+### What's Changed
+ - The push `unsubscribe` API will no longer accept a null `channel_id` value, a valid `channel_id` must be presented, otherwise rust will panic and an error will be thrown to android.
+  note that this is not a breaking change, since our hand-written Kotlin code already ensures that the function can only be called with a valid, non-empty, non-nullable string. ([#4402](https://github.com/mozilla/application-services/pull/4402))
+
+## Nimbus
+
+### What's Changed
+
+- `DatabaseNotReady` exceptions are no longer reported to the error reporter on either Android or iOS. [#4438](https://github.com/mozilla/application-services/pull/4438)
+- `NimbusErrorException` has been renamed `NimbusException`. This internal API, so is not a breaking change.
+
+# v82.3.0 (_2021-08-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.2.0...v82.3.0)
+
+### What's New
+  - Changed how shared libraries are loaded to avoid an issue when both uniffi
+    and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
+
+
 # v82.2.0 (_2021-08-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v82.1.0...v82.2.0)

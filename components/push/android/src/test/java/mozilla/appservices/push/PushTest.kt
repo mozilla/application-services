@@ -9,6 +9,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import java.nio.charset.Charset
 
 @RunWith(RobolectricTestRunner::class)
@@ -203,6 +204,17 @@ class PushTest {
         manager.subscribe(testChannelid, "foo", vapidPubKey)
         val result = manager.unsubscribe(testChannelid)
         assertEquals("Unsubscription check", true, result)
+    }
+
+    @Test
+    fun testUnsubscribeAll() {
+        val manager = getPushManager()
+        manager.subscribe(testChannelid, "foo", vapidPubKey)
+        try {
+            manager.unsubscribeAll()
+        } catch (e: Exception) {
+            fail("UnsubscribeAll threw an exception: ${e.message}")
+        }
     }
 
     @Test

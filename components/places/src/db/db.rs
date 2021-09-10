@@ -6,8 +6,11 @@ use super::schema;
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
 use lazy_static::lazy_static;
-use rusqlite::Connection;
-use sql_support::{ConnExt, SqlInterruptHandle, SqlInterruptScope};
+use rusqlite::{self, Connection, Transaction};
+use sql_support::{
+    open_database::{self, open_database_with_flags, ConnectionInitializer},
+    ConnExt, SqlInterruptHandle, SqlInterruptScope,
+};
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::Path;
@@ -25,22 +28,24 @@ lazy_static! {
     pub static ref GLOBAL_BOOKMARK_CHANGE_COUNTERS: RwLock<HashMap<usize, AtomicI64>> = RwLock::new(HashMap::new());
 }
 
-#[derive(Debug)]
-pub struct PlacesDb {
-    pub db: Connection,
-    conn_type: ConnectionType,
-    interrupt_counter: Arc<AtomicUsize>,
+pub struct PlacesInitializer {
     api_id: usize,
-    pub(super) coop_tx_lock: Arc<Mutex<()>>,
+    conn_type: ConnectionType,
 }
 
-impl PlacesDb {
-    fn with_connection(
-        db: Connection,
-        conn_type: ConnectionType,
-        api_id: usize,
-        coop_tx_lock: Arc<Mutex<()>>,
-    ) -> Result<Self> {
+impl ConnectionInitializer for PlacesInitializer {
+    const NAME: &'static str = "places";
+    const END_VERSION: u32 = schema::VERSION;
+
+    fn init(&self, tx: &Transaction<'_>) -> open_database::Result<()> {
+        Ok(schema::init(tx)?)
+    }
+
+    fn upgrade_from(&self, tx: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+        Ok(schema::upgrade_from(tx, version)?)
+    }
+
+    fn prepare(&self, conn: &Connection) -> open_database::Result<()> {
         let initial_pragmas = "
             -- The value we use was taken from Desktop Firefox, and seems necessary to
             -- help ensure good performance on autocomplete-style queries. The default value is 1024,
@@ -76,32 +81,41 @@ impl PlacesDb {
             -- 2048000 (our max desired WAL size) / 32760 (page size).
             PRAGMA wal_autocheckpoint=62
         ";
+        conn.execute_batch(initial_pragmas)?;
+        define_functions(conn, self.api_id)?;
+        conn.set_prepared_statement_cache_capacity(128);
+        Ok(())
+    }
 
-        db.execute_batch(initial_pragmas)?;
-        define_functions(&db, api_id)?;
-        db.set_prepared_statement_cache_capacity(128);
-        let res = Self {
+    fn finish(&self, conn: &Connection) -> open_database::Result<()> {
+        Ok(schema::finish(conn, self.conn_type)?)
+    }
+}
+
+#[derive(Debug)]
+pub struct PlacesDb {
+    pub db: Connection,
+    conn_type: ConnectionType,
+    interrupt_counter: Arc<AtomicUsize>,
+    api_id: usize,
+    pub(super) coop_tx_lock: Arc<Mutex<()>>,
+}
+
+impl PlacesDb {
+    fn with_connection(
+        db: Connection,
+        conn_type: ConnectionType,
+        api_id: usize,
+        coop_tx_lock: Arc<Mutex<()>>,
+    ) -> Self {
+        Self {
             db,
             conn_type,
             // The API sets this explicitly.
             api_id,
             interrupt_counter: Arc::new(AtomicUsize::new(0)),
             coop_tx_lock,
-        };
-        match res.conn_type() {
-            // For read-only connections, we can avoid opening a transaction,
-            // since we know we won't be migrating or initializing anything.
-            ConnectionType::ReadOnly => {}
-            _ => {
-                // Even though we're the owner of the db, we need it to be an unchecked tx
-                // since we want to pass &PlacesDb and not &Connection to schema::init.
-                let tx = res.unchecked_transaction()?;
-                schema::init(&res)?;
-                tx.commit()?;
-            }
         }
-
-        Ok(res)
     }
 
     pub fn open(
@@ -110,24 +124,29 @@ impl PlacesDb {
         api_id: usize,
         coop_tx_lock: Arc<Mutex<()>>,
     ) -> Result<Self> {
-        Self::with_connection(
-            Connection::open_with_flags(path, conn_type.rusqlite_flags())?,
-            conn_type,
-            api_id,
-            coop_tx_lock,
-        )
+        let initializer = PlacesInitializer { api_id, conn_type };
+        let conn = open_database_with_flags(path, conn_type.rusqlite_flags(), &initializer)?;
+        Ok(Self::with_connection(conn, conn_type, api_id, coop_tx_lock))
     }
 
     #[cfg(test)]
     // Useful for some tests (although most tests should use helper functions
     // in api::places_api::test)
-    pub fn open_in_memory(conn_ty: ConnectionType) -> Result<Self> {
-        Self::with_connection(
-            Connection::open_in_memory()?,
-            conn_ty,
+    pub fn open_in_memory(conn_type: ConnectionType) -> Result<Self> {
+        let initializer = PlacesInitializer {
+            api_id: 0,
+            conn_type,
+        };
+        let conn = open_database::open_memory_database_with_flags(
+            conn_type.rusqlite_flags(),
+            &initializer,
+        )?;
+        Ok(Self::with_connection(
+            conn,
+            conn_type,
             0,
             Arc::new(Mutex::new(())),
-        )
+        ))
     }
 
     pub fn new_interrupt_handle(&self) -> SqlInterruptHandle {
@@ -219,7 +238,7 @@ impl GlobalChangeCounterTracker {
     }
 }
 
-fn define_functions(c: &Connection, api_id: usize) -> Result<()> {
+fn define_functions(c: &Connection, api_id: usize) -> rusqlite::Result<()> {
     use rusqlite::functions::FunctionFlags;
     c.create_scalar_function(
         "get_prefix",
@@ -461,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_reverse_host() {
-        let conn = PlacesDb::open_in_memory(ConnectionType::ReadOnly).expect("no memory db");
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("no memory db");
         let rev_host: String = conn
             .db
             .query_row("SELECT reverse_host('www.mozilla.org')", NO_PARAMS, |row| {

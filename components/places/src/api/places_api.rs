@@ -15,7 +15,6 @@ use rusqlite::OpenFlags;
 use sql_support::SqlInterruptHandle;
 use std::cell::Cell;
 use std::collections::HashMap;
-use std::fs;
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
@@ -103,7 +102,6 @@ impl PlacesApi {
     fn new_or_existing_into(
         target: &mut HashMap<PathBuf, Weak<PlacesApi>>,
         db_name: PathBuf,
-        delete_on_fail: bool,
     ) -> Result<Arc<Self>> {
         let id = ID_COUNTER.fetch_add(1, Ordering::SeqCst);
         match target.get(&db_name).and_then(Weak::upgrade) {
@@ -112,44 +110,30 @@ impl PlacesApi {
                 // We always create a new read-write connection for an initial open so
                 // we can create the schema and/or do version upgrades.
                 let coop_tx_lock = Arc::new(Mutex::new(()));
-                match PlacesDb::open(
+                let connection = PlacesDb::open(
                     &db_name,
                     ConnectionType::ReadWrite,
                     id,
                     coop_tx_lock.clone(),
-                ) {
-                    Ok(connection) => {
-                        let new = PlacesApi {
-                            db_name: db_name.clone(),
-                            write_connection: Mutex::new(Some(connection)),
-                            sync_state: Mutex::new(None),
-                            sync_conn_active: AtomicBool::new(false),
-                            id,
-                            coop_tx_lock,
-                        };
-                        let arc = Arc::new(new);
-                        target.insert(db_name, Arc::downgrade(&arc));
-                        Ok(arc)
-                    }
-                    Err(e) => {
-                        if !delete_on_fail {
-                            return Err(e);
-                        }
-                        if let ErrorKind::DatabaseUpgradeError = e.kind() {
-                            fs::remove_file(&db_name)?;
-                            Self::new_or_existing_into(target, db_name, false)
-                        } else {
-                            Err(e)
-                        }
-                    }
-                }
+                )?;
+                let new = PlacesApi {
+                    db_name: db_name.clone(),
+                    write_connection: Mutex::new(Some(connection)),
+                    sync_state: Mutex::new(None),
+                    sync_conn_active: AtomicBool::new(false),
+                    id,
+                    coop_tx_lock,
+                };
+                let arc = Arc::new(new);
+                target.insert(db_name, Arc::downgrade(&arc));
+                Ok(arc)
             }
         }
     }
 
     fn new_or_existing(db_name: PathBuf) -> Result<Arc<Self>> {
         let mut guard = APIS.lock().unwrap();
-        Self::new_or_existing_into(&mut guard, db_name, true)
+        Self::new_or_existing_into(&mut guard, db_name)
     }
 
     /// Open a connection to the database.

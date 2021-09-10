@@ -11,9 +11,9 @@ use ffi_support::{
 };
 use std::os::raw::c_char;
 
-use push::config::PushConfiguration;
-use push::error::Result;
-use push::subscriber::PushManager;
+use push::InternalPushManager as PushManager;
+use push::InternalResult as Result;
+use push::PushConfiguration;
 
 lazy_static::lazy_static! {
     static ref MANAGER: ConcurrentHandleMap<PushManager> = ConcurrentHandleMap::new();
@@ -72,34 +72,16 @@ pub extern "C" fn push_subscribe(
     error: &mut ExternError,
 ) -> ByteBuffer {
     log::debug!("push_get_subscription");
-    use push::msg_types::{KeyInfo, SubscriptionInfo, SubscriptionResponse};
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
         let channel = channel_id.as_str();
         let scope_s = scope.as_str();
-        let mut app_key = app_key.as_opt_str();
-        // While potentially an error, a misconfigured system may use "" as
-        // an application key. In that case, we drop the application key.
-        if app_key == Some("") {
-            app_key = None;
-        }
+        let app_key = app_key.as_opt_str();
+        // TODO(teshaq): Should move this comment to the UDL if it's important
         // Don't auto add the subscription to the db.
         // (endpoint updates also call subscribe and should be lighter weight)
-        let (info, subscription_key) = mgr.subscribe(channel, scope_s, app_key)?;
+        mgr.subscribe(channel, scope_s, app_key)
         // it is possible for the
         // store the channel_id => auth + subscription_key
-        Ok(SubscriptionResponse {
-            channel_id: info.channel_id,
-            subscription_info: SubscriptionInfo {
-                endpoint: info.endpoint,
-                keys: KeyInfo {
-                    auth: base64::encode_config(&subscription_key.auth, base64::URL_SAFE_NO_PAD),
-                    p256dh: base64::encode_config(
-                        &subscription_key.public_key(),
-                        base64::URL_SAFE_NO_PAD,
-                    ),
-                },
-            },
-        })
     })
 }
 
@@ -119,11 +101,9 @@ pub extern "C" fn push_unsubscribe(
 
 // Unsubscribe a channel
 #[no_mangle]
-pub extern "C" fn push_unsubscribe_all(handle: u64, error: &mut ExternError) -> u8 {
+pub extern "C" fn push_unsubscribe_all(handle: u64, error: &mut ExternError) {
     log::debug!("push_unsubscribe");
-    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<bool> {
-        mgr.unsubscribe_all()
-    })
+    MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<()> { mgr.unsubscribe_all() })
 }
 
 // Update the OS token
@@ -141,19 +121,12 @@ pub extern "C" fn push_update(handle: u64, new_token: FfiStr<'_>, error: &mut Ex
 #[no_mangle]
 pub extern "C" fn push_verify_connection(handle: u64, error: &mut ExternError) -> ByteBuffer {
     log::debug!("push_verify_connection");
-    use push::msg_types::PushSubscriptionChanged;
     use push::msg_types::PushSubscriptionsChanged;
-
     MANAGER.call_with_result_mut(error, handle, |mgr| -> Result<_> {
-        let subs = mgr
-            .verify_connection()?
-            .iter()
-            .map(|record| PushSubscriptionChanged {
-                channel_id: record.channel_id.clone(),
-                scope: record.scope.clone(),
-            })
-            .collect();
-
+        let subs = mgr.verify_connection()?;
+        // TODO(teshaq): The following type will be removed completely
+        // only keeping it before uniffication because
+        // the inner Vec doesn't implement IntoFfi
         Ok(PushSubscriptionsChanged { subs })
     })
 }
@@ -175,8 +148,7 @@ pub extern "C" fn push_decrypt(
         let r_encoding = encoding.as_str();
         let r_salt: Option<&str> = salt.as_opt_str();
         let r_dh: Option<&str> = dh.as_opt_str();
-        let uaid = mgr.conn.uaid.clone().unwrap();
-        mgr.decrypt(&uaid, r_chid, r_body, r_encoding, r_salt, r_dh)
+        mgr.decrypt(r_chid, r_body, r_encoding, r_salt, r_dh)
     })
 }
 
