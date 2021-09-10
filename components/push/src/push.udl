@@ -19,6 +19,7 @@ interface PushManager {
     //   - `sender_id` - Sender/Application ID value
     //   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
     //   - `http_protocol` - The optional socket protocol (default: "https")
+    //   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
     //   - `registration_id` - The native OS messaging registration ID
     //   - `database_path` - The path where [`PushManager`] will store persisted state
     //
