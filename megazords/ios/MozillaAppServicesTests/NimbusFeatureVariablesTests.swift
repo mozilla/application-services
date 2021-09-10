@@ -12,11 +12,13 @@ class NimbusFeatureVariablesTests: XCTestCase {
             "intVariable": 3,
             "stringVariable": "string",
             "booleanVariable": true,
+            "enumVariable": "one"
         ])
 
         XCTAssertEqual(variables.getInt("intVariable"), 3)
         XCTAssertEqual(variables.getString("stringVariable"), "string")
         XCTAssertEqual(variables.getBool("booleanVariable"), true)
+        XCTAssertEqual(variables.getEnum("enumVariable"), EnumTester.one)
     }
 
     func testScalarValuesOfWrongTypeAreNil() throws {
@@ -34,6 +36,9 @@ class NimbusFeatureVariablesTests: XCTestCase {
         XCTAssertEqual(variables.getBool("booleanVariable"), true)
         XCTAssertNil(variables.getInt("booleanVariable"))
         XCTAssertNil(variables.getString("booleanVariable"))
+
+        let value: EnumTester? = variables.getEnum("stringVariable")
+        XCTAssertNil(value)
     }
 
     func testNestedObjectsMakeVariablesObjects() throws {
@@ -56,4 +61,95 @@ class NimbusFeatureVariablesTests: XCTestCase {
 
         XCTAssertNil(outer.getVariables("really-a-string"))
     }
+
+    func testListsOfTypes() throws {
+        let variables: Variables = JSONVariables(with: [
+            "ints": [1, 2, 3, "not a int"],
+            "strings": ["a", "b", "c", 4],
+            "booleans": [true, false, "not a bool"],
+            "enums": ["one", "two", "three"]
+        ])
+
+        XCTAssertEqual(variables.getStringList("strings"), ["a", "b", "c"])
+        XCTAssertEqual(variables.getIntList("ints"), [1,2,3])
+        XCTAssertEqual(variables.getBoolList("booleans"), [true, false])
+        XCTAssertEqual(variables.getEnumList("enums"), [EnumTester.one, EnumTester.two])
+    }
+
+    func testMapsOfTypes() throws {
+        let variables: Variables = JSONVariables(with: [
+            "ints": [ "one": 1, "two": 2, "three": "string!"],
+            "strings": ["a": "A", "b": "B", "c": 4],
+            "booleans": ["a": true, "b": false, "c": "not a bool"],
+            "enums": ["one": "one", "two": "two", "three": "three"]
+        ])
+
+        XCTAssertEqual(variables.getStringMap("strings"), ["a": "A", "b": "B"])
+        XCTAssertEqual(variables.getIntMap("ints"), [ "one": 1, "two": 2])
+        XCTAssertEqual(variables.getBoolMap("booleans"), ["a": true, "b": false])
+        XCTAssertEqual(variables.getEnumMap("enums"), ["one": EnumTester.one, "two": EnumTester.two])
+    }
+
+    func testCompactMapWithEnums() throws {
+        let stringMap = ["one": "one", "two": "two", "three": "three"]
+
+        XCTAssertEqual(stringMap.compactMapKeysAsEnums(), [EnumTester.one: "one", EnumTester.two: "two"])
+        XCTAssertEqual(stringMap.compactMapValuesAsEnums(), ["one": EnumTester.one, "two": EnumTester.two])
+    }
+
+    func testLargerExample() throws {
+        let variables: Variables = JSONVariables(with: [
+            "items": [
+                "settings": [
+                    "label": "Settings",
+                    "deepLink": "//settings"
+                ],
+                "bookmarks": [
+                    "label": "Bookmarks",
+                    "deepLink": "//bookmark-list"
+                ],
+                "history": [
+                    "label": "History",
+                    "deepLink": "//history"
+                ],
+                "addBookmark": [
+                    "label": "Bookmark this page"
+                ]
+            ],
+            "item-order": ["settings", "history", "addBookmark", "bookmarks", "open_bad_site"]
+        ])
+
+        let menuItems: [MenuItemId: MenuItem]? = variables.getVariablesMap("items") { v in
+            guard let label = v.getText("label"),
+                  let deepLink = v.getString("deepLink") else {
+                return nil
+            }
+            return MenuItem(deepLink: deepLink, label: label)
+        }?.compactMapKeysAsEnums()
+
+        XCTAssertNotNil(menuItems)
+        XCTAssertEqual(menuItems?.count, 3)
+        XCTAssertNil(menuItems?[.addBookmark])
+
+        let ordering: [MenuItemId]? = variables.getEnumList("item-order")
+        XCTAssertEqual(ordering, [.settings, .history, .addBookmark, .bookmarks])
+    }
+}
+
+
+enum MenuItemId: String {
+    case settings
+    case bookmarks
+    case history
+    case addBookmark
+}
+
+struct MenuItem {
+    let deepLink: String
+    let label: String
+}
+
+enum EnumTester: String {
+    case one
+    case two
 }
