@@ -19,8 +19,19 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-### What's Changed
-
 ## Places, Autofill, Webext-Storage
 
-  - Databases which are detected as being corrupt as they are opened will be deleted and re-created.
+### What's Changed
+
+- Databases which are detected as being corrupt as they are opened will be deleted and re-created.
+
+## Nimbus
+
+### What's New
+
+- [#4455][1]: For both iOS and Android: extra methods on `Variables` to support orderable items:
+  - `getEnum` to coerce strings into Enums.
+  - `get*List`, `get*Map` to get lists and maps of all types.
+  - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
+
+[1]: https://github.com/mozilla/application-services/pull/4455
