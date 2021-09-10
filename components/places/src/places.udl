@@ -49,6 +49,7 @@ dictionary HistoryMetadataObservation {
 dictionary HistoryMetadata {
     string url;
     string? title;
+    string? preview_image_url;
     i64 created_at;
     i64 updated_at;
     i32 total_view_time;

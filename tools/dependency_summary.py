@@ -560,12 +560,6 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/mozilla/ffi-support/main/LICENSE-APACHE"
         },
     },
-    "humantime": {
-        "repository": {
-            "check": None,
-            "fixup": "https://github.com/tailhook/humantime",
-        },
-    },
     "mime": {
         # The current head of "mime" repo has been re-licensed from MIT/Apache-2.0 to MIT,
         # meaning that the expected "LICENSE-APACHE" file is not available on master.

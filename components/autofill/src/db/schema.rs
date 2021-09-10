@@ -3,9 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::sql_fns;
-use rusqlite::functions::FunctionFlags;
-use rusqlite::Connection;
-use sql_support::open_database::{Error, MigrationLogic, Result};
+use rusqlite::{functions::FunctionFlags, Connection, Transaction};
+use sql_support::open_database::{ConnectionInitializer, Error, Result};
 
 pub const ADDRESS_COMMON_COLS: &str = "
     guid,
@@ -75,9 +74,9 @@ const CREATE_SHARED_SCHEMA_SQL: &str = include_str!("../../sql/create_shared_sch
 const CREATE_SHARED_TRIGGERS_SQL: &str = include_str!("../../sql/create_shared_triggers.sql");
 const CREATE_SYNC_TEMP_TABLES_SQL: &str = include_str!("../../sql/create_sync_temp_tables.sql");
 
-pub struct AutofillMigrationLogic;
+pub struct AutofillConnectionInitializer;
 
-impl MigrationLogic for AutofillMigrationLogic {
+impl ConnectionInitializer for AutofillConnectionInitializer {
     const NAME: &'static str = "autofill db";
     const END_VERSION: u32 = 2;
 
@@ -87,11 +86,11 @@ impl MigrationLogic for AutofillMigrationLogic {
         Ok(())
     }
 
-    fn init(&self, db: &Connection) -> Result<()> {
+    fn init(&self, db: &Transaction<'_>) -> Result<()> {
         Ok(db.execute_batch(CREATE_SHARED_SCHEMA_SQL)?)
     }
 
-    fn upgrade_from(&self, db: &Connection, version: u32) -> Result<()> {
+    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> Result<()> {
         match version {
             // AutofillDB has a slightly strange version history, so we start on v0.  See
             // upgrade_from_v0() for more details.
@@ -218,7 +217,7 @@ mod tests {
     #[test]
     fn test_all_upgrades() {
         // Let's start with v1, since the v0 upgrade deletes data
-        let db_file = MigratedDatabaseFile::new(AutofillMigrationLogic, CREATE_V1_DB);
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V1_DB);
         db_file.run_all_upgrades();
         let conn = db_file.open();
 
@@ -260,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_0() {
-        let db_file = MigratedDatabaseFile::new(AutofillMigrationLogic, CREATE_V0_DB);
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V0_DB);
         // Just to test what we think we are testing, select a field that
         // doesn't exist now but will after we recreate the table.
         let select_cc_number_enc = "SELECT cc_number_enc from credit_cards_data";
@@ -279,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_version_1() {
-        let db_file = MigratedDatabaseFile::new(AutofillMigrationLogic, CREATE_V1_DB);
+        let db_file = MigratedDatabaseFile::new(AutofillConnectionInitializer, CREATE_V1_DB);
 
         db_file.upgrade_to(2);
         let db = db_file.open();

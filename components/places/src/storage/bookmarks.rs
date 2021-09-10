@@ -12,7 +12,7 @@ use crate::db::PlacesDb;
 use crate::error::*;
 use crate::types::{BookmarkType, SyncStatus};
 use rusqlite::types::ToSql;
-use rusqlite::{Connection, Row};
+use rusqlite::{self, Connection, Row};
 use serde::{
     de::{Deserialize, Deserializer},
     ser::{Serialize, SerializeStruct, Serializer},
@@ -41,7 +41,7 @@ fn create_root(
     guid: &SyncGuid,
     position: u32,
     when: Timestamp,
-) -> Result<()> {
+) -> rusqlite::Result<()> {
     let sql = format!(
         "
         INSERT INTO moz_bookmarks
@@ -67,7 +67,7 @@ fn create_root(
     Ok(())
 }
 
-pub fn create_bookmark_roots(db: &Connection) -> Result<()> {
+pub fn create_bookmark_roots(db: &Connection) -> rusqlite::Result<()> {
     let now = Timestamp::now();
     create_root(db, "root", &BookmarkRootGuid::Root.into(), 0, now)?;
     create_root(db, "menu", &BookmarkRootGuid::Menu.into(), 0, now)?;
@@ -1508,14 +1508,14 @@ pub mod bookmark_sync {
 
     /// Sets up the syncable roots. All items in `moz_bookmarks_synced` descend
     /// from these roots.
-    pub fn create_synced_bookmark_roots(db: &PlacesDb) -> Result<()> {
+    pub fn create_synced_bookmark_roots(db: &Connection) -> rusqlite::Result<()> {
         // NOTE: This is called in a transaction.
         fn maybe_insert(
-            db: &PlacesDb,
+            db: &Connection,
             guid: &SyncGuid,
             parent_guid: &SyncGuid,
             pos: u32,
-        ) -> Result<()> {
+        ) -> rusqlite::Result<()> {
             db.execute_batch(&format!(
                 "INSERT OR IGNORE INTO moz_bookmarks_synced(guid, parentGuid, kind)
                  VALUES('{guid}', '{parent_guid}', {kind});
