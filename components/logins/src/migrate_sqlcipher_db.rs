@@ -140,7 +140,7 @@ pub fn migrate_from_sqlcipher_db(
     let encdec = EncryptorDecryptor::new(encryption_key)?;
 
     let migration_plan: MigrationPlan = generate_plan_from_db(&cipher_conn, &encdec)?;
-    let migration_metrics = migrate_logins(&migration_plan, &new_db_store)?;
+    let migration_metrics = insert_logins(&migration_plan, &new_db_store)?;
     let metadata_metrics = migrate_sync_metadata(&cipher_conn, &new_db_store)?;
 
     Ok(migration_metrics + metadata_metrics)
@@ -172,7 +172,6 @@ fn generate_plan_from_db(
                     .entry(key)
                     .and_modify(|l| l.local_login = Some(l_login.clone()))
                     .or_insert(MigrationLogin {
-                        //guid: key,
                         local_login: Some(l_login),
                         mirror_login: None,
                         migration_op: MigrationOp::Normal,
@@ -204,7 +203,6 @@ fn generate_plan_from_db(
                     .entry(key)
                     .and_modify(|l| l.mirror_login = Some(m_login.clone()))
                     .or_insert(MigrationLogin {
-                        //guid: key,
                         local_login: None,
                         mirror_login: Some(m_login),
                         migration_op: MigrationOp::Normal,
@@ -224,50 +222,103 @@ fn apply_migration_fixups(
     migration_plan: MigrationPlan,
     encdec: &EncryptorDecryptor,
 ) -> Result<MigrationPlan> {
+    // This list contains the delta of any changes that we found in the MigrationPlan we plan to put
+    // in the new db and will replace any MigrationLogin with a matching guid with the fixed up version
     let mut logins_to_override: HashMap<String, MigrationLogin> = HashMap::new();
 
     for (guid, migration_login) in &migration_plan.logins {
-        if let (Some(local_login), Some(mirror_login)) =
-            (&migration_login.local_login, &migration_login.mirror_login)
-        {
-            // We have both a local and mirror
-            // attempt to fixup local and override mirror
-            let dec_login = local_login.login.clone().decrypt(&encdec)?;
-
-            // Skip fixup if the record is fine
-            if dec_login.entry().check_valid().is_ok() {
-                continue;
-            };
-            match dec_login.entry().fixup() {
-                Ok(new_entry) => {
-                    let login = EncryptedLogin {
-                        // record fields don't get fixed up
-                        record: RecordFields {
-                            id: dec_login.record.id,
-                            ..local_login.login.record
-                        },
-                        fields: new_entry.fields,
-                        sec_fields: new_entry.sec_fields.encrypt(encdec)?,
-                    };
-                    logins_to_override.insert(
-                        guid.to_string(),
-                        MigrationLogin {
-                            mirror_login: Some(MirrorLogin {
-                                is_overridden: true,
-                                ..mirror_login.clone()
-                            }),
-                            local_login: Some(LocalLogin {
-                                login,
-                                sync_status: SyncStatus::Changed,
-                                local_modified: local_login.local_modified,
-                                is_deleted: local_login.is_deleted,
-                            }),
-                            migration_op: MigrationOp::FixedLocal,
-                        },
-                    );
-                }
-                Err(_) => {
-                    // Could not fixup local, dump it and set mirror to not be overidden
+        match (
+            migration_login.local_login.as_ref(),
+            migration_login.mirror_login.as_ref(),
+        ) {
+            (Some(local_login), Some(mirror_login)) => {
+                // We have both a local and mirror
+                // attempt to fixup local and override mirror
+                let dec_login = local_login.login.clone().decrypt(&encdec)?;
+                match dec_login.entry().maybe_fixup() {
+                    Ok(Some(new_entry)) => {
+                        logins_to_override.insert(
+                            guid.to_string(),
+                            MigrationLogin {
+                                mirror_login: Some(MirrorLogin {
+                                    is_overridden: true,
+                                    ..mirror_login.clone()
+                                }),
+                                local_login: Some(LocalLogin {
+                                    login: EncryptedLogin::from_fixed(
+                                        local_login.login.record.clone(),
+                                        new_entry,
+                                        encdec,
+                                    )?,
+                                    sync_status: SyncStatus::Changed,
+                                    local_modified: local_login.local_modified,
+                                    is_deleted: local_login.is_deleted,
+                                }),
+                                migration_op: MigrationOp::FixedLocal,
+                            },
+                        );
+                    }
+                    Ok(None) => {}
+                    Err(_) => {
+                        // Could not fixup local, dump it and set mirror to not be overidden
+                        logins_to_override.insert(
+                            guid.to_string(),
+                            MigrationLogin {
+                                mirror_login: Some(MirrorLogin {
+                                    is_overridden: false,
+                                    ..mirror_login.clone()
+                                }),
+                                local_login: None,
+                                migration_op: MigrationOp::MirrorToLocal,
+                            },
+                        );
+                    }
+                };
+            }
+            (Some(local_login), None) => {
+                // Only local
+                let dec_login = local_login.login.clone().decrypt(&encdec)?;
+                match dec_login.entry().maybe_fixup() {
+                    Ok(Some(new_entry)) => {
+                        logins_to_override.insert(
+                            guid.to_string(),
+                            MigrationLogin {
+                                mirror_login: None,
+                                local_login: Some(LocalLogin {
+                                    //login,
+                                    login: EncryptedLogin::from_fixed(
+                                        local_login.login.record.clone(),
+                                        new_entry,
+                                        encdec,
+                                    )?,
+                                    sync_status: SyncStatus::New,
+                                    local_modified: SystemTime::now(),
+                                    is_deleted: local_login.is_deleted,
+                                }),
+                                migration_op: MigrationOp::FixedLocal,
+                            },
+                        );
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        log::warn!(
+                            "Guid {}: Could not fix up local and no mirror, data loss - {}",
+                            guid,
+                            e
+                        );
+                        logins_to_override.insert(
+                            guid.to_string(),
+                            MigrationLogin {
+                                local_login: None,
+                                mirror_login: None,
+                                migration_op: MigrationOp::Skip(e.to_string()),
+                            },
+                        );
+                    }
+                };
+            }
+            (None, Some(mirror_login)) => {
+                if mirror_login.is_overridden {
                     logins_to_override.insert(
                         guid.to_string(),
                         MigrationLogin {
@@ -276,124 +327,54 @@ fn apply_migration_fixups(
                                 ..mirror_login.clone()
                             }),
                             local_login: None,
-                            migration_op: MigrationOp::MirrorToLocal,
+                            migration_op: MigrationOp::Normal,
                         },
                     );
                 }
-            };
-        } else if let Some(local_login) = &migration_login.local_login {
-            // Only local
-            let dec_login = local_login.login.clone().decrypt(&encdec)?;
-            // Skip fixup if the record is fine
-            if dec_login.entry().check_valid().is_ok() {
-                continue;
-            };
-            match dec_login.entry().fixup() {
-                Ok(new_entry) => {
-                    let login = EncryptedLogin {
-                        // record fields don't get fixed up
-                        record: RecordFields {
-                            id: dec_login.record.id,
-                            ..local_login.login.record
-                        },
-                        fields: new_entry.fields,
-                        sec_fields: new_entry.sec_fields.encrypt(encdec)?,
-                    };
-                    logins_to_override.insert(
-                        guid.to_string(),
-                        MigrationLogin {
-                            mirror_login: None,
-                            local_login: Some(LocalLogin {
-                                login,
-                                sync_status: SyncStatus::New,
-                                local_modified: local_login.local_modified,
-                                is_deleted: local_login.is_deleted,
-                            }),
-                            migration_op: MigrationOp::FixedLocal,
-                        },
-                    );
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Guid {}: Could not fix up local and no mirror, data loss - {}",
-                        guid,
-                        e
-                    );
-                    logins_to_override.insert(
-                        guid.to_string(),
-                        MigrationLogin {
-                            local_login: None,
-                            mirror_login: None,
-                            migration_op: MigrationOp::Skip(e.to_string()),
-                        },
-                    );
+                let dec_login = mirror_login.login.clone().decrypt(&encdec)?;
+                // If we somehow ended up with a invalid mirror and no local, try to fixup and move into local
+                match dec_login.entry().maybe_fixup() {
+                    Ok(Some(new_entry)) => {
+                        logins_to_override.insert(
+                            guid.to_string(),
+                            MigrationLogin {
+                                mirror_login: None,
+                                // Note: mirror is becoming a local login here
+                                local_login: Some(LocalLogin {
+                                    login: EncryptedLogin::from_fixed(
+                                        mirror_login.login.record.clone(),
+                                        new_entry,
+                                        encdec,
+                                    )?,
+                                    sync_status: SyncStatus::New,
+                                    local_modified: SystemTime::now(),
+                                    is_deleted: false,
+                                }),
+                                migration_op: MigrationOp::MirrorToLocal,
+                            },
+                        );
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        log::warn!(
+                            "Guid {}: Could not fix up mirror and no local, data loss - {}",
+                            guid,
+                            e
+                        );
+                        logins_to_override.insert(
+                            guid.to_string(),
+                            MigrationLogin {
+                                local_login: None,
+                                mirror_login: None,
+                                migration_op: MigrationOp::Skip(e.to_string()),
+                            },
+                        );
+                    }
                 }
             }
-        } else if let Some(mirror_login) = &migration_login.mirror_login {
-            // We only have a mirror
-            if mirror_login.is_overridden {
-                logins_to_override.insert(
-                    guid.to_string(),
-                    MigrationLogin {
-                        mirror_login: Some(MirrorLogin {
-                            is_overridden: false,
-                            ..mirror_login.clone()
-                        }),
-                        local_login: None,
-                        migration_op: MigrationOp::Normal,
-                    },
-                );
-            }
-            let dec_login = mirror_login.login.clone().decrypt(&encdec)?;
-            if dec_login.entry().check_valid().is_ok() {
-                continue;
-            };
-            // If we somehow ended up with a invalid mirror and no local, try to fixup and move into local
-            match dec_login.entry().fixup() {
-                Ok(new_entry) => {
-                    let login = EncryptedLogin {
-                        // record fields don't get fixed up
-                        record: RecordFields {
-                            id: dec_login.record.id,
-                            ..mirror_login.login.record
-                        },
-                        fields: new_entry.fields,
-                        sec_fields: new_entry.sec_fields.encrypt(encdec)?,
-                    };
-                    logins_to_override.insert(
-                        guid.to_string(),
-                        MigrationLogin {
-                            mirror_login: None,
-                            // Note: mirror is becoming a local login here
-                            local_login: Some(LocalLogin {
-                                login,
-                                sync_status: SyncStatus::New,
-                                local_modified: SystemTime::now(),
-                                is_deleted: false,
-                            }),
-                            migration_op: MigrationOp::MirrorToLocal,
-                        },
-                    );
-                }
-                Err(e) => {
-                    log::warn!(
-                        "Guid {}: Could not fix up mirror and no local, data loss - {}",
-                        guid,
-                        e
-                    );
-                    logins_to_override.insert(
-                        guid.to_string(),
-                        MigrationLogin {
-                            local_login: None,
-                            mirror_login: None,
-                            migration_op: MigrationOp::Skip(e.to_string()),
-                        },
-                    );
-                }
-            }
-        }
+            (None, None) => unreachable!("we never create this"),
+        };
     }
-
     // override any logins that are in new hashmap
     Ok(MigrationPlan {
         logins: migration_plan
@@ -404,7 +385,7 @@ fn apply_migration_fixups(
     })
 }
 
-fn migrate_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<MigrationMetrics> {
+fn insert_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<MigrationMetrics> {
     let import_start = Instant::now();
     let import_start_total_logins: u64 = migration_plan.logins.len() as u64;
     let mut num_failed_insert: u64 = 0;
@@ -417,21 +398,18 @@ fn migrate_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<
     for login in migration_plan.logins.values() {
         // Could not easily use an equality here due to the inner value
         // But neccesary to ensure we log proper metrics
-        match &login.migration_op {
-            MigrationOp::Skip(err) => {
-                num_failed_insert += 1;
-                insert_errors.push(err.to_string());
-                continue;
-            }
-            _ => {}
+        if let MigrationOp::Skip(err) = &login.migration_op {
+            num_failed_insert += 1;
+            insert_errors.push(err.to_owned());
+            continue;
         };
         // // Migrate local login first
         if let Some(local_login) = &login.local_login {
-            match migrate_local_login(&conn, local_login) {
+            match insert_local_login(&conn, local_login) {
                 Ok(_) => {
                     if let Some(mirror_login) = &login.mirror_login {
                         // If successful, then migrate mirror also
-                        match migrate_mirror_login(&conn, &mirror_login) {
+                        match insert_mirror_login(&conn, &mirror_login) {
                             Ok(_) => {}
                             Err(e) => {
                                 num_failed_insert += 1;
@@ -446,30 +424,24 @@ fn migrate_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<
                     // Weren't successful with local login, if we have a mirror we should
                     // attempt to migrate it and flip the `is_overridden` to false
                     if let Some(mirror_login) = &login.mirror_login {
-                        match migrate_mirror_login(
+                        if let Err(err) = insert_mirror_login(
                             &conn,
                             &MirrorLogin {
                                 is_overridden: false,
                                 ..mirror_login.clone()
                             },
                         ) {
-                            Ok(_) => {}
-                            Err(e) => {
-                                num_failed_insert += 1;
-                                insert_errors.push(e.label().into());
-                            }
+                            num_failed_insert += 1;
+                            insert_errors.push(err.label().into());
                         }
                     }
                 }
             }
-        // // If we just have mirror, import as normal
+        // If we just have mirror, import as normal
         } else if let Some(mirror_login) = &login.mirror_login {
-            match migrate_mirror_login(&conn, &mirror_login) {
-                Ok(_) => {}
-                Err(e) => {
-                    num_failed_insert += 1;
-                    insert_errors.push(e.label().into());
-                }
+            if let Err(err) = insert_mirror_login(&conn, &mirror_login) {
+                num_failed_insert += 1;
+                insert_errors.push(err.label().into());
             }
         }
     }
@@ -505,7 +477,7 @@ fn migrate_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<
     Ok(metrics)
 }
 
-fn migrate_local_login(conn: &Connection, local_login: &LocalLogin) -> Result<()> {
+fn insert_local_login(conn: &Connection, local_login: &LocalLogin) -> Result<()> {
     let sql = "INSERT INTO loginsL (
             origin,
             httpRealm,
@@ -568,7 +540,7 @@ fn migrate_local_login(conn: &Connection, local_login: &LocalLogin) -> Result<()
     Ok(())
 }
 
-fn migrate_mirror_login(conn: &Connection, mirror_login: &MirrorLogin) -> Result<()> {
+fn insert_mirror_login(conn: &Connection, mirror_login: &MirrorLogin) -> Result<()> {
     let sql = "INSERT INTO loginsM (
         origin,
         httpRealm,
@@ -1016,16 +988,14 @@ mod tests {
     // Just like the above, but *only* the mirror exists - so discarding it would be data-loss.
     // In that case we should take the record with the fixed up data and insert into loginsL
     fn test_migrate_broken_mirror_without_local() {
-        let inserts = format!(
-            r#"
+        let inserts = r#"
             INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
                 usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
                 is_overridden, server_modified)
                 VALUES
                 ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', 'https://www.example.com',
                 '', '', "corrupt_time_created", "corrupt_time_last_used", "corrupt_time_changes", "corrupt_times_used", "corrupt_is_overridden", 1000);
-        "#
-        );
+        "#;
         let testpaths = TestPaths::new();
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
         let _metrics = migrate_sqlcipher_db_to_plaintext(
@@ -1063,8 +1033,7 @@ mod tests {
         // Just like the above - corrupt data in the local record, but mirror is fine.
         // We should discard the local record keeping the mirror, but ensuring `is_overridden`
         // and SyncStatus are correct.
-        let inserts = format!(
-            r#"
+        let inserts = r#"
             INSERT INTO loginsL(guid, username, password, hostname,
                 httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
                 timePasswordChanged, timesUsed, local_modified, is_deleted, sync_status)
@@ -1078,8 +1047,7 @@ mod tests {
                 VALUES
                 ('b', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
                 '', '', 1000, 1000, 1, 10, 1, 1000);
-        "#
-        );
+        "#;
         let testpaths = TestPaths::new();
         create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
         let _metrics = migrate_sqlcipher_db_to_plaintext(
@@ -1237,7 +1205,7 @@ mod tests {
         let testpaths = TestPaths::new();
         let store = LoginStore::new(testpaths.new_db.as_path()).unwrap();
         let migration_plan = gen_migrate_plan();
-        let metrics = migrate_logins(&migration_plan, &store).unwrap();
+        let metrics = insert_logins(&migration_plan, &store).unwrap();
 
         let db = LoginDb::open(testpaths.new_db.as_path()).unwrap();
         assert_eq!(
