@@ -180,29 +180,20 @@
 //!     return result.toString(Charset.forName("UTF-8"))
 //!```
 
+uniffi_macros::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
 use std::sync::Mutex;
 
 pub use crate::internal::error::*;
-pub use msg_types::{
-    DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
-};
-
-// ===== The following are only used by the FFI crate and will be removed ====
-pub use internal::error::Result as InternalResult;
-pub use internal::PushConfiguration;
-pub use internal::PushManager as InternalPushManager;
-// ====================================
 
 // The following are only exposed for use by the examples
 pub use internal::communications::Connection;
 pub use internal::crypto::get_random_bytes;
+pub use internal::error::Result as InternalResult;
+pub use internal::PushConfiguration;
+pub use internal::PushManager as InternalPushManager;
 // =====================
-
-pub mod msg_types {
-    include!("mozilla.appservices.push.protobuf.rs");
-}
 
 /// Object representing the PushManager used to manage subscriptions
 ///
@@ -227,6 +218,7 @@ impl PushManager {
     ///   - `sender_id` - Sender/Application ID value
     ///   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
     ///   - `http_protocol` - The optional socket protocol (default: "https")
+    ///   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
     ///   - `registration_id` - The native OS messaging registration ID
     ///   - `database_path` - The path where [`PushManager`] will store persisted state
     ///
@@ -238,11 +230,18 @@ impl PushManager {
         sender_id: String,
         server_host: String,
         http_protocol: String,
-        bridge_type: String,
+        bridge_type: BridgeType,
         registration_id: String,
         database_path: String,
     ) -> Result<Self> {
-        let config = internal::PushConfiguration {
+        let bridge_type = match bridge_type {
+            BridgeType::Adm => "adm",
+            BridgeType::Apns => "apns",
+            BridgeType::Fcm => "fcm",
+            BridgeType::Test => "test",
+        }
+        .to_string();
+        let config = PushConfiguration {
             server_host,
             http_protocol: Some(http_protocol),
             bridge_type: Some(bridge_type),
@@ -365,7 +364,9 @@ impl PushManager {
     ///   - `dh` - The "dh" field (if present in the raw message, defaults to "")
     ///
     /// # Returns
-    /// Decrypted message body
+    /// Decrypted message body as a signed byte array
+    /// they byte array is signed to allow consumers (Kotlin only at the time of this documentation)
+    /// to work easily with the message. (They can directly call `.toByteArray` on it)
     ///
     /// # Errors
     /// Returns an error in the following cases:
@@ -380,17 +381,18 @@ impl PushManager {
         encoding: &str,
         salt: &str,
         dh: &str,
-    ) -> Result<Vec<u8>> {
-        // TODO(teshaq): Modify the decrypt function to return the Vec<u8> directly
-        // once the ffi crate is no longer using it
-        let ret = self.internal.lock().unwrap().decrypt(
+    ) -> Result<Vec<i8>> {
+        let decrypted = self.internal.lock().unwrap().decrypt(
             channel_id,
             body,
             encoding,
             Some(salt),
             Some(dh),
         )?;
-        Ok(ret.as_bytes().to_vec())
+
+        // NOTE: this returns a `Vec<i8>` since the kotlin consumer is expecting
+        // signed bytes.
+        Ok(decrypted.into_iter().map(|ub| ub as i8).collect())
     }
 
     /// Get the dispatch info for a given subscription channel
@@ -407,4 +409,155 @@ impl PushManager {
     pub fn dispatch_info_for_chid(&self, channel_id: &str) -> Result<Option<DispatchInfo>> {
         self.internal.lock().unwrap().get_record_by_chid(channel_id)
     }
+}
+
+/// Public facing Error that the crate produces
+///
+/// This is created from an internal error as the error passes through the FFI
+
+#[derive(Debug, thiserror::Error)]
+pub enum PushError {
+    /// An unspecified general error has occured
+    #[error("General Error: {0:?}")]
+    GeneralError(String),
+
+    /// An error occurred while running a cryptographic operation
+    #[error("Crypto error: {0}")]
+    CryptoError(String),
+
+    /// A Client communication error
+    #[error("Communication Error: {0:?}")]
+    CommunicationError(String),
+
+    /// An error returned from the registration Server
+    #[error("Communication Server Error: {0}")]
+    CommunicationServerError(String),
+
+    /// Channel is already registered, generate new channelID
+    #[error("Channel already registered.")]
+    AlreadyRegisteredError,
+
+    /// An error with Storage
+    #[error("Storage Error: {0:?}")]
+    StorageError(String),
+
+    #[error("No record for uaid:chid {0:?}:{1:?}")]
+    RecordNotFoundError(String, String),
+
+    /// A failure to encode data to/from storage.
+    #[error("Error executing SQL: {0}")]
+    StorageSqlError(String),
+
+    /// The registration token could not be found
+    #[error("Missing Registration Token")]
+    MissingRegistrationTokenError,
+
+    #[error("Transcoding Error: {0}")]
+    TranscodingError(String),
+
+    /// A failure to parse a URL.
+    #[error("URL parse error: {0:?}")]
+    UrlParseError(String),
+
+    /// A failure deserializing json.
+    #[error("Failed to parse json: {0}")]
+    JSONDeserializeError(String),
+
+    /// The UAID was not recognized by the server
+    #[error("Unrecognized UAID: {0}")]
+    UAIDNotRecognizedError(String),
+
+    /// Was unable to send request to server
+    #[error("Unable to send request to server: {0}")]
+    RequestError(String),
+}
+
+/// The types of supported native bridges.
+///
+/// FCM = Google Android Firebase Cloud Messaging
+/// ADM = Amazon Device Messaging for FireTV
+/// APNS = Apple Push Notification System for iOS
+///
+/// Please contact services back-end for any additional bridge protocols.
+///
+pub enum BridgeType {
+    Fcm,
+    Adm,
+    Apns,
+    Test,
+}
+
+// We define how to convert from an internal error
+// into the external facing [`PushError`]
+// note that the some variants of the internal error
+// carry another error they were generated from
+// this information is dropped and replaced with a message
+// which is the stringified error
+impl From<internal::error::Error> for PushError {
+    fn from(err: internal::error::Error) -> Self {
+        match err.kind() {
+            ErrorKind::GeneralError(message) => PushError::GeneralError(message.clone()),
+            ErrorKind::CryptoError(message) => PushError::CryptoError(message.clone()),
+            ErrorKind::CommunicationError(message) => {
+                PushError::CommunicationError(message.clone())
+            }
+            ErrorKind::CommunicationServerError(message) => {
+                PushError::CommunicationServerError(message.clone())
+            }
+            ErrorKind::AlreadyRegisteredError => PushError::AlreadyRegisteredError,
+            ErrorKind::StorageError(message) => PushError::StorageError(message.clone()),
+            ErrorKind::RecordNotFoundError(uaid, chid) => {
+                PushError::RecordNotFoundError(uaid.clone(), chid.clone())
+            }
+            ErrorKind::StorageSqlError(e) => PushError::StorageSqlError(e.to_string()),
+            ErrorKind::MissingRegistrationTokenError => PushError::MissingRegistrationTokenError,
+            ErrorKind::TranscodingError(message) => PushError::TranscodingError(message.clone()),
+            ErrorKind::UrlParseError(e) => PushError::UrlParseError(e.to_string()),
+            ErrorKind::JSONDeserializeError(e) => PushError::JSONDeserializeError(e.to_string()),
+            ErrorKind::UAIDNotRecognizedError(message) => {
+                PushError::UAIDNotRecognizedError(message.clone())
+            }
+            ErrorKind::RequestError(e) => PushError::RequestError(e.to_string()),
+        }
+    }
+}
+
+/// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DispatchInfo {
+    pub uaid: String,
+    pub scope: String,
+    pub endpoint: String,
+    pub app_server_key: Option<String>,
+}
+
+/// Key Information that can be used to encrypt payloads
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeyInfo {
+    pub auth: String,
+    pub p256dh: String,
+}
+/// Subscription Information, the endpoint to send push messages to and
+/// the key information that can be used to encrypt payloads
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubscriptionInfo {
+    pub endpoint: String,
+    pub keys: KeyInfo,
+}
+
+/// The subscription response object returned from [`PushManager::subscribe`]
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubscriptionResponse {
+    pub channel_id: String,
+    pub subscription_info: SubscriptionInfo,
+}
+
+/// An dictionary describing the push subscription that changed, the caller
+/// will receive a list of [`PushSubscriptionChanged`] when calling
+/// [`PushManager::verify_connection`], one entry for each channel that the
+/// caller should resubscribe to
+#[derive(Debug, Clone, PartialEq)]
+pub struct PushSubscriptionChanged {
+    pub channel_id: String,
+    pub scope: String,
 }

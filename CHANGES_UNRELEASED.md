@@ -18,3 +18,10 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Push
+### ⚠️ Breaking Changes ⚠️
+  - The push component now uses `uniffi`! Here are the Kotlin breaking changes related to that:
+     - `PushAPI` no longer exists, consumers should consumer `PushManager` directly
+     - `PushError` becomes `PushException`, and all specific errors are now `PushException` children, and can be retrieved using `PushException.{ExceptionName}`, for example `StorageError` becomes `PushException.StorageException`
+     - The `PushManager.decrypt` function now returns a `List<Byte>`, where it used to return `ByteArray`, the consumer can do the conversion using `.toByteArray()`
+     - All references to `channelID` become `channelId` (with a lowercase `d`)
