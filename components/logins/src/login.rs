@@ -478,6 +478,18 @@ impl EncryptedLogin {
         // encryption key.
         Ok(login)
     }
+
+    pub(crate) fn from_fixed(
+        record: RecordFields,
+        new_entry: LoginEntry,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<Self> {
+        Ok(EncryptedLogin {
+            record,
+            fields: new_entry.fields,
+            sec_fields: new_entry.sec_fields.encrypt(encdec)?,
+        })
+    }
 }
 
 fn string_or_default(row: &Row<'_>, col: &str) -> Result<String> {
