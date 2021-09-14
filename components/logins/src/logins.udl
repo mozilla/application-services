@@ -17,6 +17,14 @@ namespace logins {
     [Throws=LoginsStorageError]
     EncryptedLogin encrypt_login(Login login, [ByRef]string encryption_key);
 
+    // Decrypt an encrypted `string` to `SecureLoginFields`
+    [Throws=LoginsStorageError]
+    SecureLoginFields decrypt_fields(string sec_fields, [ByRef]string encryption_key);
+
+    // Encrypt `SecureLoginFields` to an encrypted `string`
+    [Throws=LoginsStorageError]
+    string encrypt_fields(SecureLoginFields sec_fields, [ByRef]string encryption_key);
+
     Login? find_login_to_update([ByRef]LoginEntry look, [ByRef]sequence<Login> logins);
 
     // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure

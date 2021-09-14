@@ -26,8 +26,8 @@ pub use crate::login::*;
 pub use crate::store::*;
 pub use crate::sync::LoginsSyncEngine;
 
-// Public encryption functions.  We create need to publish these as top-level functions to expose
-// them across UniFFI
+// Public encryption functions.  We publish these as top-level functions to expose them across
+// UniFFI
 fn encrypt_login(login: Login, enc_key: &str) -> Result<EncryptedLogin> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
     login.encrypt(&encdec)
@@ -36,4 +36,14 @@ fn encrypt_login(login: Login, enc_key: &str) -> Result<EncryptedLogin> {
 fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> Result<Login> {
     let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
     login.decrypt(&encdec)
+}
+
+fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> Result<String> {
+    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    sec_fields.encrypt(&encdec)
+}
+
+fn decrypt_fields(sec_fields: String, enc_key: &str) -> Result<SecureLoginFields> {
+    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    encdec.decrypt_struct(&sec_fields)
 }
