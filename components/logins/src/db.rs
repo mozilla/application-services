@@ -583,6 +583,8 @@ impl LoginDb {
         entry: LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<EncryptedLogin> {
+        // Make sure to fixup the entry first, in case that changes the username
+        let entry = entry.fixup()?;
         let logins: Result<Vec<Login>> = self
             .get_by_base_domain(&entry.fields.origin)?
             .into_iter()
