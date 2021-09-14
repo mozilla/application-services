@@ -1422,6 +1422,7 @@ version = "0.1.0"
 dependencies = [
  "crashtest",
  "fxa-client",
+ "logins",
  "nimbus-sdk",
  "rc_log_ffi",
  "viaduct",

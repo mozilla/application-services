@@ -140,6 +140,7 @@ cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/nimbus/src/nimbus.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/crashtest/src/crashtest.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/fxa-client/src/fxa_client.udl" -l swift -o "$COMMON/Headers"
+$CARGO uniffi-bindgen generate "$REPO_ROOT/components/logins/src/logins.udl" -l swift -o "$COMMON/Headers"
 rm -rf "$COMMON"/Headers/*.swift
 
 # Flesh out the framework for each architecture based on the common files.

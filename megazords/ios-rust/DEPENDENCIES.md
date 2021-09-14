@@ -24,6 +24,7 @@ the details of which are reproduced below.
 * [MIT License: nom](#mit-license-nom)
 * [MIT License: ordered-float](#mit-license-ordered-float)
 * [MIT License: radium](#mit-license-radium)
+* [MIT License: rusqlite](#mit-license-rusqlite)
 * [MIT License: slab](#mit-license-slab)
 * [MIT License: tap](#mit-license-tap)
 * [MIT License: textwrap](#mit-license-textwrap)
@@ -36,6 +37,8 @@ the details of which are reproduced below.
 * [CC0-1.0 License: base16](#cc0-10-license-base16)
 * [ISC License: ring](#isc-license-ring)
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
+* [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
+* [Optional Notice: SQLite](#optional-notice-sqlite)
 -------------
 ## Mozilla Public License 2.0
 
@@ -431,6 +434,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ## Apache License 2.0
 
 The following text applies to code linked from these dependencies:
+[ahash](https://github.com/tkaitchuck/ahash),
 [anyhow](https://github.com/dtolnay/anyhow),
 [arrayvec](https://github.com/bluss/arrayvec),
 [askama](https://github.com/djc/askama),
@@ -452,6 +456,8 @@ The following text applies to code linked from these dependencies:
 [digest](https://github.com/RustCrypto/traits),
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
+[fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
+[fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
 [ffi-support](https://github.com/mozilla/ffi-support),
 [fnv](https://github.com/servo/rust-fnv),
 [form_urlencoded](https://github.com/servo/rust-url),
@@ -464,6 +470,7 @@ The following text applies to code linked from these dependencies:
 [getrandom](https://github.com/rust-random/getrandom),
 [glob](https://github.com/rust-lang/glob),
 [hashbrown](https://github.com/rust-lang/hashbrown),
+[hashlink](https://github.com/kyren/hashlink),
 [heck](https://github.com/withoutboats/heck),
 [hex](https://github.com/KokaKiwi/rust-hex),
 [http](https://github.com/hyperium/http),
@@ -521,6 +528,7 @@ The following text applies to code linked from these dependencies:
 [serde_json](https://github.com/serde-rs/json),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
+[smallvec](https://github.com/servo/rust-smallvec),
 [socket2](https://github.com/rust-lang/socket2),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
 [swift-protobuf](https://github.com/apple/swift-protobuf),
@@ -1306,6 +1314,34 @@ SOFTWARE.
 
 ```
 -------------
+## MIT License: rusqlite
+
+The following text applies to code linked from these dependencies:
+[rusqlite](https://github.com/rusqlite/rusqlite)
+
+```
+Copyright (c) 2014-2020 The rusqlite developers
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+```
+-------------
 ## MIT License: slab
 
 The following text applies to code linked from these dependencies:
@@ -1773,5 +1809,47 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+```
+-------------
+## BSD-3-Clause License: sqlcipher
+
+The following text applies to code linked from these dependencies:
+[sqlcipher](https://github.com/sqlcipher/sqlcipher)
+
+```
+Copyright (c) 2008, ZETETIC LLC
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the name of the ZETETIC LLC nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY ZETETIC LLC ''AS IS'' AND ANY
+EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL ZETETIC LLC BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+```
+-------------
+## Optional Notice: SQLite
+
+The following text applies to code linked from these dependencies:
+[sqlite](https://www.sqlite.org/)
+
+```
+This software makes use of the 'SQLite' database engine, and we are very grateful to D. Richard Hipp and team for producing it.
 ```
 -------------

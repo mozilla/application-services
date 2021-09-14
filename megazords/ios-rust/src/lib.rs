@@ -7,6 +7,7 @@
 
 pub use crashtest;
 pub use fxa_client;
+pub use logins;
 pub use nimbus;
 pub use rc_log_ffi;
 pub use viaduct_reqwest;

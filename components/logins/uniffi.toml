@@ -3,4 +3,6 @@ package_name = "mozilla.appservices.logins"
 cdylib_name = "megazord"
 
 [bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "loginsFFI"
 generate_module_map = false
