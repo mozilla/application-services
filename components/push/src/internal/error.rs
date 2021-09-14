@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-impl From<Error> for ffi_support::ExternError {
-    fn from(e: Error) -> ffi_support::ExternError {
-        ffi_support::ExternError::new_error(e.kind().error_code(), format!("{:?}", e))
-    }
-}
-
 error_support::define_error! {
     ErrorKind {
         (StorageSqlError, rusqlite::Error),
@@ -70,28 +64,4 @@ pub enum ErrorKind {
     /// Was unable to send request to server
     #[error("Unable to send request to server: {0}")]
     RequestError(#[from] viaduct::Error),
-}
-
-// Note, be sure to duplicate errors in the Kotlin side
-// see RustError.kt
-impl ErrorKind {
-    pub fn error_code(&self) -> ffi_support::ErrorCode {
-        let code = match self {
-            ErrorKind::GeneralError(_) => 22,
-            ErrorKind::CryptoError(_) => 24,
-            ErrorKind::CommunicationError(_) => 25,
-            ErrorKind::CommunicationServerError(_) => 26,
-            ErrorKind::AlreadyRegisteredError => 27,
-            ErrorKind::StorageError(_) => 28,
-            ErrorKind::StorageSqlError(_) => 29,
-            ErrorKind::MissingRegistrationTokenError => 30,
-            ErrorKind::TranscodingError(_) => 31,
-            ErrorKind::RecordNotFoundError(_, _) => 32,
-            ErrorKind::UrlParseError(_) => 33,
-            ErrorKind::JSONDeserializeError(_) => 34,
-            ErrorKind::UAIDNotRecognizedError(_) => 35,
-            ErrorKind::RequestError(_) => 36,
-        };
-        ffi_support::ErrorCode::new(code)
-    }
 }

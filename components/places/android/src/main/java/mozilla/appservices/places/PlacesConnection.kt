@@ -16,7 +16,6 @@ import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
 import org.json.JSONArray
-import org.json.JSONException
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.nio.ByteBuffer
@@ -1273,7 +1272,8 @@ data class VisitObservation(
     /** Milliseconds */
     val at: Long? = null,
     val referrer: String? = null,
-    val isRemote: Boolean? = null
+    val isRemote: Boolean? = null,
+    val previewImageUrl: String? = null
 ) {
     fun toJSON(): JSONObject {
         val o = JSONObject()
@@ -1289,15 +1289,8 @@ data class VisitObservation(
         this.at?.let { o.put("at", it) }
         this.referrer?.let { o.put("referrer", it) }
         this.isRemote?.let { o.put("is_remote", it) }
+        this.previewImageUrl?.let { o.put("preview_image_url", it) }
         return o
-    }
-}
-
-fun stringOrNull(jsonObject: JSONObject, key: String): String? {
-    return try {
-        jsonObject.getString(key)
-    } catch (e: JSONException) {
-        null
     }
 }
 
@@ -1424,7 +1417,12 @@ data class VisitInfo(
      * Whether the page is hidden because it redirected to another page, or was
      * visited in a frame.
      */
-    val isHidden: Boolean
+    val isHidden: Boolean,
+
+    /**
+     * The preview image of the page that was visited, if known.
+     */
+    val previewImageUrl: String?
 ) {
     companion object {
         internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
@@ -1434,7 +1432,8 @@ data class VisitInfo(
                     title = it.title,
                     visitTime = it.timestamp,
                     visitType = intToVisitType[it.visitType]!!,
-                    isHidden = it.isHidden
+                    isHidden = it.isHidden,
+                    previewImageUrl = if (it.previewImageUrl.isNullOrEmpty()) null else it.previewImageUrl
                 )
             }
         }
@@ -1454,7 +1453,8 @@ data class VisitInfosWithBound(
                     title = it.title,
                     visitTime = it.timestamp,
                     visitType = intToVisitType[it.visitType]!!,
-                    isHidden = it.isHidden
+                    isHidden = it.isHidden,
+                    previewImageUrl = it.previewImageUrl
                 )
             }
             return VisitInfosWithBound(

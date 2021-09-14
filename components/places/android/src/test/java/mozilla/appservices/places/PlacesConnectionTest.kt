@@ -10,6 +10,7 @@ import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
@@ -174,6 +175,40 @@ class PlacesConnectionTest {
         // Actual visit had no www
         assertEquals(null, db.matchUrl("www.mozilla.com/a1"))
         assertEquals("https://news.ycombinator.com/", db.matchUrl("news"))
+    }
+
+    @Test
+    fun testObservingPreviewImage() {
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/0",
+            visitType = VisitType.LINK)
+        )
+
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/1",
+            visitType = VisitType.LINK)
+        )
+
+        // Can change preview image.
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/1",
+            visitType = VisitType.LINK,
+            previewImageUrl = "https://www.example.com/1/previewImage.png")
+        )
+
+        // Can make an initial observation with the preview image.
+        db.noteObservation(VisitObservation(
+            url = "https://www.example.com/2",
+            visitType = VisitType.LINK,
+            previewImageUrl = "https://www.example.com/2/previewImage.png")
+        )
+
+        val all = db.getVisitInfos(0)
+        assertEquals(4, all.count())
+        assertNull(all[0].previewImageUrl)
+        assertEquals("https://www.example.com/1/previewImage.png", all[1].previewImageUrl)
+        assertEquals("https://www.example.com/1/previewImage.png", all[2].previewImageUrl)
+        assertEquals("https://www.example.com/2/previewImage.png", all[3].previewImageUrl)
     }
 
     @Test
@@ -451,6 +486,7 @@ class PlacesConnectionTest {
             VisitObservation(
                 url = "https://www.ifixit.com/News/35377/which-wireless-earbuds-are-the-least-evil",
                 title = "Are All Wireless Earbuds As Evil As AirPods?",
+                previewImageUrl = "https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg",
                 visitType = VisitType.LINK
             )
         )
@@ -471,6 +507,9 @@ class PlacesConnectionTest {
             assertEquals(1, this.size)
             // view time is zero, since we didn't record it yet.
             assertEquals(0, this[0].totalViewTime)
+            // assert that we get the preview image and title
+            assertEquals("Are All Wireless Earbuds As Evil As AirPods?", this[0].title)
+            assertEquals("https://valkyrie.cdn.ifixit.com/media/2020/02/03121341/bose_soundsport_13.jpg", this[0].previewImageUrl)
         }
 
         db.noteHistoryMetadataObservationViewTime(metaKey1, 1337)
