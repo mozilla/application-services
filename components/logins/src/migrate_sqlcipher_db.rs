@@ -54,8 +54,8 @@ impl Add for MigrationMetrics {
     type Output = MigrationMetrics;
     fn add(self, rhs: MigrationMetrics) -> MigrationMetrics {
         MigrationMetrics {
-            insert_phase: self.insert_phase + rhs.insert_phase,
-            fixup_phase: self.fixup_phase + rhs.fixup_phase,
+            insert_phase: Default::default(),
+            fixup_phase: Default::default(),
             num_processed: self.num_processed + rhs.num_processed,
             num_succeeded: self.num_succeeded + rhs.num_succeeded,
             num_failed: self.num_failed + rhs.num_failed,
@@ -88,42 +88,27 @@ pub fn migrate_logins(
     let path = path.as_ref();
     let sqlcipher_path = sqlcipher_path.as_ref();
 
-    // Need to make sure we have an old db and new one before we start anything
-    let result = match (path.exists(), sqlcipher_path.exists()) {
-        (true, true) => migrate_sqlcipher_db_to_plaintext(
-            &sqlcipher_path,
-            &path,
-            sqlcipher_key,
-            new_encryption_key,
-            salt.as_ref(),
-        ),
-        (false, true) => match sqlcipher_path.to_str() {
-            None => throw!(ErrorKind::InvalidPath(
-                sqlcipher_path.as_os_str().to_owned(),
-            )),
-            Some(s) => throw!(ErrorKind::InvalidDatabaseFile(s.to_string())),
-        },
-        (true, false) => match path.to_str() {
-            None => throw!(ErrorKind::InvalidPath(
-                sqlcipher_path.as_os_str().to_owned(),
-            )),
-            Some(s) => throw!(ErrorKind::InvalidDatabaseFile(s.to_string())),
-        },
-        (false, false) => throw!(ErrorKind::InvalidDatabaseFile(
-            "Both paths failed".to_string(),
-        )),
-    };
-
-    match result {
-        Err(e) => {
-            log::error!("Error migrating sqlcipher DB: {}", e);
-            throw!(ErrorKind::MigrationError(e.to_string()))
-        }
-        Ok(metrics) => {
-            // Do we handle deletion here? or leave it to the client
-            Ok(serde_json::to_string(&metrics)?)
-        }
+    // If the sqlcipher db doesn't exist we can't do anything.
+    if !sqlcipher_path.exists() {
+        throw!(ErrorKind::InvalidDatabaseFile(
+            sqlcipher_path.to_string_lossy().to_string()
+        ));
     }
+
+    // If the target does exist we fail as we don't want to migrate twice.
+    if path.exists() {
+        throw!(ErrorKind::MigrationError(
+            "target database already exists".to_string()
+        ));
+    }
+    migrate_sqlcipher_db_to_plaintext(
+        &sqlcipher_path,
+        &path,
+        sqlcipher_key,
+        new_encryption_key,
+        salt.as_ref(),
+    )
+    .and_then(|metrics| Ok(serde_json::to_string(&metrics)?))
 }
 
 fn migrate_sqlcipher_db_to_plaintext(
@@ -502,25 +487,12 @@ fn insert_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<M
     let mut all_errors = Vec::new();
     all_errors.extend(insert_errors.clone());
     let metrics = MigrationMetrics {
-        fixup_phase: MigrationPhaseMetrics {
-            num_processed: 0,
-            num_succeeded: 0,
-            num_failed: 0,
-            total_duration: 0,
-            errors: Vec::new(),
-        },
-        insert_phase: MigrationPhaseMetrics {
-            num_processed: import_start_total_logins,
-            num_succeeded: import_start_total_logins - num_failed_insert,
-            num_failed: num_failed_insert,
-            total_duration: insert_phase_duration.as_millis() as u64,
-            errors: insert_errors,
-        },
         num_processed: import_start_total_logins,
         num_succeeded: import_start_total_logins - num_failed_insert,
         num_failed: num_failed_insert,
         total_duration: insert_phase_duration.as_millis() as u64,
         errors: all_errors,
+        ..Default::default()
     };
     log::info!(
         "Finished importing logins with the following metrics: {:#?}",

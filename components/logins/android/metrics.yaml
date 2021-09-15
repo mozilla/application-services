@@ -113,3 +113,86 @@ logins_store:
       - mhammond@mozilla.com
       - synced-client-integrations@mozilla.com
     expires: "never"
+
+  # Migrations from sqlcipher to sqlite.
+  migration_num_processed:
+    type: counter
+    description: >
+      The total number of login records processed by the migration
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  migration_num_succeeded:
+    type: counter
+    description: >
+      The total number of login records successfully migrated
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  migration_num_failed:
+    type: counter
+    description: >
+      The total number of login records which failed to migrate
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  migration_total_duration:
+    type: timespan
+    time_unit: millisecond
+    description: >
+      How long the migration tool
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  # Note glean limits this to 20 items each with a max length of 50 utf8 chars.
+  migration_errors:
+    type: string_list
+    description: >
+      Errors discovered in the migration.
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
