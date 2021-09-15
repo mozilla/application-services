@@ -1257,18 +1257,19 @@ mod tests {
         let testpaths = TestPaths::new();
         create_old_db(testpaths.old_db.as_path(), Some(&String::from(TEST_SALT)));
 
-        match migrate_logins(
-            testpaths.new_db.as_path(),
-            &TEST_ENCRYPTION_KEY,
-            "/some/path/to/db.db",
-            "old-key",
-            None,
-        ) {
-            Ok(_) => {}
-            Err(e) => {
-                assert_eq!(e.to_string(), "Invalid database file: /some/path/to/db.db")
-            }
-        }
+        assert!(matches!(
+            migrate_logins(
+                testpaths.new_db.as_path(),
+                &TEST_ENCRYPTION_KEY,
+                "/some/path/to/db.db",
+                "old-key",
+                None,
+            )
+            .err()
+            .unwrap()
+            .kind(),
+            ErrorKind::InvalidDatabaseFile(_),
+        ))
     }
 
     #[test]
@@ -1279,20 +1280,18 @@ mod tests {
         // We want a new db to exist already
         LoginStore::new(testpaths.new_db.as_path()).unwrap();
 
-        match migrate_logins(
-            testpaths.new_db.as_path(),
-            &TEST_ENCRYPTION_KEY,
-            testpaths.old_db.as_path(),
-            "old-key",
-            None,
-        ) {
-            Ok(_) => {}
-            Err(e) => {
-                assert_eq!(
-                    e.to_string(),
-                    "Migration Error: target database already exists"
-                )
-            }
-        }
+        assert!(matches!(
+            migrate_logins(
+                testpaths.new_db.as_path(),
+                &TEST_ENCRYPTION_KEY,
+                testpaths.old_db.as_path(),
+                "old-key",
+                None,
+            )
+            .err()
+            .unwrap()
+            .kind(),
+            ErrorKind::MigrationError(_)
+        ));
     }
 }
