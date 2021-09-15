@@ -25,7 +25,8 @@ namespace logins {
     [Throws=LoginsStorageError]
     string encrypt_fields(SecureLoginFields sec_fields, [ByRef]string encryption_key);
 
-    Login? find_login_to_update([ByRef]LoginEntry look, [ByRef]sequence<Login> logins);
+    [Throws=LoginsStorageError]
+    Login? find_login_to_update(LoginEntry look, [ByRef]sequence<Login> logins);
 
     [Throws=LoginsStorageError]
     string migrate_logins(

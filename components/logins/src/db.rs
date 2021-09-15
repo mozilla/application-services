@@ -528,7 +528,7 @@ impl LoginDb {
             .into_iter()
             .map(|l| l.decrypt(&encdec))
             .collect();
-        match find_login_to_update(&entry, &logins?) {
+        match find_login_to_update(entry.clone(), &logins?)? {
             Some(login) => self.update(&login.record.id, entry, &encdec),
             None => self.add(entry, &encdec),
         }

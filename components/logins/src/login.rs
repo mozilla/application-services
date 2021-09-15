@@ -707,11 +707,14 @@ impl ValidateAndFixup for LoginEntry {
 //  - User updating an existing login with the same username
 //  - User updating an login with the blank username
 //
-// `find_login_to_update()` uses a `Vec<Login>` rather than hitting the database Vbecause Fenix
+//  Returns an Err if the new login is not valid and could not be fixed up
+//
+// `find_login_to_update()` uses a `Vec<Login>` rather than hitting the database because Fenix
 // shows a username field and runs it on every keypress, so it needs to be fast.
-pub fn find_login_to_update(look: &LoginEntry, search: &[Login]) -> Option<Login> {
+pub fn find_login_to_update(look: LoginEntry, search: &[Login]) -> Result<Option<Login>> {
+    let look = look.fixup()?;
     // Try to match the username
-    search
+    Ok(search
         .iter()
         .find(|login| login.sec_fields.username == look.sec_fields.username)
         // Fall back on a blank username
@@ -721,7 +724,7 @@ pub fn find_login_to_update(look: &LoginEntry, search: &[Login]) -> Option<Login
                 .find(|login| login.sec_fields.username.is_empty())
         })
         // Clone the login to avoid ref issues when returning across the FFI
-        .cloned()
+        .cloned())
 }
 
 #[cfg(test)]
@@ -1357,14 +1360,14 @@ mod tests {
             sec_fields: entry.sec_fields.clone(),
         };
         assert_eq!(
-            find_login_to_update(&entry, &vec![login.clone()]),
+            find_login_to_update(entry.clone(), &vec![login.clone()]).unwrap(),
             Some(login.clone()),
         );
 
         // different username
         assert_eq!(
             find_login_to_update(
-                &LoginEntry {
+                LoginEntry {
                     sec_fields: SecureLoginFields {
                         username: "user2".into(),
                         ..entry.sec_fields.clone()
@@ -1372,14 +1375,15 @@ mod tests {
                     ..entry.clone()
                 },
                 &vec![login.clone()],
-            ),
+            )
+            .unwrap(),
             None
         );
 
         // different password (which should still match)
         assert_eq!(
             find_login_to_update(
-                &LoginEntry {
+                LoginEntry {
                     sec_fields: SecureLoginFields {
                         password: "password2".into(),
                         ..entry.sec_fields.clone()
@@ -1387,7 +1391,8 @@ mod tests {
                     ..entry.clone()
                 },
                 &vec![login.clone()],
-            ),
+            )
+            .unwrap(),
             Some(login.clone()),
         );
 
@@ -1406,7 +1411,7 @@ mod tests {
 
         assert_eq!(
             find_login_to_update(
-                &LoginEntry {
+                LoginEntry {
                     sec_fields: SecureLoginFields {
                         password: "password2".into(),
                         ..entry.sec_fields.clone()
@@ -1414,23 +1419,39 @@ mod tests {
                     ..entry.clone()
                 },
                 &vec![blank_username_login.clone()],
-            ),
+            )
+            .unwrap(),
             Some(blank_username_login.clone()),
         );
 
         // But a username match should be preferred to a blank username
         assert_eq!(
             find_login_to_update(
-                &LoginEntry {
+                LoginEntry {
                     sec_fields: SecureLoginFields {
                         password: "password2".into(),
                         ..entry.sec_fields.clone()
                     },
-                    ..entry
+                    ..entry.clone()
                 },
                 &vec![blank_username_login, login.clone()],
-            ),
-            Some(login),
+            )
+            .unwrap(),
+            Some(login.clone()),
         );
+
+        // Check that an invalid login results in an error
+        assert!(find_login_to_update(
+            LoginEntry {
+                fields: LoginFields {
+                    http_realm: None,
+                    form_action_origin: None,
+                    ..entry.fields
+                },
+                ..entry
+            },
+            &vec![login],
+        )
+        .is_err());
     }
 }
