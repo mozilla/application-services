@@ -1,7 +1,7 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use crate::db::{LoginDb, MigrationMetrics};
+use crate::db::LoginDb;
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{EncryptedLogin, Login, LoginEntry};
@@ -46,23 +46,6 @@ impl LoginStore {
     pub fn new_in_memory() -> Result<Self> {
         let db = Mutex::new(LoginDb::open_in_memory()?);
         Ok(Self { db })
-    }
-
-    pub fn new_with_sqlcipher_migration(
-        path: impl AsRef<Path>,
-        new_encryption_key: &str,
-        sqlcipher_path: impl AsRef<Path>,
-        sqlcipher_key: &str,
-        salt: Option<&str>,
-    ) -> Result<(Self, MigrationMetrics)> {
-        let (db, metrics) = LoginDb::open_with_sqlcipher_migration(
-            path,
-            new_encryption_key,
-            sqlcipher_path,
-            sqlcipher_key,
-            salt,
-        )?;
-        Ok((Self { db: Mutex::new(db) }, metrics))
     }
 
     pub fn list(&self) -> Result<Vec<EncryptedLogin>> {
