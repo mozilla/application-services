@@ -4,6 +4,8 @@
 #
 # This file should be used via `./libs/verify-ios-environment.sh`.
 
+set -e
+
 if [[ ! -f "$(pwd)/libs/build-all.sh" ]]; then
   echo "ERROR: verify-ios-environment.sh should be run from the root directory of the repo"
   exit 1
