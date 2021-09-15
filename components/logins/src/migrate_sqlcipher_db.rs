@@ -487,7 +487,7 @@ fn insert_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<M
     tx.commit()?;
     let insert_phase_duration = import_start.elapsed();
     let mut all_errors = Vec::new();
-    all_errors.extend(insert_errors.clone());
+    all_errors.extend(insert_errors);
     let metrics = MigrationMetrics {
         num_processed: import_start_total_logins,
         num_succeeded: import_start_total_logins - num_failed_insert,
