@@ -121,25 +121,26 @@ public extension Variables {
 
 extension Dictionary where Key == String {
     func compactMapKeys<T>(_ transform: (String) -> T?) -> [T: Value] {
-        let pairs = self.keys.compactMap { (k: String) -> (T, Value)? in
+        let pairs = keys.compactMap { (k: String) -> (T, Value)? in
             guard let value = self[k],
-                  let key = transform(k) else {
+                  let key = transform(k)
+            else {
                 return nil
             }
 
             return (key, value)
         }
-        return Dictionary<T, Value>(uniqueKeysWithValues: pairs)
+        return [T: Value](uniqueKeysWithValues: pairs)
     }
 
     func compactMapKeysAsEnums<T: RawRepresentable>() -> [T: Value] where T.RawValue == String {
-        return self.compactMapKeys(asEnum)
+        return compactMapKeys(asEnum)
     }
 }
 
 extension Dictionary where Value == String {
     func compactMapValuesAsEnums<T: RawRepresentable>() -> [Key: T] where T.RawValue == String {
-        return self.compactMapValues(asEnum)
+        return compactMapValues(asEnum)
     }
 }
 
@@ -160,7 +161,7 @@ extension VariablesWithBundle {
         return lookupList(key, transform: asImage)
     }
 
-    func getImageMap(_ key: String) -> [String : UIImage]? {
+    func getImageMap(_ key: String) -> [String: UIImage]? {
         return lookupMap(key, transform: asImage)
     }
 
@@ -172,7 +173,7 @@ extension VariablesWithBundle {
         return lookupList(key, transform: asLocalizedString)
     }
 
-    func getTextMap(_ key: String) -> [String : String]? {
+    func getTextMap(_ key: String) -> [String: String]? {
         return lookupMap(key, transform: asLocalizedString)
     }
 
@@ -275,7 +276,7 @@ internal class JSONVariables: VariablesWithBundle {
         return values(key)
     }
 
-    func getBoolMap(_ key: String) -> [String : Bool]? {
+    func getBoolMap(_ key: String) -> [String: Bool]? {
         return valueMap(key)
     }
 
@@ -329,10 +330,11 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getStringList(_ key: String) -> [String]? {
+    func getStringList(_: String) -> [String]? {
         return nil
     }
-    func getStringMap(_ key: String) -> [String : String]? {
+
+    func getStringMap(_: String) -> [String: String]? {
         return nil
     }
 
@@ -340,11 +342,11 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getIntList(_ key: String) -> [Int]? {
+    func getIntList(_: String) -> [Int]? {
         return nil
     }
 
-    func getIntMap(_ key: String) -> [String : Int]? {
+    func getIntMap(_: String) -> [String: Int]? {
         return nil
     }
 
@@ -352,11 +354,11 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getBoolList(_ key: String) -> [Bool]? {
+    func getBoolList(_: String) -> [Bool]? {
         return nil
     }
 
-    func getBoolMap(_ key: String) -> [String : Bool]? {
+    func getBoolMap(_: String) -> [String: Bool]? {
         return nil
     }
 
@@ -364,11 +366,11 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getImageList(_ key: String) -> [UIImage]? {
+    func getImageList(_: String) -> [UIImage]? {
         return nil
     }
 
-    func getImageMap(_ key: String) -> [String : UIImage]? {
+    func getImageMap(_: String) -> [String: UIImage]? {
         return nil
     }
 
@@ -376,11 +378,11 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getTextList(_ key: String) -> [String]? {
+    func getTextList(_: String) -> [String]? {
         return nil
     }
 
-    func getTextMap(_ key: String) -> [String : String]? {
+    func getTextMap(_: String) -> [String: String]? {
         return nil
     }
 
@@ -392,7 +394,7 @@ class NilVariables: Variables {
         return nil
     }
 
-    func getVariablesMap(_ key: String) -> [String : Variables]? {
+    func getVariablesMap(_: String) -> [String: Variables]? {
         return nil
     }
 }

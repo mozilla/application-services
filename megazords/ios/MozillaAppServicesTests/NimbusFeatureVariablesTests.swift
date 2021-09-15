@@ -12,7 +12,7 @@ class NimbusFeatureVariablesTests: XCTestCase {
             "intVariable": 3,
             "stringVariable": "string",
             "booleanVariable": true,
-            "enumVariable": "one"
+            "enumVariable": "one",
         ])
 
         XCTAssertEqual(variables.getInt("intVariable"), 3)
@@ -67,25 +67,25 @@ class NimbusFeatureVariablesTests: XCTestCase {
             "ints": [1, 2, 3, "not a int"],
             "strings": ["a", "b", "c", 4],
             "booleans": [true, false, "not a bool"],
-            "enums": ["one", "two", "three"]
+            "enums": ["one", "two", "three"],
         ])
 
         XCTAssertEqual(variables.getStringList("strings"), ["a", "b", "c"])
-        XCTAssertEqual(variables.getIntList("ints"), [1,2,3])
+        XCTAssertEqual(variables.getIntList("ints"), [1, 2, 3])
         XCTAssertEqual(variables.getBoolList("booleans"), [true, false])
         XCTAssertEqual(variables.getEnumList("enums"), [EnumTester.one, EnumTester.two])
     }
 
     func testMapsOfTypes() throws {
         let variables: Variables = JSONVariables(with: [
-            "ints": [ "one": 1, "two": 2, "three": "string!"],
+            "ints": ["one": 1, "two": 2, "three": "string!"],
             "strings": ["a": "A", "b": "B", "c": 4],
             "booleans": ["a": true, "b": false, "c": "not a bool"],
-            "enums": ["one": "one", "two": "two", "three": "three"]
+            "enums": ["one": "one", "two": "two", "three": "three"],
         ])
 
         XCTAssertEqual(variables.getStringMap("strings"), ["a": "A", "b": "B"])
-        XCTAssertEqual(variables.getIntMap("ints"), [ "one": 1, "two": 2])
+        XCTAssertEqual(variables.getIntMap("ints"), ["one": 1, "two": 2])
         XCTAssertEqual(variables.getBoolMap("booleans"), ["a": true, "b": false])
         XCTAssertEqual(variables.getEnumMap("enums"), ["one": EnumTester.one, "two": EnumTester.two])
     }
@@ -102,26 +102,27 @@ class NimbusFeatureVariablesTests: XCTestCase {
             "items": [
                 "settings": [
                     "label": "Settings",
-                    "deepLink": "//settings"
+                    "deepLink": "//settings",
                 ],
                 "bookmarks": [
                     "label": "Bookmarks",
-                    "deepLink": "//bookmark-list"
+                    "deepLink": "//bookmark-list",
                 ],
                 "history": [
                     "label": "History",
-                    "deepLink": "//history"
+                    "deepLink": "//history",
                 ],
                 "addBookmark": [
-                    "label": "Bookmark this page"
-                ]
+                    "label": "Bookmark this page",
+                ],
             ],
-            "item-order": ["settings", "history", "addBookmark", "bookmarks", "open_bad_site"]
+            "item-order": ["settings", "history", "addBookmark", "bookmarks", "open_bad_site"],
         ])
 
         let menuItems: [MenuItemId: MenuItem]? = variables.getVariablesMap("items") { v in
             guard let label = v.getText("label"),
-                  let deepLink = v.getString("deepLink") else {
+                  let deepLink = v.getString("deepLink")
+            else {
                 return nil
             }
             return MenuItem(deepLink: deepLink, label: label)
@@ -135,7 +136,6 @@ class NimbusFeatureVariablesTests: XCTestCase {
         XCTAssertEqual(ordering, [.settings, .history, .addBookmark, .bookmarks])
     }
 }
-
 
 enum MenuItemId: String {
     case settings
