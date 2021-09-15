@@ -380,7 +380,7 @@ private inline fun <reified T> JSONObject.values(key: String): List<T>? =
     this.value<JSONArray>(key)?.values<T>()
 
 private inline fun <reified T> JSONArray.values(): List<T> {
-    var list = mutableListOf<T>()
+    val list = mutableListOf<T>()
     for (i in 0 until this.length()) {
         (this[i] as? T)?.let(list::add)
     }
@@ -391,7 +391,7 @@ private inline fun <reified T> JSONObject.mapOf(key: String) =
     this.value<JSONObject>(key)?.asMap<T>()
 
 private inline fun <reified T> JSONObject.asMap(): Map<String, T>? {
-    var map = mutableMapOf<String, T>()
+    val map = mutableMapOf<String, T>()
     this.keys().forEach { key ->
         this.value<T>(key)?.let { value -> map[key] = value }
     }

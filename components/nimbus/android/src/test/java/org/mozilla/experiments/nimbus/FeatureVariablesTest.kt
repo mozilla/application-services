@@ -208,6 +208,7 @@ class FeatureVariablesTest {
 
         // Unpack the variables into a MenuItem data-class.
         // If we can't do the conversion, then we return null.
+        @Suppress("ReturnCount")
         fun toMenuItem(inner: Variables): MenuItem? {
             val deepLink = inner.getString("deepLink") ?: return null
             val label = inner.getText("label") ?: return null
