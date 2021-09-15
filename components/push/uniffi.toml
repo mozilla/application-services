@@ -1,0 +1,6 @@
+[bindings.kotlin]
+package_name = "mozilla.appservices.push"
+cdylib_name = "megazord"
+
+[bindings.swift]
+generate_module_map = false

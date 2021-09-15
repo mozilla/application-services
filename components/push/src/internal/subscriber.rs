@@ -13,9 +13,7 @@ use crate::internal::config::PushConfiguration;
 use crate::internal::crypto::{Crypto, Cryptography, KeyV1 as Key};
 use crate::internal::error::{self, ErrorKind, Result};
 use crate::internal::storage::{PushRecord, Storage, Store};
-// TODO(teshaq): those will be replaced with rust structs in the next
-// uniffication step
-use crate::msg_types::{
+use crate::{
     DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
 };
 
@@ -226,7 +224,7 @@ impl PushManager {
         encoding: &str,
         salt: Option<&str>,
         dh: Option<&str>,
-    ) -> Result<String> {
+    ) -> Result<Vec<u8>> {
         if self.conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
@@ -237,10 +235,8 @@ impl PushManager {
             .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
             .ok_or_else(|| ErrorKind::RecordNotFoundError(uaid.to_owned(), chid.to_owned()))?;
         let key = Key::deserialize(&val.key)?;
-        let decrypted = Crypto::decrypt(&key, body, encoding, salt, dh)
-            .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)))?;
-        serde_json::to_string(&decrypted)
-            .map_err(|e| ErrorKind::TranscodingError(format!("{:?}", e)).into())
+        Crypto::decrypt(&key, body, encoding, salt, dh)
+            .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)).into())
     }
 
     pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<DispatchInfo>> {
@@ -302,7 +298,7 @@ mod test {
             .unwrap();
         assert_eq!(
             serde_json::to_string(&data_string.to_vec()).unwrap(),
-            result
+            serde_json::to_string(&result).unwrap(),
         );
         Ok(())
     }
