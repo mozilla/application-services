@@ -78,11 +78,13 @@ impl Add for MigrationPhaseMetrics {
     }
 }
 
+// migration for consumers to migrate from their SQLCipher DB
 pub fn migrate_logins(
     path: impl AsRef<Path>,
     new_encryption_key: &str,
     sqlcipher_path: impl AsRef<Path>,
     sqlcipher_key: &str,
+    // The salt arg is for iOS where the salt is stored externally.
     salt: Option<String>,
 ) -> Result<String> {
     let path = path.as_ref();
@@ -1248,5 +1250,49 @@ mod tests {
         assert_eq!(metrics.num_processed, 2);
         assert_eq!(metrics.num_succeeded, 2);
         assert_eq!(metrics.total_duration > 0, true);
+    }
+
+    #[test]
+    fn test_invalid_sqlcipher_path() {
+        let testpaths = TestPaths::new();
+        create_old_db(testpaths.old_db.as_path(), Some(&String::from(TEST_SALT)));
+
+        match migrate_logins(
+            testpaths.new_db.as_path(),
+            &TEST_ENCRYPTION_KEY,
+            "/some/path/to/db.db",
+            "old-key",
+            None,
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                assert_eq!(e.to_string(), "Invalid database file: /some/path/to/db.db")
+            }
+        }
+    }
+
+    #[test]
+    fn test_existing_new_db() {
+        let testpaths = TestPaths::new();
+        create_old_db(testpaths.old_db.as_path(), Some(&String::from(TEST_SALT)));
+
+        // We want a new db to exist already
+        LoginStore::new(testpaths.new_db.as_path()).unwrap();
+
+        match migrate_logins(
+            testpaths.new_db.as_path(),
+            &TEST_ENCRYPTION_KEY,
+            testpaths.old_db.as_path(),
+            "old-key",
+            None,
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                assert_eq!(
+                    e.to_string(),
+                    "Migration Error: target database already exists"
+                )
+            }
+        }
     }
 }
