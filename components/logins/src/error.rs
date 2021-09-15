@@ -59,6 +59,9 @@ pub enum ErrorKind {
 
     #[error("IOError: {0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("Migration Error: {0}")]
+    MigrationError(String),
 }
 
 error_support::define_error! {
@@ -118,6 +121,7 @@ impl Error {
                 InvalidLogin::NoTarget => "InvalidLogin::NoTarget",
                 InvalidLogin::IllegalFieldValue { .. } => "InvalidLogin::IllegalFieldValue",
             },
+            ErrorKind::MigrationError(_) => "MigrationError",
         }
     }
 }

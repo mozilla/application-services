@@ -4,7 +4,8 @@
 
 package mozilla.appservices.logins
 
-import java.util.concurrent.atomic.AtomicReference
+import org.json.JSONException
+import org.json.JSONObject
 import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 /**
@@ -20,7 +21,7 @@ import mozilla.components.service.glean.private.LabeledMetricType
 
 /**
  * An artifact of the uniffi conversion - a thin-ish wrapper around a
-   LoginStore.
+ * LoginStore.
  */
 
 class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
@@ -94,6 +95,21 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
         }
     }
 
+    // Note we swallow exceptions.
+    fun migrateLogins(newDbPath: String, newDbEncKey: String, sqlCipherDbPath: String, sqlCipherEncKey: String) {
+        writeQueryCounters.measure {
+            try {
+                // last param is the "salt" which is only used on iOS.
+                val metrics = migrateLogins(newDbPath, newDbEncKey, sqlCipherDbPath, sqlCipherEncKey, null)
+                recordMigrationMetrics(metrics)
+            } catch (e: LoginsStorageException) {
+                // leave all counters at zero, including duration, to hopefully
+                // make it a bit easier to identify total failure.
+                LoginsStoreMetrics.migrationErrors.add(e.toString())
+            }
+        }
+    }
+
     @Throws(LoginsStorageException::class)
     fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
@@ -123,6 +139,27 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
             LoginsStoreMetrics.writeQueryCount,
             LoginsStoreMetrics.writeQueryErrorCount
         )
+    }
+}
+
+/**
+ * Records metrics for the sqlcipher -> sqlite migration.
+ */
+fun recordMigrationMetrics(jsonString: String) {
+    try {
+        val metrics = JSONObject(jsonString)
+        LoginsStoreMetrics.migrationNumProcessed.add(metrics.getInt("num_processed"))
+        LoginsStoreMetrics.migrationNumSucceeded.add(metrics.getInt("num_succeeded"))
+        LoginsStoreMetrics.migrationNumFailed.add(metrics.getInt("num_failed"))
+        LoginsStoreMetrics.migrationTotalDuration.setRawNanos(metrics.getLong("total_duration") * 1_000_000)
+        val errors = metrics.getJSONArray("errors")
+        for (i in 0 until errors.length()) {
+            LoginsStoreMetrics.migrationErrors.add(errors.getString(i))
+        }
+    } catch (e: JSONException) {
+        // This shouldn't happen, but we don't want to crash.
+        // There's no logging configured here and it's not clear there's value.
+        // So meh
     }
 }
 

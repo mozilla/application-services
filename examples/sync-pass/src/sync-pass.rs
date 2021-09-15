@@ -8,6 +8,7 @@
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
 use cli_support::prompt::{prompt_char, prompt_string, prompt_usize};
 use logins::encryption::{create_key, EncryptorDecryptor};
+use logins::migrate_sqlcipher_db::migrate_logins;
 use logins::{
     EncryptedLogin, LoginEntry, LoginFields, LoginStore, LoginsSyncEngine, SecureLoginFields,
     ValidateAndFixup,
@@ -305,13 +306,14 @@ fn open_database(
         }
         (Some(sqlcipher_path), Some(sqlcipher_encryption_key)) => {
             let encryption_key = create_key()?;
-            let (store, metrics) = LoginStore::new_with_sqlcipher_migration(
+            let metrics = migrate_logins(
                 db_path,
                 &encryption_key,
                 sqlcipher_path,
                 sqlcipher_encryption_key,
                 None,
-            )?;
+            );
+            let store = LoginStore::new(db_path)?;
             log::info!("Migration metrics: {:?}", metrics);
 
             // For new migrations, we want to set the encryption key.  But it's also possible that

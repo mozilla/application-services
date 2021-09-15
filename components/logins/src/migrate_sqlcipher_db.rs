@@ -54,8 +54,8 @@ impl Add for MigrationMetrics {
     type Output = MigrationMetrics;
     fn add(self, rhs: MigrationMetrics) -> MigrationMetrics {
         MigrationMetrics {
-            insert_phase: self.insert_phase + rhs.insert_phase,
-            fixup_phase: self.fixup_phase + rhs.fixup_phase,
+            insert_phase: Default::default(),
+            fixup_phase: Default::default(),
             num_processed: self.num_processed + rhs.num_processed,
             num_succeeded: self.num_succeeded + rhs.num_succeeded,
             num_failed: self.num_failed + rhs.num_failed,
@@ -78,12 +78,47 @@ impl Add for MigrationPhaseMetrics {
     }
 }
 
-pub fn migrate_sqlcipher_db_to_plaintext(
+// migration for consumers to migrate from their SQLCipher DB
+pub fn migrate_logins(
+    path: impl AsRef<Path>,
+    new_encryption_key: &str,
+    sqlcipher_path: impl AsRef<Path>,
+    sqlcipher_key: &str,
+    // The salt arg is for iOS where the salt is stored externally.
+    salt: Option<String>,
+) -> Result<String> {
+    let path = path.as_ref();
+    let sqlcipher_path = sqlcipher_path.as_ref();
+
+    // If the sqlcipher db doesn't exist we can't do anything.
+    if !sqlcipher_path.exists() {
+        throw!(ErrorKind::InvalidDatabaseFile(
+            sqlcipher_path.to_string_lossy().to_string()
+        ));
+    }
+
+    // If the target does exist we fail as we don't want to migrate twice.
+    if path.exists() {
+        throw!(ErrorKind::MigrationError(
+            "target database already exists".to_string()
+        ));
+    }
+    migrate_sqlcipher_db_to_plaintext(
+        &sqlcipher_path,
+        &path,
+        sqlcipher_key,
+        new_encryption_key,
+        salt.as_ref(),
+    )
+    .and_then(|metrics| Ok(serde_json::to_string(&metrics)?))
+}
+
+fn migrate_sqlcipher_db_to_plaintext(
     old_db_path: impl AsRef<Path>,
     new_db_path: impl AsRef<Path>,
     old_encryption_key: &str,
     new_encryption_key: &str,
-    salt: Option<&str>,
+    salt: Option<&String>,
 ) -> Result<MigrationMetrics> {
     let mut db = Connection::open(old_db_path)?;
     init_sqlcipher_db(&mut db, old_encryption_key, salt)?;
@@ -95,7 +130,11 @@ pub fn migrate_sqlcipher_db_to_plaintext(
     Ok(metrics)
 }
 
-fn init_sqlcipher_db(db: &mut Connection, encryption_key: &str, salt: Option<&str>) -> Result<()> {
+fn init_sqlcipher_db(
+    db: &mut Connection,
+    encryption_key: &str,
+    salt: Option<&String>,
+) -> Result<()> {
     // Most of this code was copied from the old LoginDB::with_connection() method.
     db.set_pragma("key", encryption_key)?
         .set_pragma("secure_delete", true)?;
@@ -131,7 +170,7 @@ fn sqlcipher_3_compat(conn: &Connection) -> Result<()> {
 }
 
 //Manually copy over row by row from sqlcipher db to a plaintext db
-pub fn migrate_from_sqlcipher_db(
+fn migrate_from_sqlcipher_db(
     cipher_conn: &mut Connection,
     new_db_store: LoginStore,
     encryption_key: &str,
@@ -448,27 +487,14 @@ fn insert_logins(migration_plan: &MigrationPlan, store: &LoginStore) -> Result<M
     tx.commit()?;
     let insert_phase_duration = import_start.elapsed();
     let mut all_errors = Vec::new();
-    all_errors.extend(insert_errors.clone());
+    all_errors.extend(insert_errors);
     let metrics = MigrationMetrics {
-        fixup_phase: MigrationPhaseMetrics {
-            num_processed: 0,
-            num_succeeded: 0,
-            num_failed: 0,
-            total_duration: 0,
-            errors: Vec::new(),
-        },
-        insert_phase: MigrationPhaseMetrics {
-            num_processed: import_start_total_logins,
-            num_succeeded: import_start_total_logins - num_failed_insert,
-            num_failed: num_failed_insert,
-            total_duration: insert_phase_duration.as_millis() as u64,
-            errors: insert_errors,
-        },
         num_processed: import_start_total_logins,
         num_succeeded: import_start_total_logins - num_failed_insert,
         num_failed: num_failed_insert,
         total_duration: insert_phase_duration.as_millis() as u64,
         errors: all_errors,
+        ..Default::default()
     };
     log::info!(
         "Finished importing logins with the following metrics: {:#?}",
@@ -691,14 +717,18 @@ mod tests {
 
     static TEST_SALT: &str = "01010101010101010101010101010101";
 
-    fn open_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) -> Connection {
+    fn open_old_db(db_path: impl AsRef<Path>, salt: Option<&String>) -> Connection {
         let mut db = Connection::open(db_path).unwrap();
         init_sqlcipher_db(&mut db, "old-key", salt).unwrap();
         sqlcipher_3_compat(&db).unwrap();
         db
     }
 
-    fn create_old_db_with_test_data(db_path: impl AsRef<Path>, salt: Option<&str>, inserts: &str) {
+    fn create_old_db_with_test_data(
+        db_path: impl AsRef<Path>,
+        salt: Option<&String>,
+        inserts: &str,
+    ) {
         let mut db = open_old_db(db_path, salt);
         let tx = db.transaction().unwrap();
         schema::init(&tx).unwrap();
@@ -722,7 +752,7 @@ mod tests {
         tx.commit().unwrap();
     }
 
-    fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&str>) {
+    fn create_old_db(db_path: impl AsRef<Path>, salt: Option<&String>) {
         const INSERTS: &str = r#"
             INSERT INTO loginsL(guid, username, password, hostname,
                 httpRealm, formSubmitURL, usernameField, passwordField, timeCreated, timeLastUsed,
@@ -1081,13 +1111,13 @@ mod tests {
     #[test]
     fn test_migrate_with_manual_salt() {
         let testpaths = TestPaths::new();
-        create_old_db(testpaths.old_db.as_path(), Some(TEST_SALT));
+        create_old_db(testpaths.old_db.as_path(), Some(&String::from(TEST_SALT)));
         migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
             "old-key",
             &TEST_ENCRYPTION_KEY,
-            Some(TEST_SALT),
+            Some(&String::from(TEST_SALT)),
         )
         .unwrap();
         let db = LoginDb::open(testpaths.new_db).unwrap();
@@ -1220,5 +1250,48 @@ mod tests {
         assert_eq!(metrics.num_processed, 2);
         assert_eq!(metrics.num_succeeded, 2);
         assert_eq!(metrics.total_duration > 0, true);
+    }
+
+    #[test]
+    fn test_invalid_sqlcipher_path() {
+        let testpaths = TestPaths::new();
+        create_old_db(testpaths.old_db.as_path(), Some(&String::from(TEST_SALT)));
+
+        assert!(matches!(
+            migrate_logins(
+                testpaths.new_db.as_path(),
+                &TEST_ENCRYPTION_KEY,
+                "/some/path/to/db.db",
+                "old-key",
+                None,
+            )
+            .err()
+            .unwrap()
+            .kind(),
+            ErrorKind::InvalidDatabaseFile(_),
+        ))
+    }
+
+    #[test]
+    fn test_existing_new_db() {
+        let testpaths = TestPaths::new();
+        create_old_db(testpaths.old_db.as_path(), Some(&String::from(TEST_SALT)));
+
+        // We want a new db to exist already
+        LoginStore::new(testpaths.new_db.as_path()).unwrap();
+
+        assert!(matches!(
+            migrate_logins(
+                testpaths.new_db.as_path(),
+                &TEST_ENCRYPTION_KEY,
+                testpaths.old_db.as_path(),
+                "old-key",
+                None,
+            )
+            .err()
+            .unwrap()
+            .kind(),
+            ErrorKind::MigrationError(_)
+        ));
     }
 }

@@ -25,7 +25,6 @@
 use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::*;
-use crate::migrate_sqlcipher_db::migrate_sqlcipher_db_to_plaintext;
 use crate::schema;
 use crate::sync::SyncStatus;
 use crate::util;
@@ -94,67 +93,6 @@ impl LoginDb {
 
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         Self::with_connection(Connection::open(path)?)
-    }
-
-    // Open a database, after potentially migrating from a sqlcipher database.  This method handles
-    // the migration process:
-    //
-    //    - If there's not a file at sqlcipher_path, then we skip the migration
-    //    - If there is a file, then we attempt the migration and delete the file afterwards.
-    //
-    //  The salt arg is for IOS where the salt is stored externally.
-    //
-    pub fn open_with_sqlcipher_migration(
-        path: impl AsRef<Path>,
-        new_encryption_key: &str,
-        sqlcipher_path: impl AsRef<Path>,
-        sqlcipher_key: &str,
-        salt: Option<&str>,
-    ) -> Result<(Self, MigrationMetrics)> {
-        let path = path.as_ref();
-        let sqlcipher_path = sqlcipher_path.as_ref();
-
-        let metrics = if sqlcipher_path.exists() {
-            log::info!(
-                "Migrating sqlcipher DB: {} -> {}",
-                sqlcipher_path.display(),
-                path.display()
-            );
-            let result = migrate_sqlcipher_db_to_plaintext(
-                &sqlcipher_path,
-                &path,
-                sqlcipher_key,
-                new_encryption_key,
-                salt,
-            );
-
-            match result {
-                Err(e) => {
-                    log::error!("Error migrating sqlcipher DB: {}", e);
-                    // Delete both the old and new paths (if they exist)
-                    log::warn!("Re-creating database from scratch");
-                    if sqlcipher_path.exists() {
-                        std::fs::remove_file(sqlcipher_path)?;
-                    }
-                    if path.exists() {
-                        std::fs::remove_file(&path)?;
-                    }
-                    MigrationMetrics::default()
-                }
-                Ok(metrics) => {
-                    log::info!("Deleting old sqlcipher DB after migration");
-                    if sqlcipher_path.exists() {
-                        std::fs::remove_file(sqlcipher_path)?;
-                    }
-                    metrics
-                }
-            }
-        } else {
-            log::debug!("SQLCipher DB not found, skipping migration");
-            MigrationMetrics::default()
-        };
-
-        Self::with_connection(Connection::open(&path)?).map(|db| (db, metrics))
     }
 
     pub fn open_in_memory() -> Result<Self> {

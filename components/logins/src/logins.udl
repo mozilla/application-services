@@ -27,6 +27,15 @@ namespace logins {
 
     Login? find_login_to_update([ByRef]LoginEntry look, [ByRef]sequence<Login> logins);
 
+    [Throws=LoginsStorageError]
+    string migrate_logins(
+        [ByRef]string path,
+        [ByRef]string new_encryption_key,
+        [ByRef]string sqlcipher_path,
+        [ByRef]string sqlcipher_key,
+        string? salt
+    );
+
     // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure
     // a given key is the correct key for the DB. `autofill` consumers do this by just encrypting
     // some arbitrary string and storing the ciphertext, and as the app starts and the ciphertext

@@ -11,7 +11,7 @@ mod login;
 
 mod db;
 pub mod encryption;
-mod migrate_sqlcipher_db;
+pub mod migrate_sqlcipher_db;
 mod schema;
 mod store;
 mod sync;
@@ -23,6 +23,7 @@ pub use crate::db::{LoginDb, MigrationMetrics, MigrationPhaseMetrics};
 use crate::encryption::create_key;
 pub use crate::error::*;
 pub use crate::login::*;
+pub use crate::migrate_sqlcipher_db::migrate_logins;
 pub use crate::store::*;
 pub use crate::sync::LoginsSyncEngine;
 
