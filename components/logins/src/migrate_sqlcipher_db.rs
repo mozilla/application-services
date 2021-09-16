@@ -1354,10 +1354,10 @@ mod tests {
         .unwrap();
 
         let db = LoginDb::open(testpaths.new_db).unwrap();
-        // Should only be 1 login in loginsL
+        // Should only be 2 logins in loginsL (blank username and test)
         assert_eq!(
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
-            1
+            2
         );
     }
 }
