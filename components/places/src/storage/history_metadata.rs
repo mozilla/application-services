@@ -54,6 +54,7 @@ pub struct HistoryMetadataObservation {
 pub struct HistoryMetadata {
     pub url: String,
     pub title: Option<String>,
+    pub preview_image_url: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
     pub total_view_time: i32,
@@ -70,6 +71,7 @@ impl HistoryMetadata {
         Ok(Self {
             url: row.get("url")?,
             title: row.get("title")?,
+            preview_image_url: row.get("preview_image_url")?,
             created_at: created_at.0 as i64,
             updated_at: updated_at.0 as i64,
             total_view_time: row.get("total_view_time")?,
@@ -85,6 +87,10 @@ enum PlaceEntry {
     CreateFor(Url, Option<String>),
 }
 
+trait WhereArg {
+    fn to_where_arg(&self, db_field: &str) -> String;
+}
+
 impl PlaceEntry {
     fn fetch(url: &str, tx: &PlacesTransaction<'_>, title: Option<String>) -> Result<Self> {
         let url = Url::parse(url)?;
@@ -98,6 +104,24 @@ impl PlaceEntry {
             Some(id) => PlaceEntry::Existing(id),
             None => PlaceEntry::CreateFor(url, title),
         })
+    }
+}
+
+impl WhereArg for PlaceEntry {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            PlaceEntry::Existing(id) => format!("{} = {}", db_field, id),
+            PlaceEntry::CreateFor(_, _) => panic!("WhereArg: place entry must exist"),
+        }
+    }
+}
+
+impl WhereArg for Option<PlaceEntry> {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            Some(entry) => entry.to_where_arg(db_field),
+            None => format!("{} IS NULL", db_field),
+        }
     }
 }
 
@@ -162,6 +186,24 @@ impl SearchQueryEntry {
                 None => SearchQueryEntry::CreateFor(lowercase_term),
             },
         )
+    }
+}
+
+impl WhereArg for SearchQueryEntry {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            SearchQueryEntry::Existing(id) => format!("{} = {}", db_field, id),
+            SearchQueryEntry::CreateFor(_) => panic!("WhereArg: search query entry must exist"),
+        }
+    }
+}
+
+impl WhereArg for Option<SearchQueryEntry> {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            Some(entry) => entry.to_where_arg(db_field),
+            None => format!("{} IS NULL", db_field),
+        }
     }
 }
 
@@ -237,8 +279,8 @@ const MAX_QUERY_RESULTS: i32 = 1000;
 
 const COMMON_METADATA_SELECT: &str = "
 SELECT
-    m.id as metadata_id, p.url as url, p.title as title, m.created_at as created_at,
-    m.updated_at as updated_at, m.total_view_time as total_view_time,
+    m.id as metadata_id, p.url as url, p.title as title, p.preview_image_url as preview_image_url,
+    m.created_at as created_at, m.updated_at as updated_at, m.total_view_time as total_view_time,
     m.document_type as document_type, o.url as referrer_url, s.term as search_term
 FROM moz_places_metadata m
 LEFT JOIN moz_places p ON m.place_id = p.id
@@ -329,6 +371,67 @@ pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
          WHERE updated_at < :older_than",
         &[(":older_than", &older_than)],
     )?;
+    Ok(())
+}
+
+pub fn delete_metadata(
+    db: &PlacesDb,
+    url: &str,
+    referrer_url: Option<&str>,
+    search_term: Option<&str>,
+) -> Result<()> {
+    let tx = db.begin_transaction()?;
+
+    // Only delete entries that exactly match the key (url+referrer+search_term) we were passed-in.
+    // Do nothing if we were asked to delete a key which doesn't match what's in the database.
+    // e.g. referrer_url.is_some(), but a correspodning moz_places entry doesn't exist.
+    // In practice this shouldn't happen, or it may imply API misuse, but in either case we shouldn't
+    // delete things we were not asked to delete.
+    let place_entry = PlaceEntry::fetch(url, &tx, None)?;
+    let place_entry = match place_entry {
+        PlaceEntry::Existing(_) => place_entry,
+        PlaceEntry::CreateFor(_, _) => {
+            tx.rollback()?;
+            return Ok(());
+        }
+    };
+    let referrer_entry = match referrer_url {
+        Some(referrer_url) if !referrer_url.is_empty() => {
+            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+        }
+        _ => None,
+    };
+    let referrer_entry = match referrer_entry {
+        Some(PlaceEntry::Existing(_)) | None => referrer_entry,
+        Some(PlaceEntry::CreateFor(_, _)) => {
+            tx.rollback()?;
+            return Ok(());
+        }
+    };
+    let search_query_entry = match search_term {
+        Some(search_term) if !search_term.is_empty() => {
+            Some(SearchQueryEntry::from(&search_term, &tx)?)
+        }
+        _ => None,
+    };
+    let search_query_entry = match search_query_entry {
+        Some(SearchQueryEntry::Existing(_)) | None => search_query_entry,
+        Some(SearchQueryEntry::CreateFor(_)) => {
+            tx.rollback()?;
+            return Ok(());
+        }
+    };
+
+    let sql = format!(
+        "DELETE FROM moz_places_metadata WHERE {} AND {} AND {}",
+        place_entry.to_where_arg("place_id"),
+        referrer_entry.to_where_arg("referrer_place_id"),
+        search_query_entry.to_where_arg("search_query_id")
+    );
+
+    tx.execute_named_cached(&sql, &[])?;
+    tx.commit()?;
+
     Ok(())
 }
 
@@ -508,7 +611,7 @@ mod tests {
     }
 
     macro_rules! assert_history_metadata_record {
-        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
+        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr, preview_image_url $preview_image_url:expr) => {
             assert_eq!(String::from($url), $record.url, "url must match");
             assert_eq!($tvt, $record.total_view_time, "total_view_time must match");
             assert_eq!($document_type, $record.document_type, "is_media must match");
@@ -546,6 +649,19 @@ mod tests {
                     "title must match"
                 ),
                 None => assert_eq!(true, meta.title.is_none(), "title expected to be None"),
+            };
+            match $preview_image_url as Option<&str> {
+                Some(t) => assert_eq!(
+                    String::from(t),
+                    meta.preview_image_url
+                        .expect("preview_image_url must be Some"),
+                    "preview_image_url must match"
+                ),
+                None => assert_eq!(
+                    true,
+                    meta.preview_image_url.is_none(),
+                    "preview_image_url expected to be None"
+                ),
             };
         };
     }
@@ -930,6 +1046,7 @@ mod tests {
         let observation1 = VisitObservation::new(Url::parse("https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021").unwrap())
                 .with_at(now)
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
+                .with_preview_image_url(Some(String::from("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         apply_observation(&conn, observation1).unwrap();
@@ -983,7 +1100,8 @@ mod tests {
             search_term Some("cbc federal budget 2021"),
             document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
-            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")
+            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News"),
+            preview_image_url Some("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")
         );
 
         // query by search term
@@ -995,7 +1113,8 @@ mod tests {
             search_term Some("rust string format"),
             document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
-            title None
+            title None,
+            preview_image_url None
         );
 
         // query by url
@@ -1006,7 +1125,8 @@ mod tests {
             search_term Some("sqlite like"),
             document_type DocumentType::Regular,
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
-            title None
+            title None,
+            preview_image_url None
         );
 
         // by url, referrer domain is different
@@ -1017,8 +1137,121 @@ mod tests {
             search_term Some("cute cat"),
             document_type DocumentType::Media,
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
+            title None,
+            preview_image_url None
+        );
+    }
+
+    #[test]
+    fn test_delete_metadata() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // url  |   search_term |   referrer
+        // 1    |    1          |   1
+        // 1    |    1          |   0
+        // 1    |    0          |   1
+        // 1    |    0          |   0
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term Some("1 with search"),
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
             title None
         );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term Some("1 with search"),
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
+            title None
+        );
+
+        thread::sleep(time::Duration::from_millis(10));
+        // same observation a bit later:
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
+            title None
+        );
+
+        assert_eq!(6, get_since(&conn, 0).expect("get worked").len());
+        delete_metadata(&conn, "http://mozilla.com/1", None, None).expect("delete metadata");
+        assert_eq!(5, get_since(&conn, 0).expect("get worked").len());
+
+        delete_metadata(
+            &conn,
+            "http://mozilla.com/1",
+            Some("http://mozilla.com/"),
+            None,
+        )
+        .expect("delete metadata");
+        assert_eq!(4, get_since(&conn, 0).expect("get worked").len());
+
+        delete_metadata(
+            &conn,
+            "http://mozilla.com/1",
+            Some("http://mozilla.com/"),
+            Some("1 with search"),
+        )
+        .expect("delete metadata");
+        assert_eq!(3, get_since(&conn, 0).expect("get worked").len());
+
+        delete_metadata(&conn, "http://mozilla.com/1", None, Some("1 with search"))
+            .expect("delete metadata");
+        assert_eq!(2, get_since(&conn, 0).expect("get worked").len());
+
+        // key doesn't match, do nothing
+        delete_metadata(
+            &conn,
+            "http://mozilla.com/2",
+            Some("http://wrong-referrer.com"),
+            Some("2 with search"),
+        )
+        .expect("delete metadata");
+        assert_eq!(2, get_since(&conn, 0).expect("get worked").len());
     }
 
     #[test]

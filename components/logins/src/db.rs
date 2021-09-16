@@ -582,6 +582,9 @@ impl LoginDb {
         entry: &LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
+        if entry.sec_fields.username.is_empty() {
+            return Ok(None);
+        }
         for possible in self.potential_dupes_ignoring_username(guid, &entry.fields)? {
             let pos_sec_fields = possible.decrypt_fields(encdec)?;
             if pos_sec_fields.username == entry.sec_fields.username {
@@ -1078,6 +1081,47 @@ mod tests {
                 assert!(&login_check.is_ok())
             }
         }
+    }
+
+    #[test]
+    fn test_username_dupe_semantics() {
+        let mut login = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                http_realm: Some("https://www.example.com".into()),
+                ..LoginFields::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test".into(),
+                password: "sekret".into(),
+            },
+        };
+
+        let db = LoginDb::open_in_memory().unwrap();
+        db.add(login.clone(), &TEST_ENCRYPTOR)
+            .expect("should be able to add first login");
+
+        // We will reject new logins with the same username value...
+        let exp_err = "Invalid login: Login already exists";
+        assert_eq!(
+            db.add(login.clone(), &TEST_ENCRYPTOR)
+                .unwrap_err()
+                .to_string(),
+            exp_err
+        );
+
+        // ... unless it is an empty string.
+        login.sec_fields.username = "".to_string();
+        db.add(login.clone(), &TEST_ENCRYPTOR)
+            .expect("empty login isn't a dupe");
+
+        // and we will allow any number of duplicates with an empty username (which doesn't really
+        // make sense if the passwords are identical)
+        db.add(login, &TEST_ENCRYPTOR)
+            .expect("multiple with empty login still isn't a dupe");
+
+        // First one with a username, 2 without.
+        assert_eq!(db.get_all().unwrap().len(), 3);
     }
 
     #[test]

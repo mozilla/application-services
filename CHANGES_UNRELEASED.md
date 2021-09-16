@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v82.2.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -19,14 +19,8 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## Android
+### What's Changed
 
-### ⚠️ Breaking Changes ⚠️
-  - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
-    to be more in keeping with Java/Kotlin idioms.
-    - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
+## Places, Autofill, Webext-Storage
 
-## Autofill
-
-### ⚠️ Breaking Changes ⚠️
-  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
+  - Databases which are detected as being corrupt as they are opened will be deleted and re-created.

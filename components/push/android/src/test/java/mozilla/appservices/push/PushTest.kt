@@ -9,6 +9,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertEquals
+import org.junit.Assert.fail
 import java.nio.charset.Charset
 
 @RunWith(RobolectricTestRunner::class)
@@ -140,12 +141,12 @@ class PushTest {
 
         // These values should come from the delivered message content.
         val result = manager.decrypt(
-                channelID = testChannelid,
+                channelId = testChannelid,
                 body = aesgcmBlock["body"].toString(),
                 encoding = aesgcmBlock["enc"].toString(),
                 salt = aesgcmBlock["salt"].toString(),
                 dh = aesgcmBlock["dh"].toString()
-        )
+        ).toByteArray()
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
     }
@@ -158,12 +159,12 @@ class PushTest {
 
         // These values should come from the delivered message content.
         val result = manager.decrypt(
-            channelID = testChannelid,
+            channelId = testChannelid,
             body = aesgcmBlock["body"].toString(),
             encoding = aesgcmBlock["enc"].toString(),
             salt = aesgcmBlock["salt"].toString(),
             dh = aesgcmBlock["dh"].toString()
-        )
+        ).toByteArray()
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
     }
@@ -174,12 +175,12 @@ class PushTest {
         // call this to set the (hardcoded) test key and auth
         manager.subscribe(testChannelid, "foo")
         val result = manager.decrypt(
-                channelID = testChannelid,
+                channelId = testChannelid,
                 body = aes128gcmBlock["body"].toString(),
                 encoding = aes128gcmBlock["enc"].toString(),
                 salt = aes128gcmBlock["salt"].toString(),
                 dh = aes128gcmBlock["dh"].toString()
-        )
+        ).toByteArray()
         val sresult = result.toString(Charset.forName("UTF-8"))
         assertEquals("Result", plaintext, sresult)
     }
@@ -190,7 +191,7 @@ class PushTest {
 
         val subscriptionResponse = manager.subscribe(testChannelid, "foo")
         // These are mock values, but it's important that they exist.
-        assertEquals("ChannelID Check", testChannelid, subscriptionResponse.channelID)
+        assertEquals("ChannelID Check", testChannelid, subscriptionResponse.channelId)
         assertEquals("Auth Check", auth_raw, subscriptionResponse.subscriptionInfo.keys.auth)
         assertEquals("p256 Check", public_key_raw, subscriptionResponse.subscriptionInfo.keys.p256dh)
         assertEquals("endpoint Check", "http://push.example.com/test/opaque",
@@ -203,6 +204,17 @@ class PushTest {
         manager.subscribe(testChannelid, "foo", vapidPubKey)
         val result = manager.unsubscribe(testChannelid)
         assertEquals("Unsubscription check", true, result)
+    }
+
+    @Test
+    fun testUnsubscribeAll() {
+        val manager = getPushManager()
+        manager.subscribe(testChannelid, "foo", vapidPubKey)
+        try {
+            manager.unsubscribeAll()
+        } catch (e: Exception) {
+            fail("UnsubscribeAll threw an exception: ${e.message}")
+        }
     }
 
     @Test
@@ -246,8 +258,8 @@ class PushTest {
                 registrationId = "TestRegistrationId",
                 databasePath = "/dev/false"
             )
-        } catch (e: PushError) {
-            assert(e is StorageError)
+        } catch (e: PushException) {
+            assert(e is PushException.StorageException)
         }
     }
 
@@ -257,7 +269,7 @@ class PushTest {
 
         val response1 = manager.subscribe(testChannelid, "foo")
         val response2 = manager.subscribe(testChannelid, "foo")
-        assertEquals(response1.channelID, response2.channelID)
+        assertEquals(response1.channelId, response2.channelId)
         assertEquals(response1.subscriptionInfo.endpoint, response2.subscriptionInfo.endpoint)
         assertEquals(response1.subscriptionInfo.keys.auth, response2.subscriptionInfo.keys.auth)
         assertEquals(response1.subscriptionInfo.keys.p256dh, response2.subscriptionInfo.keys.p256dh)

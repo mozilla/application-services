@@ -24,6 +24,7 @@ use sync15::{
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
+use viaduct_reqwest::use_reqwest_backend;
 
 use anyhow::Result;
 
@@ -169,6 +170,7 @@ fn sync(
     nsyncs: u32,
     wait: u64,
 ) -> Result<()> {
+    use_reqwest_backend();
     let conn = api.open_sync_connection()?;
 
     // interrupts are per-connection, so we need to set that up here.

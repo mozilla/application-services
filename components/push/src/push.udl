@@ -1,0 +1,251 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+namespace push {};
+
+// Object representing the PushManager used to manage subscriptions
+//
+// The `PushManager` object is the main interface provided by this crate
+// it allow consumers to manage push subscriptions. It exposes methods that
+// interact with the [`autopush server`](https://autopush.readthedocs.io/en/latest/)
+// and persists state representing subscriptions.
+interface PushManager {
+    // Creates a new [`PushManager`] object, not subscribed to any
+    // channels
+    //
+    // # Arguments
+    //
+    //   - `sender_id` - Sender/Application ID value
+    //   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
+    //   - `http_protocol` - The optional socket protocol (default: "https")
+    //   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
+    //   - `registration_id` - The native OS messaging registration ID
+    //   - `database_path` - The path where [`PushManager`] will store persisted state
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - PushManager is unable to open the `database_path` given
+    //   - PushManager is unable to establish a connection to the autopush server
+    [Throws=PushError]
+    constructor(string sender_id, optional string server_host = "updates.push.services.mozilla.com", optional string http_protocol = "https", BridgeType bridge_type, string registration_id, optional string database_path = "push.sqlite");
+
+    // Subscribes to a new channel and gets the Subscription Info block
+    //
+    // # Arguments
+    //   - `channel_id` - Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
+    //   - `scope` - Site scope string (defaults to "" for no site scope string).
+    //   - `server_key` - optional VAPID public key to "lock" subscriptions (defaults to "" for no key)
+    //
+    // # Returns
+    // A Subscription response that includes the following:
+    //   - A URL that can be used to deliver push messages
+    //   - A cryptographic key that can be used to encrypt messages
+    //     that would then be decrypted using the [`PushManager::decrypt`] function
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - PushManager was unable to access its persisted storage
+    //   - An error occurred sending a subscription request to the autopush server
+    //   - An error occurred generating or deserializing the cryptographic keys
+    [Throws=PushError]
+    SubscriptionResponse subscribe([ByRef] optional string channel_id = "", [ByRef] optional string scope = "",[ByRef] optional string? app_server_sey = null);
+  
+    // Unsubscribe from given channelID, ending that subscription for the user.
+    //
+    // # Arguments
+    //   - `channel_id` - Channel ID (UUID) for subscription to remove
+    //
+    // # Returns
+    // Returns a boolean indicating if un-subscription was successful
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - The PushManager does not contain a valid UAID
+    //   - An error occurred sending an unsubscribe request to the autopush server
+    //   - An error occurred accessing the PushManager's persisted storage
+    [Throws=PushError]
+    boolean unsubscribe([ByRef] string channel_id);
+
+    // Unsubscribe all channels for the user
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - The PushManager does not contain a valid UAID
+    //   - An error occurred sending an unsubscribe request to the autopush server
+    //   - An error occurred accessing the PushManager's persisted storage
+    [Throws=PushError]
+    void unsubscribe_all();
+    
+    // Updates the Native OS push registration ID.
+    // **NOTE**: If this returns false, the subsequent [`PushManager::verify_connection`]
+    // may result in new endpoint registration
+    //
+    // # Arguments:
+    //   - `new_token` - the new Native OS push registration ID
+    //
+    // # Returns
+    // Returns a boolean indicating if the update was successful
+    //
+    // # Errors
+    // Return an error in the following cases:
+    //   - The PushManager does not contain a valid UAID
+    //   - An error occurred sending an update request to the autopush server
+    //   - An error occurred accessing the PushManager's persisted storage
+    [Throws=PushError]
+    boolean update([ByRef] string registration_token);
+    
+    // Verifies the connection state
+    //
+    // **NOTE**: This does not resubscribe to any channels
+    // it only returns the list of channels that the client should
+    // re-subscribe to.
+    //
+    // # Returns
+    // Returns a list of [`PushSubscriptionChanged`]
+    // indicating the channels the consumer the client should re-subscribe
+    // to. If the list is empty, the client's connection was verified
+    // successfully, and the client does not need to resubscribe
+    //
+    // # Errors
+    // Return an error in the following cases:
+    //   - The PushManager does not contain a valid UAID
+    //   - An error occurred sending an channel list retrieval request to the autopush server
+    //   - An error occurred accessing the PushManager's persisted storage
+    [Throws=PushError]
+    sequence<PushSubscriptionChanged> verify_connection();
+    
+    // Decrypts a raw push message.
+    //
+    // This accepts the content of a Push Message (from websocket or via Native Push systems).
+    // # Arguments:
+    //   - `channel_id` - the ChannelID (included in the envelope of the message)
+    //   - `body` - The encrypted body of the message
+    //   - `encoding` - The Content Encoding "enc" field of the message (defaults to "aes128gcm")
+    //   - `salt` - The "salt" field (if present in the raw message, defaults to "")
+    //   - `dh` - The "dh" field (if present in the raw message, defaults to "")
+    //
+    // # Returns
+    // Decrypted message body
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - The PushManager does not contain a valid UAID
+    //   - There are no records associated with the UAID the [`PushManager`] contains
+    //   - An error occurred while decrypting the message
+    //   - An error occurred accessing the PushManager's persisted storage
+    [Throws=PushError]
+    sequence<i8> decrypt([ByRef] string channel_id, [ByRef] string body, [ByRef] optional string encoding = "aes128gcm", [ByRef] optional string salt = "", [ByRef] optional string dh = "");
+    
+    // Get the dispatch info for a given subscription channel
+    //
+    // # Arguments
+    //   - `channel_id`: The subscription channelID
+    //
+    // # Returns
+    // [`DispatchInfo`] containing the channel ID and scope string
+    //
+    // # Errors
+    // Returns an error in the following cases:
+    //   - An error occurred accessing the persisted storage
+    [Throws=PushError]
+    DispatchInfo? dispatch_info_for_chid([ByRef] string channel_id);
+};
+
+// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
+dictionary DispatchInfo {
+    string uaid;
+    string scope;
+    string endpoint;
+    string? app_server_key;
+};
+
+// Key Information that can be used to encrypt payloads
+dictionary KeyInfo {
+    string auth;
+    string p256dh;
+};
+
+// Subscription Information, the endpoint to send push messages to and
+// the key information that can be used to encrypt payloads
+dictionary SubscriptionInfo {
+    string endpoint;
+    KeyInfo keys;
+};
+
+// The subscription response object returned from [`PushManager::subscribe`]
+dictionary SubscriptionResponse {
+    string channel_id;
+    SubscriptionInfo subscription_info;
+};
+
+// An dictionary describing the push subscription that changed, the caller
+// will receive a list of [`PushSubscriptionChanged`] when calling
+// [`PushManager::verify_connection`], one entry for each channel that the
+// caller should resubscribe to
+dictionary PushSubscriptionChanged {
+    string channel_id;
+    string scope;
+};
+
+// The main Error returned from the Push component, each
+// variant describes a different error
+[Error]
+enum PushError {
+    // An unspecified general error has occured
+    "GeneralError",
+
+    // A Client communication error
+    "CryptoError",
+
+    // An error returned from the registration Server
+    "CommunicationError",
+
+    // Channel is already registered, generate new channelID
+    "CommunicationServerError",
+
+    // Channel is already registered, generate new channelID
+    "AlreadyRegisteredError",
+
+    // An error with Storage
+    "StorageError",
+
+    // Record for uaid:chid pair not found
+    "RecordNotFoundError",
+
+    // A failure to encode data to/from storage.
+    "StorageSqlError",
+
+    // Registration token is missing,
+    "MissingRegistrationTokenError",
+
+    // Error occurred while transcoding
+    "TranscodingError",
+
+    // A failure to parse a URL.
+    "UrlParseError",
+
+    // A failure deserializing json.
+    "JSONDeserializeError",
+
+    // The UAID was not recognized by the server
+    "UAIDNotRecognizedError",
+
+    // Was unable to send request to server
+    "RequestError"
+};
+
+// The types of supported native bridges.
+//
+// FCM = Google Android Firebase Cloud Messaging
+// ADM = Amazon Device Messaging for FireTV
+// APNS = Apple Push Notification System for iOS
+//
+// Please contact services back-end for any additional bridge protocols.
+//
+enum BridgeType {
+    "Fcm",
+    "Adm",
+    "Apns",
+    "Test",
+};

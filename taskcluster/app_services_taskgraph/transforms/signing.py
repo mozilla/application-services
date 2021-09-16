@@ -2,7 +2,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 from taskgraph.transforms.base import TransformSequence
 from taskgraph.util.schema import resolve_keyed_by
@@ -22,7 +21,7 @@ def build_upstream_artifacts(config, tasks):
         version = get_version()
 
         worker_definition = {"upstream-artifacts": [{
-            "taskId": {"task-reference": "<{}>".format(dep.kind)},
+            "taskId": {"task-reference": f"<{dep.kind}>"},
             "taskType": "build",
             "paths": publications_to_artifact_paths(name, version, module_info["publications"]),
             "formats": ["autograph_gpg"],

@@ -74,8 +74,8 @@ The instructions here assume that you are building for Fenix in order test your 
 1. Install Android SDK, JAVA, NDK and set required env vars
    1. Clone the [Fenix](https://github.com/mozilla-mobile/fenix/) repository (not in a-s)
    1. Clone the [android-components](https://github.com/mozilla-mobile/android-components/) repository (not in a-s)
-   1. Install [Java **8**] for your system
-   1. Set `JAVA_HOME` to point to the JDK 8 installation directory.
+   1. Install [Java **11**] for your system
+   1. Set `JAVA_HOME` to point to the JDK 11 installation directory.
    1. Download and install [Android Studio](https://developer.android.com/studio/#downloads)
    1. Set `ANDROID_SDK_ROOT` and `ANDROID_HOME` to the Android Studio sdk location and add it to your rc file.
    1. Configure the required versions of NDK

@@ -177,13 +177,21 @@ inline fun <reified Lib : Library> loadIndirect(
     val mzLibrary = findMegazordLibraryName(componentName, componentVersion)
     // Rust code always expects strings to be UTF-8 encoded.
     // Unfortunately, the `STRING_ENCODING` option doesn't seem to apply
-    // to function arguments, only to return values.
-    val options: MutableMap<String, Any> = mutableMapOf(
-        Library.OPTION_STRING_ENCODING to "UTF-8"
-    )
-    // So, if the default encoding is not UTF-8, we need to use an
-    // explicit TypeMapper to ensure that strings are handled correctly.
+    // to function arguments, only to return values, so, if the default encoding
+    // is not UTF-8, we need to use an explicit TypeMapper to ensure that
+    // strings are handled correctly.
+    // Further, see also https://github.com/mozilla/uniffi-rs/issues/1044 - if
+    // this code and our uniffi-generated code don't agree on the options, it's
+    // possible our megazord gets loaded twice, breaking things in
+    // creative/obscure ways.
+    // We used to unconditionally set `options[Library.OPTION_STRING_ENCODING] = "UTF-8"`
+    // but we now only do it if we really need to. This means in practice, both
+    // us and uniffi agree everywhere we care about.
+    // Assuming uniffi fixes this in the same way we've done it here, there should be
+    // no need to adjust anything once that issue is fixed.
+    val options: MutableMap<String, Any> = mutableMapOf()
     if (Native.getDefaultStringEncoding() != "UTF-8") {
+        options[Library.OPTION_STRING_ENCODING] = "UTF-8"
         options[Library.OPTION_TYPE_MAPPER] = UTF8TypeMapper()
     }
     return Native.load<Lib>(mzLibrary, Lib::class.java, options)

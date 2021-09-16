@@ -24,7 +24,7 @@ The key points:
 * Releases are made by [manually creating a new release](./howtos/cut-a-new-release.md) via github,
   which triggers various CI jobs:
     * [CircleCI](../.circleci/config.yml) is used to build an iOS binary release on every release,
-      and publish it as a GitHub release artifact.
+      and publish it as GitHub release artifacts.
     * [TaskCluster](../automation/taskcluster/README.md) is used to:
         * Build an Android binary release.
         * Upload Android library symbols to [Socorro](https://wiki.mozilla.org/Socorro).
@@ -75,7 +75,9 @@ For iOS consumers the corresponding steps are:
     * TODO: could this step check for signed tags as an additional integrity measure?
     * TODO: can we prevent these steps from being able to see the tokens used
       for publishing in subsequent steps?
-4. CircleCI runs Carthage to assemble a zipfile of built frameworks.
+4. CircleCI builds two binary artifacts:
+    * A Carthage framework containing both Rust and Swift code compiled together, as a zipfile.
+    * An XCFramework containing just Rust code and header files, as a zipfile, for use by Swift Packags.
     * TODO: could a malicious dev dependency from step (3) influence the build environment here?
 5. CircleCI uses [dpl](https://github.com/travis-ci/dpl) to publish to GitHub as a release artifact.
     * CircleCI config contains a github token (owned by the @appsvc-moz GitHub account) with appropriate permissions to add release artifacts.

@@ -2,11 +2,11 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use push::communications::Connection;
-use push::config::PushConfiguration;
-use push::crypto::get_random_bytes;
-use push::error::Result;
-use push::subscriber::PushManager;
+use push::get_random_bytes;
+use push::Connection;
+use push::InternalPushManager as PushManager;
+use push::InternalResult as Result;
+use push::PushConfiguration;
 
 /** Perform a "Live" test against a locally configured push server
  *
@@ -62,7 +62,7 @@ fn test_live_server() -> Result<()> {
     println!("Server Known channels: {:?}", ll);
 
     println!("\n == Unsubscribing single channel");
-    pm.unsubscribe(Some(&channel1)).expect("chid unsub failed");
+    pm.unsubscribe(&channel1).expect("chid unsub failed");
     println!("\n == Fetching channel list 2");
     let ll = pm.conn.channel_list().expect("channel list failed");
     println!("Server Known channels: {:?}", ll);
@@ -77,7 +77,7 @@ fn test_live_server() -> Result<()> {
 
     println!("\n == Unsubscribing all.");
     // Unsubscribe all channels.
-    pm.unsubscribe(None)?;
+    pm.unsubscribe_all()?;
 
     println!("Done");
     Ok(())
