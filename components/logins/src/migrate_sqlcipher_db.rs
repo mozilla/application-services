@@ -550,13 +550,9 @@ fn insert_local_login(
     let login = &local_login.login;
     let dec_login = &local_login.login.clone().decrypt(encdec)?;
 
-    match new_db.check_for_dupes(&login.guid(), &dec_login.entry(), &encdec) {
-        Ok(_) => {}
-        Err(e) => {
-            log::warn!("Duplicate {} ({}).", login.record.id, e);
-            // Should we record this as an error? or just silently ignore it
-            return Err(e.into());
-        }
+    if let Err(e) = new_db.check_for_dupes(&login.guid(), &dec_login.entry(), &encdec) {
+        log::warn!("Duplicate {} ({}).", login.record.id, e);
+        return Ok(());
     };
     match conn.execute_named_cached(
         &sql,
