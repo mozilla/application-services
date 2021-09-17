@@ -9,6 +9,8 @@ import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.ErrorWrapper
+import mozilla.appservices.places.uniffi.HistoryHighlight
+import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
 import mozilla.appservices.support.native.toNioDirectBuffer
@@ -453,6 +455,17 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         readQueryCounters.measure {
             return rustCallUniffi(this) {
                 mozilla.appservices.places.uniffi.placesQueryHistoryMetadata(this.handle.get(), query, limit)
+            }
+        }
+    }
+
+    override suspend fun getHighlights(
+        weights: HistoryHighlightWeights,
+        limit: Int
+    ): List<HistoryHighlight> {
+        readQueryCounters.measure {
+            return rustCallUniffi(this) {
+                mozilla.appservices.places.uniffi.placesGetHistoryHighlights(this.handle.get(), weights, limit)
             }
         }
     }
@@ -946,6 +959,16 @@ interface ReadableHistoryMetadataConnection : InterruptibleConnection {
      * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
      */
     suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata>
+
+    /**
+     * Returns an ordered list of [HistoryHighlight], ranked by their "highlight score".
+     * A highlight score takes into account factors listed in [HistoryHighlightWeights].
+     *
+     * @param weights A set of weights that specify importance of various factors to the highlight score.
+     * @param limit A maximum number of records to return.
+     * @return A `List` of ranked [HistoryHighlight], empty if no history/metadata is found.
+     */
+    suspend fun getHighlights(weights: HistoryHighlightWeights, limit: Int): List<HistoryHighlight>
 }
 
 /**
