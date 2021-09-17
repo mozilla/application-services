@@ -113,8 +113,8 @@ public protocol Variables {
 
 public extension Variables {
     // This may be important when transforming in to a code generated object.
-    /// Get a `Variables` object for this key, and transforms it to a `T`. If this is not possible, then the `transform` should
-    /// return `nil`.
+    /// Get a `Variables` object for this key, and transforms it to a `T`. If this is not possible, then the
+    /// `transform` should return `nil`.
     func getVariables<T>(_ key: String, transform: (Variables) -> T?) -> T? {
         if let value = getVariables(key) {
             return transform(value)
@@ -157,7 +157,6 @@ public extension Variables {
     func getEnumList<T: RawRepresentable>(_ key: String) -> [T]? where T.RawValue == String {
         return getStringList(key)?.compactMap(asEnum)
     }
-
 
     /// Uses `getStringMap(key: String)` to find a value that is a map of strings for the given key, and
     /// coerces each value into an `Enum<T>`.
