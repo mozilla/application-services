@@ -39,6 +39,9 @@ pub enum ErrorKind {
     #[error("Error parsing JSON data: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    #[error("Invalid encryption key")]
+    InvalidKey,
+
     #[error("Error executing SQL: {0}")]
     SqlError(#[from] rusqlite::Error),
 
@@ -106,6 +109,7 @@ impl Error {
             ErrorKind::EncryptionKeyMissing => "EncryptionKeyMissing",
             ErrorKind::SyncAdapterError(_) => "SyncAdapterError",
             ErrorKind::JsonError(_) => "JsonError",
+            ErrorKind::InvalidKey => "InvalidKey",
             ErrorKind::UrlParseError(_) => "UrlParseError",
             ErrorKind::InvalidPath(_) => "InvalidPath",
             ErrorKind::InvalidDatabaseFile(_) => "InvalidDatabaseFile",
@@ -249,6 +253,8 @@ impl From<Error> for LoginsStorageError {
                 log::error!("Not a database / invalid key error");
                 LoginsStorageError::InvalidKey(label)
             }
+
+            ErrorKind::InvalidKey => LoginsStorageError::InvalidKey(label),
 
             ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
                 if err.code == rusqlite::ErrorCode::OperationInterrupted =>

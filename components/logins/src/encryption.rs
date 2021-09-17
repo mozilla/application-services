@@ -29,7 +29,6 @@
 // To make life a little easier, we do that via a struct.
 
 use crate::error::*;
-use jwcrypto::{self};
 use serde::{de::DeserializeOwned, Serialize};
 
 // Rather than passing keys around everywhere we abstract the encryption
@@ -40,9 +39,10 @@ pub struct EncryptorDecryptor {
 
 impl EncryptorDecryptor {
     pub fn new(key: &str) -> Result<Self> {
-        Ok(EncryptorDecryptor {
-            jwk: serde_json::from_str(key)?,
-        })
+        match serde_json::from_str(key) {
+            Ok(jwk) => Ok(EncryptorDecryptor { jwk }),
+            Err(_) => Err(ErrorKind::InvalidKey.into()),
+        }
     }
 
     pub fn encrypt(&self, cleartext: &str) -> Result<String> {
@@ -127,5 +127,12 @@ mod test {
             ed2.decrypt(&ciphertext).err().unwrap().kind(),
             ErrorKind::CryptoError(_)
         ));
+    }
+
+    #[test]
+    fn test_key_error() {
+        let storage_err: LoginsStorageError =
+            EncryptorDecryptor::new("bad-key").err().unwrap().into();
+        assert!(matches!(storage_err, LoginsStorageError::InvalidKey(_)));
     }
 }
