@@ -34,4 +34,9 @@ Use the template below to make assigning a version number during the release cut
   - `get*List`, `get*Map` to get lists and maps of all types.
   - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
 
+### ⚠️ Breaking Changes ⚠️
+
+- [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
+  from `(Variables) -> T` to `(Variables) -> T?`.
+
 [1]: https://github.com/mozilla/application-services/pull/4455
