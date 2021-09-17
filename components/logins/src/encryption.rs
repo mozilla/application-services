@@ -75,14 +75,21 @@ impl EncryptorDecryptor {
     }
 }
 
-// public functions we expose over the FFI (which is why they take `String`
-// rather than the `&str` you'd otherwise expect)
-pub fn encrypt_string(key: String, cleartext: String) -> Result<String> {
-    EncryptorDecryptor::new(&key)?.encrypt(&cleartext)
+// Canary checking functions.  These are used to check if a key is still valid for a database.  The
+// basic process is:
+//   - When opening a database the first time, store the output of `create_canary()` alongside the DB
+//     and encryption key.
+//   - When reopening the database, check that the encryption key is still valid for the canary
+//     text using `check_canary()`
+//     - If it returns true, then it's safe to assume the key can decrypt the DB data
+//     - If it returns false, then the key is no longer valid.  It should be regenerated and the DB
+//       data should be wiped since we can no longer read it properly
+pub fn create_canary(text: &str, key: &str) -> Result<String> {
+    EncryptorDecryptor::new(key)?.encrypt(text)
 }
 
-pub fn decrypt_string(key: String, ciphertext: String) -> Result<String> {
-    EncryptorDecryptor::new(&key)?.decrypt(&ciphertext)
+pub fn check_canary(canary: &str, text: &str, key: &str) -> Result<bool> {
+    Ok(EncryptorDecryptor::new(&key)?.decrypt(&canary)? == text)
 }
 
 pub fn create_key() -> Result<String> {
@@ -134,5 +141,16 @@ mod test {
         let storage_err: LoginsStorageError =
             EncryptorDecryptor::new("bad-key").err().unwrap().into();
         assert!(matches!(storage_err, LoginsStorageError::InvalidKey(_)));
+    }
+
+    #[test]
+    fn test_canary_functionality() {
+        const CANARY_TEXT: &str = "Arbitrary sequence of text";
+        let key = create_key().unwrap();
+        let canary = create_canary(CANARY_TEXT, &key).unwrap();
+        assert!(check_canary(&canary, CANARY_TEXT, &key).unwrap());
+
+        let different_key = create_key().unwrap();
+        assert!(!check_canary(&canary, CANARY_TEXT, &different_key).unwrap());
     }
 }
