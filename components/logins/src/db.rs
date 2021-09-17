@@ -582,9 +582,6 @@ impl LoginDb {
         entry: &LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
-        if entry.sec_fields.username.is_empty() {
-            return Ok(None);
-        }
         for possible in self.potential_dupes_ignoring_username(guid, &entry.fields)? {
             let pos_sec_fields = possible.decrypt_fields(encdec)?;
             if pos_sec_fields.username == entry.sec_fields.username {
@@ -1110,18 +1107,18 @@ mod tests {
             exp_err
         );
 
-        // ... unless it is an empty string.
+        // Add one with an empty username - not a dupe.
         login.sec_fields.username = "".to_string();
         db.add(login.clone(), &TEST_ENCRYPTOR)
             .expect("empty login isn't a dupe");
 
-        // and we will allow any number of duplicates with an empty username (which doesn't really
-        // make sense if the passwords are identical)
-        db.add(login, &TEST_ENCRYPTOR)
-            .expect("multiple with empty login still isn't a dupe");
+        assert_eq!(
+            db.add(login, &TEST_ENCRYPTOR).unwrap_err().to_string(),
+            exp_err
+        );
 
-        // First one with a username, 2 without.
-        assert_eq!(db.get_all().unwrap().len(), 3);
+        // one with a username, 1 without.
+        assert_eq!(db.get_all().unwrap().len(), 2);
     }
 
     #[test]
