@@ -43,7 +43,7 @@ import java.lang.IllegalArgumentException
  *
  * As `JSONObject`s can contain other `JSONObject`s, then so `Variables` can contain other `Variables`.
  *
- * Convenience methods are provided to map these inner Variables in to richer types.
+ * Convenience methods are provided to map these inner Variables into richer types.
  *
  * ### Structural types
  *
@@ -217,12 +217,24 @@ interface Variables {
      */
     fun getVariablesMap(key: String): Map<String, Variables>? = null
 
-    // This may be important when transforming in to a code generated object.
+    // This may be important when transforming into a code generated object.
+    /**
+     * Get a `Variables` object for this key, and transforms it to a `T`. If this is not possible, then the `transform` should
+     * return `null`.
+     */
     fun <T> getVariables(key: String, transform: (Variables) -> T?) = getVariables(key)?.let(transform)
 
+    /**
+     * Uses `getVariablesList(key)` then transforms each `Variables` into a `T`.
+     * If any item cannot be transformed, it is skipped.
+     */
     fun <T> getVariablesList(key: String, transform: (Variables) -> T?): List<T>? =
         getVariablesList(key)?.mapNotNull(transform)
 
+    /**
+     * Uses `getVariablesMap(key)` then transforms each `Variables` value into a `T`.
+     * If any value cannot be transformed, it is skipped.
+     */
     fun <T> getVariablesMap(key: String, transform: (Variables) -> T?): Map<String, T>? =
         getVariablesMap(key)?.mapValues(transform)
 }
@@ -234,7 +246,7 @@ inline fun <reified T : Enum<T>> String.asEnum(): T? = try {
 }
 
 /**
- * Uses `getString(key: String)` to find a string value for the given key, and coerce it in to
+ * Uses `getString(key: String)` to find a string value for the given key, and coerce it into
  * the `Enum<T>`. If the value doesn't correspond to a variant of the type T, then `null` is
  * returned.
  */
@@ -253,9 +265,22 @@ inline fun <reified T : Enum<T>> Variables.getEnumList(key: String): List<T>? =
     getStringList(key)?.mapNotNull { it.asEnum<T>() }
 
 /**
+ * Uses `getStringMap(key: String)` to find a value that is a map of strings for the given key, and
+ * coerces each value into an `Enum<T>`.
+ *
+ * If the value doesn't correspond to a variant of the list, then `null` is
+ * returned.
+ * Values that are not underlying strings, or cannot be coerced into variants,
+ *
+ * are omitted.
+ */
+inline fun <reified T : Enum<T>> Variables.getEnumMap(key: String): Map<String, T>? =
+    getStringMap(key)?.mapValuesAsEnums<String, T>()
+
+/**
  * Convenience extension method for maps with `String` keys.
  *
- * If a `String` key cannot be coerced in to a variant of the given Enum, then the entry is
+ * If a `String` key cannot be coerced into a variant of the given Enum, then the entry is
  * omitted.
  *
  * This is useful in combination with `getVariablesMap(key, transform)`:
@@ -279,7 +304,7 @@ inline fun <reified K : Enum<K>, V> Map<String, V>.mapKeysAsEnums(): Map<K, V> =
 /**
  * Convenience extension method for maps with `String` values.
  *
- * If a `String` value cannot be coerced in to a variant of the given Enum, then the entry is
+ * If a `String` value cannot be coerced into a variant of the given Enum, then the entry is
  * omitted.
  */
 inline fun <K, reified V : Enum<V>> Map<K, String>.mapValuesAsEnums(): Map<K, V> =
