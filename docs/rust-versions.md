@@ -14,7 +14,7 @@ mozilla-central (aka, the main Firefox repository).
 
 It should also come as no surprise that the Rust policy for mozilla-central
 is somewhat flexible. There is an official [Rust Update Policy Document
-](https://firefox-source-docs.mozilla.org/writing-rust-code/update-policy.html])
+](https://firefox-source-docs.mozilla.org/writing-rust-code/update-policy.html)
 but everything in the future is documented as "estimated".
 
 Ultimately though, that page defines 2 Rust versions - "Uses" and "Requires",
