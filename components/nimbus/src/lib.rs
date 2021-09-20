@@ -489,7 +489,6 @@ pub struct Experiment {
     pub user_facing_description: String,
     pub is_enrollment_paused: bool,
     pub bucket_config: BucketConfig,
-    pub probe_sets: Vec<String>,
     pub branches: Vec<Branch>,
     // The `feature_ids` field was added later. For compatibility with exising experiments
     // and to avoid a db migration, we default it to an empty list when it is missing.
@@ -536,7 +535,6 @@ impl Experiment {
 #[serde(rename_all = "camelCase")]
 pub struct FeatureConfig {
     pub feature_id: String,
-    pub enabled: bool,
     // There is a nullable `value` field that can contain key-value config options
     // that modify the behaviour of an application feature. Uniffi doesn't quite support
     // serde_json yet.
@@ -1335,6 +1333,73 @@ mod test_schema_bw_compat {
     use serde_json::json;
 
     #[test]
+    fn test_without_probe_sets_and_enabled() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        // this is an experiment following the schema after the removal
+        // of the `enabled` and `probe_sets` fields which were removed
+        // together in the same proposal
+        serde_json::from_value::<Experiment>(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "appName": "fenix",
+            "appId": "bobo",
+            "channel": "nightly",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "features": [{
+                        "featureId": "feature1",
+                        "value": {
+                            "key": "value1"
+                        }
+                    },
+                    {
+                        "featureId": "feature2",
+                        "value": {
+                            "key": "value2"
+                        }
+                    }]
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "features": [{
+                        "featureId": "feature3",
+                        "value": {
+                            "key": "value3"
+                        }
+                    },
+                    {
+                        "featureId": "feature4",
+                        "value": {
+                            "key": "value4"
+                        }
+                    }]
+                }
+            ],
+            "startDate":null,
+            "application":"fenix",
+            "bucketConfig":{
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        }))
+        .unwrap();
+    }
+
+    #[test]
     fn test_multifeature_branch_schema() {
         // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
         // this is an experiment following the schema after the addition
@@ -1408,14 +1473,12 @@ mod test_schema_bw_compat {
             vec![
                 FeatureConfig {
                     feature_id: "feature1".to_string(),
-                    enabled: true,
                     value: vec![("key".to_string(), json!("value1"))]
                         .into_iter()
                         .collect()
                 },
                 FeatureConfig {
                     feature_id: "feature2".to_string(),
-                    enabled: false,
                     value: vec![("key".to_string(), json!("value2"))]
                         .into_iter()
                         .collect()
@@ -1427,14 +1490,12 @@ mod test_schema_bw_compat {
             vec![
                 FeatureConfig {
                     feature_id: "feature3".to_string(),
-                    enabled: true,
                     value: vec![("key".to_string(), json!("value3"))]
                         .into_iter()
                         .collect()
                 },
                 FeatureConfig {
                     feature_id: "feature4".to_string(),
-                    enabled: false,
                     value: vec![("key".to_string(), json!("value4"))]
                         .into_iter()
                         .collect()
@@ -1504,7 +1565,6 @@ mod test_schema_bw_compat {
             exp.branches[0].get_feature_configs(),
             vec![FeatureConfig {
                 feature_id: "feature1".to_string(),
-                enabled: true,
                 value: vec![("key".to_string(), json!("value"))]
                     .into_iter()
                     .collect()
@@ -1514,7 +1574,6 @@ mod test_schema_bw_compat {
             exp.branches[1].get_feature_configs(),
             vec![FeatureConfig {
                 feature_id: "feature2".to_string(),
-                enabled: true,
                 value: vec![("key".to_string(), json!("value2"))]
                     .into_iter()
                     .collect()

@@ -25,3 +25,7 @@ Use the template below to make assigning a version number during the release cut
 
 - Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
   it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
+
+## Nimbus
+### What's changed
+- The DTO changed to remove the `probeSets` and `enabled` fields that were previously unused. ([#4482](https://github.com/mozilla/application-services/pull/4482))
