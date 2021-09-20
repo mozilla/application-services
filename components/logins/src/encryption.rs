@@ -151,6 +151,12 @@ mod test {
         assert!(check_canary(&canary, CANARY_TEXT, &key).unwrap());
 
         let different_key = create_key().unwrap();
-        assert!(!check_canary(&canary, CANARY_TEXT, &different_key).unwrap());
+        assert!(matches!(
+            check_canary(&canary, CANARY_TEXT, &different_key)
+                .err()
+                .unwrap()
+                .kind(),
+            ErrorKind::CryptoError(_)
+        ));
     }
 }
