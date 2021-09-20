@@ -34,9 +34,6 @@ namespace logins {
     boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
-    Login? find_login_to_update(LoginEntry look, [ByRef]sequence<Login> logins);
-
-    [Throws=LoginsStorageError]
     string migrate_logins(
         [ByRef]string path,
         [ByRef]string new_encryption_key,
@@ -150,6 +147,9 @@ interface LoginStore {
 
     [Throws=LoginsStorageError]
     sequence<EncryptedLogin> get_by_base_domain([ByRef] string base_domain);
+
+    [Throws=LoginsStorageError]
+    Login? find_login_to_update(LoginEntry look, [ByRef]string encryption_key);
 
     // XXX - Can we kill this, and just fix the semantics of add/update?
     [Throws=LoginsStorageError]

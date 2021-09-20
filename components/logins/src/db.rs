@@ -221,6 +221,71 @@ impl LoginDb {
         )
     }
 
+    // Match a `LoginEntry` being saved to existing logins in the DB
+    //
+    // This is used when there is new login data to save.  The UI needs this to distinguish between 3 cases:
+    //
+    //  - User adding a new login
+    //  - User updating an existing login with the same username
+    //  - User updating an login with the blank username
+    //
+    //  Returns an Err if the new login is not valid and could not be fixed up
+    pub fn find_login_to_update(
+        &self,
+        look: LoginEntry,
+        encdec: &EncryptorDecryptor,
+    ) -> Result<Option<Login>> {
+        lazy_static::lazy_static! {
+            static ref LOGINS_TO_SEARCH_SQL: String = format!(
+                "SELECT {common_cols} FROM loginsL
+                WHERE is_deleted = 0
+                    AND origin = :origin
+                    AND (
+                        formActionOrigin = :form_action_origin
+                        OR
+                        httpRealm = :http_realm
+                    )
+
+                UNION ALL
+
+                SELECT {common_cols} FROM loginsM
+                WHERE is_overridden = 0
+                    AND origin = :origin
+                    AND (
+                        formActionOrigin = :form_action_origin
+                        OR
+                        httpRealm = :http_realm
+                    )
+                ",
+                common_cols = schema::COMMON_COLS
+            );
+        }
+
+        // Fetch all potentially matching rows
+        let look = look.fixup()?;
+        let mut stmt = self.db.prepare_cached(&LOGINS_TO_SEARCH_SQL)?;
+        let params = named_params! {
+            ":origin": look.fields.origin,
+            ":http_realm": look.fields.http_realm,
+            ":form_action_origin": look.fields.form_action_origin,
+        };
+        let rows = stmt
+            .query_and_then_named(params, |row| EncryptedLogin::from_row(row)?.decrypt(encdec))?
+            .collect::<Result<Vec<Login>>>()?;
+        // Search through the results and try to pick a login
+        Ok(rows
+            // First, try to match the username
+            .iter()
+            .find(|login| login.sec_fields.username == look.sec_fields.username)
+            // Fall back on a blank username
+            .or_else(|| {
+                rows.iter()
+                    .find(|login| login.sec_fields.username.is_empty())
+            })
+            // Clone the login to avoid ref issues when returning across the FFI
+            .cloned())
+    }
+
     pub fn touch(&self, id: &str) -> Result<()> {
         let tx = self.unchecked_transaction()?;
         self.ensure_local_overlay_exists(id)?;
@@ -523,12 +588,7 @@ impl LoginDb {
     ) -> Result<EncryptedLogin> {
         // Make sure to fixup the entry first, in case that changes the username
         let entry = entry.fixup()?;
-        let logins: Result<Vec<Login>> = self
-            .get_by_base_domain(&entry.fields.origin)?
-            .into_iter()
-            .map(|l| l.decrypt(&encdec))
-            .collect();
-        match find_login_to_update(entry.clone(), &logins?)? {
+        match self.find_login_to_update(entry.clone(), &encdec)? {
             Some(login) => self.update(&login.record.id, entry, &encdec),
             None => self.add(entry, &encdec),
         }
@@ -1749,5 +1809,94 @@ mod tests {
         let logins = db.get_by_base_domain("www.example.com").unwrap();
         assert_eq!(logins.len(), 1);
         assert_ne!(logins[0].record.id, bad_guid, "guid was fixed");
+    }
+
+    mod test_find_login_to_update {
+        use super::*;
+
+        fn make_entry(username: &str, password: &str) -> LoginEntry {
+            LoginEntry {
+                fields: LoginFields {
+                    origin: "https://www.example.com".into(),
+                    http_realm: Some("the website".into()),
+                    ..Default::default()
+                },
+                sec_fields: SecureLoginFields {
+                    username: username.into(),
+                    password: password.into(),
+                },
+            }
+        }
+
+        fn make_saved_login(db: &LoginDb, username: &str, password: &str) -> Login {
+            db.add(make_entry(username, password), &TEST_ENCRYPTOR)
+                .unwrap()
+                .decrypt(&TEST_ENCRYPTOR)
+                .unwrap()
+        }
+
+        #[test]
+        fn test_match() {
+            let db = LoginDb::open_in_memory().unwrap();
+            let login = make_saved_login(&db, "user", "pass");
+            assert_eq!(
+                Some(login),
+                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                    .unwrap(),
+            );
+        }
+
+        #[test]
+        fn test_non_matches() {
+            let db = LoginDb::open_in_memory().unwrap();
+            make_saved_login(&db, "user", "other-pass");
+            make_saved_login(&db, "other-user", "pass");
+            assert_eq!(
+                None,
+                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                    .unwrap(),
+            );
+        }
+
+        #[test]
+        fn test_match_blank_password() {
+            let db = LoginDb::open_in_memory().unwrap();
+            let login = make_saved_login(&db, "", "pass");
+            assert_eq!(
+                Some(login),
+                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                    .unwrap(),
+            );
+        }
+
+        #[test]
+        fn test_username_match_takes_precedence_over_blank_username() {
+            let db = LoginDb::open_in_memory().unwrap();
+            make_saved_login(&db, "", "pass");
+            let username_match = make_saved_login(&db, "user", "pass");
+            assert_eq!(
+                Some(username_match),
+                db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
+                    .unwrap(),
+            );
+        }
+
+        #[test]
+        fn test_invalid_login() {
+            let db = LoginDb::open_in_memory().unwrap();
+            assert!(db
+                .find_login_to_update(
+                    LoginEntry {
+                        fields: LoginFields {
+                            http_realm: None,
+                            form_action_origin: None,
+                            ..LoginFields::default()
+                        },
+                        ..LoginEntry::default()
+                    },
+                    &TEST_ENCRYPTOR
+                )
+                .is_err());
+        }
     }
 }

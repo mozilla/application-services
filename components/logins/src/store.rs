@@ -60,6 +60,11 @@ impl LoginStore {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
+    pub fn find_login_to_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Option<Login>> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().unwrap().find_login_to_update(entry, &encdec)
+    }
+
     pub fn potential_dupes_ignoring_username(
         &self,
         id: &str,
