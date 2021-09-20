@@ -401,18 +401,24 @@ pub struct FeatureConfig {
 pub struct Branch {
     pub slug: String,
     pub ratio: i32,
+    // we skip serializing the `feature` and `features`
+    // fields if they are `None`, to stay aligned
+    // with the schema, where only one of them
+    // will exist
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub feature: Option<FeatureConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub features: Option<Vec<FeatureConfig>>,
 }
 
 impl Branch {
-    /// We want to be able to support multiple features per branch.
-    /// The schema does not support this yet, but we can still write the
-    // enrollment code as it does.
     fn get_feature_configs(&self) -> Vec<FeatureConfig> {
-        if let Some(feature) = &self.feature {
-            vec![feature.clone()]
-        } else {
-            Default::default()
+        // There will never be a time when both `feature` and
+        // `features` are set
+        match (&self.features, &self.feature) {
+            (Some(features), None) => features.clone(),
+            (None, Some(feature)) => vec![feature.clone()],
+            _ => Default::default(),
         }
     }
 }
@@ -610,6 +616,196 @@ mod tests {
 mod test_schema_bw_compat {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_multifeature_branch_schema() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        // this is an experiment following the schema after the addition
+        // of multiple features per branch
+        let exp: Experiment = serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "appName": "fenix",
+            "appId": "bobo",
+            "channel": "nightly",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "features": [{
+                        "featureId": "feature1",
+                        "enabled": true,
+                        "value": {
+                            "key": "value1"
+                        }
+                    },
+                    {
+                        "featureId": "feature2",
+                        "enabled": false,
+                        "value": {
+                            "key": "value2"
+                        }
+                    }]
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "features": [{
+                        "featureId": "feature3",
+                        "enabled": true,
+                        "value": {
+                            "key": "value3"
+                        }
+                    },
+                    {
+                        "featureId": "feature4",
+                        "enabled": false,
+                        "value": {
+                            "key": "value4"
+                        }
+                    }]
+                }
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "application":"fenix",
+            "bucketConfig":{
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        }))
+        .unwrap();
+        assert_eq!(
+            exp.branches[0].get_feature_configs(),
+            vec![
+                FeatureConfig {
+                    feature_id: "feature1".to_string(),
+                    enabled: true,
+                    value: vec![("key".to_string(), json!("value1"))]
+                        .into_iter()
+                        .collect()
+                },
+                FeatureConfig {
+                    feature_id: "feature2".to_string(),
+                    enabled: false,
+                    value: vec![("key".to_string(), json!("value2"))]
+                        .into_iter()
+                        .collect()
+                }
+            ]
+        );
+        assert_eq!(
+            exp.branches[1].get_feature_configs(),
+            vec![
+                FeatureConfig {
+                    feature_id: "feature3".to_string(),
+                    enabled: true,
+                    value: vec![("key".to_string(), json!("value3"))]
+                        .into_iter()
+                        .collect()
+                },
+                FeatureConfig {
+                    feature_id: "feature4".to_string(),
+                    enabled: false,
+                    value: vec![("key".to_string(), json!("value4"))]
+                        .into_iter()
+                        .collect()
+                }
+            ]
+        );
+        assert!(exp.branches[0].feature.is_none());
+        assert!(exp.branches[1].feature.is_none());
+    }
+
+    #[test]
+    fn test_only_one_feature_branch_schema() {
+        // ⚠️ Warning : Do not change the JSON data used by this test. ⚠️
+        // this is an experiment following the schema before the addition
+        // of multiple features per branch
+        let exp: Experiment = serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "secure-gold",
+            "appName": "fenix",
+            "appId": "bobo",
+            "channel": "nightly",
+            "endDate": null,
+            "branches":[
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "feature": {
+                        "featureId": "feature1",
+                        "enabled": true,
+                        "value": {
+                            "key": "value"
+                        }
+                    }
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "feature": {
+                        "featureId": "feature2",
+                        "enabled": true,
+                        "value": {
+                            "key": "value2"
+                        }
+                    }
+                }
+            ],
+            "probeSets":[],
+            "startDate":null,
+            "application":"fenix",
+            "bucketConfig":{
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-gold",
+                "randomizationUnit":"nimbus_id"
+            },
+            "userFacingName":"Diagnostic test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"This is a test experiment for diagnostic purposes.",
+            "id":"secure-gold",
+            "last_modified":1_602_197_324_372i64
+        }))
+        .unwrap();
+        assert_eq!(
+            exp.branches[0].get_feature_configs(),
+            vec![FeatureConfig {
+                feature_id: "feature1".to_string(),
+                enabled: true,
+                value: vec![("key".to_string(), json!("value"))]
+                    .into_iter()
+                    .collect()
+            }]
+        );
+        assert_eq!(
+            exp.branches[1].get_feature_configs(),
+            vec![FeatureConfig {
+                feature_id: "feature2".to_string(),
+                enabled: true,
+                value: vec![("key".to_string(), json!("value2"))]
+                    .into_iter()
+                    .collect()
+            }]
+        );
+        assert!(exp.branches[0].features.is_none());
+        assert!(exp.branches[1].features.is_none());
+    }
 
     #[test]
     // This was the `Experiment` object schema as it originally shipped to Fenix Nightly.
