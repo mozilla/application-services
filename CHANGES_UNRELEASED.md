@@ -33,7 +33,7 @@ Use the template below to make assigning a version number during the release cut
   - `getEnum` to coerce strings into Enums.
   - `get*List`, `get*Map` to get lists and maps of all types.
   - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
-
+- Nimbus now supports multiple features on each branch. This was added with backward compatibility to ensure support for both schemas. ([#4452](https://github.com/mozilla/application-services/pull/4452))
 ### ⚠️ Breaking Changes ⚠️
 
 - [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
