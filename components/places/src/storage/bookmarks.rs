@@ -1625,13 +1625,9 @@ mod tests {
     fn test_bookmark_invalid_url_for_keyword() -> Result<()> {
         let conn = new_mem_connection();
 
-        let place_id = append_invalid_bookmark(
-            &conn,
-            BookmarkRootGuid::Unfiled.guid(),
-            "invalid",
-            "badurl",
-        )
-        .place_id;
+        let place_id =
+            append_invalid_bookmark(&conn, BookmarkRootGuid::Unfiled.guid(), "invalid", "badurl")
+                .place_id;
 
         // create a bookmark with keyword 'donut' pointing at it.
         conn.execute_named_cached(

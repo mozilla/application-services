@@ -848,12 +848,8 @@ impl<'a> BookmarksEngine<'a> {
                 // Frecency recalculation runs several statements, so check to
                 // make sure we aren't interrupted before each calculation.
                 self.interruptee.err_if_interrupted()?;
-                let frecency = calculate_frecency(
-                    self.db,
-                    &DEFAULT_FRECENCY_SETTINGS,
-                    place_id,
-                    Some(false),
-                )?;
+                let frecency =
+                    calculate_frecency(self.db, &DEFAULT_FRECENCY_SETTINGS, place_id, Some(false))?;
                 frecencies.push((place_id, frecency));
             }
             if frecencies.is_empty() {

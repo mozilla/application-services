@@ -12,7 +12,7 @@ commands:
   # Our minimum supported rust version is specified here.
   setup-rust-min-version:
     steps:
-      # Technically should be on 1.47 here, but that boat sailed - 1.50 has been our effective min for some time now.
+      # https://searchfox.org/mozilla-central/source/python/mozboot/mozboot/util.py#20
       - run: rustup override set 1.53.0
 
   full-checkout:

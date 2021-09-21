@@ -2150,17 +2150,23 @@ mod tests {
 
         // There should be one WasEnrolled; the NotEnrolled will have been
         // discarded.
-        
-        assert_eq!(1, enrollments
-            .clone()
-            .into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. })).count());
 
-        
-        assert_eq!(0, enrollments
-            .into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. })).count());
+        assert_eq!(
+            1,
+            enrollments
+                .clone()
+                .into_iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
+                .count()
+        );
 
+        assert_eq!(
+            0,
+            enrollments
+                .into_iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .count()
+        );
         Ok(())
     }
 
@@ -3217,8 +3223,9 @@ mod tests {
         assert_eq!(events.len(), 2);
         // We should see 2 experiment enrolments, this time they're both opt outs
         assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
-        
-        assert_eq!(get_experiment_enrollments(&db, &writer)?
+
+        assert_eq!(
+            get_experiment_enrollments(&db, &writer)?
                 .into_iter()
                 .filter(|enr| {
                     matches!(
@@ -3228,7 +3235,10 @@ mod tests {
                             ..
                         }
                     )
-                }).count(), 2);
+                })
+                .count(),
+            2
+        );
 
         // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
         set_global_user_participation(&db, &mut writer, true)?;
@@ -3239,8 +3249,9 @@ mod tests {
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
-        
-        assert_eq!(get_experiment_enrollments(&db, &writer)?
+
+        assert_eq!(
+            get_experiment_enrollments(&db, &writer)?
                 .into_iter()
                 .filter(|enr| {
                     matches!(
@@ -3250,7 +3261,10 @@ mod tests {
                             ..
                         }
                     )
-                }).count(), 2);
+                })
+                .count(),
+            2
+        );
 
         writer.commit()?;
         Ok(())

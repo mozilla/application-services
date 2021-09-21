@@ -45,9 +45,7 @@ impl FirefoxAccount {
         }
 
         let refresh_token = self.get_refresh_token()?;
-        let response = self
-            .client
-            .get_devices(&self.state.config, refresh_token)?;
+        let response = self.client.get_devices(&self.state.config, refresh_token)?;
 
         self.devices_cache = Some(CachedResponse {
             response: response.clone(),

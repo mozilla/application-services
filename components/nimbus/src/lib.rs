@@ -219,8 +219,7 @@ impl NimbusClient {
                     &state.available_randomization_units,
                     &self.app_context,
                 );
-                let events =
-                    evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
+                let events = evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
                 self.database_cache.commit_and_update(db, writer)?;
                 events
             }
