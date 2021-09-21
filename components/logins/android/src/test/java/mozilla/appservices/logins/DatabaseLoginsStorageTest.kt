@@ -9,26 +9,17 @@ import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
-import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-
-// XXX - so yeah, lots to do here still :(
-// This test file compiles :) It doesn't pass.
-// Even after fixing the big commented-out block below is done, another challenge
-// will be fetching records with hard-coded GUIDs - eg:
-// > val b = test.get("bbbbbbbbbbbb")!!
-// fails because we no longer specify the GUID when adding. We'll have to work out
-// how to remember the IDs of the test-records we add.
+import org.mozilla.appservices.logins.GleanMetrics.LoginsStore as LoginsStoreMetrics
 
 @RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
@@ -51,7 +42,8 @@ class DatabaseLoginsStorageTest {
     protected fun getTestStore(): DatabaseLoginsStorage {
         val store = createTestStore()
 
-        store.add(LoginEntry(
+        store.add(
+            LoginEntry(
                 fields = LoginFields(
                     origin = "https://www.example.com",
                     httpRealm = "Something",
@@ -63,9 +55,12 @@ class DatabaseLoginsStorageTest {
                     username = "Foobar2000",
                     password = "hunter2"
                 )
-        ), encryptionKey)
+            ),
+            encryptionKey
+        )
 
-        store.add(LoginEntry(
+        store.add(
+            LoginEntry(
                 fields = LoginFields(
                     origin = "https://www.example.org",
                     httpRealm = "",
@@ -77,7 +72,9 @@ class DatabaseLoginsStorageTest {
                     password = "MyVeryCoolPassword",
                     username = "Foobar2000"
                 )
-        ), encryptionKey)
+            ),
+            encryptionKey
+        )
 
         return store
     }
@@ -94,7 +91,8 @@ class DatabaseLoginsStorageTest {
         assert(!LoginsStoreMetrics.writeQueryCount.testHasValue())
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
 
-        val login = store.add(LoginEntry(
+        val login = store.add(
+            LoginEntry(
                 fields = LoginFields(
                     origin = "https://www.example.com",
                     httpRealm = "Something",
@@ -106,7 +104,9 @@ class DatabaseLoginsStorageTest {
                     username = "Foobar2000",
                     password = "hunter2"
                 )
-        ), encryptionKey)
+            ),
+            encryptionKey
+        )
 
         assertEquals(LoginsStoreMetrics.writeQueryCount.testGetValue(), 1)
         assert(!LoginsStoreMetrics.writeQueryErrorCount["invalid_record"].testHasValue())
