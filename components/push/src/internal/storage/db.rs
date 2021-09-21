@@ -198,7 +198,7 @@ impl Storage for PushDb {
             &[
                 (":endpoint", &endpoint),
                 (":uaid", &uaid),
-                (":channel_id", &Self::normalize_uuid(&channel_id)),
+                (":channel_id", &Self::normalize_uuid(channel_id)),
             ],
         )?;
         Ok(affected_rows == 1)

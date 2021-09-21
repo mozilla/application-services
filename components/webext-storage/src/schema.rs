@@ -28,7 +28,7 @@ impl MigrationLogic for WebExtMigrationLogin {
             PRAGMA foreign_keys = ON;
         ";
         conn.execute_batch(initial_pragmas)?;
-        define_functions(&conn)?;
+        define_functions(conn)?;
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())
     }

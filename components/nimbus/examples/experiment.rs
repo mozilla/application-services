@@ -184,7 +184,7 @@ fn main() -> Result<()> {
         .value_of("db-path")
         .unwrap_or_else(|| match config.get("db_path") {
             Some(v) => v.as_str().unwrap(),
-            _ => &db_path_default,
+            _ => db_path_default,
         });
     log::info!("Database directory is {}", db_path);
 
@@ -283,7 +283,7 @@ fn main() -> Result<()> {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
                 for exp in &all_experiments {
-                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &context.clone(), &exp)?;
+                    let enr = nimbus::evaluate_enrollment(&uuid, &aru, &context.clone(), exp)?;
                     if enr.status.is_enrolled() {
                         num_of_experiments_enrolled += 1;
                         if num_of_experiments_enrolled >= num {

@@ -191,7 +191,7 @@ impl SingleStore {
         let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                let unserialized = serde_json::from_str::<T>(&data);
+                let unserialized = serde_json::from_str::<T>(data);
                 match unserialized {
                     Ok(value) => result.push(value),
                     Err(e) => {
@@ -222,7 +222,7 @@ impl SingleStore {
         let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(&data)?);
+                result.push(serde_json::from_str::<T>(data)?);
             }
         }
         Ok(result)
@@ -500,7 +500,7 @@ impl Database {
         let mut iter = self.get_store(store_id).store.iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(&data)?);
+                result.push(serde_json::from_str::<T>(data)?);
             }
         }
         Ok(result)

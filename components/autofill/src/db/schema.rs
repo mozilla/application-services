@@ -81,7 +81,7 @@ impl ConnectionInitializer for AutofillConnectionInitializer {
     const END_VERSION: u32 = 2;
 
     fn prepare(&self, conn: &Connection) -> Result<()> {
-        define_functions(&conn)?;
+        define_functions(conn)?;
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())
     }

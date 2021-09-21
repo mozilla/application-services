@@ -184,7 +184,7 @@ impl ProcessIncomingRecordImpl for IncomingCreditCardsImpl {
         // rows and decrypt the numbers here.
         let records =
             tx.query_rows_and_then_named(&sql, params, |row| -> Result<Self::Record> {
-                Ok(Self::Record::from_row(&row)?)
+                Ok(Self::Record::from_row(row)?)
             })?;
 
         let incoming_cc_number = self.encdec.decrypt(&incoming.cc_number_enc)?;

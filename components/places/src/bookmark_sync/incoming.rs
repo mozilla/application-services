@@ -75,7 +75,7 @@ impl<'a> IncomingApplicator<'a> {
             let mut seen = HashSet::with_capacity(array.len());
             for v in array {
                 if let JsonValue::String(s) = v {
-                    let tag = match validate_tag(&s) {
+                    let tag = match validate_tag(s) {
                         ValidatedTag::Invalid(t) => {
                             log::trace!("Incoming bookmark has invalid tag: {:?}", t);
                             set_reupload(&mut validity);
@@ -266,7 +266,7 @@ impl<'a> IncomingApplicator<'a> {
             // Sadly we can't use `url.query_pairs()` here as the format of
             // the url is, eg, `place:type=7` - ie, the "params" are actually
             // the path portion of the URL.
-            let parse = url::form_urlencoded::parse(&url.path().as_bytes());
+            let parse = url::form_urlencoded::parse(url.path().as_bytes());
             if parse
                 .clone()
                 .any(|(k, v)| k == "type" && v == RESULTS_AS_TAG_CONTENTS)
@@ -384,7 +384,7 @@ impl<'a> IncomingApplicator<'a> {
         // livemarks don't store a reference to the place, so we validate it manually.
         fn validate_href(h: Option<&str>, guid: &SyncGuid, what: &str) -> Option<String> {
             match h {
-                Some(h) => match Url::parse(&h) {
+                Some(h) => match Url::parse(h) {
                     Ok(url) => {
                         let s = url.to_string();
                         if s.len() > URL_LENGTH_MAX {
@@ -405,8 +405,8 @@ impl<'a> IncomingApplicator<'a> {
                 }
             }
         }
-        let feed_url = validate_href(feed_url, &record_id.as_guid(), "feed");
-        let site_url = validate_href(site_url, &record_id.as_guid(), "site");
+        let feed_url = validate_href(feed_url, record_id.as_guid(), "feed");
+        let site_url = validate_href(site_url, record_id.as_guid(), "site");
 
         if feed_url.is_none() {
             set_replace(&mut validity);
@@ -511,7 +511,7 @@ fn unpack_optional_str<'a>(
 ) -> Option<&'a str> {
     let val = &data[key];
     match val {
-        JsonValue::String(s) => Some(&s),
+        JsonValue::String(s) => Some(s),
         JsonValue::Null => None,
         _ => {
             set_reupload(validity);
@@ -649,7 +649,7 @@ mod tests {
                 "tags": ["foo", "bar"],
                 "keyword": "baz",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Bookmark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -680,7 +680,7 @@ mod tests {
         .expect("Should serialize folder with children");
         assert_incoming_creates_mirror_item(
             value,
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Folder)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -696,7 +696,7 @@ mod tests {
                 "id": "deadbeef____",
                 "deleted": true
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .deleted(true),
         );
@@ -718,7 +718,7 @@ mod tests {
                 "title": "Some query",
                 "bmkUri": "place:tag=foo",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Query)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -736,7 +736,7 @@ mod tests {
                 "bmkUri": "place:type=7",
                 "folderName": "a-folder-name",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Reupload)
                 .kind(SyncedBookmarkKind::Query)
                 .url(Some("place:tag=a-folder-name")),
@@ -752,7 +752,7 @@ mod tests {
                 "bmkUri": "place:type=7",
                 "folderName": "",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Query)
                 .url(None),
@@ -767,7 +767,7 @@ mod tests {
                 "parentid": "unfiled",
                 "bmkUri": "place:folder=123",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Reupload)
                 .kind(SyncedBookmarkKind::Query)
                 .url(Some("place:folder=123&excludeItems=1")),
@@ -782,7 +782,7 @@ mod tests {
                 "parentid": "unfiled",
                 "bmkUri": "place:folder=123&excludeItems=1",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Query)
                 .url(Some("place:folder=123&excludeItems=1")),
@@ -796,7 +796,7 @@ mod tests {
                 "parentid": "unfiled",
                 "bmkUri": "foo",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Query)
                 .url(None),
@@ -809,7 +809,7 @@ mod tests {
                 "type": "query",
                 "parentid": "unfiled",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Query)
                 .url(None),
@@ -826,7 +826,7 @@ mod tests {
                 "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Separator)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -844,7 +844,7 @@ mod tests {
                 "parentid": "unfiled",
                 "parentName": "Unfiled Bookmarks",
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Replace)
                 .kind(SyncedBookmarkKind::Livemark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -863,7 +863,7 @@ mod tests {
                 "feedUri": "http://example.com",
                 "siteUri": "foo"
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Livemark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))
@@ -881,7 +881,7 @@ mod tests {
                 "feedUri": "http://example.com",
                 "siteUri": "http://example.com/something"
             }),
-            &SyncedBookmarkItem::new()
+            SyncedBookmarkItem::new()
                 .validity(SyncedBookmarkValidity::Valid)
                 .kind(SyncedBookmarkKind::Livemark)
                 .parent_guid(Some(&BookmarkRootGuid::Unfiled.as_guid()))

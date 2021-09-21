@@ -95,7 +95,7 @@ impl NimbusClient {
         let db = self.db()?;
         // We're not actually going to write, we just want to exclude concurrent writers.
         let writer = db.write()?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(())
     }
 
@@ -120,7 +120,7 @@ impl NimbusClient {
     pub fn get_global_user_participation(&self) -> Result<bool> {
         let db = self.db()?;
         let reader = db.read()?;
-        get_global_user_participation(&db, &reader)
+        get_global_user_participation(db, &reader)
     }
 
     pub fn set_global_user_participation(
@@ -129,28 +129,28 @@ impl NimbusClient {
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        set_global_user_participation(&db, &mut writer, user_participating)?;
+        set_global_user_participation(db, &mut writer, user_participating)?;
 
         let existing_experiments: Vec<Experiment> =
             db.get_store(StoreId::Experiments).collect_all(&writer)?;
         // We pass the existing experiments as "updated experiments"
         // to the evolver.
-        let nimbus_id = self.read_or_create_nimbus_id(&db, &mut writer)?;
+        let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
         let state = self.mutable_state.lock().unwrap();
         let evolver = EnrollmentsEvolver::new(
             &nimbus_id,
             &state.available_randomization_units,
             &self.app_context,
         );
-        let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &existing_experiments)?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let events = evolver.evolve_enrollments_in_db(db, &mut writer, &existing_experiments)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(events)
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
         let db = self.db()?;
         let reader = db.read()?;
-        get_enrollments(&db, &reader)
+        get_enrollments(db, &reader)
     }
 
     pub fn get_all_experiments(&self) -> Result<Vec<Experiment>> {
@@ -164,7 +164,7 @@ impl NimbusClient {
         Ok(self
             .get_all_experiments()?
             .into_iter()
-            .filter(|exp| is_experiment_available(&self.app_context, &exp, false))
+            .filter(|exp| is_experiment_available(&self.app_context, exp, false))
             .map(|exp| exp.into())
             .collect())
     }
@@ -176,16 +176,16 @@ impl NimbusClient {
     ) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = opt_in_with_branch(&db, &mut writer, &experiment_slug, &branch)?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let result = opt_in_with_branch(db, &mut writer, &experiment_slug, &branch)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(result)
     }
 
     pub fn opt_out(&self, experiment_slug: String) -> Result<Vec<EnrollmentChangeEvent>> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let result = opt_out(&db, &mut writer, &experiment_slug)?;
-        self.database_cache.commit_and_update(&db, writer)?;
+        let result = opt_out(db, &mut writer, &experiment_slug)?;
+        self.database_cache.commit_and_update(db, writer)?;
         Ok(result)
     }
 
@@ -200,7 +200,7 @@ impl NimbusClient {
         let new_experiments = settings_client.fetch_experiments()?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        write_pending_experiments(&db, &mut writer, new_experiments)?;
+        write_pending_experiments(db, &mut writer, new_experiments)?;
         writer.commit()?;
         Ok(())
     }
@@ -209,10 +209,10 @@ impl NimbusClient {
         log::info!("updating experiment list");
         let db = self.db()?;
         let mut writer = db.write()?;
-        let pending_updates = read_and_remove_pending_experiments(&db, &mut writer)?;
+        let pending_updates = read_and_remove_pending_experiments(db, &mut writer)?;
         Ok(match pending_updates {
             Some(new_experiments) => {
-                let nimbus_id = self.read_or_create_nimbus_id(&db, &mut writer)?;
+                let nimbus_id = self.read_or_create_nimbus_id(db, &mut writer)?;
                 let state = self.mutable_state.lock().unwrap();
                 let evolver = EnrollmentsEvolver::new(
                     &nimbus_id,
@@ -220,8 +220,8 @@ impl NimbusClient {
                     &self.app_context,
                 );
                 let events =
-                    evolver.evolve_enrollments_in_db(&db, &mut writer, &new_experiments)?;
-                self.database_cache.commit_and_update(&db, writer)?;
+                    evolver.evolve_enrollments_in_db(db, &mut writer, &new_experiments)?;
+                self.database_cache.commit_and_update(db, writer)?;
                 events
             }
             // We don't need to writer.commit() here because we haven't done anything.
@@ -233,7 +233,7 @@ impl NimbusClient {
         let new_experiments = parse_experiments(&experiments_json)?;
         let db = self.db()?;
         let mut writer = db.write()?;
-        write_pending_experiments(&db, &mut writer, new_experiments)?;
+        write_pending_experiments(db, &mut writer, new_experiments)?;
         writer.commit()?;
         Ok(())
     }
@@ -262,7 +262,7 @@ impl NimbusClient {
             // The `nimbus_id` itself is a unique identifier.
             // N.B. we do this last, as a signal that all data has been reset.
             store.delete(&mut writer, DB_KEY_NIMBUS_ID)?;
-            self.database_cache.commit_and_update(&db, writer)?;
+            self.database_cache.commit_and_update(db, writer)?;
         }
         // (No need to commit `writer` if the above check was false, since we didn't change anything)
         let mut state = self.mutable_state.lock().unwrap();
@@ -273,7 +273,7 @@ impl NimbusClient {
     pub fn nimbus_id(&self) -> Result<Uuid> {
         let db = self.db()?;
         let mut writer = db.write()?;
-        let uuid = self.read_or_create_nimbus_id(&db, &mut writer)?;
+        let uuid = self.read_or_create_nimbus_id(db, &mut writer)?;
         // We don't know whether we needed to generate and save the uuid, so
         // we commit just in case - this is hopefully close to a noop in that
         // case!

@@ -130,7 +130,7 @@ fn show_sql(conn: &rusqlite::Connection, sql: &str) -> Result<()> {
     let mut table = Table::new();
     table.add_row(Row::new(
         cols.iter()
-            .map(|name| Cell::new(&name).style_spec("bc"))
+            .map(|name| Cell::new(name).style_spec("bc"))
             .collect(),
     ));
 

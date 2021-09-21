@@ -41,7 +41,7 @@ impl RcCryptoLocalKeyPair {
     fn agree(&self, peer: &RcCryptoRemotePublicKey) -> Result<Vec<u8>, ece::Error> {
         let peer_public_key_raw_bytes = &peer.as_raw()?;
         let peer_public_key =
-            UnparsedPublicKey::new(&agreement::ECDH_P256, &peer_public_key_raw_bytes);
+            UnparsedPublicKey::new(&agreement::ECDH_P256, peer_public_key_raw_bytes);
         self.wrapped
             .private_key()
             .agree_static(&peer_public_key)?
@@ -120,7 +120,7 @@ impl Cryptographer for RcCryptoCryptographer {
         let remote = remote_any
             .downcast_ref::<RcCryptoRemotePublicKey>()
             .unwrap();
-        local.agree(&remote)
+        local.agree(remote)
     }
 
     fn hkdf_sha256(
@@ -130,9 +130,9 @@ impl Cryptographer for RcCryptoCryptographer {
         info: &[u8],
         len: usize,
     ) -> Result<Vec<u8>, ece::Error> {
-        let salt = hmac::SigningKey::new(&digest::SHA256, &salt);
+        let salt = hmac::SigningKey::new(&digest::SHA256, salt);
         let mut out = vec![0u8; len];
-        hkdf::extract_and_expand(&salt, &secret, &info, &mut out)?;
+        hkdf::extract_and_expand(&salt, secret, info, &mut out)?;
         Ok(out)
     }
 
@@ -159,7 +159,7 @@ impl Cryptographer for RcCryptoCryptographer {
             &key,
             nonce,
             aead::Aad::empty(),
-            &ciphertext_and_tag,
+            ciphertext_and_tag,
         )?)
     }
 

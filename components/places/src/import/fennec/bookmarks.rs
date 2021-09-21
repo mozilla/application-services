@@ -84,7 +84,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     // Clear the mirror now, since we're about to fill it with data from the fennec
     // connection.
     log::debug!("Clearing mirror to prepare for import");
-    conn.execute_batch(&WIPE_MIRROR)?;
+    conn.execute_batch(WIPE_MIRROR)?;
     scope.err_if_interrupted()?;
 
     log::debug!("Populating mirror with the bookmarks roots");
@@ -112,7 +112,7 @@ fn do_import(places_api: &PlacesApi, fennec_db_file_url: Url) -> Result<Bookmark
     // could turn use `PRAGMA defer_foreign_keys = true`, but since we commit
     // everything in one go, that seems harder to debug.
     log::debug!("Populating mirror structure");
-    conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
+    conn.execute_batch(POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
     let engine = BookmarksEngine::new(&conn, &scope);

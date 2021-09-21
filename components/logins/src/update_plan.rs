@@ -179,7 +179,7 @@ impl UpdatePlan {
 
                 :guid
             )";
-        let mut stmt = conn.prepare_cached(&sql)?;
+        let mut stmt = conn.prepare_cached(sql)?;
 
         for (login, timestamp, is_overridden) in &self.mirror_inserts {
             log::trace!("Inserting mirror {:?}", login.guid_str());

@@ -55,7 +55,7 @@ impl<'a> HistoryEngine<'a> {
         let timestamp = inbound.timestamp;
         let outgoing = {
             let mut incoming_telemetry = telemetry::EngineIncoming::new();
-            let result = apply_plan(&self.db, inbound, &mut incoming_telemetry, self.interruptee);
+            let result = apply_plan(self.db, inbound, &mut incoming_telemetry, self.interruptee);
             telem.incoming(incoming_telemetry);
             result
         }?;
@@ -74,7 +74,7 @@ impl<'a> HistoryEngine<'a> {
             "sync completed after uploading {} records",
             records_synced.len()
         );
-        finish_plan(&self.db)?;
+        finish_plan(self.db)?;
 
         // write timestamp to reflect what we just wrote.
         self.put_meta(LAST_SYNC_META_KEY, &(new_timestamp.as_millis() as i64))?;
@@ -118,7 +118,7 @@ impl<'a> Deref for HistoryEngine<'a> {
     type Target = Connection;
     #[inline]
     fn deref(&self) -> &Connection {
-        &self.db
+        self.db
     }
 }
 
@@ -175,12 +175,12 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(&self.db, assoc)?;
+        reset(self.db, assoc)?;
         Ok(())
     }
 
     fn wipe(&self) -> anyhow::Result<()> {
-        delete_everything(&self.db)?;
+        delete_everything(self.db)?;
         Ok(())
     }
 }
