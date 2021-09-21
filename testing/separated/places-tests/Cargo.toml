@@ -16,7 +16,7 @@ types = { path = "../../../components/support/types" }
 places = { path = "../../../components/places" }
 sync15 = { path = "../../../components/sync15" }
 serde_json = "1.0"
-url = "2.1"
+url = "2.2"
 dogear = "0.4"
 tempfile = "3.1"
 env_logger = { version = "0.7", default-features = false }
