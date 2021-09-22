@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		1B9B8F00267439F800C8A918 /* places.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B9B8EFE267439CC00C8A918 /* places.udl */; };
 		1B9B8F0A26743B8800C8A918 /* placesFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B9B8F0826743B8800C8A918 /* placesFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
@@ -62,7 +63,6 @@
 		BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CC25064AC000FED88E /* Sysctl.swift */; };
 		BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CD25064AC000FED88E /* Unreachable.swift */; };
 		BF1A87D325064B1100FED88E /* sdk_generator.sh in Resources */ = {isa = PBXBuildFile; fileRef = BF1A87D225064B1100FED88E /* sdk_generator.sh */; };
-		BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
 		C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECD220A29FE00A6E79A /* LoginsStorage.swift */; };
 		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
@@ -791,6 +791,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */,
 				1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */,
 				1BE78F4926532325008B9A45 /* logins.udl in Sources */,
 				9908639E25F9CC5F00032083 /* crashtest.udl in Sources */,
@@ -803,7 +804,6 @@
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */,
 				BF1A879525064A6600FED88E /* Configuration.swift in Sources */,
-				BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */,
 				CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */,
 				BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */,
 				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
