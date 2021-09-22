@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 51;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -171,7 +171,7 @@
 		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
 		398A4148264986E200AA22F1 /* FeatureVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureVariables.swift; sourceTree = "<group>"; };
 		39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusFeatureVariablesTests.swift; sourceTree = "<group>"; };
-		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../src/crashtest.udl; sourceTree = "<group>"; };
+		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../src/crashtest.udl; sourceTree = "<group>"; };
 		9908639F25F9D25A00032083 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crashtestFFI.h; sourceTree = "<group>"; };
 		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
 		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
@@ -332,7 +332,7 @@
 				9908639B25F9CC3600032083 /* crashtest.udl */,
 			);
 			name = CrashTest;
-			path = ../../components/crashtest/ios/CrashTest;
+			path = ../../components/crashtest/ios;
 			sourceTree = "<group>";
 		};
 		9908639D25F9CC4700032083 /* Generated */ = {
@@ -341,8 +341,7 @@
 				990863A025F9D25A00032083 /* crashtest.swift */,
 				9908639F25F9D25A00032083 /* crashtestFFI.h */,
 			);
-			name = Generated;
-			path = ../Generated;
+			path = Generated;
 			sourceTree = "<group>";
 		};
 		993D6D4D26B11D9E0075A820 /* Sync15 */ = {
@@ -750,6 +749,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		BF1A87712506468F00FED88E /* Generate Glean metrics */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
