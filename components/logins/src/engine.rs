@@ -129,7 +129,7 @@ impl LoginsSyncEngine {
         scope.err_if_interrupted()?;
 
         sql_support::each_chunk_mapped(
-            &records,
+            records,
             |r| r.0.id.as_str(),
             |chunk, offset| -> Result<()> {
                 // pairs the bound parameter for the guid with an integer index.

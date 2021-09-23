@@ -191,7 +191,7 @@ impl SingleStore {
         let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                let unserialized = serde_json::from_str::<T>(&data);
+                let unserialized = serde_json::from_str::<T>(data);
                 match unserialized {
                     Ok(value) => result.push(value),
                     Err(e) => {
@@ -222,7 +222,7 @@ impl SingleStore {
         let mut iter = self.store.iter_start(reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(&data)?);
+                result.push(serde_json::from_str::<T>(data)?);
             }
         }
         Ok(result)
@@ -500,7 +500,7 @@ impl Database {
         let mut iter = self.get_store(store_id).store.iter_start(&reader)?;
         while let Some(Ok((_, data))) = iter.next() {
             if let rkv::Value::Json(data) = data {
-                result.push(serde_json::from_str::<T>(&data)?);
+                result.push(serde_json::from_str::<T>(data)?);
             }
         }
         Ok(result)
@@ -511,7 +511,6 @@ impl Database {
 mod tests {
     use super::*;
     use serde_json::json;
-    use std::collections::HashMap;
     use tempdir::TempDir;
 
     #[test]
@@ -1121,49 +1120,12 @@ mod tests {
         // force an upgrade & read in the upgraded database
         let db = Database::new(&tmp_dir).unwrap();
 
-        let db_experiments = db.collect_all::<Experiment>(StoreId::Experiments)?;
-        // XXX hoist into build_map function (we build maps because they
-        // compensate for the fact that iters don't return things in a
-        // deterministic order).
-        let db_experiment_map: HashMap<String, serde_json::Value> = db_experiments
-            .into_iter()
-            .map(|e| {
-                let e_json = serde_json::to_value::<Experiment>(e.clone()).unwrap();
-                let e_slug = e.slug;
-                (e_slug, e_json)
-            })
-            .collect();
-
-        // XXX hoist into build_map function
-        let orig_experiment_map: HashMap<String, serde_json::Value> =
-            db_v1_experiments_with_non_empty_features
-                .iter()
-                .map(|e_ref| {
-                    let e = e_ref.clone();
-                    let e_slug = e.get("slug").unwrap().as_str().unwrap().to_string();
-                    (e_slug, e)
-                })
-                .collect();
-
-        // The original json should be the same as data that's gone through
-        // migration, put into the rust structs again, and pulled back out.
-        assert_eq!(&orig_experiment_map, &db_experiment_map);
-        // log::debug!("db_experiments = {:?}", &db_experiment_map);
-
-        let enrollments = db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
-
-        let db_enrollments: Vec<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
-
-        let orig_enrollments: Vec<String> = db_v1_enrollments_with_non_empty_features
-            .iter()
-            .map(|e_ref| e_ref.get("slug").unwrap().as_str().unwrap().to_string())
-            .collect();
-
-        // The original json should be the same as data that's gone through
-        // migration, put into the rust structs again, and pulled back out.
-        assert_eq!(&orig_enrollments, &db_enrollments);
-        // log::debug!("db_enrollments = {:?}", db_enrollments);
-
+        // we validate that we can still deserialize the old v1 experiments
+        // into the `Experiment` struct
+        db.collect_all::<Experiment>(StoreId::Experiments)?;
+        // we validate that we can still deserialize the old v1 enrollments
+        // into the `ExperimentEnrollment` struct
+        db.collect_all::<ExperimentEnrollment>(StoreId::Enrollments)?;
         Ok(())
     }
 

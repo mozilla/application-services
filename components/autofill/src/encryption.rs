@@ -63,7 +63,7 @@ impl EncryptorDecryptor {
 
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
         Ok(jwcrypto::decrypt_jwe(
-            &ciphertext,
+            ciphertext,
             jwcrypto::DecryptionParameters::Direct {
                 jwk: self.jwk.clone(),
             },

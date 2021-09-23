@@ -159,7 +159,7 @@ pub fn visit_uri(
     is_error_page: bool,
 ) -> Result<()> {
     // Silently return if URI is something we shouldn't add to DB.
-    if !can_add_url(&url)? {
+    if !can_add_url(url)? {
         return Ok(());
     };
     // Do not save a reloaded uri if we have visited the same URI recently.

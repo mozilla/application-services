@@ -246,7 +246,7 @@ impl LoginDb {
         let form_submit_host_port = l
             .form_submit_url
             .as_ref()
-            .and_then(|s| util::url_host_port(&s));
+            .and_then(|s| util::url_host_port(s));
         let args = named_params! {
             ":hostname": l.hostname,
             ":http_realm": l.http_realm,
@@ -514,7 +514,7 @@ impl LoginDb {
             let maybe_fixed_login = login.maybe_fixup().and_then(|fixed| {
                 match &fixed {
                     None => self.check_for_dupes(login)?,
-                    Some(l) => self.check_for_dupes(&l)?,
+                    Some(l) => self.check_for_dupes(l)?,
                 };
                 Ok(fixed)
             });
@@ -662,7 +662,7 @@ impl LoginDb {
 
     pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
         login.check_valid()?;
-        self.check_for_dupes(&login)
+        self.check_for_dupes(login)
     }
 
     pub fn fixup_and_check_for_dupes(&self, login: Login) -> Result<Login> {
@@ -672,7 +672,7 @@ impl LoginDb {
     }
 
     pub fn check_for_dupes(&self, login: &Login) -> Result<()> {
-        if self.dupe_exists(&login)? {
+        if self.dupe_exists(login)? {
             throw!(InvalidLogin::DuplicateLogin);
         }
         Ok(())

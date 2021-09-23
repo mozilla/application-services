@@ -44,7 +44,7 @@ impl DatabaseCache {
     pub fn commit_and_update(&self, db: &Database, writer: Writer) -> Result<()> {
         // By passing in the active `writer` we read the state of enrollments
         // as written by the calling code, before it's committed to the db.
-        let enrollments = get_enrollments(&db, &writer)?;
+        let enrollments = get_enrollments(db, &writer)?;
 
         // Build the new hashmaps.  Note that this is somewhat temporary, is
         // likely to change when the full FeatureConfig stuff is implemented.

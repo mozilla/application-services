@@ -174,7 +174,7 @@ pub extern "C" fn places_note_observation(
     log::debug!("places_note_observation");
     CONNECTIONS.call_with_result_mut(error, handle, |conn| {
         let json = json_observation.as_str();
-        let visit: places::VisitObservation = serde_json::from_str(&json)?;
+        let visit: places::VisitObservation = serde_json::from_str(json)?;
         places::api::apply_observation(conn, visit)
     })
 }

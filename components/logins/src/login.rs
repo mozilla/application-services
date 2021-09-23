@@ -335,7 +335,7 @@ impl Login {
     /// a string.
     fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
         // Check we can parse the origin, then use the normalized version of it.
-        match Url::parse(&origin) {
+        match Url::parse(origin) {
             Ok(mut u) => {
                 // Presumably this is a faster path than always setting?
                 if u.path() != "/"
@@ -501,7 +501,7 @@ impl Login {
                             .form_submit_url = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
-                    if let Some(fixed) = Login::validate_and_fixup_origin(&href)? {
+                    if let Some(fixed) = Login::validate_and_fixup_origin(href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "formActionOrigin is not normalized".into()
                         })?
@@ -665,7 +665,7 @@ pub(crate) struct SyncLoginData {
 impl SyncLoginData {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.guid.as_str()
+        self.guid.as_str()
     }
 
     #[inline]

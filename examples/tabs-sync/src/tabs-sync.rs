@@ -32,7 +32,7 @@ fn main() -> Result<()> {
         .value_of("credential_file")
         .unwrap_or("./credentials.json");
 
-    let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
+    let mut cli_fxa = get_cli_fxa(get_default_fxa_config(), cred_file)?;
     let device_id = cli_fxa.account.get_current_device_id()?;
 
     let store = Arc::new(TabsStore::new());

@@ -14,7 +14,7 @@ pub use fxa_client;
 pub use logins;
 pub use nimbus;
 pub use places_ffi;
-pub use push_ffi;
+pub use push;
 pub use rc_log_ffi;
 pub use sync_manager_ffi;
 pub use viaduct;

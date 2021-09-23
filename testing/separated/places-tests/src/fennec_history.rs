@@ -35,8 +35,7 @@ struct FennecHistory {
 
 impl FennecHistory {
     fn insert_into_db(&self, conn: &Connection) -> Result<()> {
-        let mut stmt = conn.prepare(&
-            "INSERT OR IGNORE INTO history(title, url, visits, visits_local, visits_remote, date,
+        let mut stmt = conn.prepare("INSERT OR IGNORE INTO history(title, url, visits, visits_local, visits_remote, date,
                                            date_local, date_remote, created, modified, guid, deleted)
              VALUES (:title, :url, :visits, :visits_local, :visits_remote, :date,
                      :date_local, :date_remote, :created, :modified, :guid, :deleted)"
@@ -70,7 +69,7 @@ struct FennecVisit<'a> {
 impl<'a> FennecVisit<'a> {
     fn insert_into_db(&self, conn: &Connection) -> Result<()> {
         let mut stmt = conn.prepare(
-            &"INSERT OR IGNORE INTO visits(history_guid, visit_type, date, is_local)
+            "INSERT OR IGNORE INTO visits(history_guid, visit_type, date, is_local)
              VALUES (:history_guid, :visit_type, :date, :is_local)",
         )?;
         stmt.execute_named(rusqlite::named_params! {

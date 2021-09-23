@@ -41,6 +41,33 @@ impl ToSql for DocumentType {
     }
 }
 
+#[derive(Clone)]
+pub struct HistoryHighlightWeights {
+    pub view_time: f64,
+    pub frequency: f64,
+}
+
+#[derive(Clone)]
+pub struct HistoryHighlight {
+    pub score: f64,
+    pub place_id: i32,
+    pub url: String,
+    pub title: Option<String>,
+    pub preview_image_url: Option<String>,
+}
+
+impl HistoryHighlight {
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        Ok(Self {
+            score: row.get("score")?,
+            place_id: row.get("place_id")?,
+            url: row.get("url")?,
+            title: row.get("title")?,
+            preview_image_url: row.get("preview_image_url")?,
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct HistoryMetadataObservation {
     pub url: String,
@@ -287,6 +314,63 @@ LEFT JOIN moz_places p ON m.place_id = p.id
 LEFT JOIN moz_places_metadata_search_queries s ON m.search_query_id = s.id
 LEFT JOIN moz_places o ON o.id = m.referrer_place_id";
 
+// Highlight query returns moz_places entries ranked by a "highlight score".
+// This score takes into account two factors:
+// 1) frequency of visits to a page,
+// 2) cummulative view time of a page.
+//
+// Eventually, we could consider combining this with `moz_places.frecency` as a basis for (1), that assumes we have a populated moz_historyvisits table.
+// Currently, iOS doesn't use 'places' library to track visits, so iOS clients won't have meaningful frecency scores.
+//
+// Instead, we use moz_places_metadata entries to compute both (1) and (2).
+// This has several nice properties:
+// - it works on clients that only use 'metadata' APIs, not 'places'
+// - since metadata is capped by clients to a certain time window (via `delete_older_than`), the scores will be computed for the same time window
+// - we debounce metadata observations to the same "key" if they're close in time.
+// -- this is an equivalent of saying that if a page was visited multiple times in quick succession, treat that as a single visit while accumulating the view time
+// -- the assumption we're making is that this better matches user perception of their browsing activity
+//
+// The score is computed as a weighted sum of two probabilities:
+// - at any given moment in my browsing sessions for the past X days, how likely am I to be looking at a page?
+// - for any given visit during my browsing sessions for the past X days, how likely am I to visit a page?
+//
+// This kind of scoring is fairly intuitive and simple to reason about at the product level.
+//
+// An alternative way to arrive at the same ranking would be to normalize the values to compare data of different dimensions, time vs frequency.
+// We can normalize view time and frequency into a 0-1 scale before computing weighted scores.
+// (select place_id, (normal_frequency * 1.0 + normal_view_time * 1.0) as score from
+//     (select place_id, cast(count(*) - min_f as REAL) / cast(range_f as REAL) as normal_frequency, cast(sum(total_view_time) - min_v as REAL) / cast(max_v as REAL) as normal_view_time from moz_places_metadata,
+//     (select min(frequency) as min_f, max(frequency) as max_f, max(frequency) - min(frequency) as range_f
+//         from (select count(*) as frequency from moz_places_metadata group by place_id)
+//     ),
+//     (select min(view_time) as min_v, max(view_time) as max_v, max(view_time) - min(view_time) as range_v
+//         from (select sum(total_view_time) as view_time from moz_places_metadata where total_view_time > 0 group by place_id)
+//     ) where total_view_time > 0 group by place_id)) ranked
+//
+// Note that while it's tempting to use built-in window functions such percent_rank, they're not sufficient.
+// The built-in functions concern themselves with absolute ranking, not taking into account magnitudes of differences between values.
+// For example, given two entries we'll know that one is larger than another, but not by how much.
+const HIGHLIGHTS_QUERY: &str = "
+SELECT
+    ranked.score AS score, p.id AS place_id, p.url AS url, p.title AS title, p.preview_image_url AS preview_image_url
+FROM moz_places p
+INNER JOIN
+    (
+        SELECT place_id, :view_time_weight * view_time_prob + :frequency_weight * frequency_prob AS score FROM (
+            SELECT
+                place_id,
+                CAST(count(*) AS REAL) / total_count AS frequency_prob,
+                CAST(sum(total_view_time) AS REAL) / all_view_time AS view_time_prob
+                FROM (
+                    SELECT place_id, count(*) OVER () AS total_count, total_view_time, sum(total_view_time) OVER () AS all_view_time FROM moz_places_metadata
+                )
+            GROUP BY place_id
+        )
+    ) ranked
+ON p.id = ranked.place_id
+ORDER BY ranked.score DESC
+LIMIT :limit";
+
 lazy_static! {
     static ref GET_LATEST_SQL: String = format!(
         "{common_select_sql}
@@ -354,6 +438,22 @@ pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
     )
 }
 
+pub fn get_highlights(
+    db: &PlacesDb,
+    weights: HistoryHighlightWeights,
+    limit: i32,
+) -> Result<Vec<HistoryHighlight>> {
+    db.query_rows_and_then_named_cached(
+        HIGHLIGHTS_QUERY,
+        rusqlite::named_params! {
+            ":view_time_weight": weights.view_time,
+            ":frequency_weight": weights.frequency,
+            ":limit": limit
+        },
+        HistoryHighlight::from_row,
+    )
+}
+
 pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<Vec<HistoryMetadata>> {
     db.query_rows_and_then_named_cached(
         QUERY_SQL.as_str(),
@@ -397,7 +497,7 @@ pub fn delete_metadata(
     };
     let referrer_entry = match referrer_url {
         Some(referrer_url) if !referrer_url.is_empty() => {
-            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+            Some(PlaceEntry::fetch(referrer_url, &tx, None)?)
         }
         _ => None,
     };
@@ -410,7 +510,7 @@ pub fn delete_metadata(
     };
     let search_query_entry = match search_term {
         Some(search_term) if !search_term.is_empty() => {
-            Some(SearchQueryEntry::from(&search_term, &tx)?)
+            Some(SearchQueryEntry::from(search_term, &tx)?)
         }
         _ => None,
     };
@@ -466,13 +566,13 @@ fn apply_metadata_observation_impl(
 ) -> Result<()> {
     let referrer_entry = match observation.referrer_url {
         Some(referrer_url) if !referrer_url.is_empty() => {
-            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+            Some(PlaceEntry::fetch(&referrer_url, tx, None)?)
         }
         Some(_) | None => None,
     };
     let search_query_entry = match observation.search_term {
         Some(search_term) if !search_term.is_empty() => {
-            Some(SearchQueryEntry::from(&search_term, &tx)?)
+            Some(SearchQueryEntry::from(&search_term, tx)?)
         }
         Some(_) | None => None,
     };
@@ -490,7 +590,7 @@ fn apply_metadata_observation_impl(
 
     let now = Timestamp::now().as_millis() as i64;
     let newer_than = now - DEBOUNCE_WINDOW_MS;
-    let matching_metadata = compound_key.lookup(&tx, newer_than)?;
+    let matching_metadata = compound_key.lookup(tx, newer_than)?;
 
     // If a matching record exists, update it; otherwise, insert a new one.
     match matching_metadata {
@@ -538,7 +638,7 @@ fn apply_metadata_observation_impl(
             }
             Ok(())
         }
-        None => insert_metadata_in_tx(&tx, compound_key, observation),
+        None => insert_metadata_in_tx(tx, compound_key, observation),
     }
 }
 
@@ -551,17 +651,17 @@ fn insert_metadata_in_tx(
 
     let referrer_place_id = match key.referrer_entry {
         None => None,
-        Some(entry) => Some(entry.get_or_insert(&tx)?),
+        Some(entry) => Some(entry.get_or_insert(tx)?),
     };
 
     let search_query_id = match key.search_query_entry {
         None => None,
-        Some(entry) => Some(entry.get_or_insert(&tx)?),
+        Some(entry) => Some(entry.get_or_insert(tx)?),
     };
 
     // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
     // This lets us simply INSERT here without worrying about the rest.
-    let place_id = key.place_entry.get_or_insert(&tx)?;
+    let place_id = key.place_entry.get_or_insert(tx)?;
 
     let sql = "INSERT INTO moz_places_metadata
         (place_id, created_at, updated_at, total_view_time, search_query_id, document_type, referrer_place_id)
@@ -1031,6 +1131,114 @@ mod tests {
         assert_eq!(2, get_since(&conn, beginning).unwrap().len());
         assert_eq!(1, get_since(&conn, after_meta1).unwrap().len());
         assert_eq!(0, get_since(&conn, after_meta2).unwrap().len());
+    }
+
+    #[test]
+    fn test_get_highlights() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // Empty database is fine.
+        assert_eq!(
+            0,
+            get_highlights(
+                &conn,
+                HistoryHighlightWeights {
+                    view_time: 1.0,
+                    frequency: 1.0
+                },
+                10
+            )
+            .unwrap()
+            .len()
+        );
+
+        // three observation to url1, each recording a second of view time.
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // one observation to url2 for 3.5s of view time.
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(3500),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // The three visits to /2 got "debounced" into a single metadata entry (since they were made in quick succession).
+        // We'll calculate the scoring as follows:
+        // - for /1: 1.0 * 1/2 + 1.0 * 3000/6500 = 0.9615...
+        // - for /2: 1.0 * 1/2 + 1.0 * 3500/6500 = 1.0384...
+        // (above, 1/2 means 1 entry out of 2 entries total).
+
+        let even_weights = HistoryHighlightWeights {
+            view_time: 1.0,
+            frequency: 1.0,
+        };
+        let highlights1 = get_highlights(&conn, even_weights.clone(), 10).unwrap();
+        assert_eq!(2, highlights1.len());
+        assert_eq!("http://mozilla.com/2", highlights1[0].url);
+
+        // Since we have an equal amount of metadata entries, providing a very high view_time weight won't change the ranking.
+        let frequency_heavy_weights = HistoryHighlightWeights {
+            view_time: 1.0,
+            frequency: 100.0,
+        };
+        let highlights2 = get_highlights(&conn, frequency_heavy_weights, 10).unwrap();
+        assert_eq!(2, highlights2.len());
+        assert_eq!("http://mozilla.com/2", highlights2[0].url);
+
+        // Now, make an observation for url /1, but with a different metadata key.
+        // It won't debounce, producing an additional entry for /1.
+        // Total view time for /1 is now 3100 (vs 3500 for /2).
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(100),
+            search_term Some("test search"),
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // Since we now have 2 metadata entries for /1, it ranks higher with even weights.
+        let highlights3 = get_highlights(&conn, even_weights, 10).unwrap();
+        assert_eq!(2, highlights3.len());
+        assert_eq!("http://mozilla.com/1", highlights3[0].url);
+
+        // With a high-enough weight for view_time, we can flip this order.
+        // Even though we had 2x entries for /1, it now ranks second due to its lower total view time (3100 vs 3500).
+        let view_time_heavy_weights = HistoryHighlightWeights {
+            view_time: 6.0,
+            frequency: 1.0,
+        };
+        let highlights4 = get_highlights(&conn, view_time_heavy_weights, 10).unwrap();
+        assert_eq!(2, highlights4.len());
+        assert_eq!("http://mozilla.com/2", highlights4[0].url);
     }
 
     #[test]

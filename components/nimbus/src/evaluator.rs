@@ -84,7 +84,7 @@ pub fn evaluate_enrollment(
                     )? {
                         EnrollmentStatus::new_enrolled(
                             EnrolledReason::Qualified,
-                            &choose_branch(&exp.slug, &exp.branches, &id)?.clone().slug,
+                            &choose_branch(&exp.slug, &exp.branches, id)?.clone().slug,
                         )
                     } else {
                         EnrollmentStatus::NotEnrolled {
@@ -404,11 +404,13 @@ mod tests {
                 slug: "control".to_string(),
                 ratio: 1,
                 feature: None,
+                features: None,
             },
             Branch {
                 slug: "blue".to_string(),
                 ratio: 1,
                 feature: None,
+                features: None,
             },
         ];
         // 299eed1e-be6d-457d-9e53-da7b1a03f10d maps to the second index
@@ -443,11 +445,13 @@ mod tests {
                     slug: "control".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
                 Branch {
                     slug: "blue".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
             ],
             reference_branch: Some("control".to_string()),
@@ -508,11 +512,13 @@ mod tests {
                     slug: "control".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
                 Branch {
                     slug: "blue".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
             ],
             reference_branch: Some("control".to_string()),
@@ -578,11 +584,13 @@ mod tests {
                     slug: "control".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
                 Branch {
                     slug: "blue".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
             ],
             reference_branch: Some("control".to_string()),
@@ -648,11 +656,13 @@ mod tests {
                     slug: "control".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
                 Branch {
                     slug: "blue".to_string(),
                     ratio: 1,
                     feature: None,
+                    features: None,
                 },
             ],
             reference_branch: Some("control".to_string()),
@@ -713,8 +723,8 @@ mod tests {
                 total: 10000,
             },
             branches: vec![
-                Branch {slug: "control".to_string(), ratio: 1, feature: None },
-                Branch {slug: "blue".to_string(), ratio: 1, feature: None }
+                Branch {slug: "control".to_string(), ratio: 1, feature: None, features: None },
+                Branch {slug: "blue".to_string(), ratio: 1, feature: None, features: None }
             ],
             reference_branch: Some("control".to_string()),
             ..Default::default()

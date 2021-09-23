@@ -194,13 +194,13 @@ impl PlacesApi {
     }
 
     fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
-        get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)
+        get_meta::<String>(conn, GLOBAL_STATE_META_KEY)
     }
 
     fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
         match state {
-            Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
-            None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
+            Some(ref s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
+            None => delete_meta(conn, GLOBAL_STATE_META_KEY),
         }
     }
 
@@ -216,7 +216,7 @@ impl PlacesApi {
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let engine = HistoryEngine::new(&conn, &interruptee);
+                let engine = HistoryEngine::new(conn, &interruptee);
                 sync_multiple(
                     &[&engine],
                     disk_cached_state,
@@ -239,7 +239,7 @@ impl PlacesApi {
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let engine = BookmarksEngine::new(&conn, &interruptee);
+                let engine = BookmarksEngine::new(conn, &interruptee);
                 sync_multiple(
                     &[&engine],
                     disk_cached_state,

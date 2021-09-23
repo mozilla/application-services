@@ -2,12 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-pub mod communications;
-pub mod config;
-pub mod crypto;
-pub mod error;
-pub mod storage;
-pub mod subscriber;
-
-pub use config::PushConfiguration;
-pub use subscriber::PushManager;
+fn main() {
+    uniffi_build::generate_scaffolding("./src/push.udl").unwrap();
+}

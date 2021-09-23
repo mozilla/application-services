@@ -24,7 +24,7 @@ sync15-traits = {path = "../support/sync15-traits"}
 thiserror = "1.0"
 types = { path = "../support/types" }
 uniffi = "^0.14"
-url = { version = "2.1", features = ["serde"] }
+url = { version = "2.2", features = ["serde"] }
 
 [dependencies.rusqlite]
 version = "0.24.2"
