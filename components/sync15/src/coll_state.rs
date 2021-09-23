@@ -182,7 +182,7 @@ mod tests {
     fn get_global_state(root_key: &KeyBundle) -> GlobalState {
         let keys = CollectionKeys::new_random()
             .unwrap()
-            .to_encrypted_bso(&root_key)
+            .to_encrypted_bso(root_key)
             .unwrap();
         GlobalState {
             config: InfoConfiguration::default(),

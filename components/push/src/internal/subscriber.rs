@@ -145,7 +145,7 @@ impl PushManager {
         if self.store.get_meta("uaid")?.is_none() {
             self.store.set_meta("uaid", &info.uaid)?;
             if let Some(secret) = &info.secret {
-                self.store.set_meta("auth", &secret)?;
+                self.store.set_meta("auth", secret)?;
             }
         }
         Ok((info, subscription_key).into())
@@ -182,7 +182,7 @@ impl PushManager {
         if !self.update_rate_limiter.check(&self.store) {
             return Ok(false);
         }
-        self.conn.update(&new_token)?;
+        self.conn.update(new_token)?;
         self.store
             .update_native_id(self.conn.uaid.as_ref().unwrap(), new_token)?;
         Ok(true)
@@ -231,7 +231,7 @@ impl PushManager {
         let uaid = self.conn.uaid.as_ref().unwrap();
         let val = self
             .store
-            .get_record(&uaid, chid)
+            .get_record(uaid, chid)
             .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
             .ok_or_else(|| ErrorKind::RecordNotFoundError(uaid.to_owned(), chid.to_owned()))?;
         let key = Key::deserialize(&val.key)?;

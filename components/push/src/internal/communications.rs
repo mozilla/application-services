@@ -216,7 +216,7 @@ impl Connection for ConnectHttp {
         // Add the Authorization header if we have a prior subscription.
         if let Some(uaid) = &self.uaid {
             url.push('/');
-            url.push_str(&uaid);
+            url.push_str(uaid);
             url.push_str("/subscription");
         }
         let mut body = HashMap::new();
@@ -397,7 +397,7 @@ impl Connection for ConnectHttp {
         Ok(payload
             .channel_ids
             .iter()
-            .map(|s| Store::normalize_uuid(&s))
+            .map(|s| Store::normalize_uuid(s))
             .collect())
     }
 

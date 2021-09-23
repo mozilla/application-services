@@ -346,9 +346,9 @@ pub(crate) mod sql_fns {
                 let mode = get_raw_str(ctx, "hash", 1)?;
                 if let Some(value) = value {
                     Some(match mode {
-                        "" => hash::hash_url(&value),
-                        "prefix_lo" => hash::hash_url_prefix(&value, hash::PrefixMode::Lo),
-                        "prefix_hi" => hash::hash_url_prefix(&value, hash::PrefixMode::Hi),
+                        "" => hash::hash_url(value),
+                        "prefix_lo" => hash::hash_url_prefix(value, hash::PrefixMode::Lo),
+                        "prefix_hi" => hash::hash_url_prefix(value, hash::PrefixMode::Hi),
                         arg => {
                             return Err(rusqlite::Error::UserFunctionError(format!(
                                 "`hash` second argument must be either '', 'prefix_lo', or 'prefix_hi', got {:?}.",
@@ -415,21 +415,21 @@ pub(crate) mod sql_fns {
     #[inline(never)]
     pub fn get_prefix(ctx: &Context<'_>) -> Result<String> {
         let href = get_raw_str(ctx, "get_prefix", 0)?;
-        let (prefix, _) = split_after_prefix(&href);
+        let (prefix, _) = split_after_prefix(href);
         Ok(prefix.to_owned())
     }
 
     #[inline(never)]
     pub fn get_host_and_port(ctx: &Context<'_>) -> Result<String> {
         let href = get_raw_str(ctx, "get_host_and_port", 0)?;
-        let (host_and_port, _) = split_after_host_and_port(&href);
+        let (host_and_port, _) = split_after_host_and_port(href);
         Ok(host_and_port.to_owned())
     }
 
     #[inline(never)]
     pub fn strip_prefix_and_userinfo(ctx: &Context<'_>) -> Result<String> {
         let href = get_raw_str(ctx, "strip_prefix_and_userinfo", 0)?;
-        let (host_and_port, remainder) = split_after_host_and_port(&href);
+        let (host_and_port, remainder) = split_after_host_and_port(href);
         let mut res = String::with_capacity(host_and_port.len() + remainder.len() + 1);
         res += host_and_port;
         res += remainder;

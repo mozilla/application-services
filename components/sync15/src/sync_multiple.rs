@@ -235,7 +235,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             if let Err(e) = engine.sync(
                 &client_info.client,
                 &global_state,
-                &self.root_sync_key,
+                self.root_sync_key,
                 should_refresh,
             ) {
                 // Record telemetry with the error just in case...
@@ -314,7 +314,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
             let mut telem_engine = telemetry::Engine::new(&*name);
             let result = sync::synchronize_with_clients_engine(
                 &client_info.client,
-                &global_state,
+                global_state,
                 self.root_sync_key,
                 clients,
                 *engine,
@@ -327,7 +327,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
                 Ok(()) => log::info!("Sync of {} was successful!", name),
                 Err(ref e) => {
                     log::warn!("Sync of {} failed! {:?}", name, e);
-                    let this_status = ServiceStatus::from_err(&e);
+                    let this_status = ServiceStatus::from_err(e);
                     // The only error which forces us to discard our state is an
                     // auth error.
                     self.saw_auth_error =
@@ -361,7 +361,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
 
         let mut state_machine = SetupStateMachine::for_full_sync(
             &client_info.client,
-            &self.root_sync_key,
+            self.root_sync_key,
             pgs,
             self.engines_to_state_change,
             self.interruptee,
@@ -410,7 +410,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         }
         for e in &changes.remote_wipes {
             log::info!("Engine {:?} just got disabled locally, wiping server", e);
-            client.wipe_remote_engine(&e)?;
+            client.wipe_remote_engine(e)?;
         }
 
         for s in self.engines {
@@ -462,7 +462,7 @@ impl<'info, 'res, 'pgs, 'mcs> SyncMultipleDriver<'info, 'res, 'pgs, 'mcs> {
         // persisted state for next time.
         match self.persisted_global_state {
             Some(persisted_string) if !persisted_string.is_empty() => {
-                match serde_json::from_str::<PersistedGlobalState>(&persisted_string) {
+                match serde_json::from_str::<PersistedGlobalState>(persisted_string) {
                     Ok(state) => {
                         log::trace!("Read persisted state: {:?}", state);
                         // Note that we don't set `result.declined` from the

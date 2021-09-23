@@ -382,7 +382,7 @@ pub fn delete_bookmark(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 
 fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
     // Can't delete a root.
-    if let Some(root) = BookmarkRootGuid::well_known(&guid.as_str()) {
+    if let Some(root) = BookmarkRootGuid::well_known(guid.as_str()) {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(root).into());
     }
     let record = match get_raw_bookmark(db, guid)? {
@@ -509,7 +509,7 @@ fn update_bookmark_in_tx(
     raw: RawBookmark,
 ) -> Result<()> {
     // if guid is root
-    if BookmarkRootGuid::well_known(&guid.as_str()).is_some() {
+    if BookmarkRootGuid::well_known(guid.as_str()).is_some() {
         return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
     }
     let existing_parent_guid = raw
@@ -555,7 +555,7 @@ fn update_bookmark_in_tx(
             if new_parent_guid == BookmarkRootGuid::Root {
                 return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
             }
-            let new_parent = get_raw_bookmark(db, &new_parent_guid)?
+            let new_parent = get_raw_bookmark(db, new_parent_guid)?
                 .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(new_parent_guid.to_string()))?;
             if new_parent.bookmark_type != BookmarkType::Folder {
                 return Err(InvalidPlaceInfo::InvalidParent(new_parent_guid.to_string()).into());
@@ -574,9 +574,9 @@ fn update_bookmark_in_tx(
         UpdatableItem::Bookmark(b) => match &b.url {
             None => raw.place_id,
             Some(url) => {
-                let page_info = match fetch_page_info(db, &url)? {
+                let page_info = match fetch_page_info(db, url)? {
                     Some(info) => info.page,
-                    None => new_page_info(db, &url, None)?,
+                    None => new_page_info(db, url, None)?,
                 };
                 Some(page_info.row_id)
             }
@@ -1074,7 +1074,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                     }
                     .into(),
                 );
-                add_subtree_infos(&my_guid, &f, insert_infos);
+                add_subtree_infos(&my_guid, f, insert_infos);
             }
         };
     }
@@ -1104,7 +1104,7 @@ pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {
     };
 
     let mut insert_infos: Vec<InsertableItem> = Vec::new();
-    add_subtree_infos(&parent_guid, tree, &mut insert_infos);
+    add_subtree_infos(parent_guid, tree, &mut insert_infos);
     log::info!("insert_tree inserting {} records", insert_infos.len());
     let tx = db.begin_transaction()?;
 
@@ -1307,7 +1307,7 @@ pub fn fetch_tree(
         }
         let node = match row.node_type {
             BookmarkType::Bookmark => match &row.url {
-                Some(url_str) => match Url::parse(&url_str) {
+                Some(url_str) => match Url::parse(url_str) {
                     Ok(url) => BookmarkNode {
                         guid: Some(row.guid.clone()),
                         date_added: Some(row.date_added),
@@ -1625,13 +1625,9 @@ mod tests {
     fn test_bookmark_invalid_url_for_keyword() -> Result<()> {
         let conn = new_mem_connection();
 
-        let place_id = append_invalid_bookmark(
-            &conn,
-            &BookmarkRootGuid::Unfiled.guid(),
-            "invalid",
-            "badurl",
-        )
-        .place_id;
+        let place_id =
+            append_invalid_bookmark(&conn, BookmarkRootGuid::Unfiled.guid(), "invalid", "badurl")
+                .place_id;
 
         // create a bookmark with keyword 'donut' pointing at it.
         conn.execute_named_cached(

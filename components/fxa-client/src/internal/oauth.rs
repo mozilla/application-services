@@ -65,7 +65,7 @@ impl FirefoxAccount {
             None => match self.state.session_token {
                 Some(ref session_token) => self.client.create_access_token_using_session_token(
                     &self.state.config,
-                    &session_token,
+                    session_token,
                     &[scope],
                 )?,
                 None => return Err(ErrorKind::NoCachedToken(scope.to_string()).into()),
@@ -270,7 +270,7 @@ impl FirefoxAccount {
         self.clear_access_token_cache();
         let state = util::random_base64_url_string(16)?;
         let code_verifier = util::random_base64_url_string(43)?;
-        let code_challenge = digest::digest(&digest::SHA256, &code_verifier.as_bytes())?;
+        let code_challenge = digest::digest(&digest::SHA256, code_verifier.as_bytes())?;
         let code_challenge = base64::encode_config(&code_challenge, base64::URL_SAFE_NO_PAD);
         let scoped_keys_flow = ScopedKeysFlow::with_random_key()?;
         let jwk = scoped_keys_flow.get_public_key_jwk()?;
@@ -419,7 +419,7 @@ impl FirefoxAccount {
         let scopes: Vec<&str> = old_refresh_token.scopes.iter().map(AsRef::as_ref).collect();
         let resp = self.client.create_refresh_token_using_session_token(
             &self.state.config,
-            &session_token,
+            session_token,
             &scopes,
         )?;
         let new_refresh_token = resp
@@ -721,7 +721,7 @@ mod tests {
         );
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
-            .begin_oauth_flow(&SCOPES, "test_webchannel_context_url", None)
+            .begin_oauth_flow(SCOPES, "test_webchannel_context_url", None)
             .unwrap();
         let url = Url::parse(&url).unwrap();
         let query_params: HashMap<_, _> = url.query_pairs().into_owned().collect();
@@ -743,8 +743,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
             .begin_pairing_flow(
-                &PAIRING_URL,
-                &SCOPES,
+                PAIRING_URL,
+                SCOPES,
                 "test_webchannel_pairing_context_url",
                 None,
             )
@@ -774,8 +774,8 @@ mod tests {
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa
             .begin_pairing_flow(
-                &PAIRING_URL,
-                &SCOPES,
+                PAIRING_URL,
+                SCOPES,
                 "test_pairing_flow_url",
                 Some(metrics_params),
             )
@@ -848,7 +848,7 @@ mod tests {
         let config = Config::stable_dev("12345678", "https://foo.bar");
         let mut fxa = FirefoxAccount::with_config(config);
         let url = fxa.begin_pairing_flow(
-            &PAIRING_URL,
+            PAIRING_URL,
             &["https://identity.mozilla.com/apps/oldsync"],
             "test_pairiong_flow_origin_mismatch",
             None,

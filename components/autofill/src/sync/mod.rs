@@ -294,7 +294,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                     //     metadata changes.
                     let metadata = incoming_record.metadata_mut();
                     metadata.merge(
-                        &local_record.metadata(),
+                        local_record.metadata(),
                         mirror.as_ref().map(|m| m.metadata()),
                     );
                     // a micro-optimization here would be to `::DoNothing` if
@@ -338,7 +338,7 @@ fn plan_incoming<T: std::fmt::Debug + SyncRecord>(
                             // we still merge that metadata.
                             let metadata = incoming_record.metadata_mut();
                             metadata.merge(
-                                &local_dupe.metadata(),
+                                local_dupe.metadata(),
                                 mirror.as_ref().map(|m| m.metadata()),
                             );
                             IncomingAction::UpdateLocalGuid {

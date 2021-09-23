@@ -48,9 +48,9 @@ pub(crate) fn open(
         .checked_sub(key.algorithm().tag_len())
         .ok_or(ErrorKind::InternalError)?;
     let (ciphertext, hmac_signature) = ciphertext_and_tag.split_at(ciphertext_len);
-    let (aes_key, hmac_key_bytes) = extract_keys(&key);
+    let (aes_key, hmac_key_bytes) = extract_keys(key);
     // 1. Tag (HMAC signature) check.
-    let hmac_key = hmac::VerificationKey::new(&digest::SHA256, &hmac_key_bytes);
+    let hmac_key = hmac::VerificationKey::new(&digest::SHA256, hmac_key_bytes);
     hmac::verify(
         &hmac_key,
         base64::encode(ciphertext).as_bytes(),
@@ -66,11 +66,11 @@ pub(crate) fn seal(
     aad: &aead::Aad<'_>,
     plaintext: &[u8],
 ) -> Result<Vec<u8>> {
-    let (aes_key, hmac_key_bytes) = extract_keys(&key);
+    let (aes_key, hmac_key_bytes) = extract_keys(key);
     // 1. Encryption.
     let mut ciphertext = aes_cbc(aes_key, nonce, aad, plaintext, aead::Direction::Sealing)?;
     // 2. Tag (HMAC signature) generation.
-    let hmac_key = hmac::SigningKey::new(&digest::SHA256, &hmac_key_bytes);
+    let hmac_key = hmac::SigningKey::new(&digest::SHA256, hmac_key_bytes);
     let signature = hmac::sign(&hmac_key, base64::encode(&ciphertext).as_bytes())?;
     ciphertext.extend(&signature.0.value);
     Ok(ciphertext)

@@ -177,12 +177,12 @@ fn import_places(
                 eprintln!("warning: failed to insert: {}", e);
             }
         }
-        current_place = LegacyPlace::from_row(&row);
+        current_place = LegacyPlace::from_row(row);
         let now = Instant::now();
         if now.duration_since(timer).as_secs_f32() > secs {
             println!();
             println!(" -- deleting origin temps");
-            places::storage::delete_pending_temp_tables(&new)?;
+            places::storage::delete_pending_temp_tables(new)?;
             tx.commit()?;
 
             println!(" -- optimizing table...");
@@ -206,7 +206,7 @@ fn import_places(
     println!("Committing....");
     tx.commit()?;
     println!("running maintenance...");
-    places::storage::run_maintenance(&new)?;
+    places::storage::run_maintenance(new)?;
 
     log::info!("Finished import!");
     Ok(())

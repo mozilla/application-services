@@ -386,8 +386,8 @@ impl ExperimentEnrollment {
                 ..
             } => EnrollmentChangeEvent::new(
                 &self.slug,
-                &enrollment_id,
-                &branch,
+                enrollment_id,
+                branch,
                 None,
                 EnrollmentChangeEventType::Unenrollment,
             ),
@@ -398,8 +398,8 @@ impl ExperimentEnrollment {
                 ..
             } => EnrollmentChangeEvent::new(
                 &self.slug,
-                &enrollment_id,
-                &branch,
+                enrollment_id,
+                branch,
                 match reason {
                     DisqualifiedReason::NotTargeted => Some("targeting"),
                     DisqualifiedReason::OptOut => Some("optout"),
@@ -611,9 +611,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
-        let prev_experiments = map_experiments(&prev_experiments);
-        let next_experiments = map_experiments(&next_experiments);
-        let prev_enrollments = map_enrollments(&prev_enrollments);
+        let prev_experiments = map_experiments(prev_experiments);
+        let next_experiments = map_experiments(next_experiments);
+        let prev_enrollments = map_enrollments(prev_enrollments);
 
         // Step 1. Build an initial active_features to keep track of
         // the features that are being experimented upon.
@@ -774,7 +774,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             // Now we have an enrollment object!
             // If it's an enrolled enrollment, then get the FeatureConfigs
             // from the experiment and store them in the active_features map.
-            for enrolled_feature in get_enrolled_feature_configs(&enrollment, &experiments) {
+            for enrolled_feature in get_enrolled_feature_configs(&enrollment, experiments) {
                 enrolled_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
             }
             // Also, record the enrollment for our return value
@@ -2150,19 +2150,23 @@ mod tests {
 
         // There should be one WasEnrolled; the NotEnrolled will have been
         // discarded.
-        let enrolled: Vec<ExperimentEnrollment> = enrollments
-            .clone()
-            .into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
-            .collect();
-        assert_eq!(1, enrolled.len());
 
-        let enrolled: Vec<ExperimentEnrollment> = enrollments
-            .into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
-            .collect();
-        assert_eq!(0, enrolled.len());
+        assert_eq!(
+            1,
+            enrollments
+                .clone()
+                .into_iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
+                .count()
+        );
 
+        assert_eq!(
+            0,
+            enrollments
+                .into_iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .count()
+        );
         Ok(())
     }
 
@@ -3219,7 +3223,8 @@ mod tests {
         assert_eq!(events.len(), 2);
         // We should see 2 experiment enrolments, this time they're both opt outs
         assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
-        let disqualified_enrollments: Vec<ExperimentEnrollment> =
+
+        assert_eq!(
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
                 .filter(|enr| {
@@ -3231,8 +3236,9 @@ mod tests {
                         }
                     )
                 })
-                .collect();
-        assert_eq!(disqualified_enrollments.len(), 2);
+                .count(),
+            2
+        );
 
         // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
         set_global_user_participation(&db, &mut writer, true)?;
@@ -3243,7 +3249,8 @@ mod tests {
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
-        let disqualified_enrollments: Vec<ExperimentEnrollment> =
+
+        assert_eq!(
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
                 .filter(|enr| {
@@ -3255,8 +3262,9 @@ mod tests {
                         }
                     )
                 })
-                .collect();
-        assert_eq!(disqualified_enrollments.len(), 2);
+                .count(),
+            2
+        );
 
         writer.commit()?;
         Ok(())
@@ -3362,7 +3370,7 @@ mod tests {
         } if reason == "optout"
             && *experiment_slug == mock_exp1_slug
             && *branch_slug == mock_exp1_branch
-            && ! Uuid::parse_str(&enrollment_id)?.is_nil()
+            && ! Uuid::parse_str(enrollment_id)?.is_nil()
         ));
 
         Ok(())
