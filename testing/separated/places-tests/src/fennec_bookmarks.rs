@@ -54,8 +54,7 @@ struct FennecBookmark {
 
 impl FennecBookmark {
     fn insert_into_db(&self, conn: &Connection) -> Result<()> {
-        let mut stmt = conn.prepare(&
-            "INSERT OR IGNORE INTO bookmarks(_id, title, url, type, parent, position, keyword,
+        let mut stmt = conn.prepare("INSERT OR IGNORE INTO bookmarks(_id, title, url, type, parent, position, keyword,
                                              description, tags, favicon_id, created, modified,
                                              guid, deleted, localVersion, syncVersion)
              VALUES (:_id, :title, :url, :type, :parent, :position, :keyword, :description, :tags,
@@ -361,10 +360,10 @@ fn test_import() -> Result<()> {
     assert_eq!(pinned.len(), 1);
     assert_eq!(pinned[0].title, Some("Pinned Bookmark".to_owned()));
 
-    assert!(bookmark_exists(&places_api, &"about:firefox")?);
-    assert!(bookmark_exists(&places_api, &"https://bar.foo")?);
-    assert!(bookmark_exists(&places_api, &"http://💖.com/💖")?);
-    assert!(bookmark_exists(&places_api, &"http://😍.com/😍")?);
+    assert!(bookmark_exists(&places_api, "about:firefox")?);
+    assert!(bookmark_exists(&places_api, "https://bar.foo")?);
+    assert!(bookmark_exists(&places_api, "http://💖.com/💖")?);
+    assert!(bookmark_exists(&places_api, "http://😍.com/😍")?);
     // Uncomment the following to debug with cargo test -- --nocapture.
     // println!(
     //     "Places DB Path: {}",

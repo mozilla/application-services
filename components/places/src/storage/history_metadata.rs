@@ -497,7 +497,7 @@ pub fn delete_metadata(
     };
     let referrer_entry = match referrer_url {
         Some(referrer_url) if !referrer_url.is_empty() => {
-            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+            Some(PlaceEntry::fetch(referrer_url, &tx, None)?)
         }
         _ => None,
     };
@@ -510,7 +510,7 @@ pub fn delete_metadata(
     };
     let search_query_entry = match search_term {
         Some(search_term) if !search_term.is_empty() => {
-            Some(SearchQueryEntry::from(&search_term, &tx)?)
+            Some(SearchQueryEntry::from(search_term, &tx)?)
         }
         _ => None,
     };
@@ -566,13 +566,13 @@ fn apply_metadata_observation_impl(
 ) -> Result<()> {
     let referrer_entry = match observation.referrer_url {
         Some(referrer_url) if !referrer_url.is_empty() => {
-            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+            Some(PlaceEntry::fetch(&referrer_url, tx, None)?)
         }
         Some(_) | None => None,
     };
     let search_query_entry = match observation.search_term {
         Some(search_term) if !search_term.is_empty() => {
-            Some(SearchQueryEntry::from(&search_term, &tx)?)
+            Some(SearchQueryEntry::from(&search_term, tx)?)
         }
         Some(_) | None => None,
     };
@@ -590,7 +590,7 @@ fn apply_metadata_observation_impl(
 
     let now = Timestamp::now().as_millis() as i64;
     let newer_than = now - DEBOUNCE_WINDOW_MS;
-    let matching_metadata = compound_key.lookup(&tx, newer_than)?;
+    let matching_metadata = compound_key.lookup(tx, newer_than)?;
 
     // If a matching record exists, update it; otherwise, insert a new one.
     match matching_metadata {
@@ -638,7 +638,7 @@ fn apply_metadata_observation_impl(
             }
             Ok(())
         }
-        None => insert_metadata_in_tx(&tx, compound_key, observation),
+        None => insert_metadata_in_tx(tx, compound_key, observation),
     }
 }
 
@@ -651,17 +651,17 @@ fn insert_metadata_in_tx(
 
     let referrer_place_id = match key.referrer_entry {
         None => None,
-        Some(entry) => Some(entry.get_or_insert(&tx)?),
+        Some(entry) => Some(entry.get_or_insert(tx)?),
     };
 
     let search_query_id = match key.search_query_entry {
         None => None,
-        Some(entry) => Some(entry.get_or_insert(&tx)?),
+        Some(entry) => Some(entry.get_or_insert(tx)?),
     };
 
     // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
     // This lets us simply INSERT here without worrying about the rest.
-    let place_id = key.place_entry.get_or_insert(&tx)?;
+    let place_id = key.place_entry.get_or_insert(tx)?;
 
     let sql = "INSERT INTO moz_places_metadata
         (place_id, created_at, updated_at, total_view_time, search_query_id, document_type, referrer_place_id)

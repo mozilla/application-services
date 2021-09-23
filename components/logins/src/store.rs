@@ -135,7 +135,7 @@ impl LoginStore {
     }
 
     pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
-        self.db.lock().unwrap().check_valid_with_no_dupes(&login)
+        self.db.lock().unwrap().check_valid_with_no_dupes(login)
     }
 
     /// A convenience wrapper around sync_multiple.

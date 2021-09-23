@@ -51,9 +51,9 @@ fn persist_fxa_state(acct: &FirefoxAccount) {
 
 fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
     let mut acct = FirefoxAccount::with_config(cfg);
-    let oauth_uri = acct.begin_oauth_flow(&SCOPES, "device_api_example", None)?;
+    let oauth_uri = acct.begin_oauth_flow(SCOPES, "device_api_example", None)?;
 
-    if webbrowser::open(&oauth_uri.as_ref()).is_err() {
+    if webbrowser::open(oauth_uri.as_ref()).is_err() {
         println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
         println!("\n    {}\n", oauth_uri);
     } else {
@@ -65,7 +65,7 @@ fn create_fxa_creds(cfg: Config) -> Result<FirefoxAccount> {
     let query_params: HashMap<_, _> = redirect_uri.query_pairs().into_owned().collect();
     let code = &query_params["code"];
     let state = &query_params["state"];
-    acct.complete_oauth_flow(&code, &state).unwrap();
+    acct.complete_oauth_flow(code, state).unwrap();
     persist_fxa_state(&acct);
     Ok(acct)
 }

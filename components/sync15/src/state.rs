@@ -151,7 +151,7 @@ impl PersistedGlobalState {
     }
     pub(crate) fn get_declined(&self) -> &[String] {
         match self {
-            Self::V2 { declined: Some(d) } => &d,
+            Self::V2 { declined: Some(d) } => d,
             Self::V2 { declined: None } => &[],
         }
     }
@@ -558,7 +558,7 @@ impl<'a> SetupStateMachine<'a> {
                     .put_meta_global(ServerTimestamp::default(), &new_global)?;
 
                 // ...And a fresh `crypto/keys`.
-                let new_keys = CollectionKeys::new_random()?.to_encrypted_bso(&self.root_key)?;
+                let new_keys = CollectionKeys::new_random()?.to_encrypted_bso(self.root_key)?;
                 self.client
                     .put_crypto_keys(ServerTimestamp::default(), &new_keys)?;
 
@@ -590,13 +590,13 @@ impl<'a> SetupStateMachine<'a> {
                 // cycle, and should try again later. Intermediate states
                 // aren't a problem, just the initial ones.
                 FreshStartRequired { .. } | WithPreviousState { .. } | Initial => {
-                    if self.sequence.contains(&label) {
+                    if self.sequence.contains(label) {
                         // Is this really the correct error?
                         return Err(ErrorKind::SetupRace.into());
                     }
                 }
                 _ => {
-                    if !self.allowed_states.contains(&label) {
+                    if !self.allowed_states.contains(label) {
                         return Err(ErrorKind::SetupRequired.into());
                     }
                 }

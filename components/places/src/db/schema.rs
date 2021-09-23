@@ -150,7 +150,7 @@ pub fn upgrade_from(db: &Connection, from: u32) -> rusqlite::Result<()> {
             "DROP TABLE moz_bookmarks",
             CREATE_SHARED_SCHEMA_SQL,
         ],
-        || create_bookmark_roots(&db.conn()),
+        || create_bookmark_roots(db.conn()),
     )?;
     migration(db, from, 4, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?;
     migration(db, from, 5, &[CREATE_SHARED_SCHEMA_SQL], || Ok(()))?; // new tags tables.

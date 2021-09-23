@@ -83,7 +83,7 @@ impl PersistedRateLimiter {
 
     fn get_meta_integer<T: FromStr + Default>(store: &Store, key: &str) -> T {
         store
-            .get_meta(&key)
+            .get_meta(key)
             .ok()
             .flatten()
             .map(|s| s.parse())

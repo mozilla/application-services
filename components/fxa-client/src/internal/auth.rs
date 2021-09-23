@@ -87,7 +87,7 @@ pub fn get_scoped_keys(
                 .ok_or_else(|| anyhow::Error::msg("Key data not an object"))?
                 .get(key)
                 .ok_or_else(|| anyhow::Error::msg("Key does not exist"))?;
-            scoped_keys.insert(key.clone(), get_key_for_scope(&key, val, acct_keys)?);
+            scoped_keys.insert(key.clone(), get_key_for_scope(key, val, acct_keys)?);
             Ok(())
         })?;
     Ok(scoped_keys)
@@ -207,7 +207,7 @@ fn get_account_keys(config: &Config, key_fetch_token: &str) -> Result<Vec<u8>> {
     let more_creds = derive_hkdf_sha256_key(key_request_key, &[0u8; 0], &kw("account/keys"), 96)?;
     let _resp_hmac_key = &more_creds[0..32];
     let resp_xor_key = &more_creds[32..96];
-    let bundle = http_client::get_keys_bundle(&config, &creds.out)?;
+    let bundle = http_client::get_keys_bundle(config, &creds.out)?;
     // Missing MAC matching since this is only for tests
     xored(resp_xor_key, &bundle[0..64])
 }

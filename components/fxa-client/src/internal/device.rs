@@ -45,9 +45,7 @@ impl FirefoxAccount {
         }
 
         let refresh_token = self.get_refresh_token()?;
-        let response = self
-            .client
-            .get_devices(&self.state.config, &refresh_token)?;
+        let response = self.client.get_devices(&self.state.config, refresh_token)?;
 
         self.devices_cache = Some(CachedResponse {
             response: response.clone(),
@@ -103,7 +101,7 @@ impl FirefoxAccount {
         device_type: Type,
         capabilities: &[Capability],
     ) -> Result<()> {
-        let commands = self.register_capabilities(&capabilities)?;
+        let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .display_name(name)
             .device_type(&device_type)
@@ -133,7 +131,7 @@ impl FirefoxAccount {
         {
             return Ok(());
         }
-        let commands = self.register_capabilities(&capabilities)?;
+        let commands = self.register_capabilities(capabilities)?;
         let update = DeviceUpdateRequestBuilder::new()
             .available_commands(&commands)
             .build();
@@ -161,7 +159,7 @@ impl FirefoxAccount {
         let refresh_token = self.get_refresh_token()?;
         self.client.invoke_command(
             &self.state.config,
-            &refresh_token,
+            refresh_token,
             command,
             &target.id,
             payload,

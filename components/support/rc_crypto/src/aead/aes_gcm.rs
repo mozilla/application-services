@@ -74,7 +74,7 @@ fn aes_gcm(
     Ok(aes::aes_gcm_crypt(
         &key.key_value,
         &nonce.0,
-        &aad.0,
+        aad.0,
         data,
         direction.to_nss_operation(),
     )?)

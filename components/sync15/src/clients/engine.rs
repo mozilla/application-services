@@ -274,7 +274,7 @@ impl<'a> Engine<'a> {
         log::info!("Syncing collection clients");
 
         let coll_keys =
-            CollectionKeys::from_encrypted_bso(global_state.keys.clone(), &root_sync_key)?;
+            CollectionKeys::from_encrypted_bso(global_state.keys.clone(), root_sync_key)?;
         let mut coll_state = CollState {
             config: global_state.config.clone(),
             last_modified: global_state
@@ -285,7 +285,7 @@ impl<'a> Engine<'a> {
             key: coll_keys.key_for_collection(COLLECTION_NAME).clone(),
         };
 
-        let inbound = self.fetch_incoming(&storage_client, &mut coll_state)?;
+        let inbound = self.fetch_incoming(storage_client, &mut coll_state)?;
 
         let mut driver = Driver::new(
             self.command_processor,
@@ -300,7 +300,7 @@ impl<'a> Engine<'a> {
 
         self.interruptee.err_if_interrupted()?;
         let upload_info =
-            CollectionUpdate::new_from_changeset(&storage_client, &coll_state, outgoing, true)?
+            CollectionUpdate::new_from_changeset(storage_client, &coll_state, outgoing, true)?
                 .upload()?;
 
         log::info!(
@@ -324,7 +324,7 @@ impl<'a> Engine<'a> {
         let coll_request = CollectionRequest::new(COLLECTION_NAME).full();
 
         self.interruptee.err_if_interrupted()?;
-        let inbound = crate::changeset::fetch_incoming(&storage_client, coll_state, &coll_request)?;
+        let inbound = crate::changeset::fetch_incoming(storage_client, coll_state, &coll_request)?;
 
         Ok(inbound)
     }

@@ -16,7 +16,7 @@ pub(crate) struct RcCryptoCryptographer;
 
 impl hc::HmacKey for crate::hmac::SigningKey {
     fn sign(&self, data: &[u8]) -> Result<Vec<u8>, hc::CryptoError> {
-        let digest = hmac::sign(&self, data)?;
+        let digest = hmac::sign(self, data)?;
         Ok(digest.as_ref().into())
     }
 }

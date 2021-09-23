@@ -42,12 +42,12 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
                 .with_is_remote(i < 10)
                 .with_visit_type(places::VisitTransition::Link)
                 .with_at(Timestamp(now.0 - day_ms * (1 + i)));
-            places::storage::history::apply_observation_direct(&db, obs)?;
+            places::storage::history::apply_observation_direct(db, obs)?;
         }
     }
-    places::storage::delete_pending_temp_tables(&db)?;
+    places::storage::delete_pending_temp_tables(db)?;
     tx.commit()?;
-    places::storage::run_maintenance(&db)?;
+    places::storage::run_maintenance(db)?;
     Ok(())
 }
 
@@ -90,7 +90,7 @@ pub fn bench_search_frecent(c: &mut Criterion) {
     let test_db = TestDb::new();
     db_bench!(c, "search_frecent string", |db: test_db| {
         search_frecent(
-            &db,
+            db,
             SearchParams {
                 search_string: "mozilla".into(),
                 limit: 10,
@@ -100,7 +100,7 @@ pub fn bench_search_frecent(c: &mut Criterion) {
     });
     db_bench!(c, "search_frecent origin", |db: test_db| {
         search_frecent(
-            &db,
+            db,
             SearchParams {
                 search_string: "blog.mozilla.org".into(),
                 limit: 10,
@@ -110,7 +110,7 @@ pub fn bench_search_frecent(c: &mut Criterion) {
     });
     db_bench!(c, "search_frecent url", |db: test_db| {
         search_frecent(
-            &db,
+            db,
             SearchParams {
                 search_string: "https://hg.mozilla.org/mozilla-central".into(),
                 limit: 10,
@@ -123,12 +123,12 @@ pub fn bench_search_frecent(c: &mut Criterion) {
 pub fn bench_match_url(c: &mut Criterion) {
     let test_db = TestDb::new();
     db_bench!(c, "match_url string", |db: test_db| {
-        match_url(&db, "mozilla").unwrap()
+        match_url(db, "mozilla").unwrap()
     });
     db_bench!(c, "match_url origin", |db: test_db| {
-        match_url(&db, "blog.mozilla.org").unwrap()
+        match_url(db, "blog.mozilla.org").unwrap()
     });
     db_bench!(c, "match_url url", |db: test_db| {
-        match_url(&db, "https://hg.mozilla.org/mozilla-central").unwrap()
+        match_url(db, "https://hg.mozilla.org/mozilla-central").unwrap()
     });
 }

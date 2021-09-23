@@ -101,7 +101,7 @@ pub fn record_uploaded(
     // Updating the `was_uploaded` column fires the `record_uploaded` trigger,
     // which updates the local change counter and writes the uploaded record
     // data back to the mirror.
-    sql_support::each_chunk(&items, |chunk, _| -> Result<()> {
+    sql_support::each_chunk(items, |chunk, _| -> Result<()> {
         signal.err_if_interrupted()?;
         let sql = format!(
             "UPDATE storage_sync_outgoing_staging SET

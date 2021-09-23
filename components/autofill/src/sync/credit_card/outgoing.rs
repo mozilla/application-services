@@ -54,9 +54,9 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
 
         // save outgoing records to the mirror table
         let cleartext_staging_records = common_get_outgoing_staging_records(
-            &tx,
+            tx,
             &data_sql,
-            &tombstones_sql,
+            tombstones_sql,
             payload_from_data_row,
         )?;
         // Turn the payloads into encrypted reprs to save in the mirror.
@@ -65,11 +65,11 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
             let pp = PersistablePayload::from_cc_payload(payload, &self.encdec)?;
             staging_records.push((pp.guid, pp.payload, sync_change_counter));
         }
-        common_save_outgoing_records(&tx, STAGING_TABLE_NAME, staging_records)?;
+        common_save_outgoing_records(tx, STAGING_TABLE_NAME, staging_records)?;
 
         // return outgoing changes
         let outgoing_records: Vec<(Payload, i64)> =
-            common_get_outgoing_records(&tx, &data_sql, &tombstones_sql, payload_from_data_row)?;
+            common_get_outgoing_records(tx, &data_sql, tombstones_sql, payload_from_data_row)?;
 
         outgoing.changes = outgoing_records
             .into_iter()
@@ -84,7 +84,7 @@ impl ProcessOutgoingRecordImpl for OutgoingCreditCardsImpl {
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
         common_finish_synced_items(
-            &tx,
+            tx,
             DATA_TABLE_NAME,
             MIRROR_TABLE_NAME,
             STAGING_TABLE_NAME,

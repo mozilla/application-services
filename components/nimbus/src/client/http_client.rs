@@ -323,6 +323,7 @@ mod tests {
                             enabled: false,
                             value: Default::default(),
                         }),
+                        features: None,
                     },
                     Branch {
                         slug: "treatment-variation-b".to_string(),
@@ -332,6 +333,7 @@ mod tests {
                             enabled: true,
                             value: Default::default(),
                         }),
+                        features: None,
                     },
                 ],
                 targeting: None

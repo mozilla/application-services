@@ -143,7 +143,7 @@ impl<'a> UnparsedPublicKey<'a> {
     }
 
     pub fn bytes(&self) -> &'a [u8] {
-        &self.bytes
+        self.bytes
     }
 }
 

@@ -209,7 +209,7 @@ impl FxAClient for Client {
         scopes: &[&str],
     ) -> Result<OAuthTokenResponse> {
         let url = config.token_endpoint()?;
-        let key = derive_auth_key_from_session_token(&session_token)?;
+        let key = derive_auth_key_from_session_token(session_token)?;
         let body = json!({
             "client_id": config.client_id,
             "scope": scopes.join(" "),
@@ -294,7 +294,7 @@ impl FxAClient for Client {
         session_token: &str,
     ) -> Result<DuplicateTokenResponse> {
         let url = config.auth_url_path("v1/session/duplicate")?;
-        let key = derive_auth_key_from_session_token(&session_token)?;
+        let key = derive_auth_key_from_session_token(session_token)?;
         let duplicate_body = json!({
             "reason": "migration"
         });

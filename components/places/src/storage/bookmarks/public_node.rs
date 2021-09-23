@@ -422,7 +422,7 @@ mod test {
         );
         append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Unfiled.guid(),
+            BookmarkRootGuid::Unfiled.guid(),
             "invalid",
             "badurl",
         );
@@ -497,7 +497,7 @@ mod test {
         // valid items)
         let guid_bad = append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Mobile.guid(),
+            BookmarkRootGuid::Mobile.guid(),
             "invalid url",
             "badurl",
         )
@@ -574,7 +574,7 @@ mod test {
 
         append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Mobile.guid(),
+            BookmarkRootGuid::Mobile.guid(),
             "invalid url",
             "badurl",
         );
@@ -660,7 +660,7 @@ mod test {
 
         append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Unfiled.guid(),
+            BookmarkRootGuid::Unfiled.guid(),
             "invalid url",
             "badurl",
         );
