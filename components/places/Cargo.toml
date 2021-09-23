@@ -39,7 +39,7 @@ uniffi_macros = "^0.14"
 
 [dependencies.rusqlite]
 version = "0.24.2"
-features = ["functions", "bundled", "unlock_notify"]
+features = ["functions", "window", "bundled", "unlock_notify"]
 
 [dev-dependencies]
 pretty_assertions = "0.6"

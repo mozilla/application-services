@@ -16,6 +16,9 @@ namespace places {
     sequence<HistoryMetadata> places_query_history_metadata(i64 handle, string query, i32 limit);
 
     [Throws=ErrorWrapper]
+    sequence<HistoryHighlight> places_get_history_highlights(i64 handle, HistoryHighlightWeights weights, i32 limit);
+
+    [Throws=ErrorWrapper]
     void places_note_history_metadata_observation(i64 handle, HistoryMetadataObservation data);
 
     [Throws=ErrorWrapper]
@@ -56,6 +59,19 @@ dictionary HistoryMetadata {
     string? search_term;
     DocumentType document_type;
     string? referrer_url;
+};
+
+dictionary HistoryHighlightWeights {
+    double view_time;
+    double frequency;
+};
+
+dictionary HistoryHighlight {
+    double score;
+    i32 place_id;
+    string url;
+    string? title;
+    string? preview_image_url;
 };
 
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
