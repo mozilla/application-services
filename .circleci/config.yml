@@ -152,6 +152,7 @@ commands:
           echo 'export NSS_DIR=$(pwd)/libs/desktop/linux-x86-64/nss' >> $BASH_ENV
           echo 'export SQLCIPHER_LIB_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/lib' >> $BASH_ENV
           echo 'export SQLCIPHER_INCLUDE_DIR=$(pwd)/libs/desktop/linux-x86-64/sqlcipher/include' >> $BASH_ENV
+          echo 'export RUST_LOG=trace' >> $BASH_ENV
       - run:
           name: Verify the build environment
           command: ./libs/verify-desktop-environment.sh
@@ -302,7 +303,7 @@ jobs:
       - setup-rust-min-version
       # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
       # It's not in the default workspace members, so just `cargo test` is OK.
-      - run: cargo test
+      - run: RUST_LOG=trace cargo test
       - save-sccache-cache
   # These run periodically (driven by cron).
   Rust tests - beta:

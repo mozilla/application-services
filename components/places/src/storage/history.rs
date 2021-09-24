@@ -1873,7 +1873,6 @@ mod tests {
     fn test_status_columns() -> Result<()> {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
-        let _ = env_logger::try_init();
         // A page with "normal" and a change counter.
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_change_counter, 1);
@@ -2188,7 +2187,6 @@ mod tests {
 
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
-        let _ = env_logger::try_init();
 
         // Add Sync metadata keys, to ensure they're reset.
         put_meta(&conn, GLOBAL_SYNCID_META_KEY, &"syncAAAAAAAA")?;

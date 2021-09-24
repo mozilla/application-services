@@ -1852,7 +1852,6 @@ mod tests {
 
     #[test]
     fn test_fetch_remote_tree() -> Result<()> {
-        let _ = env_logger::try_init();
         let records = vec![
             json!({
                 "id": "qqVTRWhLBOu3",
@@ -3001,8 +3000,6 @@ mod tests {
 
     #[test]
     fn test_apply_tombstones() -> Result<()> {
-        let _ = env_logger::try_init();
-
         let local_modified = Timestamp::now();
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
@@ -3791,8 +3788,6 @@ mod tests {
 
     #[test]
     fn test_dedupe_local_newer() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
@@ -3910,8 +3905,6 @@ mod tests {
 
     #[test]
     fn test_deduping_remote_newer() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
@@ -4147,8 +4140,6 @@ mod tests {
 
     #[test]
     fn test_reconcile_sync_metadata() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
