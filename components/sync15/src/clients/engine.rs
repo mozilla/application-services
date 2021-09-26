@@ -69,11 +69,20 @@ impl<'a> Driver<'a> {
         for (payload, _) in inbound.changes {
             self.interruptee.err_if_interrupted()?;
 
-            // Unpack the client record. We should never have tombstones in the
-            // clients collection, so we don't check for `is_tombstone`.
-            // https://github.com/mozilla/application-services/issues/1801
-            // tracks deleting these from the server.
-            let client: ClientRecord = payload.into_record()?;
+            // Check for a payload's tombstone
+            if payload.is_tombstone() {
+                log::debug!("Record has been deleted; skipping...");
+                continue;
+            }
+
+            // Unpack the client record
+            let client: ClientRecord = match payload.into_record() {
+                Ok(client) => client,
+                Err(e) => {
+                    log::debug!("Error in unpacking record: {:?}", e);
+                    continue;
+                }
+            };
 
             if client.id == self.command_processor.settings().fxa_device_id {
                 log::debug!("Found my record on the server");
@@ -544,6 +553,72 @@ mod tests {
         } else {
             unreachable!("`expected_clients` must be an array of client records")
         }
+    }
+
+    #[test]
+    fn test_clients_sync_bad_incoming_record_skipped() {
+        let processor = TestProcessor {
+            settings: Settings {
+                fxa_device_id: "deviceAAAAAA".into(),
+                device_name: "Laptop".into(),
+                device_type: DeviceType::Desktop,
+            },
+            outgoing_commands: [].iter().cloned().collect(),
+        };
+
+        let config = InfoConfiguration::default();
+
+        let mut driver = Driver::new(&processor, &NeverInterrupts, &config);
+
+        let inbound = inbound_from_clients(json!([{
+            "id": "deviceBBBBBB",
+            "name": "iPhone",
+            "type": "mobile",
+            "commands": [{
+                "command": "resetEngine",
+                "args": ["history"],
+            }],
+            "fxaDeviceId": "iPhooooooone",
+            "protocols": ["1.5"],
+            "device": "iPhone",
+        }, {
+            "id": "garbage",
+            "garbage": "value",
+        }, {
+            "id": "deviceCCCCCC",
+            "deleted": true,
+            "name": "Fenix",
+            "type": "mobile",
+            "commands": [],
+            "fxaDeviceId": "deviceCCCCCC",
+        }]));
+
+        driver.sync(inbound, false).expect("Should sync clients");
+
+        // Make sure the list of recently synced remote clients is correct.
+        let expected_ids = &["deviceAAAAAA", "deviceBBBBBB"];
+        let mut actual_ids = driver.recent_clients.keys().collect::<Vec<&String>>();
+        actual_ids.sort();
+        assert_eq!(actual_ids, expected_ids);
+
+        let expected_remote_clients = &[
+            RemoteClient {
+                fxa_device_id: Some("deviceAAAAAA".to_string()),
+                device_name: "Laptop".into(),
+                device_type: Some(DeviceType::Desktop),
+            },
+            RemoteClient {
+                fxa_device_id: Some("iPhooooooone".to_string()),
+                device_name: "iPhone".into(),
+                device_type: Some(DeviceType::Mobile),
+            },
+        ];
+        let actual_remote_clients = expected_ids
+            .iter()
+            .filter_map(|&id| driver.recent_clients.get(id))
+            .cloned()
+            .collect::<Vec<RemoteClient>>();
+        assert_eq!(actual_remote_clients, expected_remote_clients);
     }
 
     #[test]
