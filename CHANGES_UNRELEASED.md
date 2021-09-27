@@ -25,4 +25,5 @@ Use the template below to make assigning a version number during the release cut
 
 - Rust toolchain has been bumped to 1.55 and minimum version bumped to 1.53 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
 
-- XCode has been updated to 13
+- Xcode has been updated to version 13
+  - application-services noq uses the new build system by default
