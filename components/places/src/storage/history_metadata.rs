@@ -3,9 +3,10 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::{PlacesDb, PlacesTransaction};
-use crate::error::Result;
+use crate::error::*;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use sql_support::ConnExt;
+use std::convert::TryFrom;
 use std::vec::Vec;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -95,13 +96,25 @@ impl HistoryMetadata {
         let created_at: Timestamp = row.get("created_at")?;
         let updated_at: Timestamp = row.get("updated_at")?;
 
+        // Guard against invalid data in the db.
+        // Certain client bugs allowed accumulating values that are too large to fit into i32,
+        // leading to overflow failures. While this data will expire and will be deleted
+        // by clients via `delete_older_than`, we still want to ensure we won't crash in case of
+        // encountering it.
+        // See `apply_metadata_observation` for where we guard against observing invalid view times.
+        let total_view_time: i64 = row.get("total_view_time")?;
+        let total_view_time = match i32::try_from(total_view_time) {
+            Ok(tvt) => tvt,
+            Err(_) => i32::MAX,
+        };
+
         Ok(Self {
             url: row.get("url")?,
             title: row.get("title")?,
             preview_image_url: row.get("preview_image_url")?,
             created_at: created_at.0 as i64,
             updated_at: updated_at.0 as i64,
-            total_view_time: row.get("total_view_time")?,
+            total_view_time,
             search_term: row.get("search_term")?,
             document_type: row.get("document_type")?,
             referrer_url: row.get("referrer_url")?,
@@ -539,6 +552,20 @@ pub fn apply_metadata_observation(
     db: &PlacesDb,
     observation: HistoryMetadataObservation,
 ) -> Result<()> {
+    if let Some(view_time) = observation.view_time {
+        // Consider any view_time observations that are higher than 24hrs to be invalid.
+        // This guards against clients passing us wildly inaccurate view_time observations,
+        // likely resulting from some measurement bug. If we detect such cases, we fail so
+        // that the client has a chance to discover its mistake.
+        // When recording a view time, we increment the stored value directly in SQL, which
+        // doesn't allow for error detection unless we run an additional SELECT statement to
+        // query current cumulative view time and see if incrementing it will result in an
+        // overflow. This check is a simpler way to achieve the same goal (detect invalid inputs).
+        if view_time > 1000 * 60 * 60 * 24 {
+            return Err(InvalidMetadataObservation::ViewTimeTooLong.into());
+        }
+    }
+
     // Begin a write transaction. We do this before any other work (e.g. SELECTs) to avoid racing against
     // other writers. Even though we expect to only have a single application writer, a sync writer
     // can come in at any time and change data we depend on, such as moz_places
@@ -1048,6 +1075,48 @@ mod tests {
             title Some("world!"),
             assertion |m: HistoryMetadata| { assert_eq!(Some(String::from("hello!")), m.title) }
         );
+    }
+
+    #[test]
+    fn test_note_observation_invalid_view_time() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/",
+            view_time None,
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        // 48 hrs is clearly a bad view to observe.
+        assert!(apply_metadata_observation(
+            &conn,
+            HistoryMetadataObservation {
+                url: String::from("https://www.mozilla.org"),
+                view_time: Some(1000 * 60 * 60 * 24 * 2),
+                search_term: None,
+                document_type: None,
+                referrer_url: None,
+                title: None
+            }
+        )
+        .is_err());
+
+        // 12 hrs is assumed to be "plausible".
+        assert!(apply_metadata_observation(
+            &conn,
+            HistoryMetadataObservation {
+                url: String::from("https://www.mozilla.org"),
+                view_time: Some(1000 * 60 * 60 * 12),
+                search_term: None,
+                document_type: None,
+                referrer_url: None,
+                title: None
+            }
+        )
+        .is_ok());
     }
 
     #[test]

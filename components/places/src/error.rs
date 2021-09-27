@@ -77,6 +77,9 @@ pub enum ErrorKind {
 
     #[error("Error opening database: {0}")]
     OpenDatabaseError(#[from] sql_support::open_database::Error),
+
+    #[error("Invalid metadata observation: {0}")]
+    InvalidMetadataObservation(InvalidMetadataObservation),
 }
 
 error_support::define_error! {
@@ -93,6 +96,7 @@ error_support::define_error! {
         (InterruptedError, Interrupted),
         (Utf8Error, std::str::Utf8Error),
         (OpenDatabaseError, sql_support::open_database::Error),
+        (InvalidMetadataObservation, InvalidMetadataObservation),
     }
 }
 
@@ -152,4 +156,10 @@ pub enum Corruption {
 
     #[error("Bookmark '{0}' has no parent but is not the bookmarks root")]
     NonRootWithoutParent(String),
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum InvalidMetadataObservation {
+    #[error("Observed view time is invalid (too long)")]
+    ViewTimeTooLong,
 }
