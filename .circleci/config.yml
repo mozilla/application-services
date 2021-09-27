@@ -219,7 +219,7 @@ executors:
       - image: cimg/rust:1.53.0
   macos:
     macos:
-      xcode: 12.5.1
+      xcode: 13.0.0
     resource_class: m2.medium
 
 jobs:
