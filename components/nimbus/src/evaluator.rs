@@ -30,6 +30,8 @@ pub struct TargetingAttributes {
     #[serde(flatten)]
     pub app_context: AppContext,
     pub is_already_enrolled: bool,
+    pub days_since_install: Option<i32>,
+    pub days_since_update: Option<i32>,
 }
 
 /// Determine the enrolment status for an experiment.
@@ -238,14 +240,6 @@ mod tests {
     use super::*;
     use crate::{BucketConfig, Experiment, RandomizationUnit};
 
-    impl From<AppContext> for TargetingAttributes {
-        fn from(app_context: AppContext) -> Self {
-            Self {
-                app_context,
-                ..Default::default()
-            }
-        }
-    }
     #[test]
     fn test_targeting() {
         // Here's our valid jexl statement
@@ -268,6 +262,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: None,
+            ..Default::default()
         }
         .into();
         assert_eq!(targeting(expression_statement, &targeting_attributes), None);
@@ -288,6 +283,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: None,
+            ..Default::default()
         }
         .into();
         assert_eq!(targeting(expression_statement, &targeting_attributes), None);
@@ -308,6 +304,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: None,
+            ..Default::default()
         }
         .into();
         assert!(matches!(
@@ -333,6 +330,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: None,
+            ..Default::default()
         }
         .into();
         assert!(matches!(
@@ -369,6 +367,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: Some(custom_targeting_attributes),
+            ..Default::default()
         }
         .into();
         assert_eq!(targeting(expression_statement, &targeting_attributes), None);
@@ -389,6 +388,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: None,
+            ..Default::default()
         }
         .into();
         assert!(matches!(
@@ -417,6 +417,7 @@ mod tests {
             android_sdk_version: Some("29".to_string()),
             debug_tag: None,
             custom_targeting_attributes: None,
+            ..Default::default()
         }
         .into();
         targeting_attributes.is_already_enrolled = true;
