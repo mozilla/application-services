@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::error::{NimbusError, Result};
+use crate::evaluator::TargetingAttributes;
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
 use crate::{
@@ -79,7 +80,7 @@ impl ExperimentEnrollment {
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
-        app_context: &AppContext,
+        targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
@@ -101,7 +102,7 @@ impl ExperimentEnrollment {
             let enrollment = evaluate_enrollment(
                 nimbus_id,
                 available_randomization_units,
-                app_context,
+                targeting_attributes,
                 experiment,
             )?;
             log::debug!(
@@ -142,7 +143,7 @@ impl ExperimentEnrollment {
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
-        app_context: &AppContext,
+        targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
@@ -154,7 +155,7 @@ impl ExperimentEnrollment {
                     let updated_enrollment = evaluate_enrollment(
                         nimbus_id,
                         available_randomization_units,
-                        app_context,
+                        targeting_attributes,
                         updated_experiment,
                     )?;
                     log::debug!(
@@ -197,7 +198,7 @@ impl ExperimentEnrollment {
                     let evaluated_enrollment = evaluate_enrollment(
                         nimbus_id,
                         available_randomization_units,
-                        app_context,
+                        targeting_attributes,
                         updated_experiment,
                     )?;
                     match evaluated_enrollment.status {
@@ -477,7 +478,6 @@ impl EnrollmentStatus {
 
     // This is used in examples, but not in the main dylib, and
     // triggers a dead code warning when building with `--release`.
-    #[allow(dead_code)]
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
     }
@@ -799,13 +799,24 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
+        let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
+            enrollment.status.is_enrolled()
+        } else {
+            false
+        };
+
+        let targeting_attributes = TargetingAttributes {
+            app_context: self.app_context.clone(),
+            is_already_enrolled,
+        };
+
         Ok(match (prev_experiment, next_experiment, prev_enrollment) {
             // New experiment.
             (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
                 is_user_participating,
                 self.nimbus_id,
                 self.available_randomization_units,
-                self.app_context,
+                &targeting_attributes,
                 experiment,
                 out_enrollment_events,
             )?),
@@ -819,7 +830,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     is_user_participating,
                     self.nimbus_id,
                     self.available_randomization_units,
-                    self.app_context,
+                    &targeting_attributes,
                     experiment,
                     out_enrollment_events,
                 )?)
@@ -1485,6 +1496,44 @@ mod tests {
                 "namespace":"secure-silver",
                 "randomizationUnit":"nimbus_id"
             },
+            "userFacingName":"2nd test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "id":"secure-silver",
+            "last_modified":1_602_197_222_372i64
+        }))
+        .unwrap()
+    }
+
+    fn get_is_already_enrolled_targeting_experiment() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "another-monkey",
+            "endDate": null,
+            "branches":[
+                {"slug": "control", "ratio": 1, "feature": { "featureId": "some_control", "enabled": true }},
+                {"slug": "treatment","ratio": 1, "feature": { "featureId": "some_control", "enabled": true }},
+            ],
+            "featureIds": ["some_control"],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "bucketConfig":{
+                "count":1_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            // We have a logical OR here because we want the user
+            // to be enrolled the first time they see this targeting
+            // then, we will change the appId in the context to something
+            // else, then test enrollment again.
+            "targeting": "app_id == 'org.mozilla.fenix' || is_already_enrolled",
             "userFacingName":"2nd test experiment",
             "referenceBranch":"control",
             "isEnrollmentPaused":false,
@@ -2706,6 +2755,50 @@ mod tests {
             "only 1 of 2 enrollment events should have been returned, since one caused evolve_enrollment to err"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
+        let _ = env_logger::try_init();
+        let (nimbus_id, mut app_ctx, aru) = local_ctx();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+
+        // The targeting for this experiment is
+        // "app_id == 'org.mozilla.fenix' || is_already_enrolled"
+        let test_experiment = get_is_already_enrolled_targeting_experiment();
+        let test_experiments = &[test_experiment];
+        // The user should get enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
+        // and the 'is_already_enrolled'
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], test_experiments, &[])?;
+        assert_eq!(
+            enrollments.len(),
+            1,
+            "One enrollment should have been returned"
+        );
+
+        assert_eq!(events.len(), 1, "One event should have been returned");
+
+        // we change the app_id so the targeting will only target
+        // against the `is_already_enrolled`
+        app_ctx.app_id = "org.mozilla.bobo".into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+
+        // The user should still be enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
+        // and the 'is_already_enrolled'
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, test_experiments, test_experiments, &enrollments)?;
+        assert_eq!(
+            enrollments.len(),
+            1,
+            "The previous enrollment should have been evolved"
+        );
+
+        assert_eq!(
+            events.len(),
+            0,
+            "no new events should have been returned, the user was already enrolled"
+        );
         Ok(())
     }
 
