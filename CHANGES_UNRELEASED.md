@@ -24,3 +24,12 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
 
 - Rust toolchain has been bumped to 1.55 and minimum version bumped to 1.53 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+
+- Xcode has been updated to version 13
+  - application-services noq uses the new build system by default
+
+## Nimbus
+
+### What's Changed
+
+- 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.

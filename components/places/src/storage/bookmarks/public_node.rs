@@ -302,7 +302,6 @@ mod test {
     #[test]
     fn test_get_by_url() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
         insert_json_tree(
             &conns.write,
             json!({
@@ -376,7 +375,6 @@ mod test {
     #[test]
     fn test_search() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
         insert_json_tree(
             &conns.write,
             json!({
@@ -472,7 +470,6 @@ mod test {
     #[test]
     fn test_fetch_bookmark() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
 
         insert_json_tree(
             &conns.write,
@@ -553,7 +550,6 @@ mod test {
     #[test]
     fn test_fetch_tree() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
 
         insert_json_tree(
             &conns.write,
@@ -613,7 +609,6 @@ mod test {
     #[test]
     fn test_recent() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
         let kids = [
             json!({
                 "guid": "bookmark1___",

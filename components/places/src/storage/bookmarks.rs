@@ -1646,7 +1646,6 @@ mod tests {
 
     #[test]
     fn test_insert() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
@@ -1689,7 +1688,6 @@ mod tests {
 
     #[test]
     fn test_insert_titles() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
@@ -1723,7 +1721,6 @@ mod tests {
 
     #[test]
     fn test_delete() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         let guid1 = SyncGuid::random();
@@ -1792,7 +1789,6 @@ mod tests {
 
     #[test]
     fn test_delete_roots() {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         delete_bookmark(&conn, &BookmarkRootGuid::Root.into()).expect_err("can't delete root");
@@ -1802,7 +1798,6 @@ mod tests {
 
     #[test]
     fn test_insert_pos_too_large() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
@@ -1826,7 +1821,6 @@ mod tests {
 
     #[test]
     fn test_update_move_same_parent() {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let unfiled = &BookmarkRootGuid::Unfiled.as_guid();
 
@@ -1923,7 +1917,6 @@ mod tests {
 
     #[test]
     fn test_update() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let unfiled = &BookmarkRootGuid::Unfiled.as_guid();
 
@@ -2071,7 +2064,6 @@ mod tests {
 
     #[test]
     fn test_update_titles() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let guid: SyncGuid = "bookmark1___".into();
 
@@ -2139,7 +2131,6 @@ mod tests {
 
     #[test]
     fn test_update_statuses() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
         let unfiled = &BookmarkRootGuid::Unfiled.as_guid();
 
@@ -2277,7 +2268,6 @@ mod tests {
 
     #[test]
     fn test_update_errors() {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         insert_json_tree(
@@ -2348,7 +2338,6 @@ mod tests {
 
     #[test]
     fn test_fetch_root() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         // Fetch the root
@@ -2365,7 +2354,6 @@ mod tests {
 
     #[test]
     fn test_insert_tree_and_fetch_level() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         let tree = FolderNode {
@@ -2481,7 +2469,6 @@ mod tests {
 
     #[test]
     fn test_delete_everything() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         insert_bookmark(
@@ -2548,7 +2535,6 @@ mod tests {
 
     #[test]
     fn test_sync_reset() -> Result<()> {
-        let _ = env_logger::try_init();
         let conn = new_mem_connection();
 
         // Add Sync metadata keys, to ensure they're reset.
