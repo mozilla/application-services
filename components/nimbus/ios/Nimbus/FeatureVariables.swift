@@ -170,7 +170,7 @@ public extension Variables {
     }
 }
 
-extension Dictionary where Key == String {
+public extension Dictionary where Key == String {
     func compactMapKeys<T>(_ transform: (String) -> T?) -> [T: Value] {
         let pairs = keys.compactMap { (k: String) -> (T, Value)? in
             guard let value = self[k],
@@ -202,7 +202,7 @@ extension Dictionary where Key == String {
     }
 }
 
-extension Dictionary where Value == String {
+public extension Dictionary where Value == String {
     /// Convenience extension method for maps with `String` values.
     /// If a `String` value cannot be coerced into a variant of the given Enum, then the entry is
     /// omitted.
