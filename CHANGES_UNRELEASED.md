@@ -27,3 +27,9 @@ Use the template below to make assigning a version number during the release cut
 
 - Xcode has been updated to version 13
   - application-services noq uses the new build system by default
+
+## Nimbus
+
+### What's Changed
+
+- 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.
