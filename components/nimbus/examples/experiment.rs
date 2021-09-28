@@ -280,13 +280,13 @@ fn main() -> Result<()> {
 
             let mut num_tries = 0;
             let aru = AvailableRandomizationUnits::with_client_id(&client_id);
+            let targeting_attributes = TargetingAttributes {
+                app_context: context,
+                ..Default::default()
+            };
             'outer: loop {
                 let uuid = uuid::Uuid::new_v4();
                 let mut num_of_experiments_enrolled = 0;
-                let targeting_attributes = TargetingAttributes {
-                    app_context: context.clone(),
-                    ..Default::default()
-                };
                 for exp in &all_experiments {
                     let enr = nimbus::evaluate_enrollment(&uuid, &aru, &targeting_attributes, exp)?;
                     if enr.status.is_enrolled() {
