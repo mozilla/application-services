@@ -1,3 +1,16 @@
+# v85.1.0 (_2021-09-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.0.0...v85.1.0)
+
+## General
+
+### What's Changed
+
+- Rust toolchain has been bumped to 1.55 and minimum version bumped to 1.53 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+
+- Xcode has been updated to version 13
+  - application-services noq uses the new build system by default
+
 # v85.0.0 (_2021-09-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...v85.0.0)
