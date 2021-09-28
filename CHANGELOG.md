@@ -11,6 +11,13 @@
 - Xcode has been updated to version 13
   - application-services noq uses the new build system by default
 
+## Nimbus
+
+### What's Changed
+
+- 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.
+
+
 # v85.0.0 (_2021-09-22_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...v85.0.0)
