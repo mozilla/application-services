@@ -16,3 +16,6 @@ nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
 fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }
+autofill = { path = "../../components/autofill" }
+push = { path = "../../components/push" }
+tabs = { path = "../../components/tabs" }
