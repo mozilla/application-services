@@ -1,3 +1,11 @@
+# v85.2.0 (_2021-09-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.1.0...v85.2.0)
+
+## Places
+### What's New
+  - Added Swift bindings for the following History Metadata APIs: `getHighlights` and `deleteHistoryMetadata`.
+
 # v85.1.0 (_2021-09-27_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.0.0...v85.1.0)
