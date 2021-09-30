@@ -24,3 +24,4 @@ Use the template below to make assigning a version number during the release cut
 
 - Nimbus can now target on `is_already_enrolled`. Which is true only if the user is already enrolled in experiment. ([#4490](https://github.com/mozilla/application-services/pull/4490))
 - Nimbus can now target on `days_since_install` and `days_since_update`. Which reflect the days since the user installed the application and the days since the user last updated the application. ([#4491](https://github.com/mozilla/application-services/pull/4491))
+- Android only: the observer method `onExperimentsApplied()` is now called every time `applyPendingExperiments()` is called. This is to bring it in line with iOS.
