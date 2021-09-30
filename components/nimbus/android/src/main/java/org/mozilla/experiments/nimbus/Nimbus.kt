@@ -456,10 +456,8 @@ open class Nimbus(
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
-            if (it.any()) {
-                recordExperimentTelemetry(it)
-                observer?.onUpdatesApplied(it)
-            }
+            recordExperimentTelemetry(it)
+            observer?.onUpdatesApplied(it)
         }
     }
 
