@@ -3,4 +3,6 @@ package_name = "mozilla.appservices.autofill"
 cdylib_name = "megazord"
 
 [bindings.swift]
+ffi_module_name = "MozillaRustComponents"
+ffi_module_filename = "autofillFFI"
 generate_module_map = false

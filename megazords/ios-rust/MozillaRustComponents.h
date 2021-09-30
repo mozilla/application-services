@@ -7,5 +7,10 @@
 
 #import "crashtestFFI.h"
 #import "nimbusFFI.h"
+#import "fxa_clientFFI.h"
+#import "loginsFFI.h"
+#import "autofillFFI.h"
+#import "pushFFI.h"
+#import "tabsFFI.h"
 #import "RustViaductFFI.h"
 #import "RustLogFFI.h"
