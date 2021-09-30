@@ -113,6 +113,10 @@ the details of which are reproduced below.
     <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: chrono</name>
+    <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
+  </license>
+  <license>
     <name>Apache License 2.0: cpufeatures</name>
     <url>https://github.com/RustCrypto/utils/blob/master/cpufeatures/LICENSE-APACHE</url>
   </license>
@@ -219,6 +223,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: log</name>
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: num-integer</name>
+    <url>https://github.com/rust-num/num-integer/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
@@ -375,6 +383,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: thiserror-impl</name>
     <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: time</name>
+    <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
   </license>
   <license>
     <name>Apache License 2.0: tinyvec</name>

@@ -114,6 +114,11 @@ pub enum StoreId {
     ///                     current client instance.
     ///   * "user-opt-in":  bool, whether the user has explicitly opted in or out
     ///                     of participating in experiments.
+    ///   * "installation-date": a UTC DateTime string, defining the date the consuming app was
+    ///                     installed
+    ///   * "update-date": a UTC DateTime string, defining the date the consuming app was
+    ///                     last updated
+    ///   * "app-version": String, the version of the app last persisted
     Meta,
     /// Store containing pending updates to experiment data.
     ///
