@@ -1,3 +1,15 @@
+# v85.3.0 (_2021-09-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.2.0...v85.3.0)
+
+## Nimbus
+
+### What's new
+
+- Nimbus can now target on `is_already_enrolled`. Which is true only if the user is already enrolled in experiment. ([#4490](https://github.com/mozilla/application-services/pull/4490))
+- Nimbus can now target on `days_since_install` and `days_since_update`. Which reflect the days since the user installed the application and the days since the user last updated the application. ([#4491](https://github.com/mozilla/application-services/pull/4491))
+- Android only: the observer method `onExperimentsApplied()` is now called every time `applyPendingExperiments()` is called. This is to bring it in line with iOS.
+
 # v85.2.0 (_2021-09-28_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.1.0...v85.2.0)
