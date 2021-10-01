@@ -241,11 +241,16 @@ impl Connection for ConnectHttp {
                 senderid: Some(self.options.sender_id.clone()),
             });
         }
-        let url = Url::parse(&url)?;
-        let response = Request::post(url)
+        let response = Request::post(Url::parse(&url)?)
             .headers(self.headers()?)
             .json(&body)
             .send()?;
+        log::info!(
+            "subscribed to channel '{}' via {:?} - {}",
+            channel_id,
+            url,
+            response.status
+        );
         self.check_response_error(&response)?;
         let response: Value = response.json()?;
 
@@ -287,6 +292,7 @@ impl Connection for ConnectHttp {
         let response = Request::delete(Url::parse(&url)?)
             .headers(self.headers()?)
             .send()?;
+        log::info!("unsubscribed from {}: {}", url, response.status);
         self.check_response_error(&response)?;
         Ok(())
     }
@@ -307,6 +313,7 @@ impl Connection for ConnectHttp {
         let response = Request::delete(Url::parse(&url)?)
             .headers(self.headers()?)
             .send()?;
+        log::info!("unsubscribed from all via {}: {}", url, response.status);
         self.check_response_error(&response)?;
         self.uaid = None;
         self.auth = None;
@@ -342,6 +349,7 @@ impl Connection for ConnectHttp {
             .json(&body)
             .headers(self.headers()?)
             .send()?;
+        log::info!("update via {}: {}", url, response.status);
         self.check_response_error(&response)?;
         Ok(())
     }
@@ -436,12 +444,14 @@ impl Connection for ConnectHttp {
             },
         };
 
-        // verify both lists match. Either side could have lost it's mind.
+        // verify both lists match. Either side could have lost its mind.
         if remote_channels != local_channels {
+            log::info!("verify_connection found a mismatch - unsubscribing");
             // Unsubscribe all the channels (just to be sure and avoid a loop).
             self.unsubscribe_all()?;
             return Ok(false);
         }
+        log::info!("verify_connection found everything matching");
         Ok(true)
     }
 

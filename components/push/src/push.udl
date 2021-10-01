@@ -16,7 +16,7 @@ interface PushManager {
     //
     // # Arguments
     //
-    //   - `sender_id` - Sender/Application ID value
+    //   - `sender_id` - The project identifier set by the server. Contact your server ops team to know what value to set.
     //   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
     //   - `http_protocol` - The optional socket protocol (default: "https")
     //   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
@@ -50,7 +50,7 @@ interface PushManager {
     //   - An error occurred generating or deserializing the cryptographic keys
     [Throws=PushError]
     SubscriptionResponse subscribe([ByRef] optional string channel_id = "", [ByRef] optional string scope = "",[ByRef] optional string? app_server_sey = null);
-  
+
     // Unsubscribe from given channelID, ending that subscription for the user.
     //
     // # Arguments
@@ -76,7 +76,7 @@ interface PushManager {
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushError]
     void unsubscribe_all();
-    
+
     // Updates the Native OS push registration ID.
     // **NOTE**: If this returns false, the subsequent [`PushManager::verify_connection`]
     // may result in new endpoint registration
@@ -94,7 +94,7 @@ interface PushManager {
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushError]
     boolean update([ByRef] string registration_token);
-    
+
     // Verifies the connection state
     //
     // **NOTE**: This does not resubscribe to any channels
@@ -114,7 +114,7 @@ interface PushManager {
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushError]
     sequence<PushSubscriptionChanged> verify_connection();
-    
+
     // Decrypts a raw push message.
     //
     // This accepts the content of a Push Message (from websocket or via Native Push systems).
@@ -136,7 +136,7 @@ interface PushManager {
     //   - An error occurred accessing the PushManager's persisted storage
     [Throws=PushError]
     sequence<i8> decrypt([ByRef] string channel_id, [ByRef] string body, [ByRef] optional string encoding = "aes128gcm", [ByRef] optional string salt = "", [ByRef] optional string dh = "");
-    
+
     // Get the dispatch info for a given subscription channel
     //
     // # Arguments
