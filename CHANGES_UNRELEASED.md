@@ -18,3 +18,10 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Sync
+
+### What's Changed
+
+- Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
+  it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
