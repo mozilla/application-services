@@ -1849,8 +1849,40 @@ mod tests {
         #[test]
         fn test_non_matches() {
             let db = LoginDb::open_in_memory().unwrap();
-            make_saved_login(&db, "user", "other-pass");
+            // Non-match because the username is different
             make_saved_login(&db, "other-user", "pass");
+            // Non-match because the http_realm is different
+            db.add(
+                LoginEntry {
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        http_realm: Some("the other website".into()),
+                        ..Default::default()
+                    },
+                    sec_fields: SecureLoginFields {
+                        username: "user".into(),
+                        password: "pass".into(),
+                    },
+                },
+                &TEST_ENCRYPTOR,
+            )
+            .unwrap();
+            // Non-match because it uses form_action_origin instead of http_realm
+            db.add(
+                LoginEntry {
+                    fields: LoginFields {
+                        origin: "https://www.example.com".into(),
+                        form_action_origin: Some("https://www.example.com/".into()),
+                        ..Default::default()
+                    },
+                    sec_fields: SecureLoginFields {
+                        username: "user".into(),
+                        password: "pass".into(),
+                    },
+                },
+                &TEST_ENCRYPTOR,
+            )
+            .unwrap();
             assert_eq!(
                 None,
                 db.find_login_to_update(make_entry("user", "pass"), &TEST_ENCRYPTOR)
