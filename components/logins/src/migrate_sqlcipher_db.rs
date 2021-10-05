@@ -11,7 +11,8 @@ use crate::sync::{LocalLogin, MirrorLogin, SyncStatus};
 use crate::util;
 use crate::ValidateAndFixup;
 use crate::{
-    EncryptedLogin, Login, LoginDb, LoginFields, LoginStore, RecordFields, SecureLoginFields,
+    EncryptedLogin, Login, LoginDb, LoginEntry, LoginFields, LoginStore, RecordFields,
+    SecureLoginFields,
 };
 use rusqlite::{named_params, types::Value, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
@@ -300,8 +301,7 @@ fn apply_migration_fixups(
             (Some(local_login), Some(mirror_login)) => {
                 // We have both a local and mirror
                 // attempt to fixup local and override mirror
-                let dec_login = local_login.login.clone().decrypt(encdec)?;
-                match dec_login.entry().maybe_fixup() {
+                match fixup_local_login(local_login, encdec) {
                     Ok(Some(new_entry)) => {
                         logins_to_override.insert(
                             guid.to_string(),
@@ -343,8 +343,7 @@ fn apply_migration_fixups(
             }
             (Some(local_login), None) => {
                 // Only local
-                let dec_login = local_login.login.clone().decrypt(encdec)?;
-                match dec_login.entry().maybe_fixup() {
+                match fixup_local_login(local_login, encdec) {
                     Ok(Some(new_entry)) => {
                         logins_to_override.insert(
                             guid.to_string(),
@@ -449,6 +448,23 @@ fn apply_migration_fixups(
             .chain(logins_to_override)
             .collect(),
     })
+}
+
+fn fixup_local_login(
+    local_login: &LocalLogin,
+    encdec: &EncryptorDecryptor,
+) -> Result<Option<LoginEntry>> {
+    if local_login.is_deleted {
+        // Delete logins don't have valid data, so don't try to run them through maybe_fixup()
+        Ok(None)
+    } else {
+        local_login
+            .login
+            .clone()
+            .decrypt(encdec)?
+            .entry()
+            .maybe_fixup()
+    }
 }
 
 fn insert_logins(
@@ -752,6 +768,7 @@ mod tests {
     use crate::db::LoginDb;
     use crate::encryption::test_utils::{decrypt_struct, TEST_ENCRYPTION_KEY};
     use crate::schema;
+    use crate::sync::LocalLogin;
     use crate::EncryptedLogin;
     use rusqlite::types::ValueRef;
     use std::path::PathBuf;
@@ -1386,6 +1403,48 @@ mod tests {
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
             2
         );
+        // we unconditionally delete the sqlcipher database.
+        assert!(!testpaths.old_db.as_path().exists());
+    }
+
+    #[test]
+    fn test_migrate_tombstone() {
+        // Test migrating a tombstone (a deleted local record)
+        let inserts = r#"
+            INSERT INTO loginsL(guid, local_modified, is_deleted, sync_status, hostname, timeCreated, timePasswordChanged, secFields)
+                VALUES
+                ("A", 2000, 1, 1, '', 1000, 2000, '');
+            INSERT INTO loginsM(guid, username, password, hostname, httpRealm, formSubmitURL,
+                usernameField, passwordField, timeCreated, timeLastUsed, timePasswordChanged, timesUsed,
+                is_overridden, server_modified)
+                VALUES
+                ('A', 'test', 'password', 'https://www.example.com', 'Test Realm', NULL,
+                '', '', 1000, 1000, 1, 10, 1, 1000);
+        "#;
+        let testpaths = TestPaths::new();
+        create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
+        migrate_logins(
+            testpaths.new_db.as_path(),
+            &TEST_ENCRYPTION_KEY,
+            testpaths.old_db.as_path(),
+            "old-key",
+            None,
+        )
+        .unwrap();
+
+        let db = LoginDb::open(testpaths.new_db).unwrap();
+        let login = db
+            .query_row_and_then(
+                "SELECT * from loginsL WHERE Guid='A'",
+                NO_PARAMS,
+                LocalLogin::from_row,
+            )
+            .unwrap();
+        assert_eq!(login.login.fields.origin, "");
+        assert!(login.is_deleted);
+        assert_eq!(util::system_time_ms_i64(login.local_modified), 2000);
+        assert_eq!(login.sync_status, SyncStatus::Changed);
+
         // we unconditionally delete the sqlcipher database.
         assert!(!testpaths.old_db.as_path().exists());
     }
