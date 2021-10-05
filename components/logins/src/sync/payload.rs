@@ -204,7 +204,7 @@ mod tests {
         let payload = login.into_payload(&TEST_ENCRYPTOR).unwrap();
 
         assert_eq!(payload.id, "123412341234");
-        assert_eq!(payload.deleted, false);
+        assert!(!payload.deleted);
         assert_eq!(payload.data["httpRealm"], "test".to_string());
         assert_eq!(payload.data["hostname"], "https://www.example.com");
         assert_eq!(payload.data["username"], "user");

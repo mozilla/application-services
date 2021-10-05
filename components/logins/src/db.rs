@@ -514,7 +514,7 @@ impl LoginDb {
         let guid = Guid::random();
         let now_ms = util::system_time_ms_i64(SystemTime::now());
 
-        let new_entry = self.fixup_and_check_for_dupes(&guid, entry, &encdec)?;
+        let new_entry = self.fixup_and_check_for_dupes(&guid, entry, encdec)?;
         let result = EncryptedLogin {
             record: RecordFields {
                 id: guid.to_string(),
@@ -524,7 +524,7 @@ impl LoginDb {
                 times_used: 1,
             },
             fields: new_entry.fields,
-            sec_fields: new_entry.sec_fields.encrypt(&encdec)?,
+            sec_fields: new_entry.sec_fields.encrypt(encdec)?,
         };
         let tx = self.unchecked_transaction()?;
         self.insert_new_login(&result)?;
@@ -545,14 +545,14 @@ impl LoginDb {
         // XXX - it's not clear that throwing here on a dupe is the correct thing to do - eg, a
         // user updated the username to one that already exists - the better thing to do is
         // probably just remove the dupe.
-        let entry = self.fixup_and_check_for_dupes(&guid, entry, &encdec)?;
+        let entry = self.fixup_and_check_for_dupes(&guid, entry, encdec)?;
 
         // Note: These fail with DuplicateGuid if the record doesn't exist.
         self.ensure_local_overlay_exists(&guid)?;
         self.mark_mirror_overridden(&guid)?;
 
         // We must read the existing record so we can correctly manage timePasswordChanged.
-        let existing = match self.get_by_id(&sguid)? {
+        let existing = match self.get_by_id(sguid)? {
             Some(e) => e,
             None => throw!(ErrorKind::NoSuchRecord(sguid.to_owned())),
         };
@@ -573,7 +573,7 @@ impl LoginDb {
                 times_used: existing.record.times_used + 1,
             },
             fields: entry.fields,
-            sec_fields: entry.sec_fields.encrypt(&encdec)?,
+            sec_fields: entry.sec_fields.encrypt(encdec)?,
         };
 
         self.update_existing_login(&result)?;
@@ -588,9 +588,9 @@ impl LoginDb {
     ) -> Result<EncryptedLogin> {
         // Make sure to fixup the entry first, in case that changes the username
         let entry = entry.fixup()?;
-        match self.find_login_to_update(entry.clone(), &encdec)? {
-            Some(login) => self.update(&login.record.id, entry, &encdec),
-            None => self.add(entry, &encdec),
+        match self.find_login_to_update(entry.clone(), encdec)? {
+            Some(login) => self.update(&login.record.id, entry, encdec),
+            None => self.add(entry, encdec),
         }
     }
 
@@ -890,7 +890,7 @@ pub mod test_utils {
     ) {
         if let Some(password) = mirror_login {
             add_mirror(
-                &db,
+                db,
                 &enc_login(guid, password),
                 &ServerTimestamp(util::system_time_ms_i64(std::time::SystemTime::now())),
                 local_login.is_some(),
@@ -944,7 +944,7 @@ pub mod test_utils {
 
                 :guid
             )";
-        let mut stmt = db.prepare_cached(&sql)?;
+        let mut stmt = db.prepare_cached(sql)?;
 
         stmt.execute_named(named_params! {
             ":is_overridden": is_overridden,

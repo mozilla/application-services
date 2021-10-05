@@ -3,10 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 52;
+	objectVersion = 51;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		1B9B8F00267439F800C8A918 /* places.udl in Sources */ = {isa = PBXBuildFile; fileRef = 1B9B8EFE267439CC00C8A918 /* places.udl */; };
 		1B9B8F0A26743B8800C8A918 /* placesFFI.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B9B8F0826743B8800C8A918 /* placesFFI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
@@ -62,7 +63,6 @@
 		BF1A87D025064AC000FED88E /* Sysctl.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CC25064AC000FED88E /* Sysctl.swift */; };
 		BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CD25064AC000FED88E /* Unreachable.swift */; };
 		BF1A87D325064B1100FED88E /* sdk_generator.sh in Resources */ = {isa = PBXBuildFile; fileRef = BF1A87D225064B1100FED88E /* sdk_generator.sh */; };
-		BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87D625064B4C00FED88E /* Metrics.swift */; };
 		C852EE9E220A283200A6E79A /* libsqlcipher.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EE9D220A283200A6E79A /* libsqlcipher.a */; };
 		C852EED6220A29FE00A6E79A /* LoginsStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C852EECD220A29FE00A6E79A /* LoginsStorage.swift */; };
 		C852EEEF220A2E9400A6E79A /* libmegazord_ios.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */; };
@@ -97,7 +97,6 @@
 		CEDDBC8E23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEDDBC8D23DB4CD600CFF5AA /* PersistedFirefoxAccount.swift */; };
 		CEFB1EB022EF708B0001E20F /* ResultError.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEFB1EAF22EF708B0001E20F /* ResultError.swift */; };
 		D05434A1225680D900FDE4EF /* MozillaAppServices.h in Headers */ = {isa = PBXBuildFile; fileRef = C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		D9FA8C542644A170008344BF /* HistoryMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9FA8C532644A170008344BF /* HistoryMetadata.swift */; };
 		EB7DE84D2214D30B00E7CF17 /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
 		EB879D7F221234EB00753DC9 /* MozillaAppServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE9D202020914D0D00F1C8FA /* MozillaAppServices.framework */; };
 		EB879D8B22123FD900753DC9 /* LoginsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB879D8A22123FD900753DC9 /* LoginsTests.swift */; };
@@ -160,11 +159,11 @@
 /* Begin PBXFileReference section */
 		1B9B8EFE267439CC00C8A918 /* places.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = places.udl; path = ../../src/places.udl; sourceTree = "<group>"; };
 		1B9B8F0726743B8800C8A918 /* places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = places.swift; path = ../../Generated/places.swift; sourceTree = "<group>"; };
-		1B9B8F0826743B8800C8A918 /* placesFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "placesFFI.h"; path = "../../Generated/placesFFI.h"; sourceTree = "<group>"; };
-		1BE78F44265322DB008B9A45 /* loginsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "loginsFFI.h"; sourceTree = "<group>"; };
+		1B9B8F0826743B8800C8A918 /* placesFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = placesFFI.h; path = ../../Generated/placesFFI.h; sourceTree = "<group>"; };
+		1BE78F44265322DB008B9A45 /* loginsFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = loginsFFI.h; sourceTree = "<group>"; };
 		1BE78F4826532325008B9A45 /* logins.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = logins.udl; path = ../../src/logins.udl; sourceTree = "<group>"; };
 		394A807325EE94C600FAF26F /* nimbus.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = nimbus.udl; path = ../../src/nimbus.udl; sourceTree = "<group>"; };
-		394A807625EE951D00FAF26F /* nimbusFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "nimbusFFI.h"; sourceTree = "<group>"; };
+		394A807625EE951D00FAF26F /* nimbusFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = nimbusFFI.h; sourceTree = "<group>"; };
 		394A807725EE951D00FAF26F /* nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = nimbus.swift; sourceTree = "<group>"; };
 		394A809725F94E1300FAF26F /* Nimbus.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Nimbus.swift; sourceTree = "<group>"; };
 		394D6C612600E64E008F9CE5 /* NimbusCreate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusCreate.swift; sourceTree = "<group>"; };
@@ -172,13 +171,13 @@
 		395992B725FBE40300E3185F /* NimbusApi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusApi.swift; sourceTree = "<group>"; };
 		398A4148264986E200AA22F1 /* FeatureVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureVariables.swift; sourceTree = "<group>"; };
 		39C13794264DAAB6003DC662 /* NimbusFeatureVariablesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NimbusFeatureVariablesTests.swift; sourceTree = "<group>"; };
-		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../../src/crashtest.udl; sourceTree = "<group>"; };
-		9908639F25F9D25A00032083 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "crashtestFFI.h"; sourceTree = "<group>"; };
+		9908639B25F9CC3600032083 /* crashtest.udl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = crashtest.udl; path = ../src/crashtest.udl; sourceTree = "<group>"; };
+		9908639F25F9D25A00032083 /* crashtestFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crashtestFFI.h; sourceTree = "<group>"; };
 		990863A025F9D25A00032083 /* crashtest.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = crashtest.swift; sourceTree = "<group>"; };
 		990863A325F9D48400032083 /* CrashTestTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CrashTestTests.swift; sourceTree = "<group>"; };
 		993D6D4E26B11E400075A820 /* SyncUnlockInfo.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SyncUnlockInfo.swift; sourceTree = "<group>"; };
 		99FAA19125E60D57001E2231 /* fxa_client.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = fxa_client.swift; sourceTree = "<group>"; };
-		99FAA19A25E61D5D001E2231 /* fxa_clientFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "fxa_clientFFI.h"; sourceTree = "<group>"; };
+		99FAA19A25E61D5D001E2231 /* fxa_clientFFI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fxa_clientFFI.h; sourceTree = "<group>"; };
 		99FAA19E25E65CA5001E2231 /* FxAccountOAuth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FxAccountOAuth.swift; sourceTree = "<group>"; };
 		BF1A878C25064A4C00FED88E /* Dispatchers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Dispatchers.swift; sourceTree = "<group>"; };
 		BF1A878D25064A4C00FED88E /* Glean.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Glean.swift; sourceTree = "<group>"; };
@@ -333,7 +332,7 @@
 				9908639B25F9CC3600032083 /* crashtest.udl */,
 			);
 			name = CrashTest;
-			path = ../../components/crashtest/ios/CrashTest;
+			path = ../../components/crashtest/ios;
 			sourceTree = "<group>";
 		};
 		9908639D25F9CC4700032083 /* Generated */ = {
@@ -342,8 +341,7 @@
 				990863A025F9D25A00032083 /* crashtest.swift */,
 				9908639F25F9D25A00032083 /* crashtestFFI.h */,
 			);
-			name = Generated;
-			path = ../Generated;
+			path = Generated;
 			sourceTree = "<group>";
 		};
 		993D6D4D26B11D9E0075A820 /* Sync15 */ = {
@@ -699,7 +697,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 1010;
-				LastUpgradeCheck = 1240;
+				LastUpgradeCheck = 1300;
 				ORGANIZATIONNAME = Mozilla;
 				TargetAttributes = {
 					CE9D201F20914D0D00F1C8FA = {
@@ -765,7 +763,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Generated/Metrics.swift",
+				"$(SRCROOT)/MozillaAppServices/Generated/Metrics.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -792,6 +790,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1B5371D926FADCA500CC3AC7 /* Metrics.swift in Sources */,
 				1B9B8F0B26743C8700C8A918 /* HistoryMetadata.swift in Sources */,
 				1BE78F4926532325008B9A45 /* logins.udl in Sources */,
 				9908639E25F9CC5F00032083 /* crashtest.udl in Sources */,
@@ -804,7 +803,6 @@
 				CE13F19B23F330DF005187A7 /* FxAccountMigration.swift in Sources */,
 				CE0A9AB424E4A2CC00914A16 /* fxa_client.udl in Sources */,
 				BF1A879525064A6600FED88E /* Configuration.swift in Sources */,
-				BF1A87D725064B4C00FED88E /* Metrics.swift in Sources */,
 				CDC0089F2236CAD100893800 /* places_msg_types.proto in Sources */,
 				BF1A87B025064A8100FED88E /* LabeledMetric.swift in Sources */,
 				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
@@ -891,6 +889,9 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBA8770721F5FB9A004F63F0 /* debug.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				VALIDATE_WORKSPACE = NO;
 			};
 			name = Debug;
 		};
@@ -898,6 +899,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = EBA8770821F5FB9A004F63F0 /* release.xcconfig */;
 			buildSettings = {
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_WORKSPACE = NO;
 			};
 			name = Release;
 		};
@@ -907,6 +912,7 @@
 				MACH_O_TYPE = mh_dylib;
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
+				VALIDATE_WORKSPACE = NO;
 			};
 			name = Debug;
 		};
@@ -916,6 +922,7 @@
 				MACH_O_TYPE = mh_dylib;
 				OTHER_LDFLAGS = "-lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = org.mozilla.MozillaAppServices;
+				VALIDATE_WORKSPACE = NO;
 			};
 			name = Release;
 		};

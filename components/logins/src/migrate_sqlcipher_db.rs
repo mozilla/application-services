@@ -205,9 +205,9 @@ fn migrate_from_sqlcipher_db(
     // encrypt the username/password data
     let encdec = EncryptorDecryptor::new(encryption_key)?;
 
-    let migration_plan: MigrationPlan = generate_plan_from_db(&cipher_conn, &encdec)?;
+    let migration_plan: MigrationPlan = generate_plan_from_db(cipher_conn, &encdec)?;
     let migration_metrics = insert_logins(&migration_plan, &new_db_store, &encdec)?;
-    let metadata_metrics = migrate_sync_metadata(&cipher_conn, &new_db_store)?;
+    let metadata_metrics = migrate_sync_metadata(cipher_conn, &new_db_store)?;
 
     Ok(migration_metrics + metadata_metrics)
 }
@@ -225,7 +225,7 @@ fn generate_plan_from_db(
         match get_login_from_row(row) {
             Ok(login) => {
                 let l_login = LocalLogin {
-                    login: login.encrypt(&encdec)?,
+                    login: login.encrypt(encdec)?,
                     local_modified: util::system_time_millis_from_row(row, "local_modified")
                         .unwrap_or_else(|_| SystemTime::now()),
                     is_deleted: row.get("is_deleted").unwrap_or_default(),
@@ -256,7 +256,7 @@ fn generate_plan_from_db(
         match get_login_from_row(row) {
             Ok(login) => {
                 let m_login = MirrorLogin {
-                    login: login.encrypt(&encdec)?,
+                    login: login.encrypt(encdec)?,
                     server_modified: ServerTimestamp(
                         row.get::<_, i64>("server_modified").unwrap_or_default(),
                     ),
@@ -280,7 +280,7 @@ fn generate_plan_from_db(
             }
         }
     }
-    migration_plan = apply_migration_fixups(migration_plan, &encdec)?;
+    migration_plan = apply_migration_fixups(migration_plan, encdec)?;
     Ok(migration_plan)
 }
 
@@ -300,7 +300,7 @@ fn apply_migration_fixups(
             (Some(local_login), Some(mirror_login)) => {
                 // We have both a local and mirror
                 // attempt to fixup local and override mirror
-                let dec_login = local_login.login.clone().decrypt(&encdec)?;
+                let dec_login = local_login.login.clone().decrypt(encdec)?;
                 match dec_login.entry().maybe_fixup() {
                     Ok(Some(new_entry)) => {
                         logins_to_override.insert(
@@ -343,7 +343,7 @@ fn apply_migration_fixups(
             }
             (Some(local_login), None) => {
                 // Only local
-                let dec_login = local_login.login.clone().decrypt(&encdec)?;
+                let dec_login = local_login.login.clone().decrypt(encdec)?;
                 match dec_login.entry().maybe_fixup() {
                     Ok(Some(new_entry)) => {
                         logins_to_override.insert(
@@ -397,7 +397,7 @@ fn apply_migration_fixups(
                         },
                     );
                 }
-                let dec_login = mirror_login.login.clone().decrypt(&encdec)?;
+                let dec_login = mirror_login.login.clone().decrypt(encdec)?;
                 // If we somehow ended up with a invalid mirror and no local, try to fixup and move into local
                 match dec_login.entry().maybe_fixup() {
                     Ok(Some(new_entry)) => {
@@ -475,11 +475,11 @@ fn insert_logins(
         };
         // // Migrate local login first
         if let Some(local_login) = &login.local_login {
-            match insert_local_login(&conn, &new_db, &encdec, &local_login) {
+            match insert_local_login(conn, &new_db, encdec, local_login) {
                 Ok(_) => {
                     if let Some(mirror_login) = &login.mirror_login {
                         // If successful, then migrate mirror also
-                        match insert_mirror_login(&conn, &mirror_login) {
+                        match insert_mirror_login(conn, mirror_login) {
                             Ok(_) => {}
                             Err(e) => {
                                 num_failed_insert += 1;
@@ -495,7 +495,7 @@ fn insert_logins(
                     // attempt to migrate it and flip the `is_overridden` to false
                     if let Some(mirror_login) = &login.mirror_login {
                         if let Err(err) = insert_mirror_login(
-                            &conn,
+                            conn,
                             &MirrorLogin {
                                 is_overridden: false,
                                 ..mirror_login.clone()
@@ -509,7 +509,7 @@ fn insert_logins(
             }
         // If we just have mirror, import as normal
         } else if let Some(mirror_login) = &login.mirror_login {
-            if let Err(err) = insert_mirror_login(&conn, &mirror_login) {
+            if let Err(err) = insert_mirror_login(conn, mirror_login) {
                 num_failed_insert += 1;
                 insert_errors.push(err.label().into());
             }
@@ -575,12 +575,12 @@ fn insert_local_login(
     let login = &local_login.login;
     let dec_login = &local_login.login.clone().decrypt(encdec)?;
 
-    if let Err(e) = new_db.check_for_dupes(&login.guid(), &dec_login.entry(), &encdec) {
+    if let Err(e) = new_db.check_for_dupes(&login.guid(), &dec_login.entry(), encdec) {
         log::warn!("Duplicate {} ({}).", login.record.id, e);
         return Ok(());
     };
     match conn.execute_named_cached(
-        &sql,
+        sql,
         named_params! {
             ":origin": login.fields.origin,
             ":http_realm": login.fields.http_realm,
@@ -642,7 +642,7 @@ fn insert_mirror_login(conn: &Connection, mirror_login: &MirrorLogin) -> Result<
     // As mirror syncs with the server, we should not attempt to apply fixups
     let login = &mirror_login.login;
     match conn.execute_named_cached(
-        &sql,
+        sql,
         named_params! {
             ":origin": login.fields.origin,
             ":http_realm": login.fields.http_realm,
@@ -726,7 +726,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
         let key: String = row.get("key")?;
         let value: String = row.get("value")?;
 
-        match conn.execute_named_cached(&sql, named_params! { ":key": &key, ":value": &value }) {
+        match conn.execute_named_cached(sql, named_params! { ":key": &key, ":value": &value }) {
             Ok(_) => log::info!("Imported {} successfully", key),
             Err(e) => {
                 log::warn!("Could not import {}.", key);
@@ -789,7 +789,7 @@ mod tests {
             ALTER TABLE loginsM RENAME origin TO hostname;
             ALTER TABLE loginsM RENAME formActionOrigin TO formSubmitURL;
         ";
-        tx.execute_batch(&RENAMES).unwrap();
+        tx.execute_batch(RENAMES).unwrap();
         tx.execute_batch(inserts).unwrap();
         tx.commit().unwrap();
     }
@@ -955,13 +955,10 @@ mod tests {
         assert_eq!(metrics.num_processed, 7);
         assert_eq!(metrics.num_succeeded, 5);
         assert_eq!(metrics.num_failed, 2);
-        assert_eq!(
-            metrics
-                .errors
-                .iter()
-                .any(|x| x == "Invalid login: Origin is empty"),
-            true
-        );
+        assert!(metrics
+            .errors
+            .iter()
+            .any(|x| x == "Invalid login: Origin is empty"));
     }
 
     #[test]
@@ -1069,7 +1066,7 @@ mod tests {
                 '', '', "corrupt_time_created", "corrupt_time_last_used", "corrupt_time_changes", "corrupt_times_used", "corrupt_is_overridden", 1000);
         "#;
         let testpaths = TestPaths::new();
-        create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
+        create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
         let _metrics = migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
@@ -1121,7 +1118,7 @@ mod tests {
                 '', '', 1000, 1000, 1, 10, 1, 1000);
         "#;
         let testpaths = TestPaths::new();
-        create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
+        create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
         let _metrics = migrate_sqlcipher_db_to_plaintext(
             testpaths.old_db.as_path(),
             testpaths.new_db.as_path(),
@@ -1292,7 +1289,7 @@ mod tests {
 
         assert_eq!(metrics.num_processed, 2);
         assert_eq!(metrics.num_succeeded, 2);
-        assert_eq!(metrics.total_duration > 0, true);
+        assert!(metrics.total_duration > 0);
     }
 
     #[test]
@@ -1366,7 +1363,7 @@ mod tests {
                 '', '', 1000, 1000, 1, 10, 1, 1000);
         "#;
         let testpaths = TestPaths::new();
-        create_old_db_with_test_data(testpaths.old_db.as_path(), None, &inserts);
+        create_old_db_with_test_data(testpaths.old_db.as_path(), None, inserts);
         migrate_logins(
             testpaths.new_db.as_path(),
             &TEST_ENCRYPTION_KEY,

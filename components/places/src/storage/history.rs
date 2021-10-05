@@ -142,7 +142,7 @@ pub fn apply_observation_direct(
     // This needs to happen after the other updates.
     if update_frec {
         update_frecency(
-            &db,
+            db,
             page_info.row_id,
             Some(visit_ob.get_redirect_frecency_boost()),
         )?;
@@ -453,7 +453,7 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     wipe_local_in_tx(db)?;
 
     // Remove Sync metadata, too.
-    reset_in_tx(&db, &EngineSyncAssociation::Disconnected)?;
+    reset_in_tx(db, &EngineSyncAssociation::Disconnected)?;
 
     tx.commit()?;
 
@@ -806,7 +806,7 @@ pub mod history_sync {
             .collect::<Vec<_>>();
 
         let mut counter_incr = 0;
-        let page_info = match fetch_page_info(db, &url)? {
+        let page_info = match fetch_page_info(db, url)? {
             Some(mut info) => {
                 // If the existing record has not yet been synced, then we will
                 // change the GUID to the incoming one. If it has been synced
@@ -833,7 +833,7 @@ pub mod history_sync {
                 if visits.is_empty() {
                     return Ok(());
                 }
-                new_page_info(db, &url, Some(incoming_guid.clone()))?
+                new_page_info(db, url, Some(incoming_guid.clone()))?
             }
         };
 
@@ -886,7 +886,7 @@ pub mod history_sync {
         }
         // XXX - we really need a better story for frecency-boost than
         // Option<bool> - None vs Some(false) is confusing. We should use an enum.
-        update_frecency(&db, page_info.row_id, None)?;
+        update_frecency(db, page_info.row_id, None)?;
 
         // and the place itself if necessary.
         let new_title = title.as_ref().unwrap_or(&page_info.title);
@@ -1161,7 +1161,7 @@ pub fn get_visited_into(
     result: &mut [bool],
 ) -> Result<()> {
     sql_support::each_chunk_mapped(
-        &urls_idxs,
+        urls_idxs,
         |(_, url)| url.as_str(),
         |chunk, offset| -> Result<()> {
             let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
@@ -1583,7 +1583,7 @@ mod tests {
         // this stage we don't "officially" support deletes, so this is TODO.
         let sql = "DELETE FROM moz_historyvisits WHERE id = :row_id";
         // Delete the latest local visit.
-        conn.execute_named_cached(&sql, &[(":row_id", &rid1)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid1)])?;
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
         assert_eq!(pi.page.visit_count_local, 1);
         assert_eq!(pi.page.last_visit_date_local, early_time.into());
@@ -1591,7 +1591,7 @@ mod tests {
         assert_eq!(pi.page.last_visit_date_remote, late_time.into());
 
         // Delete the earliest remote  visit.
-        conn.execute_named_cached(&sql, &[(":row_id", &rid3)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid3)])?;
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
         assert_eq!(pi.page.visit_count_local, 1);
         assert_eq!(pi.page.last_visit_date_local, early_time.into());
@@ -1599,8 +1599,8 @@ mod tests {
         assert_eq!(pi.page.last_visit_date_remote, late_time.into());
 
         // Delete all visits.
-        conn.execute_named_cached(&sql, &[(":row_id", &rid2)])?;
-        conn.execute_named_cached(&sql, &[(":row_id", &rid4)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid2)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid4)])?;
         // It may turn out that we also delete the place after deleting all
         // visits, but for now we don't - check the values are sane though.
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
@@ -1671,7 +1671,7 @@ mod tests {
 
         let urls = to_search
             .iter()
-            .map(|(url, _expect)| Url::parse(&url).unwrap())
+            .map(|(url, _expect)| Url::parse(url).unwrap())
             .collect::<Vec<_>>();
 
         let visited = get_visited(&conn, urls).unwrap();
@@ -1873,7 +1873,6 @@ mod tests {
     fn test_status_columns() -> Result<()> {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
-        let _ = env_logger::try_init();
         // A page with "normal" and a change counter.
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_change_counter, 1);
@@ -2188,7 +2187,6 @@ mod tests {
 
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
-        let _ = env_logger::try_init();
 
         // Add Sync metadata keys, to ensure they're reset.
         put_meta(&conn, GLOBAL_SYNCID_META_KEY, &"syncAAAAAAAA")?;

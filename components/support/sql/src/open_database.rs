@@ -406,7 +406,7 @@ mod test {
             .query_row("SELECT col FROM my_table", NO_PARAMS, |r| r.get(0))
             .unwrap();
         assert_eq!(value, "correct-value");
-        assert_eq!(get_schema_version(&conn).unwrap(), 4);
+        assert_eq!(get_schema_version(conn).unwrap(), 4);
     }
 
     #[test]

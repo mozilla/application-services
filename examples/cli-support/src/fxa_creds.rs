@@ -49,7 +49,7 @@ fn create_fxa_creds(path: &str, cfg: Config) -> Result<FirefoxAccount> {
     let mut acct = FirefoxAccount::with_config(cfg);
     let oauth_uri = acct.begin_oauth_flow(&[SYNC_SCOPE], "fxa_creds", None)?;
 
-    if webbrowser::open(&oauth_uri.as_ref()).is_err() {
+    if webbrowser::open(oauth_uri.as_ref()).is_err() {
         log::warn!("Failed to open a web browser D:");
         println!("Please visit this URL, sign in, and then copy-paste the final URL below.");
         println!("\n    {}\n", oauth_uri);

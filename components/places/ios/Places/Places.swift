@@ -545,6 +545,16 @@ public class PlacesReadConnection {
         }
     }
 
+    open func getHighlights(weights: HistoryHighlightWeights, limit: Int32) throws -> [HistoryHighlight] {
+        return try queue.sync {
+            try self.checkApi()
+            let result = try PlacesError.unwrapWithUniffi { _ in
+                try placesGetHistoryHighlights(handle: Int64(self.handle), weights: weights, limit: limit)
+            }
+            return result ?? []
+        }
+    }
+
     open func queryHistoryMetadata(query: String, limit: Int32) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
@@ -917,6 +927,20 @@ public class PlacesWriteConnection: PlacesReadConnection {
             try self.checkApi()
             try PlacesError.unwrapWithUniffi { _ in
                 try placesMetadataDeleteOlderThan(handle: Int64(self.handle), olderThan: olderThan)
+            }
+        }
+    }
+
+    open func deleteHistoryMetadata(key: HistoryMetadataKey) throws {
+        try queue.sync {
+            try self.checkApi()
+            try PlacesError.unwrapWithUniffi { _ in
+                try placesMetadataDelete(
+                    handle: Int64(self.handle),
+                    url: key.url,
+                    referrerUrl: key.referrerUrl,
+                    searchTerm: key.searchTerm
+                )
             }
         }
     }

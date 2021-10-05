@@ -111,22 +111,22 @@ impl LoginStore {
     }
 
     pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(&enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().unwrap().update(id, entry, &encdec)
     }
 
     pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(&enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().unwrap().add(entry, &encdec)
     }
 
     pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
-        let encdec = EncryptorDecryptor::new(&enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().unwrap().add_or_update(entry, &encdec)
     }
 
     pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
-        let encdec = EncryptorDecryptor::new(&enc_key)?;
+        let encdec = EncryptorDecryptor::new(enc_key)?;
         let metrics = self.db.lock().unwrap().import_multiple(logins, &encdec)?;
         Ok(serde_json::to_string(&metrics)?)
     }
@@ -141,7 +141,7 @@ impl LoginStore {
         self.db
             .lock()
             .unwrap()
-            .check_valid_with_no_dupes(&Guid::new(id), &entry, &encdec)
+            .check_valid_with_no_dupes(&Guid::new(id), entry, &encdec)
     }
 
     /// A convenience wrapper around sync_multiple.

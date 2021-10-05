@@ -89,7 +89,7 @@ pub fn assert_json_tree_with_depth(
     let deser_tree: BookmarkTreeNode = serde_json::from_value(expected).unwrap();
     assert_eq!(fetched, deser_tree);
     // and while checking the tree, check positions are correct.
-    check_positions(&conn);
+    check_positions(conn);
 }
 
 // check the positions for children in a folder are "correct" in that

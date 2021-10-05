@@ -16,7 +16,7 @@ serde_derive = "1"
 serde_json = "1"
 lazy_static = "1.4"
 log = "0.4"
-url = "2.1"
+url = "2.2"
 error-support = { path = "../support/error" }
 interrupt-support = { path = "../support/interrupt" }
 sync-guid = { path = "../support/guid", features = ["random"] }

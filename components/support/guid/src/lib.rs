@@ -252,7 +252,7 @@ const BASE64URL_BYTES: [u8; 256] = [
 
 impl Ord for Guid {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.as_bytes().cmp(&other.as_bytes())
+        self.as_bytes().cmp(other.as_bytes())
     }
 }
 

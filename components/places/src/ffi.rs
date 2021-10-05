@@ -6,7 +6,10 @@
 
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo};
 use crate::msg_types;
-use crate::storage::history_metadata::{DocumentType, HistoryMetadata, HistoryMetadataObservation};
+use crate::storage::history_metadata::{
+    DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
+    HistoryMetadataObservation,
+};
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -77,6 +80,22 @@ fn places_query_history_metadata(
         |conn| -> Result<_, ErrorWrapper> {
             let metadata = crate::storage::history_metadata::query(conn, query.as_str(), limit)?;
             Ok(metadata)
+        },
+    )
+}
+
+fn places_get_history_highlights(
+    handle: i64,
+    weights: HistoryHighlightWeights,
+    limit: i32,
+) -> Result<Vec<HistoryHighlight>, ErrorWrapper> {
+    log::debug!("places_get_history_highlights");
+    CONNECTIONS.get(
+        Handle::from_u64(handle as u64)?,
+        |conn| -> Result<_, ErrorWrapper> {
+            let highlights =
+                crate::storage::history_metadata::get_highlights(conn, weights, limit)?;
+            Ok(highlights)
         },
     )
 }

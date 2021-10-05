@@ -14,11 +14,8 @@ viaduct = { path = "../../components/viaduct" }
 viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
 nimbus-sdk = { path = "../../components/nimbus" }
 crashtest = { path = "../../components/crashtest" }
-
-# TODO: can't include fxa-client until we get NSS working on M1 simulator,
-# ref https://github.com/mozilla/application-services/issues/4352.
-#fxa-client = { path = "../../components/fxa-client" }
-# TODO: can't include logins until we get SQLCipher working on M1 simulator,
-# ref https://github.com/mozilla/application-services/issues/4352.
-# (or until we entirely get rid of SQLCipher)
-#logins = { path = "../../components/logins" }
+fxa-client = { path = "../../components/fxa-client" }
+logins = { path = "../../components/logins" }
+autofill = { path = "../../components/autofill" }
+push = { path = "../../components/push" }
+tabs = { path = "../../components/tabs" }

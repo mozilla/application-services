@@ -71,7 +71,7 @@ impl LoginsSyncEngine {
                         upstream,
                         upstream_time,
                         server_now,
-                        &encdec,
+                        encdec,
                     )?;
                     telem.reconciled(1);
                 }
@@ -144,7 +144,7 @@ impl LoginsSyncEngine {
         scope.err_if_interrupted()?;
 
         sql_support::each_chunk_mapped(
-            &records,
+            records,
             |r| r.0.id.as_str(),
             |chunk, offset| -> Result<()> {
                 // pairs the bound parameter for the guid with an integer index.
@@ -373,12 +373,12 @@ impl LoginsSyncEngine {
             .fields
             .form_action_origin
             .as_ref()
-            .and_then(|s| util::url_host_port(&s));
+            .and_then(|s| util::url_host_port(s));
         let encdec = self
             .encdec
             .as_ref()
             .expect("TODO: This should not be an Option!");
-        let enc_fields = l.decrypt_fields(&encdec)?;
+        let enc_fields = l.decrypt_fields(encdec)?;
         let args = named_params! {
             ":origin": l.fields.origin,
             ":http_realm": l.fields.http_realm,
@@ -425,7 +425,7 @@ impl SyncEngine for LoginsSyncEngine {
             Some(encdec) => encdec,
             None => throw!(ErrorKind::EncryptionKeyMissing),
         };
-        Ok(self.do_apply_incoming(inbound, telem, &self.scope, &encdec)?)
+        Ok(self.do_apply_incoming(inbound, telem, &self.scope, encdec)?)
     }
 
     fn sync_finished(

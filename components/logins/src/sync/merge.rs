@@ -115,7 +115,7 @@ pub(crate) struct SyncLoginData {
 impl SyncLoginData {
     #[inline]
     pub fn guid_str(&self) -> &str {
-        &self.guid.as_str()
+        self.guid.as_str()
     }
 
     #[inline]

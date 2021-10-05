@@ -456,10 +456,8 @@ open class Nimbus(
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
-            if (it.any()) {
-                recordExperimentTelemetry(it)
-                observer?.onUpdatesApplied(it)
-            }
+            recordExperimentTelemetry(it)
+            observer?.onUpdatesApplied(it)
         }
     }
 
@@ -618,6 +616,8 @@ open class Nimbus(
             locale = deviceInfo.localeTag,
             os = "Android",
             osVersion = Build.VERSION.RELEASE,
+            installationDate = packageInfo?.firstInstallTime,
+            homeDirectory = context.applicationInfo?.dataDir,
             customTargetingAttributes = appInfo.customTargetingAttributes)
     }
 }

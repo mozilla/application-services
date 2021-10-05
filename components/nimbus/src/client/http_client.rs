@@ -312,7 +312,6 @@ mod tests {
                 proposed_duration: None,
                 proposed_enrollment: 7,
                 reference_branch: Some("control".to_string()),
-                probe_sets: vec![],
                 feature_ids: vec!["first_switch".to_string()],
                 branches: vec![
                     Branch {
@@ -320,7 +319,6 @@ mod tests {
                         ratio: 1,
                         feature: Some(FeatureConfig {
                             feature_id: "first_switch".to_string(),
-                            enabled: false,
                             value: Default::default(),
                         }),
                         features: None,
@@ -330,7 +328,6 @@ mod tests {
                         ratio: 1,
                         feature: Some(FeatureConfig {
                             feature_id: "first_switch".to_string(),
-                            enabled: true,
                             value: Default::default(),
                         }),
                         features: None,

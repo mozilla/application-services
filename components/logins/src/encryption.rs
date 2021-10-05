@@ -62,7 +62,7 @@ impl EncryptorDecryptor {
 
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
         Ok(jwcrypto::decrypt_jwe(
-            &ciphertext,
+            ciphertext,
             jwcrypto::DecryptionParameters::Direct {
                 jwk: self.jwk.clone(),
             },
@@ -89,7 +89,7 @@ pub fn create_canary(text: &str, key: &str) -> Result<String> {
 }
 
 pub fn check_canary(canary: &str, text: &str, key: &str) -> Result<bool> {
-    Ok(EncryptorDecryptor::new(&key)?.decrypt(&canary)? == text)
+    Ok(EncryptorDecryptor::new(key)?.decrypt(canary)? == text)
 }
 
 pub fn create_key() -> Result<String> {

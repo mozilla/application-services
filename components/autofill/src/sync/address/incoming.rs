@@ -190,7 +190,7 @@ impl ProcessIncomingRecordImpl for IncomingAddressesImpl {
         };
 
         let result = tx.query_row_named(&sql, params, |row| {
-            Ok(Self::Record::from_row(&row).expect("wtf? '?' doesn't work :("))
+            Ok(Self::Record::from_row(row).expect("wtf? '?' doesn't work :("))
         });
 
         match result {

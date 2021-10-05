@@ -194,13 +194,13 @@ impl PlacesApi {
     }
 
     fn get_disk_persisted_state(&self, conn: &PlacesDb) -> Result<Option<String>> {
-        get_meta::<String>(&conn, GLOBAL_STATE_META_KEY)
+        get_meta::<String>(conn, GLOBAL_STATE_META_KEY)
     }
 
     fn set_disk_persisted_state(&self, conn: &PlacesDb, state: &Option<String>) -> Result<()> {
         match state {
-            Some(ref s) => put_meta(&conn, GLOBAL_STATE_META_KEY, s),
-            None => delete_meta(&conn, GLOBAL_STATE_META_KEY),
+            Some(ref s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
+            None => delete_meta(conn, GLOBAL_STATE_META_KEY),
         }
     }
 
@@ -216,7 +216,7 @@ impl PlacesApi {
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let engine = HistoryEngine::new(&conn, &interruptee);
+                let engine = HistoryEngine::new(conn, &interruptee);
                 sync_multiple(
                     &[&engine],
                     disk_cached_state,
@@ -239,7 +239,7 @@ impl PlacesApi {
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
                 let interruptee = conn.begin_interrupt_scope();
-                let engine = BookmarksEngine::new(&conn, &interruptee);
+                let engine = BookmarksEngine::new(conn, &interruptee);
                 sync_multiple(
                     &[&engine],
                     disk_cached_state,
@@ -443,6 +443,10 @@ pub mod test {
     static ATOMIC_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     pub fn new_mem_api() -> Arc<PlacesApi> {
+        // A bit hacky, but because this is a test-only function that almost all tests use,
+        // it's a convenient place to initialize logging for tests.
+        let _ = env_logger::try_init();
+
         let counter = ATOMIC_COUNTER.fetch_add(1, Ordering::Relaxed);
         PlacesApi::new_memory(&format!("test-api-{}", counter)).expect("should get an API")
     }

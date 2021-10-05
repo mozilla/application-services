@@ -272,7 +272,7 @@ mod tests {
         put_meta(&conn, "foo", &value2).expect("should put an existing value");
         assert_eq!(get_meta(&conn, "foo").expect("should get"), Some(value2));
         delete_meta(&conn, "foo").expect("should delete");
-        assert!(get_meta::<String>(&conn, &"foo")
+        assert!(get_meta::<String>(&conn, "foo")
             .expect("should get non-existing")
             .is_none());
         delete_meta(&conn, "foo").expect("delete non-existing should work");

@@ -180,8 +180,8 @@ impl Cryptography for Crypto {
         })?;
 
         match encoding.to_lowercase().as_str() {
-            "aesgcm" => Self::decrypt_aesgcm(&key, &d_body, d_salt, d_dh),
-            "aes128gcm" => Self::decrypt_aes128gcm(&key, &d_body),
+            "aesgcm" => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
+            "aes128gcm" => Self::decrypt_aes128gcm(key, &d_body),
             _ => Err(error::ErrorKind::CryptoError("Unknown Content Encoding".to_string()).into()),
         }
     }
@@ -220,7 +220,7 @@ impl Cryptography for Crypto {
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
-        ece::decrypt(key.key_pair(), key.auth_secret(), &content)
+        ece::decrypt(key.key_pair(), key.auth_secret(), content)
             .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
     }
 }

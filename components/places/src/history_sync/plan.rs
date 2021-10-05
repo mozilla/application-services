@@ -225,7 +225,7 @@ pub fn apply_plan(
             }
             IncomingPlan::Delete => {
                 log::trace!("incoming: deleting {:?}", guid);
-                apply_synced_deletion(&db, &guid)?;
+                apply_synced_deletion(db, &guid)?;
                 telem.applied(1);
             }
             IncomingPlan::Apply {
@@ -240,13 +240,13 @@ pub fn apply_plan(
                     new_title,
                     visits
                 );
-                apply_synced_visits(&db, &guid, &url, new_title, visits)?;
+                apply_synced_visits(db, &guid, url, new_title, visits)?;
                 telem.applied(1);
             }
             IncomingPlan::Reconciled => {
                 telem.reconciled(1);
                 log::trace!("incoming: reconciled {:?}", guid);
-                apply_synced_reconciliation(&db, &guid)?;
+                apply_synced_reconciliation(db, &guid)?;
             }
         };
         if tx.should_commit() {

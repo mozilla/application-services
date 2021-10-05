@@ -1,3 +1,69 @@
+# v85.3.0 (_2021-09-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.2.0...v85.3.0)
+
+## Nimbus
+
+### What's new
+
+- Nimbus can now target on `is_already_enrolled`. Which is true only if the user is already enrolled in experiment. ([#4490](https://github.com/mozilla/application-services/pull/4490))
+- Nimbus can now target on `days_since_install` and `days_since_update`. Which reflect the days since the user installed the application and the days since the user last updated the application. ([#4491](https://github.com/mozilla/application-services/pull/4491))
+- Android only: the observer method `onExperimentsApplied()` is now called every time `applyPendingExperiments()` is called. This is to bring it in line with iOS.
+
+# v85.2.0 (_2021-09-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.1.0...v85.2.0)
+
+## Places
+### What's New
+  - Added Swift bindings for the following History Metadata APIs: `getHighlights` and `deleteHistoryMetadata`.
+
+# v85.1.0 (_2021-09-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.0.0...v85.1.0)
+
+## General
+
+### What's Changed
+
+- Rust toolchain has been bumped to 1.55 and minimum version bumped to 1.53 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+
+- Xcode has been updated to version 13
+  - application-services noq uses the new build system by default
+
+## Nimbus
+
+### What's Changed
+
+- 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.
+
+
+# v85.0.0 (_2021-09-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...v85.0.0)
+
+## Places, Autofill, Webext-Storage
+
+### What's Changed
+
+- Databases which are detected as being corrupt as they are opened will be deleted and re-created.
+
+## Nimbus
+
+### What's New
+
+- [#4455][1]: For both iOS and Android: extra methods on `Variables` to support orderable items:
+  - `getEnum` to coerce strings into Enums.
+  - `get*List`, `get*Map` to get lists and maps of all types.
+  - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
+- Nimbus now supports multiple features on each branch. This was added with backward compatibility to ensure support for both schemas. ([#4452](https://github.com/mozilla/application-services/pull/4452))
+### ⚠️ Breaking Changes ⚠️
+
+- [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
+  from `(Variables) -> T` to `(Variables) -> T?`.
+
+[1]: https://github.com/mozilla/application-services/pull/4455
+
 # v84.0.0 (_2021-09-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v83.0.0...v84.0.0)

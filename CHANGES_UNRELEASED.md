@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.3.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -19,24 +19,13 @@ Use the template below to make assigning a version number during the release cut
 
 -->
 
-## Places, Autofill, Webext-Storage
+## Sync
 
 ### What's Changed
 
-- Databases which are detected as being corrupt as they are opened will be deleted and re-created.
+- Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
+  it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
 
 ## Nimbus
-
-### What's New
-
-- [#4455][1]: For both iOS and Android: extra methods on `Variables` to support orderable items:
-  - `getEnum` to coerce strings into Enums.
-  - `get*List`, `get*Map` to get lists and maps of all types.
-  - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
-- Nimbus now supports multiple features on each branch. This was added with backward compatibility to ensure support for both schemas. ([#4452](https://github.com/mozilla/application-services/pull/4452))
-### ⚠️ Breaking Changes ⚠️
-
-- [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
-  from `(Variables) -> T` to `(Variables) -> T?`.
-
-[1]: https://github.com/mozilla/application-services/pull/4455
+### What's changed
+- The DTO changed to remove the `probeSets` and `enabled` fields that were previously unused. ([#4482](https://github.com/mozilla/application-services/pull/4482))

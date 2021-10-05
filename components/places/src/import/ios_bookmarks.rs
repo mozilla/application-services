@@ -133,7 +133,7 @@ fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Resu
     // could turn use `PRAGMA defer_foreign_keys = true`, but since we commit
     // everything in one go, that seems harder to debug.
     log::debug!("Populating mirror structure");
-    conn.execute_batch(&POPULATE_MIRROR_STRUCTURE)?;
+    conn.execute_batch(POPULATE_MIRROR_STRUCTURE)?;
     scope.err_if_interrupted()?;
 
     // log::debug!("Detaching iOS database");

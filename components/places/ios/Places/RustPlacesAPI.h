@@ -226,6 +226,10 @@ PlacesRustBuffer places_get_history_metadata_since(
                                                    int64_t since,
                                                    PlacesRustError *_Nonnull out_err);
 
+PlacesRustBuffer places_get_history_highlights(
+                                                   PlacesConnectionHandle handle,
+                                                   int32_t limit,
+                                                   PlacesRustError *_Nonnull out_err);
 
 PlacesRustBuffer places_query_history_metadata(
                                                PlacesConnectionHandle handle,
@@ -242,4 +246,11 @@ void places_note_history_metadata_observation(
 void places_metadata_delete_older_than(
                                        PlacesConnectionHandle handle,
                                        int64_t olderThan,
+                                       PlacesRustError *_Nonnull out_err);
+
+void places_metadata_delete(
+                                       PlacesConnectionHandle handle,
+                                       char const *_Nonnull url,
+                                       char const *_Nonnull referrer_url,
+                                       char const *_Nonnull search_term,
                                        PlacesRustError *_Nonnull out_err);

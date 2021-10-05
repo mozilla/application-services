@@ -299,7 +299,7 @@ impl LoginFields {
     /// a string.
     fn validate_and_fixup_origin(origin: &str) -> Result<Option<String>> {
         // Check we can parse the origin, then use the normalized version of it.
-        match Url::parse(&origin) {
+        match Url::parse(origin) {
             Ok(mut u) => {
                 // Presumably this is a faster path than always setting?
                 if u.path() != "/"
@@ -647,7 +647,7 @@ impl ValidateAndFixup for LoginFields {
                             .form_action_origin = Some("".into());
                     }
                 } else if !href.is_empty() && href != "javascript:" {
-                    if let Some(fixed) = Self::validate_and_fixup_origin(&href)? {
+                    if let Some(fixed) = Self::validate_and_fixup_origin(href)? {
                         get_fixed_or_throw!(InvalidLogin::IllegalFieldValue {
                             field_info: "form_action_origin is not normalized".into()
                         })?

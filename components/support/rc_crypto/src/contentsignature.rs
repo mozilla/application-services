@@ -58,7 +58,7 @@ fn split_pem(pem_content: &[u8]) -> Result<Vec<Vec<u8>>> {
             blocks.push(decoded);
             block.clear();
         } else if read {
-            block.extend_from_slice(&line.as_bytes());
+            block.extend_from_slice(line.as_bytes());
         }
     }
     if read {
@@ -86,14 +86,14 @@ pub fn verify(
     root_sha256_hash: &str,
     hostname: &str,
 ) -> Result<()> {
-    let certificates = split_pem(&pem_bytes)?;
+    let certificates = split_pem(pem_bytes)?;
 
     let mut certificates_slices: Vec<&[u8]> = vec![];
     for certificate in &certificates {
         certificates_slices.push(certificate);
     }
 
-    let root_hash_bytes = decode_root_hash(&root_sha256_hash)?;
+    let root_hash_bytes = decode_root_hash(root_sha256_hash)?;
 
     nss::pkixc::verify_code_signing_certificate_chain(
         certificates_slices,
@@ -110,7 +110,7 @@ pub fn verify(
 
     let leaf_cert = certificates.first().unwrap(); // PEM parse fails if len == 0.
 
-    let public_key_bytes = match nss::cert::extract_ec_public_key(&leaf_cert) {
+    let public_key_bytes = match nss::cert::extract_ec_public_key(leaf_cert) {
         Ok(bytes) => bytes,
         Err(err) => return Err(ErrorKind::CertificateContentError(err.to_string()).into()),
     };
@@ -143,7 +143,7 @@ pub fn verify(
     let public_key = signature::UnparsedPublicKey::new(signature_alg, &public_key_bytes);
     // Note that if the provided key type or curve is incorrect here, the signature will
     // be considered as invalid.
-    match public_key.verify(&input, &signature_bytes) {
+    match public_key.verify(input, &signature_bytes) {
         Ok(_) => Ok(()),
         Err(err) => Err(ErrorKind::SignatureMismatchError(err.to_string()).into()),
     }
