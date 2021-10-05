@@ -28,10 +28,19 @@ use sync_guid::Guid;
 pub struct LoginsSyncEngine {
     pub store: Arc<LoginStore>,
     pub scope: sql_support::SqlInterruptScope,
+    // It's unfortunate this is an Option<>, but tricky to change because sometimes we construct
+    // an engine for, say, a `reset()` where this isn't needed or known.
     encdec: Option<EncryptorDecryptor>,
 }
 
 impl LoginsSyncEngine {
+    fn encdec(&self) -> Result<&EncryptorDecryptor> {
+        Ok(match &self.encdec {
+            Some(encdec) => encdec,
+            None => throw!(ErrorKind::EncryptionKeyMissing),
+        })
+    }
+
     pub fn new(store: Arc<LoginStore>) -> Self {
         let scope = store.db.lock().unwrap().begin_interrupt_scope();
         Self {
@@ -49,7 +58,7 @@ impl LoginsSyncEngine {
         scope: &SqlInterruptScope,
     ) -> Result<UpdatePlan> {
         let mut plan = UpdatePlan::default();
-        let encdec = self.encdec.as_ref().expect("TODO: should not be option");
+        let encdec = self.encdec()?;
 
         for mut record in records {
             scope.err_if_interrupted()?;
@@ -123,14 +132,13 @@ impl LoginsSyncEngine {
         records: &[(sync15::Payload, ServerTimestamp)],
         telem: &mut telemetry::EngineIncoming,
         scope: &SqlInterruptScope,
-        encdec: &EncryptorDecryptor,
     ) -> Result<Vec<SyncLoginData>> {
         let mut sync_data = Vec::with_capacity(records.len());
         {
             let mut seen_ids: HashSet<Guid> = HashSet::with_capacity(records.len());
             for incoming in records.iter() {
                 seen_ids.insert(incoming.0.id.clone());
-                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, encdec) {
+                match SyncLoginData::from_payload(incoming.0.clone(), incoming.1, self.encdec()?) {
                     Ok(v) => sync_data.push(v),
                     Err(e) => {
                         log::error!("Failed to deserialize record {:?}: {}", incoming.0.id, e);
@@ -215,7 +223,6 @@ impl LoginsSyncEngine {
         &self,
         st: ServerTimestamp,
         scope: &SqlInterruptScope,
-        encdec: &EncryptorDecryptor,
     ) -> Result<OutgoingChangeset> {
         // Taken from iOS. Arbitrarily large, so that clients that want to
         // process deletions first can; for us it doesn't matter.
@@ -234,7 +241,7 @@ impl LoginsSyncEngine {
                     .with_sortindex(TOMBSTONE_SORTINDEX)
             } else {
                 EncryptedLogin::from_row(row)?
-                    .into_payload(encdec)?
+                    .into_payload(self.encdec()?)?
                     .with_sortindex(DEFAULT_SORTINDEX)
             })
         })?;
@@ -248,18 +255,16 @@ impl LoginsSyncEngine {
         inbound: IncomingChangeset,
         telem: &mut telemetry::Engine,
         scope: &SqlInterruptScope,
-        encdec: &EncryptorDecryptor,
     ) -> Result<OutgoingChangeset> {
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let data =
-            self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope, encdec)?;
+        let data = self.fetch_login_data(&inbound.changes, &mut incoming_telemetry, scope)?;
         let plan = {
             let result = self.reconcile(data, inbound.timestamp, &mut incoming_telemetry, scope);
             telem.incoming(incoming_telemetry);
             result
         }?;
         self.execute_plan(plan, scope)?;
-        self.fetch_outgoing(inbound.timestamp, scope, encdec)
+        self.fetch_outgoing(inbound.timestamp, scope)
     }
 
     fn set_last_sync(&self, db: &LoginDb, last_sync: ServerTimestamp) -> Result<()> {
@@ -374,23 +379,18 @@ impl LoginsSyncEngine {
             .form_action_origin
             .as_ref()
             .and_then(|s| util::url_host_port(s));
-        let encdec = self
-            .encdec
-            .as_ref()
-            .expect("TODO: This should not be an Option!");
+        let encdec = self.encdec()?;
         let enc_fields = l.decrypt_fields(encdec)?;
         let args = named_params! {
             ":origin": l.fields.origin,
             ":http_realm": l.fields.http_realm,
-            ":username": enc_fields.username,
             ":form_submit": form_submit_host_port,
         };
         let mut query = format!(
             "SELECT {common}
              FROM loginsL
              WHERE origin IS :origin
-               AND httpRealm IS :http_realm
-               AND username IS :username",
+               AND httpRealm IS :http_realm",
             common = schema::COMMON_COLS,
         );
         if form_submit_host_port.is_some() {
@@ -400,7 +400,17 @@ impl LoginsSyncEngine {
             query += " AND formActionOrigin IS :form_submit"
         }
         let db = self.store.db.lock().unwrap();
-        db.try_query_row(&query, args, |row| EncryptedLogin::from_row(row), false)
+        let mut stmt = db.prepare_cached(&query)?;
+        for login in stmt
+            .query_and_then_named(args, EncryptedLogin::from_row)?
+            .collect::<Result<Vec<EncryptedLogin>>>()?
+        {
+            let this_enc_fields = login.decrypt_fields(encdec)?;
+            if enc_fields.username == this_enc_fields.username {
+                return Ok(Some(login));
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -421,11 +431,7 @@ impl SyncEngine for LoginsSyncEngine {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "logins only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
-        let encdec = match &self.encdec {
-            Some(encdec) => encdec,
-            None => throw!(ErrorKind::EncryptionKeyMissing),
-        };
-        Ok(self.do_apply_incoming(inbound, telem, &self.scope, encdec)?)
+        Ok(self.do_apply_incoming(inbound, telem, &self.scope)?)
     }
 
     fn sync_finished(
@@ -481,8 +487,9 @@ impl SyncEngine for LoginsSyncEngine {
 mod tests {
     use super::*;
     use crate::db::test_utils::insert_login;
-    use crate::encryption::test_utils::TEST_ENCRYPTOR;
+    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
     use crate::login::test_utils::enc_login;
+    use crate::{LoginEntry, LoginFields, RecordFields, SecureLoginFields};
     use std::collections::HashMap;
     use std::sync::Arc;
 
@@ -491,24 +498,26 @@ mod tests {
         store: LoginStore,
         records: &[(sync15::Payload, ServerTimestamp)],
     ) -> (Vec<SyncLoginData>, telemetry::EngineIncoming) {
-        let engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        engine
+            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .unwrap();
         let mut telem = sync15::telemetry::EngineIncoming::new();
         (
             engine
-                .fetch_login_data(records, &mut telem, &engine.scope, &TEST_ENCRYPTOR)
+                .fetch_login_data(records, &mut telem, &engine.scope)
                 .unwrap(),
             telem,
         )
     }
 
     fn run_fetch_outgoing(store: LoginStore) -> OutgoingChangeset {
-        let engine = LoginsSyncEngine::new(Arc::new(store));
+        let mut engine = LoginsSyncEngine::new(Arc::new(store));
         engine
-            .fetch_outgoing(
-                sync15::ServerTimestamp(10000),
-                &engine.scope,
-                &TEST_ENCRYPTOR,
-            )
+            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .unwrap();
+        engine
+            .fetch_outgoing(sync15::ServerTimestamp(10000), &engine.scope)
             .unwrap()
     }
 
@@ -709,5 +718,153 @@ mod tests {
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].guid, "dummy_000001");
         assert_eq!(res[1].guid, "dummy_000003");
+    }
+
+    fn make_enc_login(
+        username: &str,
+        password: &str,
+        fao: Option<String>,
+        realm: Option<String>,
+    ) -> EncryptedLogin {
+        EncryptedLogin {
+            record: RecordFields {
+                id: Guid::random().to_string(),
+                ..Default::default()
+            },
+            fields: LoginFields {
+                form_action_origin: fao,
+                http_realm: realm,
+                origin: "http://not-relevant-here.com".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: username.into(),
+                password: password.into(),
+            }
+            .encrypt(&TEST_ENCRYPTOR)
+            .unwrap(),
+        }
+    }
+
+    #[test]
+    fn find_dupe_login() {
+        let store = LoginStore::new_in_memory().unwrap();
+
+        let to_add = LoginEntry {
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example.com".into()),
+                origin: "http://not-relevant-here.com".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test".into(),
+                password: "test".into(),
+            },
+        };
+        let first_id = store
+            .add(to_add, &TEST_ENCRYPTION_KEY)
+            .expect("should insert first")
+            .record
+            .id;
+
+        let to_add = LoginEntry {
+            fields: LoginFields {
+                form_action_origin: Some("https://www.example1.com".into()),
+                origin: "http://not-relevant-here.com".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test1".into(),
+                password: "test1".into(),
+            },
+        };
+        let second_id = store
+            .add(to_add, &TEST_ENCRYPTION_KEY)
+            .expect("should insert second")
+            .record
+            .id;
+
+        let to_add = LoginEntry {
+            fields: LoginFields {
+                http_realm: Some("http://some-realm.com".into()),
+                origin: "http://not-relevant-here.com".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "test1".into(),
+                password: "test1".into(),
+            },
+        };
+        let no_form_origin_id = store
+            .add(to_add, &TEST_ENCRYPTION_KEY)
+            .expect("should insert second")
+            .record
+            .id;
+
+        let mut engine = LoginsSyncEngine::new(Arc::new(store));
+        engine
+            .set_local_encryption_key(&TEST_ENCRYPTION_KEY)
+            .unwrap();
+
+        let to_find = make_enc_login("test", "test", Some("https://www.example.com".into()), None);
+        assert_eq!(
+            engine
+                .find_dupe_login(&to_find)
+                .expect("should work")
+                .expect("should be Some()")
+                .record
+                .id,
+            first_id
+        );
+
+        let to_find = make_enc_login(
+            "test",
+            "test",
+            Some("https://something-else.com".into()),
+            None,
+        );
+        assert!(engine
+            .find_dupe_login(&to_find)
+            .expect("should work")
+            .is_none());
+
+        let to_find = make_enc_login(
+            "test1",
+            "test1",
+            Some("https://www.example1.com".into()),
+            None,
+        );
+        assert_eq!(
+            engine
+                .find_dupe_login(&to_find)
+                .expect("should work")
+                .expect("should be Some()")
+                .record
+                .id,
+            second_id
+        );
+
+        let to_find = make_enc_login(
+            "other",
+            "other",
+            Some("https://www.example1.com".into()),
+            None,
+        );
+        assert!(engine
+            .find_dupe_login(&to_find)
+            .expect("should work")
+            .is_none());
+
+        // no form origin.
+        let to_find = make_enc_login("test1", "test1", None, Some("http://some-realm.com".into()));
+        assert_eq!(
+            engine
+                .find_dupe_login(&to_find)
+                .expect("should work")
+                .expect("should be Some()")
+                .record
+                .id,
+            no_form_origin_id
+        );
     }
 }
