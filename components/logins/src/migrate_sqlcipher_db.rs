@@ -13,7 +13,7 @@ use crate::ValidateAndFixup;
 use crate::{
     EncryptedLogin, Login, LoginDb, LoginFields, LoginStore, RecordFields, SecureLoginFields,
 };
-use rusqlite::{named_params, Connection, Row, NO_PARAMS};
+use rusqlite::{named_params, types::Value, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use std::collections::HashMap;
 use std::fs::remove_file;
@@ -712,7 +712,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
     let conn = new_db.conn();
     let import_start = Instant::now();
 
-    let mut select_stmt = cipher_conn.prepare("SELECT * FROM loginsSyncMeta")?;
+    let mut select_stmt = cipher_conn.prepare("SELECT key, value FROM loginsSyncMeta")?;
     let mut rows = select_stmt.query(NO_PARAMS)?;
 
     let sql = "INSERT INTO loginsSyncMeta (key, value) VALUES (:key, :value)";
@@ -724,7 +724,7 @@ fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result
     while let Some(row) = rows.next()? {
         num_processed += 1;
         let key: String = row.get("key")?;
-        let value: String = row.get("value")?;
+        let value: Value = row.get("value")?;
 
         match conn.execute_named_cached(sql, named_params! { ":key": &key, ":value": &value }) {
             Ok(_) => log::info!("Imported {} successfully", key),
@@ -821,7 +821,10 @@ mod tests {
                 '', '', 1000, 1000, 1, 10, 1, 1000);
 
             -- Need to test migrating sync meta else we'll be resyncing everything
-            INSERT INTO loginsSyncMeta (key, value) VALUES ("last_sync", "some_payload_data");
+            INSERT INTO loginsSyncMeta (key, value)
+                VALUES
+                ("password_sync_id", "test-sync-id"),
+                ("last_sync_time", 1234);
         "#;
         create_old_db_with_test_data(db_path, salt, INSERTS);
     }
@@ -923,12 +926,16 @@ mod tests {
         assert_eq!(row.get_raw("server_modified").as_i64().unwrap(), 1000);
 
         // Ensure loginsSyncMeta migrated correctly
-        let mut stmt = db.prepare("SELECT * FROM loginsSyncMeta").unwrap();
-        let mut rows = stmt.query(NO_PARAMS).unwrap();
-        let row = rows.next().unwrap().unwrap();
-
-        assert_eq!(row.get_raw("key").as_str().unwrap(), "last_sync");
-        assert_eq!(row.get_raw("value").as_str().unwrap(), "some_payload_data");
+        assert_eq!(
+            db.query_one::<String>("SELECT value FROM loginsSyncMeta WHERE key='password_sync_id'")
+                .unwrap(),
+            "test-sync-id"
+        );
+        assert_eq!(
+            db.query_one::<i32>("SELECT value FROM loginsSyncMeta WHERE key='last_sync_time'")
+                .unwrap(),
+            1234
+        );
 
         // The schema version should reset to 1 after the migration
         assert_eq!(db.query_one::<i64>("PRAGMA user_version").unwrap(), 1);
@@ -952,8 +959,8 @@ mod tests {
         check_migrated_data(&db);
 
         // Check migration numbers
-        assert_eq!(metrics.num_processed, 7);
-        assert_eq!(metrics.num_succeeded, 5);
+        assert_eq!(metrics.num_processed, 8);
+        assert_eq!(metrics.num_succeeded, 6);
         assert_eq!(metrics.num_failed, 2);
         assert!(metrics
             .errors
@@ -995,8 +1002,8 @@ mod tests {
         );
 
         // Check metrics
-        assert_eq!(metrics.num_processed, 7);
-        assert_eq!(metrics.num_succeeded, 5);
+        assert_eq!(metrics.num_processed, 8);
+        assert_eq!(metrics.num_succeeded, 6);
         assert_eq!(metrics.num_failed, 2);
         assert_eq!(metrics.errors.len(), 2);
     }
