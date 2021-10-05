@@ -146,7 +146,7 @@ impl ExperimentEnrollment {
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
-            EnrollmentStatus::NotEnrolled { .. } => {
+            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
                     self.clone()
                 } else {
@@ -244,7 +244,7 @@ impl ExperimentEnrollment {
                     self.clone()
                 }
             }
-            EnrollmentStatus::WasEnrolled { .. } | EnrollmentStatus::Error { .. } => self.clone(), // Cannot recover from errors!
+            EnrollmentStatus::WasEnrolled { .. } => self.clone(),
         })
     }
 
@@ -2838,6 +2838,7 @@ mod tests {
                 reason: "heh".to_owned(),
             },
         };
+        // We should attempt to enroll even though we errored out!
         let enrollment = evolver
             .evolve_enrollment(
                 true,
@@ -2847,8 +2848,11 @@ mod tests {
                 &mut events,
             )?
             .unwrap();
-        assert_eq!(enrollment, existing_enrollment);
-        assert!(events.is_empty());
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled { .. }
+        ));
+        assert_eq!(events.len(), 1);
         Ok(())
     }
 
