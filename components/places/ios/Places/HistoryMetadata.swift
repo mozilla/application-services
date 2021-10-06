@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+#if canImport(MozillaRustComponents)
+    import MozillaRustComponents
+#endif
 
 /**
  Represents a set of properties which uniquely identify a history metadata. In database terms this is a compound key.

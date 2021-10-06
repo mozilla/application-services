@@ -1427,6 +1427,8 @@ dependencies = [
  "fxa-client",
  "logins",
  "nimbus-sdk",
+ "places",
+ "places-ffi",
  "push",
  "rc_log_ffi",
  "tabs",
