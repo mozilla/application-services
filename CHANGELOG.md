@@ -1,3 +1,12 @@
+# v85.4.1 (_2021-10-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.0...v85.4.1)
+
+## Logins
+
+- Metrics for the logins sqlcipher migration are included to help "bootstrap"
+  the metrics ready for the migration.
+
 # v85.4.0 (_2021-10-05_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.3.0...v85.4.0)
