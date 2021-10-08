@@ -17,7 +17,6 @@ use crate::{
 use rusqlite::{named_params, types::Value, Connection, Row, NO_PARAMS};
 use sql_support::ConnExt;
 use std::collections::HashMap;
-use std::fs::remove_file;
 use std::ops::Add;
 use std::path::Path;
 use std::time::{Instant, SystemTime};
@@ -84,30 +83,6 @@ impl Add for MigrationPhaseMetrics {
 
 // migration for consumers to migrate from their SQLCipher DB
 pub fn migrate_logins(
-    path: impl AsRef<Path>,
-    new_encryption_key: &str,
-    sqlcipher_path: impl AsRef<Path>,
-    sqlcipher_key: &str,
-    // The salt arg is for iOS where the salt is stored externally.
-    salt: Option<String>,
-) -> Result<String> {
-    let sqlcipher_path = sqlcipher_path.as_ref();
-    let result = do_migrate_logins(
-        path,
-        new_encryption_key,
-        sqlcipher_path,
-        sqlcipher_key,
-        salt,
-    );
-    // Regardless of success or failure we remove the file.
-    if let Err(e) = remove_file(sqlcipher_path) {
-        log::warn!("Failed to remove sqlcipher database after migration: {}", e);
-        log::info!("The migration result was: {:?}", result);
-    }
-    result
-}
-
-fn do_migrate_logins(
     path: impl AsRef<Path>,
     new_encryption_key: &str,
     sqlcipher_path: impl AsRef<Path>,
@@ -1357,8 +1332,6 @@ mod tests {
             .kind(),
             ErrorKind::MigrationError(_)
         ));
-        // we unconditionally delete the sqlcipher database.
-        assert!(!testpaths.old_db.as_path().exists());
     }
 
     #[test]
@@ -1403,8 +1376,6 @@ mod tests {
             db.query_one::<i32>("SELECT COUNT(*) FROM loginsL").unwrap(),
             2
         );
-        // we unconditionally delete the sqlcipher database.
-        assert!(!testpaths.old_db.as_path().exists());
     }
 
     #[test]
