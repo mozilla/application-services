@@ -10,6 +10,9 @@ import UIKit
 #if canImport(MozillaRustComponents)
     import MozillaRustComponents
 #endif
+#if canImport(Glean)
+    @_exported import Glean
+#endif
 
 typealias LoginsStoreError = LoginsStorageError
 
@@ -73,26 +76,6 @@ open class LoginsStorage {
         }
     }
 
-    open func migrateLogins(
-        newDbPath: String,
-        newDbEncKey: String,
-        sqlCipherDbPath: String,
-        sqlCipherEncKey: String,
-        sqlCipherSalt: String
-    ) throws -> String {
-        return try queue.sync {
-            // last param is the "salt" which is only used on iOS.
-
-            return try self.migrateLogins(
-                newDbPath: newDbPath,
-                newDbEncKey: newDbEncKey,
-                sqlCipherDbPath: sqlCipherDbPath,
-                sqlCipherEncKey: sqlCipherEncKey,
-                sqlCipherSalt: sqlCipherSalt
-            )
-        }
-    }
-
     /// Update `login` in the database. If `login.id` does not refer to a known
     /// login, then this throws `LoginStoreError.NoSuchRecord`.
     open func update(id: String, login: LoginEntry, encryptionKey: String) throws -> EncryptedLogin {
@@ -139,6 +122,64 @@ open class LoginsStorage {
                     tokenserverUrl: unlockInfo.tokenserverURL,
                     localEncryptionKey: unlockInfo.loginEncryptionKey
                 )
+        }
+    }
+}
+
+public func migrateLoginsWithMetrics(
+    path: String,
+    newEncryptionKey: String,
+    sqlcipherPath: String,
+    sqlcipherKey: String,
+    salt: String
+) -> Bool {
+    var didMigrationSucceed = false
+
+    do {
+        let metrics = try migrateLogins(
+            path: path,
+            newEncryptionKey: newEncryptionKey,
+            sqlcipherPath: sqlcipherPath,
+            sqlcipherKey: sqlcipherKey,
+            salt: salt
+        )
+        didMigrationSucceed = true
+
+        recordMigrationMetrics(jsonString: metrics)
+    } catch let err as NSError {
+        GleanMetrics.LoginsStoreMigration.errors.add(err.localizedDescription)
+    }
+    return didMigrationSucceed
+}
+
+func recordMigrationMetrics(jsonString: String) {
+    guard
+        let data = jsonString.data(using: .utf8),
+        let json = try? JSONSerialization.jsonObject(with: data, options: []),
+        let metrics = json as? [String: Any]
+    else {
+        return
+    }
+
+    if let processed = metrics["num_processed"] as? Int32 {
+        GleanMetrics.LoginsStoreMigration.numProcessed.add(processed)
+    }
+
+    if let succeeded = metrics["num_succeeded"] as? Int32 {
+        GleanMetrics.LoginsStoreMigration.numSucceeded.add(succeeded)
+    }
+
+    if let failed = metrics["num_failed"] as? Int32 {
+        GleanMetrics.LoginsStoreMigration.numFailed.add(failed)
+    }
+
+    if let duration = metrics["total_duration"] as? UInt64 {
+        GleanMetrics.LoginsStoreMigration.totalDuration.setRawNanos(duration * 1_000_000)
+    }
+
+    if let errors = metrics["errors"] as? [String] {
+        for error in errors {
+            GleanMetrics.LoginsStoreMigration.errors.add(error)
         }
     }
 }

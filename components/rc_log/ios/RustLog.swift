@@ -225,7 +225,7 @@ private class RustLogState {
     }
 
     func disable() {
-        guard let adapter = self.adapter else {
+        guard let adapter = adapter else {
             return
         }
         self.adapter = nil
