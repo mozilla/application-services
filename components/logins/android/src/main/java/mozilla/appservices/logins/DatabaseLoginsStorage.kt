@@ -82,6 +82,13 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
+    fun findLoginToUpdate(look: LoginEntry, encryptionKey: String): Login? {
+        return readQueryCounters.measure {
+            store.findLoginToUpdate(look, encryptionKey)
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
     fun add(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
             store.add(entry, encryptionKey)
@@ -89,31 +96,23 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
     }
 
     @Throws(LoginsStorageException::class)
-    fun importLogins(logins: List<Login>, encryptionKey: String): String {
+    fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.importMultiple(logins, encryptionKey)
-        }
-    }
-
-    // Note we swallow exceptions.
-    fun migrateLogins(newDbPath: String, newDbEncKey: String, sqlCipherDbPath: String, sqlCipherEncKey: String) {
-        writeQueryCounters.measure {
-            try {
-                // last param is the "salt" which is only used on iOS.
-                val metrics = migrateLogins(newDbPath, newDbEncKey, sqlCipherDbPath, sqlCipherEncKey, null)
-                recordMigrationMetrics(metrics)
-            } catch (e: LoginsStorageException) {
-                // leave all counters at zero, including duration, to hopefully
-                // make it a bit easier to identify total failure.
-                LoginsStoreMetrics.migrationErrors.add(e.toString())
-            }
+            store.update(id, entry, encryptionKey)
         }
     }
 
     @Throws(LoginsStorageException::class)
-    fun update(id: String, entry: LoginEntry, encryptionKey: String): EncryptedLogin {
+    fun addOrUpdate(entry: LoginEntry, encryptionKey: String): EncryptedLogin {
         return writeQueryCounters.measure {
-            store.update(id, entry, encryptionKey)
+            store.addOrUpdate(entry, encryptionKey)
+        }
+    }
+
+    @Throws(LoginsStorageException::class)
+    fun importMultiple(logins: List<Login>, encryptionKey: String): String {
+        return writeQueryCounters.measure {
+            store.importMultiple(logins, encryptionKey)
         }
     }
 
@@ -139,6 +138,18 @@ class DatabaseLoginsStorage(dbPath: String) : AutoCloseable {
             LoginsStoreMetrics.writeQueryCount,
             LoginsStoreMetrics.writeQueryErrorCount
         )
+    }
+}
+
+fun migrateLoginsWithMetrics(newDbPath: String, newDbEncKey: String, sqlCipherDbPath: String, sqlCipherEncKey: String) {
+    try {
+        // last param is the "salt" which is only used on iOS.
+        val metrics = migrateLogins(newDbPath, newDbEncKey, sqlCipherDbPath, sqlCipherEncKey, null)
+        recordMigrationMetrics(metrics)
+    } catch (e: LoginsStorageException) {
+        // leave all counters at zero, including duration, to hopefully
+        // make it a bit easier to identify total failure.
+        LoginsStoreMetrics.migrationErrors.add(e.toString())
     }
 }
 
