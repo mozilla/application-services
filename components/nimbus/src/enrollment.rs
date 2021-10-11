@@ -599,9 +599,55 @@ impl<'a> EnrollmentsEvolver<'a> {
         Ok(enrollments_change_events)
     }
 
+    pub(crate) fn evolve_enrollments(
+        &self,
+        is_user_participating: bool,
+        prev_experiments: &[Experiment],
+        next_experiments: &[Experiment],
+        prev_enrollments: &[ExperimentEnrollment],
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+        // Do rollouts first.
+        // At the moment, we only allow one rollout per feature, so we can re-use the same machinery as experiments
+        let rollouts_only = |e: &Experiment| e.is_rollout();
+        let (prev_rollouts, ro_enrollments) =
+            filter_experiments_and_enrollments(prev_experiments, prev_enrollments, rollouts_only);
+        let next_rollouts = filter_experiments(next_experiments, rollouts_only);
+
+        // NB: Experiments require a lack of opt-out, but rollouts do not, so we set `is_user_participating` to `true`.
+        let (mut next_ro_enrollments, mut ro_events) =
+            self.evolve_enrollment_recipes(true, &prev_rollouts, &next_rollouts, &ro_enrollments)?;
+
+        let ro_slugs: HashSet<String> = ro_enrollments.iter().map(|e| e.slug.clone()).collect();
+
+        // Now we do the experiments.
+        // We need to mop up all the enrollments that aren't rollouts (not just belonging to experiments that aren't rollouts)
+        // because some of them don't belong to any experiments recipes, and evolve_enrollment_recipes will handle the error
+        // states for us.
+        let experiments_only = |e: &Experiment| !e.is_rollout();
+        let prev_experiments = filter_experiments(prev_experiments, experiments_only);
+        let next_experiments = filter_experiments(next_experiments, experiments_only);
+        let prev_enrollments: Vec<ExperimentEnrollment> = prev_enrollments
+            .iter()
+            .filter(|e| !ro_slugs.contains(&e.slug))
+            .map(|e| e.to_owned())
+            .collect();
+
+        let (mut next_enrollments, mut events) = self.evolve_enrollment_recipes(
+            is_user_participating,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        next_enrollments.append(&mut next_ro_enrollments);
+        events.append(&mut ro_events);
+
+        Ok((next_enrollments, events))
+    }
+
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
-    pub(crate) fn evolve_enrollments(
+    pub(crate) fn evolve_enrollment_recipes(
         &self,
         is_user_participating: bool,
         prev_experiments: &[Experiment],
@@ -650,7 +696,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // place in this function where enrollments could be
                     // dropped.  We could then send those errors to
                     // telemetry so that they could be monitored (SDK-309)
-                    log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
+                    log::warn!("{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                     None
                 }
             };
@@ -733,7 +779,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                         // place in this function where enrollments could be
                         // dropped.  We could then send those errors to
                         // telemetry so that they could be monitored (SDK-309)
-                        log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
+                        log::warn!("{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                         None
                     }
                 };
@@ -865,6 +911,35 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
         map_enrollments.insert(e.slug.clone(), e);
     }
     map_enrollments
+}
+
+fn filter_experiments_and_enrollments(
+    experiments: &[Experiment],
+    enrollments: &[ExperimentEnrollment],
+    filter_fn: fn(&Experiment) -> bool,
+) -> (Vec<Experiment>, Vec<ExperimentEnrollment>) {
+    let experiments: Vec<Experiment> = filter_experiments(experiments, filter_fn);
+
+    let slugs: HashSet<String> = experiments.iter().map(|e| e.slug.clone()).collect();
+
+    let enrollments: Vec<ExperimentEnrollment> = enrollments
+        .iter()
+        .filter(|e| slugs.contains(&e.slug))
+        .map(|e| e.to_owned())
+        .collect();
+
+    (experiments, enrollments)
+}
+
+fn filter_experiments(
+    experiments: &[Experiment],
+    filter_fn: fn(&Experiment) -> bool,
+) -> Vec<Experiment> {
+    experiments
+        .iter()
+        .filter(|e| filter_fn(*e))
+        .map(|e| e.to_owned())
+        .collect()
 }
 
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to

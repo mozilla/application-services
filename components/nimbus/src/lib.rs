@@ -500,6 +500,8 @@ pub struct Experiment {
     pub proposed_duration: Option<u32>,
     pub proposed_enrollment: u32,
     pub reference_branch: Option<String>,
+    #[serde(default)]
+    pub is_rollout: bool,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
 }
@@ -528,6 +530,10 @@ impl Experiment {
             .collect::<HashSet<_>>();
 
         feature_ids.into_iter().collect()
+    }
+
+    fn is_rollout(&self) -> bool {
+        self.is_rollout
     }
 }
 

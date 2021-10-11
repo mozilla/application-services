@@ -294,7 +294,6 @@ mod tests {
             Experiment {
                 schema_version: format!("{}.0.0", SCHEMA_VERSION),
                 slug: "mobile-a-a-example".to_string(),
-                app_id: None,
                 app_name: Some("reference-browser".to_string()),
                 channel: Some("nightly".to_string()),
                 user_facing_name: "Mobile A/A Example".to_string(),
@@ -307,9 +306,6 @@ mod tests {
                     count: 5000,
                     total: 10000
                 },
-                start_date: None,
-                end_date: None,
-                proposed_duration: None,
                 proposed_enrollment: 7,
                 reference_branch: Some("control".to_string()),
                 feature_ids: vec!["first_switch".to_string()],
@@ -333,7 +329,7 @@ mod tests {
                         features: None,
                     },
                 ],
-                targeting: None
+                ..Default::default()
             }
         )
     }
