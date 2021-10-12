@@ -7,9 +7,11 @@ mod enrollment;
 pub mod error;
 mod evaluator;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use defaults::Defaults;
 pub use error::{NimbusError, Result};
 mod client;
 mod config;
+mod defaults;
 mod matcher;
 pub mod persistence;
 mod sampling;
@@ -546,6 +548,21 @@ pub struct FeatureConfig {
     // serde_json yet.
     #[serde(default)]
     pub value: Map<String, Value>,
+}
+
+impl Defaults for FeatureConfig {
+    fn defaults(&self, defaults: &Self) -> Result<Self> {
+        if self.feature_id != defaults.feature_id {
+            Err(NimbusError::InternalError(
+                "Merging feature config from different branches",
+            ))
+        } else {
+            Ok(FeatureConfig {
+                feature_id: self.feature_id.clone(),
+                value: self.value.defaults(&defaults.value)?,
+            })
+        }
+    }
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️

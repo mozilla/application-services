@@ -1,3 +1,4 @@
+use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -972,7 +973,17 @@ pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
 ) -> HashMap<String, EnrolledFeatureConfig> {
-    map_features(enrollments, &map_experiments(experiments))
+    let (rollouts, ro_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, |e| e.is_rollout());
+    let (experiments, exp_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, |e| !e.is_rollout());
+
+    let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
+    let features_under_experiment = map_features(&exp_enrollments, &map_experiments(&experiments));
+
+    features_under_experiment
+        .defaults(&features_under_rollout)
+        .unwrap()
 }
 
 fn get_enrolled_feature_configs(
@@ -1017,6 +1028,8 @@ fn get_enrolled_feature_configs(
         })
         .collect();
 
+    let is_rollout = experiment.is_rollout();
+
     // Now we've got the feature configs for all features in this experiment,
     // we can make EnrolledFeatureConfigs with them.
     branch_features
@@ -1027,6 +1040,7 @@ fn get_enrolled_feature_configs(
             slug: experiment_slug.clone(),
             branch: branch_slug.clone(),
             feature_id: f.feature_id.clone(),
+            is_rollout,
         })
         .collect()
 }
@@ -1040,6 +1054,24 @@ pub struct EnrolledFeatureConfig {
     pub slug: String,
     pub branch: String,
     pub feature_id: String,
+    pub is_rollout: bool,
+}
+
+impl Defaults for EnrolledFeatureConfig {
+    fn defaults(&self, defaults: &Self) -> Result<Self> {
+        Ok(Self {
+            slug: self.slug.to_owned(),
+            feature_id: self.feature_id.to_owned(),
+
+            // we'll never merge a rollout into an experiment,
+            // but we might do the reverse
+            is_rollout: self.is_rollout,
+            feature: self.feature.defaults(&defaults.feature)?,
+
+            // only interesting if this is an experiment.
+            branch: self.branch.to_owned(),
+        })
+    }
 }
 
 #[derive(Debug)]
