@@ -7,21 +7,20 @@
 // encryption used by sync.
 
 // For context, what "local encryption" means in this context is:
-// * We use regular sqlite, but want to ensure the sensitive data is
-//   encrypted in the DB - so we store the data encrypted, and the key
-//   is managed by the app.
-// * The API always just accepts and returns the encrypted strings, so we
-//   also expose encryption and decryption public functions that take the
-//   key and text. The core storage API never knows the unencrypted number.
+// * We use regular sqlite, but ensure that sensitive data is encrypted in the DB in the
+//   `secure_fields` column.  The encryption key is managed by the app.
+// * The `decrypt_struct` and `encrypt_struct` functions are used to convert between an encrypted
+//   `secure_fields` string and a decrypted `SecureFields` struct
+// * Most API functions return `EncryptedLogin` which has its data encrypted.
 //
 // This makes life tricky for Sync - sync has its own encryption and its own
 // management of sync keys. The entire records are encrypted on the server -
 // so the record on the server has the plain-text data (which is then
 // encrypted as part of the entire record), so:
 // * When transforming a record from the DB into a Sync record, we need to
-//   *decrypt* the field.
+//   *decrypt* the data.
 // * When transforming a record from Sync into a DB record, we need to *encrypt*
-//   the field.
+//   the data.
 //
 // So Sync needs to know the key etc, and that needs to get passed down
 // multiple layers, from the app saying "sync now" all the way down to the

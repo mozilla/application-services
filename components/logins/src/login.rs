@@ -14,7 +14,7 @@
 //! # Login Structs
 //!
 //! This module defines a number of core structs for Logins. They are:
-//! * [`LoginEntry`] A login entry by the user.  This includes the username/passward, the site it
+//! * [`LoginEntry`] A login entry by the user.  This includes the username/password, the site it
 //!   was submitted to, etc.  [`LoginEntry`] does not store data specific to a DB record.
 //! * [`Login`] - A [`LoginEntry`] plus DB record information.  This includes the GUID and metadata
 //!   like time_last_used.
@@ -349,13 +349,10 @@ impl LoginFields {
 /// LoginEntry fields that are stored encrypted
 #[derive(Debug, Clone, Hash, PartialEq, Serialize, Deserialize, Default)]
 pub struct SecureLoginFields {
-    // prior to per-field encryption the `username` was allowed to be null.
-    // We could make it `Option<String>` but that doesn't seem valuable, as
-    // an empty string and None mean the same thing anyway.
-    // Note that desktop rejects a null 'username' and explicitly wants an empty string, and like
-    // us, insists on a non-empty password.
-    // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
-    // and desktop sync explicitly converts null etc in username to that empty string.
+    // - Username cannot be null, use the empty string instead
+    // - Password can't be empty or null (enforced in the ValidateAndFixup code)
+    //
+    // This matches the desktop behavior:
     // https://searchfox.org/mozilla-central/rev/d3683dbb252506400c71256ef3994cdbdfb71ada/toolkit/components/passwordmgr/LoginManager.jsm#260-267
 
     // Because we store the json version of this in the DB, and that's the only place the json
