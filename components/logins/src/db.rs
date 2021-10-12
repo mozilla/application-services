@@ -223,11 +223,13 @@ impl LoginDb {
 
     // Match a `LoginEntry` being saved to existing logins in the DB
     //
-    // This is used when there is new login data to save.  The UI needs this to distinguish between 3 cases:
+    // When a user is saving new login, there are several cases for how we want to save the data:
     //
-    //  - User adding a new login
-    //  - User updating an existing login with the same username
-    //  - User updating an login with the blank username
+    //  - Adding a new login: `None` will be returned
+    //  - Updating an existing login: `Some(login)` will be returned and the username will match
+    //    the one for look.
+    //  - Filling in a blank username for an existing login: `Some(login)` will be returned
+    //    with a blank username.
     //
     //  Returns an Err if the new login is not valid and could not be fixed up
     pub fn find_login_to_update(
@@ -547,7 +549,7 @@ impl LoginDb {
         // probably just remove the dupe.
         let entry = self.fixup_and_check_for_dupes(&guid, entry, encdec)?;
 
-        // Note: These fail with DuplicateGuid if the record doesn't exist.
+        // Note: This fail with NoSuchRecord if the record doesn't exist.
         self.ensure_local_overlay_exists(&guid)?;
         self.mark_mirror_overridden(&guid)?;
 

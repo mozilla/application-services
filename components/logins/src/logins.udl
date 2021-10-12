@@ -41,14 +41,6 @@ namespace logins {
         [ByRef]string sqlcipher_key,
         string? salt
     );
-
-    // XXX - we still need some way to have a "canary" for the encryption_key - eg, to ensure
-    // a given key is the correct key for the DB. `autofill` consumers do this by just encrypting
-    // some arbitrary string and storing the ciphertext, and as the app starts and the ciphertext
-    // is loaded, it checks the string decrypts.
-    // However, we don't otherwise need encryption and decryption of arbitrary strings. An
-    // alternative is we expose a specific `check_canary` or similar function, and we manage
-    // storage of the strings etc in our meta table?
 };
 
 // The fields you can add or update.
