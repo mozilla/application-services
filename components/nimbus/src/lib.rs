@@ -593,6 +593,18 @@ pub struct BucketConfig {
     pub total: u32,
 }
 
+#[cfg(test)]
+impl BucketConfig {
+    fn always() -> Self {
+        Self {
+            start: 0,
+            count: default_buckets(),
+            total: default_buckets(),
+            ..Default::default()
+        }
+    }
+}
+
 // This type is passed across the FFI to client consumers, e.g. UI for testing tooling.
 pub struct AvailableExperiment {
     pub slug: String,

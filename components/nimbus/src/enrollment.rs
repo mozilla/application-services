@@ -606,6 +606,9 @@ impl<'a> EnrollmentsEvolver<'a> {
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+        let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
+        let mut events: Vec<EnrollmentChangeEvent> = Default::default();
+
         // Do rollouts first.
         // At the moment, we only allow one rollout per feature, so we can re-use the same machinery as experiments
         let rollouts_only = |e: &Experiment| e.is_rollout();
@@ -614,8 +617,11 @@ impl<'a> EnrollmentsEvolver<'a> {
         let next_rollouts = filter_experiments(next_experiments, rollouts_only);
 
         // NB: Experiments require a lack of opt-out, but rollouts do not, so we set `is_user_participating` to `true`.
-        let (mut next_ro_enrollments, mut ro_events) =
+        let (next_ro_enrollments, ro_events) =
             self.evolve_enrollment_recipes(true, &prev_rollouts, &next_rollouts, &ro_enrollments)?;
+
+        enrollments.extend(next_ro_enrollments.into_iter());
+        events.extend(ro_events.into_iter());
 
         let ro_slugs: HashSet<String> = ro_enrollments.iter().map(|e| e.slug.clone()).collect();
 
@@ -632,17 +638,17 @@ impl<'a> EnrollmentsEvolver<'a> {
             .map(|e| e.to_owned())
             .collect();
 
-        let (mut next_enrollments, mut events) = self.evolve_enrollment_recipes(
+        let (next_exp_enrollments, exp_events) = self.evolve_enrollment_recipes(
             is_user_participating,
             &prev_experiments,
             &next_experiments,
             &prev_enrollments,
         )?;
 
-        next_enrollments.append(&mut next_ro_enrollments);
-        events.append(&mut ro_events);
+        enrollments.extend(next_exp_enrollments.into_iter());
+        events.extend(exp_events.into_iter());
 
-        Ok((next_enrollments, events))
+        Ok((enrollments, events))
     }
 
     /// Evolve and calculate the new set of enrollments, using the
@@ -1155,7 +1161,7 @@ mod tests {
     use super::*;
     use crate::{
         persistence::{Database, StoreId},
-        AppContext,
+        AppContext, Branch, BucketConfig,
     };
     use serde_json::json;
     use tempdir::TempDir;
@@ -3132,6 +3138,119 @@ mod tests {
     }
 
     #[test]
+    fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        ..Default::default()
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            ..experiment.clone()
+        };
+
+        let recipes = &[experiment, rollout];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+        assert_eq!(enrollments.len(), 2);
+        assert_eq!(events.len(), 2);
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .count(),
+            2
+        );
+
+        let slugs: Vec<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
+        assert_eq!(slugs, vec![ro_slug, exp_slug]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        ..Default::default()
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            ..experiment.clone()
+        };
+
+        let ro_slug2 = "rollout2".to_string();
+        let rollout2 = Experiment {
+            slug: ro_slug2.clone(),
+            ..rollout.clone()
+        };
+
+        let recipes = &[experiment, rollout, rollout2];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+        assert_eq!(enrollments.len(), 3);
+        assert_eq!(events.len(), 2);
+
+        let enrollments: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+
+        assert_eq!(enrollments.len(), 2);
+
+        let slugs: HashSet<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
+        assert!(slugs.contains(&exp_slug));
+        // we want one rollout slug, or the other, but not both, and not none.
+        assert!(slugs.contains(&ro_slug) ^ slugs.contains(&ro_slug2));
+        Ok(())
+    }
+
+    #[test]
     fn test_enrollment_explicit_opt_in() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let mut events = vec![];
@@ -3579,6 +3698,57 @@ mod tests {
             && *branch_slug == mock_exp1_branch
             && ! Uuid::parse_str(enrollment_id)?.is_nil()
         ));
+
+        Ok(())
+    }
+}
+
+mod unit_tests {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_filter_experiments_by_closure() -> Result<()> {
+        let experiment = Experiment {
+            slug: "experiment1".into(),
+            is_rollout: false,
+            ..Default::default()
+        };
+        let ex_enrollment = ExperimentEnrollment {
+            slug: experiment.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused,
+            },
+        };
+
+        let rollout = Experiment {
+            slug: "rollout1".into(),
+            is_rollout: true,
+            ..Default::default()
+        };
+        let ro_enrollment = ExperimentEnrollment {
+            slug: rollout.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused,
+            },
+        };
+
+        let recipes = &[experiment.clone(), rollout.clone()];
+        let enrollments = &[ro_enrollment, ex_enrollment];
+
+        let (ro, ro_enrollments) =
+            filter_experiments_and_enrollments(recipes, enrollments, |e| e.is_rollout());
+        assert_eq!(ro.len(), 1);
+        assert_eq!(ro_enrollments.len(), 1);
+        assert_eq!(ro[0].slug, rollout.slug);
+        assert_eq!(ro_enrollments[0].slug, rollout.slug);
+
+        let (experiments, exp_enrollments) =
+            filter_experiments_and_enrollments(recipes, enrollments, |e| !e.is_rollout());
+        assert_eq!(experiments.len(), 1);
+        assert_eq!(exp_enrollments.len(), 1);
+        assert_eq!(experiments[0].slug, experiment.slug);
+        assert_eq!(exp_enrollments[0].slug, experiment.slug);
 
         Ok(())
     }
