@@ -27,4 +27,4 @@ fxa-client = { path = "../../components/fxa-client" }
 tempdir = "0.3"
 find-places-db = "0.2"
 anyhow = "1.0"
-ctrlc = "3.1"
+ctrlc = "3.2.1"
