@@ -1,3 +1,28 @@
+# v85.4.1 (_2021-10-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.0...v85.4.1)
+
+## Logins
+
+- Metrics for the logins sqlcipher migration are included to help "bootstrap"
+  the metrics ready for the migration.
+
+# v85.4.0 (_2021-10-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.3.0...v85.4.0)
+
+## Sync
+
+### What's Changed
+
+- Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
+  it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
+
+## Nimbus
+### What's changed
+- The DTO changed to remove the `probeSets` and `enabled` fields that were previously unused. ([#4482](https://github.com/mozilla/application-services/pull/4482))
+- Nimbus will retry enrollment if it previously errored out on a previous enrollment.
+
 # v85.3.0 (_2021-09-30_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.2.0...v85.3.0)
