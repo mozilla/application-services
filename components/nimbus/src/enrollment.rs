@@ -1048,7 +1048,7 @@ fn get_enrolled_feature_configs(
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
 /// By design, we don't want to store it on the disk. Instead we calculate it from experiments
 /// and enrollments.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
@@ -1058,19 +1058,31 @@ pub struct EnrolledFeatureConfig {
 }
 
 impl Defaults for EnrolledFeatureConfig {
-    fn defaults(&self, defaults: &Self) -> Result<Self> {
-        Ok(Self {
-            slug: self.slug.to_owned(),
-            feature_id: self.feature_id.to_owned(),
+    fn defaults(&self, fallback: &Self) -> Result<Self> {
+        if self.feature_id != fallback.feature_id {
+            Err(NimbusError::InternalError(
+                "Cannot merge feature configs from different features",
+            ))
+        } else {
+            Ok(Self {
+                slug: self.slug.to_owned(),
+                feature_id: self.feature_id.to_owned(),
 
-            // we'll never merge a rollout into an experiment,
-            // but we might do the reverse
-            is_rollout: self.is_rollout,
-            feature: self.feature.defaults(&defaults.feature)?,
+                // we'll never merge a rollout into an experiment,
+                // but we might do the reverse
+                is_rollout: self.is_rollout(),
+                feature: self.feature.defaults(&fallback.feature)?,
 
-            // only interesting if this is an experiment.
-            branch: self.branch.to_owned(),
-        })
+                // only interesting if this is an experiment.
+                branch: self.branch.to_owned(),
+            })
+        }
+    }
+}
+
+impl EnrolledFeatureConfig {
+    pub fn is_rollout(&self) -> bool {
+        self.is_rollout
     }
 }
 
@@ -1195,7 +1207,7 @@ mod tests {
         persistence::{Database, StoreId},
         AppContext, Branch, BucketConfig,
     };
-    use serde_json::json;
+    use serde_json::{json, Value};
     use tempdir::TempDir;
 
     fn get_test_experiments() -> Vec<Experiment> {
@@ -3279,6 +3291,225 @@ mod tests {
         assert!(slugs.contains(&exp_slug));
         // we want one rollout slug, or the other, but not both, and not none.
         assert!(slugs.contains(&ro_slug) ^ slugs.contains(&ro_slug2));
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_feature_configs_can_merge() -> Result<()> {
+        let exp_bob = FeatureConfig {
+            feature_id: "bob".into(),
+            value: json!({
+                "specified": "Experiment in part".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
+        };
+        let ro_bob = FeatureConfig {
+            feature_id: "bob".into(),
+            value: json!({
+                "name": "Bob".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
+        };
+
+        let bob = exp_bob.defaults(&ro_bob)?;
+        assert_eq!(bob.feature_id, "bob".to_string());
+
+        assert_eq!(
+            Value::Object(bob.value),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        let exp_bob = EnrolledFeatureConfig {
+            feature: exp_bob.clone(),
+            slug: "exp".to_string(),
+            branch: "treatment".to_string(),
+            feature_id: exp_bob.feature_id,
+            is_rollout: false,
+        };
+
+        let ro_bob = EnrolledFeatureConfig {
+            feature: ro_bob,
+            slug: "ro".to_string(),
+            branch: "treatment".to_string(),
+            feature_id: exp_bob.feature_id.clone(),
+            is_rollout: true,
+        };
+
+        let bob = exp_bob.defaults(&ro_bob)?.feature;
+        assert_eq!(bob.feature_id, "bob".to_string());
+
+        assert_eq!(
+            Value::Object(bob.value),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        Ok(())
+    }
+
+    fn get_rollout_and_experiment() -> (Experiment, Experiment) {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                slug: exp_slug,
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        value: json!({
+                            "name": "Alice".to_string(),
+                            "specified": "Experiment only".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        value: json!({
+                            "specified": "Experiment in part".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            branches: vec![Branch {
+                slug: ro_slug,
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        value: json!({
+                            "name": "Bob".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                    FeatureConfig {
+                        feature_id: "charlie".into(),
+                        value: json!({
+                            "name": "Charlie".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        (rollout, experiment)
+    }
+
+    fn assert_alice_bob_charlie(features: &HashMap<String, EnrolledFeatureConfig>) {
+        assert_eq!(features.len(), 3);
+
+        let alice = &features["alice"];
+        let bob = &features["bob"];
+        let charlie = &features["charlie"];
+
+        assert!(!alice.is_rollout());
+        assert_eq!(
+            Value::Object(alice.feature.value.clone()),
+            json!({
+                "name": "Alice".to_string(),
+                "specified": "Experiment only".to_string(),
+            })
+        );
+
+        assert!(!bob.is_rollout());
+        assert_eq!(
+            Value::Object(bob.feature.value.clone()),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        assert!(charlie.is_rollout());
+        assert_eq!(
+            Value::Object(charlie.feature.value.clone()),
+            json!({
+                "name": "Charlie".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
+        let (rollout, experiment) = get_rollout_and_experiment();
+        let (exp_slug, ro_slug) = (rollout.slug.clone(), experiment.slug.clone());
+
+        let exp_enrollment = ExperimentEnrollment {
+            slug: exp_slug.clone(),
+            status: EnrollmentStatus::Enrolled {
+                branch: exp_slug,
+                enrollment_id: Default::default(),
+                reason: EnrolledReason::Qualified,
+            },
+        };
+
+        let ro_enrollment = ExperimentEnrollment {
+            slug: ro_slug.clone(),
+            status: EnrollmentStatus::Enrolled {
+                branch: ro_slug,
+                enrollment_id: Default::default(),
+                reason: EnrolledReason::Qualified,
+            },
+        };
+        let enrollments = &[ro_enrollment, exp_enrollment];
+        let experiments = &[experiment, rollout];
+        let features = map_features_by_feature_id(enrollments, experiments);
+
+        assert_alice_bob_charlie(&features);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rollouts_end_to_end() -> Result<()> {
+        let (rollout, experiment) = get_rollout_and_experiment();
+        let recipes = &[rollout, experiment];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+
+        let (enrollments, _events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+
+        let features = map_features_by_feature_id(&enrollments, recipes);
+
+        assert_alice_bob_charlie(&features);
+
         Ok(())
     }
 

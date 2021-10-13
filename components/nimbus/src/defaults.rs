@@ -192,6 +192,47 @@ mod unit_tests {
     }
 
     #[test]
+    fn test_defaults_maps_of_json() -> Result<()> {
+        let exp_bob = json!({
+            "specified": "Experiment in part".to_string(),
+        });
+        let mut exp_map: HashMap<String, Value> = Default::default();
+        exp_map.insert("bob".to_string(), exp_bob.clone());
+
+        let ro_bob = json!({
+            "name": "Bob".to_string(),
+            "specified": "Rollout".to_string(),
+        });
+        let mut ro_map: HashMap<String, Value> = Default::default();
+        ro_map.insert("bob".to_string(), ro_bob.clone());
+
+        let map = exp_map.defaults(&ro_map)?;
+
+        assert_eq!(
+            map["bob"],
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        // optional JSON
+        let exp_bob = Some(exp_bob);
+        let ro_bob = Some(ro_bob);
+
+        let bob = exp_bob.defaults(&ro_bob)?;
+        assert_eq!(
+            bob,
+            Some(json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            }))
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn test_defaults_realistic_json() -> Result<()> {
         let a = json!({
             "items-enabled": {

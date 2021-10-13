@@ -551,15 +551,15 @@ pub struct FeatureConfig {
 }
 
 impl Defaults for FeatureConfig {
-    fn defaults(&self, defaults: &Self) -> Result<Self> {
-        if self.feature_id != defaults.feature_id {
+    fn defaults(&self, fallback: &Self) -> Result<Self> {
+        if self.feature_id != fallback.feature_id {
             Err(NimbusError::InternalError(
                 "Merging feature config from different branches",
             ))
         } else {
             Ok(FeatureConfig {
                 feature_id: self.feature_id.clone(),
-                value: self.value.defaults(&defaults.value)?,
+                value: self.value.defaults(&fallback.value)?,
             })
         }
     }
