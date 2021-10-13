@@ -1415,8 +1415,5 @@ mod tests {
         assert!(login.is_deleted);
         assert_eq!(util::system_time_ms_i64(login.local_modified), 2000);
         assert_eq!(login.sync_status, SyncStatus::Changed);
-
-        // we unconditionally delete the sqlcipher database.
-        assert!(!testpaths.old_db.as_path().exists());
     }
 }
