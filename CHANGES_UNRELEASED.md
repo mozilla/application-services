@@ -18,3 +18,10 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+  - Rework logins to no longer use sqlcipher and instead use plain sqlite. This is a major change
+    with a massive impact on all consumers of this component, all of whom are already aware of
+    this change and have PRs in-progress.
+    ([#4549](https://github.com/mozilla/application-services/pull/4549))

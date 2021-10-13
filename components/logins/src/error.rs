@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::ffi::OsString;
+
 // TODO: this is (IMO) useful and was dropped from `failure`, consider moving it
 // into `error_support`.
 macro_rules! throw {
@@ -18,9 +20,6 @@ pub enum ErrorKind {
     #[error("The `sync_status` column in DB has an illegal value: {0}")]
     BadSyncStatus(u8),
 
-    #[error("A duplicate GUID is present: {0:?}")]
-    DuplicateGuid(String),
-
     #[error("No record with guid exists (when one was required): {0:?}")]
     NoSuchRecord(String),
 
@@ -31,11 +30,17 @@ pub enum ErrorKind {
     #[error("The provided salt is invalid")]
     InvalidSalt,
 
+    #[error("local encryption key not set")]
+    EncryptionKeyMissing,
+
     #[error("Error synchronizing: {0}")]
     SyncAdapterError(#[from] sync15::Error),
 
     #[error("Error parsing JSON data: {0}")]
     JsonError(#[from] serde_json::Error),
+
+    #[error("Invalid encryption key")]
+    InvalidKey,
 
     #[error("Error executing SQL: {0}")]
     SqlError(#[from] rusqlite::Error),
@@ -43,8 +48,23 @@ pub enum ErrorKind {
     #[error("Error parsing URL: {0}")]
     UrlParseError(#[from] url::ParseError),
 
+    #[error("Invalid path: {0:?}")]
+    InvalidPath(OsString),
+
+    #[error("Invalid database file: {0}")]
+    InvalidDatabaseFile(String),
+
+    #[error("Crypto Error: {0}")]
+    CryptoError(#[from] jwcrypto::JwCryptoError),
+
     #[error("{0}")]
     Interrupted(#[from] interrupt_support::Interrupted),
+
+    #[error("IOError: {0}")]
+    IOError(#[from] std::io::Error),
+
+    #[error("Migration Error: {0}")]
+    MigrationError(String),
 }
 
 error_support::define_error! {
@@ -53,23 +73,25 @@ error_support::define_error! {
         (JsonError, serde_json::Error),
         (UrlParseError, url::ParseError),
         (SqlError, rusqlite::Error),
+        (CryptoError, jwcrypto::JwCryptoError),
         (InvalidLogin, InvalidLogin),
         (Interrupted, interrupt_support::Interrupted),
+        (IOError, std::io::Error),
     }
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum InvalidLogin {
-    // EmptyOrigin error occurs when the login's hostname field is empty.
+    // EmptyOrigin error occurs when the login's origin field is empty.
     #[error("Origin is empty")]
     EmptyOrigin,
     #[error("Password is empty")]
     EmptyPassword,
     #[error("Login already exists")]
     DuplicateLogin,
-    #[error("Both `formSubmitUrl` and `httpRealm` are present")]
+    #[error("Both `formActionOrigin` and `httpRealm` are present")]
     BothTargets,
-    #[error("Neither `formSubmitUrl` or `httpRealm` are present")]
+    #[error("Neither `formActionOrigin` or `httpRealm` are present")]
     NoTarget,
     #[error("Login has illegal field: {field_info}")]
     IllegalFieldValue { field_info: String },
@@ -81,15 +103,20 @@ impl Error {
     pub fn label(&self) -> &'static str {
         match self.kind() {
             ErrorKind::BadSyncStatus(_) => "BadSyncStatus",
-            ErrorKind::DuplicateGuid(_) => "DuplicateGuid",
             ErrorKind::NoSuchRecord(_) => "NoSuchRecord",
             ErrorKind::NonEmptyTable => "NonEmptyTable",
             ErrorKind::InvalidSalt => "InvalidSalt",
+            ErrorKind::EncryptionKeyMissing => "EncryptionKeyMissing",
             ErrorKind::SyncAdapterError(_) => "SyncAdapterError",
             ErrorKind::JsonError(_) => "JsonError",
+            ErrorKind::InvalidKey => "InvalidKey",
             ErrorKind::UrlParseError(_) => "UrlParseError",
+            ErrorKind::InvalidPath(_) => "InvalidPath",
+            ErrorKind::InvalidDatabaseFile(_) => "InvalidDatabaseFile",
             ErrorKind::SqlError(_) => "SqlError",
+            ErrorKind::CryptoError(_) => "CryptoError",
             ErrorKind::Interrupted(_) => "Interrupted",
+            ErrorKind::IOError(_) => "IOError",
             ErrorKind::InvalidLogin(desc) => match desc {
                 InvalidLogin::EmptyOrigin => "InvalidLogin::EmptyOrigin",
                 InvalidLogin::EmptyPassword => "InvalidLogin::EmptyPassword",
@@ -98,6 +125,7 @@ impl Error {
                 InvalidLogin::NoTarget => "InvalidLogin::NoTarget",
                 InvalidLogin::IllegalFieldValue { .. } => "InvalidLogin::IllegalFieldValue",
             },
+            ErrorKind::MigrationError(_) => "MigrationError",
         }
     }
 }
@@ -123,23 +151,22 @@ pub enum LoginsStorageError {
     #[error("NoSuchRecord error: {0}")]
     NoSuchRecord(String),
 
-    /// This is thrown if `add()` is given a record that has an ID, and
-    /// that ID does not exist.
-    #[error("IdCollision error: {0}")]
-    IdCollision(String),
-
     // This is thrown on attempts to insert or update a record so that it
     // is no longer valid. See [InvalidLoginReason] for a list of reasons
     // a record may be considered invalid
     #[error("{0}")]
     InvalidRecord(String, InvalidLoginReason),
 
-    /// This error is emitted in two cases:
+    /// This error is emitted when migrating from a sqlcipher database in two cases:
     /// 1. An incorrect key is used to to open the login database
     /// 2. The file at the path specified is not a sqlite database.
     /// NOTE: Dropping sqlcipher means we will drop (1), so should rename it
     #[error("InvalidKey error: {0}")]
     InvalidKey(String),
+
+    /// Error encrypting/decrypting logins data
+    #[error("Crypto Error: {0}")]
+    CryptoError(String),
 
     /// This error is emitted if a request to a sync server failed.
     /// We can probably kill this? The sync manager is what cares about this.
@@ -162,9 +189,9 @@ pub enum InvalidLoginReason {
     EmptyPassword,
     /// The login already exists
     DuplicateLogin,
-    /// Both `httpRealm` and `formSubmitUrl` are non-null
+    /// Both `httpRealm` and `formActionOrigin` are non-null
     BothTargets,
-    /// Both `httpRealm` and `formSubmitUrl` are null
+    /// Both `httpRealm` and `formActionOrigin` are null
     NoTarget,
     /// Login has illegal field
     IllegalFieldValue,
@@ -189,10 +216,6 @@ impl From<Error> for LoginsStorageError {
                     Sync15ErrorKind::RequestError(_) => LoginsStorageError::RequestFailed(label),
                     _ => LoginsStorageError::UnexpectedLoginsStorageError(label),
                 }
-            }
-            ErrorKind::DuplicateGuid(id) => {
-                log::error!("Guid already exists: {}", id);
-                LoginsStorageError::IdCollision(label)
             }
             ErrorKind::NoSuchRecord(id) => {
                 log::error!("No record exists with id {}", id);
@@ -231,6 +254,8 @@ impl From<Error> for LoginsStorageError {
                 LoginsStorageError::InvalidKey(label)
             }
 
+            ErrorKind::InvalidKey => LoginsStorageError::InvalidKey(label),
+
             ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
                 if err.code == rusqlite::ErrorCode::OperationInterrupted =>
             {
@@ -248,6 +273,11 @@ impl From<Error> for LoginsStorageError {
                 // In the old world, this had an error code (7) but no Kotlin
                 // error type, meaning it got the "base" error.
                 LoginsStorageError::UnexpectedLoginsStorageError(label)
+            }
+
+            ErrorKind::CryptoError(_) => {
+                log::error!("Crypto error");
+                LoginsStorageError::CryptoError(label)
             }
 
             err => {

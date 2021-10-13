@@ -3,29 +3,90 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 namespace logins {
+    // We expose the crypto primitives on the namespace
+
+    // Create a new, random, encryption key.
+    [Throws=LoginsStorageError]
+    string create_key();
+
+    // Decrypt an `EncryptedLogin` to a `Login`
+    [Throws=LoginsStorageError]
+    Login decrypt_login(EncryptedLogin login, [ByRef]string encryption_key);
+
+    // Encrypt a `Login` to an `EncryptedLogin`
+    [Throws=LoginsStorageError]
+    EncryptedLogin encrypt_login(Login login, [ByRef]string encryption_key);
+
+    // Decrypt an encrypted `string` to `SecureLoginFields`
+    [Throws=LoginsStorageError]
+    SecureLoginFields decrypt_fields(string sec_fields, [ByRef]string encryption_key);
+
+    // Encrypt `SecureLoginFields` to an encrypted `string`
+    [Throws=LoginsStorageError]
+    string encrypt_fields(SecureLoginFields sec_fields, [ByRef]string encryption_key);
+
+    // Create a "canary" string, which can be used to test if the encryption key is still valid for the logins data
+    [Throws=LoginsStorageError]
+    string create_canary([ByRef]string text, [ByRef]string encryption_key);
+
+    // Check that key is still valid using the output of `create_canary`.  `text` much match the text you initially passed to `create_canary()`
+    [Throws=LoginsStorageError]
+    boolean check_canary([ByRef]string canary, [ByRef]string text, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
-    string open_and_get_salt(string path, [ByRef] string encryption_key);
-
-    [Throws=LoginsStorageError]
-    void open_and_migrate_to_plaintext_header(string path, [ByRef] string encryption_key, [ByRef] string salt);
+    string migrate_logins(
+        [ByRef]string path,
+        [ByRef]string new_encryption_key,
+        [ByRef]string sqlcipher_path,
+        [ByRef]string sqlcipher_key,
+        string? salt
+    );
 };
 
-
-// Converted from mozilla.appservices.logins.protobuf.rs
-dictionary Login {
-    string id;
-    string hostname;
-    string password;
-    string username;
+// The fields you can add or update.
+dictionary LoginFields {
+    string origin;
     string? http_realm;
-    string? form_submit_url;
+    string? form_action_origin;
     string username_field;
     string password_field;
+};
+
+// Fields available only while the encryption key is known.
+dictionary SecureLoginFields {
+    string password;
+    string username;
+};
+
+// Fields specific to database records
+dictionary RecordFields {
+    string id;
     i64 times_used;
     i64 time_created;
     i64 time_last_used;
     i64 time_password_changed;
+};
+
+// A login entry from the user, not linked to any database record.
+// The add/update APIs input these, alongside an encryption key.
+dictionary LoginEntry {
+    LoginFields fields;
+    SecureLoginFields sec_fields;
+};
+
+// A login stored in the database
+dictionary Login {
+    RecordFields record;
+    LoginFields fields;
+    SecureLoginFields sec_fields;
+};
+
+// An encrypted version of [Login].  This is what we return for all the "read"
+// APIs - we never return the cleartext of encrypted fields.
+dictionary EncryptedLogin {
+    RecordFields record;
+    LoginFields fields;
+    string sec_fields; // ciphertext of a SecureLoginFields
 };
 
 [Error]
@@ -34,8 +95,8 @@ enum LoginsStorageError {
     "SyncAuthInvalid",
     "MismatchedLock",
     "NoSuchRecord",
-    "IdCollision",
     "InvalidRecord",
+    "CryptoError",
     "InvalidKey",
     "RequestFailed",
     "Interrupted",
@@ -43,22 +104,27 @@ enum LoginsStorageError {
 
 interface LoginStore {
     [Throws=LoginsStorageError]
-    constructor(string path, [ByRef] string encryption_key);
+    constructor(string path);
 
-    [Name=new_with_salt, Throws=LoginsStorageError]
-    constructor(string path, [ByRef] string encryption_key, [ByRef] string salt);
+    // XXX - Can we kill this, and just fix the semantics of add/update?
+    [Throws=LoginsStorageError]
+    void check_valid_with_no_dupes([ByRef] string id, [ByRef] LoginEntry login, [ByRef] string encryption_key);
 
     [Throws=LoginsStorageError]
-    void check_valid_with_no_dupes([ByRef] Login login);
+    EncryptedLogin add(LoginEntry login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
-    string add(Login login);
+    EncryptedLogin update([ByRef] string id, LoginEntry login, [ByRef]string encryption_key);
+
+    [Throws=LoginsStorageError]
+    EncryptedLogin add_or_update(LoginEntry login, [ByRef]string encryption_key);
 
     [Throws=LoginsStorageError]
     boolean delete([ByRef] string id);
 
     [Throws=LoginsStorageError]
     void wipe();
+
     [Throws=LoginsStorageError]
     void wipe_local();
 
@@ -66,35 +132,30 @@ interface LoginStore {
     void reset();
 
     [Throws=LoginsStorageError]
-    void disable_mem_security();
-
-    [Throws=LoginsStorageError]
-    void rekey_database([ByRef] string new_encryption_key);
-
-    [Throws=LoginsStorageError]
     void touch([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    sequence<Login> list();
+    sequence<EncryptedLogin> list();
 
     [Throws=LoginsStorageError]
-    sequence<Login> get_by_base_domain([ByRef] string base_domain);
+    sequence<EncryptedLogin> get_by_base_domain([ByRef] string base_domain);
 
     [Throws=LoginsStorageError]
-    sequence<Login> potential_dupes_ignoring_username(Login login);
+    Login? find_login_to_update(LoginEntry look, [ByRef]string encryption_key);
+
+    // XXX - Can we kill this, and just fix the semantics of add/update?
+    [Throws=LoginsStorageError]
+    sequence<EncryptedLogin> potential_dupes_ignoring_username([ByRef]string id, LoginEntry login);
 
     [Throws=LoginsStorageError]
-    Login? get([ByRef] string id);
+    EncryptedLogin? get([ByRef] string id);
 
     [Throws=LoginsStorageError]
-    void update(Login login);
-
-    [Throws=LoginsStorageError]
-    string import_multiple(sequence<Login> login);
+    string import_multiple(sequence<Login> login, [ByRef]string encryption_key);
 
     [Self=ByArc]
     void register_with_sync_manager();
 
     [Throws=LoginsStorageError, Self=ByArc]
-    string sync(string key_id, string access_token, string sync_key, string tokenserver_url);
+    string sync(string key_id, string access_token, string sync_key, string tokenserver_url, string local_encryption_key);
 };

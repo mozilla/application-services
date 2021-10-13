@@ -93,9 +93,8 @@ use lazy_static::lazy_static;
 use rusqlite::Connection;
 use sql_support::ConnExt;
 
-/// Note that firefox-ios is currently on version 3. Version 4 is this version,
-/// which adds a metadata table and changes timestamps to be in milliseconds
-pub const VERSION: i64 = 4;
+/// The current schema version is 1.  We reset it after the SQLCipher -> plaintext migration.
+const VERSION: i64 = 1;
 
 /// Every column shared by both tables except for `id`
 ///
@@ -116,11 +115,10 @@ pub const VERSION: i64 = 4;
 /// `timePasswordChanged`/`timeCreated` timestamps.
 pub const COMMON_COLS: &str = "
     guid,
-    username,
-    password,
-    hostname,
+    secFields,
+    origin,
     httpRealm,
-    formSubmitURL,
+    formActionOrigin,
     usernameField,
     passwordField,
     timeCreated,
@@ -131,18 +129,17 @@ pub const COMMON_COLS: &str = "
 
 const COMMON_SQL: &str = "
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    hostname            TEXT NOT NULL,
-    -- Exactly one of httpRealm or formSubmitURL should be set
+    origin              TEXT NOT NULL,
+    -- Exactly one of httpRealm or formActionOrigin should be set
     httpRealm           TEXT,
-    formSubmitURL       TEXT,
+    formActionOrigin    TEXT,
     usernameField       TEXT,
     passwordField       TEXT,
     timesUsed           INTEGER NOT NULL DEFAULT 0,
     timeCreated         INTEGER NOT NULL,
     timeLastUsed        INTEGER,
     timePasswordChanged INTEGER NOT NULL,
-    username            TEXT,
-    password            TEXT NOT NULL,
+    secFields           TEXT,
     guid                TEXT NOT NULL UNIQUE
 ";
 
@@ -179,30 +176,14 @@ const CREATE_META_TABLE_SQL: &str = "
     )
 ";
 
-const CREATE_OVERRIDE_HOSTNAME_INDEX_SQL: &str = "
-    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_hostname
-    ON loginsM (is_overridden, hostname)
+const CREATE_OVERRIDE_ORIGIN_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsM_is_overridden_origin
+    ON loginsM (is_overridden, origin)
 ";
 
-const CREATE_DELETED_HOSTNAME_INDEX_SQL: &str = "
-    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_hostname
-    ON loginsL (is_deleted, hostname)
-";
-
-// As noted above, we use these when updating from schema v3 (firefox-ios's
-// last schema) to convert from microsecond timestamps to milliseconds.
-const UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL: &str = "
-    UPDATE loginsL
-    SET timeCreated = timeCreated / 1000,
-        timeLastUsed = timeLastUsed / 1000,
-        timePasswordChanged = timePasswordChanged / 1000
-";
-
-const UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL: &str = "
-    UPDATE loginsM
-    SET timeCreated = timeCreated / 1000,
-        timeLastUsed = timeLastUsed / 1000,
-        timePasswordChanged = timePasswordChanged / 1000
+const CREATE_DELETED_ORIGIN_INDEX_SQL: &str = "
+    CREATE INDEX IF NOT EXISTS idx_loginsL_is_deleted_origin
+    ON loginsL (is_deleted, origin)
 ";
 
 pub(crate) static LAST_SYNC_META_KEY: &str = "last_sync_time";
@@ -212,28 +193,8 @@ pub(crate) static COLLECTION_SYNCID_META_KEY: &str = "passwords_sync_id";
 
 pub(crate) fn init(db: &Connection) -> Result<()> {
     let user_version = db.query_one::<i64>("PRAGMA user_version")?;
+    log::warn!("user_version: {}", user_version);
     if user_version == 0 {
-        // This logic is largely taken from firefox-ios. AFAICT at some point
-        // they went from having schema versions tracked using a table named
-        // `tableList` to using `PRAGMA user_version`. This leads to the
-        // following logic:
-        //
-        // - If `tableList` exists, we're hopelessly far in the past, drop any
-        //   tables we have (to ensure we avoid name collisions/stale data) and
-        //   recreate. (This is captured by the `upgrade` case where from == 0)
-        //
-        // - If `tableList` doesn't exist and `PRAGMA user_version` is 0, it's
-        //   the first time through, just create the new tables.
-        //
-        // - Otherwise, it's a normal schema upgrade from an earlier
-        //   `PRAGMA user_version`.
-        let table_list_exists = db.query_one::<i64>(
-            "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'tableList'",
-        )? != 0;
-
-        if table_list_exists {
-            drop(db)?;
-        }
         return create(db);
     }
     if user_version != VERSION {
@@ -251,8 +212,9 @@ pub(crate) fn init(db: &Connection) -> Result<()> {
     Ok(())
 }
 
-// https://github.com/mozilla-mobile/firefox-ios/blob/master/Storage/SQL/LoginsSchema.swift#L100
-fn upgrade(db: &Connection, from: i64) -> Result<()> {
+// Allow the redundant Ok() here.  It will make more sense once we have an actual upgrade function.
+#[allow(clippy::unnecessary_wraps)]
+fn upgrade(_db: &Connection, from: i64) -> Result<()> {
     log::debug!("Upgrading schema from {} to {}", from, VERSION);
     if from == VERSION {
         return Ok(());
@@ -261,25 +223,8 @@ fn upgrade(db: &Connection, from: i64) -> Result<()> {
         from, 0,
         "Upgrading from user_version = 0 should already be handled (in `init`)"
     );
-    if from < 3 {
-        // These indices were added in v3 (apparently)
-        db.execute_all(&[
-            CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
-            CREATE_DELETED_HOSTNAME_INDEX_SQL,
-        ])?;
-    }
-    if from < 4 {
-        // This is the update from the firefox-ios schema to our schema.
-        // The `loginsSyncMeta` table was added in v4, and we moved
-        // from using microseconds to milliseconds for `timeCreated`,
-        // `timeLastUsed`, and `timePasswordChanged`.
-        db.execute_all(&[
-            CREATE_META_TABLE_SQL,
-            UPDATE_LOCAL_TIMESTAMPS_TO_MILLIS_SQL,
-            UPDATE_MIRROR_TIMESTAMPS_TO_MILLIS_SQL,
-            &*SET_VERSION_SQL,
-        ])?;
-    }
+
+    // Schema upgrades that should happen after the sqlcipher -> plaintext migration go here
     Ok(())
 }
 
@@ -288,21 +233,10 @@ pub(crate) fn create(db: &Connection) -> Result<()> {
     db.execute_all(&[
         &*CREATE_LOCAL_TABLE_SQL,
         &*CREATE_MIRROR_TABLE_SQL,
-        CREATE_OVERRIDE_HOSTNAME_INDEX_SQL,
-        CREATE_DELETED_HOSTNAME_INDEX_SQL,
+        CREATE_OVERRIDE_ORIGIN_INDEX_SQL,
+        CREATE_DELETED_ORIGIN_INDEX_SQL,
         CREATE_META_TABLE_SQL,
         &*SET_VERSION_SQL,
-    ])?;
-    Ok(())
-}
-
-pub(crate) fn drop(db: &Connection) -> Result<()> {
-    log::debug!("Dropping schema");
-    db.execute_all(&[
-        "DROP TABLE IF EXISTS loginsM",
-        "DROP TABLE IF EXISTS loginsL",
-        "DROP TABLE IF EXISTS loginsSyncMeta",
-        "PRAGMA user_version = 0",
     ])?;
     Ok(())
 }

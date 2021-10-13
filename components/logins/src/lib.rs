@@ -10,19 +10,41 @@ mod error;
 mod login;
 
 mod db;
-mod engine;
+pub mod encryption;
+pub mod migrate_sqlcipher_db;
 mod schema;
 mod store;
-mod update_plan;
+mod sync;
 mod util;
 
 uniffi_macros::include_scaffolding!("logins");
 
-pub use crate::db::{
-    open_and_get_salt, open_and_migrate_to_plaintext_header, LoginDb, MigrationMetrics,
-    MigrationPhaseMetrics,
-};
-pub use crate::engine::LoginsSyncEngine;
+pub use crate::db::{LoginDb, MigrationMetrics, MigrationPhaseMetrics};
+use crate::encryption::{check_canary, create_canary, create_key};
 pub use crate::error::*;
 pub use crate::login::*;
+pub use crate::migrate_sqlcipher_db::migrate_logins;
 pub use crate::store::*;
+pub use crate::sync::LoginsSyncEngine;
+
+// Public encryption functions.  We publish these as top-level functions to expose them across
+// UniFFI
+fn encrypt_login(login: Login, enc_key: &str) -> Result<EncryptedLogin> {
+    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    login.encrypt(&encdec)
+}
+
+fn decrypt_login(login: EncryptedLogin, enc_key: &str) -> Result<Login> {
+    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    login.decrypt(&encdec)
+}
+
+fn encrypt_fields(sec_fields: SecureLoginFields, enc_key: &str) -> Result<String> {
+    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    sec_fields.encrypt(&encdec)
+}
+
+fn decrypt_fields(sec_fields: String, enc_key: &str) -> Result<SecureLoginFields> {
+    let encdec = encryption::EncryptorDecryptor::new(enc_key)?;
+    encdec.decrypt_struct(&sec_fields)
+}
