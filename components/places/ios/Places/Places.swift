@@ -4,6 +4,12 @@
 
 import Foundation
 import os.log
+#if canImport(Sync15)
+    import Sync15
+#endif
+#if canImport(MozillaRustComponents)
+    import MozillaRustComponents
+#endif
 
 internal typealias APIHandle = UInt64
 internal typealias ConnectionHandle = UInt64
