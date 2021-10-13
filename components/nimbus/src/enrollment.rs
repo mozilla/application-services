@@ -519,24 +519,36 @@ pub fn get_enrollments<'r>(
             ..
         } = &enrollment.status
         {
-            if let Some(experiment) = db
+            match db
                 .get_store(StoreId::Experiments)
-                .get::<Experiment, _>(reader, &enrollment.slug)?
+                .get::<Experiment, _>(reader, &enrollment.slug)
             {
-                result.push(EnrolledExperiment {
-                    feature_ids: experiment.get_feature_ids(),
-                    slug: experiment.slug,
-                    user_facing_name: experiment.user_facing_name,
-                    user_facing_description: experiment.user_facing_description,
-                    branch_slug: branch.to_string(),
-                    enrollment_id: enrollment_id.to_string(),
-                });
-            } else {
-                log::warn!(
-                    "Have enrollment {:?} but no matching experiment!",
-                    enrollment
-                );
-            }
+                Ok(Some(experiment)) if !experiment.is_rollout() => {
+                    result.push(EnrolledExperiment {
+                        feature_ids: experiment.get_feature_ids(),
+                        slug: experiment.slug,
+                        user_facing_name: experiment.user_facing_name,
+                        user_facing_description: experiment.user_facing_description,
+                        branch_slug: branch.to_string(),
+                        enrollment_id: enrollment_id.to_string(),
+                    });
+                }
+                Ok(Some(_)) => {
+                    log::warn!("Have enrollment {} but only as rollouts!", enrollment.slug);
+                }
+                Ok(_) => {
+                    log::warn!(
+                        "Have enrollment {:?} but no matching experiment!",
+                        enrollment
+                    );
+                }
+                _ => {
+                    log::warn!(
+                        "Have enrollment {:?} but can't get experiment from the database!",
+                        enrollment
+                    );
+                }
+            };
         }
     }
     Ok(result)
