@@ -552,7 +552,7 @@ impl Defaults for FeatureConfig {
     fn defaults(&self, fallback: &Self) -> Result<Self> {
         if self.feature_id != fallback.feature_id {
             Err(NimbusError::InternalError(
-                "Merging feature config from different branches",
+                "Cannot merge feature configs from different features",
             ))
         } else {
             Ok(FeatureConfig {
