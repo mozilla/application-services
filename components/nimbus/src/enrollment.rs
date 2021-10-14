@@ -504,6 +504,7 @@ impl EnrollmentStatus {
 }
 
 /// Return information about all enrolled experiments.
+/// Note this does not include rollouts
 pub fn get_enrollments<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -1040,8 +1041,6 @@ fn get_enrolled_feature_configs(
         })
         .collect();
 
-    let is_rollout = experiment.is_rollout();
-
     // Now we've got the feature configs for all features in this experiment,
     // we can make EnrolledFeatureConfigs with them.
     branch_features
@@ -1050,9 +1049,12 @@ fn get_enrolled_feature_configs(
         .map(|f| EnrolledFeatureConfig {
             feature: f.to_owned(),
             slug: experiment_slug.clone(),
-            branch: branch_slug.clone(),
+            branch: if !experiment.is_rollout() {
+                Some(branch_slug.clone())
+            } else {
+                None
+            },
             feature_id: f.feature_id.clone(),
-            is_rollout,
         })
         .collect()
 }
@@ -1064,9 +1066,8 @@ fn get_enrolled_feature_configs(
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
-    pub branch: String,
+    pub branch: Option<String>,
     pub feature_id: String,
-    pub is_rollout: bool,
 }
 
 impl Defaults for EnrolledFeatureConfig {
@@ -1080,9 +1081,6 @@ impl Defaults for EnrolledFeatureConfig {
                 slug: self.slug.to_owned(),
                 feature_id: self.feature_id.to_owned(),
 
-                // we'll never merge a rollout into an experiment,
-                // but we might do the reverse
-                is_rollout: self.is_rollout(),
                 feature: self.feature.defaults(&fallback.feature)?,
 
                 // only interesting if this is an experiment.
@@ -1094,7 +1092,7 @@ impl Defaults for EnrolledFeatureConfig {
 
 impl EnrolledFeatureConfig {
     pub fn is_rollout(&self) -> bool {
-        self.is_rollout
+        self.branch.is_none()
     }
 }
 
@@ -3342,17 +3340,15 @@ mod tests {
         let exp_bob = EnrolledFeatureConfig {
             feature: exp_bob.clone(),
             slug: "exp".to_string(),
-            branch: "treatment".to_string(),
+            branch: Some("treatment".to_string()),
             feature_id: exp_bob.feature_id,
-            is_rollout: false,
         };
 
         let ro_bob = EnrolledFeatureConfig {
             feature: ro_bob,
             slug: "ro".to_string(),
-            branch: "treatment".to_string(),
+            branch: None,
             feature_id: exp_bob.feature_id.clone(),
-            is_rollout: true,
         };
 
         let bob = exp_bob.defaults(&ro_bob)?.feature;

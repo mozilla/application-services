@@ -5,6 +5,7 @@
 use crate::enrollment::{get_enrollments, map_features_by_feature_id, EnrolledFeatureConfig};
 use crate::error::{NimbusError, Result};
 use crate::persistence::{Database, StoreId, Writer};
+use crate::EnrolledExperiment;
 use crate::{enrollment::ExperimentEnrollment, Experiment};
 use std::collections::HashMap;
 use std::sync::RwLock;
@@ -17,7 +18,7 @@ use std::sync::RwLock;
 // This struct is the cached data. This is never mutated, but instead
 // recreated every time the cache is updated.
 struct CachedData {
-    pub branches_by_experiment: HashMap<String, String>,
+    pub branches_by_experiment: HashMap<String, EnrolledExperiment>,
     pub features_by_feature_id: HashMap<String, EnrolledFeatureConfig>,
 }
 
@@ -46,16 +47,11 @@ impl DatabaseCache {
         // as written by the calling code, before it's committed to the db.
         let enrollments = get_enrollments(db, &writer)?;
 
-        // Build the new hashmaps.  Note that this is somewhat temporary, is
-        // likely to change when the full FeatureConfig stuff is implemented.
-        // Further, note that, for the moment, we only (currently) support
-        // one feature_id per experiment, meaning that we ignore everything
-        // except the first feature_id in the array.  Some of the multi-feature
-        // code may want to live in the EnrollmentEvolver.
+        // Build a lookup table for experiments by experiment slug.
+        // This will be used for get_experiment_branch() and get_active_experiments()
         let mut branches_by_experiment = HashMap::with_capacity(enrollments.len());
-
         for e in enrollments {
-            branches_by_experiment.insert(e.slug, e.branch_slug.clone());
+            branches_by_experiment.insert(e.slug.clone(), e);
         }
 
         let enrollments: Vec<ExperimentEnrollment> =
@@ -110,12 +106,23 @@ impl DatabaseCache {
     }
 
     pub fn get_experiment_branch(&self, id: &str) -> Result<Option<String>> {
-        self.get_data(|data| match data.features_by_feature_id.get(id) {
-            None => data.branches_by_experiment.get(id).cloned(),
-            Some(feature) => Some(feature.branch.clone()),
+        self.get_data(|data| -> Option<String> {
+            // Getting experiment branch by feature id will be going away soon: it doesn't really
+            // make sense.
+            if let Some(feature) = data.features_by_feature_id.get(id) {
+                // Features may be involved in rollouts and experiments.
+                // If it's only involved in a rollout, then the branch is None.
+                feature.branch.clone()
+            } else {
+                data.branches_by_experiment
+                    .get(id)
+                    .map(|experiment| experiment.branch_slug.clone())
+            }
         })
     }
 
+    // This gives access to the feature JSON. We pass it as a string because uniffi doesn't
+    // support JSON yet.
     pub fn get_feature_config_variables(&self, feature_id: &str) -> Result<Option<String>> {
         self.get_data(|data| {
             if let Some(enrolled_feature) = data.features_by_feature_id.get(feature_id) {
@@ -124,6 +131,16 @@ impl DatabaseCache {
             } else {
                 None
             }
+        })
+    }
+
+    pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
+        self.get_data(|data| {
+            data.branches_by_experiment
+                .values()
+                .into_iter()
+                .map(|e| e.to_owned())
+                .collect::<Vec<EnrolledExperiment>>()
         })
     }
 }
