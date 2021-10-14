@@ -3,6 +3,12 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::Result;
+
+/// Simple trait to allow merging of Feature configurations.
+///
+/// Context: Feature JSON is used to configure a application feature.
+/// If a value is needed, the application provides a default.
+/// A rollout changes this default.
 pub trait Defaults {
     fn defaults(&self, fallback: &Self) -> Result<Self>
     where
@@ -92,6 +98,9 @@ mod unit_tests {
 
     #[test]
     fn test_defaults_test_impl() -> Result<()> {
+        // This implementation for &str doesn't exist in non-test code.
+        // We have it, and test it here in order to make testing of error
+        // recovery in real implementations.
         let (a, b) = ("ok", "yes");
         assert_eq!(a.defaults(&b)?, a);
 
@@ -137,6 +146,8 @@ mod unit_tests {
 
         let exp = HashMap::<String, &str>::from_iter(IntoIter::new([
             ("a".to_string(), "A from a"),
+            // we tried to merge the defaults, but it failed, so we
+            // we keep the original (i.e. the experiment rather than the rollout)
             ("b".to_string(), "B from a"),
             ("c".to_string(), "CC added"),
             ("d".to_string(), "errDD not merged, but added"),

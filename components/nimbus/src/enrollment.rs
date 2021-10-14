@@ -1062,7 +1062,7 @@ fn get_enrolled_feature_configs(
 /// Small transitory struct to contain all the information needed to configure a feature with the Feature API.
 /// By design, we don't want to store it on the disk. Instead we calculate it from experiments
 /// and enrollments.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
@@ -1074,7 +1074,7 @@ impl Defaults for EnrolledFeatureConfig {
     fn defaults(&self, fallback: &Self) -> Result<Self> {
         if self.feature_id != fallback.feature_id {
             Err(NimbusError::InternalError(
-                "Cannot merge feature configs from different features",
+                "Cannot merge enrolled feature configs from different features",
             ))
         } else {
             Ok(Self {
@@ -1091,6 +1091,7 @@ impl Defaults for EnrolledFeatureConfig {
 }
 
 impl EnrolledFeatureConfig {
+    #[allow(dead_code)]
     pub fn is_rollout(&self) -> bool {
         self.branch.is_none()
     }

@@ -24,8 +24,8 @@ pub use config::RemoteSettingsConfig;
 use dbcache::DatabaseCache;
 pub use enrollment::EnrollmentStatus;
 use enrollment::{
-    get_global_user_participation, opt_in_with_branch, opt_out,
-    set_global_user_participation, EnrollmentChangeEvent, EnrollmentsEvolver,
+    get_global_user_participation, opt_in_with_branch, opt_out, set_global_user_participation,
+    EnrollmentChangeEvent, EnrollmentsEvolver,
 };
 use evaluator::is_experiment_available;
 
@@ -181,8 +181,7 @@ impl NimbusClient {
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
-        self.database_cache
-            .get_active_experiments()
+        self.database_cache.get_active_experiments()
     }
 
     pub fn get_all_experiments(&self) -> Result<Vec<Experiment>> {

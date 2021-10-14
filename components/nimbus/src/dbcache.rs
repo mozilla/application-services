@@ -18,7 +18,7 @@ use std::sync::RwLock;
 // This struct is the cached data. This is never mutated, but instead
 // recreated every time the cache is updated.
 struct CachedData {
-    pub branches_by_experiment: HashMap<String, EnrolledExperiment>,
+    pub experiments_by_slug: HashMap<String, EnrolledExperiment>,
     pub features_by_feature_id: HashMap<String, EnrolledFeatureConfig>,
 }
 
@@ -49,9 +49,9 @@ impl DatabaseCache {
 
         // Build a lookup table for experiments by experiment slug.
         // This will be used for get_experiment_branch() and get_active_experiments()
-        let mut branches_by_experiment = HashMap::with_capacity(enrollments.len());
+        let mut experiments_by_slug = HashMap::with_capacity(enrollments.len());
         for e in enrollments {
-            branches_by_experiment.insert(e.slug.clone(), e);
+            experiments_by_slug.insert(e.slug.clone(), e);
         }
 
         let enrollments: Vec<ExperimentEnrollment> =
@@ -68,7 +68,7 @@ impl DatabaseCache {
         // This is where rollouts (promoted experiments on a given feature) will be merged in to the feature variables.
 
         let data = CachedData {
-            branches_by_experiment,
+            experiments_by_slug,
             features_by_feature_id,
         };
 
@@ -114,7 +114,7 @@ impl DatabaseCache {
                 // If it's only involved in a rollout, then the branch is None.
                 feature.branch.clone()
             } else {
-                data.branches_by_experiment
+                data.experiments_by_slug
                     .get(id)
                     .map(|experiment| experiment.branch_slug.clone())
             }
@@ -136,7 +136,7 @@ impl DatabaseCache {
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
         self.get_data(|data| {
-            data.branches_by_experiment
+            data.experiments_by_slug
                 .values()
                 .into_iter()
                 .map(|e| e.to_owned())
