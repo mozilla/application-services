@@ -9,7 +9,6 @@ use crate::LoginsSyncEngine;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine};
-use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -63,17 +62,6 @@ impl LoginStore {
     pub fn find_login_to_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Option<Login>> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
         self.db.lock().unwrap().find_login_to_update(entry, &encdec)
-    }
-
-    pub fn potential_dupes_ignoring_username(
-        &self,
-        id: &str,
-        entry: LoginEntry,
-    ) -> Result<Vec<EncryptedLogin>> {
-        self.db
-            .lock()
-            .unwrap()
-            .potential_dupes_ignoring_username(&Guid::new(id), &entry.fields)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {

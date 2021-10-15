@@ -237,51 +237,20 @@ impl LoginDb {
         look: LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Login>> {
-        lazy_static::lazy_static! {
-            static ref LOGINS_TO_SEARCH_SQL: String = format!(
-                "SELECT {common_cols} FROM loginsL
-                WHERE is_deleted = 0
-                    AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_action_origin
-                        OR
-                        httpRealm = :http_realm
-                    )
-
-                UNION ALL
-
-                SELECT {common_cols} FROM loginsM
-                WHERE is_overridden = 0
-                    AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_action_origin
-                        OR
-                        httpRealm = :http_realm
-                    )
-                ",
-                common_cols = schema::COMMON_COLS
-            );
-        }
-
-        // Fetch all potentially matching rows
         let look = look.fixup()?;
-        let mut stmt = self.db.prepare_cached(&LOGINS_TO_SEARCH_SQL)?;
-        let params = named_params! {
-            ":origin": look.fields.origin,
-            ":http_realm": look.fields.http_realm,
-            ":form_action_origin": look.fields.form_action_origin,
-        };
-        let rows = stmt
-            .query_and_then_named(params, |row| EncryptedLogin::from_row(row)?.decrypt(encdec))?
+        let logins = self
+            .get_by_entry_target(&look)?
+            .into_iter()
+            .map(|enc_login| enc_login.decrypt(encdec))
             .collect::<Result<Vec<Login>>>()?;
-        // Search through the results and try to pick a login
-        Ok(rows
+        Ok(logins
             // First, try to match the username
             .iter()
             .find(|login| login.sec_fields.username == look.sec_fields.username)
             // Fall back on a blank username
             .or_else(|| {
-                rows.iter()
+                logins
+                    .iter()
                     .find(|login| login.sec_fields.username.is_empty())
             })
             // Clone the login to avoid ref issues when returning across the FFI
@@ -634,58 +603,85 @@ impl LoginDb {
         entry: &LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
-        for possible in self.potential_dupes_ignoring_username(guid, &entry.fields)? {
-            let pos_sec_fields = possible.decrypt_fields(encdec)?;
-            if pos_sec_fields.username == entry.sec_fields.username {
-                return Ok(Some(possible.guid()));
+        for possible in self.get_by_entry_target(entry)? {
+            if possible.guid() != *guid {
+                let pos_sec_fields = possible.decrypt_fields(encdec)?;
+                if pos_sec_fields.username == entry.sec_fields.username {
+                    return Ok(Some(possible.guid()));
+                }
             }
         }
         Ok(None)
     }
 
-    pub fn potential_dupes_ignoring_username(
-        &self,
-        guid: &Guid,
-        fields: &LoginFields,
-    ) -> Result<Vec<EncryptedLogin>> {
+    // Find saved logins that match the target for a `LoginEntry`
+    //
+    // This means that:
+    //   - `origin` matches
+    //   - Either `form_action_origin` or `http_realm` matches, depending on which one is non-null
+    //
+    // This is used for dupe-checking and `find_login_to_update()`
+    fn get_by_entry_target(&self, entry: &LoginEntry) -> Result<Vec<EncryptedLogin>> {
         // Could be lazy_static-ed...
         lazy_static::lazy_static! {
-            static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
+            static ref GET_BY_FORM_ACTION_ORIGIN: String = format!(
                 "SELECT {common_cols} FROM loginsL
                 WHERE is_deleted = 0
-                    AND guid <> :guid
                     AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_submit
-                        OR
-                        httpRealm = :http_realm
-                    )
+                    AND formActionOrigin = :form_action_origin
 
                 UNION ALL
 
                 SELECT {common_cols} FROM loginsM
                 WHERE is_overridden = 0
-                AND guid <> :guid
-                AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_submit
-                        OR
-                        httpRealm = :http_realm
-                    )
+                    AND origin = :origin
+                    AND formActionOrigin = :form_action_origin
+                ",
+                common_cols = schema::COMMON_COLS
+            );
+            static ref GET_BY_HTTP_REALM: String = format!(
+                "SELECT {common_cols} FROM loginsL
+                WHERE is_deleted = 0
+                    AND origin = :origin
+                    AND httpRealm = :http_realm
+
+                UNION ALL
+
+                SELECT {common_cols} FROM loginsM
+                WHERE is_overridden = 0
+                    AND origin = :origin
+                    AND httpRealm = :http_realm
                 ",
                 common_cols = schema::COMMON_COLS
             );
         }
-        let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
-        let params = named_params! {
-            ":guid": guid,
-            ":origin": &fields.origin,
-            ":http_realm": fields.http_realm.as_ref(),
-            ":form_submit": fields.form_action_origin.as_ref(),
-        };
-        // Needs to be two lines for borrow checker
-        let rows = stmt.query_and_then_named(params, EncryptedLogin::from_row)?;
-        rows.collect()
+        match (
+            entry.fields.form_action_origin.as_ref(),
+            entry.fields.http_realm.as_ref(),
+        ) {
+            (Some(form_action_origin), None) => {
+                let params = named_params! {
+                    ":origin": &entry.fields.origin,
+                    ":form_action_origin": form_action_origin,
+                };
+                self.db
+                    .prepare_cached(&GET_BY_FORM_ACTION_ORIGIN)?
+                    .query_and_then_named(params, EncryptedLogin::from_row)?
+                    .collect()
+            }
+            (None, Some(http_realm)) => {
+                let params = named_params! {
+                    ":origin": &entry.fields.origin,
+                    ":http_realm": http_realm,
+                };
+                self.db
+                    .prepare_cached(&GET_BY_HTTP_REALM)?
+                    .query_and_then_named(params, EncryptedLogin::from_row)?
+                    .collect()
+            }
+            (Some(_), Some(_)) => Err(InvalidLogin::BothTargets.into()),
+            (None, None) => Err(InvalidLogin::NoTarget.into()),
+        }
     }
 
     pub fn exists(&self, id: &str) -> Result<bool> {
