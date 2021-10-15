@@ -131,19 +131,6 @@ impl LoginStore {
         Ok(serde_json::to_string(&metrics)?)
     }
 
-    pub fn check_valid_with_no_dupes(
-        &self,
-        id: &str,
-        entry: &LoginEntry,
-        enc_key: &str,
-    ) -> Result<()> {
-        let encdec = crate::encryption::EncryptorDecryptor::new(enc_key)?;
-        self.db
-            .lock()
-            .unwrap()
-            .check_valid_with_no_dupes(&Guid::new(id), entry, &encdec)
-    }
-
     /// A convenience wrapper around sync_multiple.
     // Unfortunately, iOS still uses this until they use the sync manager
     // This can almost die later - consumers should never call it (they should
