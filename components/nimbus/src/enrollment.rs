@@ -522,30 +522,23 @@ pub fn get_enrollments<'r>(
         {
             match db
                 .get_store(StoreId::Experiments)
-                .get::<Experiment, _>(reader, &enrollment.slug)
+                .get::<Experiment, _>(reader, &enrollment.slug)?
             {
-                Ok(Some(experiment)) if !experiment.is_rollout() => {
-                    result.push(EnrolledExperiment {
-                        feature_ids: experiment.get_feature_ids(),
-                        slug: experiment.slug,
-                        user_facing_name: experiment.user_facing_name,
-                        user_facing_description: experiment.user_facing_description,
-                        branch_slug: branch.to_string(),
-                        enrollment_id: enrollment_id.to_string(),
-                    });
-                }
-                Ok(Some(_)) => {
-                    log::warn!("Have enrollment {} but only as rollouts!", enrollment.slug);
-                }
-                Ok(_) => {
-                    log::warn!(
-                        "Have enrollment {:?} but no matching experiment!",
-                        enrollment
-                    );
+                Some(experiment) => {
+                    if !experiment.is_rollout() {
+                        result.push(EnrolledExperiment {
+                            feature_ids: experiment.get_feature_ids(),
+                            slug: experiment.slug,
+                            user_facing_name: experiment.user_facing_name,
+                            user_facing_description: experiment.user_facing_description,
+                            branch_slug: branch.to_string(),
+                            enrollment_id: enrollment_id.to_string(),
+                        });
+                    }
                 }
                 _ => {
                     log::warn!(
-                        "Have enrollment {:?} but can't get experiment from the database!",
+                        "Have enrollment {:?} but no matching experiment!",
                         enrollment
                     );
                 }
@@ -625,10 +618,12 @@ impl<'a> EnrollmentsEvolver<'a> {
 
         // Do rollouts first.
         // At the moment, we only allow one rollout per feature, so we can re-use the same machinery as experiments
-        let rollouts_only = |e: &Experiment| e.is_rollout();
-        let (prev_rollouts, ro_enrollments) =
-            filter_experiments_and_enrollments(prev_experiments, prev_enrollments, rollouts_only);
-        let next_rollouts = filter_experiments(next_experiments, rollouts_only);
+        let (prev_rollouts, ro_enrollments) = filter_experiments_and_enrollments(
+            prev_experiments,
+            prev_enrollments,
+            Experiment::is_rollout,
+        );
+        let next_rollouts = filter_experiments(next_experiments, Experiment::is_rollout);
 
         // NB: Experiments require a lack of opt-out, but rollouts do not, so we set `is_user_participating` to `true`.
         let (next_ro_enrollments, ro_events) =
@@ -987,7 +982,7 @@ pub fn map_features_by_feature_id(
     experiments: &[Experiment],
 ) -> HashMap<String, EnrolledFeatureConfig> {
     let (rollouts, ro_enrollments) =
-        filter_experiments_and_enrollments(experiments, enrollments, |e| e.is_rollout());
+        filter_experiments_and_enrollments(experiments, enrollments, Experiment::is_rollout);
     let (experiments, exp_enrollments) =
         filter_experiments_and_enrollments(experiments, enrollments, |e| !e.is_rollout());
 
@@ -1073,6 +1068,7 @@ pub struct EnrolledFeatureConfig {
 impl Defaults for EnrolledFeatureConfig {
     fn defaults(&self, fallback: &Self) -> Result<Self> {
         if self.feature_id != fallback.feature_id {
+            // This is unlikely to happen, but if it does it's a bug in Nimbus
             Err(NimbusError::InternalError(
                 "Cannot merge enrolled feature configs from different features",
             ))
@@ -1080,18 +1076,19 @@ impl Defaults for EnrolledFeatureConfig {
             Ok(Self {
                 slug: self.slug.to_owned(),
                 feature_id: self.feature_id.to_owned(),
-
+                // Merge the actual feature config.
                 feature: self.feature.defaults(&fallback.feature)?,
-
-                // only interesting if this is an experiment.
+                // If this is an experiment, then this will be Some(_).
+                // The feature is involved in zero or one experiments, and 0 or more rollouts.
+                // So we can clone this Option safely.
                 branch: self.branch.to_owned(),
             })
         }
     }
 }
 
+#[cfg(test)]
 impl EnrolledFeatureConfig {
-    #[allow(dead_code)]
     pub fn is_rollout(&self) -> bool {
         self.branch.is_none()
     }
@@ -3306,7 +3303,7 @@ mod tests {
     }
 
     #[test]
-    fn test_evolver_feature_configs_can_merge() -> Result<()> {
+    fn test_defaults_merging_feature_configs() -> Result<()> {
         let exp_bob = FeatureConfig {
             feature_id: "bob".into(),
             value: json!({
@@ -3973,11 +3970,6 @@ mod tests {
 
         Ok(())
     }
-}
-
-mod unit_tests {
-    #[allow(unused_imports)]
-    use super::*;
 
     #[test]
     fn test_filter_experiments_by_closure() -> Result<()> {
@@ -4009,7 +4001,7 @@ mod unit_tests {
         let enrollments = &[ro_enrollment, ex_enrollment];
 
         let (ro, ro_enrollments) =
-            filter_experiments_and_enrollments(recipes, enrollments, |e| e.is_rollout());
+            filter_experiments_and_enrollments(recipes, enrollments, Experiment::is_rollout);
         assert_eq!(ro.len(), 1);
         assert_eq!(ro_enrollments.len(), 1);
         assert_eq!(ro[0].slug, rollout.slug);

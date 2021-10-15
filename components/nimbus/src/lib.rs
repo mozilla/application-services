@@ -551,6 +551,7 @@ pub struct FeatureConfig {
 impl Defaults for FeatureConfig {
     fn defaults(&self, fallback: &Self) -> Result<Self> {
         if self.feature_id != fallback.feature_id {
+            // This is unlikely to happen, but if it does it's a bug in Nimbus
             Err(NimbusError::InternalError(
                 "Cannot merge feature configs from different features",
             ))
