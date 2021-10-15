@@ -7,9 +7,11 @@ mod enrollment;
 pub mod error;
 mod evaluator;
 use chrono::{DateTime, NaiveDateTime, Utc};
+use defaults::Defaults;
 pub use error::{NimbusError, Result};
 mod client;
 mod config;
+mod defaults;
 mod matcher;
 pub mod persistence;
 mod sampling;
@@ -22,8 +24,8 @@ pub use config::RemoteSettingsConfig;
 use dbcache::DatabaseCache;
 pub use enrollment::EnrollmentStatus;
 use enrollment::{
-    get_enrollments, get_global_user_participation, opt_in_with_branch, opt_out,
-    set_global_user_participation, EnrollmentChangeEvent, EnrollmentsEvolver,
+    get_global_user_participation, opt_in_with_branch, opt_out, set_global_user_participation,
+    EnrollmentChangeEvent, EnrollmentsEvolver,
 };
 use evaluator::is_experiment_available;
 
@@ -179,9 +181,7 @@ impl NimbusClient {
     }
 
     pub fn get_active_experiments(&self) -> Result<Vec<EnrolledExperiment>> {
-        let db = self.db()?;
-        let reader = db.read()?;
-        get_enrollments(db, &reader)
+        self.database_cache.get_active_experiments()
     }
 
     pub fn get_all_experiments(&self) -> Result<Vec<Experiment>> {
@@ -500,6 +500,8 @@ pub struct Experiment {
     pub proposed_duration: Option<u32>,
     pub proposed_enrollment: u32,
     pub reference_branch: Option<String>,
+    #[serde(default)]
+    pub is_rollout: bool,
     // N.B. records in RemoteSettings will have `id` and `filter_expression` fields,
     // but we ignore them because they're for internal use by RemoteSettings.
 }
@@ -529,6 +531,10 @@ impl Experiment {
 
         feature_ids.into_iter().collect()
     }
+
+    fn is_rollout(&self) -> bool {
+        self.is_rollout
+    }
 }
 
 #[derive(Deserialize, Serialize, Debug, Default, Clone, PartialEq)]
@@ -540,6 +546,22 @@ pub struct FeatureConfig {
     // serde_json yet.
     #[serde(default)]
     pub value: Map<String, Value>,
+}
+
+impl Defaults for FeatureConfig {
+    fn defaults(&self, fallback: &Self) -> Result<Self> {
+        if self.feature_id != fallback.feature_id {
+            // This is unlikely to happen, but if it does it's a bug in Nimbus
+            Err(NimbusError::InternalError(
+                "Cannot merge feature configs from different features",
+            ))
+        } else {
+            Ok(FeatureConfig {
+                feature_id: self.feature_id.clone(),
+                value: self.value.defaults(&fallback.value)?,
+            })
+        }
+    }
 }
 
 // ⚠️ Attention : Changes to this type should be accompanied by a new test  ⚠️
@@ -585,6 +607,18 @@ pub struct BucketConfig {
     pub count: u32,
     #[serde(default = "default_buckets")]
     pub total: u32,
+}
+
+#[cfg(test)]
+impl BucketConfig {
+    fn always() -> Self {
+        Self {
+            start: 0,
+            count: default_buckets(),
+            total: default_buckets(),
+            ..Default::default()
+        }
+    }
 }
 
 // This type is passed across the FFI to client consumers, e.g. UI for testing tooling.

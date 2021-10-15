@@ -1,3 +1,4 @@
+use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
@@ -503,6 +504,7 @@ impl EnrollmentStatus {
 }
 
 /// Return information about all enrolled experiments.
+/// Note this does not include rollouts
 pub fn get_enrollments<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -518,24 +520,29 @@ pub fn get_enrollments<'r>(
             ..
         } = &enrollment.status
         {
-            if let Some(experiment) = db
+            match db
                 .get_store(StoreId::Experiments)
                 .get::<Experiment, _>(reader, &enrollment.slug)?
             {
-                result.push(EnrolledExperiment {
-                    feature_ids: experiment.get_feature_ids(),
-                    slug: experiment.slug,
-                    user_facing_name: experiment.user_facing_name,
-                    user_facing_description: experiment.user_facing_description,
-                    branch_slug: branch.to_string(),
-                    enrollment_id: enrollment_id.to_string(),
-                });
-            } else {
-                log::warn!(
-                    "Have enrollment {:?} but no matching experiment!",
-                    enrollment
-                );
-            }
+                Some(experiment) => {
+                    if !experiment.is_rollout() {
+                        result.push(EnrolledExperiment {
+                            feature_ids: experiment.get_feature_ids(),
+                            slug: experiment.slug,
+                            user_facing_name: experiment.user_facing_name,
+                            user_facing_description: experiment.user_facing_description,
+                            branch_slug: branch.to_string(),
+                            enrollment_id: enrollment_id.to_string(),
+                        });
+                    }
+                }
+                _ => {
+                    log::warn!(
+                        "Have enrollment {:?} but no matching experiment!",
+                        enrollment
+                    );
+                }
+            };
         }
     }
     Ok(result)
@@ -599,9 +606,63 @@ impl<'a> EnrollmentsEvolver<'a> {
         Ok(enrollments_change_events)
     }
 
+    pub(crate) fn evolve_enrollments(
+        &self,
+        is_user_participating: bool,
+        prev_experiments: &[Experiment],
+        next_experiments: &[Experiment],
+        prev_enrollments: &[ExperimentEnrollment],
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+        let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
+        let mut events: Vec<EnrollmentChangeEvent> = Default::default();
+
+        // Do rollouts first.
+        // At the moment, we only allow one rollout per feature, so we can re-use the same machinery as experiments
+        let (prev_rollouts, ro_enrollments) = filter_experiments_and_enrollments(
+            prev_experiments,
+            prev_enrollments,
+            Experiment::is_rollout,
+        );
+        let next_rollouts = filter_experiments(next_experiments, Experiment::is_rollout);
+
+        // NB: Experiments require a lack of opt-out, but rollouts do not, so we set `is_user_participating` to `true`.
+        let (next_ro_enrollments, ro_events) =
+            self.evolve_enrollment_recipes(true, &prev_rollouts, &next_rollouts, &ro_enrollments)?;
+
+        enrollments.extend(next_ro_enrollments.into_iter());
+        events.extend(ro_events.into_iter());
+
+        let ro_slugs: HashSet<String> = ro_enrollments.iter().map(|e| e.slug.clone()).collect();
+
+        // Now we do the experiments.
+        // We need to mop up all the enrollments that aren't rollouts (not just belonging to experiments that aren't rollouts)
+        // because some of them don't belong to any experiments recipes, and evolve_enrollment_recipes will handle the error
+        // states for us.
+        let experiments_only = |e: &Experiment| !e.is_rollout();
+        let prev_experiments = filter_experiments(prev_experiments, experiments_only);
+        let next_experiments = filter_experiments(next_experiments, experiments_only);
+        let prev_enrollments: Vec<ExperimentEnrollment> = prev_enrollments
+            .iter()
+            .filter(|e| !ro_slugs.contains(&e.slug))
+            .map(|e| e.to_owned())
+            .collect();
+
+        let (next_exp_enrollments, exp_events) = self.evolve_enrollment_recipes(
+            is_user_participating,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        enrollments.extend(next_exp_enrollments.into_iter());
+        events.extend(exp_events.into_iter());
+
+        Ok((enrollments, events))
+    }
+
     /// Evolve and calculate the new set of enrollments, using the
     /// previous and current state of experiments and current enrollments.
-    pub(crate) fn evolve_enrollments(
+    pub(crate) fn evolve_enrollment_recipes(
         &self,
         is_user_participating: bool,
         prev_experiments: &[Experiment],
@@ -650,7 +711,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // place in this function where enrollments could be
                     // dropped.  We could then send those errors to
                     // telemetry so that they could be monitored (SDK-309)
-                    log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
+                    log::warn!("{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                     None
                 }
             };
@@ -733,7 +794,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                         // place in this function where enrollments could be
                         // dropped.  We could then send those errors to
                         // telemetry so that they could be monitored (SDK-309)
-                        log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
+                        log::warn!("{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                         None
                     }
                 };
@@ -867,6 +928,35 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
+fn filter_experiments_and_enrollments(
+    experiments: &[Experiment],
+    enrollments: &[ExperimentEnrollment],
+    filter_fn: fn(&Experiment) -> bool,
+) -> (Vec<Experiment>, Vec<ExperimentEnrollment>) {
+    let experiments: Vec<Experiment> = filter_experiments(experiments, filter_fn);
+
+    let slugs: HashSet<String> = experiments.iter().map(|e| e.slug.clone()).collect();
+
+    let enrollments: Vec<ExperimentEnrollment> = enrollments
+        .iter()
+        .filter(|e| slugs.contains(&e.slug))
+        .map(|e| e.to_owned())
+        .collect();
+
+    (experiments, enrollments)
+}
+
+fn filter_experiments(
+    experiments: &[Experiment],
+    filter_fn: fn(&Experiment) -> bool,
+) -> Vec<Experiment> {
+    experiments
+        .iter()
+        .filter(|e| filter_fn(*e))
+        .map(|e| e.to_owned())
+        .collect()
+}
+
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
 /// `EnrolledFeatureConfig` structs.
 fn map_features(
@@ -891,7 +981,17 @@ pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
 ) -> HashMap<String, EnrolledFeatureConfig> {
-    map_features(enrollments, &map_experiments(experiments))
+    let (rollouts, ro_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, Experiment::is_rollout);
+    let (experiments, exp_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, |e| !e.is_rollout());
+
+    let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
+    let features_under_experiment = map_features(&exp_enrollments, &map_experiments(&experiments));
+
+    features_under_experiment
+        .defaults(&features_under_rollout)
+        .unwrap()
 }
 
 fn get_enrolled_feature_configs(
@@ -944,7 +1044,11 @@ fn get_enrolled_feature_configs(
         .map(|f| EnrolledFeatureConfig {
             feature: f.to_owned(),
             slug: experiment_slug.clone(),
-            branch: branch_slug.clone(),
+            branch: if !experiment.is_rollout() {
+                Some(branch_slug.clone())
+            } else {
+                None
+            },
             feature_id: f.feature_id.clone(),
         })
         .collect()
@@ -957,8 +1061,37 @@ fn get_enrolled_feature_configs(
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
-    pub branch: String,
+    pub branch: Option<String>,
     pub feature_id: String,
+}
+
+impl Defaults for EnrolledFeatureConfig {
+    fn defaults(&self, fallback: &Self) -> Result<Self> {
+        if self.feature_id != fallback.feature_id {
+            // This is unlikely to happen, but if it does it's a bug in Nimbus
+            Err(NimbusError::InternalError(
+                "Cannot merge enrolled feature configs from different features",
+            ))
+        } else {
+            Ok(Self {
+                slug: self.slug.to_owned(),
+                feature_id: self.feature_id.to_owned(),
+                // Merge the actual feature config.
+                feature: self.feature.defaults(&fallback.feature)?,
+                // If this is an experiment, then this will be Some(_).
+                // The feature is involved in zero or one experiments, and 0 or more rollouts.
+                // So we can clone this Option safely.
+                branch: self.branch.to_owned(),
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+impl EnrolledFeatureConfig {
+    pub fn is_rollout(&self) -> bool {
+        self.branch.is_none()
+    }
 }
 
 #[derive(Debug)]
@@ -1080,9 +1213,9 @@ mod tests {
     use super::*;
     use crate::{
         persistence::{Database, StoreId},
-        AppContext,
+        AppContext, Branch, BucketConfig,
     };
-    use serde_json::json;
+    use serde_json::{json, Value};
     use tempdir::TempDir;
 
     fn get_test_experiments() -> Vec<Experiment> {
@@ -3057,6 +3190,336 @@ mod tests {
     }
 
     #[test]
+    fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        ..Default::default()
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            ..experiment.clone()
+        };
+
+        let recipes = &[experiment, rollout];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+        assert_eq!(enrollments.len(), 2);
+        assert_eq!(events.len(), 2);
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .count(),
+            2
+        );
+
+        let slugs: Vec<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
+        assert_eq!(slugs, vec![ro_slug, exp_slug]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        ..Default::default()
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            ..experiment.clone()
+        };
+
+        let ro_slug2 = "rollout2".to_string();
+        let rollout2 = Experiment {
+            slug: ro_slug2.clone(),
+            ..rollout.clone()
+        };
+
+        let recipes = &[experiment, rollout, rollout2];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+        assert_eq!(enrollments.len(), 3);
+        assert_eq!(events.len(), 2);
+
+        let enrollments: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+
+        assert_eq!(enrollments.len(), 2);
+
+        let slugs: HashSet<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
+        assert!(slugs.contains(&exp_slug));
+        // we want one rollout slug, or the other, but not both, and not none.
+        assert!(slugs.contains(&ro_slug) ^ slugs.contains(&ro_slug2));
+        Ok(())
+    }
+
+    #[test]
+    fn test_defaults_merging_feature_configs() -> Result<()> {
+        let exp_bob = FeatureConfig {
+            feature_id: "bob".into(),
+            value: json!({
+                "specified": "Experiment in part".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
+        };
+        let ro_bob = FeatureConfig {
+            feature_id: "bob".into(),
+            value: json!({
+                "name": "Bob".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
+        };
+
+        let bob = exp_bob.defaults(&ro_bob)?;
+        assert_eq!(bob.feature_id, "bob".to_string());
+
+        assert_eq!(
+            Value::Object(bob.value),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        let exp_bob = EnrolledFeatureConfig {
+            feature: exp_bob.clone(),
+            slug: "exp".to_string(),
+            branch: Some("treatment".to_string()),
+            feature_id: exp_bob.feature_id,
+        };
+
+        let ro_bob = EnrolledFeatureConfig {
+            feature: ro_bob,
+            slug: "ro".to_string(),
+            branch: None,
+            feature_id: exp_bob.feature_id.clone(),
+        };
+
+        let bob = exp_bob.defaults(&ro_bob)?.feature;
+        assert_eq!(bob.feature_id, "bob".to_string());
+
+        assert_eq!(
+            Value::Object(bob.value),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        Ok(())
+    }
+
+    fn get_rollout_and_experiment() -> (Experiment, Experiment) {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                slug: exp_slug,
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        value: json!({
+                            "name": "Alice".to_string(),
+                            "specified": "Experiment only".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        value: json!({
+                            "specified": "Experiment in part".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            branches: vec![Branch {
+                slug: ro_slug,
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        value: json!({
+                            "name": "Bob".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                    FeatureConfig {
+                        feature_id: "charlie".into(),
+                        value: json!({
+                            "name": "Charlie".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        (rollout, experiment)
+    }
+
+    fn assert_alice_bob_charlie(features: &HashMap<String, EnrolledFeatureConfig>) {
+        assert_eq!(features.len(), 3);
+
+        let alice = &features["alice"];
+        let bob = &features["bob"];
+        let charlie = &features["charlie"];
+
+        assert!(!alice.is_rollout());
+        assert_eq!(
+            Value::Object(alice.feature.value.clone()),
+            json!({
+                "name": "Alice".to_string(),
+                "specified": "Experiment only".to_string(),
+            })
+        );
+
+        assert!(!bob.is_rollout());
+        assert_eq!(
+            Value::Object(bob.feature.value.clone()),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        assert!(charlie.is_rollout());
+        assert_eq!(
+            Value::Object(charlie.feature.value.clone()),
+            json!({
+                "name": "Charlie".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
+        let (rollout, experiment) = get_rollout_and_experiment();
+        let (exp_slug, ro_slug) = (rollout.slug.clone(), experiment.slug.clone());
+
+        let exp_enrollment = ExperimentEnrollment {
+            slug: exp_slug.clone(),
+            status: EnrollmentStatus::Enrolled {
+                branch: exp_slug,
+                enrollment_id: Default::default(),
+                reason: EnrolledReason::Qualified,
+            },
+        };
+
+        let ro_enrollment = ExperimentEnrollment {
+            slug: ro_slug.clone(),
+            status: EnrollmentStatus::Enrolled {
+                branch: ro_slug,
+                enrollment_id: Default::default(),
+                reason: EnrolledReason::Qualified,
+            },
+        };
+        let enrollments = &[ro_enrollment, exp_enrollment];
+        let experiments = &[experiment, rollout];
+        let features = map_features_by_feature_id(enrollments, experiments);
+
+        assert_alice_bob_charlie(&features);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rollouts_end_to_end() -> Result<()> {
+        let (rollout, experiment) = get_rollout_and_experiment();
+        let recipes = &[rollout, experiment];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+
+        let (enrollments, _events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+
+        let features = map_features_by_feature_id(&enrollments, recipes);
+
+        assert_alice_bob_charlie(&features);
+
+        Ok(())
+    }
+
+    #[test]
     fn test_enrollment_explicit_opt_in() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let mut events = vec![];
@@ -3504,6 +3967,52 @@ mod tests {
             && *branch_slug == mock_exp1_branch
             && ! Uuid::parse_str(enrollment_id)?.is_nil()
         ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_experiments_by_closure() -> Result<()> {
+        let experiment = Experiment {
+            slug: "experiment1".into(),
+            is_rollout: false,
+            ..Default::default()
+        };
+        let ex_enrollment = ExperimentEnrollment {
+            slug: experiment.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused,
+            },
+        };
+
+        let rollout = Experiment {
+            slug: "rollout1".into(),
+            is_rollout: true,
+            ..Default::default()
+        };
+        let ro_enrollment = ExperimentEnrollment {
+            slug: rollout.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused,
+            },
+        };
+
+        let recipes = &[experiment.clone(), rollout.clone()];
+        let enrollments = &[ro_enrollment, ex_enrollment];
+
+        let (ro, ro_enrollments) =
+            filter_experiments_and_enrollments(recipes, enrollments, Experiment::is_rollout);
+        assert_eq!(ro.len(), 1);
+        assert_eq!(ro_enrollments.len(), 1);
+        assert_eq!(ro[0].slug, rollout.slug);
+        assert_eq!(ro_enrollments[0].slug, rollout.slug);
+
+        let (experiments, exp_enrollments) =
+            filter_experiments_and_enrollments(recipes, enrollments, |e| !e.is_rollout());
+        assert_eq!(experiments.len(), 1);
+        assert_eq!(exp_enrollments.len(), 1);
+        assert_eq!(experiments[0].slug, experiment.slug);
+        assert_eq!(exp_enrollments[0].slug, experiment.slug);
 
         Ok(())
     }
