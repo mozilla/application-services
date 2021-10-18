@@ -402,7 +402,7 @@ jobs:
               # XCode tests build in Debug configuration, save us a full
               # Rust rebuild in Release mode by forcing Debug mode on
               # non-release builds.
-              bash megazords/ios-rust/build-xcframework.sh --build-profile debug
+              bash megazords/ios-rust/build-xcframework.sh --build-profile release
             else
               bash megazords/ios-rust/build-xcframework.sh --build-profile release
             fi
