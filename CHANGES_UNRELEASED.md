@@ -25,3 +25,9 @@ Use the template below to make assigning a version number during the release cut
 
   - Rollouts: allows winning branch promotion and targeting rollouts of features. [#4567](https://github.com/mozilla/application-services/pull/4567).
     - for both Android and iOS.
+
+## General
+### ⚠️ Breaking Changes ⚠️
+
+  - The bundled version of Glean has been updated to v42.0.1.
+    See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELOG.md) for full details.

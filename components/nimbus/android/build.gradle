@@ -19,7 +19,7 @@ dependencies {
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
     testImplementation "androidx.test.ext:junit-ktx:$androidx_test_junit_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
-    testImplementation "org.mozilla.telemetry:glean-forUnitTests:$glean_version"
+    testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$glean_version"
 }
 
 ext.configureUniFFIBindgen("../src/nimbus.udl")
