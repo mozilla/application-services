@@ -727,7 +727,9 @@ impl LoginDb {
                      sync_status = {status_changed},
                      is_deleted = 1,
                      secFields = '',
-                     origin = ''
+                     origin = '', 
+                     httpRealm = NULL,
+                     formActionOrigin = NULL
                  WHERE guid = :guid",
                 status_changed = SyncStatus::Changed as u8
             ),
@@ -1032,6 +1034,7 @@ pub mod test_utils {
 mod tests {
     use super::*;
     use crate::encryption::test_utils::TEST_ENCRYPTOR;
+    use crate::sync::LocalLogin;
     use crate::SecureLoginFields;
 
     #[test]
@@ -1475,18 +1478,17 @@ mod tests {
 
         assert!(db.delete(login.guid_str()).unwrap());
 
-        let tombstone_exists: bool = db
+        let local_login = db
             .query_row_named(
-                "SELECT EXISTS(
-                    SELECT 1 FROM loginsL
-                    WHERE guid = :guid AND is_deleted = 1
-                )",
+                "SELECT * FROM loginsL WHERE guid = :guid",
                 named_params! { ":guid": login.guid_str() },
-                |row| row.get(0),
+                |row| Ok(LocalLogin::from_row(row).unwrap()),
             )
             .unwrap();
+        assert!(local_login.is_deleted);
+        assert_eq!(local_login.login.fields.http_realm, None);
+        assert_eq!(local_login.login.fields.form_action_origin, None);
 
-        assert!(tombstone_exists);
         assert!(!db.exists(login.guid_str()).unwrap());
     }
 
