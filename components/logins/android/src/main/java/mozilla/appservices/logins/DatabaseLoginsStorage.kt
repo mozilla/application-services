@@ -174,6 +174,20 @@ fun recordMigrationMetrics(jsonString: String) {
     }
 }
 
+enum class KeyRegenerationEventReason {
+    Lost, Corrupt, Other,
+}
+
+fun recordKeyRegenerationEvent(reason: KeyRegenerationEventReason) {
+    // Avoid the deprecation warning when calling  `record()` without the optional EventExtras param
+    @Suppress("DEPRECATION")
+    when (reason) {
+        KeyRegenerationEventReason.Lost -> LoginsStoreMetrics.keyRegeneratedLost.record()
+        KeyRegenerationEventReason.Corrupt -> LoginsStoreMetrics.keyRegeneratedCorrupt.record()
+        KeyRegenerationEventReason.Other -> LoginsStoreMetrics.keyRegeneratedOther.record()
+    }
+}
+
 /**
  * A helper class for gathering basic count metrics on different kinds of LoginsStore operation.
  *

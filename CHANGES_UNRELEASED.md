@@ -26,3 +26,9 @@ Use the template below to make assigning a version number during the release cut
     reported in [#4575](https://github.com/mozilla/application-services/issues/4575). This is
     technically a breaking change as a dictionary described in the UDL changed, but in practice,
     none of our consumers used it, so we are not declaring it as breaking in this context.
+
+## Logins
+
+### What's New
+
+  - Added support for recording telemetry when the logins encryption key needs to be regenerated.
