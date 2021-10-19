@@ -4,7 +4,7 @@
 use std::{ops::Deref, path::Path};
 
 use rusqlite::Connection;
-use sql_support::ConnExt;
+use sql_support::{open_database, ConnExt};
 
 use crate::internal::error::{ErrorKind, Result};
 
@@ -39,26 +39,24 @@ pub struct PushDb {
 }
 
 impl PushDb {
-    pub fn with_connection(db: Connection) -> Result<Self> {
-        // XXX: consider the init_test_logging call in other components
-        schema::init(&db)?;
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        // By default, file open errors are StorageSqlErrors and aren't super helpful.
+        // Instead, remap to StorageError and provide the path to the file that couldn't be opened.
+        let initializer = schema::PushConnectionInitializer {};
+        let db = open_database::open_database(path, &initializer).map_err(|_| {
+            ErrorKind::StorageError(format!(
+                "Could not open database file {:?}",
+                &path.as_os_str()
+            ))
+        })?;
         Ok(Self { db })
     }
 
-    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        // By default, file open errors are StorageSqlErrors and aren't super helpful.
-        // Instead, remap to StorageError and provide the path to the file that couldn't be opened.
-        Self::with_connection(Connection::open(&path).map_err(|_| {
-            ErrorKind::StorageError(format!(
-                "Could not open database file {:?}",
-                &path.as_ref().as_os_str()
-            ))
-        })?)
-    }
-
     pub fn open_in_memory() -> Result<Self> {
-        let conn = Connection::open_in_memory()?;
-        Self::with_connection(conn)
+        let initializer = schema::PushConnectionInitializer {};
+        let db = open_database::open_memory_database(&initializer)?;
+        Ok(Self { db })
     }
 
     /// Normalize UUID values to undashed, lowercase.
