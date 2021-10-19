@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.Response
+import mozilla.components.service.glean.BuildInfo
 import mozilla.components.service.glean.Glean
 import mozilla.components.service.glean.config.Configuration
 import mozilla.components.service.glean.net.ConceptFetchHttpUploader
@@ -69,6 +70,8 @@ class NimbusTest {
 
     @Before
     fun setupGlean() {
+        val buildInfo = BuildInfo(versionCode = "0.0.1", versionName = "0.0.1")
+
         // Glean needs to be initialized for the experiments API to accept enrollment events, so we
         // init it with a mock client so we don't upload anything.
         val mockClient: Client = mock()
@@ -79,7 +82,8 @@ class NimbusTest {
             true,
             Configuration(
                 httpClient = ConceptFetchHttpUploader(lazy { mockClient })
-            )
+            ),
+            buildInfo
         )
     }
 

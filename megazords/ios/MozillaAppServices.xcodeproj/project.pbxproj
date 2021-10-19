@@ -54,9 +54,7 @@
 		BF1A87BE25064A9400FED88E /* HttpPingUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87BC25064A9400FED88E /* HttpPingUploader.swift */; };
 		BF1A87BF25064A9400FED88E /* Upload.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87BD25064A9400FED88E /* Upload.swift */; };
 		BF1A87C425064AA500FED88E /* GleanLifecycleObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C025064AA500FED88E /* GleanLifecycleObserver.swift */; };
-		BF1A87C525064AA500FED88E /* GleanOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C125064AA500FED88E /* GleanOperation.swift */; };
 		BF1A87C625064AA500FED88E /* MetricsPingScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C225064AA500FED88E /* MetricsPingScheduler.swift */; };
-		BF1A87C725064AA500FED88E /* PingUploadOperation.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C325064AA500FED88E /* PingUploadOperation.swift */; };
 		BF1A87C925064AB300FED88E /* ErrorType.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87C825064AB300FED88E /* ErrorType.swift */; };
 		BF1A87CE25064AC000FED88E /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CA25064AC000FED88E /* Logger.swift */; };
 		BF1A87CF25064AC000FED88E /* Utils.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1A87CB25064AC000FED88E /* Utils.swift */; };
@@ -69,6 +67,8 @@
 		CD440A422238A08E003F004B /* SwiftProtobuf.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; };
 		CD440A452238A703003F004B /* SwiftProtobuf.framework in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB7DE84C2214D30B00E7CF17 /* SwiftProtobuf.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		CD4CFDD3221DFA5100EB3B33 /* LogTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */; };
+		CD5ECD192716FB88009D10CC /* QuantityMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5ECD182716FB88009D10CC /* QuantityMetric.swift */; };
+		CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD5ECD1A2716FB99009D10CC /* UrlMetric.swift */; };
 		CD85A45422361E890099BFA9 /* Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44922361E880099BFA9 /* Places.swift */; };
 		CD85A45522361E890099BFA9 /* RustPlacesAPI.h in Headers */ = {isa = PBXBuildFile; fileRef = CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD85A44D22361E880099BFA9 /* String+Free_Places.swift */; };
@@ -206,9 +206,7 @@
 		BF1A87BC25064A9400FED88E /* HttpPingUploader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HttpPingUploader.swift; sourceTree = "<group>"; };
 		BF1A87BD25064A9400FED88E /* Upload.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Upload.swift; sourceTree = "<group>"; };
 		BF1A87C025064AA500FED88E /* GleanLifecycleObserver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GleanLifecycleObserver.swift; sourceTree = "<group>"; };
-		BF1A87C125064AA500FED88E /* GleanOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = GleanOperation.swift; sourceTree = "<group>"; };
 		BF1A87C225064AA500FED88E /* MetricsPingScheduler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetricsPingScheduler.swift; sourceTree = "<group>"; };
-		BF1A87C325064AA500FED88E /* PingUploadOperation.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PingUploadOperation.swift; sourceTree = "<group>"; };
 		BF1A87C825064AB300FED88E /* ErrorType.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ErrorType.swift; sourceTree = "<group>"; };
 		BF1A87CA25064AC000FED88E /* Logger.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Logger.swift; sourceTree = "<group>"; };
 		BF1A87CB25064AC000FED88E /* Utils.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Utils.swift; sourceTree = "<group>"; };
@@ -222,6 +220,8 @@
 		C852EEEE220A2E9400A6E79A /* libmegazord_ios.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libmegazord_ios.a; path = ../../target/universal/release/libmegazord_ios.a; sourceTree = "<group>"; };
 		C852EEF2220A3C6800A6E79A /* MozillaAppServices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MozillaAppServices.h; sourceTree = "<group>"; };
 		CD4CFDD2221DFA5100EB3B33 /* LogTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogTest.swift; sourceTree = "<group>"; };
+		CD5ECD182716FB88009D10CC /* QuantityMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = QuantityMetric.swift; sourceTree = "<group>"; };
+		CD5ECD1A2716FB99009D10CC /* UrlMetric.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UrlMetric.swift; sourceTree = "<group>"; };
 		CD85A44922361E880099BFA9 /* Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Places.swift; sourceTree = "<group>"; };
 		CD85A44A22361E880099BFA9 /* RustPlacesAPI.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RustPlacesAPI.h; sourceTree = "<group>"; };
 		CD85A44D22361E880099BFA9 /* String+Free_Places.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "String+Free_Places.swift"; sourceTree = "<group>"; };
@@ -424,9 +424,7 @@
 			isa = PBXGroup;
 			children = (
 				BF1A87C025064AA500FED88E /* GleanLifecycleObserver.swift */,
-				BF1A87C125064AA500FED88E /* GleanOperation.swift */,
 				BF1A87C225064AA500FED88E /* MetricsPingScheduler.swift */,
-				BF1A87C325064AA500FED88E /* PingUploadOperation.swift */,
 			);
 			path = Scheduler;
 			sourceTree = "<group>";
@@ -443,6 +441,7 @@
 		BF1A878B25064A0A00FED88E /* Metrics */ = {
 			isa = PBXGroup;
 			children = (
+				CD5ECD182716FB88009D10CC /* QuantityMetric.swift */,
 				BF1A879C25064A8000FED88E /* BooleanMetric.swift */,
 				BF1A87A325064A8100FED88E /* CounterMetric.swift */,
 				BF1A87A025064A8100FED88E /* DatetimeMetric.swift */,
@@ -461,6 +460,7 @@
 				BF1A879F25064A8100FED88E /* TimeUnit.swift */,
 				BF1A87A725064A8100FED88E /* TimingDistributionMetric.swift */,
 				BF1A87A425064A8100FED88E /* UuidMetric.swift */,
+				CD5ECD1A2716FB99009D10CC /* UrlMetric.swift */,
 			);
 			path = Metrics;
 			sourceTree = "<group>";
@@ -809,7 +809,6 @@
 				BF1A87AD25064A8100FED88E /* Lifetime.swift in Sources */,
 				BF1A87AF25064A8100FED88E /* MemoryDistributionMetric.swift in Sources */,
 				394D6C622600E64E008F9CE5 /* NimbusCreate.swift in Sources */,
-				BF1A87C725064AA500FED88E /* PingUploadOperation.swift in Sources */,
 				BF1A87BB25064A8100FED88E /* TimespanMetric.swift in Sources */,
 				BF1A879025064A4C00FED88E /* Dispatchers.swift in Sources */,
 				BF1A87C425064AA500FED88E /* GleanLifecycleObserver.swift in Sources */,
@@ -827,6 +826,7 @@
 				CD85A45A22361E890099BFA9 /* PlacesError.swift in Sources */,
 				993D6D4F26B11E410075A820 /* SyncUnlockInfo.swift in Sources */,
 				BF1A87AB25064A8100FED88E /* DistributionData.swift in Sources */,
+				CD5ECD192716FB88009D10CC /* QuantityMetric.swift in Sources */,
 				CE1445AC23D6058B00B1E808 /* FxAccountConfig.swift in Sources */,
 				CD85A45422361E890099BFA9 /* Places.swift in Sources */,
 				1B9B8F00267439F800C8A918 /* places.udl in Sources */,
@@ -837,12 +837,12 @@
 				BF1A87D125064AC000FED88E /* Unreachable.swift in Sources */,
 				CE2D04C5231822AC00AF5722 /* FxAccountManager.swift in Sources */,
 				CE1B09A3231863D7006226E1 /* KeychainWrapper+.swift in Sources */,
-				BF1A87C525064AA500FED88E /* GleanOperation.swift in Sources */,
 				CD85A45722361E890099BFA9 /* String+Free_Places.swift in Sources */,
 				CE9FFA13242D4E7B0011029E /* Viaduct.swift in Sources */,
 				CD85A45822361E890099BFA9 /* Data+PlacesRustBuffer.swift in Sources */,
 				395992B825FBE40300E3185F /* NimbusApi.swift in Sources */,
 				BF1A87B925064A8100FED88E /* TimingDistributionMetric.swift in Sources */,
+				CD5ECD1B2716FB99009D10CC /* UrlMetric.swift in Sources */,
 				CDC21B14221DCE3700AA71E5 /* RustLog.swift in Sources */,
 				CE13F19D23F448D0005187A7 /* FxAccountState.swift in Sources */,
 				BF1A879325064A4C00FED88E /* GleanMetrics.swift in Sources */,
