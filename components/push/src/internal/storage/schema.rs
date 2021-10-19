@@ -1,14 +1,47 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use rusqlite::Connection;
-use sql_support::ConnExt;
-
-use crate::internal::error::Result;
-
-const VERSION: i64 = 2;
+use rusqlite::Transaction;
+use sql_support::open_database;
 
 const CREATE_TABLE_PUSH_SQL: &str = include_str!("schema.sql");
+
+pub struct PushConnectionInitializer;
+
+impl open_database::ConnectionInitializer for PushConnectionInitializer {
+    const NAME: &'static str = "push db";
+    const END_VERSION: u32 = 2;
+
+    // This is such a simple database that we do almost nothing!
+    // * We have no foreign keys, so `PRAGMA foreign_keys = ON;` is pointless.
+    // * We have no temp tables, so `PRAGMA temp_store = 2;` is pointless.
+    // * We don't even use transactions, so `PRAGMA journal_mode=WAL;` is pointless.
+    // * We have a tiny number of different SQL statements, so
+    //   set_prepared_statement_cache_capacity is pointless.
+    // * We have no SQL functions.
+    // Kinda makes you wonder why we use a sql db at all :)
+    // So - no "prepare" and no "finish" methods.
+    fn init(&self, db: &Transaction<'_>) -> open_database::Result<()> {
+        db.execute_batch(CREATE_TABLE_PUSH_SQL)?;
+        Ok(())
+    }
+
+    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> open_database::Result<()> {
+        match version {
+            0 => db.execute_batch(CREATE_TABLE_PUSH_SQL)?,
+            1 => db.execute_batch(CREATE_TABLE_PUSH_SQL)?,
+            other => {
+                log::warn!(
+                    "Loaded future schema version {} (we only understand version {}). \
+                    Optimistically ",
+                    other,
+                    Self::END_VERSION
+                )
+            }
+        };
+        Ok(())
+    }
+}
 
 pub const COMMON_COLS: &str = "
     uaid,
@@ -20,43 +53,3 @@ pub const COMMON_COLS: &str = "
     app_server_key,
     native_id
 ";
-
-pub fn init(db: &Connection) -> Result<()> {
-    let user_version = db.query_one::<i64>("PRAGMA user_version")?;
-    if user_version == 0 {
-        create(db)?;
-    } else if user_version != VERSION {
-        if user_version < VERSION {
-            upgrade(db, user_version)?;
-        } else {
-            log::warn!(
-                "Loaded future schema version {} (we only understand version {}). \
-                 Optimistically ",
-                user_version,
-                VERSION
-            )
-        }
-    }
-    Ok(())
-}
-
-fn upgrade(db: &Connection, from: i64) -> Result<()> {
-    log::debug!("Upgrading schema from {} to {}", from, VERSION);
-    match from {
-        VERSION => Ok(()),
-        0 => create(db),
-        1 => create(db),
-        _ => panic!("sorry, no upgrades yet - delete your db!"),
-    }
-}
-
-pub fn create(db: &Connection) -> Result<()> {
-    let statements = format!(
-        "{create}\n\nPRAGMA user_version = {version}",
-        create = CREATE_TABLE_PUSH_SQL,
-        version = VERSION
-    );
-    db.execute_batch(&statements)?;
-
-    Ok(())
-}

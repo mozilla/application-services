@@ -470,6 +470,9 @@ pub enum PushError {
     /// Was unable to send request to server
     #[error("Unable to send request to server: {0}")]
     RequestError(String),
+
+    #[error("Error opening database: {0}")]
+    OpenDatabaseError(String),
 }
 
 /// The types of supported native bridges.
@@ -518,6 +521,7 @@ impl From<internal::error::Error> for PushError {
                 PushError::UAIDNotRecognizedError(message.clone())
             }
             ErrorKind::RequestError(e) => PushError::RequestError(e.to_string()),
+            ErrorKind::OpenDatabaseError(e) => PushError::OpenDatabaseError(e.to_string()),
         }
     }
 }

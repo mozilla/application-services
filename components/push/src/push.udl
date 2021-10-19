@@ -232,7 +232,10 @@ enum PushError {
     "UAIDNotRecognizedError",
 
     // Was unable to send request to server
-    "RequestError"
+    "RequestError",
+
+    // Error opening/initializing the database
+    "OpenDatabaseError"
 };
 
 // The types of supported native bridges.

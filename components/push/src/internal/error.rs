@@ -8,6 +8,7 @@ error_support::define_error! {
         (UrlParseError, url::ParseError),
         (JSONDeserializeError, serde_json::Error),
         (RequestError, viaduct::Error),
+        (OpenDatabaseError, sql_support::open_database::Error),
     }
 }
 
@@ -64,4 +65,7 @@ pub enum ErrorKind {
     /// Was unable to send request to server
     #[error("Unable to send request to server: {0}")]
     RequestError(#[from] viaduct::Error),
+
+    #[error("Error opening database: {0}")]
+    OpenDatabaseError(#[from] sql_support::open_database::Error),
 }
