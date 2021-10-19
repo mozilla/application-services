@@ -401,14 +401,7 @@ jobs:
       - run:
           name: Build XCFramework archive
           command: |
-            if [ -z "${CIRCLE_TAG}" ]; then
-              # TODO: Figure out Release vs Debug
-              # For whatever reason, Debug builds does not build the
-              # arm64 binaries correctly
-              bash megazords/ios-rust/build-xcframework.sh --build-profile release
-            else
-              bash megazords/ios-rust/build-xcframework.sh --build-profile release
-            fi
+            bash megazords/ios-rust/build-xcframework.sh --build-profile release
       - save_cache:
           name: Save sccache cache
           key: sccache-cache-macos-{{ arch }}-{{ epoch }}
