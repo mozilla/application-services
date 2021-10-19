@@ -1792,6 +1792,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a629868a433328c35d654e1e1fb4648a68a042e3c71de4e507a9bcf4602c5635"
 
 [[package]]
+name = "nimbus-fml"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+]
+
+[[package]]
 name = "nimbus-sdk"
 version = "0.10.0"
 dependencies = [
