@@ -390,20 +390,18 @@ jobs:
           path: raw_xcodebuild.log
           destination: logs/raw_xcodebuild.log
       - run:
-          name: Build XCFramework archive
+          name: Install Rust Nightly
           command: |
             # For now we need the nightly toolchain to build for the M1 simulator.
             rustup install nightly
             # For now we need to build the Rust stdlib from source for the M1 simulator.
             rustup component add rust-src --toolchain nightly-x86_64-apple-darwin
-            if [ -z "${CIRCLE_TAG}" ]; then
-              # XCode tests build in Debug configuration, save us a full
-              # Rust rebuild in Release mode by forcing Debug mode on
-              # non-release builds.
-              bash megazords/ios-rust/build-xcframework.sh --build-profile debug
-            else
-              bash megazords/ios-rust/build-xcframework.sh --build-profile release
-            fi
+            rustup toolchain add nightly --profile minimal
+            rustup target add aarch64-apple-ios-sim --toolchain nightly
+      - run:
+          name: Build XCFramework archive
+          command: |
+            bash megazords/ios-rust/build-xcframework.sh --build-profile release
       - save_cache:
           name: Save sccache cache
           key: sccache-cache-macos-{{ arch }}-{{ epoch }}
