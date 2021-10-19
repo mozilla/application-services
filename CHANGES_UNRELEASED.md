@@ -26,6 +26,11 @@ Use the template below to make assigning a version number during the release cut
   - Rollouts: allows winning branch promotion and targeting rollouts of features. [#4567](https://github.com/mozilla/application-services/pull/4567).
     - for both Android and iOS.
 
+## Push
+
+  - We've changed how the push database is opened, which should mean we now automatically handle
+    some kinds of database corruption.
+
 ## General
 ### ⚠️ Breaking Changes ⚠️
 
