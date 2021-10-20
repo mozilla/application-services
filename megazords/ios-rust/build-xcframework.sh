@@ -133,6 +133,8 @@ mkdir -p "$COMMON/Headers"
 cp "$THIS_DIR/MozillaRustComponents.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/rc_log/ios/RustLogFFI.h" "$COMMON/Headers"
 cp "$REPO_ROOT/components/viaduct/ios/RustViaductFFI.h" "$COMMON/Headers"
+# This will go away after places becomes uniffi-ed
+cp "$REPO_ROOT/components/places/ios/Places/RustPlacesAPI.h" "$COMMON/Headers"
 # TODO: https://github.com/mozilla/uniffi-rs/issues/1060
 # it would be neat if there was a single UniFFI command that would spit out
 # all of the generated headers for all UniFFIed dependencies of a given crate.
@@ -145,6 +147,7 @@ $CARGO uniffi-bindgen generate "$REPO_ROOT/components/logins/src/logins.udl" -l 
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/autofill/src/autofill.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/push/src/push.udl" -l swift -o "$COMMON/Headers"
 $CARGO uniffi-bindgen generate "$REPO_ROOT/components/tabs/src/tabs.udl" -l swift -o "$COMMON/Headers"
+$CARGO uniffi-bindgen generate "$REPO_ROOT/components/places/src/places.udl" -l swift -o "$COMMON/Headers"
 rm -rf "$COMMON"/Headers/*.swift
 
 # Flesh out the framework for each architecture based on the common files.

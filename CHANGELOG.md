@@ -1,3 +1,15 @@
+# v86.0.0 (_2021-10-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v86.0.0)
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+  - Rework logins to no longer use sqlcipher and instead use plain sqlite. This is a major change
+    with a massive impact on all consumers of this component, all of whom are already aware of
+    this change and have PRs in-progress.
+    ([#4549](https://github.com/mozilla/application-services/pull/4549))
+
 # v85.4.1 (_2021-10-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.0...v85.4.1)

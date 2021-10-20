@@ -629,9 +629,9 @@ dependencies = [
 
 [[package]]
 name = "ctrlc"
-version = "3.2.0"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "377c9b002a72a0b2c1a18c62e2f3864bdfea4a015e3683a96e24aa45dd6c02d1"
+checksum = "a19c6cedffdc8c03a3346d723eb20bd85a13362bb96dc2ac000842c6381ec7bf"
 dependencies = [
  "nix",
  "winapi",
@@ -1175,7 +1175,7 @@ checksum = "f0a01e0497841a3b2db4f8afa483cce65f7e96a3498bd6c541734792aeac8fe7"
 
 [[package]]
 name = "glean-core"
-version = "40.2.0"
+version = "42.0.1"
 dependencies = [
  "bincode",
  "chrono",
@@ -1193,7 +1193,7 @@ dependencies = [
 
 [[package]]
 name = "glean-ffi"
-version = "40.2.0"
+version = "42.0.1"
 dependencies = [
  "android_logger",
  "env_logger 0.8.4",
@@ -1427,6 +1427,8 @@ dependencies = [
  "fxa-client",
  "logins",
  "nimbus-sdk",
+ "places",
+ "places-ffi",
  "push",
  "rc_log_ffi",
  "tabs",
@@ -1529,9 +1531,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.100"
+version = "0.2.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1fa8cddc8fbbee11227ef194b5317ed014b8acbf15139bd716a18ad3fe99ec5"
+checksum = "dd8f7255a17a627354f321ef0055d63b898c6fb27eff628af4d1b66b7331edf6"
 
 [[package]]
 name = "libsqlite3-sys"
@@ -1584,6 +1586,7 @@ dependencies = [
  "env_logger 0.7.1",
  "error-support",
  "interrupt-support",
+ "jwcrypto",
  "lazy_static",
  "log",
  "more-asserts",
@@ -1595,6 +1598,7 @@ dependencies = [
  "sync-guid",
  "sync15",
  "tempdir",
+ "tempfile",
  "thiserror",
  "uniffi",
  "uniffi_build",
@@ -1788,6 +1792,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a629868a433328c35d654e1e1fb4648a68a042e3c71de4e507a9bcf4602c5635"
 
 [[package]]
+name = "nimbus-fml"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+]
+
+[[package]]
 name = "nimbus-sdk"
 version = "0.10.0"
 dependencies = [
@@ -1817,9 +1829,9 @@ dependencies = [
 
 [[package]]
 name = "nix"
-version = "0.22.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf1e25ee6b412c2a1e3fcb6a4499a5c1bfe7f43e014bdce9a6b6666e5aa2d187"
+checksum = "f305c2c2e4c39a82f7bf0bf65fb557f9070ce06781d4f2454295cc34b1c43188"
 dependencies = [
  "bitflags",
  "cc",

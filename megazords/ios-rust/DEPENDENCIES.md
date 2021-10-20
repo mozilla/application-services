@@ -12,6 +12,7 @@ the details of which are reproduced below.
 * [MIT License: bitvec, wyz](#mit-license-bitvec-wyz)
 * [MIT License: bytes](#mit-license-bytes)
 * [MIT License: cargo_metadata](#mit-license-cargo_metadata)
+* [MIT License: caseless](#mit-license-caseless)
 * [MIT License: clap](#mit-license-clap)
 * [MIT License: funty](#mit-license-funty)
 * [MIT License: generic-array](#mit-license-generic-array)
@@ -454,6 +455,7 @@ The following text applies to code linked from these dependencies:
 [core-foundation](https://github.com/servo/core-foundation-rs),
 [cpufeatures](https://github.com/RustCrypto/utils),
 [digest](https://github.com/RustCrypto/traits),
+[dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
@@ -528,6 +530,7 @@ The following text applies to code linked from these dependencies:
 [serde_json](https://github.com/serde-rs/json),
 [serde_urlencoded](https://github.com/nox/serde_urlencoded),
 [sha2](https://github.com/RustCrypto/hashes),
+[smallbitvec](https://github.com/servo/smallbitvec),
 [smallvec](https://github.com/servo/rust-smallvec),
 [socket2](https://github.com/rust-lang/socket2),
 [static_assertions](https://github.com/nvzqz/static-assertions-rs),
@@ -943,6 +946,37 @@ CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
+
+```
+-------------
+## MIT License: caseless
+
+The following text applies to code linked from these dependencies:
+[caseless](https://github.com/SimonSapin/rust-caseless)
+
+```
+Copyright (c) 2017 Simon Sapin
+
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ```
 -------------
