@@ -13,7 +13,7 @@ dictionary AppContext {
     string? os_version;
     string? android_sdk_version;
     string? debug_tag;
-    // Note that installation date is 
+    // Note that installation date is
     // the unix time, which is milliseconds since epoch
     i64? installation_date;
     string? home_directory;
@@ -79,6 +79,25 @@ enum NimbusError {
     "DatabaseNotReady",
 };
 
+[Decorator]
+interface NimbusClientDecorator {
+    // Calls the passed method, swallowing any errors. If an error
+    // is detected, nil is returned.
+    Any? with_catch_all();
+    // Calls the passed method on a thread used for accessing the network.
+    // on_experiments_fetched observers will be notified.
+    void on_network_thread();
+    // Calls the passed method on a thread for accessing the database.
+    // Any access to the database should be done via this method.
+    void on_db_thread();
+    // Calls the passed method and then processes the resulting changes,
+    // if the return value is sequence<EnrollmentChangeEvent>.
+    // This should be done on the db thread.
+    // on_experiments_applied observers will be notified.
+    void on_enrollment_changes();
+};
+
+[Decorator=NimbusClientDecorator]
 interface NimbusClient {
     [Throws=NimbusError]
     constructor(
@@ -96,7 +115,7 @@ interface NimbusClient {
     // so that the consuming application can have confidence the non-blocking
     // functions will return data instead of returning an error, and will do
     // the minimum amount of work to achieve that.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_db_thread]
     void initialize();
 
     // Returns the branch allocated for a given feature_id or experiment_slug.
@@ -104,23 +123,23 @@ interface NimbusClient {
     // the first hit. If the user is enrolled neither in an experiment with id
     // as the feature_id nor with id as the experiment_slug for the feature,
     // null is returned.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=with_catch_all]
     string? get_experiment_branch(string id);
 
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=with_catch_all]
     string? get_feature_config_variables(string feature_id);
 
     // Returns a list of experiment branches for a given experiment ID.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=with_catch_all]
     sequence<ExperimentBranch> get_experiment_branches(string experiment_slug);
 
     // Returns a list of experiments this user is enrolled in.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=with_catch_all]
     sequence<EnrolledExperiment> get_active_experiments();
 
     // Returns a list of experiments for this `app_name`, as specified in the `AppContext`.
     // It is not intended to be used to be used for user facing applications.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=with_catch_all]
     sequence<AvailableExperiment> get_available_experiments();
 
     // Getter and setter for user's participation in all experiments.
@@ -130,32 +149,32 @@ interface NimbusClient {
     [Throws=NimbusError]
     boolean get_global_user_participation();
 
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_enrollment_changes]
     sequence<EnrollmentChangeEvent> set_global_user_participation(boolean opt_in);
 
     // Updates the list of experiments from the server.
     // This method is deprecated, in favour of calling `fetch_experiments()` and then
     // `apply_pending_updates()`.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_enrollment_changes]
     sequence<EnrollmentChangeEvent> update_experiments();
 
     // Fetches the list of experiments from the server. This does not affect the list
     // of active experiments or experiment enrolment.
     // Fetched experiments are not applied until `apply_pending_updates()` is called.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_network_thread]
     void fetch_experiments();
 
     // Apply the updated experiments from the last fetch.
     // After calling this, the list of active experiments might change
     // (there might be new experiments, or old experiments might have expired).
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_enrollment_changes]
     sequence<EnrollmentChangeEvent> apply_pending_experiments();
 
     // A convenience method for apps to set the experiments from a local source
     // for either testing, or before the first fetch has finished.
-    // 
+    //
     // Experiments set with this method are not applied until `apply_pending_updates()` is called.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_db_thread]
     void set_experiments_locally(string experiments_json);
 
     // These are test-only functions and should never be exposed to production
@@ -163,11 +182,11 @@ interface NimbusClient {
 
     // Opt in to a specific branch on a specific experiment. Useful for
     // developers to test their app's interaction with the experiment.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_enrollment_changes]
     sequence<EnrollmentChangeEvent> opt_in_with_branch(string experiment_slug, string branch);
 
     // Opt out of a specific experiment.
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_enrollment_changes]
     sequence<EnrollmentChangeEvent> opt_out(string experiment_slug);
 
     // Reset internal state in response to application-level telemetry reset.
@@ -184,6 +203,6 @@ interface NimbusClient {
     //    * disqualifying this client out of any active experiments, to avoid submitting
     //      misleading incomplete data.
     //
-    [Throws=NimbusError]
+    [Throws=NimbusError, CallsWith=on_enrollment_changes]
     sequence<EnrollmentChangeEvent> reset_telemetry_identifiers(AvailableRandomizationUnits new_randomization_units);
 };

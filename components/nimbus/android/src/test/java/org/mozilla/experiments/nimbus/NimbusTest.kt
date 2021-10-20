@@ -30,6 +30,8 @@ import org.mockito.Mockito.`when`
 import org.mozilla.experiments.nimbus.GleanMetrics.NimbusEvents
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
+import org.mozilla.experiments.nimbus.internal.NimbusClient
+import org.mozilla.experiments.nimbus.internal.NimbusClientDecorator
 import org.robolectric.RobolectricTestRunner
 import java.util.concurrent.Executors
 
@@ -56,13 +58,29 @@ class NimbusTest {
         errorReporter = { message, e -> Log.e("NimbusTest", message, e) }
     )
 
+    private val nimbusDecorator = object : NimbusClientDecorator<NimbusClient> {
+        override fun <ReturnType> onDbThread(obj: NimbusClient, thunk: () -> ReturnType) {
+            withCatchAll(obj, thunk)
+        }
+
+        override fun <ReturnType> onNetworkThread(obj: NimbusClient, thunk: () -> ReturnType) {
+            withCatchAll(obj, thunk)
+        }
+
+        override fun <ReturnType> withCatchAll(
+            obj: NimbusClient,
+            thunk: () -> ReturnType
+        ): ReturnType? = thunk()
+
+        override fun <ReturnType> onEnrollmentChanges(obj: NimbusClient, thunk: () -> ReturnType): Unit = onDbThread(obj, thunk)
+    }
+
     private val nimbus = Nimbus(
         context = context,
+        decorator = nimbusDecorator,
         appInfo = appInfo,
         server = null,
-        deviceInfo = deviceInfo,
-        observer = null,
-        delegate = nimbusDelegate
+        deviceInfo = deviceInfo
     )
 
     @get:Rule
@@ -90,16 +108,19 @@ class NimbusTest {
     @Test
     fun `recordExperimentTelemetry correctly records the experiment and branch`() {
         // Create a list of experiments to test the telemetry enrollment recording
-        val enrolledExperiments = listOf(EnrolledExperiment(
-            enrollmentId = "enrollment-id",
-            slug = "test-experiment",
-            featureIds = listOf(),
-            branchSlug = "test-branch",
-            userFacingDescription = "A test experiment for testing experiments",
-            userFacingName = "Test Experiment")
+        val enrolledExperiments = listOf(
+            EnrolledExperiment(
+                enrollmentId = "enrollment-id",
+                slug = "test-experiment",
+                featureIds = listOf(),
+                branchSlug = "test-branch",
+                userFacingDescription = "A test experiment for testing experiments",
+                userFacingName = "Test Experiment"
+            )
         )
 
-        nimbus.recordExperimentTelemetry(experiments = enrolledExperiments)
+        val decorator = NimbusDecorator(nimbusDelegate)
+        decorator.recordExperimentTelemetry(experiments = enrolledExperiments)
         assertTrue(Glean.testIsExperimentActive("test-experiment"))
         val experimentData = Glean.testGetExperimentData("test-experiment")
         assertEquals("test-branch", experimentData.branch)
@@ -133,7 +154,8 @@ class NimbusTest {
         )
 
         // Record the experiments in Glean
-        nimbus.recordExperimentTelemetryEvents(events)
+        val decorator = NimbusDecorator(nimbusDelegate)
+        decorator.recordExperimentTelemetryEvents(events)
 
         // Use the Glean test API to check the recorded metrics
 
@@ -175,7 +197,7 @@ class NimbusTest {
         assertFalse("There must not be any pre-existing events", NimbusEvents.exposure.testHasValue())
 
         // Record a valid exposure event in Glean that matches the featureId from the test experiment
-        nimbus.recordExposureOnThisThread("about_welcome")
+        nimbus.recordExposureEvent("about_welcome")
 
         // Use the Glean test API to check that the valid event is present
         assertTrue("Event must have a value", NimbusEvents.exposure.testHasValue())
@@ -188,7 +210,7 @@ class NimbusTest {
 
         // Attempt to record an event for a non-existent or feature we are not enrolled in an
         // experiment in to ensure nothing is recorded.
-        nimbus.recordExposureOnThisThread("not-a-feature")
+        nimbus.recordExposureEvent("not-a-feature")
 
         // Verify the invalid event was ignored by checking again that the valid event is still the only
         // event, and that it hasn't changed any of its extra properties.
@@ -202,7 +224,7 @@ class NimbusTest {
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
-        this.setExperimentsLocallyOnThisThread("""
+        this.setExperimentsLocally("""
                 {"data": [{
                   "schemaVersion": "1.0.0",
                   "slug": "test-experiment",
@@ -243,12 +265,13 @@ class NimbusTest {
                   "last_modified": 1602197324372
                 }]}
             """.trimIndent())
-        this.applyPendingExperimentsOnThisThread()
+
+        this.applyPendingExperiments()
     }
 
     @Test
     fun `buildExperimentContext returns a valid context`() {
-        val expContext = nimbus.buildExperimentContext(context, appInfo, deviceInfo)
+        val expContext = Nimbus.buildExperimentContext(context, appInfo, deviceInfo)
         assertEquals(packageName, expContext.appId)
         assertEquals(appInfo.appName, expContext.appName)
         assertEquals(appInfo.channel, expContext.channel)
@@ -278,15 +301,15 @@ class NimbusTest {
 
         val nimbus = Nimbus(
             context = context,
+            decorator = nimbusDecorator,
             appInfo = developmentAppInfo,
             server = null,
-            deviceInfo = deviceInfo,
-            delegate = nimbusDelegate
+            deviceInfo = deviceInfo
         )
 
         nimbus.setUpTestExperiments("$packageName.nightly", targetedAppInfo)
 
-        val available: List<AvailableExperiment> = nimbus.getAvailableExperiments()
+        val available: List<AvailableExperiment> = nimbus.getAvailableExperiments() ?: throw AssertionError("Rust error")
         assertEquals(1, available.size)
         assertEquals("test-experiment", available.first().slug)
     }
@@ -306,7 +329,7 @@ class NimbusTest {
 
         nimbus.setUpTestExperiments(packageName, targetedAppInfo)
 
-        val available = nimbus.getAvailableExperiments()
+        val available = nimbus.getAvailableExperiments() ?: throw AssertionError("Rust error")
         assertTrue(available.isEmpty())
     }
 }
