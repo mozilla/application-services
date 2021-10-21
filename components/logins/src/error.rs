@@ -222,7 +222,7 @@ impl From<Error> for LoginsStorageError {
                 LoginsStorageError::NoSuchRecord(label)
             }
             ErrorKind::InvalidLogin(desc) => {
-                log::error!("Invalid login: {}", desc);
+                log::warn!("Invalid login: {}", desc);
                 match desc {
                     InvalidLogin::EmptyOrigin => {
                         LoginsStorageError::InvalidRecord(label, InvalidLoginReason::EmptyOrigin)
