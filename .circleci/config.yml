@@ -401,7 +401,11 @@ jobs:
       - run:
           name: Build XCFramework archive
           command: |
-            bash megazords/ios-rust/build-xcframework.sh --build-profile release
+            if git log -1 "$CIRCLE_SHA1" | grep -q '\[ios artifact\]' || [ -z "${CIRCLE_TAG}" ]; then
+              bash megazords/ios-rust/build-xcframework.sh --build-profile release
+            else
+              circleci-agent step halt
+            fi
       - save_cache:
           name: Save sccache cache
           key: sccache-cache-macos-{{ arch }}-{{ epoch }}
@@ -541,22 +545,6 @@ workflows:
             - iOS build and test
           filters:
             branches:
-              only: main
+              ignore: /.*/
             tags:
               only: /^v.*/
-
-
- # XCframework jobs require manual approval on PRs
-  iOS:
-    jobs:
-      - hold:
-          type: approval
-          filters:
-            branches:
-              ignore: main
-      - XCFramework release:
-          requires:
-            - hold
-          filters:
-            branches:
-              ignore: main
