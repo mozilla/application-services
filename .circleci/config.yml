@@ -541,6 +541,22 @@ workflows:
             - iOS build and test
           filters:
             branches:
-              ignore: /.*/
+              only: main
             tags:
               only: /^v.*/
+
+
+ # XCframework jobs require manual approval on PRs
+  iOS:
+    jobs:
+      - hold:
+          type: approval
+          filters:
+            branches:
+              ignore: main
+      - XCFramework release:
+          requires:
+            - hold
+          filters:
+            branches:
+              ignore: main
