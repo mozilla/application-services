@@ -401,7 +401,7 @@ jobs:
       - run:
           name: Build XCFramework archive
           command: |
-            if git log -1 "$CIRCLE_SHA1" | grep -q '\[ios artifact\]' || [ -z "${CIRCLE_TAG}" ]; then
+            if git log -1 "$CIRCLE_SHA1" | grep -q '\[ios artifact\]' || [ -n "${CIRCLE_TAG}" ]; then
               bash megazords/ios-rust/build-xcframework.sh --build-profile release
             else
               circleci-agent step halt
