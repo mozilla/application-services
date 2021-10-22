@@ -8,6 +8,7 @@ use clap::{App, ArgMatches};
 use nimbus_fml::error::{FMLError, Result};
 use nimbus_fml::intermediate_representation::FeatureManifest;
 use nimbus_fml::parser::Parser;
+use std::path::Path;
 use std::{fs::File, path::PathBuf};
 
 fn main() -> Result<()> {
@@ -15,7 +16,7 @@ fn main() -> Result<()> {
     let matches = App::from_yaml(yaml).get_matches();
     let cwd = std::env::current_dir()?;
     if let Some(cmd) = matches.subcommand_matches("struct") {
-        let manifest_file_path = file_path("INPUT", &cmd, &cwd)?;
+        let manifest_file_path = file_path("INPUT", cmd, &cwd)?;
 
         let ir = if !cmd.is_present("ir") {
             let file = File::open(manifest_file_path)?;
@@ -38,8 +39,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn file_path(name: &str, args: &ArgMatches, cwd: &PathBuf) -> Result<PathBuf> {
-    let mut abs = cwd.clone();
+fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
+    let mut abs = cwd.to_path_buf();
     match args.value_of(name) {
         Some(suffix) => {
             abs.push(suffix);
@@ -49,6 +50,6 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &PathBuf) -> Result<PathBuf> {
     }
 }
 
-fn slurp_file(file_name: &PathBuf) -> Result<String> {
+fn slurp_file(file_name: &Path) -> Result<String> {
     Ok(std::fs::read_to_string(file_name)?)
 }
