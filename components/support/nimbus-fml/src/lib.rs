@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod error;
-pub mod ir;
+pub mod intermediate_representation;
 pub mod parser;
 
 #[cfg(test)]
