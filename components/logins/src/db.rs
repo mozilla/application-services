@@ -237,51 +237,20 @@ impl LoginDb {
         look: LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Login>> {
-        lazy_static::lazy_static! {
-            static ref LOGINS_TO_SEARCH_SQL: String = format!(
-                "SELECT {common_cols} FROM loginsL
-                WHERE is_deleted = 0
-                    AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_action_origin
-                        OR
-                        httpRealm = :http_realm
-                    )
-
-                UNION ALL
-
-                SELECT {common_cols} FROM loginsM
-                WHERE is_overridden = 0
-                    AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_action_origin
-                        OR
-                        httpRealm = :http_realm
-                    )
-                ",
-                common_cols = schema::COMMON_COLS
-            );
-        }
-
-        // Fetch all potentially matching rows
         let look = look.fixup()?;
-        let mut stmt = self.db.prepare_cached(&LOGINS_TO_SEARCH_SQL)?;
-        let params = named_params! {
-            ":origin": look.fields.origin,
-            ":http_realm": look.fields.http_realm,
-            ":form_action_origin": look.fields.form_action_origin,
-        };
-        let rows = stmt
-            .query_and_then_named(params, |row| EncryptedLogin::from_row(row)?.decrypt(encdec))?
+        let logins = self
+            .get_by_entry_target(&look)?
+            .into_iter()
+            .map(|enc_login| enc_login.decrypt(encdec))
             .collect::<Result<Vec<Login>>>()?;
-        // Search through the results and try to pick a login
-        Ok(rows
+        Ok(logins
             // First, try to match the username
             .iter()
             .find(|login| login.sec_fields.username == look.sec_fields.username)
             // Fall back on a blank username
             .or_else(|| {
-                rows.iter()
+                logins
+                    .iter()
                     .find(|login| login.sec_fields.username.is_empty())
             })
             // Clone the login to avoid ref issues when returning across the FFI
@@ -596,16 +565,6 @@ impl LoginDb {
         }
     }
 
-    pub fn check_valid_with_no_dupes(
-        &self,
-        guid: &Guid,
-        entry: &LoginEntry,
-        encdec: &EncryptorDecryptor,
-    ) -> Result<()> {
-        entry.check_valid()?;
-        self.check_for_dupes(guid, entry, encdec)
-    }
-
     pub fn fixup_and_check_for_dupes(
         &self,
         guid: &Guid,
@@ -644,58 +603,85 @@ impl LoginDb {
         entry: &LoginEntry,
         encdec: &EncryptorDecryptor,
     ) -> Result<Option<Guid>> {
-        for possible in self.potential_dupes_ignoring_username(guid, &entry.fields)? {
-            let pos_sec_fields = possible.decrypt_fields(encdec)?;
-            if pos_sec_fields.username == entry.sec_fields.username {
-                return Ok(Some(possible.guid()));
+        for possible in self.get_by_entry_target(entry)? {
+            if possible.guid() != *guid {
+                let pos_sec_fields = possible.decrypt_fields(encdec)?;
+                if pos_sec_fields.username == entry.sec_fields.username {
+                    return Ok(Some(possible.guid()));
+                }
             }
         }
         Ok(None)
     }
 
-    pub fn potential_dupes_ignoring_username(
-        &self,
-        guid: &Guid,
-        fields: &LoginFields,
-    ) -> Result<Vec<EncryptedLogin>> {
+    // Find saved logins that match the target for a `LoginEntry`
+    //
+    // This means that:
+    //   - `origin` matches
+    //   - Either `form_action_origin` or `http_realm` matches, depending on which one is non-null
+    //
+    // This is used for dupe-checking and `find_login_to_update()`
+    fn get_by_entry_target(&self, entry: &LoginEntry) -> Result<Vec<EncryptedLogin>> {
         // Could be lazy_static-ed...
         lazy_static::lazy_static! {
-            static ref DUPES_IGNORING_USERNAME_SQL: String = format!(
+            static ref GET_BY_FORM_ACTION_ORIGIN: String = format!(
                 "SELECT {common_cols} FROM loginsL
                 WHERE is_deleted = 0
-                    AND guid <> :guid
                     AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_submit
-                        OR
-                        httpRealm = :http_realm
-                    )
+                    AND formActionOrigin = :form_action_origin
 
                 UNION ALL
 
                 SELECT {common_cols} FROM loginsM
                 WHERE is_overridden = 0
-                AND guid <> :guid
-                AND origin = :origin
-                    AND (
-                        formActionOrigin = :form_submit
-                        OR
-                        httpRealm = :http_realm
-                    )
+                    AND origin = :origin
+                    AND formActionOrigin = :form_action_origin
+                ",
+                common_cols = schema::COMMON_COLS
+            );
+            static ref GET_BY_HTTP_REALM: String = format!(
+                "SELECT {common_cols} FROM loginsL
+                WHERE is_deleted = 0
+                    AND origin = :origin
+                    AND httpRealm = :http_realm
+
+                UNION ALL
+
+                SELECT {common_cols} FROM loginsM
+                WHERE is_overridden = 0
+                    AND origin = :origin
+                    AND httpRealm = :http_realm
                 ",
                 common_cols = schema::COMMON_COLS
             );
         }
-        let mut stmt = self.db.prepare_cached(&DUPES_IGNORING_USERNAME_SQL)?;
-        let params = named_params! {
-            ":guid": guid,
-            ":origin": &fields.origin,
-            ":http_realm": fields.http_realm.as_ref(),
-            ":form_submit": fields.form_action_origin.as_ref(),
-        };
-        // Needs to be two lines for borrow checker
-        let rows = stmt.query_and_then_named(params, EncryptedLogin::from_row)?;
-        rows.collect()
+        match (
+            entry.fields.form_action_origin.as_ref(),
+            entry.fields.http_realm.as_ref(),
+        ) {
+            (Some(form_action_origin), None) => {
+                let params = named_params! {
+                    ":origin": &entry.fields.origin,
+                    ":form_action_origin": form_action_origin,
+                };
+                self.db
+                    .prepare_cached(&GET_BY_FORM_ACTION_ORIGIN)?
+                    .query_and_then_named(params, EncryptedLogin::from_row)?
+                    .collect()
+            }
+            (None, Some(http_realm)) => {
+                let params = named_params! {
+                    ":origin": &entry.fields.origin,
+                    ":http_realm": http_realm,
+                };
+                self.db
+                    .prepare_cached(&GET_BY_HTTP_REALM)?
+                    .query_and_then_named(params, EncryptedLogin::from_row)?
+                    .collect()
+            }
+            (Some(_), Some(_)) => Err(InvalidLogin::BothTargets.into()),
+            (None, None) => Err(InvalidLogin::NoTarget.into()),
+        }
     }
 
     pub fn exists(&self, id: &str) -> Result<bool> {
@@ -1036,114 +1022,6 @@ mod tests {
     use crate::encryption::test_utils::TEST_ENCRYPTOR;
     use crate::sync::LocalLogin;
     use crate::SecureLoginFields;
-
-    #[test]
-    fn test_check_valid_with_no_dupes() {
-        let db = LoginDb::open_in_memory().unwrap();
-        let added = db
-            .add(
-                LoginEntry {
-                    fields: LoginFields {
-                        form_action_origin: Some("https://www.example.com".into()),
-                        origin: "https://www.example.com".into(),
-                        http_realm: None,
-                        ..Default::default()
-                    },
-                    sec_fields: SecureLoginFields {
-                        username: "test".into(),
-                        password: "test".into(),
-                    },
-                },
-                &TEST_ENCRYPTOR,
-            )
-            .unwrap();
-
-        let unique_login = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: None,
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test".into(),
-            },
-        };
-
-        let duplicate_login = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: Some("https://www.example.com".into()),
-                origin: "https://www.example.com".into(),
-                http_realm: None,
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test2".into(),
-            },
-        };
-
-        let updated_login = LoginEntry {
-            fields: LoginFields {
-                form_action_origin: None,
-                origin: "https://www.example.com".into(),
-                http_realm: Some("https://www.example.com".into()),
-                ..Default::default()
-            },
-            sec_fields: SecureLoginFields {
-                username: "test".into(),
-                password: "test4".into(),
-            },
-        };
-
-        struct TestCase {
-            guid: Guid,
-            entry: LoginEntry,
-            should_err: bool,
-            expected_err: &'static str,
-        }
-
-        let test_cases = [
-            TestCase {
-                guid: "unique_value".into(),
-                // unique_login should not error because it does not share the same origin,
-                // username, and formActionOrigin or httpRealm with the pre-existing login
-                // (login with guid `added.id`).
-                entry: unique_login,
-                should_err: false,
-                expected_err: "",
-            },
-            TestCase {
-                guid: "unique_value".into(),
-                // duplicate_login has the same origin, username, and formActionOrigin as a pre-existing
-                // login (guid `added.id`) and duplicate_login has no guid value, i.e. its guid
-                // doesn't match with that of a pre-existing record so it can't be considered update,
-                // so it should error.
-                entry: duplicate_login,
-                should_err: true,
-                expected_err: "Invalid login: Login already exists",
-            },
-            TestCase {
-                // updated_login is an update to the existing record (has the same guid) so it is not a dupe
-                // and should not error.
-                guid: added.record.id.into(),
-                entry: updated_login,
-                should_err: false,
-                expected_err: "",
-            },
-        ];
-
-        for tc in &test_cases {
-            let login_check = db.check_valid_with_no_dupes(&tc.guid, &tc.entry, &TEST_ENCRYPTOR);
-            if tc.should_err {
-                assert!(&login_check.is_err());
-                assert_eq!(&login_check.unwrap_err().to_string(), tc.expected_err)
-            } else {
-                assert!(&login_check.is_ok())
-            }
-        }
-    }
 
     #[test]
     fn test_username_dupe_semantics() {

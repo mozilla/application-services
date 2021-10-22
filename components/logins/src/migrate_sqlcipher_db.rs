@@ -566,10 +566,17 @@ fn insert_local_login(
     let login = &local_login.login;
     let dec_login = &local_login.login.clone().decrypt(encdec)?;
 
-    if let Err(e) = new_db.check_for_dupes(&login.guid(), &dec_login.entry(), encdec) {
-        log::warn!("Duplicate {} ({}).", login.record.id, e);
-        return Ok(());
-    };
+    // Check for existing duplicate logins
+    //
+    // Skip the check for deleted logins, which have issues with the dupe checking logic, since
+    // http_realm and form_action_origin may be unset.  This doesn't currently happen on mobile,
+    // but it might on desktop (see #4573)
+    if !local_login.is_deleted {
+        if let Err(e) = new_db.check_for_dupes(&login.guid(), &dec_login.entry(), encdec) {
+            log::warn!("Duplicate {} ({}).", login.record.id, e);
+            return Ok(());
+        };
+    }
     match conn.execute_named_cached(
         sql,
         named_params! {

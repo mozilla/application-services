@@ -106,10 +106,6 @@ interface LoginStore {
     [Throws=LoginsStorageError]
     constructor(string path);
 
-    // XXX - Can we kill this, and just fix the semantics of add/update?
-    [Throws=LoginsStorageError]
-    void check_valid_with_no_dupes([ByRef] string id, [ByRef] LoginEntry login, [ByRef] string encryption_key);
-
     [Throws=LoginsStorageError]
     EncryptedLogin add(LoginEntry login, [ByRef]string encryption_key);
 
@@ -142,10 +138,6 @@ interface LoginStore {
 
     [Throws=LoginsStorageError]
     Login? find_login_to_update(LoginEntry look, [ByRef]string encryption_key);
-
-    // XXX - Can we kill this, and just fix the semantics of add/update?
-    [Throws=LoginsStorageError]
-    sequence<EncryptedLogin> potential_dupes_ignoring_username([ByRef]string id, LoginEntry login);
 
     [Throws=LoginsStorageError]
     EncryptedLogin? get([ByRef] string id);
