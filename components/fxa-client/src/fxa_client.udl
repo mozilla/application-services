@@ -85,7 +85,10 @@ enum FxaError {
   "Other",
 };
 
-
+[Decorator]
+interface FxADecorator {
+    Any then_persists_state();
+};
 
 // Object representing the signed-in state of an application.
 //
@@ -94,6 +97,7 @@ enum FxaError {
 // user's Firefox Account, and provides methods for inspecting the state of the
 // account and accessing other services on behalf of the user.
 //
+[Decorator=FxADecorator]
 interface FirefoxAccount {
 
   // Create a new [`FirefoxAccount`] instance, not connected to any account.
@@ -228,7 +232,7 @@ interface FirefoxAccount {
   //   - `code` - the OAuth authorization code obtained from the redirect URI.
   //   - `state` - the OAuth state parameter obtained from the redirect URI.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   void complete_oauth_flow([ByRef] string code, [ByRef] string state );
   
 
@@ -257,6 +261,7 @@ interface FirefoxAccount {
   // the user to reconnnect to their account. If reconnecting to the same account
   // is not desired then the application should discard the persisted account state.
   //
+  [CallsWith=then_persists_state]
   void disconnect();
   
 
@@ -281,8 +286,8 @@ interface FirefoxAccount {
   //    - If there is no signed-in user, this method will throw an
   //      [`Authentication`](FxaError::Authentication) error.
   //
-  [Throws=FxaError]
-  Profile get_profile( boolean ignore_cache );
+  [Throws=FxaError, CallsWith=then_persists_state]
+  Profile get_profile(optional boolean ignore_cache = false);
   
 
   // Create a new device record for this application.
@@ -309,7 +314,7 @@ interface FirefoxAccount {
   //    - Device registration is only available to applications that have been
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   void initialize_device([ByRef] string name,  DeviceType device_type,  sequence<DeviceCapability> supported_capabilities );
   
 
@@ -345,8 +350,8 @@ interface FirefoxAccount {
   //    - Device metadata is only visible to applications that have been
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
-  [Throws=FxaError]
-  sequence<Device> get_devices( boolean ignore_cache );
+  [Throws=FxaError, CallsWith=then_persists_state]
+  sequence<Device> get_devices( optional boolean ignore_cache = false);
   
 
   // Get the list of all client applications attached to the user's account.
@@ -384,7 +389,7 @@ interface FirefoxAccount {
   //    - Device registration is only available to applications that have been
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   void set_device_name([ByRef] string display_name );
   
 
@@ -427,7 +432,7 @@ interface FirefoxAccount {
   //    - Device registration is only available to applications that have been
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   void ensure_capabilities( sequence<DeviceCapability> supported_capabilities );
   
 
@@ -450,7 +455,7 @@ interface FirefoxAccount {
   //    - Device registration is only available to applications that have been
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   void set_push_subscription( DevicePushSubscription subscription );
   
 
@@ -465,7 +470,7 @@ interface FirefoxAccount {
   // accordingly and return a list of [`AccountEvent`] structs describing the events, which the application
   // may use for further processing.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   sequence<AccountEvent> handle_push_message([ByRef] string payload );
   
 
@@ -485,7 +490,7 @@ interface FirefoxAccount {
   //    - Device commands functionality is only available to applications that have been
   //      granted the `https://identity.mozilla.com/apps/oldsync` scope.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   sequence<IncomingDeviceCommand> poll_device_commands();
   
 
@@ -589,7 +594,7 @@ interface FirefoxAccount {
   //      token, it should call [`clear_access_token_cache`](FirefoxAccount::clear_access_token_cache)
   //      before requesting a fresh token.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   AccessTokenInfo get_access_token([ByRef] string scope,  i64? ttl );
   
 
@@ -626,7 +631,7 @@ interface FirefoxAccount {
   //
   //    - `session_token` - the new session token value provided from web content.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   void handle_session_token_change([ByRef] string session_token );
   
 
@@ -696,7 +701,7 @@ interface FirefoxAccount {
   //    - Use [is_in_migration_state](FirefoxAccount::is_in_migration_state) to check whether the
   //      persisted account state includes a a pending migration that can be retried.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   FxAMigrationResult migrate_from_session_token([ByRef] string session_token, [ByRef] string k_sync, [ByRef] string k_xcs,  boolean copy_session_token );
   
 
@@ -708,7 +713,7 @@ interface FirefoxAccount {
   // failed, it may have stored the provided state for retrying at a later time. Call this method
   // in order to execute such a retry.
   //
-  [Throws=FxaError]
+  [Throws=FxaError, CallsWith=then_persists_state]
   FxAMigrationResult retry_migrate_from_session_token();
   
 
