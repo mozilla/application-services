@@ -1,0 +1,50 @@
+{
+  "enum_defs": [
+    {
+      "name": "SectionId",
+      "doc": "The sections of the homescreen",
+      "variants": [
+        {
+          "name": "top-sites",
+          "doc": "The original frecency sorted sites"
+        },
+        {
+          "name": "jump-back-in",
+          "doc": "Jump back in section"
+        },
+        {
+          "name": "recently-saved",
+          "doc": "Tabs that have been bookmarked recently"
+        }
+      ]
+    }
+  ],
+  "obj_defs": [],
+  "hints": {},
+  "feature_defs": [
+    {
+      "name": "homescreen",
+      "doc": "Represents the homescreen feature",
+      "props": [
+        {
+          "name": "sections-enabled",
+          "doc": "A map of booleans",
+          "typ": {
+            "EnumMap": [
+              {
+                "Enum": "SectionId"
+              },
+              "String"
+            ]
+          },
+          "default": {
+            "jump-back-in": false,
+            "recently-saved": false,
+            "top-sites": true
+          }
+        }
+      ],
+      "default": null
+    }
+  ]
+}
