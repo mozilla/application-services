@@ -37,8 +37,8 @@ pub enum ErrorKind {
     #[error("Storage Error: {0:?}")]
     StorageError(String),
 
-    #[error("No record for uaid:chid {0:?}:{1:?}")]
-    RecordNotFoundError(String, String),
+    #[error("No record for chid {0:?}")]
+    RecordNotFoundError(String),
 
     /// A failure to encode data to/from storage.
     #[error("Error executing SQL: {0}")]

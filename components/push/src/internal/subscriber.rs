@@ -53,7 +53,6 @@ impl From<PushRecord> for PushSubscriptionChanged {
 impl From<PushRecord> for DispatchInfo {
     fn from(record: PushRecord) -> Self {
         DispatchInfo {
-            uaid: record.uaid,
             scope: record.scope,
             endpoint: record.endpoint,
             app_server_key: record.app_server_key,
@@ -63,7 +62,6 @@ impl From<PushRecord> for DispatchInfo {
 
 pub struct PushManager {
     config: PushConfiguration,
-    pub conn: ConnectHttp,
     pub store: Store,
     update_rate_limiter: PersistedRateLimiter,
 }
@@ -75,10 +73,8 @@ impl PushManager {
         } else {
             Store::open_in_memory()?
         };
-        let uaid = store.get_meta("uaid")?;
         Ok(Self {
-            config: config.clone(),
-            conn: connect(config, uaid, store.get_meta("auth")?)?,
+            config,
             store,
             update_rate_limiter: PersistedRateLimiter::new(
                 "update_token",
@@ -88,6 +84,12 @@ impl PushManager {
         })
     }
 
+    pub fn make_connection(&self) -> Result<ConnectHttp> {
+        let uaid = self.store.get_uaid()?;
+        let auth = self.store.get_auth()?;
+        let reg_id = self.store.get_registration_id()?;
+        connect(self.config.clone(), uaid, auth, reg_id)
+    }
     // XXX: make these trait methods
     pub fn subscribe(
         &mut self,
@@ -102,102 +104,136 @@ impl PushManager {
         } else {
             server_key
         };
-        let reg_token = self.config.registration_id.clone().unwrap();
-        let subscription_key: Key;
-        if let Some(uaid) = self.conn.uaid.clone() {
-            // Don't fetch the connection from the server if we've already got one.
-            if let Some(record) = self.store.get_record(&uaid, channel_id)? {
-                return Ok((
-                    RegisterResponse {
-                        uaid,
-                        channel_id: record.channel_id,
-                        endpoint: record.endpoint,
-                        secret: self.store.get_meta("auth")?,
-                        senderid: Some(reg_token),
-                    },
-                    Key::deserialize(&record.key)?,
-                )
-                    .into());
-            }
+        // Don't fetch the subscription from the server if we've already got one.
+        if let Some(record) = self.store.get_record(channel_id)? {
+            let uaid = self.store.get_uaid()?.ok_or_else(|| {
+                // should be impossible - we should delete all records when we lose our uiad.
+                ErrorKind::StorageError("DB has a subscription but no UAID".to_string())
+            })?;
+            log::debug!("returning existing subscription for '{}'", scope);
+            return Ok((
+                RegisterResponse {
+                    uaid,
+                    channel_id: record.channel_id,
+                    endpoint: record.endpoint,
+                    secret: self.store.get_auth()?,
+                },
+                Key::deserialize(&record.key)?,
+            )
+                .into());
         }
-        let info = self.conn.subscribe(channel_id, server_key)?;
-        if &self.config.sender_id == "test" {
-            subscription_key = Crypto::test_key(
+
+        let mut conn = self.make_connection()?;
+        let info = conn.subscribe(channel_id, server_key)?;
+        log::debug!("server returned subscription info: {:?}", info);
+        // If our uaid has changed, or this is the first subscription we have made, all existing
+        // records must die - but we can keep this one!
+        let is_new_uaid = match self.store.get_uaid()? {
+            Some(old_uaid) => old_uaid != info.uaid,
+            None => true,
+        };
+        if is_new_uaid {
+            // apparently the uaid changing but not getting a new secret guarantees we will be
+            // unable to decrypt payloads. This should be impossible, so we could argue an
+            // assertion makes more sense so it makes unmistakable noise, but for now we just Err.
+            let new_auth = match info.secret {
+                Some(ref secret) => secret,
+                None => {
+                    return Err(ErrorKind::GeneralError(
+                        "Server gave us a new uaid but no secret?".to_string(),
+                    )
+                    .into())
+                }
+            };
+            log::info!(
+                "Got new new UAID of '{}' - deleting all existing records",
+                info.uaid
+            );
+            self.store.delete_all_records()?;
+            self.store.set_uaid(&info.uaid)?;
+            self.store.set_auth(new_auth)?;
+        }
+        // store the channel_id => auth + subscription_key
+        let subscription_key = if &self.config.sender_id == "test" {
+            Crypto::test_key(
                 "qJkxxWGVVxy7BKvraNY3hg8Gs-Y8qi0lRaXWJ3R3aJ8",
                 "BBcJdfs1GtMyymFTtty6lIGWRFXrEtJP40Df0gOvRDR4D8CKVgqE6vlYR7tCYksIRdKD1MxDPhQVmKLnzuife50",
                 "LsuUOBKVQRY6-l7_Ajo-Ag"
             )
         } else {
-            subscription_key = Crypto::generate_key()?;
-        }
-        // store the channel_id => auth + subscription_key
+            Crypto::generate_key()?
+        };
         let mut record = crate::internal::storage::PushRecord::new(
-            &info.uaid,
             &info.channel_id,
             &info.endpoint,
             scope,
             subscription_key.clone(),
         );
         record.app_server_key = server_key.map(|v| v.to_owned());
-        record.native_id = Some(reg_token);
         self.store.put_record(&record)?;
-        // store the meta information if we've not yet done that.
-        if self.store.get_meta("uaid")?.is_none() {
-            self.store.set_meta("uaid", &info.uaid)?;
-            if let Some(secret) = &info.secret {
-                self.store.set_meta("auth", secret)?;
-            }
-        }
+        log::debug!("subscribed OK");
         Ok((info, subscription_key).into())
     }
 
     pub fn unsubscribe(&mut self, channel_id: &str) -> Result<bool> {
         // TODO(teshaq): This should throw an error instead of return false
         // keeping this as false in the meantime while uniffing to not change behavior
+        // markh: both branches below are broken in our v3 schema - someone may have subscribed,
+        // we then discover the server lost our subs (causing us to delete the world), and the
+        // consumer then tries to unsubscribe. The consumer hasn't done anything wrong! We should
+        // store "requested subscriptions" separately from "actual subscriptions" and this dilemma
+        // would go away - it's an error to unsubscribe from something never subscribed to, but
+        // not because we lost it!
         if channel_id.is_empty() {
             return Ok(false);
         }
-        if self.conn.uaid.is_none() {
+        let conn = self.make_connection()?;
+        if conn.uaid.is_none() {
             return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
         }
-        self.conn.unsubscribe(channel_id)?;
-        self.store
-            .delete_record(self.conn.uaid.as_ref().unwrap(), channel_id)
+        conn.unsubscribe(channel_id)?;
+        self.store.delete_record(channel_id)
     }
 
     pub fn unsubscribe_all(&mut self) -> Result<()> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
-        }
-        let uaid = self.conn.uaid.as_ref().unwrap();
-        self.store.delete_all_records(uaid)?;
-        self.conn.unsubscribe_all()?;
+        // make connection before deleting, because deletion kills our uaid/auth meta.
+        let mut conn = self.make_connection()?;
+        self.store.delete_all_records()?;
+        conn.unsubscribe_all()?;
         Ok(())
     }
 
     pub fn update(&mut self, new_token: &str) -> error::Result<bool> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+        self.store.set_registration_id(new_token)?;
+        let mut conn = self.make_connection()?;
+        // It's OK if we don't have a uaid yet - that means we can't have any subscriptions,
+        // and we've saved our registration_id, so will use it on our first subscription.
+        if conn.uaid.is_none() {
+            log::info!(
+                "saved the registration ID but not telling the server as we have no subs yet"
+            );
+            return Ok(false);
         }
         if !self.update_rate_limiter.check(&self.store) {
             return Ok(false);
         }
-        self.conn.update(new_token)?;
-        self.store
-            .update_native_id(self.conn.uaid.as_ref().unwrap(), new_token)?;
+        if let Err(e) = conn.update(new_token) {
+            match e.kind() {
+                ErrorKind::UAIDNotRecognizedError(_) => {
+                    // Our subscriptions are dead, but for now, just let the existing mechanisms
+                    // deal with that (eg, next `subscribe()` or `verify_connection()`)
+                    log::info!("updating our token indicated our subscriptions are gone");
+                }
+                _ => return Err(e),
+            }
+        }
         Ok(true)
     }
 
     pub fn verify_connection(&mut self) -> Result<Vec<PushSubscriptionChanged>> {
-        let uaid = self
-            .conn
-            .uaid
-            .as_ref()
-            .ok_or_else(|| ErrorKind::GeneralError("No subscriptions created yet.".into()))?
-            .to_owned();
-
-        let channels = self.store.get_channel_list(&uaid)?;
-        if self.conn.verify_connection(&channels)? {
+        let mut conn = self.make_connection()?;
+        let channels = self.store.get_channel_list()?;
+        if conn.verify_connection(&channels)? {
             // Everything is fine, our subscriptions in the db match the remote server.
             return Ok(Vec::new());
         }
@@ -208,12 +244,9 @@ impl PushManager {
                 subscriptions.push(record.into());
             }
         }
-        // we wipe the UAID if there is a mismatch, forcing us to later
-        // re-generate a new one when we do the next first subscription.
-        // this is to prevent us from attempting to communicate with the server using an outdated
-        // UAID, the in-memory uaid was already wiped in the `verify_connection` call
-        // when we unsubscribe
-        self.store.delete_all_records(&uaid)?;
+        // we wipe all existing subscriptions and the UAID if there is a mismatch; the next
+        // `subscribe()` call will get a new UAID.
+        self.store.delete_all_records()?;
         Ok(subscriptions)
     }
 
@@ -225,15 +258,11 @@ impl PushManager {
         salt: Option<&str>,
         dh: Option<&str>,
     ) -> Result<Vec<u8>> {
-        if self.conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
-        }
-        let uaid = self.conn.uaid.as_ref().unwrap();
         let val = self
             .store
-            .get_record(uaid, chid)
+            .get_record(chid)
             .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
-            .ok_or_else(|| ErrorKind::RecordNotFoundError(uaid.to_owned(), chid.to_owned()))?;
+            .ok_or_else(|| ErrorKind::RecordNotFoundError(chid.to_owned()))?;
         let key = Key::deserialize(&val.key)?;
         Crypto::decrypt(&key, body, encoding, salt, dh)
             .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)).into())
@@ -248,19 +277,25 @@ impl PushManager {
 mod test {
     use super::*;
     const TEST_CHANNEL_ID: &str = "deadbeef00000000decafbad00000000";
-    #[test]
-    fn basic() -> Result<()> {
+
+    fn get_test_manager() -> Result<PushManager> {
         let test_config = PushConfiguration {
             sender_id: "test".to_owned(),
             ..Default::default()
         };
-        let mut pm = PushManager::new(test_config)?;
-        let resp = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let pm = PushManager::new(test_config)?;
+        pm.store.set_registration_id("native-id")?;
+        Ok(pm)
+    }
+    #[test]
+    fn basic() -> Result<()> {
+        let mut pm = get_test_manager()?;
+        let resp = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         // verify that a subsequent request for the same channel ID returns the same subscription
-        let resp2 = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let resp2 = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         assert_eq!(
             Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned()),
-            pm.store.get_meta("auth")?
+            pm.store.get_auth()?
         );
         assert_eq!(
             resp.subscription_info.endpoint,
@@ -279,13 +314,8 @@ mod test {
         use rc_crypto::ece;
         rc_crypto::ensure_initialized();
         let data_string = b"Mary had a little lamb, with some nice mint jelly";
-        let test_config = PushConfiguration {
-            sender_id: "test".to_owned(),
-            // database_path: Some("test.db"),
-            ..Default::default()
-        };
-        let mut pm = PushManager::new(test_config)?;
-        let resp = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let mut pm = get_test_manager()?;
+        let resp = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         let key_info = resp.subscription_info.keys;
         let remote_pub = base64::decode_config(&key_info.p256dh, base64::URL_SAFE_NO_PAD).unwrap();
         let auth = base64::decode_config(&key_info.auth, base64::URL_SAFE_NO_PAD).unwrap();
@@ -305,20 +335,16 @@ mod test {
 
     #[test]
     fn test_wipe_uaid() -> Result<()> {
-        let test_config = PushConfiguration {
-            sender_id: "test".to_owned(),
-            ..Default::default()
-        };
-        let mut pm = PushManager::new(test_config)?;
-        let _ = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let mut pm = get_test_manager()?;
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         // verify that a uaid got added to our store and
         // that there is a record associated with the channel ID provided
-        let uaid = pm.store.get_meta("uaid")?.unwrap();
         assert_eq!(
-            pm.store
-                .get_record(&uaid, TEST_CHANNEL_ID)?
-                .unwrap()
-                .channel_id,
+            pm.store.get_uaid()?.unwrap(),
+            "abad1d3a00000000aabbccdd00000000"
+        );
+        assert_eq!(
+            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
             TEST_CHANNEL_ID
         );
         let unsubscribed_channels = pm.verify_connection()?;
@@ -326,20 +352,20 @@ mod test {
         assert_eq!(unsubscribed_channels[0].channel_id, TEST_CHANNEL_ID);
         // since verify_connection failed,
         // we wipe the uaid and all associated records from our store
-        assert!(pm.store.get_meta("uaid")?.is_none());
-        assert!(pm.store.get_record(&uaid, TEST_CHANNEL_ID)?.is_none());
+        assert!(pm.store.get_uaid()?.is_none());
+        assert!(pm.store.get_record(TEST_CHANNEL_ID)?.is_none());
 
         // we now check that a new subscription will cause us to
         // re-generate a uaid and store it in our store
-        let _ = pm.subscribe(TEST_CHANNEL_ID, "", None)?;
+        let _ = pm.subscribe(TEST_CHANNEL_ID, "test-scope", None)?;
         // verify that the uaid got added to our store and
         // that there is a record associated with the channel ID provided
-        let uaid = pm.store.get_meta("uaid")?.unwrap();
         assert_eq!(
-            pm.store
-                .get_record(&uaid, TEST_CHANNEL_ID)?
-                .unwrap()
-                .channel_id,
+            pm.store.get_uaid()?.unwrap(),
+            "abad1d3a00000000aabbccdd00000000"
+        );
+        assert_eq!(
+            pm.store.get_record(TEST_CHANNEL_ID)?.unwrap().channel_id,
             TEST_CHANNEL_ID
         );
         Ok(())

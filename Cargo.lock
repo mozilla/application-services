@@ -2385,6 +2385,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.12.3",
  "bincode",
+ "env_logger 0.8.4",
  "error-support",
  "hex",
  "lazy_static",
@@ -2396,6 +2397,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sql-support",
+ "tempfile",
  "thiserror",
  "uniffi",
  "uniffi_build",
