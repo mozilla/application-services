@@ -16,7 +16,7 @@ use serde_json::Value;
 ///
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
-pub(crate) enum TypeRef {
+pub enum TypeRef {
     // Current primitives.
     String,
     Int,
@@ -45,7 +45,7 @@ pub(crate) enum TypeRef {
 pub(crate) type StringId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct FeatureManifest {
+pub struct FeatureManifest {
     pub enum_defs: Vec<EnumDef>,
     pub obj_defs: Vec<ObjectDef>,
     // `hints` are useful for things that will be constructed from strings
@@ -55,13 +55,14 @@ pub(crate) struct FeatureManifest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct FeatureDef {
+pub struct FeatureDef {
     name: String,
     doc: String,
     props: Vec<PropDef>,
     default: Option<Literal>,
 }
 impl FeatureDef {
+    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str, props: Vec<PropDef>, default: Option<Literal>) -> Self {
         Self {
             name: name.into(),
@@ -73,14 +74,14 @@ impl FeatureDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct EnumDef {
+pub struct EnumDef {
     pub name: String,
     pub doc: String,
     pub variants: Vec<VariantDef>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct FromStringDef {
+pub struct FromStringDef {
     pub name: String,
     pub doc: String,
     pub variants: Vec<VariantDef>,
@@ -92,6 +93,7 @@ pub struct VariantDef {
     doc: String,
 }
 impl VariantDef {
+    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str) -> Self {
         Self {
             name: name.into(),
@@ -101,12 +103,13 @@ impl VariantDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct ObjectDef {
+pub struct ObjectDef {
     name: String,
     doc: String,
     props: Vec<PropDef>,
 }
 impl ObjectDef {
+    #[allow(dead_code)]
     pub fn new(name: &str, doc: &str, props: Vec<PropDef>) -> Self {
         Self {
             name: name.into(),
@@ -117,7 +120,7 @@ impl ObjectDef {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub(crate) struct PropDef {
+pub struct PropDef {
     pub name: String,
     pub doc: String,
     pub typ: TypeRef,

@@ -2,7 +2,9 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, PropDef, TypeRef, VariantDef};
+use crate::intermediate_representation::{
+    EnumDef, FeatureDef, FeatureManifest, PropDef, TypeRef, VariantDef,
+};
 use serde_json::json;
 
 pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
@@ -69,5 +71,38 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
             }],
             None,
         )],
+    }
+}
+
+#[cfg(test)]
+mod dump_to_file {
+    use std::path::PathBuf;
+
+    use crate::error::Result;
+
+    use super::*;
+
+    fn write(fm: &FeatureManifest, nm: &str) -> Result<()> {
+        let root = std::env::var("CARGO_MANIFEST_DIR")
+            .expect("Missing $CARGO_MANIFEST_DIR, cannot write fixtures files");
+        let fixtures_dir = "fixtures";
+        let path: PathBuf = [&root, fixtures_dir, nm].iter().collect();
+
+        let contents = serde_json::to_string_pretty(fm)?;
+
+        std::fs::write(path, contents)?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn write_to_fixtures_dir() -> Result<()> {
+        write(&get_simple_homescreen_feature(), "simple_homescreen.json")?;
+        write(
+            &get_simple_nimbus_validation_feature(),
+            "simple_nimbus_validation.json",
+        )?;
+
+        Ok(())
     }
 }
