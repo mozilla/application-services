@@ -4,38 +4,51 @@
 
 #[macro_use]
 extern crate clap;
+
+mod error;
+#[cfg(test)]
+#[allow(dead_code)]
+mod fixtures;
+mod intermediate_representation;
+mod parser;
+mod workflows;
+
+use crate::error::{FMLError, Result};
 use clap::{App, ArgMatches};
-use nimbus_fml::error::{FMLError, Result};
-use nimbus_fml::intermediate_representation::FeatureManifest;
-use nimbus_fml::parser::Parser;
-use std::path::Path;
-use std::{fs::File, path::PathBuf};
+use serde::Deserialize;
+
+use std::{
+    convert::{TryFrom, TryInto},
+    path::{Path, PathBuf},
+};
 
 fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
     let cwd = std::env::current_dir()?;
-    if let Some(cmd) = matches.subcommand_matches("struct") {
-        let manifest_file_path = file_path("INPUT", cmd, &cwd)?;
 
-        let ir = if !cmd.is_present("ir") {
-            let file = File::open(manifest_file_path)?;
-            let _parser: Parser = Parser::new(file);
-            unimplemented!("No parser is available")
-        } else {
-            let string = slurp_file(&manifest_file_path)?;
-            serde_json::from_str::<FeatureManifest>(&string)?
-        };
+    let config = if matches.is_present("config") {
+        Some(file_path("config", &matches, &cwd)?)
+    } else {
+        None
+    };
 
-        let output_path = file_path("output", cmd, &cwd)?;
-        match cmd.value_of("language") {
-            Some("ir") => {
-                let contents = serde_json::to_string_pretty(&ir)?;
-                std::fs::write(output_path, contents)?;
-            }
-            _ => unimplemented!("Language not implemented yet"),
-        };
-    }
+    match matches.subcommand() {
+        ("struct", Some(cmd)) => workflows::generate_struct(
+            config,
+            GenerateStructCmd {
+                manifest: file_path("INPUT", cmd, &cwd)?,
+                output: file_path("output", cmd, &cwd)?,
+                language: cmd
+                    .value_of("language")
+                    .expect("Language is required")
+                    .try_into()?,
+                load_from_ir: !cmd.is_present("ir"),
+            },
+        )?,
+        (word, _) => unimplemented!("Command {} not implemented", word),
+    };
+
     Ok(())
 }
 
@@ -50,6 +63,36 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
     }
 }
 
-fn slurp_file(file_name: &Path) -> Result<String> {
-    Ok(std::fs::read_to_string(file_name)?)
+#[derive(Debug, Deserialize)]
+pub struct Config {}
+
+pub struct GenerateStructCmd {
+    manifest: PathBuf,
+    output: PathBuf,
+    language: TargetLanguage,
+    load_from_ir: bool,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TargetLanguage {
+    Kotlin,
+    Swift,
+    IR,
+}
+
+impl TryFrom<&str> for TargetLanguage {
+    type Error = error::FMLError;
+    fn try_from(value: &str) -> Result<Self> {
+        Ok(match value.to_ascii_lowercase().as_str() {
+            "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
+            "swift" => TargetLanguage::Swift,
+            "ir" => TargetLanguage::IR,
+            _ => {
+                return Err(FMLError::CLIError(format!(
+                    "Unimplemented language: {}",
+                    value
+                )))
+            }
+        })
+    }
 }

@@ -13,8 +13,19 @@ pub enum FMLError {
     IOError(#[from] std::io::Error),
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
+    #[error("YAML Error: {0}")]
+    YAMLError(#[from] serde_yaml::Error),
+
+    #[error("Fatal error: {0}")]
+    FatalError(#[from] anyhow::Error),
+
+    #[error("Command line error: {0}")]
+    CLIError(String),
+
     #[error("Invalid path: {0}")]
     InvalidPath(String),
+
+    #[allow(dead_code)]
     #[error("Internal error: {0}")]
     InternalError(&'static str),
     #[error("Validation Error: {0}")]
