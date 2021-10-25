@@ -61,7 +61,7 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
                 doc: "A map of booleans".into(),
                 typ: TypeRef::EnumMap(
                     Box::new(TypeRef::Enum("SectionId".into())),
-                    Box::new(TypeRef::String),
+                    Box::new(TypeRef::Boolean),
                 ),
                 default: json!({
                     "top-sites": true,

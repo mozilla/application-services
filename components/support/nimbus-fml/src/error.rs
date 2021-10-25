@@ -17,6 +17,8 @@ pub enum FMLError {
     InvalidPath(String),
     #[error("Internal error: {0}")]
     InternalError(&'static str),
+    #[error("Validation Error: {0}")]
+    ValidationError(String),
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;
