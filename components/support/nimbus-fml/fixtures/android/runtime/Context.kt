@@ -6,7 +6,7 @@
  * This is a mock implementation of Android's `Context` object to allow us to run tests of the generated
  * code against the real `FeatureVariables` code.
  */
-package android.content;
+package android.content
 
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION")
 class Context {
@@ -14,12 +14,18 @@ class Context {
 
     val packageName = "dummy.package.name"
 
-    fun getDrawable(res: Int): android.graphics.drawable.Drawable? = null
+    fun getDrawable(res: Int): android.graphics.drawable.Drawable? {
+        return null
+    }
 
-    fun getString(res: Int): String? = null
+    fun getString(res: Int): String? {
+        return null
+    }
 }
 
 @Suppress("UNUSED_PARAMETER", "PACKAGE_OR_CLASSIFIER_REDECLARATION")
 object Resources {
-    fun getIdentifier(resName: String, defType: String, packageName: String): Int? = null
+    fun getIdentifier(resName: String, defType: String, packageName: String): Int? {
+        return null
+    }
 }

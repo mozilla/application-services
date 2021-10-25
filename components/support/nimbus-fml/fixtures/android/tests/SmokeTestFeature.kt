@@ -1,9 +1,12 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+* License, v. 2.0. If a copy of the MPL was not distributed with this
+* file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 package nimbus.fml.test
 
 import android.content.Context
 import org.json.JSONObject
 import org.mozilla.experiments.nimbus.JSONVariables
-import org.mozilla.experiments.nimbus.Variables
 
 private val context = Context()
 object SmokeTestFeature {
