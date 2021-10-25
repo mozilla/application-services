@@ -5,6 +5,7 @@
 #[macro_use]
 extern crate clap;
 
+mod backends;
 mod error;
 #[cfg(test)]
 #[allow(dead_code)]

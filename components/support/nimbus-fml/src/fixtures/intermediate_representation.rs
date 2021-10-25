@@ -85,7 +85,7 @@ mod dump_to_file {
     fn write(fm: &FeatureManifest, nm: &str) -> Result<()> {
         let root = std::env::var("CARGO_MANIFEST_DIR")
             .expect("Missing $CARGO_MANIFEST_DIR, cannot write fixtures files");
-        let fixtures_dir = "fixtures";
+        let fixtures_dir = "fixtures/ir";
         let path: PathBuf = [&root, fixtures_dir, nm].iter().collect();
 
         let contents = serde_json::to_string_pretty(fm)?;

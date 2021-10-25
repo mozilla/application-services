@@ -2,6 +2,8 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use crate::backends;
+
 use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
 use crate::parser::Parser;
@@ -33,7 +35,7 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
             let contents = serde_json::to_string_pretty(&ir)?;
             std::fs::write(cmd.output, contents)?;
         }
-        _ => unimplemented!("Language not implemented yet"),
+        _ => backends::generate_struct(_config, cmd),
     };
     Ok(())
 }
