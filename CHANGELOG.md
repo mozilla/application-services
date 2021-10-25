@@ -36,6 +36,15 @@
     this change and have PRs in-progress.
     ([#4549](https://github.com/mozilla/application-services/pull/4549))
 
+# v85.4.2 (_2021-10-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v85.4.2)
+
+## Nimbus
+### What's fixed
+- Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
+
+
 # v85.4.1 (_2021-10-08_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.0...v85.4.1)
