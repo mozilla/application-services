@@ -12,9 +12,10 @@ mod error;
 mod fixtures;
 mod intermediate_representation;
 mod parser;
+mod util;
 mod workflows;
 
-use crate::error::{FMLError, Result};
+use anyhow::{bail, Result};
 use clap::{App, ArgMatches};
 use serde::Deserialize;
 
@@ -60,7 +61,7 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
             abs.push(suffix);
             Ok(abs)
         }
-        _ => Err(FMLError::InvalidPath(name.into())),
+        _ => bail!("A file path is needed for {}", name),
     }
 }
 
@@ -81,19 +82,41 @@ pub enum TargetLanguage {
     IR,
 }
 
+impl TargetLanguage {
+    #[allow(dead_code)]
+    pub(crate) fn extension(&self) -> &str {
+        match self {
+            TargetLanguage::Kotlin => "kt",
+            TargetLanguage::Swift => "swift",
+            TargetLanguage::IR => "fml.json",
+        }
+    }
+}
+
 impl TryFrom<&str> for TargetLanguage {
-    type Error = error::FMLError;
+    type Error = anyhow::Error;
     fn try_from(value: &str) -> Result<Self> {
         Ok(match value.to_ascii_lowercase().as_str() {
             "kotlin" | "kt" | "kts" => TargetLanguage::Kotlin,
             "swift" => TargetLanguage::Swift,
-            "ir" => TargetLanguage::IR,
-            _ => {
-                return Err(FMLError::CLIError(format!(
-                    "Unimplemented language: {}",
-                    value
-                )))
-            }
+            _ => bail!("Unknown or unsupported target language: \"{}\"", value),
         })
+    }
+}
+
+impl TryFrom<&std::ffi::OsStr> for TargetLanguage {
+    type Error = anyhow::Error;
+    fn try_from(value: &std::ffi::OsStr) -> Result<Self> {
+        match value.to_str() {
+            None => bail!("Unreadable target language"),
+            Some(s) => s.try_into(),
+        }
+    }
+}
+
+impl TryFrom<String> for TargetLanguage {
+    type Error = anyhow::Error;
+    fn try_from(value: String) -> Result<Self> {
+        TryFrom::try_from(value.as_str())
     }
 }

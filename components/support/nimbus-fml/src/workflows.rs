@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::backends;
+use crate::{backends, TargetLanguage};
 
 use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use crate::GenerateStructCmd;
 
 pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -> Result<()> {
-    let _config = if let Some(path) = config {
+    let config = if let Some(path) = config {
         Some(slurp_config(&path)?)
     } else {
         None
@@ -31,11 +31,12 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
 
     let language = cmd.language;
     match language {
-        crate::TargetLanguage::IR => {
+        TargetLanguage::IR => {
             let contents = serde_json::to_string_pretty(&ir)?;
             std::fs::write(cmd.output, contents)?;
         }
-        _ => backends::generate_struct(_config, cmd),
+        TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd),
+        _ => unimplemented!(),
     };
     Ok(())
 }
@@ -47,4 +48,63 @@ fn slurp_config(path: &Path) -> Result<Config> {
 
 fn slurp_file(path: &Path) -> Result<String> {
     Ok(std::fs::read_to_string(path)?)
+}
+
+#[cfg(test)]
+mod test {
+
+    use std::convert::TryInto;
+
+    use anyhow::anyhow;
+
+    use super::*;
+    use crate::backends::kotlin;
+    use crate::util::{generated_src_dir, join, pkg_dir};
+
+    // Given a manifest.fml and script.kts in the tests directory generate
+    // a manifest.kt and run the script against it.
+    #[allow(dead_code)]
+    fn generate_and_assert(test_script: &str, manifest: &str, is_ir: bool) -> Result<()> {
+        let pbuf = PathBuf::from(test_script);
+        let ext = pbuf
+            .extension()
+            .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
+        let language: TargetLanguage = ext.try_into()?;
+
+        let manifest_fml = join(pkg_dir(), manifest);
+
+        let manifest = PathBuf::from(&manifest_fml);
+        let file = manifest
+            .file_stem()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file"))?
+            .to_str()
+            .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
+
+        let manifest_kt = format!(
+            "{}.{}",
+            join(generated_src_dir(), file),
+            language.extension()
+        );
+        let cmd = GenerateStructCmd {
+            manifest: manifest_fml.into(),
+            output: manifest_kt.clone().into(),
+            load_from_ir: is_ir,
+            language,
+        };
+        generate_struct(None, cmd)?;
+        run_script_with_generated_code(language, manifest_kt, test_script)?;
+        Ok(())
+    }
+
+    fn run_script_with_generated_code(
+        language: TargetLanguage,
+        manifest_kt: String,
+        test_script: &str,
+    ) -> Result<()> {
+        match language {
+            TargetLanguage::Kotlin => kotlin::test::run_script_with_generated_code(manifest_kt, test_script)?,
+            _ => unimplemented!(),
+        }
+        Ok(())
+    }
 }

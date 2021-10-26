@@ -17,13 +17,7 @@ pub enum FMLError {
     YAMLError(#[from] serde_yaml::Error),
 
     #[error("Fatal error: {0}")]
-    FatalError(#[from] anyhow::Error),
-
-    #[error("Command line error: {0}")]
-    CLIError(String),
-
-    #[error("Invalid path: {0}")]
-    InvalidPath(String),
+    Fatal(#[from] anyhow::Error),
 
     #[allow(dead_code)]
     #[error("Internal error: {0}")]

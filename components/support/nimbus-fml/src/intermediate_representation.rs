@@ -1,3 +1,5 @@
+use std::{collections::HashMap, slice::Iter};
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -196,6 +198,18 @@ impl FeatureManifest {
         // or in the feature definition
         Ok(())
     }
+
+    pub fn iter_enum_defs(&self) -> Iter<EnumDef> {
+        self.enum_defs.iter()
+    }
+
+    pub fn iter_object_defs(&self) -> Iter<ObjectDef> {
+        self.obj_defs.iter()
+    }
+
+    pub fn iter_feature_defs(&self) -> Iter<FeatureDef> {
+        self.feature_defs.iter()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -271,7 +285,7 @@ pub struct PropDef {
     pub default: Literal,
 }
 
-type Literal = Value;
+pub type Literal = Value;
 
 #[cfg(test)]
 mod unit_tests {
