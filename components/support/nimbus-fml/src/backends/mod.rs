@@ -31,6 +31,7 @@
 //! This filter provides methods to generate expressions and identifiers in the target language. These are all forwarded to the oracle.
 
 use std::fmt;
+use std::fmt::Display;
 
 use crate::intermediate_representation::Literal;
 use crate::intermediate_representation::TypeRef;
@@ -72,6 +73,9 @@ pub trait CodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, oracle: &dyn CodeOracle) -> String;
+
+    /// The language specific expression that gets a value of the `prop` from the `vars` object.
+    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String;
 
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.

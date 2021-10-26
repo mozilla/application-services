@@ -13,3 +13,6 @@ serde_json = "1"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "1.0.29"
 serde_yaml = "0.8.21"
+askama = "0.10.5"
+textwrap = "0.14.2"
+heck = "0.3.3"
