@@ -201,6 +201,56 @@ class NimbusTest {
         assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtrasTryTwo["enrollment_id"])
     }
 
+    @Test
+    fun `opting out generates the correct Glean event`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertFalse(
+            "There must not be any pre-existing events",
+            NimbusEvents.disqualification.testHasValue()
+        )
+
+        // Opt out of the specific experiment
+        nimbus.optOutOnThisThread("test-experiment")
+
+        // Use the Glean test API to check that the valid event is present
+        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        assertEquals("Event count must match", disqualificationEvents.count(), 1)
+        val enrollmentEventExtras = disqualificationEvents.first().extra!!
+        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
+        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+    }
+
+    @Test
+    fun `toggling the global opt out generates the correct Glean event`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertFalse(
+            "There must not be any pre-existing events",
+            NimbusEvents.disqualification.testHasValue()
+        )
+
+        // Opt out of all experiments
+        nimbus.setGlobalUserParticipationOnThisThread(false)
+
+        // Use the Glean test API to check that the valid event is present
+        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        assertEquals("Event count must match", disqualificationEvents.count(), 1)
+        val enrollmentEventExtras = disqualificationEvents.first().extra!!
+        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
+        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+    }
+
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {
         this.setExperimentsLocallyOnThisThread("""
                 {"data": [{
