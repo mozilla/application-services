@@ -490,6 +490,7 @@ open class Nimbus(
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll {
         val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
         if (enrolmentChanges.isNotEmpty()) {
+            recordExperimentTelemetryEvents(enrolmentChanges)
             postEnrolmentCalculation()
         }
     }
@@ -497,9 +498,15 @@ open class Nimbus(
     override fun optOut(experimentId: String) {
         dbScope.launch {
             withCatchAll {
-                nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
+                optOutOnThisThread(experimentId)
             }
         }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun optOutOnThisThread(experimentId: String) {
+        nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
     }
 
     override fun resetTelemetryIdentifiers() {
