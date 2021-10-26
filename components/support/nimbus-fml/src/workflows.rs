@@ -102,7 +102,9 @@ mod test {
         test_script: &str,
     ) -> Result<()> {
         match language {
-            TargetLanguage::Kotlin => kotlin::test::run_script_with_generated_code(manifest_kt, test_script)?,
+            TargetLanguage::Kotlin => {
+                kotlin::test::run_script_with_generated_code(manifest_kt, test_script)?
+            }
             _ => unimplemented!(),
         }
         Ok(())
