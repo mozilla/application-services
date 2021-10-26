@@ -48,21 +48,6 @@ pub type TypeIdentifier = TypeRef;
 /// class names, variable names etc).
 pub trait CodeOracle {
     fn find(&self, type_: &TypeIdentifier) -> Box<dyn CodeType>;
-
-    /// Get the idiomatic rendering of a class name (for enums, records, errors, etc).
-    fn class_name(&self, nm: &dyn fmt::Display) -> String;
-
-    /// Get the idiomatic rendering of a function name.
-    fn fn_name(&self, nm: &dyn fmt::Display) -> String;
-
-    /// Get the idiomatic rendering of a variable name.
-    fn var_name(&self, nm: &dyn fmt::Display) -> String;
-
-    /// Get the idiomatic rendering of an individual enum variant.
-    fn enum_variant_name(&self, nm: &dyn fmt::Display) -> String;
-
-    /// Get the idiomatic rendering of an error name.
-    fn error_name(&self, nm: &dyn fmt::Display) -> String;
 }
 
 /// A Trait to emit foreign language code to handle referenced types.

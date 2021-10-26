@@ -5,9 +5,9 @@
 use askama::Template;
 use std::fmt::Display;
 
-use super::filters;
+use super::{identifiers, ConcreteCodeOracle};
 use crate::{
-    backends::{CodeOracle, CodeType, TypeIdentifier},
+    backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{EnumDef, FeatureManifest, Literal},
 };
 
@@ -25,7 +25,7 @@ impl CodeType for EnumCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, oracle: &dyn CodeOracle) -> String {
-        oracle.class_name(&self.id)
+        identifiers::class_name(&self.id)
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
@@ -34,7 +34,7 @@ impl CodeType for EnumCodeType {
             "{}.getEnum<{}>({})",
             vars,
             self.type_label(oracle),
-            filters::quoted(prop)
+            identifiers::quoted(prop)
         )
     }
 
@@ -49,7 +49,7 @@ impl CodeType for EnumCodeType {
         format!(
             "{}.{}",
             self.type_label(oracle),
-            oracle.enum_variant_name(variant)
+            identifiers::enum_variant_name(variant)
         )
     }
 }
@@ -88,7 +88,7 @@ impl CodeType for EnumMapCodeType {
             vars = vars,
             k = oracle.find(&self.k_type).type_label(oracle),
             v = oracle.find(&self.v_type).type_label(oracle),
-            prop = filters::quoted(prop)
+            prop = identifiers::quoted(prop)
         )
     }
 
@@ -117,13 +117,20 @@ impl CodeType for EnumMapCodeType {
     }
 }
 
-pub(crate) struct EnumCodeDeclaration<'oracle> {
+#[derive(Template)]
+#[template(syntax = "kt", escape = "none", path = "EnumTemplate.kt")]
+pub(crate) struct EnumCodeDeclaration {
     inner: EnumDef,
-    oracle: &'oracle dyn CodeOracle,
+    oracle: ConcreteCodeOracle,
 }
 
-impl<'oracle> EnumCodeDeclaration<'oracle> {
-    pub fn new(oracle: &'oracle dyn CodeOracle, _fm: &FeatureManifest, inner: EnumDef) -> Self {
-        Self { oracle, inner }
+impl EnumCodeDeclaration {
+    pub fn new(_fm: &FeatureManifest, inner: &EnumDef) -> Self {
+        Self {
+            oracle: Default::default(),
+            inner: inner.clone(),
+        }
     }
 }
+
+impl CodeDeclaration for EnumCodeDeclaration {}

@@ -35,7 +35,7 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
             let contents = serde_json::to_string_pretty(&ir)?;
             std::fs::write(cmd.output, contents)?;
         }
-        TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd),
+        TargetLanguage::Kotlin => backends::kotlin::generate_struct(ir, config, cmd)?,
         _ => unimplemented!(),
     };
     Ok(())

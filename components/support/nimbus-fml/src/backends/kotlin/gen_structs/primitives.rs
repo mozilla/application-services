@@ -9,6 +9,7 @@ use crate::{
     backends::{CodeOracle, CodeType},
     intermediate_representation::Literal,
 };
+
 pub(crate) struct BooleanCodeType;
 
 impl CodeType for BooleanCodeType {
@@ -50,7 +51,11 @@ impl CodeType for IntCodeType {
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
     fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        format!("{}.getInt({})", vars, filters::quoted(prop))
+        format!(
+            "{vars}.getInt({prop})",
+            vars = vars,
+            prop = filters::quoted(prop)
+        )
     }
 
     /// A representation of the given literal for this type.

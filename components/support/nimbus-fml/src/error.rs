@@ -16,6 +16,9 @@ pub enum FMLError {
     #[error("YAML Error: {0}")]
     YAMLError(#[from] serde_yaml::Error),
 
+    #[error("Unexpected template problem: {0}")]
+    TemplateProblem(#[from] askama::Error),
+
     #[error("Fatal error: {0}")]
     Fatal(#[from] anyhow::Error),
 

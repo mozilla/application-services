@@ -1,7 +1,7 @@
 // /* This Source Code Form is subject to the terms of the Mozilla Public
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use super::identifiers;
+use heck::{CamelCase, MixedCase, ShoutySnakeCase};
 use std::fmt::{self, Display};
 
 use crate::backends::{CodeOracle, TypeIdentifier};
@@ -30,23 +30,23 @@ pub fn literal(
 }
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
-pub fn class_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::class_name(nm))
+pub fn class_name(nm: &dyn fmt::Display) -> String {
+    nm.to_string().to_camel_case()
 }
 
 /// Get the idiomatic Kotlin rendering of a function name.
-pub fn fn_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::fn_name(nm))
+pub fn fn_name(nm: &dyn fmt::Display) -> String {
+    nm.to_string().to_mixed_case()
 }
 
 /// Get the idiomatic Kotlin rendering of a variable name.
-pub fn var_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::var_name(nm))
+pub fn var_name(nm: &dyn fmt::Display) -> String {
+    nm.to_string().to_mixed_case()
 }
 
 /// Get the idiomatic Kotlin rendering of an individual enum variant.
-pub fn enum_variant_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::enum_variant_name(nm))
+pub fn enum_variant_name(nm: &dyn fmt::Display) -> String {
+    nm.to_string().to_shouty_snake_case()
 }
 
 /// Surrounds a property name with quotes. It is assumed that property names do not need escaping.

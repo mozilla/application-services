@@ -2,18 +2,28 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::intermediate_representation::FeatureManifest;
+use crate::error::Result;
+use askama::Template;
 
+use crate::intermediate_representation::FeatureManifest;
 use crate::{Config, GenerateStructCmd};
 
 mod gen_structs;
 
 pub(crate) fn generate_struct(
-    _manifest: FeatureManifest,
-    _config: Option<Config>,
-    _cmd: GenerateStructCmd,
-) {
-    todo!("Kotlin backend achieved")
+    manifest: FeatureManifest,
+    config: Option<Config>,
+    cmd: GenerateStructCmd,
+) -> Result<()> {
+    let config = config.unwrap_or_default();
+    let kt = gen_structs::FeatureManifestDeclaration::new(config, &manifest);
+
+    let path = cmd.output;
+    let contents = kt.render()?;
+
+    std::fs::write(path, contents)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

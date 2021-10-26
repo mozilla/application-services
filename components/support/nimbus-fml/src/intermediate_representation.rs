@@ -229,6 +229,18 @@ impl FeatureDef {
             default,
         }
     }
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub fn props(&self) -> Vec<PropDef> {
+        self.props.clone()
+    }
+    pub fn default(&self) -> Option<Literal> {
+        self.default.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

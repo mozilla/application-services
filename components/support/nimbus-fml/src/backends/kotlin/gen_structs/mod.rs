@@ -1,24 +1,27 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-//  use std::collections::HashSet;
-//  use std::fmt;
+
+use askama::Template;
+use std::collections::HashSet;
 
 //  use anyhow::Result;
-use askama::Template;
-use heck::{CamelCase, MixedCase, ShoutySnakeCase};
 //  use serde::{Deserialize, Serialize};
 
 //  use crate::bindings::backend::CodeDeclaration;
 //  use crate::interface::*;
 //  use crate::MergeWith;
 
-use std::fmt;
-
-use crate::backends::{CodeOracle, CodeType, TypeIdentifier};
+use crate::{
+    backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
+    intermediate_representation::FeatureManifest,
+    Config,
+};
 
 mod enum_;
+mod feature;
 mod filters;
+mod identifiers;
 mod object;
 mod primitives;
 mod structural;
@@ -68,107 +71,86 @@ mod structural;
 // //      }
 // //  }
 
-//  #[derive(Template)]
-//  #[template(syntax = "kt", escape = "none", path = "wrapper.kt")]
-//  pub struct KotlinWrapper<'a> {
-//      config: Config,
-//      ci: &'a FeatureManifest,
-//      oracle: KotlinCodeOracle,
-//  }
-//  impl<'a> KotlinWrapper<'a> {
-//      pub fn new(config: Config, ci: &'a FeatureManifest) -> Self {
-//          Self {
-//              config,
-//              ci,
-//              oracle: Default::default(),
-//          }
-//      }
+#[derive(Template)]
+#[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
+pub struct FeatureManifestDeclaration<'a> {
+    config: Config,
+    fm: &'a FeatureManifest,
+    oracle: ConcreteCodeOracle,
+}
+impl<'a> FeatureManifestDeclaration<'a> {
+    pub fn new(config: Config, fm: &'a FeatureManifest) -> Self {
+        Self {
+            config,
+            fm,
+            oracle: Default::default(),
+        }
+    }
 
-//      pub fn members(&self) -> Vec<Box<dyn CodeDeclaration + 'a>> {
-//          let ci = self.ci;
-//          vec![
-//              Box::new(object::ObjectRuntime::new(ci)) as Box<dyn CodeDeclaration>,
-//          ]
-//          .into_iter()
-//          .chain(
-//              ci.iter_enum_definitions().into_iter().map(|inner| {
-//                  Box::new(enum_::KotlinEnum::new(inner, ci)) as Box<dyn CodeDeclaration>
-//              }),
-//          )
-//          .chain(ci.iter_function_definitions().into_iter().map(|inner| {
-//              Box::new(function::KotlinFunction::new(inner, ci)) as Box<dyn CodeDeclaration>
-//          }))
-//          .chain(ci.iter_decorator_definitions().into_iter().map(|inner| {
-//              Box::new(decorator::KotlinDecoratorObject::new(inner, ci)) as Box<dyn CodeDeclaration>
-//          }))
-//          .chain(ci.iter_object_definitions().into_iter().map(|inner| {
-//              Box::new(object::KotlinObject::new(inner, ci)) as Box<dyn CodeDeclaration>
-//          }))
-//          .chain(ci.iter_record_definitions().into_iter().map(|inner| {
-//              Box::new(record::KotlinRecord::new(inner, ci)) as Box<dyn CodeDeclaration>
-//          }))
-//          .chain(
-//              ci.iter_error_definitions().into_iter().map(|inner| {
-//                  Box::new(error::KotlinError::new(inner, ci)) as Box<dyn CodeDeclaration>
-//              }),
-//          )
-//          .chain(
-//              ci.iter_callback_interface_definitions()
-//                  .into_iter()
-//                  .map(|inner| {
-//                      Box::new(callback_interface::KotlinCallbackInterface::new(inner, ci))
-//                          as Box<dyn CodeDeclaration>
-//                  }),
-//          )
-//          .collect()
-//      }
+    pub fn members(&self) -> Vec<Box<dyn CodeDeclaration + 'a>> {
+        let fm = self.fm;
+        vec![
+           //  Box::new(object::ObjectRuntime::new(ci)) as Box<dyn CodeDeclaration>,
+        ]
+        .into_iter()
+        .chain(fm.iter_feature_defs().into_iter().map(|inner| {
+            Box::new(feature::FeatureCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+        }))
+        .chain(fm.iter_enum_defs().map(|inner| {
+            Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+        }))
+        //  .chain(fm.iter_object_defs().into_iter().map(|inner| {
+        //      Box::new(object::ObjectDef::new(inner, fm)) as Box<dyn CodeDeclaration>
+        //  }))
+        .collect()
+    }
 
-//      pub fn initialization_code(&self) -> Vec<String> {
-//          let oracle = &self.oracle;
-//          self.members()
-//              .into_iter()
-//              .filter_map(|member| member.initialization_code(oracle))
-//              .collect()
-//      }
+    pub fn initialization_code(&self) -> Vec<String> {
+        let oracle = &self.oracle;
+        self.members()
+            .into_iter()
+            .filter_map(|member| member.initialization_code(oracle))
+            .collect()
+    }
 
-//      pub fn declaration_code(&self) -> Vec<String> {
-//          let oracle = &self.oracle;
-//          self.members()
-//              .into_iter()
-//              .filter_map(|member| member.definition_code(oracle))
-//              .chain(
-//                  self.ci
-//                      .iter_types()
-//                      .into_iter()
-//                      .filter_map(|type_| oracle.find(&type_).helper_code(oracle)),
-//              )
-//              .collect()
-//      }
+    pub fn declaration_code(&self) -> Vec<String> {
+        let oracle = &self.oracle;
+        self.members()
+            .into_iter()
+            .filter_map(|member| member.definition_code(oracle))
+            //  .chain(
+            //      self.fm
+            //          .iter_types()
+            //          .into_iter()
+            //          .filter_map(|type_| oracle.find(&type_).helper_code(oracle)),
+            //  )
+            .collect()
+    }
 
-//      pub fn imports(&self) -> Vec<String> {
-//          let oracle = &self.oracle;
-//          let mut imports: Vec<String> = self
-//              .members()
-//              .into_iter()
-//              .filter_map(|member| member.imports(oracle))
-//              .flatten()
-//              .chain(
-//                  self.ci
-//                      .iter_types()
-//                      .into_iter()
-//                      .filter_map(|type_| oracle.find(&type_).imports(oracle))
-//                      .flatten(),
-//              )
-//              .collect::<HashSet<String>>()
-//              .into_iter()
-//              .collect();
+    pub fn imports(&self) -> Vec<String> {
+        let oracle = &self.oracle;
+        let mut imports: Vec<String> = self
+            .members()
+            .into_iter()
+            .filter_map(|member| member.imports(oracle))
+            .flatten()
+            //  .chain(
+            //      self.ci
+            //          .iter_types()
+            //          .into_iter()
+            //          .filter_map(|type_| oracle.find(&type_).imports(oracle))
+            //          .flatten(),
+            //  )
+            .collect::<HashSet<String>>()
+            .into_iter()
+            .collect();
 
-//          imports.sort();
-//          imports
-//      }
-//  }
+        imports.sort();
+        imports
+    }
+}
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct ConcreteCodeOracle;
 
 impl ConcreteCodeOracle {
@@ -211,42 +193,5 @@ impl ConcreteCodeOracle {
 impl CodeOracle for ConcreteCodeOracle {
     fn find(&self, type_: &TypeIdentifier) -> Box<dyn CodeType> {
         self.create_code_type(type_.clone())
-    }
-
-    /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
-    fn class_name(&self, nm: &dyn fmt::Display) -> String {
-        nm.to_string().to_camel_case()
-    }
-
-    /// Get the idiomatic Kotlin rendering of a function name.
-    fn fn_name(&self, nm: &dyn fmt::Display) -> String {
-        nm.to_string().to_mixed_case()
-    }
-
-    /// Get the idiomatic Kotlin rendering of a variable name.
-    fn var_name(&self, nm: &dyn fmt::Display) -> String {
-        nm.to_string().to_mixed_case()
-    }
-
-    /// Get the idiomatic Kotlin rendering of an individual enum variant.
-    fn enum_variant_name(&self, nm: &dyn fmt::Display) -> String {
-        nm.to_string().to_shouty_snake_case()
-    }
-
-    /// Get the idiomatic Kotlin rendering of an exception name
-    ///
-    /// This replaces "Error" at the end of the name with "Exception".  Rust code typically uses
-    /// "Error" for any type of error but in the Java world, "Error" means a non-recoverable error
-    /// and is distinguished from an "Exception".
-    fn error_name(&self, nm: &dyn fmt::Display) -> String {
-        let name = nm.to_string();
-        match name.strip_suffix("Error") {
-            None => name,
-            Some(stripped) => {
-                let mut kt_exc_name = stripped.to_owned();
-                kt_exc_name.push_str("Exception");
-                kt_exc_name
-            }
-        }
     }
 }

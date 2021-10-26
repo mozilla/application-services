@@ -65,8 +65,8 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
     }
 }
 
-#[derive(Debug, Deserialize)]
-pub struct Config {}
+#[derive(Debug, Deserialize, Default)]
+pub struct Config;
 
 pub struct GenerateStructCmd {
     manifest: PathBuf,
