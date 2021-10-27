@@ -63,6 +63,14 @@ pub mod test {
         )
     }
 
+    // The file with the kt implementation of FeatureVariables
+    fn features_kt() -> String {
+        join(
+            sdk_android_dir(),
+            "org/mozilla/experiments/nimbus/FeaturesInterface.kt",
+        )
+    }
+
     fn classpath() -> Result<String> {
         Ok(format!("{}:{}", json_jar(), prepare_build_dir()?))
     }
@@ -89,6 +97,7 @@ pub mod test {
             .arg("-d")
             .arg(&dir_str)
             .arg(&variables_kt())
+            .arg(&features_kt())
             .arg(&runtime_dir())
             .spawn()?
             .wait()?;
@@ -123,7 +132,6 @@ pub mod test {
     // Given a generated manifest, run a kts script against it.
     pub fn run_script_with_generated_code(manifest_kt: String, script: &str) -> Result<()> {
         compile_manifest_kt(manifest_kt)?;
-        let script = join(tests_dir(), script);
         let build_dir = prepare_build_dir()?;
         let status = Command::new("kotlinc")
             // Our generated bindings should not produce any warnings; fail tests if they do.
@@ -147,7 +155,10 @@ pub mod test {
 
     #[test]
     fn smoke_test_runtime_dir() -> Result<()> {
-        run_script_with_generated_code(join(tests_dir(), "SmokeTestFeature.kt"), "smoke_test.kts")?;
+        run_script_with_generated_code(
+            join(tests_dir(), "SmokeTestFeature.kt"),
+            "fixtures/android/tests/smoke_test.kts",
+        )?;
         Ok(())
     }
 }

@@ -20,7 +20,7 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
         None
     };
 
-    let ir = if cmd.load_from_ir {
+    let ir = if !cmd.load_from_ir {
         let file = File::open(cmd.manifest)?;
         let _parser: Parser = Parser::new(file);
         unimplemented!("No parser is available")
@@ -54,6 +54,7 @@ fn slurp_file(path: &Path) -> Result<String> {
 mod test {
 
     use std::convert::TryInto;
+    use std::fs;
 
     use anyhow::anyhow;
 
@@ -65,7 +66,8 @@ mod test {
     // a manifest.kt and run the script against it.
     #[allow(dead_code)]
     fn generate_and_assert(test_script: &str, manifest: &str, is_ir: bool) -> Result<()> {
-        let pbuf = PathBuf::from(test_script);
+        let test_script = join(pkg_dir(), test_script);
+        let pbuf = PathBuf::from(&test_script);
         let ext = pbuf
             .extension()
             .ok_or_else(|| anyhow!("Require a test_script with an extension: {}", test_script))?;
@@ -80,6 +82,8 @@ mod test {
             .to_str()
             .ok_or_else(|| anyhow!("Manifest file path isn't a file with a sensible name"))?;
 
+        fs::create_dir_all(generated_src_dir())?;
+
         let manifest_kt = format!(
             "{}.{}",
             join(generated_src_dir(), file),
@@ -92,7 +96,7 @@ mod test {
             language,
         };
         generate_struct(None, cmd)?;
-        run_script_with_generated_code(language, manifest_kt, test_script)?;
+        run_script_with_generated_code(language, manifest_kt, &test_script)?;
         Ok(())
     }
 
@@ -107,6 +111,16 @@ mod test {
             }
             _ => unimplemented!(),
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_simple_validation_code() -> Result<()> {
+        generate_and_assert(
+            "test/nimbus_validation.kts",
+            "fixtures/ir/simple_nimbus_validation.json",
+            true,
+        )?;
         Ok(())
     }
 }

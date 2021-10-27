@@ -45,7 +45,7 @@ fn main() -> Result<()> {
                     .value_of("language")
                     .expect("Language is required")
                     .try_into()?,
-                load_from_ir: !cmd.is_present("ir"),
+                load_from_ir: cmd.is_present("ir"),
             },
         )?,
         (word, _) => unimplemented!("Command {} not implemented", word),
