@@ -25,7 +25,7 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
                 PropDef {
                     name: "row-count".into(),
                     doc: "An example integer property".into(),
-                    typ: TypeRef::Boolean,
+                    typ: TypeRef::Int,
                     default: json!(2),
                 },
                 PropDef {

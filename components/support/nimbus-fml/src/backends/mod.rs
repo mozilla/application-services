@@ -30,7 +30,6 @@
 //! Each backend will have its own `filter` module, which is used by the askama templates used in all `CodeType`s and `CodeDeclaration`s.
 //! This filter provides methods to generate expressions and identifiers in the target language. These are all forwarded to the oracle.
 
-use std::fmt;
 use std::fmt::Display;
 
 use crate::intermediate_representation::Literal;

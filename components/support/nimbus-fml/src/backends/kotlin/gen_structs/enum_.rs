@@ -5,7 +5,7 @@
 use askama::Template;
 use std::fmt::Display;
 
-use super::{identifiers, ConcreteCodeOracle};
+use super::identifiers;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{EnumDef, FeatureManifest, Literal},
@@ -24,7 +24,7 @@ impl EnumCodeType {
 impl CodeType for EnumCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
-    fn type_label(&self, oracle: &dyn CodeOracle) -> String {
+    fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
         identifiers::class_name(&self.id)
     }
 
@@ -120,15 +120,13 @@ impl CodeType for EnumMapCodeType {
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "EnumTemplate.kt")]
 pub(crate) struct EnumCodeDeclaration {
-    inner: EnumDef,
-    oracle: ConcreteCodeOracle,
+    _inner: EnumDef,
 }
 
 impl EnumCodeDeclaration {
     pub fn new(_fm: &FeatureManifest, inner: &EnumDef) -> Self {
         Self {
-            oracle: Default::default(),
-            inner: inner.clone(),
+            _inner: inner.clone(),
         }
     }
 }

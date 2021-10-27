@@ -5,7 +5,6 @@
 use askama::Template;
 
 use super::filters;
-use super::ConcreteCodeOracle;
 use crate::{
     backends::{CodeDeclaration, CodeOracle},
     intermediate_representation::{FeatureDef, FeatureManifest},
@@ -15,13 +14,11 @@ use crate::{
 #[template(syntax = "kt", escape = "none", path = "FeatureTemplate.kt")]
 pub(crate) struct FeatureCodeDeclaration {
     inner: FeatureDef,
-    oracle: ConcreteCodeOracle,
 }
 
 impl FeatureCodeDeclaration {
     pub fn new(_fm: &FeatureManifest, inner: &FeatureDef) -> Self {
         Self {
-            oracle: Default::default(),
             inner: inner.clone(),
         }
     }

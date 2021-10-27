@@ -297,6 +297,21 @@ pub struct PropDef {
     pub default: Literal,
 }
 
+impl PropDef {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub fn typ(&self) -> TypeRef {
+        self.typ.clone()
+    }
+    pub fn default(&self) -> Literal {
+        self.default.clone()
+    }
+}
+
 pub type Literal = Value;
 
 #[cfg(test)]

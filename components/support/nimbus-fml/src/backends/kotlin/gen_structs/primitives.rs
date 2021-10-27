@@ -15,12 +15,17 @@ pub(crate) struct BooleanCodeType;
 impl CodeType for BooleanCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
-    fn type_label(&self, oracle: &dyn CodeOracle) -> String {
+    fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
         "Boolean".into()
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+    fn get_value(
+        &self,
+        _oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
         format!("{}.getBool({})", vars, filters::quoted(prop))
     }
 
@@ -35,7 +40,7 @@ impl CodeType for BooleanCodeType {
                     "false".to_string()
                 }
             }
-            _ => unreachable!(),
+            _ => unreachable!("Expecting a boolean"),
         }
     }
 }
@@ -45,12 +50,17 @@ pub(crate) struct IntCodeType;
 impl CodeType for IntCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
-    fn type_label(&self, oracle: &dyn CodeOracle) -> String {
+    fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
         "Int".into()
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+    fn get_value(
+        &self,
+        _oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
         format!(
             "{vars}.getInt({prop})",
             vars = vars,
@@ -65,7 +75,7 @@ impl CodeType for IntCodeType {
             serde_json::Value::Number(v) => {
                 format!("{:.0}", v)
             }
-            _ => unreachable!(),
+            _ => unreachable!("Expecting a number"),
         }
     }
 }
@@ -96,7 +106,7 @@ impl CodeType for StringCodeType {
             serde_json::Value::String(v) => {
                 format!("\"{0}\"", v)
             }
-            _ => unreachable!(),
+            _ => unreachable!("Expecting a string"),
         }
     }
 }

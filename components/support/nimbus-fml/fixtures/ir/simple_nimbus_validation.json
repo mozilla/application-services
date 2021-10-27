@@ -16,7 +16,7 @@
         {
           "name": "row-count",
           "doc": "An example integer property",
-          "typ": "Boolean",
+          "typ": "Int",
           "default": 2
         },
         {

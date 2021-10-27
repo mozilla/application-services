@@ -10,10 +10,18 @@
 import {{ imported_class }}
 {%- endfor %}
 
+{%- for code in self.initialization_code() %}
+{{ code }}
+{%- endfor %}
 
 // Public interface members begin here.
 {%- for code in self.declaration_code() %}
 {{- code }}
 {%- endfor %}
+
+
+object Features {
+
+}
 
 {% import "macros.kt" as kt %}

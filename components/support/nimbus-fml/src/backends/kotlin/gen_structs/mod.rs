@@ -99,9 +99,9 @@ impl<'a> FeatureManifestDeclaration<'a> {
         .chain(fm.iter_enum_defs().map(|inner| {
             Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
         }))
-        //  .chain(fm.iter_object_defs().into_iter().map(|inner| {
-        //      Box::new(object::ObjectDef::new(inner, fm)) as Box<dyn CodeDeclaration>
-        //  }))
+        .chain(fm.iter_object_defs().into_iter().map(|inner| {
+            Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+        }))
         .collect()
     }
 
@@ -155,17 +155,13 @@ pub struct ConcreteCodeOracle;
 
 impl ConcreteCodeOracle {
     fn create_code_type(&self, type_: TypeIdentifier) -> Box<dyn CodeType> {
-        // I really want access to the FeatureManifest here so I can look up the interface::{Enum, Record, Error, Object, etc}
-        // However, there's some violence and gore I need to do to (temporarily) make the oracle usable from filters.
-
-        // Some refactor of the templates is needed to make progress here: I think most of the filter functions need to take an &dyn CodeOracle
         match type_ {
             TypeIdentifier::Boolean => Box::new(primitives::BooleanCodeType),
             TypeIdentifier::String => Box::new(primitives::StringCodeType),
             TypeIdentifier::Int => Box::new(primitives::IntCodeType),
 
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
-            // TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
+            TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
             // TypeIdentifier::Optional(ref inner) => {
             //     let outer = type_.clone();
@@ -182,9 +178,9 @@ impl ConcreteCodeOracle {
             //     let inner = *inner.to_owned();
             //     Box::new(structural::StringMapCodeType::new(inner, outer))
             // }
-            // TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
-            //     Box::new(enum_::EnumMapCodeType::new(k_type, v_type))
-            // }
+            TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
+                Box::new(enum_::EnumMapCodeType::new(k_type, v_type))
+            }
             _ => unimplemented!(),
         }
     }
