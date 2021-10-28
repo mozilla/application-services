@@ -76,6 +76,31 @@
             "bar": "top",
             "foo": "bottom"
           }
+        },
+        {
+          "name": "int-list",
+          "doc": "A list of numbers",
+          "type": {
+            "List": "Int"
+          },
+          "default": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "enum-list",
+          "doc": "A list of enums",
+          "type": {
+            "List": {
+              "Enum": "Position"
+            }
+          },
+          "default": [
+            "top",
+            "bottom"
+          ]
         }
       ],
       "default": null

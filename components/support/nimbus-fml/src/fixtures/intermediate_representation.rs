@@ -68,6 +68,18 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
                     typ: TypeRef::StringMap(Box::new(TypeRef::Enum("Position".into()))),
                     default: json!({"foo": "bottom", "bar": "top"}),
                 },
+                PropDef {
+                    name: "int-list".into(),
+                    doc: "A list of numbers".into(),
+                    typ: TypeRef::List(Box::new(TypeRef::Int)),
+                    default: json!([1, 2, 3]),
+                },
+                PropDef {
+                    name: "enum-list".into(),
+                    doc: "A list of enums".into(),
+                    typ: TypeRef::List(Box::new(TypeRef::Enum("Position".into()))),
+                    default: json!(["top", "bottom"]),
+                },
             ],
             None,
         )],
