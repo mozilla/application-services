@@ -3,9 +3,12 @@
 
 // package TBD;
 
-import org.mozilla.experiments.nimbus.JSONVariables
+
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.FeaturesInterface
+import org.mozilla.experiments.nimbus.internal.mapValues
+import org.mozilla.experiments.nimbus.internal.mapKeys
+import org.mozilla.experiments.nimbus.internal.mapEntries
 
 {%- for imported_class in self.imports() %}
 import {{ imported_class }}

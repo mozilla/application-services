@@ -63,6 +63,10 @@ pub mod test {
         )
     }
 
+    fn nimbus_internals_kt() -> String {
+        join(sdk_android_dir(), "org/mozilla/experiments/nimbus/internal")
+    }
+
     // The file with the kt implementation of FeatureVariables
     fn features_kt() -> String {
         join(
@@ -71,19 +75,31 @@ pub mod test {
         )
     }
 
+    fn build_dir() -> String {
+        use crate::util;
+        join(util::build_dir(), "android")
+    }
+
+    fn manifest_build_dir() -> String {
+        join(build_dir(), "manifests")
+    }
+
     fn classpath() -> Result<String> {
-        Ok(format!("{}:{}", json_jar(), prepare_build_dir()?))
+        let cp = [
+            json_jar(),
+            prepare_runtime_build_dir()?,
+            manifest_build_dir(),
+        ];
+        Ok(cp.join(":"))
     }
 
     // Prepare the build directory, by compiling the runtime, and FeatureVariables.kt
     // If the directory already exists, then do nothing more; it takes time
     // to spin up the kotlinc.
     // If you need to change the runtime files, then you'll need to remove the build file.
-    fn prepare_build_dir() -> Result<String> {
-        let pkg_dir = pkg_dir();
-        let file_path = "build/android/runtime";
-        let build_dir: PathBuf = [&pkg_dir, file_path].iter().collect();
-        let dir_str = build_dir.to_string_lossy().to_string();
+    fn prepare_runtime_build_dir() -> Result<String> {
+        let dir_str = join(build_dir(), "runtime");
+        let build_dir: PathBuf = PathBuf::from(&dir_str);
         if build_dir.is_dir() {
             return Ok(dir_str);
         }
@@ -99,6 +115,7 @@ pub mod test {
             .arg(&variables_kt())
             .arg(&features_kt())
             .arg(&runtime_dir())
+            .arg(&nimbus_internals_kt())
             .spawn()?
             .wait()?;
         if status.success() {
@@ -110,10 +127,15 @@ pub mod test {
 
     // Compile a genertaed manifest file against the mocked out Android runtime.
     pub fn compile_manifest_kt(path: String) -> Result<()> {
-        let build_dir = prepare_build_dir()?;
+        let build_dir = manifest_build_dir();
+
+        // We need this to exist so we don't create a compile time warning for the first test.
+        std::fs::create_dir_all(&build_dir)?;
+
         let status = Command::new("kotlinc")
             // Our generated bindings should not produce any warnings; fail tests if they do.
             .arg("-Werror")
+            .arg("-J-ea")
             // Reflect $CLASSPATH from the environment, to help find `json.jar`.
             .arg("-classpath")
             .arg(classpath()?)
@@ -132,7 +154,7 @@ pub mod test {
     // Given a generated manifest, run a kts script against it.
     pub fn run_script_with_generated_code(manifest_kt: String, script: &str) -> Result<()> {
         compile_manifest_kt(manifest_kt)?;
-        let build_dir = prepare_build_dir()?;
+        let build_dir = prepare_runtime_build_dir()?;
         let status = Command::new("kotlinc")
             // Our generated bindings should not produce any warnings; fail tests if they do.
             .arg("-Werror")

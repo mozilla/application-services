@@ -4,3 +4,4 @@
 
 val feature = MyNimbus.features.nimbusValidation
 assert(feature.rowCount == 2)
+assert(feature.menuPosition == Position.BOTTOM)

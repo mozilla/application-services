@@ -8,6 +8,7 @@ import android.content.Context
 import android.graphics.drawable.Drawable
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mozilla.experiments.nimbus.internal.mapValues
 import java.lang.IllegalArgumentException
 
 /**
@@ -358,13 +359,6 @@ interface VariablesWithContext : Variables {
     fun asStringResource(string: String) = context.getResource(string, "string")
     fun asDrawableResource(string: String) = context.getResource(string, "drawable")
 }
-
-private fun <K, JSONValue, ResultValue> Map<K, JSONValue>.mapValues(transform: (JSONValue) -> ResultValue?): Map<K, ResultValue> =
-    this.entries
-        .mapNotNull { e ->
-            transform(e.value)?.let { e.key to it }
-        }
-        .toMap()
 
 // Get a resource Int if it exists from the context resources.
 // Here we're using it for icons and strings.

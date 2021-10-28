@@ -9,7 +9,20 @@ use serde_json::json;
 
 pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
     FeatureManifest {
-        enum_defs: Default::default(),
+        enum_defs: vec![EnumDef {
+            name: "Position".into(),
+            doc: "Where to put the menu bar?".into(),
+            variants: vec![
+                VariantDef {
+                    name: "top".into(),
+                    doc: "The top of the screen".into(),
+                },
+                VariantDef {
+                    name: "bottom".into(),
+                    doc: "The bottom of the screen".into(),
+                },
+            ],
+        }],
         obj_defs: Default::default(),
         hints: Default::default(),
         feature_defs: vec![FeatureDef::new(
@@ -33,6 +46,12 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
                     doc: "An example string property".into(),
                     typ: TypeRef::String,
                     default: json!("deeplink://settings"),
+                },
+                PropDef {
+                    name: "menu-position".into(),
+                    doc: "Where to put the menu".into(),
+                    typ: TypeRef::Enum("Position".into()),
+                    default: json!("bottom"),
                 },
             ],
             None,
