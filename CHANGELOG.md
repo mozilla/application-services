@@ -1,3 +1,11 @@
+# v86.0.1 (_2021-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.0.1)
+## Logins
+### What's Changed
+- Downgraded the log level of some logs, so now they should not show up in Sentry.
+
+
 # v86.0.0 (_2021-10-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v86.0.0)
