@@ -1,5 +1,5 @@
 {
-  "enum_defs": [
+  "enums": [
     {
       "name": "Position",
       "doc": "Where to put the menu bar?",
@@ -15,9 +15,9 @@
       ]
     }
   ],
-  "obj_defs": [],
+  "objects": [],
   "hints": {},
-  "feature_defs": [
+  "features": [
     {
       "name": "nimbus-validation",
       "doc": "A simple validation feature",
@@ -25,33 +25,33 @@
         {
           "name": "enabled",
           "doc": "An example boolean property",
-          "typ": "Boolean",
+          "type": "Boolean",
           "default": true
         },
         {
           "name": "row-count",
           "doc": "An example integer property",
-          "typ": "Int",
+          "type": "Int",
           "default": 2
         },
         {
           "name": "deeplink",
           "doc": "An example string property",
-          "typ": "String",
+          "type": "String",
           "default": "deeplink://settings"
         },
         {
           "name": "menu-position",
           "doc": "Where to put the menu",
-          "typ": {
+          "type": {
             "Enum": "Position"
           },
           "default": "bottom"
         },
         {
-          "name": "positions-map",
-          "doc": "Where to put the menu",
-          "typ": {
+          "name": "enum-map",
+          "doc": "A map of enums to booleans",
+          "type": {
             "EnumMap": [
               {
                 "Enum": "Position"
@@ -62,6 +62,19 @@
           "default": {
             "bottom": true,
             "top": false
+          }
+        },
+        {
+          "name": "string-map",
+          "doc": "A map of string to enums",
+          "type": {
+            "StringMap": {
+              "Enum": "Position"
+            }
+          },
+          "default": {
+            "bar": "top",
+            "foo": "bottom"
           }
         }
       ],

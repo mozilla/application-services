@@ -172,13 +172,12 @@ impl ConcreteCodeOracle {
             //     let inner = *inner.to_owned();
             //     Box::new(structural::ListCodeType::new(inner, outer))
             // }
-            // TypeIdentifier::StringMap(ref inner) => {
-            //     let outer = type_.clone();
-            //     let inner = *inner.to_owned();
-            //     Box::new(structural::StringMapCodeType::new(inner, outer))
-            // }
+            TypeIdentifier::StringMap(ref v_type) => {
+                let k_type = &TypeIdentifier::String;
+                Box::new(structural::MapCodeType::new(k_type, v_type))
+            }
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
-                Box::new(structural::EnumMapCodeType::new(k_type, v_type))
+                Box::new(structural::MapCodeType::new(k_type, v_type))
             }
             _ => unimplemented!(),
         }

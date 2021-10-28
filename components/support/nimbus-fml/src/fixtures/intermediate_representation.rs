@@ -54,13 +54,19 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
                     default: json!("bottom"),
                 },
                 PropDef {
-                    name: "positions-map".into(),
-                    doc: "Where to put the menu".into(),
+                    name: "enum-map".into(),
+                    doc: "A map of enums to booleans".into(),
                     typ: TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("Position".into())),
                         Box::new(TypeRef::Boolean),
                     ),
                     default: json!({"bottom": true, "top": false}),
+                },
+                PropDef {
+                    name: "string-map".into(),
+                    doc: "A map of string to enums".into(),
+                    typ: TypeRef::StringMap(Box::new(TypeRef::Enum("Position".into()))),
+                    default: json!({"foo": "bottom", "bar": "top"}),
                 },
             ],
             None,

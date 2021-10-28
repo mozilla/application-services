@@ -11,12 +11,12 @@ use crate::{
     intermediate_representation::Literal,
 };
 
-pub(crate) struct EnumMapCodeType {
+pub(crate) struct MapCodeType {
     k_type: TypeIdentifier,
     v_type: TypeIdentifier,
 }
 
-impl EnumMapCodeType {
+impl MapCodeType {
     pub(crate) fn new(k: &TypeIdentifier, v: &TypeIdentifier) -> Self {
         Self {
             k_type: k.clone(),
@@ -25,7 +25,7 @@ impl EnumMapCodeType {
     }
 }
 
-impl CodeType for EnumMapCodeType {
+impl CodeType for MapCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, oracle: &dyn CodeOracle) -> String {
@@ -100,6 +100,6 @@ impl CodeType for EnumMapCodeType {
             })
             .collect();
 
-        format!("mapOf({})", src.join(","))
+        format!("mapOf({})", src.join(", "))
     }
 }
