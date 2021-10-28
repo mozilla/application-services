@@ -1,3 +1,29 @@
+# v86.1.0 (_2021-10-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.1.0)
+
+## ⛅️🔬🔭 Nimbus
+
+### What's New
+
+  - Rollouts: allows winning branch promotion and targeting rollouts of features. [#4567](https://github.com/mozilla/application-services/pull/4567).
+    - for both Android and iOS.
+
+### What's fixed
+  - Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
+  - Fixed a bug in Android where we were missing disqualification events after a global opt-out ([#4606](https://github.com/mozilla/application-services/pull/4606))
+
+## Push
+
+  - We've changed how the push database is opened, which should mean we now automatically handle
+    some kinds of database corruption.
+
+## General
+### What's changed
+  - The bundled version of Glean has been updated to v42.0.1.
+    See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELOG.md) for full details.
+    (Note there is a breaking change in Rust, but that doesn't impact consumers of Application Services)
+
 # v86.0.0 (_2021-10-13_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v86.0.0)
