@@ -4,8 +4,7 @@
 
 use std::fmt::Display;
 
-use crate::backends::kotlin::gen_structs::identifiers;
-use crate::backends::{CodeOracle, CodeType};
+use crate::backends::{CodeOracle, CodeType, VariablesType};
 use crate::intermediate_representation::Literal;
 
 pub(crate) struct BooleanCodeType;
@@ -17,14 +16,10 @@ impl CodeType for BooleanCodeType {
         "Boolean".into()
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(
-        &self,
-        _oracle: &dyn CodeOracle,
-        vars: &dyn Display,
-        prop: &dyn Display,
-    ) -> String {
-        format!("{}.getBool({})", vars, identifiers::quoted(prop))
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
+        VariablesType::Bool
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
@@ -67,18 +62,10 @@ impl CodeType for IntCodeType {
         "Int".into()
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(
-        &self,
-        _oracle: &dyn CodeOracle,
-        vars: &dyn Display,
-        prop: &dyn Display,
-    ) -> String {
-        format!(
-            "{vars}.getInt({prop})",
-            vars = vars,
-            prop = identifiers::quoted(prop)
-        )
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
+        VariablesType::Int
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
@@ -117,14 +104,10 @@ impl CodeType for StringCodeType {
         "String".into()
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(
-        &self,
-        _oracle: &dyn CodeOracle,
-        vars: &dyn Display,
-        prop: &dyn Display,
-    ) -> String {
-        format!("{}.getString({})", vars, identifiers::quoted(prop))
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
+        VariablesType::String
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,

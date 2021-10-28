@@ -59,7 +59,23 @@ pub trait CodeType {
     fn type_label(&self, oracle: &dyn CodeOracle) -> String;
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String;
+    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+        format!(
+            "{vars}.get{vt}(\"{prop}\")",
+            vars = vars,
+            vt = self.variables_type(oracle),
+            prop = prop
+        )
+    }
+
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType;
+
+    /// A function handle that is capable of turning the variables type to the TypeRef type.
+    fn transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        None
+    }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
     /// the `override` is of type `T?`.
@@ -124,6 +140,29 @@ pub trait CodeDeclaration {
     /// a given Object type.
     fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         None
+    }
+}
+
+pub enum VariablesType {
+    Bool,
+    Image,
+    Int,
+    String,
+    Text,
+    Variables,
+}
+
+impl Display for VariablesType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let nm = match self {
+            VariablesType::Bool => "Bool",
+            VariablesType::Image => "Image",
+            VariablesType::Int => "Int",
+            VariablesType::String => "String",
+            VariablesType::Text => "Text",
+            VariablesType::Variables => "Variables",
+        };
+        f.write_str(nm)
     }
 }
 

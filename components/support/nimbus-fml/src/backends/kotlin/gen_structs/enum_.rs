@@ -7,6 +7,7 @@ use std::fmt::Display;
 
 use super::filters;
 use super::identifiers;
+use crate::backends::VariablesType;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::{EnumDef, FeatureManifest, Literal},
@@ -32,11 +33,25 @@ impl CodeType for EnumCodeType {
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
     fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
         format!(
-            "{vars}.getString({prop}, {enum_type}::enumValue)",
+            "{vars}.getString({prop}, {transform})",
             vars = vars,
-            enum_type = self.type_label(oracle),
+            transform = self.transform(oracle).unwrap(),
             prop = identifiers::quoted(prop)
         )
+    }
+
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
+        VariablesType::String
+    }
+
+    /// A function handle that is capable of turning the variables type to the TypeRef type.
+    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        Some(format!(
+            "{enum_type}::enumValue",
+            enum_type = self.type_label(oracle)
+        ))
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
@@ -97,15 +112,24 @@ impl CodeType for EnumMapCodeType {
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
     fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        // This cannot work: getStringMap gets a map of strings.
-        // We might end up doing some horrible thing to match value types with canonical name.
-        format!(
-            "{vars}.getStringMap({prop}).mapKeysAsEnums<{k}, {v}>()",
+        let k_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
+
+        let getter = format!(
+            "{vars}.get{vt}Map({prop})",
             vars = vars,
-            k = oracle.find(&self.k_type).type_label(oracle),
-            v = oracle.find(&self.v_type).type_label(oracle),
-            prop = identifiers::quoted(prop)
-        )
+            vt = v_type.variables_type(oracle),
+            prop = identifiers::quoted(prop),
+        );
+
+        let mapper = match (k_type.transform(oracle), v_type.transform(oracle)) {
+            (Some(k), Some(v)) => format!("?.mapEntries({k}, {v})", k = k, v = v),
+            (None, Some(v)) => format!("?.mapValues({v})", v = v),
+            (Some(k), None) => format!("?.mapKeys({k})", k = k),
+            _ => "".into(),
+        };
+
+        format!("{}{}", getter, mapper)
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
@@ -121,6 +145,12 @@ impl CodeType for EnumMapCodeType {
             overrides = overrides,
             default = default
         )
+    }
+
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
+        unimplemented!("Nesting maps in to lists and maps are not supported")
     }
 
     /// A representation of the given literal for this type.

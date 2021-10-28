@@ -4,7 +4,7 @@
 
 use std::fmt::Display;
 
-use crate::backends::{CodeDeclaration, CodeOracle, CodeType};
+use crate::backends::{CodeDeclaration, CodeOracle, CodeType, VariablesType};
 use crate::intermediate_representation::{self, FeatureManifest, ObjectDef};
 use askama::Template;
 
@@ -29,14 +29,6 @@ impl CodeType for ObjectCodeType {
         identifiers::class_name(&self.id)
     }
 
-    fn literal(
-        &self,
-        oracle: &dyn CodeOracle,
-        _literal: &intermediate_representation::Literal,
-    ) -> String {
-        unimplemented!("Unimplemented for {}", self.type_label(oracle))
-    }
-
     fn get_value(
         &self,
         _oracle: &dyn CodeOracle,
@@ -44,6 +36,12 @@ impl CodeType for ObjectCodeType {
         _prop: &dyn std::fmt::Display,
     ) -> String {
         todo!()
+    }
+
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
+        VariablesType::Variables
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
@@ -55,6 +53,14 @@ impl CodeType for ObjectCodeType {
         _default: &dyn Display,
     ) -> String {
         todo!()
+    }
+
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        _literal: &intermediate_representation::Literal,
+    ) -> String {
+        unimplemented!("Unimplemented for {}", self.type_label(oracle))
     }
 }
 

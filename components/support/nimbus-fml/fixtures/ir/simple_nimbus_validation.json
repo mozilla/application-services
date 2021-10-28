@@ -47,6 +47,22 @@
             "Enum": "Position"
           },
           "default": "bottom"
+        },
+        {
+          "name": "positions-map",
+          "doc": "Where to put the menu",
+          "typ": {
+            "EnumMap": [
+              {
+                "Enum": "Position"
+              },
+              "Boolean"
+            ]
+          },
+          "default": {
+            "bottom": true,
+            "top": false
+          }
         }
       ],
       "default": null
