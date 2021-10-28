@@ -40,15 +40,17 @@ specify all values needed for the  feature #}
     {{ p.doc()|comment("    ") }}
     val {{ prop_kt }}: {{ p.typ()|type_label }} by lazy {
         {%- let t = p.typ() %}
-        {{ t|get_value("_variables?", p.name()) }} ?: _defaults.{{ prop_kt }}
+        {%- let overrides = t|get_value("_variables?", p.name()) %}
+        {%- let defaults = format!("_defaults.{}", prop_kt) %}
+        {{ t|with_fallback(overrides, defaults) }}
     }
     {%- endfor %}
 
     fun recordExposure() {
-        {{ nimbus_object }}.api?.recordExposureEvent("{{ raw_name }}")
+        {{ nimbus_object }}.api?.recordExposureEvent({{ raw_name|quoted }})
     }
 }
 
 {{ inner.doc()|comment("") }}
 val {{ nimbus_object }}.Features.{{prop_name}}: {{class_name}}
-    get() = {{class_name}}({{ nimbus_object }}.api?.getVariables("{{ raw_name }}", false))
+    get() = {{class_name}}({{ nimbus_object }}.api?.getVariables({{ raw_name|quoted }}, false))

@@ -2,7 +2,7 @@
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use super::{identifiers, ConcreteCodeOracle};
-use std::fmt::{self, Display};
+use std::fmt;
 
 use crate::backends::{CodeOracle, TypeIdentifier};
 use crate::intermediate_representation::Literal;
@@ -12,7 +12,7 @@ pub fn type_label(type_: &TypeIdentifier) -> Result<String, askama::Error> {
     Ok(oracle.find(type_).type_label(&oracle))
 }
 
-pub fn canonical_name(type_: &TypeIdentifier) -> Result<String, askama::Error> {
+pub fn _canonical_name(type_: &TypeIdentifier) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_).canonical_name(&oracle))
 }
@@ -29,6 +29,17 @@ pub fn get_value(
 ) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_).get_value(&oracle, vars, prop))
+}
+
+pub fn with_fallback(
+    type_: &TypeIdentifier,
+    overrides: &dyn fmt::Display,
+    default: &dyn fmt::Display,
+) -> Result<String, askama::Error> {
+    let oracle = ConcreteCodeOracle;
+    Ok(oracle
+        .find(type_)
+        .with_fallback(&oracle, overrides, default))
 }
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
@@ -50,8 +61,8 @@ pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::E
     use textwrap::{fill, Options};
 
     let indent1 = "/** ".to_string();
-    let indent2 = format!("{} * ", spaces).to_string();
-    let indent3 = format!("{} */", spaces).to_string();
+    let indent2 = format!("{} * ", spaces);
+    let indent3 = format!("{} */", spaces);
 
     let options = Options::new(80)
         .initial_indent(&indent1)
@@ -65,7 +76,6 @@ pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::E
     ))
 }
 
-/// Surrounds a property name with quotes. It is assumed that property names do not need escaping.
-pub fn quoted(prop: &dyn Display) -> String {
-    format!("\"{}\"", prop)
+pub fn quoted(txt: &dyn fmt::Display) -> Result<String, askama::Error> {
+    Ok(identifiers::quoted(txt))
 }

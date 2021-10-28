@@ -4,11 +4,9 @@
 
 use std::fmt::Display;
 
-use super::filters;
-use crate::{
-    backends::{CodeOracle, CodeType},
-    intermediate_representation::Literal,
-};
+use crate::backends::kotlin::gen_structs::identifiers;
+use crate::backends::{CodeOracle, CodeType};
+use crate::intermediate_representation::Literal;
 
 pub(crate) struct BooleanCodeType;
 
@@ -26,7 +24,22 @@ impl CodeType for BooleanCodeType {
         vars: &dyn Display,
         prop: &dyn Display,
     ) -> String {
-        format!("{}.getBool({})", vars, filters::quoted(prop))
+        format!("{}.getBool({})", vars, identifiers::quoted(prop))
+    }
+
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        _oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        format!(
+            "{overrides} ?: {default}",
+            overrides = overrides,
+            default = default
+        )
     }
 
     /// A representation of the given literal for this type.
@@ -64,7 +77,22 @@ impl CodeType for IntCodeType {
         format!(
             "{vars}.getInt({prop})",
             vars = vars,
-            prop = filters::quoted(prop)
+            prop = identifiers::quoted(prop)
+        )
+    }
+
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        _oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        format!(
+            "{overrides} ?: {default}",
+            overrides = overrides,
+            default = default
         )
     }
 
@@ -96,7 +124,22 @@ impl CodeType for StringCodeType {
         vars: &dyn Display,
         prop: &dyn Display,
     ) -> String {
-        format!("{}.getString({})", vars, filters::quoted(prop))
+        format!("{}.getString({})", vars, identifiers::quoted(prop))
+    }
+
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        _oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        format!(
+            "{overrides} ?: {default}",
+            overrides = overrides,
+            default = default
+        )
     }
 
     /// A representation of the given literal for this type.

@@ -1,5 +1,20 @@
 {
-  "enum_defs": [],
+  "enum_defs": [
+    {
+      "name": "Position",
+      "doc": "Where to put the menu bar?",
+      "variants": [
+        {
+          "name": "top",
+          "doc": "The top of the screen"
+        },
+        {
+          "name": "bottom",
+          "doc": "The bottom of the screen"
+        }
+      ]
+    }
+  ],
   "obj_defs": [],
   "hints": {},
   "feature_defs": [
@@ -24,6 +39,14 @@
           "doc": "An example string property",
           "typ": "String",
           "default": "deeplink://settings"
+        },
+        {
+          "name": "menu-position",
+          "doc": "Where to put the menu",
+          "typ": {
+            "Enum": "Position"
+          },
+          "default": "bottom"
         }
       ],
       "default": null

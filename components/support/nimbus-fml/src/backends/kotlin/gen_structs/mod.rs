@@ -74,6 +74,7 @@ mod structural;
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {
+    #[allow(dead_code)]
     config: Config,
     fm: &'a FeatureManifest,
     oracle: ConcreteCodeOracle,

@@ -5,6 +5,7 @@
 use askama::Template;
 use std::fmt::Display;
 
+use super::filters;
 use super::identifiers;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
@@ -31,10 +32,25 @@ impl CodeType for EnumCodeType {
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
     fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
         format!(
-            "{}.getEnum<{}>({})",
-            vars,
-            self.type_label(oracle),
-            identifiers::quoted(prop)
+            "{vars}.getString({prop}, {enum_type}::enumValue)",
+            vars = vars,
+            enum_type = self.type_label(oracle),
+            prop = identifiers::quoted(prop)
+        )
+    }
+
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        _oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        format!(
+            "{overrides} ?: {default}",
+            overrides = overrides,
+            default = default
         )
     }
 
@@ -92,6 +108,21 @@ impl CodeType for EnumMapCodeType {
         )
     }
 
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        _oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        format!(
+            "{overrides}?.let {{ overrides -> {default} + overrides }} ?: {default}",
+            overrides = overrides,
+            default = default
+        )
+    }
+
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `interface::Literal`, so may not be whole suited to this task.
     fn literal(&self, oracle: &dyn CodeOracle, literal: &Literal) -> String {
@@ -101,7 +132,7 @@ impl CodeType for EnumMapCodeType {
         };
 
         let k_type = oracle.find(&self.k_type);
-        let v_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
         let src: Vec<String> = variant
             .iter()
             .map(|(k, v)| {
@@ -120,15 +151,22 @@ impl CodeType for EnumMapCodeType {
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "EnumTemplate.kt")]
 pub(crate) struct EnumCodeDeclaration {
-    _inner: EnumDef,
+    inner: EnumDef,
 }
 
 impl EnumCodeDeclaration {
     pub fn new(_fm: &FeatureManifest, inner: &EnumDef) -> Self {
         Self {
-            _inner: inner.clone(),
+            inner: inner.clone(),
         }
+    }
+    fn inner(&self) -> EnumDef {
+        self.inner.clone()
     }
 }
 
-impl CodeDeclaration for EnumCodeDeclaration {}
+impl CodeDeclaration for EnumCodeDeclaration {
+    fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        Some(self.render().unwrap())
+    }
+}

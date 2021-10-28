@@ -237,6 +237,28 @@ interface Variables {
      */
     fun <T> getVariablesMap(key: String, transform: (Variables) -> T?): Map<String, T>? =
         getVariablesMap(key)?.mapValues(transform)
+
+    /**
+     * Finds a string typed value for this key. If none exists, `null` is returned.
+     *
+     * N.B. the `key` and type `String` should be listed in the experiment manifest.
+     */
+    fun <T> getString(key: String, transform: (String) -> T?): T? =
+        getString(key)?.let(transform)
+
+    /**
+     * Find an array for this key, and returns all the strings in that array. If none exists, `null`
+     * is returned.
+     */
+    fun <T> getStringList(key: String, transform: (String) -> T?): List<T>? =
+        getStringList(key)?.mapNotNull(transform)
+
+    /**
+     * Find a map for this key, and returns a map containing all the entries that have strings
+     * as their values. If none exists, then `null` is returned.
+     */
+    fun <T> getStringMap(key: String, transform: (String) -> T?): Map<String, T>? =
+        getStringMap(key)?.mapValues(transform)
 }
 
 inline fun <reified T : Enum<T>> String.asEnum(): T? = try {

@@ -61,11 +61,14 @@ pub trait CodeType {
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
     fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String;
 
-    /// The language specific label used to reference this type. This will be used in
-    /// method signatures and property declarations.
-    fn type_t_label(&self, oracle: &dyn CodeOracle, _t: &str) -> String {
-        self.type_label(oracle)
-    }
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String;
 
     /// A representation of this type label that can be used as part of another
     /// identifier. e.g. `read_foo()`, or `FooInternals`.
