@@ -294,9 +294,9 @@ impl VariantDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ObjectDef {
-    name: String,
-    doc: String,
-    props: Vec<PropDef>,
+    pub(crate) name: String,
+    pub(crate) doc: String,
+    pub(crate) props: Vec<PropDef>,
 }
 impl ObjectDef {
     #[allow(dead_code)]
@@ -306,6 +306,15 @@ impl ObjectDef {
             doc: doc.into(),
             props,
         }
+    }
+    pub(crate) fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub(crate) fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub(crate) fn props(&self) -> Vec<PropDef> {
+        self.props.clone()
     }
 }
 

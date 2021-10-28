@@ -2,11 +2,13 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use askama::Template;
 use std::fmt::Display;
 
 use crate::backends::{CodeDeclaration, CodeOracle, CodeType, VariablesType};
 use crate::intermediate_representation::{self, FeatureManifest, ObjectDef};
-use askama::Template;
+
+use super::filters;
 
 use super::{identifiers, ConcreteCodeOracle};
 
@@ -29,13 +31,14 @@ impl CodeType for ObjectCodeType {
         identifiers::class_name(&self.id)
     }
 
-    fn get_value(
-        &self,
-        _oracle: &dyn CodeOracle,
-        _vars: &dyn std::fmt::Display,
-        _prop: &dyn std::fmt::Display,
-    ) -> String {
-        todo!()
+    /// The language specific expression that gets a value of the `prop` from the `vars` object.
+    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+        format!(
+            "{vars}.getVariables({prop}, {transform})",
+            vars = vars,
+            transform = self.transform(oracle).unwrap(),
+            prop = identifiers::quoted(prop)
+        )
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -44,30 +47,39 @@ impl CodeType for ObjectCodeType {
         VariablesType::Variables
     }
 
+    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        Some(format!("{nm}::create", nm = self.type_label(oracle)))
+    }
+
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
     /// the `override` is of type `T?`.
     fn with_fallback(
         &self,
         _oracle: &dyn CodeOracle,
-        _overrides: &dyn Display,
-        _default: &dyn Display,
+        overrides: &dyn Display,
+        default: &dyn Display,
     ) -> String {
-        todo!()
+        format!(
+            "{overrides} ?: {default}",
+            overrides = overrides,
+            default = default
+        )
     }
 
     fn literal(
         &self,
-        oracle: &dyn CodeOracle,
+        _oracle: &dyn CodeOracle,
         _literal: &intermediate_representation::Literal,
     ) -> String {
-        unimplemented!("Unimplemented for {}", self.type_label(oracle))
+        // TODO This is not satisfactory
+        format!("{}()", self.id)
     }
 }
 
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "ObjectTemplate.kt")]
 pub(crate) struct ObjectCodeDeclaration {
-    _inner: ObjectDef,
+    inner: ObjectDef,
     _oracle: ConcreteCodeOracle,
 }
 
@@ -75,9 +87,16 @@ impl ObjectCodeDeclaration {
     pub fn new(_fm: &FeatureManifest, inner: &ObjectDef) -> Self {
         Self {
             _oracle: Default::default(),
-            _inner: inner.clone(),
+            inner: inner.clone(),
         }
+    }
+    pub fn inner(&self) -> ObjectDef {
+        self.inner.clone()
     }
 }
 
-impl CodeDeclaration for ObjectCodeDeclaration {}
+impl CodeDeclaration for ObjectCodeDeclaration {
+    fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        Some(self.render().unwrap())
+    }
+}

@@ -1,0 +1,64 @@
+{
+  "enums": [
+    {
+      "name": "SectionId",
+      "doc": "The sections of the homescreen",
+      "variants": [
+        {
+          "name": "top-sites",
+          "doc": "The original frecency sorted sites"
+        },
+        {
+          "name": "jump-back-in",
+          "doc": "Jump back in section"
+        },
+        {
+          "name": "recently-saved",
+          "doc": "Tabs that have been bookmarked recently"
+        }
+      ]
+    }
+  ],
+  "objects": [],
+  "hints": {},
+  "features": [
+    {
+      "name": "homescreen",
+      "doc": "Represents the homescreen feature",
+      "props": [
+        {
+          "name": "sections-enabled",
+          "doc": "A map of booleans",
+          "type": {
+            "EnumMap": [
+              {
+                "Enum": "SectionId"
+              },
+              "String"
+            ]
+          },
+          "default": {
+            "jump-back-in": false,
+            "recently-saved": false,
+            "top-sites": true
+          }
+        },
+        {
+          "name": "section-ordering",
+          "doc": "The ordering of the sections on the homescreen",
+          "type": {
+            "List": {
+              "Enum": "SectionId"
+            }
+          },
+          "default": [
+            "top-sites",
+            "jump-back-in",
+            "recently-saved"
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

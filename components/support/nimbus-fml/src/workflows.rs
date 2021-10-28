@@ -117,8 +117,18 @@ mod test {
     #[test]
     fn test_simple_validation_code() -> Result<()> {
         generate_and_assert(
-            "test/nimbus_validation.kts",
+            "test/simple_nimbus_validation.kts",
             "fixtures/ir/simple_nimbus_validation.json",
+            true,
+        )?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_objects_code() -> Result<()> {
+        generate_and_assert(
+            "test/with_objects.kts",
+            "fixtures/ir/with_objects.json",
             true,
         )?;
         Ok(())

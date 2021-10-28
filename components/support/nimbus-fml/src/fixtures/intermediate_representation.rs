@@ -3,7 +3,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, PropDef, TypeRef, VariantDef,
+    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
 };
 use serde_json::json;
 
@@ -86,6 +86,50 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
     }
 }
 
+pub(crate) fn get_with_objects_feature() -> FeatureManifest {
+    FeatureManifest {
+        enum_defs: Default::default(),
+        obj_defs: vec![ObjectDef::new(
+            "ExampleObject",
+            "An example object",
+            vec![
+                PropDef {
+                    name: "a-string".into(),
+                    doc: "A string".into(),
+                    typ: TypeRef::String,
+                    default: json!("yes"),
+                },
+                PropDef {
+                    name: "a-number".into(),
+                    doc: "A number".into(),
+                    typ: TypeRef::Int,
+                    default: json!(42),
+                },
+            ],
+        )],
+        hints: Default::default(),
+        feature_defs: vec![FeatureDef::new(
+            "with-objects-feature",
+            "A feature with objects feature",
+            vec![
+                PropDef {
+                    name: "an-object".into(),
+                    doc: "A single object".into(),
+                    typ: TypeRef::Object("ExampleObject".into()),
+                    default: json!({}),
+                },
+                PropDef {
+                    name: "an-object-with-new-defaults".into(),
+                    doc: "A single object with defaults from the feature".into(),
+                    typ: TypeRef::Object("ExampleObject".into()),
+                    default: json!({}),
+                },
+            ],
+            None,
+        )],
+    }
+}
+
 pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
     FeatureManifest {
         enum_defs: vec![EnumDef {
@@ -120,6 +164,48 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
     }
 }
 
+pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
+    FeatureManifest {
+        enum_defs: vec![EnumDef {
+            name: "SectionId".into(),
+            doc: "The sections of the homescreen".into(),
+            variants: vec![
+                VariantDef::new("top-sites", "The original frecency sorted sites"),
+                VariantDef::new("jump-back-in", "Jump back in section"),
+                VariantDef::new("recently-saved", "Tabs that have been bookmarked recently"),
+            ],
+        }],
+        obj_defs: Default::default(),
+        hints: Default::default(),
+        feature_defs: vec![FeatureDef::new(
+            "homescreen",
+            "Represents the homescreen feature",
+            vec![
+                PropDef {
+                    name: "sections-enabled".into(),
+                    doc: "A map of booleans".into(),
+                    typ: TypeRef::EnumMap(
+                        Box::new(TypeRef::Enum("SectionId".into())),
+                        Box::new(TypeRef::String),
+                    ),
+                    default: json!({
+                        "top-sites": true,
+                        "jump-back-in": false,
+                        "recently-saved": false,
+                    }),
+                },
+                PropDef {
+                    name: "section-ordering".into(),
+                    doc: "The ordering of the sections on the homescreen".into(),
+                    typ: TypeRef::List(Box::new(TypeRef::Enum("SectionId".into()))),
+                    default: json!(["top-sites", "jump-back-in", "recently-saved",]),
+                },
+            ],
+            None,
+        )],
+    }
+}
+
 #[cfg(test)]
 mod dump_to_file {
     use std::path::PathBuf;
@@ -143,12 +229,16 @@ mod dump_to_file {
 
     #[test]
     fn write_to_fixtures_dir() -> Result<()> {
-        write(&get_simple_homescreen_feature(), "simple_homescreen.json")?;
         write(
             &get_simple_nimbus_validation_feature(),
             "simple_nimbus_validation.json",
         )?;
 
+        write(&get_with_objects_feature(), "with_objects.json")?;
+
+        write(&get_simple_homescreen_feature(), "simple_homescreen.json")?;
+
+        write(&get_full_homescreen_feature(), "full_homescreen.json")?;
         Ok(())
     }
 }
