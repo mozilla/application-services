@@ -8,8 +8,6 @@ use std::collections::HashSet;
 //  use anyhow::Result;
 //  use serde::{Deserialize, Serialize};
 
-//  use crate::bindings::backend::CodeDeclaration;
-//  use crate::interface::*;
 //  use crate::MergeWith;
 
 use crate::{
@@ -180,7 +178,7 @@ impl ConcreteCodeOracle {
             //     Box::new(structural::StringMapCodeType::new(inner, outer))
             // }
             TypeIdentifier::EnumMap(ref k_type, ref v_type) => {
-                Box::new(enum_::EnumMapCodeType::new(k_type, v_type))
+                Box::new(structural::EnumMapCodeType::new(k_type, v_type))
             }
             _ => unimplemented!(),
         }
