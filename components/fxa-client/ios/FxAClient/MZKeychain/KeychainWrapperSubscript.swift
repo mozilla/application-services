@@ -93,7 +93,6 @@ public extension MZKeychainWrapper {
         if let value = bool(forKey: key.rawValue) {
             return value
         }
-
         return nil
     }
 
@@ -101,7 +100,6 @@ public extension MZKeychainWrapper {
         if let value = integer(forKey: key.rawValue) {
             return value
         }
-
         return nil
     }
 
@@ -109,7 +107,6 @@ public extension MZKeychainWrapper {
         if let value = float(forKey: key.rawValue) {
             return value
         }
-
         return nil
     }
 
@@ -127,7 +124,6 @@ public extension MZKeychainWrapper {
         if let value = double(forKey: key.rawValue) {
             return value
         }
-
         return nil
     }
 

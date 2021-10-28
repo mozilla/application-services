@@ -61,10 +61,6 @@ cargo_build () {
   case $TARGET in
     x86_64*)
       LIBS_DIR="$REPO_ROOT/libs/ios/x86_64";;
-    # TODO: when we want to include crates that depend on SQLCipher or NSS,
-    # we'll need to distinguish between hardware and simulator builds here
-    # and link the later against separately-compiled libraries.
-    # Ref https://github.com/mozilla/application-services/issues/4352.
     aarch64*)
       LIBS_DIR="$REPO_ROOT/libs/ios/arm64";;
     *)

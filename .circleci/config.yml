@@ -138,22 +138,6 @@ commands:
             popd
       - build-libs:
           platform: ios
-  carthage-bootstrap:
-    steps:
-      - run:
-          name: Determine XCode version
-          command: echo "$(xcodebuild -version)" >| xcode_version
-      - restore_cache:
-          name: Restore Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
-      - run:
-          name: Bootstrap Carthage dependencies
-          command: XCODE_XCCONFIG_FILE=`pwd`/xcconfig/xcode-12-fix-carthage-lipo.xcconfig carthage bootstrap --platform iOS --cache-builds
-      - save_cache:
-          name: Save Carthage/ cache
-          key: carthage-dir-cache-{{ arch }}-{{ checksum "xcode_version" }}-{{ checksum "Cartfile.resolved" }}
-          paths:
-            - Carthage
   test-setup:
     steps:
       - build-desktop-libs
@@ -224,7 +208,6 @@ commands:
             rm /usr/local/lib/python3.9/site-packages/six.py
 
             brew install swift-protobuf --force
-      - carthage-bootstrap
       - run:
           name: Verify the build environment
           command: ./libs/verify-ios-ci-environment.sh
@@ -330,56 +313,7 @@ jobs:
       - run: rustup override set beta
       - run-tests
       - save-sccache-cache
-  iOS build carthage:
-    executor: macos
-    steps:
-      - full-checkout
-      - restore-sccache-cache
-      - install-rust
-      - setup-rust-target-version
-      - setup-sccache
-      - setup-ios-environment
-      - run:
-          name: Build Carthage archive
-          no_output_timeout: 20m
-          command: |
-            if [ -z "${CIRCLE_TAG}" ]; then
-              # XCode tests build in Debug configuration, save us a full
-              # Rust rebuild in Release mode by forcing Debug mode on
-              # non-release builds.
-              bash build-carthage.sh --out MozillaAppServices.framework.zip --configuration Debug
-            else
-              bash build-carthage.sh --out MozillaAppServices.framework.zip
-            fi
-      - store_artifacts:
-          path: raw_xcodebuild.log
-          destination: logs/raw_xcodebuild.log
-      - run:
-          name: "Create Carthage bin-only project specification"
-          command: |
-            ZIP_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/MozillaAppServices.framework.zip
-            echo "{\"0.0.1\":\"$ZIP_URL\"}" > mozilla.app-services.json
-      - save-sccache-cache:
-          path: "~/Library/Caches/Mozilla.sccache"
-      - store_artifacts:
-          name: Store Carthage framework in workspace
-          path: MozillaAppServices.framework.zip
-          destination: dist/MozillaAppServices.framework.zip
-      - store_artifacts:
-          name: Store Carthage bin-only project specification in workspace
-          path: mozilla.app-services.json
-          destination: dist/mozilla.app-services.json
-      - run:
-          name: "Carthage binary snapshot URL"
-          command: |
-            JSON_URL=https://circleci.com/api/v1.1/project/github/mozilla/application-services/$CIRCLE_BUILD_NUM/artifacts/0/dist/mozilla.app-services.json
-            echo "Add the following line to your Cartfile:"
-            echo "binary \"$JSON_URL\" ~> 0.0.1-snapshot # mozilla/application-services@$CIRCLE_SHA1"
-      - persist_to_workspace:
-          root: .
-          paths:
-            - MozillaAppServices.framework.zip
-        
+
   iOS build xcframework:
     executor: macos
     steps:
@@ -433,17 +367,6 @@ jobs:
             fi
       - save-sccache-cache:
           path: "~/Library/Caches/Mozilla.sccache"
-  Carthage release:
-    executor: macos
-    steps:
-      - full-checkout
-      - attach_workspace:
-          at: .
-      - install-ghr
-      - run:
-          name: Release Carthage archive on GitHub
-          command: |
-            ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
   XCFramework release:
     executor: macos
     steps:
@@ -535,22 +458,10 @@ workflows:
   ios-test-and-artifacts:
     jobs:
       - iOS test
-      - iOS build carthage:
-          filters: # required since `Carthage Release` has tag filters AND requires this job
-            tags:
-              only: /.*/
       - iOS build xcframework:
           filters: # required since `XCFramework release` has tag filters AND requires this job
             tags:
               only: /.*/
-      - Carthage release:
-          requires:
-            - iOS build carthage
-          filters:
-            branches:
-              ignore: /.*/
-            tags:
-              only: /^v.*/
       - XCFramework release:
           requires:
             - iOS build xcframework

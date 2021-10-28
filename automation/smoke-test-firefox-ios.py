@@ -47,8 +47,6 @@ elif firefox_ios_branch is not None:
 if not Path(repo_path, "Carthage").exists():
     step_msg("Carthage folder not present. Running the firefox-ios bootstrap script")
     run_cmd_checked(["./bootstrap.sh"], cwd=repo_path)
-step_msg("Running carthage substitution script")
-run_cmd_checked(["./appservices_local_dev.sh", "enable", find_app_services_root()], cwd=repo_path)
 
 if action == "do-nothing":
     exit(0)

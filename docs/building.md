@@ -105,7 +105,6 @@ Configure maven to use the native windows maven repository - then, when doing `.
 
 ## Building for Firefox iOS
 
-1. Install Carthage: `brew install carthage`
 1. Install [xcpretty](https://github.com/xcpretty/xcpretty#installation): `gem install xcpretty`
 1. Run `./libs/verify-ios-environment.sh` to check your setup and environment
 variables.  

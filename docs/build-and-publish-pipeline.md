@@ -14,7 +14,7 @@ The key points:
 * We use [Cargo](https://github.com/rust-lang/cargo) for building and testing the core Rust code in isolation,
   [Gradle](https://gradle.org/) with [rust-android-gradle](https://github.com/mozilla/rust-android-gradle)
   for combining Rust and Kotlin code into Android components and running tests against them,
-  and [Carthage](https://github.com/Carthage/Carthage) driving [XCode](../xconfig)
+  and [XCframeworks](https://developer.apple.com/documentation/swift_packages/distributing_binary_frameworks_as_swift_packages) driving [XCode](../xconfig)
   for combining Rust and Swift code into iOS components.
 * [TaskCluster](../automation/taskcluster/README.md) runs on every pull-request, release,
   and push to main, to ensure Android artifacts build correctly and to execute their
@@ -75,18 +75,13 @@ For iOS consumers the corresponding steps are:
     * TODO: could this step check for signed tags as an additional integrity measure?
     * TODO: can we prevent these steps from being able to see the tokens used
       for publishing in subsequent steps?
-4. CircleCI builds two binary artifacts:
-    * A Carthage framework containing both Rust and Swift code compiled together, as a zipfile.
+4. CircleCI builds a binary artifact:
     * An XCFramework containing just Rust code and header files, as a zipfile, for use by Swift Packags.
     * TODO: could a malicious dev dependency from step (3) influence the build environment here?
 5. CircleCI uses [dpl](https://github.com/travis-ci/dpl) to publish to GitHub as a release artifact.
     * CircleCI config contains a github token (owned by the @appsvc-moz GitHub account) with appropriate permissions to add release artifacts.
-6. Consumers fetch the published artifacts from GitHub during their build process,
-   using Carthage.
+6. Consumers add Application services as a dependency from the [Rust Components Swift](https://github.com/mozilla/rust-components-swift/) repo using Apple's Swift Package Manager.
 
-It's worth noting that Carthage will *prefer* to use the built binary artifacts,
-but will happily check out the tag and compile from source itself if such artifacts
-are not available.
 
 This is a diagram of the pipeline as it exists (and is planned) for the Nimbus SDK, one of the
 libraries in Application Services:

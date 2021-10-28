@@ -100,7 +100,6 @@ public enum MZKeychainItemAccessibility {
                 return key
             }
         }
-
         return nil
     }
 }
