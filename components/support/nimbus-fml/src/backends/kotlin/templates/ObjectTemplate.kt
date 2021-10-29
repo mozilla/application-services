@@ -5,9 +5,9 @@
 
 {{ inner.doc()|comment("") }}
 public class {{class_name}}
-    private constructor(
+    internal constructor(
         private val _variables: Variables? = null,
-        private val _defaults: Defaults) {
+        internal val _defaults: Defaults) {
 {# The data class holds the default values that come from the manifest. They should completely
 specify all values needed for the  feature #}
     data class Defaults({% for p in inner.props() %}

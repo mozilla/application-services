@@ -36,6 +36,16 @@
         },
         {
           "name": "an-object-with-new-defaults",
+          "doc": "A single object with defaults from the constructor",
+          "type": {
+            "Object": "ExampleObject"
+          },
+          "default": {
+            "a-string": "YES: overridden from the CONSTRUCTOR!"
+          }
+        },
+        {
+          "name": "an-object-with-feature-defaults",
           "doc": "A single object with defaults from the feature",
           "type": {
             "Object": "ExampleObject"
@@ -43,7 +53,11 @@
           "default": {}
         }
       ],
-      "default": null
+      "default": {
+        "an-object-with-feature-defaults": {
+          "a-string": "YES: overridden from the FEATURE"
+        }
+      }
     }
   ]
 }

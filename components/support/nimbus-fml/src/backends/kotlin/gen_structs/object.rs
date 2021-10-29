@@ -34,9 +34,9 @@ impl CodeType for ObjectCodeType {
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
     fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
         format!(
-            "{vars}.getVariables({prop}, {transform})",
+            "{vars}.getVariables({prop})",
             vars = vars,
-            transform = self.transform(oracle).unwrap(),
+            // transform = self.transform(oracle).unwrap(),
             prop = identifiers::quoted(prop)
         )
     }
@@ -47,20 +47,21 @@ impl CodeType for ObjectCodeType {
         VariablesType::Variables
     }
 
-    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
-        Some(format!("{nm}::create", nm = self.type_label(oracle)))
+    fn transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        None
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
     /// the `override` is of type `T?`.
     fn with_fallback(
         &self,
-        _oracle: &dyn CodeOracle,
+        oracle: &dyn CodeOracle,
         overrides: &dyn Display,
         default: &dyn Display,
     ) -> String {
         format!(
-            "{overrides} ?: {default}",
+            "{overrides}?.let {{ {t}(it, {default}._defaults) }} ?: {default}",
+            t = self.type_label(oracle),
             overrides = overrides,
             default = default
         )

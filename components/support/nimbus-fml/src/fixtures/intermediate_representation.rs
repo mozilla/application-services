@@ -120,12 +120,24 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
                 },
                 PropDef {
                     name: "an-object-with-new-defaults".into(),
+                    doc: "A single object with defaults from the constructor".into(),
+                    typ: TypeRef::Object("ExampleObject".into()),
+                    default: json!({
+                        "a-string": "YES: overridden from the CONSTRUCTOR!"
+                    }),
+                },
+                PropDef {
+                    name: "an-object-with-feature-defaults".into(),
                     doc: "A single object with defaults from the feature".into(),
                     typ: TypeRef::Object("ExampleObject".into()),
                     default: json!({}),
                 },
             ],
-            None,
+            Some(json!({
+                "an-object-with-feature-defaults": {
+                    "a-string": "YES: overridden from the FEATURE"
+                }
+            })),
         )],
     }
 }
