@@ -66,7 +66,11 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
 }
 
 #[derive(Debug, Deserialize, Default)]
-pub struct Config;
+#[serde(rename_all = "camelCase")]
+pub struct Config {
+    pub package_name: Option<String>,
+    pub nimbus_object_name: Option<String>,
+}
 
 pub struct GenerateStructCmd {
     manifest: PathBuf,

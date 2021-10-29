@@ -8,22 +8,28 @@ use super::filters;
 use crate::{
     backends::{CodeDeclaration, CodeOracle},
     intermediate_representation::{FeatureDef, FeatureManifest},
+    Config,
 };
 
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureTemplate.kt")]
 pub(crate) struct FeatureCodeDeclaration {
+    nimbus_object_name: String,
     inner: FeatureDef,
 }
 
 impl FeatureCodeDeclaration {
-    pub fn new(_fm: &FeatureManifest, inner: &FeatureDef) -> Self {
+    pub fn new(_fm: &FeatureManifest, config: &Config, inner: &FeatureDef) -> Self {
         Self {
+            nimbus_object_name: config.nimbus_object_name(),
             inner: inner.clone(),
         }
     }
     pub fn inner(&self) -> &FeatureDef {
         &self.inner
+    }
+    pub fn nimbus_object_name(&self) -> &String {
+        &self.nimbus_object_name
     }
 }
 

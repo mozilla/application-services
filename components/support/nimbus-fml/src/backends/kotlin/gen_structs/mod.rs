@@ -69,6 +69,18 @@ mod structural;
 // //      }
 // //  }
 
+impl Config {
+    fn package_name(&self) -> Option<String> {
+        self.package_name.clone()
+    }
+
+    fn nimbus_object_name(&self) -> String {
+        self.nimbus_object_name
+            .clone()
+            .unwrap_or_else(|| "MyNimbus".into())
+    }
+}
+
 #[derive(Template)]
 #[template(syntax = "kt", escape = "none", path = "FeatureManifestTemplate.kt")]
 pub struct FeatureManifestDeclaration<'a> {
@@ -93,7 +105,11 @@ impl<'a> FeatureManifestDeclaration<'a> {
         ]
         .into_iter()
         .chain(fm.iter_feature_defs().into_iter().map(|inner| {
-            Box::new(feature::FeatureCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            Box::new(feature::FeatureCodeDeclaration::new(
+                fm,
+                &self.config,
+                inner,
+            )) as Box<dyn CodeDeclaration>
         }))
         .chain(fm.iter_enum_defs().map(|inner| {
             Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>

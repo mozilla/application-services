@@ -2,7 +2,8 @@
 {%- let inner = self.inner() %}
 {%- let prop_name = inner.name()|var_name %}
 {%- let raw_name = inner.name() %}
-{% let nimbus_object = "MyNimbus" %}
+
+{% let nimbus_object = self.nimbus_object_name() %}
 {% let class_name = inner.name()|class_name -%}
 
 {{ inner.doc()|comment("") }}
