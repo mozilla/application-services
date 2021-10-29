@@ -56,10 +56,3 @@ interface FeaturesInterface {
     fun recordExposureEvent(featureId: String)
 }
 
-class FeatureHolder<T>(private val api: FeaturesInterface?, private val featureId: String, private val create: (Variables?) -> T) {
-    fun value(): T = create(api?.getVariables(featureId, false))
-
-    fun recordExposure() {
-        api?.recordExposureEvent(featureId)
-    }
-}
