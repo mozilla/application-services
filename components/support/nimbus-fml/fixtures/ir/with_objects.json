@@ -40,9 +40,7 @@
           "type": {
             "Object": "ExampleObject"
           },
-          "default": {
-            "a-string": "YES: overridden from the CONSTRUCTOR!"
-          }
+          "default": {}
         },
         {
           "name": "an-object-with-feature-defaults",

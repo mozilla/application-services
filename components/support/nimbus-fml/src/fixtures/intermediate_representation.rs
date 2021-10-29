@@ -122,9 +122,10 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
                     name: "an-object-with-new-defaults".into(),
                     doc: "A single object with defaults from the constructor".into(),
                     typ: TypeRef::Object("ExampleObject".into()),
-                    default: json!({
-                        "a-string": "YES: overridden from the CONSTRUCTOR!"
-                    }),
+                    default: json!({}),
+                    // default: json!({
+                    //     "a-string": "YES: overridden from the CONSTRUCTOR!"
+                    // }),
                 },
                 PropDef {
                     name: "an-object-with-feature-defaults".into(),
@@ -198,7 +199,7 @@ pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
                     doc: "A map of booleans".into(),
                     typ: TypeRef::EnumMap(
                         Box::new(TypeRef::Enum("SectionId".into())),
-                        Box::new(TypeRef::String),
+                        Box::new(TypeRef::Boolean),
                     ),
                     default: json!({
                         "top-sites": true,

@@ -34,7 +34,7 @@
               {
                 "Enum": "SectionId"
               },
-              "String"
+              "Boolean"
             ]
           },
           "default": {

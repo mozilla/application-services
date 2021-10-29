@@ -32,7 +32,12 @@ impl CodeType for ObjectCodeType {
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+    fn get_value(
+        &self,
+        _oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
         format!(
             "{vars}.getVariables({prop})",
             vars = vars,
@@ -69,11 +74,23 @@ impl CodeType for ObjectCodeType {
 
     fn literal(
         &self,
-        _oracle: &dyn CodeOracle,
-        _literal: &intermediate_representation::Literal,
+        oracle: &dyn CodeOracle,
+        literal: &intermediate_representation::Literal,
     ) -> String {
-        // TODO This is not satisfactory
-        format!("{}()", self.id)
+        match literal {
+            serde_json::Value::Object(map) => {
+                if map.is_empty() {
+                    format!("{}()", self.id)
+                } else {
+                    // https://mozilla-hub.atlassian.net/browse/SDK-433
+                    unimplemented!("SDK-433: Object literals are not yet implemented")
+                }
+            }
+            _ => unreachable!(
+                "An JSON object is expected for {} object literal",
+                self.type_label(oracle)
+            ),
+        }
     }
 }
 

@@ -145,9 +145,11 @@ pub trait CodeDeclaration {
 
 pub enum VariablesType {
     Bool,
+    #[allow(dead_code)]
     Image,
     Int,
     String,
+    #[allow(dead_code)]
     Text,
     Variables,
 }

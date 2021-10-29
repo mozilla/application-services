@@ -66,11 +66,23 @@ impl CodeType for MapCodeType {
         overrides: &dyn Display,
         default: &dyn Display,
     ) -> String {
-        format!(
-            "{overrides}?.let {{ overrides -> {default} + overrides }} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
+        match &self.v_type {
+            // https://mozilla-hub.atlassian.net/browse/SDK-435
+            TypeIdentifier::Object(..) => {
+                unimplemented!("SDK-435 Cannot yet merge maps of objects")
+            }
+
+            // https://mozilla-hub.atlassian.net/browse/SDK-435
+            TypeIdentifier::EnumMap(..) | TypeIdentifier::StringMap(..) => {
+                unimplemented!("SDK-435 Cannot yet merge maps of maps")
+            }
+
+            _ => format!(
+                "{overrides}?.let {{ overrides -> {default} + overrides }} ?: {default}",
+                overrides = overrides,
+                default = default
+            ),
+        }
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -85,6 +97,11 @@ impl CodeType for MapCodeType {
         let variant = match literal {
             serde_json::Value::Object(v) => v,
             _ => unreachable!(),
+        };
+
+        if let TypeIdentifier::Object(..) = &self.v_type {
+            // https://mozilla-hub.atlassian.net/browse/SDK-434
+            unimplemented!("SDK-434 Cannot render object literals in maps")
         };
 
         let k_type = oracle.find(&self.k_type);
@@ -175,6 +192,11 @@ impl CodeType for ListCodeType {
             serde_json::Value::Array(v) => v,
             _ => unreachable!(),
         };
+
+        if let TypeIdentifier::Object(..) = &self.inner {
+            // https://mozilla-hub.atlassian.net/browse/SDK-434
+            unimplemented!("SDK-434 Cannot render object literals in lists")
+        }
 
         let v_type = oracle.find(&self.inner);
         let src: Vec<String> = variant.iter().map(|v| v_type.literal(oracle, v)).collect();
