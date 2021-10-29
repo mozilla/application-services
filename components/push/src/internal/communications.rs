@@ -44,9 +44,6 @@ pub struct RegisterResponse {
 
     /// Push endpoint for 3rd parties
     pub endpoint: String,
-
-    /// The Sender/Group ID echoed back (if applicable.)
-    pub senderid: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -97,7 +94,8 @@ pub trait Connection {
 pub struct ConnectHttp {
     pub options: PushConfiguration,
     pub uaid: Option<String>,
-    pub auth: Option<String>, // Server auth token
+    pub auth: Option<String>,            // Server auth token
+    pub registration_id: Option<String>, // Eg, the FCM/iOS native ID
 }
 
 // Connect to the Autopush server
@@ -105,6 +103,7 @@ pub fn connect(
     options: PushConfiguration,
     uaid: Option<String>,
     auth: Option<String>,
+    registration_id: Option<String>,
 ) -> error::Result<ConnectHttp> {
     // find connection via options
 
@@ -116,18 +115,12 @@ pub fn connect(
     if options.socket_protocol.is_some() {
         return Err(CommunicationError("Unsupported".to_owned()).into());
     };
-    if options.bridge_type.is_some() && options.registration_id.is_none() {
-        return Err(CommunicationError(
-            "Missing Registration ID, please register with OS first".to_owned(),
-        )
-        .into());
-    };
     let connection = ConnectHttp {
         options,
         uaid,
         auth,
+        registration_id,
     };
-
     Ok(connection)
 }
 
@@ -179,15 +172,19 @@ impl ConnectHttp {
         Ok(())
     }
 
-    fn format_unsubscribe_url(&self) -> String {
-        format!(
+    fn format_unsubscribe_url(&self) -> error::Result<String> {
+        let uaid = match &self.uaid {
+            Some(u) => u,
+            _ => return Err(CommunicationError("No UAID set".into()).into()),
+        };
+        Ok(format!(
             "{}://{}/v1/{}/{}/registration/{}",
             &self.options.http_protocol.as_ref().unwrap(),
             &self.options.server_host,
             &self.options.bridge_type.as_ref().unwrap(),
             &self.options.sender_id,
-            &self.uaid.clone().unwrap(),
-        )
+            &uaid,
+        ))
     }
 }
 
@@ -220,7 +217,22 @@ impl Connection for ConnectHttp {
             url.push_str("/subscription");
         }
         let mut body = HashMap::new();
-        body.insert("token", options.registration_id.unwrap());
+        // Ideally we'd store "expected" subscriptions in the DB separate from "actual" ones, and
+        // then we could record this as "expected" and perform the actual subscription once we
+        // learn our registration_id - but for now we can't do anything subscription related
+        // without a registration_id.
+        body.insert(
+            "token",
+            match &self.registration_id {
+                Some(r) => r.to_owned(),
+                None => {
+                    return Err(CommunicationError(
+                        "Can't subscribe until we have a native registration id".to_string(),
+                    )
+                    .into())
+                }
+            },
+        );
         body.insert("channelID", channel_id.to_owned());
         if let Some(key) = app_server_key {
             body.insert("key", key.to_owned());
@@ -238,7 +250,6 @@ impl Connection for ConnectHttp {
                 channel_id: "deadbeef00000000decafbad00000000".to_owned(),
                 secret: self.auth.clone(),
                 endpoint: "http://push.example.com/test/opaque".to_owned(),
-                senderid: Some(self.options.sender_id.clone()),
             });
         }
         let response = Request::post(Url::parse(&url)?)
@@ -253,40 +264,45 @@ impl Connection for ConnectHttp {
         );
         self.check_response_error(&response)?;
         let response: Value = response.json()?;
-
-        if self.uaid.is_none() {
-            self.uaid = response["uaid"].as_str().map(ToString::to_string);
-        }
-        if self.auth.is_none() {
-            self.auth = response["secret"].as_str().map(ToString::to_string);
+        // asserting here seems bad! :) But what does this mean? We supplied ours, how could
+        // the server disagree? (The server seems to only supply this if the UAID changed?)
+        if let Some(sid) = response["senderid"].as_str() {
+            assert_eq!(sid, options.sender_id, "`senderid` is confused?");
         }
 
-        let channel_id = response["channelID"].as_str().map(ToString::to_string);
-        let endpoint = response["endpoint"].as_str().map(ToString::to_string);
+        // helper to force "mandatory" fields in the response.
+        let ensure_resp_field = |name: &str| -> error::Result<String> {
+            match response[name].as_str() {
+                Some(s) => Ok(s.to_string()),
+                None => Err(CommunicationError(format!("response has no `{}`", name)).into()),
+            }
+        };
 
+        // uaid (same or different) is always returned.
+        let uaid = ensure_resp_field("uaid")?;
+        // secret only returned when uaid changes.
+        let secret = response["secret"].as_str().map(ToString::to_string);
+        // XXX - we only update `self.` here due to tests. We should fix the tests, and while at
+        // it, drop the `&mut self` everywhere, to further force the requirement that it be short
+        // lived.
+        self.uaid = Some(uaid.clone());
+        self.auth = secret.clone();
         Ok(RegisterResponse {
-            uaid: self.uaid.clone().unwrap(),
-            channel_id: channel_id.unwrap(),
-            secret: self.auth.clone(),
-            endpoint: endpoint.unwrap(),
-            senderid: response["senderid"].as_str().map(ToString::to_string),
+            uaid,
+            secret,
+            channel_id: ensure_resp_field("channelID")?,
+            endpoint: ensure_resp_field("endpoint")?,
         })
     }
 
     /// Drop a channel and stop receiving updates.
     fn unsubscribe(&self, channel_id: &str) -> error::Result<()> {
-        if self.auth.is_none() {
-            return Err(CommunicationError("Connection is unauthorized".into()).into());
-        }
-        if self.uaid.is_none() {
-            return Err(CommunicationError("No UAID set".into()).into());
-        }
         if &self.options.sender_id == "test" {
             return Ok(());
         }
         let url = format!(
             "{}/subscription/{}",
-            self.format_unsubscribe_url(),
+            self.format_unsubscribe_url()?,
             channel_id
         );
         let response = Request::delete(Url::parse(&url)?)
@@ -298,23 +314,18 @@ impl Connection for ConnectHttp {
     }
 
     /// Drops all channels and stops receiving notifications.
-    /// this also wipes the `uaid` and the `auth` fields.
     fn unsubscribe_all(&mut self) -> error::Result<()> {
-        if self.auth.is_none() {
-            return Err(CommunicationError("Connection is unauthorized".into()).into());
-        }
-        if self.uaid.is_none() {
-            return Err(CommunicationError("No UAID set".into()).into());
-        }
         if &self.options.sender_id == "test" {
             return Ok(());
         }
-        let url = self.format_unsubscribe_url();
+        let url = self.format_unsubscribe_url()?;
         let response = Request::delete(Url::parse(&url)?)
             .headers(self.headers()?)
             .send()?;
         log::info!("unsubscribed from all via {}: {}", url, response.status);
         self.check_response_error(&response)?;
+        // theoretically no need to kill our uaid etc here - this connection is short-lived, and
+        // our caller is what must kill the persisted version - but tests still use it.
         self.uaid = None;
         self.auth = None;
         Ok(())
@@ -327,13 +338,13 @@ impl Connection for ConnectHttp {
             self.auth = Some("LsuUOBKVQRY6-l7_Ajo-Ag".to_owned());
             return Ok(());
         }
-        if self.auth.is_none() {
-            return Err(CommunicationError("Connection is unauthorized".into()).into());
-        }
-        if self.uaid.is_none() {
-            return Err(CommunicationError("No UAID set".into()).into());
-        }
-        self.options.registration_id = Some(new_token.to_owned());
+        let uaid = match &self.uaid {
+            Some(u) => u,
+            _ => return Err(CommunicationError("No UAID set".into()).into()),
+        };
+        // Updating `self.registration_id` shouldn't be necessary - `self` should not live beyond
+        // this call and it's our caller who persists the new value and supplies it.
+        self.registration_id = Some(new_token.to_string());
         let options = self.options.clone();
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}",
@@ -341,7 +352,7 @@ impl Connection for ConnectHttp {
             &options.server_host,
             &options.bridge_type.unwrap(),
             &options.sender_id,
-            &self.uaid.clone().unwrap()
+            uaid
         );
         let mut body = HashMap::new();
         body.insert("token", new_token);
@@ -423,9 +434,6 @@ impl Connection for ConnectHttp {
     /// should force the client to drop the old UAID, request a new UAID from the server, and
     /// resubscribe all channels, resulting in new endpoints.
     fn verify_connection(&mut self, channels: &[String]) -> error::Result<bool> {
-        if self.auth.is_none() {
-            return Err(CommunicationError("Connection uninitiated".to_owned()).into());
-        }
         if &self.options.sender_id == "test" {
             return Ok(false);
         }
@@ -434,8 +442,8 @@ impl Connection for ConnectHttp {
             Ok(v) => HashSet::from_iter(v),
             Err(e) => match e.kind() {
                 UAIDNotRecognizedError(_) => {
-                    // We do not unsubscribe, because the
-                    // server already lost our UAID
+                    // We do not unsubscribe, because the server already lost our UAID
+                    // XXX - update `self` just for tests. Should kill `&mut self`
                     self.uaid = None;
                     self.auth = None;
                     return Ok(false);
@@ -488,7 +496,6 @@ mod test {
             server_host: server_address().to_string(),
             sender_id: SENDER_ID.to_owned(),
             bridge_type: Some("test".to_owned()),
-            registration_id: Some("SomeRegistrationValue".to_owned()),
             ..Default::default()
         };
         // SUBSCRIPTION with secret
@@ -509,7 +516,8 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config.clone(), None, None).unwrap();
+            let mut conn =
+                connect(config.clone(), None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
@@ -535,7 +543,8 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config.clone(), None, None).unwrap();
+            let mut conn =
+                connect(config.clone(), None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_ns_mock.assert();
@@ -562,6 +571,7 @@ mod test {
                 config.clone(),
                 Some(DUMMY_UAID.to_owned()),
                 Some(SECRET.to_owned()),
+                None,
             )
             .unwrap();
             conn.unsubscribe(DUMMY_CHID).unwrap();
@@ -582,6 +592,7 @@ mod test {
                 config.clone(),
                 Some(DUMMY_UAID.to_owned()),
                 Some(SECRET.to_owned()),
+                None,
             )
             .unwrap();
             //TODO: Add record to nuke.
@@ -603,15 +614,13 @@ mod test {
                 config.clone(),
                 Some(DUMMY_UAID.to_owned()),
                 Some(SECRET.to_owned()),
+                Some("native-id".to_string()),
             )
             .unwrap();
 
             conn.update("NewTokenValue").unwrap();
             ap_mock.assert();
-            assert_eq!(
-                conn.options.registration_id,
-                Some("NewTokenValue".to_owned())
-            );
+            assert_eq!(conn.registration_id, Some("NewTokenValue".to_owned()));
         }
         // CHANNEL LIST
         {
@@ -629,8 +638,13 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body_cl_success)
             .create();
-            let conn =
-                connect(config, Some(DUMMY_UAID.to_owned()), Some(SECRET.to_owned())).unwrap();
+            let conn = connect(
+                config,
+                Some(DUMMY_UAID.to_owned()),
+                Some(SECRET.to_owned()),
+                None,
+            )
+            .unwrap();
             let response = conn.channel_list().unwrap();
             ap_mock.assert();
             assert!(response == [DUMMY_CHID.to_owned()]);
@@ -644,7 +658,6 @@ mod test {
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
                 bridge_type: Some("test".to_owned()),
-                registration_id: Some("SomeRegistrationValue".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -664,7 +677,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config, None, None).unwrap();
+            let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
@@ -704,6 +717,8 @@ mod test {
             // after the mismatch, we unsubscribed, thus we expect that we wiped the UAID
             // from the conn object too
             assert!(conn.uaid.is_none());
+            // But the native id isn't wiped
+            assert!(conn.registration_id.is_some());
             // we now test that when we send a new subscribe
             // we'll store the new UAID the server gets us
             let body = json!({
@@ -737,7 +752,6 @@ mod test {
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
                 bridge_type: Some("test".to_owned()),
-                registration_id: Some("SomeRegistrationValue".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -757,7 +771,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config, None, None).unwrap();
+            let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
@@ -799,7 +813,6 @@ mod test {
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
                 bridge_type: Some("test".to_owned()),
-                registration_id: Some("SomeRegistrationValue".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -819,7 +832,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config, None, None).unwrap();
+            let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
@@ -862,7 +875,6 @@ mod test {
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
                 bridge_type: Some("test".to_owned()),
-                registration_id: Some("SomeRegistrationValue".to_owned()),
                 ..Default::default()
             };
             // We first subscribe to get a UAID
@@ -882,7 +894,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config, None, None).unwrap();
+            let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_mock.assert();
@@ -927,7 +939,6 @@ mod test {
                 server_host: server_address().to_string(),
                 sender_id: SENDER_ID.to_owned(),
                 bridge_type: Some("test".to_owned()),
-                registration_id: Some("SomeRegistrationValue".to_owned()),
                 ..Default::default()
             };
             // We mock that the server thinks
@@ -948,7 +959,7 @@ mod test {
             .with_header("content-type", "application/json")
             .with_body(body)
             .create();
-            let mut conn = connect(config, None, None).unwrap();
+            let mut conn = connect(config, None, None, Some(SENDER_ID.to_string())).unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let err = conn.subscribe(&channel_id, None).unwrap_err();
             ap_mock.assert();

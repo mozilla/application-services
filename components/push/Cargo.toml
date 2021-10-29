@@ -32,6 +32,8 @@ uniffi_build = { version = "^0.14", features=["builtin-bindgen"] }
 
 
 [dev-dependencies]
+env_logger = { version = "0.8", default-features = false, features = ["termcolor", "atty", "humantime"] }
 mockito = "0.27"
 hex = "0.4"
+tempfile = "3.1.0"
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }

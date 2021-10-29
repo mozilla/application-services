@@ -191,6 +191,7 @@ pub use crate::internal::error::*;
 pub use internal::communications::Connection;
 pub use internal::crypto::get_random_bytes;
 pub use internal::error::Result as InternalResult;
+pub use internal::storage::Storage as InternalStorage;
 pub use internal::PushConfiguration;
 pub use internal::PushManager as InternalPushManager;
 // =====================
@@ -241,11 +242,16 @@ impl PushManager {
             BridgeType::Test => "test",
         }
         .to_string();
+        if !registration_id.is_empty() {
+            log::warn!("`registration_id` is ignored/deprecated when creating a push manager.");
+        }
+        // XXX - we probably should persist, say, this as JSON and ensure it's the same
+        // on each run, then nuke the DB if not. Eg, imagine "bridge_type" changing, things
+        // would break badly. Unlikely, so later...
         let config = PushConfiguration {
             server_host,
             http_protocol: Some(http_protocol),
             bridge_type: Some(bridge_type),
-            registration_id: Some(registration_id),
             sender_id,
             database_path: Some(database_path),
             ..Default::default()
@@ -441,8 +447,8 @@ pub enum PushError {
     #[error("Storage Error: {0:?}")]
     StorageError(String),
 
-    #[error("No record for uaid:chid {0:?}:{1:?}")]
-    RecordNotFoundError(String, String),
+    #[error("No record for chid {0:?}")]
+    RecordNotFoundError(String),
 
     /// A failure to encode data to/from storage.
     #[error("Error executing SQL: {0}")]
@@ -509,9 +515,7 @@ impl From<internal::error::Error> for PushError {
             }
             ErrorKind::AlreadyRegisteredError => PushError::AlreadyRegisteredError,
             ErrorKind::StorageError(message) => PushError::StorageError(message.clone()),
-            ErrorKind::RecordNotFoundError(uaid, chid) => {
-                PushError::RecordNotFoundError(uaid.clone(), chid.clone())
-            }
+            ErrorKind::RecordNotFoundError(chid) => PushError::RecordNotFoundError(chid.clone()),
             ErrorKind::StorageSqlError(e) => PushError::StorageSqlError(e.to_string()),
             ErrorKind::MissingRegistrationTokenError => PushError::MissingRegistrationTokenError,
             ErrorKind::TranscodingError(message) => PushError::TranscodingError(message.clone()),
@@ -529,7 +533,6 @@ impl From<internal::error::Error> for PushError {
 /// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
 #[derive(Debug, Clone, PartialEq)]
 pub struct DispatchInfo {
-    pub uaid: String,
     pub scope: String,
     pub endpoint: String,
     pub app_server_key: Option<String>,
