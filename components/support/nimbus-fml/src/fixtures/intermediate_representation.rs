@@ -146,12 +146,14 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
 pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
     FeatureManifest {
         enum_defs: vec![EnumDef {
-            name: "SectionId".into(),
+            name: "HomeScreenSection".into(),
             doc: "The sections of the homescreen".into(),
             variants: vec![
                 VariantDef::new("top-sites", "The original frecency sorted sites"),
                 VariantDef::new("jump-back-in", "Jump back in section"),
                 VariantDef::new("recently-saved", "Tabs that have been bookmarked recently"),
+                VariantDef::new("recent-explorations", "Tabs from another source"),
+                VariantDef::new("pocket", "Tabs from another source"),
             ],
         }],
         obj_defs: Default::default(),
@@ -163,13 +165,15 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
                 name: "sections-enabled".into(),
                 doc: "A map of booleans".into(),
                 typ: TypeRef::EnumMap(
-                    Box::new(TypeRef::Enum("SectionId".into())),
+                    Box::new(TypeRef::Enum("HomeScreenSection".into())),
                     Box::new(TypeRef::Boolean),
                 ),
                 default: json!({
                     "top-sites": true,
                     "jump-back-in": false,
                     "recently-saved": false,
+                    "recent-explorations": false,
+                    "pocket": false,
                 }),
             }],
             None,
@@ -180,12 +184,14 @@ pub(crate) fn get_simple_homescreen_feature() -> FeatureManifest {
 pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
     FeatureManifest {
         enum_defs: vec![EnumDef {
-            name: "SectionId".into(),
+            name: "HomeScreenSection".into(),
             doc: "The sections of the homescreen".into(),
             variants: vec![
                 VariantDef::new("top-sites", "The original frecency sorted sites"),
                 VariantDef::new("jump-back-in", "Jump back in section"),
                 VariantDef::new("recently-saved", "Tabs that have been bookmarked recently"),
+                VariantDef::new("recent-explorations", "Tabs from another source"),
+                VariantDef::new("pocket", "Tabs from another source"),
             ],
         }],
         obj_defs: Default::default(),
@@ -198,19 +204,21 @@ pub(crate) fn get_full_homescreen_feature() -> FeatureManifest {
                     name: "sections-enabled".into(),
                     doc: "A map of booleans".into(),
                     typ: TypeRef::EnumMap(
-                        Box::new(TypeRef::Enum("SectionId".into())),
+                        Box::new(TypeRef::Enum("HomeScreenSection".into())),
                         Box::new(TypeRef::Boolean),
                     ),
                     default: json!({
                         "top-sites": true,
                         "jump-back-in": false,
                         "recently-saved": false,
+                        "recent-explorations": false,
+                        "pocket": false,
                     }),
                 },
                 PropDef {
                     name: "section-ordering".into(),
                     doc: "The ordering of the sections on the homescreen".into(),
-                    typ: TypeRef::List(Box::new(TypeRef::Enum("SectionId".into()))),
+                    typ: TypeRef::List(Box::new(TypeRef::Enum("HomeScreenSection".into()))),
                     default: json!(["top-sites", "jump-back-in", "recently-saved",]),
                 },
             ],
