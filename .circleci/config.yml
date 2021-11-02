@@ -177,7 +177,11 @@ commands:
             #                       fix this: https://github.com/chronotope/chrono/pull/578
             #                       note that both the Nimbus-SDK and glean use chrono, so if we would like to move away from it, both projects
             #                       need to do that before we can remove the ignores (assuming `chrono` doesn't release a fixed version)
-            cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071
+            #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
+            #                       version of `yaml-rust`, which will be released in `v3` and additionally, 
+            #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
+            #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
+            cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
       - run:
           name: Check for any unrecorded changes in our dependency trees
           command: |
