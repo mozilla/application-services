@@ -239,7 +239,7 @@ impl EncryptedPayload {
     ) -> error::Result<Self> {
         let cleartext = serde_json::to_string(cleartext_payload)?;
         let (enc_base64, iv_base64, hmac_base16) =
-            key.encrypt_bytes_rand_iv(&cleartext.as_bytes())?;
+            key.encrypt_bytes_rand_iv(cleartext.as_bytes())?;
         Ok(EncryptedPayload {
             iv: iv_base64,
             hmac: hmac_base16,

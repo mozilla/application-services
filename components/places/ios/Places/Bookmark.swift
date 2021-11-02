@@ -3,6 +3,9 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 import Foundation
+#if canImport(MozillaRustComponents)
+    import MozillaRustComponents
+#endif
 
 /// Snarfed from firefox-ios, although we don't have the fake desktop root,
 /// and we only have the `All` Set.

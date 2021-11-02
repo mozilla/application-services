@@ -1,0 +1,37 @@
+name: nimbus-fml
+version: "1.0"
+author: nimbus-dev@mozilla.com
+about: Tool for working with Nimbus Feature Manifests
+args:
+    - config:
+        short: c
+        long: config
+        value_name: FILE
+        help: Sets a custom config file
+        takes_value: true
+    - verbose:
+        short: v
+        multiple: true
+        help: Sets the level of verbosity
+subcommands:
+    - struct:
+        about: Generate the app code for configuring features
+        args:
+            - language:
+                short: l
+                long: language
+                value_name: LANGUAGE
+                possible_values: [ kotlin, swift, ir ]
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
+            - ir:
+                help: The input file is intermediate representation. Useful for debugging FML.
+                long: ir
+            - output:
+                help: The output file
+                short: o
+                long: output
+                value_name: FILE
+                required: true

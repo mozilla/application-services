@@ -1,12 +1,12 @@
+use crate::defaults::Defaults;
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 use crate::error::{NimbusError, Result};
+use crate::evaluator::TargetingAttributes;
 use crate::persistence::{Database, StoreId, Writer};
 use crate::{evaluator::evaluate_enrollment, persistence::Readable};
-use crate::{
-    AppContext, AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig,
-};
+use crate::{AvailableRandomizationUnits, EnrolledExperiment, Experiment, FeatureConfig};
 
 use ::uuid::Uuid;
 use serde_derive::*;
@@ -79,7 +79,7 @@ impl ExperimentEnrollment {
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
-        app_context: &AppContext,
+        targeting_attributes: &TargetingAttributes,
         experiment: &Experiment,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
@@ -101,7 +101,7 @@ impl ExperimentEnrollment {
             let enrollment = evaluate_enrollment(
                 nimbus_id,
                 available_randomization_units,
-                app_context,
+                targeting_attributes,
                 experiment,
             )?;
             log::debug!(
@@ -142,19 +142,19 @@ impl ExperimentEnrollment {
         is_user_participating: bool,
         nimbus_id: &Uuid,
         available_randomization_units: &AvailableRandomizationUnits,
-        app_context: &AppContext,
+        targeting_attributes: &TargetingAttributes,
         updated_experiment: &Experiment,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>,
     ) -> Result<Self> {
         Ok(match self.status {
-            EnrollmentStatus::NotEnrolled { .. } => {
+            EnrollmentStatus::NotEnrolled { .. } | EnrollmentStatus::Error { .. } => {
                 if !is_user_participating || updated_experiment.is_enrollment_paused {
                     self.clone()
                 } else {
                     let updated_enrollment = evaluate_enrollment(
                         nimbus_id,
                         available_randomization_units,
-                        app_context,
+                        targeting_attributes,
                         updated_experiment,
                     )?;
                     log::debug!(
@@ -197,7 +197,7 @@ impl ExperimentEnrollment {
                     let evaluated_enrollment = evaluate_enrollment(
                         nimbus_id,
                         available_randomization_units,
-                        app_context,
+                        targeting_attributes,
                         updated_experiment,
                     )?;
                     match evaluated_enrollment.status {
@@ -245,7 +245,7 @@ impl ExperimentEnrollment {
                     self.clone()
                 }
             }
-            EnrollmentStatus::WasEnrolled { .. } | EnrollmentStatus::Error { .. } => self.clone(), // Cannot recover from errors!
+            EnrollmentStatus::WasEnrolled { .. } => self.clone(),
         })
     }
 
@@ -386,8 +386,8 @@ impl ExperimentEnrollment {
                 ..
             } => EnrollmentChangeEvent::new(
                 &self.slug,
-                &enrollment_id,
-                &branch,
+                enrollment_id,
+                branch,
                 None,
                 EnrollmentChangeEventType::Unenrollment,
             ),
@@ -398,8 +398,8 @@ impl ExperimentEnrollment {
                 ..
             } => EnrollmentChangeEvent::new(
                 &self.slug,
-                &enrollment_id,
-                &branch,
+                enrollment_id,
+                branch,
                 match reason {
                     DisqualifiedReason::NotTargeted => Some("targeting"),
                     DisqualifiedReason::OptOut => Some("optout"),
@@ -477,7 +477,6 @@ impl EnrollmentStatus {
 
     // This is used in examples, but not in the main dylib, and
     // triggers a dead code warning when building with `--release`.
-    #[allow(dead_code)]
     pub fn is_enrolled(&self) -> bool {
         matches!(self, EnrollmentStatus::Enrolled { .. })
     }
@@ -505,6 +504,7 @@ impl EnrollmentStatus {
 }
 
 /// Return information about all enrolled experiments.
+/// Note this does not include rollouts
 pub fn get_enrollments<'r>(
     db: &Database,
     reader: &'r impl Readable<'r>,
@@ -520,24 +520,29 @@ pub fn get_enrollments<'r>(
             ..
         } = &enrollment.status
         {
-            if let Some(experiment) = db
+            match db
                 .get_store(StoreId::Experiments)
                 .get::<Experiment, _>(reader, &enrollment.slug)?
             {
-                result.push(EnrolledExperiment {
-                    feature_ids: experiment.get_feature_ids(),
-                    slug: experiment.slug,
-                    user_facing_name: experiment.user_facing_name,
-                    user_facing_description: experiment.user_facing_description,
-                    branch_slug: branch.to_string(),
-                    enrollment_id: enrollment_id.to_string(),
-                });
-            } else {
-                log::warn!(
-                    "Have enrollment {:?} but no matching experiment!",
-                    enrollment
-                );
-            }
+                Some(experiment) => {
+                    if !experiment.is_rollout() {
+                        result.push(EnrolledExperiment {
+                            feature_ids: experiment.get_feature_ids(),
+                            slug: experiment.slug,
+                            user_facing_name: experiment.user_facing_name,
+                            user_facing_description: experiment.user_facing_description,
+                            branch_slug: branch.to_string(),
+                            enrollment_id: enrollment_id.to_string(),
+                        });
+                    }
+                }
+                _ => {
+                    log::warn!(
+                        "Have enrollment {:?} but no matching experiment!",
+                        enrollment
+                    );
+                }
+            };
         }
     }
     Ok(result)
@@ -546,19 +551,19 @@ pub fn get_enrollments<'r>(
 pub(crate) struct EnrollmentsEvolver<'a> {
     nimbus_id: &'a Uuid,
     available_randomization_units: &'a AvailableRandomizationUnits,
-    app_context: &'a AppContext,
+    targeting_attributes: &'a TargetingAttributes,
 }
 
 impl<'a> EnrollmentsEvolver<'a> {
     pub(crate) fn new(
         nimbus_id: &'a Uuid,
         available_randomization_units: &'a AvailableRandomizationUnits,
-        app_context: &'a AppContext,
+        targeting_attributes: &'a TargetingAttributes,
     ) -> Self {
         Self {
             nimbus_id,
             available_randomization_units,
-            app_context,
+            targeting_attributes,
         }
     }
 
@@ -601,8 +606,6 @@ impl<'a> EnrollmentsEvolver<'a> {
         Ok(enrollments_change_events)
     }
 
-    /// Evolve and calculate the new set of enrollments, using the
-    /// previous and current state of experiments and current enrollments.
     pub(crate) fn evolve_enrollments(
         &self,
         is_user_participating: bool,
@@ -610,10 +613,66 @@ impl<'a> EnrollmentsEvolver<'a> {
         next_experiments: &[Experiment],
         prev_enrollments: &[ExperimentEnrollment],
     ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
+        let mut enrollments: Vec<ExperimentEnrollment> = Default::default();
+        let mut events: Vec<EnrollmentChangeEvent> = Default::default();
+
+        // Do rollouts first.
+        // At the moment, we only allow one rollout per feature, so we can re-use the same machinery as experiments
+        let (prev_rollouts, ro_enrollments) = filter_experiments_and_enrollments(
+            prev_experiments,
+            prev_enrollments,
+            Experiment::is_rollout,
+        );
+        let next_rollouts = filter_experiments(next_experiments, Experiment::is_rollout);
+
+        // NB: Experiments require a lack of opt-out, but rollouts do not, so we set `is_user_participating` to `true`.
+        let (next_ro_enrollments, ro_events) =
+            self.evolve_enrollment_recipes(true, &prev_rollouts, &next_rollouts, &ro_enrollments)?;
+
+        enrollments.extend(next_ro_enrollments.into_iter());
+        events.extend(ro_events.into_iter());
+
+        let ro_slugs: HashSet<String> = ro_enrollments.iter().map(|e| e.slug.clone()).collect();
+
+        // Now we do the experiments.
+        // We need to mop up all the enrollments that aren't rollouts (not just belonging to experiments that aren't rollouts)
+        // because some of them don't belong to any experiments recipes, and evolve_enrollment_recipes will handle the error
+        // states for us.
+        let experiments_only = |e: &Experiment| !e.is_rollout();
+        let prev_experiments = filter_experiments(prev_experiments, experiments_only);
+        let next_experiments = filter_experiments(next_experiments, experiments_only);
+        let prev_enrollments: Vec<ExperimentEnrollment> = prev_enrollments
+            .iter()
+            .filter(|e| !ro_slugs.contains(&e.slug))
+            .map(|e| e.to_owned())
+            .collect();
+
+        let (next_exp_enrollments, exp_events) = self.evolve_enrollment_recipes(
+            is_user_participating,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        enrollments.extend(next_exp_enrollments.into_iter());
+        events.extend(exp_events.into_iter());
+
+        Ok((enrollments, events))
+    }
+
+    /// Evolve and calculate the new set of enrollments, using the
+    /// previous and current state of experiments and current enrollments.
+    pub(crate) fn evolve_enrollment_recipes(
+        &self,
+        is_user_participating: bool,
+        prev_experiments: &[Experiment],
+        next_experiments: &[Experiment],
+        prev_enrollments: &[ExperimentEnrollment],
+    ) -> Result<(Vec<ExperimentEnrollment>, Vec<EnrollmentChangeEvent>)> {
         let mut enrollment_events = vec![];
-        let prev_experiments = map_experiments(&prev_experiments);
-        let next_experiments = map_experiments(&next_experiments);
-        let prev_enrollments = map_enrollments(&prev_enrollments);
+        let prev_experiments = map_experiments(prev_experiments);
+        let next_experiments = map_experiments(next_experiments);
+        let prev_enrollments = map_enrollments(prev_enrollments);
 
         // Step 1. Build an initial active_features to keep track of
         // the features that are being experimented upon.
@@ -652,7 +711,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     // place in this function where enrollments could be
                     // dropped.  We could then send those errors to
                     // telemetry so that they could be monitored (SDK-309)
-                    log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiments.get(slug).copied()), prev_enrollment, e);
+                    log::warn!("{} in evolve_enrollment (with prev_enrollment) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                     None
                 }
             };
@@ -735,7 +794,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                         // place in this function where enrollments could be
                         // dropped.  We could then send those errors to
                         // telemetry so that they could be monitored (SDK-309)
-                        log::error!("evolve_enrollment(\n\tprev_exp: {:?}\n\t, next_exp: {:?}, \n\tprev_enrollment: {:?})\n\t returned an error: {}; dropping this record", prev_experiments.get(slug).copied(), Some(next_experiment), prev_enrollment, e);
+                        log::warn!("{} in evolve_enrollment (with no feature conflict) returned None; (slug: {}, prev_enrollment: {:?}); ", e, slug, prev_enrollment);
                         None
                     }
                 };
@@ -774,7 +833,7 @@ impl<'a> EnrollmentsEvolver<'a> {
             // Now we have an enrollment object!
             // If it's an enrolled enrollment, then get the FeatureConfigs
             // from the experiment and store them in the active_features map.
-            for enrolled_feature in get_enrolled_feature_configs(&enrollment, &experiments) {
+            for enrolled_feature in get_enrolled_feature_configs(&enrollment, experiments) {
                 enrolled_features.insert(enrolled_feature.feature_id.clone(), enrolled_feature);
             }
             // Also, record the enrollment for our return value
@@ -799,13 +858,22 @@ impl<'a> EnrollmentsEvolver<'a> {
         prev_enrollment: Option<&ExperimentEnrollment>,
         out_enrollment_events: &mut Vec<EnrollmentChangeEvent>, // out param containing the events we'd like to emit to glean.
     ) -> Result<Option<ExperimentEnrollment>> {
+        let is_already_enrolled = if let Some(enrollment) = prev_enrollment {
+            enrollment.status.is_enrolled()
+        } else {
+            false
+        };
+
+        let mut targeting_attributes = self.targeting_attributes.clone();
+        targeting_attributes.is_already_enrolled = is_already_enrolled;
+
         Ok(match (prev_experiment, next_experiment, prev_enrollment) {
             // New experiment.
             (None, Some(experiment), None) => Some(ExperimentEnrollment::from_new_experiment(
                 is_user_participating,
                 self.nimbus_id,
                 self.available_randomization_units,
-                self.app_context,
+                &targeting_attributes,
                 experiment,
                 out_enrollment_events,
             )?),
@@ -819,7 +887,7 @@ impl<'a> EnrollmentsEvolver<'a> {
                     is_user_participating,
                     self.nimbus_id,
                     self.available_randomization_units,
-                    self.app_context,
+                    &targeting_attributes,
                     experiment,
                     out_enrollment_events,
                 )?)
@@ -860,6 +928,35 @@ fn map_enrollments(enrollments: &[ExperimentEnrollment]) -> HashMap<String, &Exp
     map_enrollments
 }
 
+fn filter_experiments_and_enrollments(
+    experiments: &[Experiment],
+    enrollments: &[ExperimentEnrollment],
+    filter_fn: fn(&Experiment) -> bool,
+) -> (Vec<Experiment>, Vec<ExperimentEnrollment>) {
+    let experiments: Vec<Experiment> = filter_experiments(experiments, filter_fn);
+
+    let slugs: HashSet<String> = experiments.iter().map(|e| e.slug.clone()).collect();
+
+    let enrollments: Vec<ExperimentEnrollment> = enrollments
+        .iter()
+        .filter(|e| slugs.contains(&e.slug))
+        .map(|e| e.to_owned())
+        .collect();
+
+    (experiments, enrollments)
+}
+
+fn filter_experiments(
+    experiments: &[Experiment],
+    filter_fn: fn(&Experiment) -> bool,
+) -> Vec<Experiment> {
+    experiments
+        .iter()
+        .filter(|e| filter_fn(*e))
+        .map(|e| e.to_owned())
+        .collect()
+}
+
 /// Take a list of enrollments and a map of experiments, and generate mapping of `feature_id` to
 /// `EnrolledFeatureConfig` structs.
 fn map_features(
@@ -884,7 +981,17 @@ pub fn map_features_by_feature_id(
     enrollments: &[ExperimentEnrollment],
     experiments: &[Experiment],
 ) -> HashMap<String, EnrolledFeatureConfig> {
-    map_features(enrollments, &map_experiments(experiments))
+    let (rollouts, ro_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, Experiment::is_rollout);
+    let (experiments, exp_enrollments) =
+        filter_experiments_and_enrollments(experiments, enrollments, |e| !e.is_rollout());
+
+    let features_under_rollout = map_features(&ro_enrollments, &map_experiments(&rollouts));
+    let features_under_experiment = map_features(&exp_enrollments, &map_experiments(&experiments));
+
+    features_under_experiment
+        .defaults(&features_under_rollout)
+        .unwrap()
 }
 
 fn get_enrolled_feature_configs(
@@ -937,7 +1044,11 @@ fn get_enrolled_feature_configs(
         .map(|f| EnrolledFeatureConfig {
             feature: f.to_owned(),
             slug: experiment_slug.clone(),
-            branch: branch_slug.clone(),
+            branch: if !experiment.is_rollout() {
+                Some(branch_slug.clone())
+            } else {
+                None
+            },
             feature_id: f.feature_id.clone(),
         })
         .collect()
@@ -950,8 +1061,37 @@ fn get_enrolled_feature_configs(
 pub struct EnrolledFeatureConfig {
     pub feature: FeatureConfig,
     pub slug: String,
-    pub branch: String,
+    pub branch: Option<String>,
     pub feature_id: String,
+}
+
+impl Defaults for EnrolledFeatureConfig {
+    fn defaults(&self, fallback: &Self) -> Result<Self> {
+        if self.feature_id != fallback.feature_id {
+            // This is unlikely to happen, but if it does it's a bug in Nimbus
+            Err(NimbusError::InternalError(
+                "Cannot merge enrolled feature configs from different features",
+            ))
+        } else {
+            Ok(Self {
+                slug: self.slug.to_owned(),
+                feature_id: self.feature_id.to_owned(),
+                // Merge the actual feature config.
+                feature: self.feature.defaults(&fallback.feature)?,
+                // If this is an experiment, then this will be Some(_).
+                // The feature is involved in zero or one experiments, and 0 or more rollouts.
+                // So we can clone this Option safely.
+                branch: self.branch.to_owned(),
+            })
+        }
+    }
+}
+
+#[cfg(test)]
+impl EnrolledFeatureConfig {
+    pub fn is_rollout(&self) -> bool {
+        self.branch.is_none()
+    }
 }
 
 #[derive(Debug)]
@@ -1071,8 +1211,11 @@ fn now_secs() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::{Database, StoreId};
-    use serde_json::json;
+    use crate::{
+        persistence::{Database, StoreId},
+        AppContext, Branch, BucketConfig,
+    };
+    use serde_json::{json, Value};
     use tempdir::TempDir;
 
     fn get_test_experiments() -> Vec<Experiment> {
@@ -1371,6 +1514,57 @@ mod tests {
         .unwrap()
     }
 
+    fn get_experiment_with_different_features_same_branch() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "multi-feature-experiment",
+            "branches": [
+                {
+                    "slug": "control",
+                    "ratio": 1,
+                    "features": [{
+                        "featureId": "about_welcome",
+                        "enabled": false,
+                        "value": {},
+                    },
+                    {
+                        "featureId": "newtab",
+                        "enabled": true,
+                        "value": {},
+                    }]
+                },
+                {
+                    "slug": "treatment",
+                    "ratio":1,
+                    "features": [{
+                        "featureId": "onboarding",
+                        "enabled": false,
+                        "value": {},
+                    },
+                    {
+                        "featureId": "onboarding",
+                        "enabled": true,
+                        "value": {},
+                    }]
+                }
+            ],
+            "probeSets":[],
+            "bucketConfig":{
+                // Also enroll everyone.
+                "count":10_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "userFacingName":"2nd test experiment",
+        }))
+        .unwrap()
+    }
+
     fn get_experiment_with_aboutwelcome_feature_branches() -> Experiment {
         serde_json::from_value(json!({
             "schemaVersion": "1.0.0",
@@ -1445,6 +1639,44 @@ mod tests {
         .unwrap()
     }
 
+    fn get_is_already_enrolled_targeting_experiment() -> Experiment {
+        serde_json::from_value(json!({
+            "schemaVersion": "1.0.0",
+            "slug": "another-monkey",
+            "endDate": null,
+            "branches":[
+                {"slug": "control", "ratio": 1, "feature": { "featureId": "some_control", "enabled": true }},
+                {"slug": "treatment","ratio": 1, "feature": { "featureId": "some_control", "enabled": true }},
+            ],
+            "featureIds": ["some_control"],
+            "channel": "nightly",
+            "probeSets":[],
+            "startDate":null,
+            "appName":"fenix",
+            "appId":"org.mozilla.fenix",
+            "bucketConfig":{
+                "count":1_000,
+                "start":0,
+                "total":10_000,
+                "namespace":"secure-silver",
+                "randomizationUnit":"nimbus_id"
+            },
+            // We have a logical OR here because we want the user
+            // to be enrolled the first time they see this targeting
+            // then, we will change the appId in the context to something
+            // else, then test enrollment again.
+            "targeting": "app_id == 'org.mozilla.fenix' || is_already_enrolled",
+            "userFacingName":"2nd test experiment",
+            "referenceBranch":"control",
+            "isEnrollmentPaused":false,
+            "proposedEnrollment":7,
+            "userFacingDescription":"2nd test experiment.",
+            "id":"secure-silver",
+            "last_modified":1_602_197_222_372i64
+        }))
+        .unwrap()
+    }
+
     fn get_experiment_enrollments<'r>(
         db: &Database,
         reader: &'r impl Readable<'r>,
@@ -1468,17 +1700,18 @@ mod tests {
 
     fn enrollment_evolver<'a>(
         nimbus_id: &'a Uuid,
-        app_ctx: &'a AppContext,
+        targeting_attributes: &'a TargetingAttributes,
         aru: &'a AvailableRandomizationUnits,
     ) -> EnrollmentsEvolver<'a> {
-        EnrollmentsEvolver::new(nimbus_id, aru, app_ctx)
+        EnrollmentsEvolver::new(nimbus_id, aru, targeting_attributes)
     }
 
     #[test]
     fn test_evolver_new_experiment_enrolled() -> Result<()> {
         let exp = &get_test_experiments()[0];
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment = evolver
             .evolve_enrollment(true, None, Some(exp), None, &mut events)?
@@ -1498,7 +1731,8 @@ mod tests {
         let mut exp = get_test_experiments()[0].clone();
         exp.bucket_config.count = 0; // Make the experiment bucketing fail.
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment = evolver
             .evolve_enrollment(true, None, Some(&exp), None, &mut events)?
@@ -1517,7 +1751,8 @@ mod tests {
     fn test_evolver_new_experiment_globally_opted_out() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment = evolver
             .evolve_enrollment(false, None, Some(&exp), None, &mut events)?
@@ -1537,7 +1772,8 @@ mod tests {
         let mut exp = get_test_experiments()[0].clone();
         exp.is_enrollment_paused = true;
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment = evolver
             .evolve_enrollment(true, None, Some(&exp), None, &mut events)?
@@ -1556,7 +1792,8 @@ mod tests {
     fn test_evolver_experiment_update_not_enrolled_opted_out() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: exp.slug.clone(),
@@ -1583,7 +1820,8 @@ mod tests {
         let mut exp = get_test_experiments()[0].clone();
         exp.is_enrollment_paused = true;
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: exp.slug.clone(),
@@ -1610,7 +1848,8 @@ mod tests {
         let mut exp = get_test_experiments()[0].clone();
         exp.bucket_config.count = 0; // Make the experiment bucketing fail.
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: exp.slug.clone(),
@@ -1641,7 +1880,8 @@ mod tests {
     fn test_evolver_experiment_update_not_enrolled_resuming_selected() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: exp.slug.clone(),
@@ -1675,7 +1915,8 @@ mod tests {
     fn test_evolver_experiment_update_enrolled_then_opted_out() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1719,7 +1960,8 @@ mod tests {
         let mut exp = get_test_experiments()[0].clone();
         exp.is_enrollment_paused = true;
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1761,7 +2003,8 @@ mod tests {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, mut app_ctx, aru) = local_ctx();
         app_ctx.app_name = "foobar".to_owned(); // Make the experiment targeting fail.
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1810,7 +2053,8 @@ mod tests {
         let mut exp = get_test_experiments()[0].clone();
         exp.bucket_config.count = 0; // Make the experiment bucketing fail.
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1843,15 +2087,18 @@ mod tests {
                 slug: "control".to_owned(),
                 ratio: 0,
                 feature: None,
+                features: None,
             },
             crate::Branch {
                 slug: "bobo-branch".to_owned(),
                 ratio: 1,
                 feature: None,
+                features: None,
             },
         ];
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1883,9 +2130,11 @@ mod tests {
             slug: "bobo-branch".to_owned(),
             ratio: 1,
             feature: None,
+            features: None,
         }];
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1927,7 +2176,8 @@ mod tests {
     fn test_evolver_experiment_update_disqualified_then_opted_out() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1962,7 +2212,8 @@ mod tests {
     fn test_evolver_experiment_update_disqualified_then_bucketing_ok() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -1992,8 +2243,8 @@ mod tests {
         let _ = env_logger::try_init();
 
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
-
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         // Let's go from no experiments, to some experiments.
         let existing_experiments: Vec<Experiment> = vec![];
         let existing_enrollments: Vec<ExperimentEnrollment> = vec![];
@@ -2096,19 +2347,23 @@ mod tests {
 
         // There should be one WasEnrolled; the NotEnrolled will have been
         // discarded.
-        let enrolled: Vec<ExperimentEnrollment> = enrollments
-            .clone()
-            .into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
-            .collect();
-        assert_eq!(1, enrolled.len());
 
-        let enrolled: Vec<ExperimentEnrollment> = enrollments
-            .into_iter()
-            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
-            .collect();
-        assert_eq!(0, enrolled.len());
+        assert_eq!(
+            1,
+            enrollments
+                .clone()
+                .into_iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::WasEnrolled { .. }))
+                .count()
+        );
 
+        assert_eq!(
+            0,
+            enrollments
+                .into_iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .count()
+        );
         Ok(())
     }
 
@@ -2143,7 +2398,8 @@ mod tests {
         let mut test_experiments = get_test_experiments();
         test_experiments.push(get_conflicting_experiment());
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let targeting_attributes = app_ctx.into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let (enrollments, events) =
             evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
 
@@ -2199,12 +2455,51 @@ mod tests {
     }
 
     #[test]
+    fn test_multi_feature_per_branch_conflict() -> Result<()> {
+        let mut test_experiments = get_test_experiments();
+        test_experiments.push(get_experiment_with_different_features_same_branch());
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
+
+        let enrolled_count = enrollments
+            .iter()
+            .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .count();
+        // Two of the three experiments conflict with each other
+        // other, so only one will be enrolled
+        assert_eq!(
+            enrolled_count, 2,
+            "There should be exactly 2 ExperimentEnrollments returned"
+        );
+
+        assert_eq!(
+            2,
+            events.len(),
+            "There should be exactly 2 enrollment_change_events"
+        );
+
+        let enrolled_events = events
+            .iter()
+            .filter(|&e| matches!(e.change, EnrollmentChangeEventType::Enrollment))
+            .count();
+        assert_eq!(
+            2, enrolled_events,
+            "exactly two events should have Enrolled event types"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_evolver_feature_id_reuse() -> Result<()> {
         let _ = env_logger::try_init();
 
         let test_experiments = get_test_experiments();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let targeting_attributes = app_ctx.into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let (enrollments, _) = evolver.evolve_enrollments(true, &[], &test_experiments, &[])?;
 
         let enrolled_count = enrollments
@@ -2256,12 +2551,13 @@ mod tests {
         let _ = env_logger::try_init();
 
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let targeting_attributes = app_ctx.into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
 
         let aboutwelcome_experiment = get_experiment_with_aboutwelcome_feature_branches();
         let newtab_experiment = get_experiment_with_newtab_feature_branches();
         let mixed_experiment = get_experiment_with_different_feature_branches();
-
+        let multi_feature_experiment = get_experiment_with_different_features_same_branch();
         // 1. we have two experiments that use one feature each. There's no conflicts.
         let next_experiments = vec![aboutwelcome_experiment.clone(), newtab_experiment.clone()];
 
@@ -2416,7 +2712,11 @@ mod tests {
         // 4b. Add the single feature experiments.
         let prev_enrollments = enrollments;
         let prev_experiments = next_experiments;
-        let next_experiments = vec![aboutwelcome_experiment, newtab_experiment, mixed_experiment];
+        let next_experiments = vec![
+            aboutwelcome_experiment,
+            newtab_experiment,
+            mixed_experiment.clone(),
+        ];
         let (enrollments, events) = evolver.evolve_enrollments(
             true,
             &prev_experiments,
@@ -2448,6 +2748,81 @@ mod tests {
                 .collect::<HashSet<_>>()
         );
 
+        // 5. Add in experiment with conflicting features on the **same branch**
+        // should not be enrolled!
+        let prev_enrollments = enrollments;
+        let prev_experiments = next_experiments;
+        let next_experiments = vec![mixed_experiment, multi_feature_experiment.clone()];
+        let (enrollments, events) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        assert_eq!(events.len(), 0);
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 2);
+        assert_eq!(
+            feature_map.get("about_welcome").unwrap().slug,
+            "mixed-feature-experiment"
+        );
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "mixed-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec!["mixed-feature-experiment"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<_>>()
+        );
+
+        // 6. Now we remove the mixed experiment, and we should get enrolled
+        let prev_enrollments = enrollments;
+        let prev_experiments = next_experiments;
+        let next_experiments = vec![multi_feature_experiment];
+        let (enrollments, _) = evolver.evolve_enrollments(
+            true,
+            &prev_experiments,
+            &next_experiments,
+            &prev_enrollments,
+        )?;
+
+        let feature_map = map_features_by_feature_id(&enrollments, &next_experiments);
+        assert_eq!(feature_map.len(), 3);
+        assert_eq!(
+            feature_map.get("about_welcome").unwrap().slug,
+            "multi-feature-experiment"
+        );
+        assert_eq!(
+            feature_map.get("newtab").unwrap().slug,
+            "multi-feature-experiment"
+        );
+
+        assert_eq!(
+            feature_map.get("onboarding").unwrap().slug,
+            "multi-feature-experiment"
+        );
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|&e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .map(|e| e.slug.clone())
+                .collect::<HashSet<_>>(),
+            vec!["multi-feature-experiment"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<HashSet<_>>()
+        );
+
         Ok(())
     }
 
@@ -2455,7 +2830,8 @@ mod tests {
     fn test_evolver_experiment_update_was_enrolled() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -2493,7 +2869,8 @@ mod tests {
 
         let _ = env_logger::try_init();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let targeting_attributes = app_ctx.into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
 
         // test that evolve_enrollments correctly handles the case where a
         // record without a previous enrollment gets dropped
@@ -2536,10 +2913,57 @@ mod tests {
     }
 
     #[test]
+    fn test_evolve_enrollments_is_already_enrolled_targeting() -> Result<()> {
+        let _ = env_logger::try_init();
+        let (nimbus_id, mut app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.clone().into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
+
+        // The targeting for this experiment is
+        // "app_id == 'org.mozilla.fenix' || is_already_enrolled"
+        let test_experiment = get_is_already_enrolled_targeting_experiment();
+        let test_experiments = &[test_experiment];
+        // The user should get enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
+        // and the 'is_already_enrolled'
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], test_experiments, &[])?;
+        assert_eq!(
+            enrollments.len(),
+            1,
+            "One enrollment should have been returned"
+        );
+
+        assert_eq!(events.len(), 1, "One event should have been returned");
+
+        // we change the app_id so the targeting will only target
+        // against the `is_already_enrolled`
+        app_ctx.app_id = "org.mozilla.bobo".into();
+        let targeting_attributes = app_ctx.into();
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
+
+        // The user should still be enrolled, since the targeting is OR'ing the app_id == 'org.mozilla.fenix'
+        // and the 'is_already_enrolled'
+        let (enrollments, events) =
+            evolver.evolve_enrollments(true, test_experiments, test_experiments, &enrollments)?;
+        assert_eq!(
+            enrollments.len(),
+            1,
+            "The previous enrollment should have been evolved"
+        );
+
+        assert_eq!(
+            events.len(),
+            0,
+            "no new events should have been returned, the user was already enrolled"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn test_evolver_experiment_update_error() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: exp.slug.clone(),
@@ -2547,6 +2971,7 @@ mod tests {
                 reason: "heh".to_owned(),
             },
         };
+        // We should attempt to enroll even though we errored out!
         let enrollment = evolver
             .evolve_enrollment(
                 true,
@@ -2556,8 +2981,11 @@ mod tests {
                 &mut events,
             )?
             .unwrap();
-        assert_eq!(enrollment, existing_enrollment);
-        assert!(events.is_empty());
+        assert!(matches!(
+            enrollment.status,
+            EnrollmentStatus::Enrolled { .. }
+        ));
+        assert_eq!(events.len(), 1);
         Ok(())
     }
 
@@ -2565,7 +2993,8 @@ mod tests {
     fn test_evolver_experiment_ended_was_enrolled() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -2608,7 +3037,8 @@ mod tests {
     fn test_evolver_experiment_ended_was_disqualified() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let enrollment_id = Uuid::new_v4();
         let existing_enrollment = ExperimentEnrollment {
@@ -2651,7 +3081,8 @@ mod tests {
     fn test_evolver_experiment_ended_was_not_enrolled() -> Result<()> {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: exp.slug.clone(),
@@ -2674,7 +3105,8 @@ mod tests {
     #[test]
     fn test_evolver_garbage_collection_before_threshold() -> Result<()> {
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: "secure-gold".to_owned(),
@@ -2694,7 +3126,8 @@ mod tests {
     #[test]
     fn test_evolver_garbage_collection_after_threshold() -> Result<()> {
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let mut events = vec![];
         let existing_enrollment = ExperimentEnrollment {
             slug: "secure-gold".to_owned(),
@@ -2723,7 +3156,8 @@ mod tests {
             },
         };
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let res = evolver.evolve_enrollment(
             true,
             None,
@@ -2738,7 +3172,8 @@ mod tests {
     fn test_evolver_existing_experiment_has_no_enrollment() {
         let exp = get_test_experiments()[0].clone();
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         let res = evolver.evolve_enrollment(true, Some(&exp), Some(&exp), None, &mut vec![]);
         assert!(res.is_err());
     }
@@ -2747,10 +3182,341 @@ mod tests {
     #[should_panic]
     fn test_evolver_no_experiments_no_enrollment() {
         let (nimbus_id, app_ctx, aru) = local_ctx();
-        let evolver = enrollment_evolver(&nimbus_id, &app_ctx, &aru);
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
         evolver
             .evolve_enrollment(true, None, None, None, &mut vec![])
             .unwrap();
+    }
+
+    #[test]
+    fn test_evolver_rollouts_do_not_conflict_with_experiments() -> Result<()> {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        ..Default::default()
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            ..experiment.clone()
+        };
+
+        let recipes = &[experiment, rollout];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+        assert_eq!(enrollments.len(), 2);
+        assert_eq!(events.len(), 2);
+
+        assert_eq!(
+            enrollments
+                .iter()
+                .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+                .count(),
+            2
+        );
+
+        let slugs: Vec<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
+        assert_eq!(slugs, vec![ro_slug, exp_slug]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_evolver_rollouts_do_not_conflict_with_rollouts() -> Result<()> {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        ..Default::default()
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            ..experiment.clone()
+        };
+
+        let ro_slug2 = "rollout2".to_string();
+        let rollout2 = Experiment {
+            slug: ro_slug2.clone(),
+            ..rollout.clone()
+        };
+
+        let recipes = &[experiment, rollout, rollout2];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+        let (enrollments, events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+        assert_eq!(enrollments.len(), 3);
+        assert_eq!(events.len(), 2);
+
+        let enrollments: Vec<ExperimentEnrollment> = enrollments
+            .into_iter()
+            .filter(|e| matches!(e.status, EnrollmentStatus::Enrolled { .. }))
+            .collect();
+
+        assert_eq!(enrollments.len(), 2);
+
+        let slugs: HashSet<String> = enrollments.iter().map(|e| e.slug.clone()).collect();
+        assert!(slugs.contains(&exp_slug));
+        // we want one rollout slug, or the other, but not both, and not none.
+        assert!(slugs.contains(&ro_slug) ^ slugs.contains(&ro_slug2));
+        Ok(())
+    }
+
+    #[test]
+    fn test_defaults_merging_feature_configs() -> Result<()> {
+        let exp_bob = FeatureConfig {
+            feature_id: "bob".into(),
+            value: json!({
+                "specified": "Experiment in part".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
+        };
+        let ro_bob = FeatureConfig {
+            feature_id: "bob".into(),
+            value: json!({
+                "name": "Bob".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+            .as_object()
+            .unwrap()
+            .to_owned(),
+        };
+
+        let bob = exp_bob.defaults(&ro_bob)?;
+        assert_eq!(bob.feature_id, "bob".to_string());
+
+        assert_eq!(
+            Value::Object(bob.value),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        let exp_bob = EnrolledFeatureConfig {
+            feature: exp_bob.clone(),
+            slug: "exp".to_string(),
+            branch: Some("treatment".to_string()),
+            feature_id: exp_bob.feature_id,
+        };
+
+        let ro_bob = EnrolledFeatureConfig {
+            feature: ro_bob,
+            slug: "ro".to_string(),
+            branch: None,
+            feature_id: exp_bob.feature_id.clone(),
+        };
+
+        let bob = exp_bob.defaults(&ro_bob)?.feature;
+        assert_eq!(bob.feature_id, "bob".to_string());
+
+        assert_eq!(
+            Value::Object(bob.value),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        Ok(())
+    }
+
+    fn get_rollout_and_experiment() -> (Experiment, Experiment) {
+        let exp_slug = "experiment1".to_string();
+        let experiment = Experiment {
+            slug: exp_slug.clone(),
+            is_rollout: false,
+            branches: vec![Branch {
+                slug: exp_slug,
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "alice".into(),
+                        value: json!({
+                            "name": "Alice".to_string(),
+                            "specified": "Experiment only".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        value: json!({
+                            "specified": "Experiment in part".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        let ro_slug = "rollout1".to_string();
+        let rollout = Experiment {
+            slug: ro_slug.clone(),
+            is_rollout: true,
+            branches: vec![Branch {
+                slug: ro_slug,
+                features: Some(vec![
+                    FeatureConfig {
+                        feature_id: "bob".into(),
+                        value: json!({
+                            "name": "Bob".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                    FeatureConfig {
+                        feature_id: "charlie".into(),
+                        value: json!({
+                            "name": "Charlie".to_string(),
+                            "specified": "Rollout".to_string(),
+                        })
+                        .as_object()
+                        .unwrap()
+                        .to_owned(),
+                    },
+                ]),
+                ratio: 1,
+                ..Default::default()
+            }],
+            bucket_config: BucketConfig::always(),
+            ..Default::default()
+        };
+
+        (rollout, experiment)
+    }
+
+    fn assert_alice_bob_charlie(features: &HashMap<String, EnrolledFeatureConfig>) {
+        assert_eq!(features.len(), 3);
+
+        let alice = &features["alice"];
+        let bob = &features["bob"];
+        let charlie = &features["charlie"];
+
+        assert!(!alice.is_rollout());
+        assert_eq!(
+            Value::Object(alice.feature.value.clone()),
+            json!({
+                "name": "Alice".to_string(),
+                "specified": "Experiment only".to_string(),
+            })
+        );
+
+        assert!(!bob.is_rollout());
+        assert_eq!(
+            Value::Object(bob.feature.value.clone()),
+            json!({
+                "name": "Bob".to_string(),
+                "specified": "Experiment in part".to_string(),
+            })
+        );
+
+        assert!(charlie.is_rollout());
+        assert_eq!(
+            Value::Object(charlie.feature.value.clone()),
+            json!({
+                "name": "Charlie".to_string(),
+                "specified": "Rollout".to_string(),
+            })
+        );
+    }
+
+    #[test]
+    fn test_evolver_map_features_by_feature_id_merges_rollouts() -> Result<()> {
+        let (rollout, experiment) = get_rollout_and_experiment();
+        let (exp_slug, ro_slug) = (rollout.slug.clone(), experiment.slug.clone());
+
+        let exp_enrollment = ExperimentEnrollment {
+            slug: exp_slug.clone(),
+            status: EnrollmentStatus::Enrolled {
+                branch: exp_slug,
+                enrollment_id: Default::default(),
+                reason: EnrolledReason::Qualified,
+            },
+        };
+
+        let ro_enrollment = ExperimentEnrollment {
+            slug: ro_slug.clone(),
+            status: EnrollmentStatus::Enrolled {
+                branch: ro_slug,
+                enrollment_id: Default::default(),
+                reason: EnrolledReason::Qualified,
+            },
+        };
+        let enrollments = &[ro_enrollment, exp_enrollment];
+        let experiments = &[experiment, rollout];
+        let features = map_features_by_feature_id(enrollments, experiments);
+
+        assert_alice_bob_charlie(&features);
+        Ok(())
+    }
+
+    #[test]
+    fn test_rollouts_end_to_end() -> Result<()> {
+        let (rollout, experiment) = get_rollout_and_experiment();
+        let recipes = &[rollout, experiment];
+
+        let (nimbus_id, app_ctx, aru) = local_ctx();
+        let targeting_attributes = app_ctx.into();
+        let evolver = enrollment_evolver(&nimbus_id, &targeting_attributes, &aru);
+
+        let (enrollments, _events) = evolver.evolve_enrollments(true, &[], recipes, &[])?;
+
+        let features = map_features_by_feature_id(&enrollments, recipes);
+
+        assert_alice_bob_charlie(&features);
+
+        Ok(())
     }
 
     #[test]
@@ -2863,15 +3629,16 @@ mod tests {
         let exp1 = get_test_experiments()[0].clone();
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
-        let app_ctx = AppContext {
+        let targeting_attributes = AppContext {
             app_name: "fenix".to_string(),
             app_id: "org.mozilla.fenix".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
-        };
+        }
+        .into();
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
 
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &[exp1])?;
 
         let enrollments = get_enrollments(&db, &writer)?;
@@ -2943,16 +3710,17 @@ mod tests {
         let mut writer = db.write()?;
         let nimbus_id = Uuid::new_v4();
         let aru = Default::default();
-        let app_ctx = AppContext {
+        let targeting_attributes = AppContext {
             app_name: "fenix".to_string(),
             app_id: "org.mozilla.fenix".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
-        };
+        }
+        .into();
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         let exps = get_test_experiments();
 
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
         let enrollments = get_enrollments(&db, &writer)?;
@@ -2961,7 +3729,7 @@ mod tests {
 
         // pretend we just updated from the server and one of the 2 is missing.
         let exps = &[exps[1].clone()];
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, exps)?;
 
         // should only have 1 now.
@@ -2987,12 +3755,13 @@ mod tests {
         let db = Database::new(&tmp_dir)?;
         let mut writer = db.write()?;
         let nimbus_id = Uuid::new_v4();
-        let app_ctx = AppContext {
+        let targeting_attributes = AppContext {
             app_name: "fenix".to_string(),
             app_id: "org.mozilla.fenix".to_string(),
             channel: "nightly".to_string(),
             ..Default::default()
-        };
+        }
+        .into();
         let aru = Default::default();
         assert_eq!(get_enrollments(&db, &writer)?.len(), 0);
         let exps = get_test_experiments();
@@ -3000,7 +3769,7 @@ mod tests {
         // User has opted out of new experiments.
         set_global_user_participation(&db, &mut writer, false)?;
 
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
         let enrollments = get_enrollments(&db, &writer)?;
@@ -3024,7 +3793,7 @@ mod tests {
         // User opts in, and updating should enroll us in 2 experiments.
         set_global_user_participation(&db, &mut writer, true)?;
 
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
         let enrollments = get_enrollments(&db, &writer)?;
@@ -3041,7 +3810,7 @@ mod tests {
         // Opting out and updating should give us two disqualified enrollments
         set_global_user_participation(&db, &mut writer, false)?;
 
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
         let enrollments = get_enrollments(&db, &writer)?;
@@ -3049,7 +3818,8 @@ mod tests {
         assert_eq!(events.len(), 2);
         // We should see 2 experiment enrolments, this time they're both opt outs
         assert_eq!(get_experiment_enrollments(&db, &writer)?.len(), 2);
-        let disqualified_enrollments: Vec<ExperimentEnrollment> =
+
+        assert_eq!(
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
                 .filter(|enr| {
@@ -3061,19 +3831,21 @@ mod tests {
                         }
                     )
                 })
-                .collect();
-        assert_eq!(disqualified_enrollments.len(), 2);
+                .count(),
+            2
+        );
 
         // Opting in again and updating SHOULD NOT enroll us again (we've been disqualified).
         set_global_user_participation(&db, &mut writer, true)?;
 
-        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &app_ctx);
+        let evolver = EnrollmentsEvolver::new(&nimbus_id, &aru, &targeting_attributes);
         let events = evolver.evolve_enrollments_in_db(&db, &mut writer, &exps)?;
 
         let enrollments = get_enrollments(&db, &writer)?;
         assert_eq!(enrollments.len(), 0);
         assert!(events.is_empty());
-        let disqualified_enrollments: Vec<ExperimentEnrollment> =
+
+        assert_eq!(
             get_experiment_enrollments(&db, &writer)?
                 .into_iter()
                 .filter(|enr| {
@@ -3085,8 +3857,9 @@ mod tests {
                         }
                     )
                 })
-                .collect();
-        assert_eq!(disqualified_enrollments.len(), 2);
+                .count(),
+            2
+        );
 
         writer.commit()?;
         Ok(())
@@ -3192,8 +3965,54 @@ mod tests {
         } if reason == "optout"
             && *experiment_slug == mock_exp1_slug
             && *branch_slug == mock_exp1_branch
-            && ! Uuid::parse_str(&enrollment_id)?.is_nil()
+            && ! Uuid::parse_str(enrollment_id)?.is_nil()
         ));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_experiments_by_closure() -> Result<()> {
+        let experiment = Experiment {
+            slug: "experiment1".into(),
+            is_rollout: false,
+            ..Default::default()
+        };
+        let ex_enrollment = ExperimentEnrollment {
+            slug: experiment.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused,
+            },
+        };
+
+        let rollout = Experiment {
+            slug: "rollout1".into(),
+            is_rollout: true,
+            ..Default::default()
+        };
+        let ro_enrollment = ExperimentEnrollment {
+            slug: rollout.slug.clone(),
+            status: EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::EnrollmentsPaused,
+            },
+        };
+
+        let recipes = &[experiment.clone(), rollout.clone()];
+        let enrollments = &[ro_enrollment, ex_enrollment];
+
+        let (ro, ro_enrollments) =
+            filter_experiments_and_enrollments(recipes, enrollments, Experiment::is_rollout);
+        assert_eq!(ro.len(), 1);
+        assert_eq!(ro_enrollments.len(), 1);
+        assert_eq!(ro[0].slug, rollout.slug);
+        assert_eq!(ro_enrollments[0].slug, rollout.slug);
+
+        let (experiments, exp_enrollments) =
+            filter_experiments_and_enrollments(recipes, enrollments, |e| !e.is_rollout());
+        assert_eq!(experiments.len(), 1);
+        assert_eq!(exp_enrollments.len(), 1);
+        assert_eq!(experiments[0].slug, experiment.slug);
+        assert_eq!(exp_enrollments[0].slug, experiment.slug);
 
         Ok(())
     }

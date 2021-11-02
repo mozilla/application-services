@@ -13,6 +13,11 @@ dictionary AppContext {
     string? os_version;
     string? android_sdk_version;
     string? debug_tag;
+    // Note that installation date is 
+    // the unix time, which is milliseconds since epoch
+    i64? installation_date;
+    string? home_directory;
+    record<DOMString, string>? custom_targeting_attributes;
 };
 
 dictionary EnrolledExperiment {

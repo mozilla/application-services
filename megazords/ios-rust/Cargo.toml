@@ -1,0 +1,23 @@
+[package]
+name = "ios_rust"
+edition = "2018"
+version = "0.1.0"
+authors = ["application-services <application-services@mozilla.com>"]
+license = "MPL-2.0"
+
+[lib]
+crate-type = ["staticlib"]
+
+[dependencies]
+rc_log_ffi = { path = "../../components/rc_log" }
+viaduct = { path = "../../components/viaduct" }
+viaduct-reqwest = { path = "../../components/support/viaduct-reqwest" }
+nimbus-sdk = { path = "../../components/nimbus" }
+crashtest = { path = "../../components/crashtest" }
+fxa-client = { path = "../../components/fxa-client" }
+logins = { path = "../../components/logins" }
+autofill = { path = "../../components/autofill" }
+push = { path = "../../components/push" }
+tabs = { path = "../../components/tabs" }
+places = {path = "../../components/places" }
+places-ffi = { path = "../../components/places/ffi" }

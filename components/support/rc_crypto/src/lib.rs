@@ -27,6 +27,7 @@
 pub mod aead;
 pub mod agreement;
 pub mod constant_time;
+pub mod contentsignature;
 pub mod digest;
 #[cfg(feature = "ece")]
 pub mod ece_crypto;

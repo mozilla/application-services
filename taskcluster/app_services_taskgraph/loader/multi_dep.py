@@ -2,14 +2,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-from __future__ import absolute_import, print_function, unicode_literals
 
 import copy
 
 from voluptuous import Required
 
 from taskgraph.task import Task
-from taskgraph.util.attributes import sorted_unique_list
 from taskgraph.util.schema import Schema
 
 from . import group_tasks
@@ -20,7 +18,7 @@ schema = Schema({
     Required(
         'dependent-tasks',
         'dictionary of dependent tasks, keyed by kind',
-    ): {basestring: Task},
+    ): {str: Task},
 })
 
 
@@ -67,7 +65,7 @@ def get_primary_dep(config, dep_tasks):
     is the primary dependency. If it's undefined, return the first dep.
     """
     primary_dependencies = config.get('primary-dependency')
-    if isinstance(primary_dependencies, basestring):
+    if isinstance(primary_dependencies, str):
         primary_dependencies = [primary_dependencies]
     if not primary_dependencies:
         assert len(dep_tasks) == 1, "Must define a primary-dependency!"

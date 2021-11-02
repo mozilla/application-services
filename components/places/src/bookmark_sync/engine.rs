@@ -80,7 +80,7 @@ impl<'a> BookmarksEngine<'a> {
         let timestamp = inbound.timestamp;
         let mut tx = self.db.begin_transaction()?;
 
-        let applicator = IncomingApplicator::new(&self.db);
+        let applicator = IncomingApplicator::new(self.db);
 
         for incoming in inbound.changes {
             applicator.apply_payload(incoming.0, incoming.1)?;
@@ -88,14 +88,14 @@ impl<'a> BookmarksEngine<'a> {
             if tx.should_commit() {
                 // Trigger frecency updates for all new origins.
                 log::debug!("Updating origins for new synced URLs since last commit");
-                delete_pending_temp_tables(&self.db)?;
+                delete_pending_temp_tables(self.db)?;
             }
             tx.maybe_commit()?;
             self.interruptee.err_if_interrupted()?;
         }
 
         log::debug!("Updating origins for new synced URLs in last chunk");
-        delete_pending_temp_tables(&self.db)?;
+        delete_pending_temp_tables(self.db)?;
 
         tx.commit()?;
         Ok(timestamp)
@@ -848,12 +848,8 @@ impl<'a> BookmarksEngine<'a> {
                 // Frecency recalculation runs several statements, so check to
                 // make sure we aren't interrupted before each calculation.
                 self.interruptee.err_if_interrupted()?;
-                let frecency = calculate_frecency(
-                    &self.db,
-                    &DEFAULT_FRECENCY_SETTINGS,
-                    place_id,
-                    Some(false),
-                )?;
+                let frecency =
+                    calculate_frecency(self.db, &DEFAULT_FRECENCY_SETTINGS, place_id, Some(false))?;
                 frecencies.push((place_id, frecency));
             }
             if frecencies.is_empty() {
@@ -928,7 +924,7 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         // Merge.
-        let mut merger = Merger::with_telemetry(&self, timestamp, telem);
+        let mut merger = Merger::with_telemetry(self, timestamp, telem);
         merger.merge()?;
 
         // Finally, stage outgoing items.
@@ -973,7 +969,7 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(&self.db, assoc)?;
+        reset(self.db, assoc)?;
         Ok(())
     }
 
@@ -1334,7 +1330,7 @@ impl<'a> dogear::Store for Merger<'a> {
         let mut results = stmt.query(NO_PARAMS)?;
         let mut builder = match results.next()? {
             Some(row) => {
-                let (item, _) = self.local_row_to_item(&row)?;
+                let (item, _) = self.local_row_to_item(row)?;
                 Tree::with_root(item)
             }
             None => return Err(ErrorKind::Corruption(Corruption::InvalidLocalRoots).into()),
@@ -1364,7 +1360,7 @@ impl<'a> dogear::Store for Merger<'a> {
         while let Some(row) = results.next()? {
             self.engine.interruptee.err_if_interrupted()?;
 
-            let (item, content) = self.local_row_to_item(&row)?;
+            let (item, content) = self.local_row_to_item(row)?;
 
             let parent_guid = row.get::<_, SyncGuid>("parentGuid")?;
             child_guids_by_parent_guid
@@ -1458,7 +1454,7 @@ impl<'a> dogear::Store for Merger<'a> {
                 let guid = row.get::<_, SyncGuid>("guid")?;
                 builder.deletion(guid.as_str().into());
             } else {
-                let (item, content) = self.remote_row_to_item(&row)?;
+                let (item, content) = self.remote_row_to_item(row)?;
                 let mut p = builder.item(item)?;
                 if let Some(content) = content {
                     p.content(content);
@@ -1787,7 +1783,7 @@ mod tests {
     ) -> Vec<Guid> {
         // suck records into the engine.
         let interrupt_scope = conn.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&conn, &interrupt_scope);
+        let engine = BookmarksEngine::new(conn, &interrupt_scope);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), remote_time);
 
@@ -1856,7 +1852,6 @@ mod tests {
 
     #[test]
     fn test_fetch_remote_tree() -> Result<()> {
-        let _ = env_logger::try_init();
         let records = vec![
             json!({
                 "id": "qqVTRWhLBOu3",
@@ -3005,8 +3000,6 @@ mod tests {
 
     #[test]
     fn test_apply_tombstones() -> Result<()> {
-        let _ = env_logger::try_init();
-
         let local_modified = Timestamp::now();
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
@@ -3460,7 +3453,7 @@ mod tests {
             .validity(SyncedBookmarkValidity::Valid)
             .kind(SyncedBookmarkKind::Bookmark)
             .url(Some("http://example.com/b"))
-            .keyword(Some(&keyword_for_b));
+            .keyword(Some(keyword_for_b));
         let mut synced_item_for_c = SyncedBookmarkItem::new();
         synced_item_for_c
             .validity(SyncedBookmarkValidity::Valid)
@@ -3795,8 +3788,6 @@ mod tests {
 
     #[test]
     fn test_dedupe_local_newer() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
@@ -3914,8 +3905,6 @@ mod tests {
 
     #[test]
     fn test_deduping_remote_newer() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;
@@ -4151,8 +4140,6 @@ mod tests {
 
     #[test]
     fn test_reconcile_sync_metadata() -> anyhow::Result<()> {
-        let _ = env_logger::try_init();
-
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let syncer = api.open_sync_connection()?;

@@ -66,9 +66,9 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     testImplementation "junit:junit:$junit_version"
-    testImplementation "org.robolectric:robolectric:$roboelectric_core_version"
+    testImplementation "org.robolectric:robolectric:$robolectric_core_version"
     testImplementation "org.mockito:mockito-core:$mockito_core_version"
 
-    androidTestImplementation "com.android.support.test:runner:$android_test_runner_version"
-    androidTestImplementation "com.android.support.test.espresso:$espresso_core_version"
+    androidTestImplementation "androidx.test:runner:$androidx_test_runner_version"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$espresso_core_version"
 }

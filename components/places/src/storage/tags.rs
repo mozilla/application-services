@@ -66,7 +66,7 @@ pub fn validate_tag(tag: &str) -> ValidatedTag<'_> {
 ///
 /// There is no success return value.
 pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
-    let tag = validate_tag(&tag).ensure_valid()?;
+    let tag = validate_tag(tag).ensure_valid()?;
     let tx = db.begin_transaction()?;
 
     // This function will not create a new place.
@@ -107,7 +107,7 @@ pub fn tag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
 /// There is no success return value - the operation is ignored if the URL
 /// does not have the tag.
 pub fn untag_url(db: &PlacesDb, url: &Url, tag: &str) -> Result<()> {
-    let tag = validate_tag(&tag).ensure_valid()?;
+    let tag = validate_tag(tag).ensure_valid()?;
     db.execute_named_cached(
         "DELETE FROM moz_tags_relation
          WHERE tag_id = (SELECT id FROM moz_tags
@@ -176,7 +176,7 @@ pub fn remove_tag(db: &PlacesDb, tag: &str) -> Result<()> {
 /// * A Vec<Url> with all URLs which have the tag, ordered by the frecency of
 /// the URLs.
 pub fn get_urls_with_tag(db: &PlacesDb, tag: &str) -> Result<Vec<Url>> {
-    let tag = validate_tag(&tag).ensure_valid()?;
+    let tag = validate_tag(tag).ensure_valid()?;
 
     let mut stmt = db.prepare(
         "SELECT p.url FROM moz_places p
@@ -232,7 +232,7 @@ mod tests {
     use crate::storage::new_page_info;
 
     fn check_tags_for_url(db: &PlacesDb, url: &Url, mut expected: Vec<String>) {
-        let mut tags = get_tags_for_url(&db, &url).expect("should work");
+        let mut tags = get_tags_for_url(db, url).expect("should work");
         tags.sort();
         expected.sort();
         assert_eq!(tags, expected);

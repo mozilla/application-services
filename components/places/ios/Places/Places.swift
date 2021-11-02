@@ -4,6 +4,12 @@
 
 import Foundation
 import os.log
+#if canImport(Sync15)
+    import Sync15
+#endif
+#if canImport(MozillaRustComponents)
+    import MozillaRustComponents
+#endif
 
 internal typealias APIHandle = UInt64
 internal typealias ConnectionHandle = UInt64
@@ -516,56 +522,52 @@ public class PlacesReadConnection {
         }
     }
 
-    // MARK: History Metadata
-
     open func getLatestHistoryMetadataForUrl(url: String) throws -> HistoryMetadata? {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                places_get_latest_history_metadata_for_url(self.handle, url, error)
+            return try PlacesError.unwrapWithUniffi { _ in
+                try placesGetLatestHistoryMetadataForUrl(handle: Int64(self.handle), url: url)
             }
-            if buffer.data == nil {
-                return nil
-            }
-            defer { places_destroy_bytebuffer(buffer) }
-            let msg = try MsgTypes_HistoryMetadata(serializedData: Data(placesRustBuffer: buffer))
-            return unpackMetadataProtobuf(msg: msg)
         }
     }
 
     open func getHistoryMetadataSince(since: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                places_get_history_metadata_since(self.handle, since, error)
+            let result = try PlacesError.unwrapWithUniffi { _ in
+                try placesGetHistoryMetadataSince(handle: Int64(self.handle), start: since)
             }
-            defer { places_destroy_bytebuffer(buffer) }
-            let msg = try MsgTypes_HistoryMetadataList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackMetadataListProtobuf(msg: msg)
+            return result ?? []
         }
     }
 
     open func getHistoryMetadataBetween(start: Int64, end: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                places_get_history_metadata_between(self.handle, start, end, error)
+            let result = try PlacesError.unwrapWithUniffi { _ in
+                try placesGetHistoryMetadataBetween(handle: Int64(self.handle), start: start, end: end)
             }
-            defer { places_destroy_bytebuffer(buffer) }
-            let msg = try MsgTypes_HistoryMetadataList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackMetadataListProtobuf(msg: msg)
+            return result ?? []
+        }
+    }
+
+    open func getHighlights(weights: HistoryHighlightWeights, limit: Int32) throws -> [HistoryHighlight] {
+        return try queue.sync {
+            try self.checkApi()
+            let result = try PlacesError.unwrapWithUniffi { _ in
+                try placesGetHistoryHighlights(handle: Int64(self.handle), weights: weights, limit: limit)
+            }
+            return result ?? []
         }
     }
 
     open func queryHistoryMetadata(query: String, limit: Int32) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let buffer = try PlacesError.unwrap { error in
-                places_query_history_metadata(self.handle, query, limit, error)
+            let result = try PlacesError.unwrapWithUniffi { _ in
+                try placesQueryHistoryMetadata(handle: Int64(self.handle), query: query, limit: limit)
             }
-            defer { places_destroy_bytebuffer(buffer) }
-            let msg = try MsgTypes_HistoryMetadataList(serializedData: Data(placesRustBuffer: buffer))
-            return unpackMetadataListProtobuf(msg: msg)
+            return result ?? []
         }
     }
 
@@ -885,48 +887,67 @@ public class PlacesWriteConnection: PlacesReadConnection {
         return msg
     }
 
-    // MARK: History Metadata
-
     open func noteHistoryMetadataObservation(
-        key: HistoryMetadataKey,
         observation: HistoryMetadataObservation
     ) throws {
         try queue.sync {
             try self.checkApi()
+            try placesNoteHistoryMetadataObservation(handle: Int64(self.handle), data: observation)
+        }
+    }
 
-            var msg = MsgTypes_HistoryMetadataObservation()
-            msg.url = key.url
-            if let p = key.referrerUrl {
-                msg.referrerURL = p
-            }
-            if let s = key.searchTerm {
-                msg.searchTerm = s
-            }
+    // Keeping these three functions inline with what Kotlin (PlacesConnection.kt)
+    // to make future work more symmetrical
+    open func noteHistoryMetadataObservationViewTime(key: HistoryMetadataKey, viewTime: Int32?) throws {
+        let obs = HistoryMetadataObservation(
+            url: key.url,
+            referrerUrl: key.referrerUrl,
+            searchTerm: key.searchTerm,
+            viewTime: viewTime
+        )
+        try noteHistoryMetadataObservation(observation: obs)
+    }
 
-            switch observation {
-            case let .viewTimeObservation(viewTime):
-                msg.viewTime = viewTime
-            case let .documentTypeObservation(documentType):
-                msg.documentType = documentType.rawValue
-            case let .titleObservation(title):
-                msg.title = title
-            }
+    open func noteHistoryMetadataObservationDocumentType(key: HistoryMetadataKey, documentType: DocumentType) throws {
+        let obs = HistoryMetadataObservation(
+            url: key.url,
+            referrerUrl: key.referrerUrl,
+            searchTerm: key.searchTerm,
+            documentType: documentType
+        )
+        try noteHistoryMetadataObservation(observation: obs)
+    }
 
-            let data = try! msg.serializedData()
-            let size = Int32(data.count)
-            try data.withUnsafeBytes { bytes in
-                try PlacesError.unwrap { error in
-                    places_note_history_metadata_observation(
-                        self.handle, bytes.bindMemory(to: UInt8.self).baseAddress!, size, error
-                    )
-                }
+    open func noteHistoryMetadataObservationTitle(key: HistoryMetadataKey, title: String) throws {
+        let obs = HistoryMetadataObservation(
+            url: key.url,
+            referrerUrl: key.referrerUrl,
+            searchTerm: key.searchTerm,
+            title: title
+        )
+        try noteHistoryMetadataObservation(observation: obs)
+    }
+
+    open func deleteHistoryMetadataOlderThan(olderThan: Int64) throws {
+        try queue.sync {
+            try self.checkApi()
+            try PlacesError.unwrapWithUniffi { _ in
+                try placesMetadataDeleteOlderThan(handle: Int64(self.handle), olderThan: olderThan)
             }
         }
     }
 
-    open func deleteHistoryMetadaOlderThan(olderThan: Int64) throws {
-        try PlacesError.unwrap { error in
-            places_metadata_delete_older_than(self.handle, olderThan, error)
+    open func deleteHistoryMetadata(key: HistoryMetadataKey) throws {
+        try queue.sync {
+            try self.checkApi()
+            try PlacesError.unwrapWithUniffi { _ in
+                try placesMetadataDelete(
+                    handle: Int64(self.handle),
+                    url: key.url,
+                    referrerUrl: key.referrerUrl,
+                    searchTerm: key.searchTerm
+                )
+            }
         }
     }
 }

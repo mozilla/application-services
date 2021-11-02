@@ -286,7 +286,8 @@ def swift_format():
     if on_darwin():
         run_command([
             'swiftformat', 'megazords', 'components/*/ios',
-            '--exclude', '**/Generated', '--lint', '--swiftversion', '4',
+            '--exclude', '**/Generated', '--exclude', 'components/nimbus/ios/Nimbus/Utils',
+            '--lint', '--swiftversion', '4',
         ])
     else:
         print("WARNING: skipping swiftformat on non-Darwin host")

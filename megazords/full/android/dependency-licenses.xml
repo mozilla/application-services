@@ -86,7 +86,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: bitflags</name>
-    <url>https://github.com/bitflags/bitflags/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/bitflags/bitflags/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: block-buffer</name>
@@ -102,7 +102,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: cc</name>
-    <url>https://github.com/alexcrichton/cc-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/alexcrichton/cc-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cfg-if</name>
@@ -111,6 +111,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: cfg-if</name>
     <url>https://github.com/alexcrichton/cfg-if/blob/main/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: chrono</name>
+    <url>https://github.com/chronotope/chrono/blob/main/LICENSE.txt</url>
   </license>
   <license>
     <name>Apache License 2.0: cpufeatures</name>
@@ -202,7 +206,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: lexical-core</name>
-    <url>https://github.com/Alexhuszagh/rust-lexical/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/Alexhuszagh/rust-lexical/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: libc</name>
@@ -219,6 +223,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: log</name>
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: num-integer</name>
+    <url>https://github.com/rust-num/num-integer/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: num-traits</name>
@@ -377,6 +385,10 @@ the details of which are reproduced below.
     <url>https://github.com/dtolnay/thiserror/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: time</name>
+    <url>https://github.com/time-rs/time/blob/master/LICENSE-Apache</url>
+  </license>
+  <license>
     <name>Apache License 2.0: tinyvec</name>
     <url>https://github.com/Lokathor/tinyvec/blob/main/LICENSE-ZLIB.md</url>
   </license>
@@ -422,7 +434,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: uuid</name>
-    <url>https://github.com/uuid-rs/uuid/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/uuid-rs/uuid/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: version_check</name>
@@ -446,7 +458,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: memchr</name>
-    <url>https://github.com/BurntSushi/rust-memchr/blob/master/LICENSE-MIT</url>
+    <url>https://github.com/BurntSushi/memchr/blob/master/LICENSE-MIT</url>
   </license>
   <license>
     <name>MIT License: bincode</name>
@@ -494,11 +506,11 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>MIT License: nom</name>
-    <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
+    <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
   </license>
   <license>
     <name>MIT License: nom</name>
-    <url>https://github.com/Geal/nom/blob/master/LICENSE</url>
+    <url>https://github.com/Geal/nom/blob/main/LICENSE</url>
   </license>
   <license>
     <name>MIT License: ordered-float</name>

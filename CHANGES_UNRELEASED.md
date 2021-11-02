@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.1...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 

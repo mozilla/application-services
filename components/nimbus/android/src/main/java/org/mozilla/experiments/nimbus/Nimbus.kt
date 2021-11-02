@@ -28,7 +28,7 @@ import org.mozilla.experiments.nimbus.internal.EnrolledExperiment
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEvent
 import org.mozilla.experiments.nimbus.internal.EnrollmentChangeEventType
 import org.mozilla.experiments.nimbus.internal.ExperimentBranch
-import org.mozilla.experiments.nimbus.internal.NimbusErrorException
+import org.mozilla.experiments.nimbus.internal.NimbusException
 import org.mozilla.experiments.nimbus.internal.NimbusClient
 import org.mozilla.experiments.nimbus.internal.NimbusClientInterface
 import org.mozilla.experiments.nimbus.internal.RemoteSettingsConfig
@@ -261,7 +261,13 @@ data class NimbusAppInfo(
      *
      * Examples: "nightly", "beta", "release"
      */
-    val channel: String
+    val channel: String,
+    /**
+     * Application derived attributes measured by the application, but useful for targeting of experiments.
+     *
+     * Example: mapOf("userType": "casual", "isFirstTime": "true")
+     */
+    val customTargetingAttributes: Map<String, String> = mapOf()
 )
 
 /**
@@ -387,11 +393,13 @@ open class Nimbus(
         try {
             thunk()
         } catch (e: Throwable) {
-            try {
-                errorReporter("Error in Nimbus Rust", e)
-            } catch (e1: Throwable) {
-                logger("Exception calling rust: $e")
-                logger("Exception reporting the exception: $e1")
+            if (e !is NimbusException.DatabaseNotReady) {
+                try {
+                    errorReporter("Error in Nimbus Rust", e)
+                } catch (e1: Throwable) {
+                    logger("Exception calling rust: $e")
+                    logger("Exception reporting the exception: $e1")
+                }
             }
             null
         }
@@ -420,9 +428,9 @@ open class Nimbus(
         try {
             nimbusClient.fetchExperiments()
             observer?.onExperimentsFetched()
-        } catch (e: NimbusErrorException.RequestError) {
+        } catch (e: NimbusException.RequestException) {
             errorReporter("Error fetching experiments from endpoint", e)
-        } catch (e: NimbusErrorException.ResponseError) {
+        } catch (e: NimbusException.ResponseException) {
             errorReporter("Error fetching experiments from endpoint", e)
         }
     }
@@ -440,7 +448,7 @@ open class Nimbus(
             nimbusClient.applyPendingExperiments().also(::recordExperimentTelemetryEvents)
             // Get the experiments to record in telemetry
             postEnrolmentCalculation()
-        } catch (e: NimbusErrorException.InvalidExperimentFormat) {
+        } catch (e: NimbusException.InvalidExperimentFormat) {
             errorReporter("Invalid experiment format", e)
         }
     }
@@ -448,10 +456,8 @@ open class Nimbus(
     @WorkerThread
     private fun postEnrolmentCalculation() {
         nimbusClient.getActiveExperiments().let {
-            if (it.any()) {
-                recordExperimentTelemetry(it)
-                observer?.onUpdatesApplied(it)
-            }
+            recordExperimentTelemetry(it)
+            observer?.onUpdatesApplied(it)
         }
     }
 
@@ -484,6 +490,7 @@ open class Nimbus(
     internal fun setGlobalUserParticipationOnThisThread(active: Boolean) = withCatchAll {
         val enrolmentChanges = nimbusClient.setGlobalUserParticipation(active)
         if (enrolmentChanges.isNotEmpty()) {
+            recordExperimentTelemetryEvents(enrolmentChanges)
             postEnrolmentCalculation()
         }
     }
@@ -491,9 +498,15 @@ open class Nimbus(
     override fun optOut(experimentId: String) {
         dbScope.launch {
             withCatchAll {
-                nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
+                optOutOnThisThread(experimentId)
             }
         }
+    }
+
+    @WorkerThread
+    @VisibleForTesting(otherwise = VisibleForTesting.PRIVATE)
+    internal fun optOutOnThisThread(experimentId: String) {
+        nimbusClient.optOut(experimentId).also(::recordExperimentTelemetryEvents)
     }
 
     override fun resetTelemetryIdentifiers() {
@@ -540,24 +553,24 @@ open class Nimbus(
         enrollmentChangeEvents.forEach { event ->
             when (event.change) {
                 EnrollmentChangeEventType.ENROLLMENT -> {
-                    NimbusEvents.enrollment.record(mapOf(
-                        NimbusEvents.enrollmentKeys.experiment to event.experimentSlug,
-                        NimbusEvents.enrollmentKeys.branch to event.branchSlug,
-                        NimbusEvents.enrollmentKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.enrollment.record(NimbusEvents.EnrollmentExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
                 EnrollmentChangeEventType.DISQUALIFICATION -> {
-                    NimbusEvents.disqualification.record(mapOf(
-                        NimbusEvents.disqualificationKeys.experiment to event.experimentSlug,
-                        NimbusEvents.disqualificationKeys.branch to event.branchSlug,
-                        NimbusEvents.disqualificationKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.disqualification.record(NimbusEvents.DisqualificationExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
                 EnrollmentChangeEventType.UNENROLLMENT -> {
-                    NimbusEvents.unenrollment.record(mapOf(
-                        NimbusEvents.unenrollmentKeys.experiment to event.experimentSlug,
-                        NimbusEvents.unenrollmentKeys.branch to event.branchSlug,
-                        NimbusEvents.unenrollmentKeys.enrollmentId to event.enrollmentId
+                    NimbusEvents.unenrollment.record(NimbusEvents.UnenrollmentExtra(
+                        experiment = event.experimentSlug,
+                        branch = event.branchSlug,
+                        enrollmentId = event.enrollmentId
                     ))
                 }
             }
@@ -578,10 +591,10 @@ open class Nimbus(
     internal fun recordExposureOnThisThread(featureId: String) = withCatchAll {
         val activeExperiments = getActiveExperiments()
         activeExperiments.find { it.featureIds.contains(featureId) }?.also { experiment ->
-            NimbusEvents.exposure.record(mapOf(
-                NimbusEvents.exposureKeys.experiment to experiment.slug,
-                NimbusEvents.exposureKeys.branch to experiment.branchSlug,
-                NimbusEvents.exposureKeys.enrollmentId to experiment.enrollmentId
+            NimbusEvents.exposure.record(NimbusEvents.ExposureExtra(
+                experiment = experiment.slug,
+                branch = experiment.branchSlug,
+                enrollmentId = experiment.enrollmentId
             ))
         }
     }
@@ -609,6 +622,9 @@ open class Nimbus(
             deviceModel = Build.MODEL,
             locale = deviceInfo.localeTag,
             os = "Android",
-            osVersion = Build.VERSION.RELEASE)
+            osVersion = Build.VERSION.RELEASE,
+            installationDate = packageInfo?.firstInstallTime,
+            homeDirectory = context.applicationInfo?.dataDir,
+            customTargetingAttributes = appInfo.customTargetingAttributes)
     }
 }

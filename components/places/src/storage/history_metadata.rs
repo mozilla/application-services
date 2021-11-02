@@ -3,18 +3,132 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::db::{PlacesDb, PlacesTransaction};
-use crate::error::Result;
-use crate::msg_types::{HistoryMetadata, HistoryMetadataList, HistoryMetadataObservation};
-use sql_support::{self, ConnExt};
+use crate::error::*;
+use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
+use sql_support::ConnExt;
+use std::convert::TryFrom;
+use std::vec::Vec;
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
 use url::Url;
 
 use lazy_static::lazy_static;
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum DocumentType {
+    Regular = 0,
+    Media = 1,
+}
+
+impl FromSql for DocumentType {
+    #[inline]
+    fn column_result(value: ValueRef<'_>) -> FromSqlResult<Self> {
+        Ok(match value.as_i64()? {
+            0 => DocumentType::Regular,
+            1 => DocumentType::Media,
+            other => {
+                // seems safe to ignore?
+                log::warn!("invalid DocumentType {}", other);
+                DocumentType::Regular
+            }
+        })
+    }
+}
+
+impl ToSql for DocumentType {
+    #[inline]
+    fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+        Ok(ToSqlOutput::from(*self as u32))
+    }
+}
+
+#[derive(Clone)]
+pub struct HistoryHighlightWeights {
+    pub view_time: f64,
+    pub frequency: f64,
+}
+
+#[derive(Clone)]
+pub struct HistoryHighlight {
+    pub score: f64,
+    pub place_id: i32,
+    pub url: String,
+    pub title: Option<String>,
+    pub preview_image_url: Option<String>,
+}
+
+impl HistoryHighlight {
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        Ok(Self {
+            score: row.get("score")?,
+            place_id: row.get("place_id")?,
+            url: row.get("url")?,
+            title: row.get("title")?,
+            preview_image_url: row.get("preview_image_url")?,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct HistoryMetadataObservation {
+    pub url: String,
+    pub view_time: Option<i32>,
+    pub search_term: Option<String>,
+    pub document_type: Option<DocumentType>,
+    pub referrer_url: Option<String>,
+    pub title: Option<String>,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub struct HistoryMetadata {
+    pub url: String,
+    pub title: Option<String>,
+    pub preview_image_url: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub total_view_time: i32,
+    pub search_term: Option<String>,
+    pub document_type: DocumentType,
+    pub referrer_url: Option<String>,
+}
+
+impl HistoryMetadata {
+    pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
+        let created_at: Timestamp = row.get("created_at")?;
+        let updated_at: Timestamp = row.get("updated_at")?;
+
+        // Guard against invalid data in the db.
+        // Certain client bugs allowed accumulating values that are too large to fit into i32,
+        // leading to overflow failures. While this data will expire and will be deleted
+        // by clients via `delete_older_than`, we still want to ensure we won't crash in case of
+        // encountering it.
+        // See `apply_metadata_observation` for where we guard against observing invalid view times.
+        let total_view_time: i64 = row.get("total_view_time")?;
+        let total_view_time = match i32::try_from(total_view_time) {
+            Ok(tvt) => tvt,
+            Err(_) => i32::MAX,
+        };
+
+        Ok(Self {
+            url: row.get("url")?,
+            title: row.get("title")?,
+            preview_image_url: row.get("preview_image_url")?,
+            created_at: created_at.0 as i64,
+            updated_at: updated_at.0 as i64,
+            total_view_time,
+            search_term: row.get("search_term")?,
+            document_type: row.get("document_type")?,
+            referrer_url: row.get("referrer_url")?,
+        })
+    }
+}
+
 enum PlaceEntry {
     Existing(i64),
     CreateFor(Url, Option<String>),
+}
+
+trait WhereArg {
+    fn to_where_arg(&self, db_field: &str) -> String;
 }
 
 impl PlaceEntry {
@@ -30,6 +144,24 @@ impl PlaceEntry {
             Some(id) => PlaceEntry::Existing(id),
             None => PlaceEntry::CreateFor(url, title),
         })
+    }
+}
+
+impl WhereArg for PlaceEntry {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            PlaceEntry::Existing(id) => format!("{} = {}", db_field, id),
+            PlaceEntry::CreateFor(_, _) => panic!("WhereArg: place entry must exist"),
+        }
+    }
+}
+
+impl WhereArg for Option<PlaceEntry> {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            Some(entry) => entry.to_where_arg(db_field),
+            None => format!("{} IS NULL", db_field),
+        }
     }
 }
 
@@ -97,6 +229,24 @@ impl SearchQueryEntry {
     }
 }
 
+impl WhereArg for SearchQueryEntry {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            SearchQueryEntry::Existing(id) => format!("{} = {}", db_field, id),
+            SearchQueryEntry::CreateFor(_) => panic!("WhereArg: search query entry must exist"),
+        }
+    }
+}
+
+impl WhereArg for Option<SearchQueryEntry> {
+    fn to_where_arg(&self, db_field: &str) -> String {
+        match self {
+            Some(entry) => entry.to_where_arg(db_field),
+            None => format!("{} IS NULL", db_field),
+        }
+    }
+}
+
 struct HistoryMetadataCompoundKey {
     place_entry: PlaceEntry,
     referrer_entry: Option<PlaceEntry>,
@@ -104,7 +254,7 @@ struct HistoryMetadataCompoundKey {
 }
 
 struct MetadataObservation {
-    document_type: Option<i32>,
+    document_type: Option<DocumentType>,
     view_time: Option<i32>,
 }
 
@@ -169,13 +319,70 @@ const MAX_QUERY_RESULTS: i32 = 1000;
 
 const COMMON_METADATA_SELECT: &str = "
 SELECT
-    m.id as metadata_id, p.url as url, p.title as title, m.created_at as created_at,
-    m.updated_at as updated_at, m.total_view_time as total_view_time,
+    m.id as metadata_id, p.url as url, p.title as title, p.preview_image_url as preview_image_url,
+    m.created_at as created_at, m.updated_at as updated_at, m.total_view_time as total_view_time,
     m.document_type as document_type, o.url as referrer_url, s.term as search_term
 FROM moz_places_metadata m
 LEFT JOIN moz_places p ON m.place_id = p.id
 LEFT JOIN moz_places_metadata_search_queries s ON m.search_query_id = s.id
 LEFT JOIN moz_places o ON o.id = m.referrer_place_id";
+
+// Highlight query returns moz_places entries ranked by a "highlight score".
+// This score takes into account two factors:
+// 1) frequency of visits to a page,
+// 2) cummulative view time of a page.
+//
+// Eventually, we could consider combining this with `moz_places.frecency` as a basis for (1), that assumes we have a populated moz_historyvisits table.
+// Currently, iOS doesn't use 'places' library to track visits, so iOS clients won't have meaningful frecency scores.
+//
+// Instead, we use moz_places_metadata entries to compute both (1) and (2).
+// This has several nice properties:
+// - it works on clients that only use 'metadata' APIs, not 'places'
+// - since metadata is capped by clients to a certain time window (via `delete_older_than`), the scores will be computed for the same time window
+// - we debounce metadata observations to the same "key" if they're close in time.
+// -- this is an equivalent of saying that if a page was visited multiple times in quick succession, treat that as a single visit while accumulating the view time
+// -- the assumption we're making is that this better matches user perception of their browsing activity
+//
+// The score is computed as a weighted sum of two probabilities:
+// - at any given moment in my browsing sessions for the past X days, how likely am I to be looking at a page?
+// - for any given visit during my browsing sessions for the past X days, how likely am I to visit a page?
+//
+// This kind of scoring is fairly intuitive and simple to reason about at the product level.
+//
+// An alternative way to arrive at the same ranking would be to normalize the values to compare data of different dimensions, time vs frequency.
+// We can normalize view time and frequency into a 0-1 scale before computing weighted scores.
+// (select place_id, (normal_frequency * 1.0 + normal_view_time * 1.0) as score from
+//     (select place_id, cast(count(*) - min_f as REAL) / cast(range_f as REAL) as normal_frequency, cast(sum(total_view_time) - min_v as REAL) / cast(max_v as REAL) as normal_view_time from moz_places_metadata,
+//     (select min(frequency) as min_f, max(frequency) as max_f, max(frequency) - min(frequency) as range_f
+//         from (select count(*) as frequency from moz_places_metadata group by place_id)
+//     ),
+//     (select min(view_time) as min_v, max(view_time) as max_v, max(view_time) - min(view_time) as range_v
+//         from (select sum(total_view_time) as view_time from moz_places_metadata where total_view_time > 0 group by place_id)
+//     ) where total_view_time > 0 group by place_id)) ranked
+//
+// Note that while it's tempting to use built-in window functions such percent_rank, they're not sufficient.
+// The built-in functions concern themselves with absolute ranking, not taking into account magnitudes of differences between values.
+// For example, given two entries we'll know that one is larger than another, but not by how much.
+const HIGHLIGHTS_QUERY: &str = "
+SELECT
+    ranked.score AS score, p.id AS place_id, p.url AS url, p.title AS title, p.preview_image_url AS preview_image_url
+FROM moz_places p
+INNER JOIN
+    (
+        SELECT place_id, :view_time_weight * view_time_prob + :frequency_weight * frequency_prob AS score FROM (
+            SELECT
+                place_id,
+                CAST(count(*) AS REAL) / total_count AS frequency_prob,
+                CAST(sum(total_view_time) AS REAL) / all_view_time AS view_time_prob
+                FROM (
+                    SELECT place_id, count(*) OVER () AS total_count, total_view_time, sum(total_view_time) OVER () AS all_view_time FROM moz_places_metadata
+                )
+            GROUP BY place_id
+        )
+    ) ranked
+ON p.id = ranked.place_id
+ORDER BY ranked.score DESC
+LIMIT :limit";
 
 lazy_static! {
     static ref GET_LATEST_SQL: String = format!(
@@ -223,39 +430,52 @@ pub fn get_latest_for_url(db: &PlacesDb, url: &Url) -> Result<Option<HistoryMeta
     Ok(metadata)
 }
 
-pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<HistoryMetadataList> {
-    let metadata = db.query_rows_and_then_named_cached(
+pub fn get_between(db: &PlacesDb, start: i64, end: i64) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_named_cached(
         GET_BETWEEN_SQL.as_str(),
         rusqlite::named_params! {
             ":start": start,
             ":end": end,
         },
         HistoryMetadata::from_row,
-    )?;
-    Ok(HistoryMetadataList { metadata })
+    )
 }
 
-pub fn get_since(db: &PlacesDb, start: i64) -> Result<HistoryMetadataList> {
-    let metadata = db.query_rows_and_then_named_cached(
+pub fn get_since(db: &PlacesDb, start: i64) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_named_cached(
         GET_SINCE_SQL.as_str(),
         rusqlite::named_params! {
             ":start": start
         },
         HistoryMetadata::from_row,
-    )?;
-    Ok(HistoryMetadataList { metadata })
+    )
 }
 
-pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<HistoryMetadataList> {
-    let metadata = db.query_rows_and_then_named_cached(
+pub fn get_highlights(
+    db: &PlacesDb,
+    weights: HistoryHighlightWeights,
+    limit: i32,
+) -> Result<Vec<HistoryHighlight>> {
+    db.query_rows_and_then_named_cached(
+        HIGHLIGHTS_QUERY,
+        rusqlite::named_params! {
+            ":view_time_weight": weights.view_time,
+            ":frequency_weight": weights.frequency,
+            ":limit": limit
+        },
+        HistoryHighlight::from_row,
+    )
+}
+
+pub fn query(db: &PlacesDb, query: &str, limit: i32) -> Result<Vec<HistoryMetadata>> {
+    db.query_rows_and_then_named_cached(
         QUERY_SQL.as_str(),
         rusqlite::named_params! {
             ":query": format!("%{}%", query),
             ":limit": limit
         },
         HistoryMetadata::from_row,
-    )?;
-    Ok(HistoryMetadataList { metadata })
+    )
 }
 
 pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
@@ -267,10 +487,85 @@ pub fn delete_older_than(db: &PlacesDb, older_than: i64) -> Result<()> {
     Ok(())
 }
 
+pub fn delete_metadata(
+    db: &PlacesDb,
+    url: &str,
+    referrer_url: Option<&str>,
+    search_term: Option<&str>,
+) -> Result<()> {
+    let tx = db.begin_transaction()?;
+
+    // Only delete entries that exactly match the key (url+referrer+search_term) we were passed-in.
+    // Do nothing if we were asked to delete a key which doesn't match what's in the database.
+    // e.g. referrer_url.is_some(), but a correspodning moz_places entry doesn't exist.
+    // In practice this shouldn't happen, or it may imply API misuse, but in either case we shouldn't
+    // delete things we were not asked to delete.
+    let place_entry = PlaceEntry::fetch(url, &tx, None)?;
+    let place_entry = match place_entry {
+        PlaceEntry::Existing(_) => place_entry,
+        PlaceEntry::CreateFor(_, _) => {
+            tx.rollback()?;
+            return Ok(());
+        }
+    };
+    let referrer_entry = match referrer_url {
+        Some(referrer_url) if !referrer_url.is_empty() => {
+            Some(PlaceEntry::fetch(referrer_url, &tx, None)?)
+        }
+        _ => None,
+    };
+    let referrer_entry = match referrer_entry {
+        Some(PlaceEntry::Existing(_)) | None => referrer_entry,
+        Some(PlaceEntry::CreateFor(_, _)) => {
+            tx.rollback()?;
+            return Ok(());
+        }
+    };
+    let search_query_entry = match search_term {
+        Some(search_term) if !search_term.is_empty() => {
+            Some(SearchQueryEntry::from(search_term, &tx)?)
+        }
+        _ => None,
+    };
+    let search_query_entry = match search_query_entry {
+        Some(SearchQueryEntry::Existing(_)) | None => search_query_entry,
+        Some(SearchQueryEntry::CreateFor(_)) => {
+            tx.rollback()?;
+            return Ok(());
+        }
+    };
+
+    let sql = format!(
+        "DELETE FROM moz_places_metadata WHERE {} AND {} AND {}",
+        place_entry.to_where_arg("place_id"),
+        referrer_entry.to_where_arg("referrer_place_id"),
+        search_query_entry.to_where_arg("search_query_id")
+    );
+
+    tx.execute_named_cached(&sql, &[])?;
+    tx.commit()?;
+
+    Ok(())
+}
+
 pub fn apply_metadata_observation(
     db: &PlacesDb,
     observation: HistoryMetadataObservation,
 ) -> Result<()> {
+    if let Some(view_time) = observation.view_time {
+        // Consider any view_time observations that are higher than 24hrs to be invalid.
+        // This guards against clients passing us wildly inaccurate view_time observations,
+        // likely resulting from some measurement bug. If we detect such cases, we fail so
+        // that the client has a chance to discover its mistake.
+        // When recording a view time, we increment the stored value directly in SQL, which
+        // doesn't allow for error detection unless we run an additional SELECT statement to
+        // query current cumulative view time and see if incrementing it will result in an
+        // overflow. This check is a simpler way to achieve the same goal (detect invalid inputs).
+        if view_time > 1000 * 60 * 60 * 24 {
+            return Err(InvalidMetadataObservation::ViewTimeTooLong.into());
+        }
+    }
+
     // Begin a write transaction. We do this before any other work (e.g. SELECTs) to avoid racing against
     // other writers. Even though we expect to only have a single application writer, a sync writer
     // can come in at any time and change data we depend on, such as moz_places
@@ -298,13 +593,13 @@ fn apply_metadata_observation_impl(
 ) -> Result<()> {
     let referrer_entry = match observation.referrer_url {
         Some(referrer_url) if !referrer_url.is_empty() => {
-            Some(PlaceEntry::fetch(&referrer_url, &tx, None)?)
+            Some(PlaceEntry::fetch(&referrer_url, tx, None)?)
         }
         Some(_) | None => None,
     };
     let search_query_entry = match observation.search_term {
         Some(search_term) if !search_term.is_empty() => {
-            Some(SearchQueryEntry::from(&search_term, &tx)?)
+            Some(SearchQueryEntry::from(&search_term, tx)?)
         }
         Some(_) | None => None,
     };
@@ -322,7 +617,7 @@ fn apply_metadata_observation_impl(
 
     let now = Timestamp::now().as_millis() as i64;
     let newer_than = now - DEBOUNCE_WINDOW_MS;
-    let matching_metadata = compound_key.lookup(&tx, newer_than)?;
+    let matching_metadata = compound_key.lookup(tx, newer_than)?;
 
     // If a matching record exists, update it; otherwise, insert a new one.
     match matching_metadata {
@@ -370,7 +665,7 @@ fn apply_metadata_observation_impl(
             }
             Ok(())
         }
-        None => insert_metadata_in_tx(&tx, compound_key, observation),
+        None => insert_metadata_in_tx(tx, compound_key, observation),
     }
 }
 
@@ -383,17 +678,17 @@ fn insert_metadata_in_tx(
 
     let referrer_place_id = match key.referrer_entry {
         None => None,
-        Some(entry) => Some(entry.get_or_insert(&tx)?),
+        Some(entry) => Some(entry.get_or_insert(tx)?),
     };
 
     let search_query_id = match key.search_query_entry {
         None => None,
-        Some(entry) => Some(entry.get_or_insert(&tx)?),
+        Some(entry) => Some(entry.get_or_insert(tx)?),
     };
 
     // Heavy lifting around moz_places inserting (e.g. updating moz_origins, frecency, etc) is performed via triggers.
     // This lets us simply INSERT here without worrying about the rest.
-    let place_id = key.place_entry.get_or_insert(&tx)?;
+    let place_id = key.place_entry.get_or_insert(tx)?;
 
     let sql = "INSERT INTO moz_places_metadata
         (place_id, created_at, updated_at, total_view_time, search_query_id, document_type, referrer_place_id)
@@ -408,7 +703,10 @@ fn insert_metadata_in_tx(
             (":updated_at", &now),
             (":search_query_id", &search_query_id),
             (":referrer_place_id", &referrer_place_id),
-            (":document_type", &observation.document_type.unwrap_or(0)),
+            (
+                ":document_type",
+                &observation.document_type.unwrap_or(DocumentType::Regular),
+            ),
             (":total_view_time", &observation.view_time.unwrap_or(0)),
         ],
     )?;
@@ -440,7 +738,7 @@ mod tests {
     }
 
     macro_rules! assert_history_metadata_record {
-        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr) => {
+        ($record:expr, url $url:expr, total_time $tvt:expr, search_term $search_term:expr, document_type $document_type:expr, referrer_url $referrer_url:expr, title $title:expr, preview_image_url $preview_image_url:expr) => {
             assert_eq!(String::from($url), $record.url, "url must match");
             assert_eq!($tvt, $record.total_view_time, "total_view_time must match");
             assert_eq!($document_type, $record.document_type, "is_media must match");
@@ -478,6 +776,19 @@ mod tests {
                     "title must match"
                 ),
                 None => assert_eq!(true, meta.title.is_none(), "title expected to be None"),
+            };
+            match $preview_image_url as Option<&str> {
+                Some(t) => assert_eq!(
+                    String::from(t),
+                    meta.preview_image_url
+                        .expect("preview_image_url must be Some"),
+                    "preview_image_url must match"
+                ),
+                None => assert_eq!(
+                    true,
+                    meta.preview_image_url.is_none(),
+                    "preview_image_url expected to be None"
+                ),
             };
         };
     }
@@ -552,7 +863,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1500),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -564,7 +875,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -576,7 +887,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
@@ -588,7 +899,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(2000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://news.website"),
             title None
         );
@@ -600,7 +911,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(1100),
             search_term Some("firefox"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=firefox"),
             title None
         );
@@ -612,7 +923,7 @@ mod tests {
             url "http://mozilla.com/",
             view_time Some(5000),
             search_term Some("firefox"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=firefox"),
             title None
         );
@@ -624,7 +935,7 @@ mod tests {
             url "http://mozilla.com/another",
             view_time Some(3000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://news.website/tech"),
             title None
         );
@@ -636,7 +947,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             view_time Some(100000),
             search_term Some("cute cat"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
             title None
         );
@@ -648,7 +959,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=daff43jif3",
             view_time Some(80000),
             search_term Some(""),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some(""),
             title None
         );
@@ -659,7 +970,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=daff43jif3",
             view_time Some(10000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
@@ -671,7 +982,7 @@ mod tests {
             url "https://www.youtube.com/watch?v=fds32fds",
             view_time None,
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
@@ -711,7 +1022,7 @@ mod tests {
             document_type None,
             referrer_url None,
             title None,
-            assertion |m: HistoryMetadata| { assert_eq!(0, m.document_type) }
+            assertion |m: HistoryMetadata| { assert_eq!(DocumentType::Regular, m.document_type) }
         );
 
         assert_after_observation!(&conn,
@@ -720,10 +1031,10 @@ mod tests {
             url "https://www.youtube.com/watch?v=dasdg34d",
             view_time None,
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None,
-            assertion |m: HistoryMetadata| { assert_eq!(1, m.document_type) }
+            assertion |m: HistoryMetadata| { assert_eq!(DocumentType::Media, m.document_type) }
         );
 
         // document type not overwritten (e.g. remains 1, not default 0).
@@ -736,7 +1047,7 @@ mod tests {
             document_type None,
             referrer_url None,
             title None,
-            assertion |m: HistoryMetadata| { assert_eq!(1, m.document_type) }
+            assertion |m: HistoryMetadata| { assert_eq!(DocumentType::Media, m.document_type) }
         );
 
         // can set title on creating a new record
@@ -767,30 +1078,66 @@ mod tests {
     }
 
     #[test]
+    fn test_note_observation_invalid_view_time() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        note_observation!(&conn,
+            url "https://www.mozilla.org/",
+            view_time None,
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        // 48 hrs is clearly a bad view to observe.
+        assert!(apply_metadata_observation(
+            &conn,
+            HistoryMetadataObservation {
+                url: String::from("https://www.mozilla.org"),
+                view_time: Some(1000 * 60 * 60 * 24 * 2),
+                search_term: None,
+                document_type: None,
+                referrer_url: None,
+                title: None
+            }
+        )
+        .is_err());
+
+        // 12 hrs is assumed to be "plausible".
+        assert!(apply_metadata_observation(
+            &conn,
+            HistoryMetadataObservation {
+                url: String::from("https://www.mozilla.org"),
+                view_time: Some(1000 * 60 * 60 * 12),
+                search_term: None,
+                document_type: None,
+                referrer_url: None,
+                title: None
+            }
+        )
+        .is_ok());
+    }
+
+    #[test]
     fn test_get_between() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        assert_eq!(0, get_between(&conn, 0, 0).unwrap().metadata.len());
+        assert_eq!(0, get_between(&conn, 0, 0).unwrap().len());
 
         let beginning = Timestamp::now().as_millis() as i64;
         note_observation!(&conn,
             url "http://mozilla.com/another",
             view_time Some(3000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://news.website/tech"),
             title None
         );
         let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        assert_eq!(
-            0,
-            get_between(&conn, 0, beginning - 1).unwrap().metadata.len()
-        );
-        assert_eq!(
-            1,
-            get_between(&conn, 0, after_meta1).unwrap().metadata.len()
-        );
+        assert_eq!(0, get_between(&conn, 0, beginning - 1).unwrap().len());
+        assert_eq!(1, get_between(&conn, 0, after_meta1).unwrap().len());
 
         thread::sleep(time::Duration::from_millis(10));
 
@@ -798,38 +1145,22 @@ mod tests {
             url "http://mozilla.com/video/",
             view_time Some(1000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
         let after_meta2 = Timestamp::now().as_millis() as i64;
 
+        assert_eq!(1, get_between(&conn, beginning, after_meta1).unwrap().len());
+        assert_eq!(2, get_between(&conn, beginning, after_meta2).unwrap().len());
         assert_eq!(
             1,
-            get_between(&conn, beginning, after_meta1)
-                .unwrap()
-                .metadata
-                .len()
-        );
-        assert_eq!(
-            2,
-            get_between(&conn, beginning, after_meta2)
-                .unwrap()
-                .metadata
-                .len()
-        );
-        assert_eq!(
-            1,
-            get_between(&conn, after_meta1, after_meta2)
-                .unwrap()
-                .metadata
-                .len()
+            get_between(&conn, after_meta1, after_meta2).unwrap().len()
         );
         assert_eq!(
             0,
             get_between(&conn, after_meta2, after_meta2 + 1)
                 .unwrap()
-                .metadata
                 .len()
         );
     }
@@ -838,22 +1169,22 @@ mod tests {
     fn test_get_since() {
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
-        assert_eq!(0, get_since(&conn, 0).unwrap().metadata.len());
+        assert_eq!(0, get_since(&conn, 0).unwrap().len());
 
         let beginning = Timestamp::now().as_millis() as i64;
         note_observation!(&conn,
             url "http://mozilla.com/another",
             view_time Some(3000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://news.website/tech"),
             title None
         );
         let after_meta1 = Timestamp::now().as_millis() as i64;
 
-        assert_eq!(1, get_since(&conn, 0).unwrap().metadata.len());
-        assert_eq!(1, get_since(&conn, beginning).unwrap().metadata.len());
-        assert_eq!(0, get_since(&conn, after_meta1).unwrap().metadata.len());
+        assert_eq!(1, get_since(&conn, 0).unwrap().len());
+        assert_eq!(1, get_since(&conn, beginning).unwrap().len());
+        assert_eq!(0, get_since(&conn, after_meta1).unwrap().len());
 
         // thread::sleep(time::Duration::from_millis(50));
 
@@ -861,14 +1192,122 @@ mod tests {
             url "http://mozilla.com/video/",
             view_time Some(1000),
             search_term None,
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url None,
             title None
         );
         let after_meta2 = Timestamp::now().as_millis() as i64;
-        assert_eq!(2, get_since(&conn, beginning).unwrap().metadata.len());
-        assert_eq!(1, get_since(&conn, after_meta1).unwrap().metadata.len());
-        assert_eq!(0, get_since(&conn, after_meta2).unwrap().metadata.len());
+        assert_eq!(2, get_since(&conn, beginning).unwrap().len());
+        assert_eq!(1, get_since(&conn, after_meta1).unwrap().len());
+        assert_eq!(0, get_since(&conn, after_meta2).unwrap().len());
+    }
+
+    #[test]
+    fn test_get_highlights() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // Empty database is fine.
+        assert_eq!(
+            0,
+            get_highlights(
+                &conn,
+                HistoryHighlightWeights {
+                    view_time: 1.0,
+                    frequency: 1.0
+                },
+                10
+            )
+            .unwrap()
+            .len()
+        );
+
+        // three observation to url1, each recording a second of view time.
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(1000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // one observation to url2 for 3.5s of view time.
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(3500),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // The three visits to /2 got "debounced" into a single metadata entry (since they were made in quick succession).
+        // We'll calculate the scoring as follows:
+        // - for /1: 1.0 * 1/2 + 1.0 * 3000/6500 = 0.9615...
+        // - for /2: 1.0 * 1/2 + 1.0 * 3500/6500 = 1.0384...
+        // (above, 1/2 means 1 entry out of 2 entries total).
+
+        let even_weights = HistoryHighlightWeights {
+            view_time: 1.0,
+            frequency: 1.0,
+        };
+        let highlights1 = get_highlights(&conn, even_weights.clone(), 10).unwrap();
+        assert_eq!(2, highlights1.len());
+        assert_eq!("http://mozilla.com/2", highlights1[0].url);
+
+        // Since we have an equal amount of metadata entries, providing a very high view_time weight won't change the ranking.
+        let frequency_heavy_weights = HistoryHighlightWeights {
+            view_time: 1.0,
+            frequency: 100.0,
+        };
+        let highlights2 = get_highlights(&conn, frequency_heavy_weights, 10).unwrap();
+        assert_eq!(2, highlights2.len());
+        assert_eq!("http://mozilla.com/2", highlights2[0].url);
+
+        // Now, make an observation for url /1, but with a different metadata key.
+        // It won't debounce, producing an additional entry for /1.
+        // Total view time for /1 is now 3100 (vs 3500 for /2).
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(100),
+            search_term Some("test search"),
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("https://news.website/tech"),
+            title None
+        );
+
+        // Since we now have 2 metadata entries for /1, it ranks higher with even weights.
+        let highlights3 = get_highlights(&conn, even_weights, 10).unwrap();
+        assert_eq!(2, highlights3.len());
+        assert_eq!("http://mozilla.com/1", highlights3[0].url);
+
+        // With a high-enough weight for view_time, we can flip this order.
+        // Even though we had 2x entries for /1, it now ranks second due to its lower total view time (3100 vs 3500).
+        let view_time_heavy_weights = HistoryHighlightWeights {
+            view_time: 6.0,
+            frequency: 1.0,
+        };
+        let highlights4 = get_highlights(&conn, view_time_heavy_weights, 10).unwrap();
+        assert_eq!(2, highlights4.len());
+        assert_eq!("http://mozilla.com/2", highlights4[0].url);
     }
 
     #[test]
@@ -884,6 +1323,7 @@ mod tests {
         let observation1 = VisitObservation::new(Url::parse("https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021").unwrap())
                 .with_at(now)
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
+                .with_preview_image_url(Some(String::from("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         apply_observation(&conn, observation1).unwrap();
@@ -893,7 +1333,7 @@ mod tests {
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
             view_time Some(20000),
             search_term Some("cbc federal budget 2021"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
             title None
         );
@@ -903,7 +1343,7 @@ mod tests {
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
             view_time Some(20000),
             search_term Some("rust string format"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
             title None
         );
@@ -913,7 +1353,7 @@ mod tests {
             url "https://www.sqlite.org/lang_corefunc.html#instr",
             view_time Some(20000),
             search_term Some("sqlite like"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
             title None
         );
@@ -923,56 +1363,172 @@ mod tests {
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             view_time Some(100000),
             search_term Some("cute cat"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
             title None
         );
 
         // query by title
         let meta = query(&conn, "child care", 10).expect("query should work");
-        assert_eq!(1, meta.metadata.len(), "expected exactly one result");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_eq!(1, meta.len(), "expected exactly one result");
+        assert_history_metadata_record!(&meta[0],
             url "https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021",
             total_time 20000,
             search_term Some("cbc federal budget 2021"),
-            document_type 0,
+            document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?text=cbc%20federal%20budget%202021&lr=21512"),
-            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")
+            title Some("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News"),
+            preview_image_url Some("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")
         );
 
         // query by search term
         let meta = query(&conn, "string format", 10).expect("query should work");
-        assert_eq!(1, meta.metadata.len(), "expected exactly one result");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_eq!(1, meta.len(), "expected exactly one result");
+        assert_history_metadata_record!(&meta[0],
             url "https://stackoverflow.com/questions/37777675/how-to-create-a-formatted-string-out-of-a-literal-in-rust",
             total_time 20000,
             search_term Some("rust string format"),
-            document_type 0,
+            document_type DocumentType::Regular,
             referrer_url Some("https://yandex.ru/search/?lr=21512&text=rust%20string%20format"),
-            title None
+            title None,
+            preview_image_url None
         );
 
         // query by url
         let meta = query(&conn, "instr", 10).expect("query should work");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_history_metadata_record!(&meta[0],
             url "https://www.sqlite.org/lang_corefunc.html#instr",
             total_time 20000,
             search_term Some("sqlite like"),
-            document_type 0,
+            document_type DocumentType::Regular,
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=sqlite+like"),
-            title None
+            title None,
+            preview_image_url None
         );
 
         // by url, referrer domain is different
         let meta = query(&conn, "youtube", 10).expect("query should work");
-        assert_history_metadata_record!(&meta.metadata[0],
+        assert_history_metadata_record!(&meta[0],
             url "https://www.youtube.com/watch?v=tpiyEe_CqB4",
             total_time 100000,
             search_term Some("cute cat"),
-            document_type 1,
+            document_type DocumentType::Media,
             referrer_url Some("https://www.youtube.com/results?search_query=cute+cat"),
+            title None,
+            preview_image_url None
+        );
+    }
+
+    #[test]
+    fn test_delete_metadata() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
+
+        // url  |   search_term |   referrer
+        // 1    |    1          |   1
+        // 1    |    1          |   0
+        // 1    |    0          |   1
+        // 1    |    0          |   0
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term Some("1 with search"),
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
             title None
         );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term Some("1 with search"),
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/1",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url None,
+            title None
+        );
+
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
+            title None
+        );
+
+        thread::sleep(time::Duration::from_millis(10));
+        // same observation a bit later:
+        note_observation!(&conn,
+            url "http://mozilla.com/2",
+            view_time Some(20000),
+            search_term None,
+            document_type Some(DocumentType::Regular),
+            referrer_url Some("http://mozilla.com/"),
+            title None
+        );
+
+        assert_eq!(6, get_since(&conn, 0).expect("get worked").len());
+        delete_metadata(&conn, "http://mozilla.com/1", None, None).expect("delete metadata");
+        assert_eq!(5, get_since(&conn, 0).expect("get worked").len());
+
+        delete_metadata(
+            &conn,
+            "http://mozilla.com/1",
+            Some("http://mozilla.com/"),
+            None,
+        )
+        .expect("delete metadata");
+        assert_eq!(4, get_since(&conn, 0).expect("get worked").len());
+
+        delete_metadata(
+            &conn,
+            "http://mozilla.com/1",
+            Some("http://mozilla.com/"),
+            Some("1 with search"),
+        )
+        .expect("delete metadata");
+        assert_eq!(3, get_since(&conn, 0).expect("get worked").len());
+
+        delete_metadata(&conn, "http://mozilla.com/1", None, Some("1 with search"))
+            .expect("delete metadata");
+        assert_eq!(2, get_since(&conn, 0).expect("get worked").len());
+
+        // key doesn't match, do nothing
+        delete_metadata(
+            &conn,
+            "http://mozilla.com/2",
+            Some("http://wrong-referrer.com"),
+            Some("2 with search"),
+        )
+        .expect("delete metadata");
+        assert_eq!(2, get_since(&conn, 0).expect("get worked").len());
     }
 
     #[test]
@@ -985,7 +1541,7 @@ mod tests {
             url "http://mozilla.com/1",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -997,7 +1553,7 @@ mod tests {
             url "http://mozilla.com/2",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -1008,7 +1564,7 @@ mod tests {
             url "http://mozilla.com/3",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url None,
             title None
         );
@@ -1016,23 +1572,11 @@ mod tests {
 
         // deleting nothing.
         delete_older_than(&conn, beginning).expect("delete worked");
-        assert_eq!(
-            3,
-            get_since(&conn, beginning)
-                .expect("get worked")
-                .metadata
-                .len()
-        );
+        assert_eq!(3, get_since(&conn, beginning).expect("get worked").len());
 
         // boundary condition, should only delete the last one.
         delete_older_than(&conn, after_meta1).expect("delete worked");
-        assert_eq!(
-            2,
-            get_since(&conn, beginning)
-                .expect("get worked")
-                .metadata
-                .len()
-        );
+        assert_eq!(2, get_since(&conn, beginning).expect("get worked").len());
         assert_eq!(
             None,
             get_latest_for_url(&conn, &Url::parse("http://mozilla.com/1").expect("url"))
@@ -1041,13 +1585,7 @@ mod tests {
 
         // delete everything now.
         delete_older_than(&conn, after_meta3).expect("delete worked");
-        assert_eq!(
-            0,
-            get_since(&conn, beginning)
-                .expect("get worked")
-                .metadata
-                .len()
-        );
+        assert_eq!(0, get_since(&conn, beginning).expect("get worked").len());
     }
 
     #[test]
@@ -1059,7 +1597,7 @@ mod tests {
             url "https://www.mozilla.org/first/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1069,7 +1607,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1157,7 +1695,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term Some("mozilla firefox"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1207,7 +1745,7 @@ mod tests {
             url "https://www.mozilla.org/first/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1217,7 +1755,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term None,
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1227,7 +1765,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(20000),
             search_term Some("mozilla"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1237,7 +1775,7 @@ mod tests {
             url "https://www.mozilla.org/",
             view_time Some(25000),
             search_term Some("firefox"),
-            document_type Some(1),
+            document_type Some(DocumentType::Media),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );
@@ -1247,7 +1785,7 @@ mod tests {
             url "https://www.mozilla.org/another/",
             view_time Some(20000),
             search_term Some("mozilla"),
-            document_type Some(0),
+            document_type Some(DocumentType::Regular),
             referrer_url Some("https://www.google.com/search?client=firefox-b-d&q=mozilla+firefox"),
             title None
         );

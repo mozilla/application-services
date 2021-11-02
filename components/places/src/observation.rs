@@ -59,6 +59,11 @@ pub struct VisitObservation {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
     pub is_remote: Option<bool>,
+
+    /// Semantically also a url::Url, See the comment about the `url` property.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub preview_image_url: Option<String>,
 }
 
 impl VisitObservation {
@@ -73,6 +78,7 @@ impl VisitObservation {
             at: None,
             referrer: None,
             is_remote: None,
+            preview_image_url: None,
         }
     }
 
@@ -116,6 +122,12 @@ impl VisitObservation {
 
     pub fn with_referrer(mut self, v: impl Into<Option<Url>>) -> Self {
         self.referrer = v.into().map(Url::into);
+        self
+    }
+
+    // v is a String instead of a Url to allow testing invalid urls as input.
+    pub fn with_preview_image_url(mut self, v: impl Into<Option<String>>) -> Self {
+        self.preview_image_url = v.into();
         self
     }
 

@@ -2,11 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use push::communications::Connection;
-use push::config::PushConfiguration;
-use push::crypto::get_random_bytes;
-use push::error::Result;
-use push::subscriber::PushManager;
+use push::get_random_bytes;
+use push::Connection;
+use push::InternalPushManager as PushManager;
+use push::InternalResult as Result;
+use push::InternalStorage;
+use push::PushConfiguration;
 
 /** Perform a "Live" test against a locally configured push server
  *
@@ -37,7 +38,6 @@ fn test_live_server() -> Result<()> {
         server_host: "localhost:8082".to_owned(),
         sender_id: "fir-bridgetest".to_owned(),
         bridge_type: Some("fcm".to_owned()),
-        registration_id: Some("SomeRegistrationValue".to_owned()),
         ..Default::default()
     };
     let mut pm = PushManager::new(config)?;
@@ -49,7 +49,10 @@ fn test_live_server() -> Result<()> {
     println!("\n == Subscribing channels");
     let sub1 = pm.subscribe(&channel1, "", None).expect("subscribe failed");
     // These are normally opaque values, displayed here for debug.
-    println!("Connection info: {:?}", (&pm.conn.uaid, &pm.conn.auth));
+    println!(
+        "Connection info: {:?}",
+        (&pm.store.get_uaid()?, &pm.store.get_auth()?)
+    );
     println!("## Subscription 1: {:?}", sub1);
     println!("## Info: {:?}", pm.get_record_by_chid(&channel1));
     let sub2 = pm.subscribe(&channel2, "", None)?;
@@ -58,13 +61,15 @@ fn test_live_server() -> Result<()> {
     // You don't need to do this, normally. This is just for
     // debugging and analysis.
     println!("\n == Fetching channel list 1");
-    let ll = pm.conn.channel_list().expect("channel list failed");
+    let conn = pm.make_connection()?;
+    let ll = conn.channel_list().expect("channel list failed");
     println!("Server Known channels: {:?}", ll);
 
     println!("\n == Unsubscribing single channel");
-    pm.unsubscribe(Some(&channel1)).expect("chid unsub failed");
+    pm.unsubscribe(&channel1).expect("chid unsub failed");
     println!("\n == Fetching channel list 2");
-    let ll = pm.conn.channel_list().expect("channel list failed");
+    let conn = pm.make_connection()?;
+    let ll = conn.channel_list().expect("channel list failed");
     println!("Server Known channels: {:?}", ll);
 
     // the list of known channels should come from whatever is
@@ -72,12 +77,13 @@ fn test_live_server() -> Result<()> {
     println!("Verify: {:?}", pm.verify_connection());
 
     println!("\n == Fetching channel list 3");
-    let ll = pm.conn.channel_list().expect("channel list failed");
+    let conn = pm.make_connection()?;
+    let ll = conn.channel_list().expect("channel list failed");
     println!("Server Known channels: {:?}", ll);
 
     println!("\n == Unsubscribing all.");
     // Unsubscribe all channels.
-    pm.unsubscribe(None)?;
+    pm.unsubscribe_all()?;
 
     println!("Done");
     Ok(())

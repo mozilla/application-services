@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import mozilla.components.concept.fetch.Client
 import mozilla.components.concept.fetch.Response
+import mozilla.components.service.glean.BuildInfo
 import mozilla.components.service.glean.Glean
 import mozilla.components.service.glean.config.Configuration
 import mozilla.components.service.glean.net.ConceptFetchHttpUploader
@@ -69,6 +70,8 @@ class NimbusTest {
 
     @Before
     fun setupGlean() {
+        val buildInfo = BuildInfo(versionCode = "0.0.1", versionName = "0.0.1")
+
         // Glean needs to be initialized for the experiments API to accept enrollment events, so we
         // init it with a mock client so we don't upload anything.
         val mockClient: Client = mock()
@@ -79,7 +82,8 @@ class NimbusTest {
             true,
             Configuration(
                 httpClient = ConceptFetchHttpUploader(lazy { mockClient })
-            )
+            ),
+            buildInfo
         )
     }
 
@@ -195,6 +199,56 @@ class NimbusTest {
         assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtrasTryTwo["experiment"])
         assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtrasTryTwo["branch"])
         assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtrasTryTwo["enrollment_id"])
+    }
+
+    @Test
+    fun `opting out generates the correct Glean event`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertFalse(
+            "There must not be any pre-existing events",
+            NimbusEvents.disqualification.testHasValue()
+        )
+
+        // Opt out of the specific experiment
+        nimbus.optOutOnThisThread("test-experiment")
+
+        // Use the Glean test API to check that the valid event is present
+        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        assertEquals("Event count must match", disqualificationEvents.count(), 1)
+        val enrollmentEventExtras = disqualificationEvents.first().extra!!
+        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
+        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
+    }
+
+    @Test
+    fun `toggling the global opt out generates the correct Glean event`() {
+        // Load the experiment in nimbus so and optIn so that it will be active. This is necessary
+        // because recordExposure checks for active experiments before recording.
+        nimbus.setUpTestExperiments(packageName, appInfo)
+
+        // Assert that there are no events to start with
+        assertFalse(
+            "There must not be any pre-existing events",
+            NimbusEvents.disqualification.testHasValue()
+        )
+
+        // Opt out of all experiments
+        nimbus.setGlobalUserParticipationOnThisThread(false)
+
+        // Use the Glean test API to check that the valid event is present
+        assertTrue("Event must have a value", NimbusEvents.disqualification.testHasValue())
+        val disqualificationEvents = NimbusEvents.disqualification.testGetValue()
+        assertEquals("Event count must match", disqualificationEvents.count(), 1)
+        val enrollmentEventExtras = disqualificationEvents.first().extra!!
+        assertEquals("Experiment slug must match", "test-experiment", enrollmentEventExtras["experiment"])
+        assertEquals("Experiment branch must match", "test-branch", enrollmentEventExtras["branch"])
+        assertNotNull("Experiment enrollment-id must not be null", enrollmentEventExtras["enrollment_id"])
     }
 
     private fun Nimbus.setUpTestExperiments(appId: String, appInfo: NimbusAppInfo) {

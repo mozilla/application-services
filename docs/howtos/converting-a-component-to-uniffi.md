@@ -267,7 +267,7 @@ It's easiest to start by removing all of the hand-written Swift code under `./io
 restoring parts of it later if necessary.
 
 Edit `/megazords/ios/MozillaAppServices.h` to remove any references to `Rust<ComponentName>API.h`,
-replacing them with the UniFFI-generated header file name `uniffi_<component_name>-Bridging-Header.h`.
+replacing them with the UniFFI-generated header file name `<component_name>FFI.h`.
 
 Open `/megazords/ios/MozillaAppServices.xcodeproj` in XCode and follow the instructions for
 [adding Swift bindings for a new component](adding-a-new-component.md#the-swift-bindings) to

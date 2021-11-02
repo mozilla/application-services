@@ -18,17 +18,22 @@ lazy_static = "1.4"
 base64 = "0.12"
 log = "0.4"
 rusqlite = { version = "0.24.2", features = ["bundled", "unlock_notify"] }
-url = "2.1"
+url = "2.2"
 viaduct = { path = "../viaduct" }
-ffi-support = "0.4"
 sql-support = { path = "../support/sql" }
 error-support = { path = "../support/error" }
 rc_crypto = { path = "../support/rc_crypto", features = ["ece"] }
-prost = "0.8"
-prost-derive = "0.8"
 thiserror = "1.0"
+uniffi = "^0.14"
+uniffi_macros = "^0.14"
+
+[build-dependencies]
+uniffi_build = { version = "^0.14", features=["builtin-bindgen"] }
+
 
 [dev-dependencies]
+env_logger = { version = "0.8", default-features = false, features = ["termcolor", "atty", "humantime"] }
 mockito = "0.27"
 hex = "0.4"
+tempfile = "3.1.0"
 viaduct-reqwest = { path = "../support/viaduct-reqwest" }

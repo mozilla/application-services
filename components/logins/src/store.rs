@@ -2,8 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 use crate::db::LoginDb;
+use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
-use crate::login::Login;
+use crate::login::{EncryptedLogin, Login, LoginEntry};
 use crate::LoginsSyncEngine;
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
@@ -36,38 +37,31 @@ pub struct LoginStore {
 }
 
 impl LoginStore {
-    pub fn new(path: impl AsRef<Path>, encryption_key: &str) -> Result<Self> {
-        let db = Mutex::new(LoginDb::open(path, Some(encryption_key))?);
+    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+        let db = Mutex::new(LoginDb::open(path)?);
         Ok(Self { db })
     }
 
-    pub fn new_with_salt(path: impl AsRef<Path>, encryption_key: &str, salt: &str) -> Result<Self> {
-        let db = Mutex::new(LoginDb::open_with_salt(path, encryption_key, salt)?);
+    pub fn new_in_memory() -> Result<Self> {
+        let db = Mutex::new(LoginDb::open_in_memory()?);
         Ok(Self { db })
     }
 
-    pub fn new_in_memory(encryption_key: Option<&str>) -> Result<Self> {
-        let db = Mutex::new(LoginDb::open_in_memory(encryption_key)?);
-        Ok(Self { db })
-    }
-
-    pub fn list(&self) -> Result<Vec<Login>> {
+    pub fn list(&self) -> Result<Vec<EncryptedLogin>> {
         self.db.lock().unwrap().get_all()
     }
 
-    pub fn get(&self, id: &str) -> Result<Option<Login>> {
+    pub fn get(&self, id: &str) -> Result<Option<EncryptedLogin>> {
         self.db.lock().unwrap().get_by_id(id)
     }
 
-    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<Login>> {
+    pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
         self.db.lock().unwrap().get_by_base_domain(base_domain)
     }
 
-    pub fn potential_dupes_ignoring_username(&self, login: Login) -> Result<Vec<Login>> {
-        self.db
-            .lock()
-            .unwrap()
-            .potential_dupes_ignoring_username(&login)
+    pub fn find_login_to_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Option<Login>> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().unwrap().find_login_to_update(entry, &encdec)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
@@ -104,38 +98,25 @@ impl LoginStore {
         Ok(())
     }
 
-    pub fn update(&self, login: Login) -> Result<()> {
-        self.db.lock().unwrap().update(login)
+    pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().unwrap().update(id, entry, &encdec)
     }
 
-    pub fn add(&self, login: Login) -> Result<String> {
-        // Just return the record's ID (which we may have generated).
-        self.db
-            .lock()
-            .unwrap()
-            .add(login)
-            .map(|record| record.guid().into_string())
+    pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().unwrap().add(entry, &encdec)
     }
 
-    pub fn import_multiple(&self, logins: Vec<Login>) -> Result<String> {
-        let metrics = self.db.lock().unwrap().import_multiple(&logins)?;
+    pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        self.db.lock().unwrap().add_or_update(entry, &encdec)
+    }
+
+    pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
+        let encdec = EncryptorDecryptor::new(enc_key)?;
+        let metrics = self.db.lock().unwrap().import_multiple(logins, &encdec)?;
         Ok(serde_json::to_string(&metrics)?)
-    }
-
-    pub fn disable_mem_security(&self) -> Result<()> {
-        self.db.lock().unwrap().disable_mem_security()
-    }
-
-    pub fn new_interrupt_handle(&self) -> sql_support::SqlInterruptHandle {
-        self.db.lock().unwrap().new_interrupt_handle()
-    }
-
-    pub fn rekey_database(&self, new_encryption_key: &str) -> Result<()> {
-        self.db.lock().unwrap().rekey_database(new_encryption_key)
-    }
-
-    pub fn check_valid_with_no_dupes(&self, login: &Login) -> Result<()> {
-        self.db.lock().unwrap().check_valid_with_no_dupes(&login)
     }
 
     /// A convenience wrapper around sync_multiple.
@@ -149,8 +130,12 @@ impl LoginStore {
         access_token: String,
         sync_key: String,
         tokenserver_url: String,
+        local_encryption_key: String,
     ) -> Result<String> {
-        let engine = LoginsSyncEngine::new(Arc::clone(&self));
+        let mut engine = LoginsSyncEngine::new(Arc::clone(&self));
+        engine
+            .set_local_encryption_key(&local_encryption_key)
+            .unwrap();
 
         // This is a bit hacky but iOS still uses sync() and we can only pass strings over ffi
         // Below was ported from the "C" ffi code that does essentially the same thing
@@ -214,54 +199,62 @@ impl LoginStore {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::encryption::test_utils::{TEST_ENCRYPTION_KEY, TEST_ENCRYPTOR};
     use crate::util;
+    use crate::{LoginFields, SecureLoginFields};
     use more_asserts::*;
     use std::cmp::Reverse;
     use std::time::SystemTime;
-    // Doesn't check metadata fields
-    fn assert_logins_equiv(a: &Login, b: &Login) {
-        assert_eq!(b.guid(), a.guid());
-        assert_eq!(b.hostname, a.hostname);
-        assert_eq!(b.form_submit_url, a.form_submit_url);
-        assert_eq!(b.http_realm, a.http_realm);
-        assert_eq!(b.username, a.username);
-        assert_eq!(b.password, a.password);
-        assert_eq!(b.username_field, a.username_field);
-        assert_eq!(b.password_field, a.password_field);
+
+    fn assert_logins_equiv(a: &LoginEntry, b: &EncryptedLogin) {
+        let b_e = b.decrypt_fields(&TEST_ENCRYPTOR).unwrap();
+        assert_eq!(a.fields, b.fields);
+        assert_eq!(b_e.username, a.sec_fields.username);
+        assert_eq!(b_e.password, a.sec_fields.password);
     }
 
     #[test]
     fn test_general() {
-        let store = LoginStore::new_in_memory(Some("secret")).unwrap();
+        let store = LoginStore::new_in_memory().unwrap();
         let list = store.list().expect("Grabbing Empty list to work");
         assert_eq!(list.len(), 0);
         let start_us = util::system_time_ms_i64(SystemTime::now());
 
-        let a = Login {
-            id: "aaaaaaaaaaaa".into(),
-            hostname: "https://www.example.com".into(),
-            form_submit_url: Some("https://www.example.com".into()),
-            username: "coolperson21".into(),
-            password: "p4ssw0rd".into(),
-            username_field: "user_input".into(),
-            password_field: "pass_input".into(),
-            ..Login::default()
+        let a = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example.com".into(),
+                form_action_origin: Some("https://www.example.com".into()),
+                username_field: "user_input".into(),
+                password_field: "pass_input".into(),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "coolperson21".into(),
+                password: "p4ssw0rd".into(),
+            },
         };
 
-        let b = Login {
-            // Note: no ID, should be autogenerated for us
-            hostname: "https://www.example2.com".into(),
-            http_realm: Some("Some String Here".into()),
-            username: "asdf".into(),
-            password: "fdsa".into(),
-            ..Login::default()
+        let b = LoginEntry {
+            fields: LoginFields {
+                origin: "https://www.example2.com".into(),
+                http_realm: Some("Some String Here".into()),
+                ..Default::default()
+            },
+            sec_fields: SecureLoginFields {
+                username: "asdf".into(),
+                password: "fdsa".into(),
+            },
         };
-        let a_id = store.add(a.clone()).expect("added a");
-        let b_id = store.add(b.clone()).expect("added b");
-
-        assert_eq!(a_id, a.guid());
-
-        assert_ne!(b_id, b.guid(), "Should generate guid when none provided");
+        let a_id = store
+            .add(a.clone(), &TEST_ENCRYPTION_KEY)
+            .expect("added a")
+            .record
+            .id;
+        let b_id = store
+            .add(b.clone(), &TEST_ENCRYPTION_KEY)
+            .expect("added b")
+            .record
+            .id;
 
         let a_from_db = store
             .get(&a_id)
@@ -269,27 +262,21 @@ mod test {
             .expect("a to exist");
 
         assert_logins_equiv(&a, &a_from_db);
-        assert_ge!(a_from_db.time_created, start_us);
-        assert_ge!(a_from_db.time_password_changed, start_us);
-        assert_ge!(a_from_db.time_last_used, start_us);
-        assert_eq!(a_from_db.times_used, 1);
+        assert_ge!(a_from_db.record.time_created, start_us);
+        assert_ge!(a_from_db.record.time_password_changed, start_us);
+        assert_ge!(a_from_db.record.time_last_used, start_us);
+        assert_eq!(a_from_db.record.times_used, 1);
 
         let b_from_db = store
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        assert_logins_equiv(
-            &b_from_db,
-            &Login {
-                id: b_id.to_string(),
-                ..b.clone()
-            },
-        );
-        assert_ge!(b_from_db.time_created, start_us);
-        assert_ge!(b_from_db.time_password_changed, start_us);
-        assert_ge!(b_from_db.time_last_used, start_us);
-        assert_eq!(b_from_db.times_used, 1);
+        assert_logins_equiv(&LoginEntry { ..b.clone() }, &b_from_db);
+        assert_ge!(b_from_db.record.time_created, start_us);
+        assert_ge!(b_from_db.record.time_password_changed, start_us);
+        assert_ge!(b_from_db.record.time_last_used, start_us);
+        assert_eq!(b_from_db.record.times_used, 1);
 
         let mut list = store.list().expect("Grabbing list to work");
         assert_eq!(list.len(), 2);
@@ -312,7 +299,7 @@ mod test {
 
         let list = store
             .get_by_base_domain("example2.com")
-            .expect("Expect a list for this hostname");
+            .expect("Expect a list for this origin");
         assert_eq!(list.len(), 1);
         assert_eq!(list[0], b_from_db);
 
@@ -322,38 +309,35 @@ mod test {
         assert_eq!(list.len(), 0);
 
         let now_us = util::system_time_ms_i64(SystemTime::now());
-        let b2 = Login {
-            password: "newpass".into(),
-            id: b_id.to_string(),
+        let b2 = LoginEntry {
+            sec_fields: SecureLoginFields {
+                username: b.sec_fields.username.to_owned(),
+                password: "newpass".into(),
+            },
             ..b
         };
 
-        store.update(b2.clone()).expect("update b should work");
+        store
+            .update(&b_id, b2.clone(), &TEST_ENCRYPTION_KEY)
+            .expect("update b should work");
 
         let b_after_update = store
             .get(&b_id)
             .expect("Not to error getting b")
             .expect("b to exist");
 
-        assert_logins_equiv(&b_after_update, &b2);
-        assert_ge!(b_after_update.time_created, start_us);
-        assert_le!(b_after_update.time_created, now_us);
-        assert_ge!(b_after_update.time_password_changed, now_us);
-        assert_ge!(b_after_update.time_last_used, now_us);
+        assert_logins_equiv(&b2, &b_after_update);
+        assert_ge!(b_after_update.record.time_created, start_us);
+        assert_le!(b_after_update.record.time_created, now_us);
+        assert_ge!(b_after_update.record.time_password_changed, now_us);
+        assert_ge!(b_after_update.record.time_last_used, now_us);
         // Should be two even though we updated twice
-        assert_eq!(b_after_update.times_used, 2);
+        assert_eq!(b_after_update.record.times_used, 2);
     }
 
     #[test]
-    fn test_rekey() {
-        let store = LoginStore::new_in_memory(Some("secret")).unwrap();
-        store.rekey_database("new_encryption_key").unwrap();
-        let list = store.list().expect("Grabbing Empty list to work");
-        assert_eq!(list.len(), 0);
-    }
-    #[test]
     fn test_sync_manager_registration() {
-        let store = Arc::new(LoginStore::new_in_memory(Some("sync-manager")).unwrap());
+        let store = Arc::new(LoginStore::new_in_memory().unwrap());
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 0);
         Arc::clone(&store).register_with_sync_manager();

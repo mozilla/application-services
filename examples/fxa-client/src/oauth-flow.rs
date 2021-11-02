@@ -16,7 +16,7 @@ fn main() {
     let config = Config::new(CONTENT_SERVER, CLIENT_ID, REDIRECT_URI);
     let mut fxa = FirefoxAccount::with_config(config);
     let url = fxa
-        .begin_oauth_flow(&SCOPES, "oauth_flow_example", None)
+        .begin_oauth_flow(SCOPES, "oauth_flow_example", None)
         .unwrap();
     println!("Open the following URL:");
     println!("{}", url);
@@ -25,7 +25,7 @@ fn main() {
     let query_params: HashMap<_, _> = redirect_uri.query_pairs().into_owned().collect();
     let code = &query_params["code"];
     let state = &query_params["state"];
-    fxa.complete_oauth_flow(&code, &state).unwrap();
+    fxa.complete_oauth_flow(code, state).unwrap();
     let oauth_info = fxa.get_access_token(SCOPES[0], None);
     println!("access_token: {:?}", oauth_info);
 }

@@ -473,10 +473,10 @@ The following text applies to code linked from these dependencies:
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
 [encoding_rs](https://github.com/hsivonen/encoding_rs),
-[env_logger](https://github.com/sebasmagri/env_logger/),
+[env_logger](https://github.com/env-logger-rs/env_logger/),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
-[ffi-support](https://github.com/mozilla/application-services),
+[ffi-support](https://github.com/mozilla/ffi-support),
 [flate2](https://github.com/rust-lang/flate2-rs),
 [fnv](https://github.com/servo/rust-fnv),
 [foreign-types-shared](https://github.com/sfackler/foreign-types),
@@ -537,7 +537,6 @@ The following text applies to code linked from these dependencies:
 [proc-macro2](https://github.com/alexcrichton/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
-[quick-error](http://github.com/tailhook/quick-error),
 [quote](https://github.com/dtolnay/quote),
 [rand](https://github.com/rust-random/rand),
 [rand_chacha](https://github.com/rust-random/rand),
@@ -824,7 +823,7 @@ SOFTWARE.
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
-[memchr](https://github.com/BurntSushi/rust-memchr),
+[memchr](https://github.com/BurntSushi/memchr),
 [termcolor](https://github.com/BurntSushi/termcolor)
 
 ```

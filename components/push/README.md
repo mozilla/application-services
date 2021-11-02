@@ -46,7 +46,7 @@ This component acts a client of the [Push Service Bridge HTTP Interface](https:/
 We assume two things about the consuming application:
 * It has registered with the autopush service and received a unique `app_id` identifying this registration.
 * It has registred with whatever platform-specific notification infrastructure is appropriate, and is
-  able to obtain a `token` corresponding to its native push notification state.
+  able to obtain a `registration_id` corresponding to its native push notification state.
 
 On first use, this component will register itself as an *application instance* with the autopush service, providing the `app_id` and `token` and receiving a unique `uaid` ("user-agent id") to identify its
 connection to the server.
@@ -173,3 +173,29 @@ Based on the above payload, an example call might look like:
     // result returns a byte array. You may need to convert to a string
     return result.toString(Charset.forName("UTF-8"))
 ```
+
+## Testing
+### Android
+
+Local builds of Fenix will not have Firebase enabled because there are keys that need to be
+kept somewhat secret. However, it is possible to arrange.
+
+* Ask someone from the Fenix team for a copy of `fenix_firebase.xml` - it will look something
+  like
+
+```
+<resources>
+    <string name="default_web_client_id" translatable="false">redacted</string>
+    <string name="firebase_database_url" translatable="false">redacted</string>
+    etc
+</resources>
+
+```
+
+* Put it in your Fenix checkout in the `app/src/debug/res/values/` directory.
+
+* Disable "strict mode" for main-thread IO, which in practice means a
+  [commenting out this line](https://github.com/mozilla-mobile/fenix/blob/b9b1e984b5eb338aa61c2ebfa331eafa8cfac09b/app/src/main/java/org/mozilla/fenix/FenixApplication.kt#L172)
+
+And that's it - you should now be able to get FCM tokens and thus have push work. Note that this
+works on both emulators and devices.

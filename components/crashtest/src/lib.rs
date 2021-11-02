@@ -8,6 +8,10 @@
 //! crash the application. It's intended to help developers test the crash-handling
 //! and crash-reporting capabilities of their app.
 
+// Temporary, to work around a clippy lint in generated code.
+// https://github.com/mozilla/uniffi-rs/issues/1018
+#![allow(clippy::redundant_closure)]
+
 use thiserror::Error;
 
 #[cfg(test)]

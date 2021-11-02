@@ -53,6 +53,19 @@ pub fn apply_observation_direct(
     if url.as_str().len() > super::URL_LENGTH_MAX {
         return Ok(None);
     }
+    // Make sure we have a valid preview URL - it should parse, and not exceed max size.
+    // In case the URL is too long, ignore it and proceed with the rest of the observation.
+    // In case the URL is entirely invalid, let the caller know by failing.
+    let preview_image_url = if let Some(ref piu) = visit_ob.preview_image_url {
+        let url = Url::parse(piu)?;
+        if url.as_str().len() > super::URL_LENGTH_MAX {
+            None
+        } else {
+            Some(url)
+        }
+    } else {
+        None
+    };
     let mut page_info = match fetch_page_info(db, &url)? {
         Some(info) => info.page,
         None => new_page_info(db, &url, None)?,
@@ -65,6 +78,15 @@ pub fn apply_observation_direct(
         page_info.title = crate::util::slice_up_to(title, super::TITLE_LENGTH_MAX).into();
         updates.push(("title", ":title", &page_info.title));
         update_change_counter = true;
+    }
+    let preview_image_url_str;
+    if let Some(ref preview_image_url) = preview_image_url {
+        preview_image_url_str = preview_image_url.as_str();
+        updates.push((
+            "preview_image_url",
+            ":preview_image_url",
+            &preview_image_url_str,
+        ));
     }
     // There's a new visit, so update everything that implies. To help with
     // testing we return the rowid of the visit we added.
@@ -120,7 +142,7 @@ pub fn apply_observation_direct(
     // This needs to happen after the other updates.
     if update_frec {
         update_frecency(
-            &db,
+            db,
             page_info.row_id,
             Some(visit_ob.get_redirect_frecency_boost()),
         )?;
@@ -431,7 +453,7 @@ pub fn delete_everything(db: &PlacesDb) -> Result<()> {
     wipe_local_in_tx(db)?;
 
     // Remove Sync metadata, too.
-    reset_in_tx(&db, &EngineSyncAssociation::Disconnected)?;
+    reset_in_tx(db, &EngineSyncAssociation::Disconnected)?;
 
     tx.commit()?;
 
@@ -784,7 +806,7 @@ pub mod history_sync {
             .collect::<Vec<_>>();
 
         let mut counter_incr = 0;
-        let page_info = match fetch_page_info(db, &url)? {
+        let page_info = match fetch_page_info(db, url)? {
             Some(mut info) => {
                 // If the existing record has not yet been synced, then we will
                 // change the GUID to the incoming one. If it has been synced
@@ -811,7 +833,7 @@ pub mod history_sync {
                 if visits.is_empty() {
                     return Ok(());
                 }
-                new_page_info(db, &url, Some(incoming_guid.clone()))?
+                new_page_info(db, url, Some(incoming_guid.clone()))?
             }
         };
 
@@ -864,7 +886,7 @@ pub mod history_sync {
         }
         // XXX - we really need a better story for frecency-boost than
         // Option<bool> - None vs Some(false) is confusing. We should use an enum.
-        update_frecency(&db, page_info.row_id, None)?;
+        update_frecency(db, page_info.row_id, None)?;
 
         // and the place itself if necessary.
         let new_title = title.as_ref().unwrap_or(&page_info.title);
@@ -931,7 +953,7 @@ pub mod history_sync {
             SELECT guid, url, id, title, hidden, typed, frecency,
                 visit_count_local, visit_count_remote,
                 last_visit_date_local, last_visit_date_remote,
-                sync_status, sync_change_counter
+                sync_status, sync_change_counter, preview_image_url
             FROM moz_places
             WHERE (sync_change_counter > 0 OR sync_status != {}) AND
                   NOT hidden
@@ -1139,7 +1161,7 @@ pub fn get_visited_into(
     result: &mut [bool],
 ) -> Result<()> {
     sql_support::each_chunk_mapped(
-        &urls_idxs,
+        urls_idxs,
         |(_, url)| url.as_str(),
         |chunk, offset| -> Result<()> {
             let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
@@ -1246,7 +1268,7 @@ pub fn get_visit_infos(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1291,7 +1313,7 @@ pub fn get_visit_page(
 ) -> Result<HistoryVisitInfos> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1319,7 +1341,7 @@ pub fn get_visit_page_with_bound(
 ) -> Result<HistoryVisitInfosWithBound> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
-        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden
+        "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
          FROM moz_places h
          JOIN moz_historyvisits v
            ON h.id = v.place_id
@@ -1561,7 +1583,7 @@ mod tests {
         // this stage we don't "officially" support deletes, so this is TODO.
         let sql = "DELETE FROM moz_historyvisits WHERE id = :row_id";
         // Delete the latest local visit.
-        conn.execute_named_cached(&sql, &[(":row_id", &rid1)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid1)])?;
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
         assert_eq!(pi.page.visit_count_local, 1);
         assert_eq!(pi.page.last_visit_date_local, early_time.into());
@@ -1569,7 +1591,7 @@ mod tests {
         assert_eq!(pi.page.last_visit_date_remote, late_time.into());
 
         // Delete the earliest remote  visit.
-        conn.execute_named_cached(&sql, &[(":row_id", &rid3)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid3)])?;
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
         assert_eq!(pi.page.visit_count_local, 1);
         assert_eq!(pi.page.last_visit_date_local, early_time.into());
@@ -1577,8 +1599,8 @@ mod tests {
         assert_eq!(pi.page.last_visit_date_remote, late_time.into());
 
         // Delete all visits.
-        conn.execute_named_cached(&sql, &[(":row_id", &rid2)])?;
-        conn.execute_named_cached(&sql, &[(":row_id", &rid4)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid2)])?;
+        conn.execute_named_cached(sql, &[(":row_id", &rid4)])?;
         // It may turn out that we also delete the place after deleting all
         // visits, but for now we don't - check the values are sane though.
         pi = fetch_page_info(&conn, &url)?.expect("should have the page");
@@ -1649,7 +1671,7 @@ mod tests {
 
         let urls = to_search
             .iter()
-            .map(|(url, _expect)| Url::parse(&url).unwrap())
+            .map(|(url, _expect)| Url::parse(url).unwrap())
             .collect::<Vec<_>>();
 
         let visited = get_visited(&conn, urls).unwrap();
@@ -1827,6 +1849,22 @@ mod tests {
             .expect("page should exist")
             .page;
         assert_eq!(pi.title, "new title");
+        assert_eq!(pi.preview_image_url, None);
+        assert_eq!(pi.sync_change_counter, 2);
+        // An observation with just a preview_image_url should not update it.
+        apply_observation(
+            &conn,
+            VisitObservation::new(pi.url.clone())
+                .with_preview_image_url(Some("https://www.example.com/preview.png".to_string())),
+        )?;
+        pi = fetch_page_info(&conn, &pi.url)?
+            .expect("page should exist")
+            .page;
+        assert_eq!(pi.title, "new title");
+        assert_eq!(
+            pi.preview_image_url,
+            Some(Url::parse("https://www.example.com/preview.png").expect("parsed"))
+        );
         assert_eq!(pi.sync_change_counter, 2);
         Ok(())
     }
@@ -1835,7 +1873,6 @@ mod tests {
     fn test_status_columns() -> Result<()> {
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
-        let _ = env_logger::try_init();
         // A page with "normal" and a change counter.
         let mut pi = get_observed_page(&mut conn, "http://example.com/1")?;
         assert_eq!(pi.sync_change_counter, 1);
@@ -2150,7 +2187,6 @@ mod tests {
 
         let _ = env_logger::try_init();
         let mut conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite)?;
-        let _ = env_logger::try_init();
 
         // Add Sync metadata keys, to ensure they're reset.
         put_meta(&conn, GLOBAL_SYNCID_META_KEY, &"syncAAAAAAAA")?;
@@ -2724,6 +2760,107 @@ mod tests {
     }
 
     #[test]
+    fn test_preview_url() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        let url1 = Url::parse("https://www.example.com/").unwrap();
+        // Can observe preview url without an associated visit.
+        assert!(apply_observation(
+            &conn,
+            VisitObservation::new(url1.clone())
+                .with_preview_image_url(Some("https://www.example.com/image.png".to_string()))
+        )
+        .unwrap()
+        .is_none());
+
+        // We don't get a visit id back above, so just assume an id of the corresponding moz_places entry.
+        let mut db_preview_url = conn
+            .query_row_and_then_named(
+                "SELECT preview_image_url FROM moz_places WHERE id = 1",
+                &[],
+                |row| row.get(0),
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            Some("https://www.example.com/image.png".to_string()),
+            db_preview_url
+        );
+
+        // Observing a visit afterwards doesn't erase a preview url.
+        let visit_id = apply_observation(
+            &conn,
+            VisitObservation::new(url1).with_visit_type(VisitTransition::Link),
+        )
+        .unwrap();
+        assert!(visit_id.is_some());
+
+        db_preview_url = conn
+            .query_row_and_then_named(
+                "SELECT h.preview_image_url FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
+                &[(":id", &visit_id.unwrap())],
+                |row| row.get(0),
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            Some("https://www.example.com/image.png".to_string()),
+            db_preview_url
+        );
+
+        // Can observe a preview image url as part of a visit observation.
+        let another_visit_id = apply_observation(
+            &conn,
+            VisitObservation::new(Url::parse("https://www.example.com/another/").unwrap())
+                .with_preview_image_url(Some("https://www.example.com/funky/image.png".to_string()))
+                .with_visit_type(VisitTransition::Link),
+        )
+        .unwrap();
+        assert!(another_visit_id.is_some());
+
+        db_preview_url = conn
+            .query_row_and_then_named(
+                "SELECT h.preview_image_url FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
+                &[(":id", &another_visit_id.unwrap())],
+                |row| row.get(0),
+                false,
+            )
+            .unwrap();
+        assert_eq!(
+            Some("https://www.example.com/funky/image.png".to_string()),
+            db_preview_url
+        );
+    }
+
+    #[test]
+    fn test_bad_preview_url() {
+        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
+
+        // Observing a bad preview url as part of a visit observation fails.
+        assert!(
+            apply_observation(
+                &conn,
+                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                    .with_visit_type(VisitTransition::Link)
+                    .with_preview_image_url(Some("not at all a url".to_string())),
+            )
+            .is_err(),
+            "expected bad preview url to fail an observation"
+        );
+
+        // Observing a bad preview url by itself also fails.
+        assert!(
+            apply_observation(
+                &conn,
+                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                    .with_preview_image_url(Some("not at all a url".to_string())),
+            )
+            .is_err(),
+            "expected bad preview url to fail an observation"
+        );
+    }
+
+    #[test]
     fn test_long_strings() {
         let _ = env_logger::try_init();
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
@@ -2739,12 +2876,25 @@ mod tests {
         )
         .unwrap();
         assert!(maybe_row.is_none(), "Shouldn't insert overlong URL");
+
+        let maybe_row_preview = apply_observation(
+            &conn,
+            VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
+                .with_visit_type(VisitTransition::Link)
+                .with_preview_image_url(url),
+        )
+        .unwrap();
+        assert!(
+            maybe_row_preview.is_some(),
+            "Shouldn't avoid a visit observation due to an overly long preview url"
+        );
+
         let mut title = "example 1 2 3".to_string();
         // Make sure whatever we use here surpasses the length.
         while title.len() < crate::storage::TITLE_LENGTH_MAX + 10 {
             title += " test test";
         }
-        let maybe_row = apply_observation(
+        let maybe_visit_row = apply_observation(
             &conn,
             VisitObservation::new(Url::parse("http://www.example.com/123").unwrap())
                 .with_title(title.clone())
@@ -2753,16 +2903,16 @@ mod tests {
         )
         .unwrap();
 
-        assert!(maybe_row.is_some());
+        assert!(maybe_visit_row.is_some());
         let db_title: String = conn
             .query_row_and_then_named(
-                "SELECT title FROM moz_places WHERE id = :id",
-                &[(":id", &maybe_row.unwrap())],
+                "SELECT h.title FROM moz_places AS h JOIN moz_historyvisits AS v ON h.id = v.place_id WHERE v.id = :id",
+                &[(":id", &maybe_visit_row.unwrap())],
                 |row| row.get(0),
                 false,
             )
             .unwrap();
-        // Ensure what we get back sta
+        // Ensure what we get back the trimmed title.
         assert_eq!(db_title.len(), crate::storage::TITLE_LENGTH_MAX);
         assert!(title.starts_with(&db_title));
     }

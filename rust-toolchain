@@ -7,13 +7,14 @@
 #   supported and used in CI.
 
 [toolchain]
-channel = "1.52.1"
+channel = "1.55.0"
 targets = [
     "aarch64-linux-android",
     "armv7-linux-androideabi",
     "i686-linux-android",
     "x86_64-linux-android",
     "aarch64-apple-ios",
-    "x86_64-apple-ios"
+    "x86_64-apple-ios",
 ]
-components = ["clippy", "rustfmt"]
+# The "rust-src" component is currently required for building for the M1 iOS simulator.
+components = ["clippy", "rustfmt", "rust-src"]

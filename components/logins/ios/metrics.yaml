@@ -1,0 +1,103 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+# This file defines the metrics that will be gathered for the "logins"
+# storage component.
+# These are emitted for all users of the component.  Additional metrics
+# specific to the *syncing* of logins are defined in a separate "sync_ping"
+# package.
+#
+# Changes to these metrics require data review, which should take into
+# consideration the following known consumers of the logins component
+# Android bindings:
+#
+#  * Fenix for Andriod
+
+---
+$schema: moz://mozilla.org/schemas/glean/metrics/1-0-0
+
+logins_store_migration:
+
+  # Migrations from sqlcipher to sqlite.
+  num_processed:
+    type: counter
+    description: >
+      The total number of login records processed by the migration
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  num_succeeded:
+    type: counter
+    description: >
+      The total number of login records successfully migrated
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  num_failed:
+    type: counter
+    description: >
+      The total number of login records which failed to migrate
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  total_duration:
+    type: timespan
+    time_unit: millisecond
+    description: >
+      How long the migration tool
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30
+
+  # Note glean limits this to 20 items each with a max length of 50 utf8 chars.
+  errors:
+    type: string_list
+    description: >
+      Errors discovered in the migration.
+    bugs:
+      - https://github.com/mozilla/application-services/issues/4064
+      - https://github.com/mozilla/application-services/issues/4102
+    data_reviews:
+      - https://github.com/mozilla/application-services/issues/4467
+    data_sensitivity:
+      - technical
+      - interaction
+    notification_emails:
+      - synced-client-integrations@mozilla.com
+    expires: 2022-06-30

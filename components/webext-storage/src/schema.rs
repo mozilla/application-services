@@ -4,9 +4,9 @@
 
 use crate::db::sql_fns;
 use crate::error::Result;
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
 use sql_support::open_database::{
-    Error as MigrationError, MigrationLogic, Result as MigrationResult,
+    ConnectionInitializer as MigrationLogic, Error as MigrationError, Result as MigrationResult,
 };
 
 const CREATE_SCHEMA_SQL: &str = include_str!("../sql/create_schema.sql");
@@ -18,7 +18,7 @@ impl MigrationLogic for WebExtMigrationLogin {
     const NAME: &'static str = "webext storage db";
     const END_VERSION: u32 = 2;
 
-    fn setup_pragmas(&self, conn: &Connection) -> MigrationResult<()> {
+    fn prepare(&self, conn: &Connection) -> MigrationResult<()> {
         let initial_pragmas = "
             -- We don't care about temp tables being persisted to disk.
             PRAGMA temp_store = 2;
@@ -28,22 +28,18 @@ impl MigrationLogic for WebExtMigrationLogin {
             PRAGMA foreign_keys = ON;
         ";
         conn.execute_batch(initial_pragmas)?;
-        Ok(())
-    }
-
-    fn prepare(&self, conn: &Connection) -> MigrationResult<()> {
-        define_functions(&conn)?;
+        define_functions(conn)?;
         conn.set_prepared_statement_cache_capacity(128);
         Ok(())
     }
 
-    fn init(&self, db: &Connection) -> MigrationResult<()> {
+    fn init(&self, db: &Transaction<'_>) -> MigrationResult<()> {
         log::debug!("Creating schema");
         db.execute_batch(CREATE_SCHEMA_SQL)?;
         Ok(())
     }
 
-    fn upgrade_from(&self, db: &Connection, version: u32) -> MigrationResult<()> {
+    fn upgrade_from(&self, db: &Transaction<'_>, version: u32) -> MigrationResult<()> {
         match version {
             1 => upgrade_from_1(db),
             _ => Err(MigrationError::IncompatibleVersion(version)),

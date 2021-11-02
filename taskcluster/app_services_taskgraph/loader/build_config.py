@@ -5,11 +5,8 @@
 # XXX: This loader generates a new build task for every component defined in
 # `.buildconfig-android.yml`
 
-from __future__ import print_function, unicode_literals
 
-import os
 
-from copy import deepcopy
 from taskgraph.loader.transform import loader as base_loader
 
 from ..build_config import get_components

@@ -108,9 +108,9 @@ impl<'conn> std::ops::Deref for PlacesTransaction<'conn> {
 
     fn deref(&self) -> &Connection {
         match &self.0 {
-            PlacesTransactionRepr::ChunkedWrite(t) => &t,
-            PlacesTransactionRepr::UnchunkedWrite(t) => &t,
-            PlacesTransactionRepr::ReadOnly(t) => &t,
+            PlacesTransactionRepr::ChunkedWrite(t) => t,
+            PlacesTransactionRepr::UnchunkedWrite(t) => t,
+            PlacesTransactionRepr::ReadOnly(t) => t,
         }
     }
 }

@@ -1,3 +1,282 @@
+# v86.2.0 (_2021-11-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.1.0...v86.2.0)
+
+## Push
+### What's Changed
+  - We've changed the database schema to avoid confusion about the state of subscriptions and
+    in particular, avoid `SQL: UNIQUE constraint failed: push_record.channel_id` errors
+    reported in [#4575](https://github.com/mozilla/application-services/issues/4575). This is
+    technically a breaking change as a dictionary described in the UDL changed, but in practice,
+    none of our consumers used it, so we are not declaring it as breaking in this context.
+
+## Logins
+
+### What's New
+
+  - Added support for recording telemetry when the logins encryption key needs to be regenerated.
+
+# v86.1.0 (_2021-10-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.1.0)
+
+## ⛅️🔬🔭 Nimbus
+
+### What's New
+
+  - Rollouts: allows winning branch promotion and targeting rollouts of features. [#4567](https://github.com/mozilla/application-services/pull/4567).
+    - for both Android and iOS.
+
+### What's fixed
+  - Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
+  - Fixed a bug in Android where we were missing disqualification events after a global opt-out ([#4606](https://github.com/mozilla/application-services/pull/4606))
+
+## Push
+
+  - We've changed how the push database is opened, which should mean we now automatically handle
+    some kinds of database corruption.
+
+## General
+### What's changed
+  - The bundled version of Glean has been updated to v42.0.1.
+    See [the Glean Changelog](https://github.com/mozilla/glean/blob/v42.0.1/CHANGELOG.md) for full details.
+    (Note there is a breaking change in Rust, but that doesn't impact consumers of Application Services)
+
+# v86.0.1 (_2021-10-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.0.0...v86.0.1)
+## Logins
+### What's Changed
+- Downgraded the log level of some logs, so now they should not show up in Sentry.
+
+
+# v86.0.0 (_2021-10-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v86.0.0)
+
+## Logins
+
+### ⚠️ Breaking Changes ⚠️
+  - Rework logins to no longer use sqlcipher and instead use plain sqlite. This is a major change
+    with a massive impact on all consumers of this component, all of whom are already aware of
+    this change and have PRs in-progress.
+    ([#4549](https://github.com/mozilla/application-services/pull/4549))
+
+# v85.4.2 (_2021-10-20_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.1...v85.4.2)
+
+## Nimbus
+### What's fixed
+- Fixed a bug in iOS where the installation date would be set to start of EPOCH ([#4597](https://github.com/mozilla/application-services/pull/4597))
+
+
+# v85.4.1 (_2021-10-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.4.0...v85.4.1)
+
+## Logins
+
+- Metrics for the logins sqlcipher migration are included to help "bootstrap"
+  the metrics ready for the migration.
+
+# v85.4.0 (_2021-10-05_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.3.0...v85.4.0)
+
+## Sync
+
+### What's Changed
+
+- Clients engine now checks for tombstones and any deserialisation errors when receiving a client record, and ignores
+  it if either are present ([#4504](https://github.com/mozilla/application-services/pull/4504))
+
+## Nimbus
+### What's changed
+- The DTO changed to remove the `probeSets` and `enabled` fields that were previously unused. ([#4482](https://github.com/mozilla/application-services/pull/4482))
+- Nimbus will retry enrollment if it previously errored out on a previous enrollment.
+
+# v85.3.0 (_2021-09-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.2.0...v85.3.0)
+
+## Nimbus
+
+### What's new
+
+- Nimbus can now target on `is_already_enrolled`. Which is true only if the user is already enrolled in experiment. ([#4490](https://github.com/mozilla/application-services/pull/4490))
+- Nimbus can now target on `days_since_install` and `days_since_update`. Which reflect the days since the user installed the application and the days since the user last updated the application. ([#4491](https://github.com/mozilla/application-services/pull/4491))
+- Android only: the observer method `onExperimentsApplied()` is now called every time `applyPendingExperiments()` is called. This is to bring it in line with iOS.
+
+# v85.2.0 (_2021-09-28_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.1.0...v85.2.0)
+
+## Places
+### What's New
+  - Added Swift bindings for the following History Metadata APIs: `getHighlights` and `deleteHistoryMetadata`.
+
+# v85.1.0 (_2021-09-27_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v85.0.0...v85.1.0)
+
+## General
+
+### What's Changed
+
+- Rust toolchain has been bumped to 1.55 and minimum version bumped to 1.53 to comply with our [Rust Policy](https://github.com/mozilla/application-services/blob/main/docs/rust-versions.md#application-services-rust-version-policy)
+
+- Xcode has been updated to version 13
+  - application-services noq uses the new build system by default
+
+## Nimbus
+
+### What's Changed
+
+- 🐞🍏 Bugfix, iOS only — Increased visibility for `Dictionary` extensions when working with `FeatureVariables` and `enums`.
+
+
+# v85.0.0 (_2021-09-22_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v84.0.0...v85.0.0)
+
+## Places, Autofill, Webext-Storage
+
+### What's Changed
+
+- Databases which are detected as being corrupt as they are opened will be deleted and re-created.
+
+## Nimbus
+
+### What's New
+
+- [#4455][1]: For both iOS and Android: extra methods on `Variables` to support orderable items:
+  - `getEnum` to coerce strings into Enums.
+  - `get*List`, `get*Map` to get lists and maps of all types.
+  - Dictionary/Map extensions to map string keys to enum keys, and string values to enum values.
+- Nimbus now supports multiple features on each branch. This was added with backward compatibility to ensure support for both schemas. ([#4452](https://github.com/mozilla/application-services/pull/4452))
+### ⚠️ Breaking Changes ⚠️
+
+- [#4455][1]: Android only: method `Variables.getVariables(key, transform)`, `transform` changes type
+  from `(Variables) -> T` to `(Variables) -> T?`.
+
+[1]: https://github.com/mozilla/application-services/pull/4455
+
+# v84.0.0 (_2021-09-13_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v83.0.0...v84.0.0)
+
+## Places
+
+### ⚠️ Breaking Changes ⚠️
+  - `previewImageUrl` property was added to `HistoryMetadata` ([#4448](https://github.com/mozilla/application-services/pull/4448))
+### What's changed
+  - `previewImageUrl` was added to `VisitObservation`, allowing clients to make observations about the 'hero' image of the webpage ([#4448](https://github.com/mozilla/application-services/pull/4448))
+
+## Push
+### ⚠️ Breaking Changes ⚠️
+  - The push component now uses `uniffi`! Here are the Kotlin breaking changes related to that:
+     - `PushAPI` no longer exists, consumers should consumer `PushManager` directly
+     - `PushError` becomes `PushException`, and all specific errors are now `PushException` children, and can be retrieved using `PushException.{ExceptionName}`, for example `StorageError` becomes `PushException.StorageException`
+     - The `PushManager.decrypt` function now returns a `List<Byte>`, where it used to return `ByteArray`, the consumer can do the conversion using `.toByteArray()`
+     - All references to `channelID` become `channelId` (with a lowercase `d`)
+
+# v83.0.0 (_2021-09-08_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.3.0...v83.0.0)
+
+## Android
+
+### ⚠️ Breaking Changes ⚠️
+  - Many error classes have been renamed from `FooError` or `FooErrorException` to just `FooException`,
+    to be more in keeping with Java/Kotlin idioms.
+    - This is due to UniFFi now replacing trailing 'Error' named classes to 'Exception'
+
+## Autofill
+
+### ⚠️ Breaking Changes ⚠️
+  - The `Error` enum is now called `AutofillError` (`AutofillException` in Kotlin) to avoid conflicts with builtin names.
+
+## Push
+### ⚠️ Breaking Changes ⚠️
+- The `unsubscribeAll` API will now return nothing as opposed to a boolean. The boolean was misleading as it only ever returned true.
+  errors can be caught using exceptions. ([#4418](https://github.com/mozilla/application-services/pull/4418))
+### What's Changed
+ - The push `unsubscribe` API will no longer accept a null `channel_id` value, a valid `channel_id` must be presented, otherwise rust will panic and an error will be thrown to android.
+  note that this is not a breaking change, since our hand-written Kotlin code already ensures that the function can only be called with a valid, non-empty, non-nullable string. ([#4402](https://github.com/mozilla/application-services/pull/4402))
+
+## Nimbus
+
+### What's Changed
+
+- `DatabaseNotReady` exceptions are no longer reported to the error reporter on either Android or iOS. [#4438](https://github.com/mozilla/application-services/pull/4438)
+- `NimbusErrorException` has been renamed `NimbusException`. This internal API, so is not a breaking change.
+
+# v82.3.0 (_2021-08-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.2.0...v82.3.0)
+
+### What's New
+  - Changed how shared libraries are loaded to avoid an issue when both uniffi
+    and `Helpers.kt` wants to load the same library ([#4412](https://github.com/mozilla/application-services/pull/4412))
+
+
+# v82.2.0 (_2021-08-19_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.1.0...v82.2.0)
+
+## Push
+### What's changed
+  - The push component will now attempt to auto-recover from the server losing its UAID ([#4347](https://github.com/mozilla/application-services/pull/4347))
+    - The push component will return a new kotlin Error `UAIDNotRecognizedError` in cases where auto-recovering isn't possible (when subscribing)
+    - Two other new errors were defined that were used to be reported under a generic error:
+      - `JSONDeserializeError` for errors in deserialization
+      - `RequestError` for errors in sending a network request
+
+## Nimbus
+### What's changed
+   - Nimbus on iOS will now post a notification when it's done fetching experiments, to match what it does when applying experiments. ([#4378](https://github.com/mozilla/application-services/pull/4378))
+
+# v82.1.0 (_2021-07-30_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v82.0.0...v82.1.0)
+
+## Places
+
+### What's New
+
+- The Swift bindings for history metadata enums and structs now have
+  public initializers, allowing them to be used properly from Swift.
+  ([#4371](https://github.com/mozilla/application-services/pull/4371))
+
+
+# v82.0.0 (_2021-07-29_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.1...v82.0.0)
+
+## General
+
+### ⚠️ Breaking Changes ⚠️
+
+  - The bundled version of Glean has been updated to v39.0.4, which includes a new API
+    for recording extra event fields that have an explicit type..
+    ([#4356](https://github.com/mozilla/application-services/pull/4356))
+
+### What's New
+
+  - Added content signature and chain of trust verification features in `rc_crypto`,
+    and updated NSS to version 3.66.
+    ([#4195](https://github.com/mozilla/application-services/pull/4195))
+
+## Nimbus
+
+### What's Changed
+
+  - The Nimbus API now accepts application specific context as a part of its `appSettings`.
+    The consumers get to define this context for targeting purposes. This allows different consumers
+    to target on different fields without the SDK having to acknowledge all the fields.
+    ([#4359](https://github.com/mozilla/application-services/pull/4359))
+
 # v81.0.1 (_2021-07-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v81.0.0...v81.0.1)

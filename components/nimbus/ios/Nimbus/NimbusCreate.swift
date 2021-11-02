@@ -67,6 +67,17 @@ public extension Nimbus {
         device: UIDevice = .current
     ) -> AppContext {
         let info = bundle.infoDictionary ?? [:]
+        var inferredDateInstalledOn: Date? {
+            guard
+                let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).last,
+                let attributes = try? FileManager.default.attributesOfItem(atPath: documentsURL.path)
+            else { return nil }
+            return attributes[.creationDate] as? Date
+        }
+        let installationDateSinceEpoch = inferredDateInstalledOn.map {
+            Int64(($0.timeIntervalSince1970 * 1000).rounded())
+        }
+
         return AppContext(
             appName: appSettings.appName,
             appId: info["CFBundleIdentifier"] as? String ?? "unknown",
@@ -80,7 +91,10 @@ public extension Nimbus {
             os: device.systemName,
             osVersion: device.systemVersion,
             androidSdkVersion: nil,
-            debugTag: "Nimbus.rs"
+            debugTag: "Nimbus.rs",
+            installationDate: installationDateSinceEpoch,
+            homeDirectory: nil,
+            customTargetingAttributes: appSettings.customTargetingAttributes
         )
     }
 }

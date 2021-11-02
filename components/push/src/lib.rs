@@ -180,14 +180,391 @@
 //!     return result.toString(Charset.forName("UTF-8"))
 //!```
 
-pub mod communications;
-pub mod config;
-pub mod crypto;
-pub mod error;
-pub mod ffi;
-pub mod storage;
-pub mod subscriber;
+uniffi_macros::include_scaffolding!("push");
+// All implementation detail lives in the `internal` module
+mod internal;
+use std::sync::Mutex;
 
-pub mod msg_types {
-    include!("mozilla.appservices.push.protobuf.rs");
+pub use crate::internal::error::*;
+
+// The following are only exposed for use by the examples
+pub use internal::communications::Connection;
+pub use internal::crypto::get_random_bytes;
+pub use internal::error::Result as InternalResult;
+pub use internal::storage::Storage as InternalStorage;
+pub use internal::PushConfiguration;
+pub use internal::PushManager as InternalPushManager;
+// =====================
+
+/// Object representing the PushManager used to manage subscriptions
+///
+/// The `PushManager` object is the main interface provided by this crate
+/// it allow consumers to manage push subscriptions. It exposes methods that
+/// interact with the [`autopush server`](https://autopush.readthedocs.io/en/latest/)
+/// and persists state representing subscriptions.
+pub struct PushManager {
+    // We serialize all access on a mutex for thread safety
+    // TODO: this can improved by making the locking more granular
+    // and moving the mutex down to ensure `internal::PushManager`
+    // is Sync + Send
+    internal: Mutex<internal::PushManager>,
+}
+
+impl PushManager {
+    /// Creates a new [`PushManager`] object, not subscribed to any
+    /// channels
+    ///
+    /// # Arguments
+    ///
+    ///   - `sender_id` - Sender/Application ID value
+    ///   - `server_host` - The host name for the service (e.g. "updates.push.services.mozilla.com").
+    ///   - `http_protocol` - The optional socket protocol (default: "https")
+    ///   - `bridge_type` - The [`BridgeType`] the consumer would like to use to deliver the push messages
+    ///   - `registration_id` - The native OS messaging registration ID
+    ///   - `database_path` - The path where [`PushManager`] will store persisted state
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - PushManager is unable to open the `database_path` given
+    ///   - PushManager is unable to establish a connection to the autopush server
+    pub fn new(
+        sender_id: String,
+        server_host: String,
+        http_protocol: String,
+        bridge_type: BridgeType,
+        registration_id: String,
+        database_path: String,
+    ) -> Result<Self> {
+        let bridge_type = match bridge_type {
+            BridgeType::Adm => "adm",
+            BridgeType::Apns => "apns",
+            BridgeType::Fcm => "fcm",
+            BridgeType::Test => "test",
+        }
+        .to_string();
+        if !registration_id.is_empty() {
+            log::warn!("`registration_id` is ignored/deprecated when creating a push manager.");
+        }
+        // XXX - we probably should persist, say, this as JSON and ensure it's the same
+        // on each run, then nuke the DB if not. Eg, imagine "bridge_type" changing, things
+        // would break badly. Unlikely, so later...
+        let config = PushConfiguration {
+            server_host,
+            http_protocol: Some(http_protocol),
+            bridge_type: Some(bridge_type),
+            sender_id,
+            database_path: Some(database_path),
+            ..Default::default()
+        };
+        Ok(Self {
+            internal: Mutex::new(internal::PushManager::new(config)?),
+        })
+    }
+
+    /// Subscribes to a new channel and gets the Subscription Info block
+    ///
+    /// # Arguments
+    ///   - `channel_id` - Channel ID (UUID4) for new subscription, either pre-generated or "" and one will be created.
+    ///   - `scope` - Site scope string (defaults to "" for no site scope string).
+    ///   - `server_key` - optional VAPID public key to "lock" subscriptions (defaults to "" for no key)
+    ///
+    /// # Returns
+    /// A Subscription response that includes the following:
+    ///   - A URL that can be used to deliver push messages
+    ///   - A cryptographic key that can be used to encrypt messages
+    ///     that would then be decrypted using the [`PushManager::decrypt`] function
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - PushManager was unable to access its persisted storage
+    ///   - An error occurred sending a subscription request to the autopush server
+    ///   - An error occurred generating or deserializing the cryptographic keys
+    pub fn subscribe(
+        &self,
+        channel_id: &str,
+        scope: &str,
+        server_key: &Option<String>,
+    ) -> Result<SubscriptionResponse> {
+        self.internal
+            .lock()
+            .unwrap()
+            .subscribe(channel_id, scope, server_key.as_deref())
+    }
+
+    /// Unsubscribe from given channelID, ending that subscription for the user.
+    ///
+    /// # Arguments
+    ///   - `channel_id` - Channel ID (UUID) for subscription to remove
+    ///
+    /// # Returns
+    /// Returns a boolean indicating if un-subscription was successful
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - The PushManager does not contain a valid UAID
+    ///   - An error occurred sending an unsubscribe request to the autopush server
+    ///   - An error occurred accessing the PushManager's persisted storage
+    pub fn unsubscribe(&self, channel_id: &str) -> Result<bool> {
+        self.internal.lock().unwrap().unsubscribe(channel_id)
+    }
+
+    /// Unsubscribe all channels for the user
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - The PushManager does not contain a valid UAID
+    ///   - An error occurred sending an unsubscribe request to the autopush server
+    ///   - An error occurred accessing the PushManager's persisted storage
+    pub fn unsubscribe_all(&self) -> Result<()> {
+        self.internal.lock().unwrap().unsubscribe_all()
+    }
+
+    /// Updates the Native OS push registration ID.
+    /// **NOTE**: If this returns false, the subsequent [`PushManager::verify_connection`]
+    /// may result in new endpoint registration
+    ///
+    /// # Arguments:
+    ///   - `new_token` - the new Native OS push registration ID
+    ///
+    /// # Returns
+    /// Returns a boolean indicating if the update was successful
+    ///
+    /// # Errors
+    /// Return an error in the following cases:
+    ///   - The PushManager does not contain a valid UAID
+    ///   - An error occurred sending an update request to the autopush server
+    ///   - An error occurred accessing the PushManager's persisted storage
+    pub fn update(&self, new_token: &str) -> Result<bool> {
+        self.internal.lock().unwrap().update(new_token)
+    }
+
+    /// Verifies the connection state
+    ///
+    /// **NOTE**: This does not resubscribe to any channels
+    /// it only returns the list of channels that the client should
+    /// re-subscribe to.
+    ///
+    /// # Returns
+    /// Returns a list of [`PushSubscriptionChanged`]
+    /// indicating the channels the consumer the client should re-subscribe
+    /// to. If the list is empty, the client's connection was verified
+    /// successfully, and the client does not need to resubscribe
+    ///
+    /// # Errors
+    /// Return an error in the following cases:
+    ///   - The PushManager does not contain a valid UAID
+    ///   - An error occurred sending an channel list retrieval request to the autopush server
+    ///   - An error occurred accessing the PushManager's persisted storage
+    pub fn verify_connection(&self) -> Result<Vec<PushSubscriptionChanged>> {
+        self.internal.lock().unwrap().verify_connection()
+    }
+
+    /// Decrypts a raw push message.
+    ///
+    /// This accepts the content of a Push Message (from websocket or via Native Push systems).
+    /// # Arguments:
+    ///   - `channel_id` - the ChannelID (included in the envelope of the message)
+    ///   - `body` - The encrypted body of the message
+    ///   - `encoding` - The Content Encoding "enc" field of the message (defaults to "aes128gcm")
+    ///   - `salt` - The "salt" field (if present in the raw message, defaults to "")
+    ///   - `dh` - The "dh" field (if present in the raw message, defaults to "")
+    ///
+    /// # Returns
+    /// Decrypted message body as a signed byte array
+    /// they byte array is signed to allow consumers (Kotlin only at the time of this documentation)
+    /// to work easily with the message. (They can directly call `.toByteArray` on it)
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - The PushManager does not contain a valid UAID
+    ///   - There are no records associated with the UAID the [`PushManager`] contains
+    ///   - An error occurred while decrypting the message
+    ///   - An error occurred accessing the PushManager's persisted storage
+    pub fn decrypt(
+        &self,
+        channel_id: &str,
+        body: &str,
+        encoding: &str,
+        salt: &str,
+        dh: &str,
+    ) -> Result<Vec<i8>> {
+        let decrypted = self.internal.lock().unwrap().decrypt(
+            channel_id,
+            body,
+            encoding,
+            Some(salt),
+            Some(dh),
+        )?;
+
+        // NOTE: this returns a `Vec<i8>` since the kotlin consumer is expecting
+        // signed bytes.
+        Ok(decrypted.into_iter().map(|ub| ub as i8).collect())
+    }
+
+    /// Get the dispatch info for a given subscription channel
+    ///
+    /// # Arguments
+    ///   - `channel_id`: The subscription channelID
+    ///
+    /// # Returns
+    /// [`DispatchInfo`] containing the channel ID and scope string
+    ///
+    /// # Errors
+    /// Returns an error in the following cases:
+    ///   - An error occurred accessing the persisted storage
+    pub fn dispatch_info_for_chid(&self, channel_id: &str) -> Result<Option<DispatchInfo>> {
+        self.internal.lock().unwrap().get_record_by_chid(channel_id)
+    }
+}
+
+/// Public facing Error that the crate produces
+///
+/// This is created from an internal error as the error passes through the FFI
+
+#[derive(Debug, thiserror::Error)]
+pub enum PushError {
+    /// An unspecified general error has occured
+    #[error("General Error: {0:?}")]
+    GeneralError(String),
+
+    /// An error occurred while running a cryptographic operation
+    #[error("Crypto error: {0}")]
+    CryptoError(String),
+
+    /// A Client communication error
+    #[error("Communication Error: {0:?}")]
+    CommunicationError(String),
+
+    /// An error returned from the registration Server
+    #[error("Communication Server Error: {0}")]
+    CommunicationServerError(String),
+
+    /// Channel is already registered, generate new channelID
+    #[error("Channel already registered.")]
+    AlreadyRegisteredError,
+
+    /// An error with Storage
+    #[error("Storage Error: {0:?}")]
+    StorageError(String),
+
+    #[error("No record for chid {0:?}")]
+    RecordNotFoundError(String),
+
+    /// A failure to encode data to/from storage.
+    #[error("Error executing SQL: {0}")]
+    StorageSqlError(String),
+
+    /// The registration token could not be found
+    #[error("Missing Registration Token")]
+    MissingRegistrationTokenError,
+
+    #[error("Transcoding Error: {0}")]
+    TranscodingError(String),
+
+    /// A failure to parse a URL.
+    #[error("URL parse error: {0:?}")]
+    UrlParseError(String),
+
+    /// A failure deserializing json.
+    #[error("Failed to parse json: {0}")]
+    JSONDeserializeError(String),
+
+    /// The UAID was not recognized by the server
+    #[error("Unrecognized UAID: {0}")]
+    UAIDNotRecognizedError(String),
+
+    /// Was unable to send request to server
+    #[error("Unable to send request to server: {0}")]
+    RequestError(String),
+
+    #[error("Error opening database: {0}")]
+    OpenDatabaseError(String),
+}
+
+/// The types of supported native bridges.
+///
+/// FCM = Google Android Firebase Cloud Messaging
+/// ADM = Amazon Device Messaging for FireTV
+/// APNS = Apple Push Notification System for iOS
+///
+/// Please contact services back-end for any additional bridge protocols.
+///
+pub enum BridgeType {
+    Fcm,
+    Adm,
+    Apns,
+    Test,
+}
+
+// We define how to convert from an internal error
+// into the external facing [`PushError`]
+// note that the some variants of the internal error
+// carry another error they were generated from
+// this information is dropped and replaced with a message
+// which is the stringified error
+impl From<internal::error::Error> for PushError {
+    fn from(err: internal::error::Error) -> Self {
+        match err.kind() {
+            ErrorKind::GeneralError(message) => PushError::GeneralError(message.clone()),
+            ErrorKind::CryptoError(message) => PushError::CryptoError(message.clone()),
+            ErrorKind::CommunicationError(message) => {
+                PushError::CommunicationError(message.clone())
+            }
+            ErrorKind::CommunicationServerError(message) => {
+                PushError::CommunicationServerError(message.clone())
+            }
+            ErrorKind::AlreadyRegisteredError => PushError::AlreadyRegisteredError,
+            ErrorKind::StorageError(message) => PushError::StorageError(message.clone()),
+            ErrorKind::RecordNotFoundError(chid) => PushError::RecordNotFoundError(chid.clone()),
+            ErrorKind::StorageSqlError(e) => PushError::StorageSqlError(e.to_string()),
+            ErrorKind::MissingRegistrationTokenError => PushError::MissingRegistrationTokenError,
+            ErrorKind::TranscodingError(message) => PushError::TranscodingError(message.clone()),
+            ErrorKind::UrlParseError(e) => PushError::UrlParseError(e.to_string()),
+            ErrorKind::JSONDeserializeError(e) => PushError::JSONDeserializeError(e.to_string()),
+            ErrorKind::UAIDNotRecognizedError(message) => {
+                PushError::UAIDNotRecognizedError(message.clone())
+            }
+            ErrorKind::RequestError(e) => PushError::RequestError(e.to_string()),
+            ErrorKind::OpenDatabaseError(e) => PushError::OpenDatabaseError(e.to_string()),
+        }
+    }
+}
+
+/// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]
+#[derive(Debug, Clone, PartialEq)]
+pub struct DispatchInfo {
+    pub scope: String,
+    pub endpoint: String,
+    pub app_server_key: Option<String>,
+}
+
+/// Key Information that can be used to encrypt payloads
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeyInfo {
+    pub auth: String,
+    pub p256dh: String,
+}
+/// Subscription Information, the endpoint to send push messages to and
+/// the key information that can be used to encrypt payloads
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubscriptionInfo {
+    pub endpoint: String,
+    pub keys: KeyInfo,
+}
+
+/// The subscription response object returned from [`PushManager::subscribe`]
+#[derive(Debug, Clone, PartialEq)]
+pub struct SubscriptionResponse {
+    pub channel_id: String,
+    pub subscription_info: SubscriptionInfo,
+}
+
+/// An dictionary describing the push subscription that changed, the caller
+/// will receive a list of [`PushSubscriptionChanged`] when calling
+/// [`PushManager::verify_connection`], one entry for each channel that the
+/// caller should resubscribe to
+#[derive(Debug, Clone, PartialEq)]
+pub struct PushSubscriptionChanged {
+    pub channel_id: String,
+    pub scope: String,
 }

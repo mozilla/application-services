@@ -9,9 +9,10 @@ import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
 import com.sun.jna.StringArray
-import mozilla.appservices.support.native.RustBuffer
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.places.BuildConfig
+
+import mozilla.appservices.support.native.RustBuffer
 
 @Suppress("FunctionNaming", "FunctionParameterNaming", "LongParameterList", "TooGenericExceptionThrown")
 internal interface LibPlacesFFI : Library {
@@ -194,45 +195,6 @@ internal interface LibPlacesFFI : Library {
     fun places_reset(
         handle: PlacesApiHandle,
         error: RustError.ByReference
-    )
-
-    fun places_get_latest_history_metadata_for_url(
-        handle: PlacesConnectionHandle,
-        url: String,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_get_history_metadata_between(
-        handle: PlacesConnectionHandle,
-        start: Long,
-        end: Long,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_get_history_metadata_since(
-        handle: PlacesConnectionHandle,
-        since: Long,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_query_history_metadata(
-        handle: PlacesConnectionHandle,
-        query: String,
-        limit: Int,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_note_history_metadata_observation(
-        handle: PlacesConnectionHandle,
-        data: Pointer,
-        len: Int,
-        out_err: RustError.ByReference
-    )
-
-    fun places_metadata_delete_older_than(
-        handle: PlacesConnectionHandle,
-        olderThan: Long,
-        out_err: RustError.ByReference
     )
 
     // Returns a JSON string containing a sync ping.

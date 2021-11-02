@@ -302,7 +302,6 @@ mod test {
     #[test]
     fn test_get_by_url() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
         insert_json_tree(
             &conns.write,
             json!({
@@ -376,7 +375,6 @@ mod test {
     #[test]
     fn test_search() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
         insert_json_tree(
             &conns.write,
             json!({
@@ -422,7 +420,7 @@ mod test {
         );
         append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Unfiled.guid(),
+            BookmarkRootGuid::Unfiled.guid(),
             "invalid",
             "badurl",
         );
@@ -472,7 +470,6 @@ mod test {
     #[test]
     fn test_fetch_bookmark() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
 
         insert_json_tree(
             &conns.write,
@@ -497,7 +494,7 @@ mod test {
         // valid items)
         let guid_bad = append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Mobile.guid(),
+            BookmarkRootGuid::Mobile.guid(),
             "invalid url",
             "badurl",
         )
@@ -553,7 +550,6 @@ mod test {
     #[test]
     fn test_fetch_tree() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
 
         insert_json_tree(
             &conns.write,
@@ -574,7 +570,7 @@ mod test {
 
         append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Mobile.guid(),
+            BookmarkRootGuid::Mobile.guid(),
             "invalid url",
             "badurl",
         );
@@ -613,7 +609,6 @@ mod test {
     #[test]
     fn test_recent() -> Result<()> {
         let conns = new_mem_connections();
-        let _ = env_logger::try_init();
         let kids = [
             json!({
                 "guid": "bookmark1___",
@@ -660,7 +655,7 @@ mod test {
 
         append_invalid_bookmark(
             &conns.write,
-            &BookmarkRootGuid::Unfiled.guid(),
+            BookmarkRootGuid::Unfiled.guid(),
             "invalid url",
             "badurl",
         );

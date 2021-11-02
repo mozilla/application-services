@@ -192,7 +192,7 @@ impl Config {
 
     pub fn token_server_endpoint_url(&self) -> Result<Url> {
         if let Some(token_server_url_override) = &self.token_server_url_override {
-            return Ok(Url::parse(&token_server_url_override)?);
+            return Ok(Url::parse(token_server_url_override)?);
         }
         Ok(Url::parse(
             &self.remote_config()?.token_server_endpoint_url,

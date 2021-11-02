@@ -294,7 +294,6 @@ mod tests {
             Experiment {
                 schema_version: format!("{}.0.0", SCHEMA_VERSION),
                 slug: "mobile-a-a-example".to_string(),
-                app_id: None,
                 app_name: Some("reference-browser".to_string()),
                 channel: Some("nightly".to_string()),
                 user_facing_name: "Mobile A/A Example".to_string(),
@@ -307,12 +306,8 @@ mod tests {
                     count: 5000,
                     total: 10000
                 },
-                start_date: None,
-                end_date: None,
-                proposed_duration: None,
                 proposed_enrollment: 7,
                 reference_branch: Some("control".to_string()),
-                probe_sets: vec![],
                 feature_ids: vec!["first_switch".to_string()],
                 branches: vec![
                     Branch {
@@ -320,21 +315,21 @@ mod tests {
                         ratio: 1,
                         feature: Some(FeatureConfig {
                             feature_id: "first_switch".to_string(),
-                            enabled: false,
                             value: Default::default(),
                         }),
+                        features: None,
                     },
                     Branch {
                         slug: "treatment-variation-b".to_string(),
                         ratio: 1,
                         feature: Some(FeatureConfig {
                             feature_id: "first_switch".to_string(),
-                            enabled: true,
                             value: Default::default(),
                         }),
+                        features: None,
                     },
                 ],
-                targeting: None
+                ..Default::default()
             }
         )
     }

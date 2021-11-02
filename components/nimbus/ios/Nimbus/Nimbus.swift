@@ -4,6 +4,17 @@
 
 import Foundation
 
+// Depending on build setup, we may be importing Glean as a Swift module
+// or we may be compiled together with it. This detects whether Glean is
+// an external module and makes it available to our entire package if so.
+//
+// Note that the files under `./Utils` are copies of internal files from
+// Glean, and it's very important they they be excluded from any build
+// that is compiling us together with Glean.
+#if canImport(Glean)
+    @_exported import Glean
+#endif
+
 public class Nimbus: NimbusApi {
     private let nimbusClient: NimbusClientProtocol
 
@@ -39,6 +50,8 @@ private extension Nimbus {
     func catchAll<T>(_ thunk: () throws -> T?) -> T? {
         do {
             return try thunk()
+        } catch NimbusError.DatabaseNotReady {
+            return nil
         } catch {
             errorReporter(error)
             return nil
@@ -65,11 +78,11 @@ extension Nimbus: NimbusTelemetryConfiguration {
             // Finally, if we do have an experiment for the given featureId, we will record the
             // exposure event in Glean. This is to protect against accidentally recording an event
             // for an experiment without an active enrollment.
-            GleanMetrics.NimbusEvents.exposure.record(extra: [
-                .experiment: experiment.slug,
-                .branch: experiment.branchSlug,
-                .enrollmentId: experiment.enrollmentId,
-            ])
+            GleanMetrics.NimbusEvents.exposure.record(GleanMetrics.NimbusEvents.ExposureExtra(
+                branch: experiment.branchSlug,
+                enrollmentId: experiment.enrollmentId,
+                experiment: experiment.slug
+            ))
         }
     }
 
@@ -102,23 +115,23 @@ extension Nimbus: NimbusTelemetryConfiguration {
         for event in events {
             switch event.change {
             case .enrollment:
-                GleanMetrics.NimbusEvents.enrollment.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.enrollment.record(GleanMetrics.NimbusEvents.EnrollmentExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             case .disqualification:
-                GleanMetrics.NimbusEvents.disqualification.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.disqualification.record(GleanMetrics.NimbusEvents.DisqualificationExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             case .unenrollment:
-                GleanMetrics.NimbusEvents.unenrollment.record(extra: [
-                    .experiment: event.experimentSlug,
-                    .branch: event.branchSlug,
-                    .enrollmentId: event.enrollmentId,
-                ])
+                GleanMetrics.NimbusEvents.unenrollment.record(GleanMetrics.NimbusEvents.UnenrollmentExtra(
+                    branch: event.branchSlug,
+                    enrollmentId: event.enrollmentId,
+                    experiment: event.experimentSlug
+                ))
             }
         }
     }
@@ -149,6 +162,7 @@ internal extension Nimbus {
 
     func fetchExperimentsOnThisThread() throws {
         try nimbusClient.fetchExperiments()
+        notifyOnExperimentsFetched()
     }
 
     func applyPendingExperimentsOnThisThread() throws {

@@ -495,23 +495,23 @@ pub(super) mod tests {
         // call fetch outgoing records
         assert!(ro
             .fetch_outgoing_records(
-                &tx,
+                tx,
                 collection_name.to_string(),
                 ServerTimestamp::from_millis(0)
             )
             .is_ok());
 
         // check that the record is in the outgoing table
-        exists_in_table(&tx, &format!("temp.{}", staging_table_name), guid);
+        exists_in_table(tx, &format!("temp.{}", staging_table_name), guid);
 
         // call push synced items
-        assert!(ro.finish_synced_items(&tx, vec![guid.clone()]).is_ok());
+        assert!(ro.finish_synced_items(tx, vec![guid.clone()]).is_ok());
 
         // check that the sync change counter
-        exists_with_counter_value_in_table(&tx, data_table_name, guid, 0);
+        exists_with_counter_value_in_table(tx, data_table_name, guid, 0);
 
         // check that the outgoing record is in the mirror
-        exists_in_table(&tx, mirror_table_name, guid);
+        exists_in_table(tx, mirror_table_name, guid);
     }
 
     pub(in crate::sync) fn do_test_outgoing_tombstone<T: SyncRecord + std::fmt::Debug + Clone>(
@@ -526,17 +526,17 @@ pub(super) mod tests {
         // call fetch outgoing records
         assert!(ro
             .fetch_outgoing_records(
-                &tx,
+                tx,
                 collection_name.to_string(),
                 ServerTimestamp::from_millis(0),
             )
             .is_ok());
 
         // check that the record is in the outgoing table
-        exists_in_table(&tx, &format!("temp.{}", staging_table_name), guid);
+        exists_in_table(tx, &format!("temp.{}", staging_table_name), guid);
 
         // call push synced items
-        assert!(ro.finish_synced_items(&tx, vec![guid.clone()]).is_ok());
+        assert!(ro.finish_synced_items(tx, vec![guid.clone()]).is_ok());
 
         // check that the record wasn't copied to the data table
         let sql = format!(
@@ -549,7 +549,7 @@ pub(super) mod tests {
         assert_eq!(num_rows, 0);
 
         // check that the outgoing record is in the mirror
-        exists_in_table(&tx, mirror_table_name, guid);
+        exists_in_table(tx, mirror_table_name, guid);
     }
 
     pub(in crate::sync) fn do_test_outgoing_synced_with_local_change<
@@ -566,23 +566,23 @@ pub(super) mod tests {
         // call fetch outgoing records
         assert!(ro
             .fetch_outgoing_records(
-                &tx,
+                tx,
                 collection_name.to_string(),
                 ServerTimestamp::from_millis(0),
             )
             .is_ok());
 
         // check that the record is in the outgoing table
-        exists_in_table(&tx, &format!("temp.{}", staging_table_name), guid);
+        exists_in_table(tx, &format!("temp.{}", staging_table_name), guid);
 
         // call push synced items
-        assert!(ro.finish_synced_items(&tx, vec![guid.clone()]).is_ok());
+        assert!(ro.finish_synced_items(tx, vec![guid.clone()]).is_ok());
 
         // check that the sync change counter
-        exists_with_counter_value_in_table(&tx, data_table_name, guid, 0);
+        exists_with_counter_value_in_table(tx, data_table_name, guid, 0);
 
         // check that the outgoing record is in the mirror
-        exists_in_table(&tx, mirror_table_name, guid);
+        exists_in_table(tx, mirror_table_name, guid);
     }
 
     pub(in crate::sync) fn do_test_outgoing_synced_with_no_change<
@@ -598,7 +598,7 @@ pub(super) mod tests {
         // call fetch outgoing records
         assert!(ro
             .fetch_outgoing_records(
-                &tx,
+                tx,
                 collection_name.to_string(),
                 ServerTimestamp::from_millis(0),
             )
@@ -616,9 +616,9 @@ pub(super) mod tests {
         assert_eq!(num_rows, 0);
 
         // call push synced items
-        assert!(ro.finish_synced_items(&tx, Vec::<Guid>::new()).is_ok());
+        assert!(ro.finish_synced_items(tx, Vec::<Guid>::new()).is_ok());
 
         // check that the sync change counter is unchanged
-        exists_with_counter_value_in_table(&tx, data_table_name, guid, 0);
+        exists_with_counter_value_in_table(tx, data_table_name, guid, 0);
     }
 }

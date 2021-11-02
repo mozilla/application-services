@@ -440,13 +440,14 @@ The following text applies to code linked from these dependencies:
 [cargo-platform](https://github.com/rust-lang/cargo),
 [cc](https://github.com/alexcrichton/cc-rs),
 [cfg-if](https://github.com/alexcrichton/cfg-if),
+[chrono](https://github.com/chronotope/chrono),
 [cpufeatures](https://github.com/RustCrypto/utils),
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
-[ffi-support](https://github.com/mozilla/application-services),
+[ffi-support](https://github.com/mozilla/ffi-support),
 [form_urlencoded](https://github.com/servo/rust-url),
 [getrandom](https://github.com/rust-random/getrandom),
 [glob](https://github.com/rust-lang/glob),
@@ -466,6 +467,7 @@ The following text applies to code linked from these dependencies:
 [lmdb-rkv-sys](https://github.com/mozilla/lmdb-rs.git),
 [lmdb-rkv](https://github.com/mozilla/lmdb-rs.git),
 [log](https://github.com/rust-lang/log),
+[num-integer](https://github.com/rust-num/num-integer),
 [num-traits](https://github.com/rust-num/num-traits),
 [once_cell](https://github.com/matklad/once_cell),
 [opaque-debug](https://github.com/RustCrypto/utils),
@@ -501,6 +503,7 @@ The following text applies to code linked from these dependencies:
 [tempfile](https://github.com/Stebalien/tempfile),
 [thiserror-impl](https://github.com/dtolnay/thiserror),
 [thiserror](https://github.com/dtolnay/thiserror),
+[time](https://github.com/time-rs/time),
 [tinyvec](https://github.com/Lokathor/tinyvec),
 [tinyvec_macros](https://github.com/Soveu/tinyvec_macros),
 [toml](https://github.com/alexcrichton/toml-rs),
@@ -727,7 +730,7 @@ limitations under the License.
 The following text applies to code linked from these dependencies:
 [aho-corasick](https://github.com/BurntSushi/aho-corasick),
 [byteorder](https://github.com/BurntSushi/byteorder),
-[memchr](https://github.com/BurntSushi/rust-memchr)
+[memchr](https://github.com/BurntSushi/memchr)
 
 ```
 The MIT License (MIT)

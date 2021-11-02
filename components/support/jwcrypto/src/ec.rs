@@ -46,7 +46,7 @@ pub(crate) fn encrypt_to_jwe(
         apu: None,
         apv: None,
     };
-    let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
+    let secret = derive_shared_secret(&protected_header, local_key_pair, ec_key_params)?;
     match protected_header.enc {
         EncryptionAlgorithm::A256GCM => {
             aes::aes_gcm_encrypt(data, protected_header, secret.as_ref())
@@ -83,7 +83,7 @@ pub(crate) fn decrypt_jwe(jwe: &CompactJwe, local_key_pair: EphemeralKeyPair) ->
         _ => return Err(JwCryptoError::IllegalState("Not an EC key")),
     };
 
-    let secret = derive_shared_secret(&protected_header, local_key_pair, &ec_key_params)?;
+    let secret = derive_shared_secret(&protected_header, local_key_pair, ec_key_params)?;
 
     // Part 2: decrypt the payload
     match protected_header.enc {
@@ -104,7 +104,7 @@ fn derive_shared_secret(
     let ikm = private_key.agree(&peer_public_key)?;
     let apu = protected_header.apu.as_deref().unwrap_or_default();
     let apv = protected_header.apv.as_deref().unwrap_or_default();
-    get_secret_from_ikm(ikm, &apu, &apv, &algorithm_id)
+    get_secret_from_ikm(ikm, apu, apv, algorithm_id)
 }
 
 fn public_key_from_ec_params(jwk: &ECKeysParameters) -> Result<Vec<u8>> {
@@ -138,7 +138,7 @@ fn get_secret_from_ikm(
         // ConcatKDF (1 iteration since keyLen <= hashLen).
         // See rfc7518 section 4.6 for reference.
         buf.extend_from_slice(&1u32.to_be_bytes());
-        buf.extend_from_slice(&z);
+        buf.extend_from_slice(z);
         // otherinfo
         buf.extend_from_slice(&(alg.len() as u32).to_be_bytes());
         buf.extend_from_slice(alg.as_bytes());
