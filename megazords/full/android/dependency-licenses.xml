@@ -102,7 +102,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: cc</name>
-    <url>https://github.com/alexcrichton/cc-rs/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/alexcrichton/cc-rs/blob/main/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: cfg-if</name>
