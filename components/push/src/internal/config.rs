@@ -16,9 +16,6 @@ pub struct PushConfiguration {
     /// bridge protocol ("fcm")
     pub bridge_type: Option<String>,
 
-    /// Native OS registration ID value
-    pub registration_id: Option<String>,
-
     /// Service enabled flag
     pub enabled: bool,
 
@@ -39,7 +36,6 @@ impl Default for PushConfiguration {
             socket_protocol: None,
             http_protocol: Some(String::from("https")),
             bridge_type: Some(String::from("fcm")),
-            registration_id: Some(String::from("deafbeef00000000")),
             enabled: true,
             ping_interval: 1800,
             sender_id: String::from(""),
