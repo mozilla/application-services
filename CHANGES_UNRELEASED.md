@@ -2,7 +2,7 @@
 
 # Unreleased Changes
 
-[Full Changelog](https://github.com/mozilla/application-services/compare/v86.1.0...main)
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...main)
 
 <!-- WARNING: New entries should be added below this comment to ensure the `./automation/prepare-release.py` script works as expected.
 
@@ -18,17 +18,3 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
-
-## Push
-### What's Changed
-  - We've changed the database schema to avoid confusion about the state of subscriptions and
-    in particular, avoid `SQL: UNIQUE constraint failed: push_record.channel_id` errors
-    reported in [#4575](https://github.com/mozilla/application-services/issues/4575). This is
-    technically a breaking change as a dictionary described in the UDL changed, but in practice,
-    none of our consumers used it, so we are not declaring it as breaking in this context.
-
-## Logins
-
-### What's New
-
-  - Added support for recording telemetry when the logins encryption key needs to be regenerated.
