@@ -5,11 +5,8 @@
 use crate::error::*;
 use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
-use places::{
-    bookmark_sync::engine::BookmarksEngine, history_sync::engine::HistoryEngine, PlacesApi,
-};
 use std::collections::{HashMap, HashSet};
-use std::sync::{atomic::AtomicUsize, Arc, Weak};
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     self,
@@ -37,7 +34,6 @@ const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 
 pub struct SyncManager {
     mem_cached_state: Option<MemoryCachedState>,
-    places: Weak<PlacesApi>,
 }
 
 impl Default for SyncManager {
@@ -50,12 +46,7 @@ impl SyncManager {
     pub fn new() -> Self {
         Self {
             mem_cached_state: None,
-            places: Weak::new(),
         }
-    }
-
-    pub fn set_places(&mut self, places: Arc<PlacesApi>) {
-        self.places = Arc::downgrade(&places);
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
@@ -64,6 +55,10 @@ impl SyncManager {
 
     pub fn logins_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
         logins::get_registered_sync_engine(engine)
+    }
+
+    pub fn places_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
+        places::get_registered_sync_engine(engine)
     }
 
     pub fn tabs_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
@@ -79,20 +74,16 @@ impl SyncManager {
                 Ok(())
             }
             "bookmarks" => {
-                if let Some(places) = self.places.upgrade() {
-                    places.wipe_bookmarks()?;
-                    Ok(())
-                } else {
-                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                if let Some(engine) = Self::places_engine(engine) {
+                    engine.wipe()?;
                 }
+                Ok(())
             }
             "history" => {
-                if let Some(places) = self.places.upgrade() {
-                    places.wipe_history()?;
-                    Ok(())
-                } else {
-                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                if let Some(engine) = Self::places_engine(engine) {
+                    engine.wipe()?;
                 }
+                Ok(())
             }
             "addresses" | "creditcards" => {
                 if let Some(engine) = Self::autofill_engine(engine) {
@@ -107,16 +98,10 @@ impl SyncManager {
     pub fn reset(&mut self, engine: &str) -> Result<()> {
         match engine {
             "bookmarks" | "history" => {
-                if let Some(places) = self.places.upgrade() {
-                    if engine == "bookmarks" {
-                        places.reset_bookmarks()?;
-                    } else {
-                        places.reset_history()?;
-                    }
-                    Ok(())
-                } else {
-                    Err(ErrorKind::ConnectionClosed(engine.into()).into())
+                if let Some(engine) = Self::places_engine(engine) {
+                    engine.reset(&EngineSyncAssociation::Disconnected)?;
                 }
+                Ok(())
             }
             "addresses" | "creditcards" => {
                 if let Some(engine) = Self::autofill_engine(engine) {
@@ -135,9 +120,11 @@ impl SyncManager {
     }
 
     pub fn reset_all(&mut self) -> Result<()> {
-        if let Some(places) = self.places.upgrade() {
-            places.reset_bookmarks()?;
-            places.reset_history()?;
+        if let Some(engine) = Self::places_engine("history") {
+            engine.reset(&EngineSyncAssociation::Disconnected)?;
+        }
+        if let Some(engine) = Self::places_engine("bookmarks") {
+            engine.reset(&EngineSyncAssociation::Disconnected)?;
         }
         if let Some(addresses) = Self::autofill_engine("addresses") {
             addresses.reset(&EngineSyncAssociation::Disconnected)?;
@@ -149,15 +136,19 @@ impl SyncManager {
     }
 
     pub fn disconnect(&mut self) {
-        if let Some(places) = self.places.upgrade() {
-            if let Err(e) = places.reset_bookmarks() {
+        if let Some(engine) = Self::places_engine("bookmarks") {
+            if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                 log::error!("Failed to reset bookmarks: {}", e);
             }
-            if let Err(e) = places.reset_history() {
+        } else {
+            log::warn!("Unable to reset bookmarks, be sure to call register_with_sync_manager before disconnect if this is surprising");
+        }
+        if let Some(engine) = Self::places_engine("history") {
+            if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                 log::error!("Failed to reset history: {}", e);
             }
         } else {
-            log::warn!("Unable to reset places, be sure to call set_places before disconnect if this is surprising");
+            log::warn!("Unable to reset history, be sure to call register_with_sync_manager before disconnect if this is surprising");
         }
         if let Some(addresses) = Self::autofill_engine("addresses") {
             if let Err(e) = addresses.reset(&EngineSyncAssociation::Disconnected) {
@@ -184,14 +175,17 @@ impl SyncManager {
 
     pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
         let mut have_engines = vec![];
-        let places = self.places.upgrade();
+        let bookmarks = Self::places_engine("bookmarks");
+        let history = Self::places_engine("history");
         let tabs = Self::tabs_engine("tabs");
         let logins = Self::logins_engine("logins");
         let addresses = Self::autofill_engine("addresses");
         let credit_cards = Self::autofill_engine("creditcards");
-        if places.is_some() {
-            have_engines.push(HISTORY_ENGINE);
+        if bookmarks.is_some() {
             have_engines.push(BOOKMARKS_ENGINE);
+        }
+        if history.is_some() {
+            have_engines.push(HISTORY_ENGINE);
         }
         if logins.is_some() {
             have_engines.push(LOGINS_ENGINE);
@@ -234,7 +228,8 @@ impl SyncManager {
     }
 
     fn do_sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
-        let mut places = self.places.upgrade();
+        let bookmarks = Self::places_engine("bookmarks");
+        let history = Self::places_engine("history");
         let tabs = Self::tabs_engine("tabs");
         let logins = Self::logins_engine("logins");
         let addresses = Self::autofill_engine("addresses");
@@ -243,22 +238,15 @@ impl SyncManager {
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
         let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
 
-        let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE) && places.is_some();
-        let history_sync = should_sync(&params, HISTORY_ENGINE) && places.is_some();
+        let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE) && bookmarks.is_some();
+        let history_sync = should_sync(&params, HISTORY_ENGINE) && history.is_some();
         let logins_sync = should_sync(&params, LOGINS_ENGINE) && logins.is_some();
         let tabs_sync = should_sync(&params, TABS_ENGINE) && tabs.is_some();
         let addresses_sync = should_sync(&params, ADDRESSES_ENGINE) && addresses.is_some();
         let credit_cards_sync = should_sync(&params, CREDIT_CARDS_ENGINE) && credit_cards.is_some();
 
-        let places_conn = if bookmarks_sync || history_sync {
-            places
-                .as_mut()
-                .expect("trying to sync an engine that has not been configured")
-                .open_sync_connection()
-                .ok()
-        } else {
-            None
-        };
+        let bs = if bookmarks_sync { bookmarks } else { None };
+        let hs = if history_sync { history } else { None };
         let ts = if tabs_sync { tabs } else { None };
         let ls = if logins_sync { logins } else { None };
         let ads = if addresses_sync { addresses } else { None };
@@ -278,17 +266,14 @@ impl SyncManager {
         // ownership of our engines.
         let mut engines: Vec<Box<dyn sync15::SyncEngine>> = vec![];
 
-        if let Some(pc) = places_conn.as_ref() {
-            assert!(
-                history_sync || bookmarks_sync,
-                "Should have already checked"
-            );
-            if history_sync {
-                engines.push(Box::new(HistoryEngine::new(pc, &interruptee)))
-            }
-            if bookmarks_sync {
-                engines.push(Box::new(BookmarksEngine::new(pc, &interruptee)))
-            }
+        if let Some(bookmarks) = bs {
+            assert!(bookmarks_sync, "Should have already checked");
+            engines.push(bookmarks);
+        }
+
+        if let Some(history) = hs {
+            assert!(history_sync, "Should have already checked");
+            engines.push(history);
         }
 
         if let Some(logins) = ls {

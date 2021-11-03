@@ -8,21 +8,7 @@
 // the closure is small.
 #![allow(clippy::redundant_closure)]
 
-use ffi_support::{ExternError, HandleError};
-use sync_manager::Result as MgrResult;
-
-#[no_mangle]
-pub extern "C" fn sync_manager_set_places(_places_api_handle: u64, error: &mut ExternError) {
-    ffi_support::call_with_result(error, || -> MgrResult<()> {
-        log::debug!("sync_manager_set_places");
-        let api = places_ffi::APIS
-            .get_u64(_places_api_handle, |api| -> Result<_, HandleError> {
-                Ok(std::sync::Arc::clone(api))
-            })?;
-        sync_manager::set_places(api);
-        Ok(())
-    })
-}
+use ffi_support::ExternError;
 
 #[no_mangle]
 pub extern "C" fn sync_manager_disconnect(error: &mut ExternError) {
