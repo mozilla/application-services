@@ -38,6 +38,11 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): PlacesConnectionHandle
 
+    fun places_api_register_with_sync_manager(
+        handle: PlacesApiHandle,
+        out_err: RustError.ByReference
+    )
+
     // Returns a JSON string containing bookmark import metrics
     fun places_bookmarks_import_from_fennec(
         handle: PlacesApiHandle,
