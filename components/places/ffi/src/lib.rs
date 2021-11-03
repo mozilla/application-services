@@ -486,6 +486,14 @@ pub extern "C" fn places_accept_result(
 }
 
 #[no_mangle]
+pub extern "C" fn places_api_register_with_sync_manager(handle: u64, error: &mut ExternError) {
+    log::debug!("register_with_sync_manager");
+    APIS.call_with_output(error, handle, |api| {
+        api.clone().register_with_sync_manager()
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
     log::debug!("places_reset");
     APIS.call_with_result(error, handle, |api| -> places::Result<_> {

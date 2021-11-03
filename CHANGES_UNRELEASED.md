@@ -22,3 +22,7 @@ Use the template below to make assigning a version number during the release cut
 ## Push
 ### What's changed
   - Push internally no longer uses the `error_support` dependency to simplify the code. It now directly defines exactly one error enum and exposes that to `uniffi`. This should have no implication to the consumer code ([#4650](https://github.com/mozilla/application-services/pull/4650))
+
+## Places
+### ⚠️ Breaking Changes ⚠️
+  - Switched sync manager integration to use `registerWithSyncManager()` like the other components ([#4627](https://github.com/mozilla/application-services/pull/4627))
