@@ -21,8 +21,8 @@ The fxa-client component offers support for:
    in order to access account-enabled services such as Firefox Sync.
 1. Listing and managing other applications connected to the
    user's account.
-     1. Sending tabs to other applications that are capable
-        of receiving them.
+1. Sending tabs to other applications that are capable
+   of receiving them.
 1. Managing a device record for your signed-in application,
    making it visible to other applications connected to the user's
    account.
