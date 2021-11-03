@@ -16,17 +16,10 @@ pub mod msg_types {
 }
 
 use manager::SyncManager;
-use places::PlacesApi;
-use std::sync::Arc;
 use std::sync::Mutex;
 
 lazy_static::lazy_static! {
     static ref MANAGER: Mutex<SyncManager> = Mutex::new(SyncManager::new());
-}
-
-pub fn set_places(places: Arc<PlacesApi>) {
-    let mut manager = MANAGER.lock().unwrap();
-    manager.set_places(places);
 }
 
 pub fn disconnect() {
