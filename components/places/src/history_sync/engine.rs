@@ -10,6 +10,7 @@ use rusqlite::types::{FromSql, ToSql};
 use rusqlite::Connection;
 use sql_support::SqlInterruptScope;
 use std::ops::Deref;
+use std::sync::{Arc, Mutex};
 use sync15::telemetry;
 use sync15::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
@@ -26,8 +27,93 @@ pub const LAST_SYNC_META_KEY: &str = "history_last_sync_time";
 pub const GLOBAL_SYNCID_META_KEY: &str = "history_global_sync_id";
 pub const COLLECTION_SYNCID_META_KEY: &str = "history_sync_id";
 
-// A HistoryEngine is short-lived and constructed each sync by something which
-// owns the connection and ClientInfo.
+// `SyncEngine` implementation for history
+pub struct HistorySyncEngine {
+    pub db: Arc<Mutex<PlacesDb>>,
+    scope: SqlInterruptScope,
+}
+
+impl HistorySyncEngine {
+    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+        let conn = db.lock().unwrap();
+        assert_eq!(conn.conn_type(), ConnectionType::Sync);
+        let scope = conn.begin_interrupt_scope();
+        drop(conn);
+        Self { db, scope }
+    }
+}
+
+// Implement SyncEngine by forwarding the calls to HistoryEngine.  Once we finish refactoring we
+// can delete that struct and merge the code in here.
+impl SyncEngine for HistorySyncEngine {
+    #[inline]
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "history".into()
+    }
+
+    fn apply_incoming(
+        &self,
+        inbound: Vec<IncomingChangeset>,
+        telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<OutgoingChangeset> {
+        HistoryEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .apply_incoming(inbound, telem)
+    }
+
+    fn sync_finished(
+        &self,
+        new_timestamp: ServerTimestamp,
+        records_synced: Vec<Guid>,
+    ) -> anyhow::Result<()> {
+        HistoryEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .sync_finished(new_timestamp, records_synced)
+    }
+
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
+        HistoryEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .get_collection_requests(server_timestamp)
+    }
+
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
+        HistoryEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .get_sync_assoc()
+    }
+
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
+        HistoryEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .reset(assoc)
+    }
+
+    fn wipe(&self) -> anyhow::Result<()> {
+        HistoryEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .wipe()
+    }
+}
+
+// Deprecated `SyncEngine` implementation for history.  This is used by the older syncing and
+// import code.  Let's either delete that code or refactor it to use HistorySyncEngine, then
+// delete this struct and merge the code into HistorySyncEngine.
 pub struct HistoryEngine<'a> {
     pub db: &'a PlacesDb,
     interruptee: &'a SqlInterruptScope,

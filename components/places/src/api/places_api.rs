@@ -2,10 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::bookmark_sync::engine::BookmarksEngine;
+use crate::bookmark_sync::engine::{BookmarksEngine, BookmarksSyncEngine};
 use crate::db::db::PlacesDb;
 use crate::error::*;
-use crate::history_sync::engine::HistoryEngine;
+use crate::history_sync::engine::{HistoryEngine, HistorySyncEngine};
 use crate::storage::{
     self, bookmarks::bookmark_sync, delete_meta, get_meta, history::history_sync, put_meta,
 };
@@ -21,7 +21,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex, Weak,
 };
-use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncResult};
+use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncEngine, SyncResult};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -29,6 +29,37 @@ use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncResult};
 // by a store or collection, so it's safe to storage globally rather than
 // per collection.
 pub const GLOBAL_STATE_META_KEY: &str = "global_sync_state_v2";
+
+// Our "sync manager" will use whatever is stashed here.
+lazy_static::lazy_static! {
+    // Mutex: just taken long enough to update the contents - needed to wrap
+    //        the Weak as it isn't `Sync`
+    // [Arc/Weak]: Stores the places api used to create the connection for
+    //             BookmarksEngine/HistoryEngine
+    static ref PLACES_API_FOR_SYNC_MANAGER: Mutex<Weak<PlacesApi>> = Mutex::new(Weak::new());
+}
+
+// Called by the sync manager to get a sync engine via the PlacesApi previously
+// registered with the sync manager.
+pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+    match PLACES_API_FOR_SYNC_MANAGER.lock().unwrap().upgrade() {
+        None => {
+            log::error!("get_registered_sync_engine: no PlacesApi registered");
+            None
+        }
+        Some(places_api) => match places_api.get_sync_connection() {
+            Ok(db) => match name {
+                "bookmarks" => Some(Box::new(BookmarksSyncEngine::new(db))),
+                "history" => Some(Box::new(HistorySyncEngine::new(db))),
+                _ => unreachable!("can't provide unknown engine: {}", name),
+            },
+            Err(e) => {
+                log::error!("get_registered_sync_engine: {}", e);
+                None
+            }
+        },
+    }
+}
 
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -82,9 +113,20 @@ pub struct PlacesApi {
     write_connection: Mutex<Option<PlacesDb>>,
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
+    // Used for get_sync_connection()
+    // - The inner mutux synchronizes sync operation (for example one of the [SyncEngine] methods).
+    //   This avoids issues like #867
+    // - The weak facilitates connection sharing.  When `get_sync_connection()` returns an Arc, we
+    //   keep a weak reference to it.  If the Arc is still alive when `get_sync_connection()` is
+    //   called again, we reuse it.
+    // - The outer mutex synchronizes the `get_sync_connection()` operation.  If multiple threads
+    //   ran that at the same time there would be issues.
+    sync_connection: Mutex<Weak<Mutex<PlacesDb>>>,
+    // Used for the deprecated open_sync_connection() method
     sync_conn_active: AtomicBool,
     id: usize,
 }
+
 impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
     pub fn new(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
@@ -120,6 +162,7 @@ impl PlacesApi {
                     db_name: db_name.clone(),
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
+                    sync_connection: Mutex::new(Weak::new()),
                     sync_conn_active: AtomicBool::new(false),
                     id,
                     coop_tx_lock,
@@ -162,6 +205,37 @@ impl PlacesApi {
         }
     }
 
+    // Get a database connection to sync with
+    //
+    // This function provides a couple features to facilitate sharing the connection between
+    // different sync engines:
+    //   - Each connection is wrapped in a `Mutex<>` to synchronize access.
+    //   - The mutex is then wrapped in an Arc<>.  If the last Arc<> returned is still alive, then
+    //     get_sync_connection() will reuse it.
+    pub fn get_sync_connection(&self) -> Result<Arc<Mutex<PlacesDb>>> {
+        // First step: lock the outer mutex
+        let mut conn = self.sync_connection.lock().unwrap();
+        match conn.upgrade() {
+            // If our Weak is still alive, then re-use that
+            Some(db) => Ok(db),
+            // If not, create a new connection
+            None => {
+                let db = Arc::new(Mutex::new(PlacesDb::open(
+                    self.db_name.clone(),
+                    ConnectionType::Sync,
+                    self.id,
+                    self.coop_tx_lock.clone(),
+                )?));
+                // Store a weakref for next time
+                *conn = Arc::downgrade(&db);
+                Ok(db)
+            }
+        }
+    }
+
+    // Deprecated method for getting a sync connection, used by the older sync code as well as the
+    // import code.  The plan is to either delete code that uses this or refactor it to use
+    // `get_sync_connection()`
     pub fn open_sync_connection(&self) -> Result<SyncConn<'_>> {
         self.sync_conn_active
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
@@ -202,6 +276,15 @@ impl PlacesApi {
             Some(ref s) => put_meta(conn, GLOBAL_STATE_META_KEY, s),
             None => delete_meta(conn, GLOBAL_STATE_META_KEY),
         }
+    }
+
+    // This allows the embedding app to say "make this instance available to
+    // the sync manager". The implementation is more like "offer to sync mgr"
+    // (thereby avoiding us needing to link with the sync manager) but
+    // `register_with_sync_manager()` is logically what's happening so that's
+    // the name it gets.
+    pub fn register_with_sync_manager(self: Arc<Self>) {
+        *PLACES_API_FOR_SYNC_MANAGER.lock().unwrap() = Arc::downgrade(&self);
     }
 
     // NOTE: These should be deprecated as soon as possible - that will be once

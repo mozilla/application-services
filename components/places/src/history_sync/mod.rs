@@ -11,6 +11,8 @@ pub mod engine;
 mod plan;
 pub mod record;
 
+pub use engine::HistoryEngine;
+
 const MAX_INCOMING_PLACES: usize = 5000;
 const MAX_OUTGOING_PLACES: usize = 5000;
 const MAX_VISITS: usize = 20;

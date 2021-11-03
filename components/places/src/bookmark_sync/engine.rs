@@ -30,6 +30,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
+use std::sync::{Arc, Mutex};
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -61,6 +62,93 @@ where
     }
 }
 
+// `SyncEngine` implementation for bookmarks
+pub struct BookmarksSyncEngine {
+    pub db: Arc<Mutex<PlacesDb>>,
+    scope: SqlInterruptScope,
+}
+
+impl BookmarksSyncEngine {
+    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+        let conn = db.lock().unwrap();
+        assert_eq!(conn.conn_type(), ConnectionType::Sync);
+        let scope = conn.begin_interrupt_scope();
+        drop(conn);
+        Self { db, scope }
+    }
+}
+
+// Implement SyncEngine by forwarding the calls to BookmarksEngine.  Once we finish refactoring we
+// can delete that struct and merge the code in here.
+impl SyncEngine for BookmarksSyncEngine {
+    #[inline]
+    fn collection_name(&self) -> std::borrow::Cow<'static, str> {
+        "bookmarks".into()
+    }
+
+    fn apply_incoming(
+        &self,
+        inbound: Vec<IncomingChangeset>,
+        telem: &mut telemetry::Engine,
+    ) -> anyhow::Result<OutgoingChangeset> {
+        BookmarksEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .apply_incoming(inbound, telem)
+    }
+
+    fn sync_finished(
+        &self,
+        new_timestamp: ServerTimestamp,
+        records_synced: Vec<SyncGuid>,
+    ) -> anyhow::Result<()> {
+        BookmarksEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .sync_finished(new_timestamp, records_synced)
+    }
+
+    fn get_collection_requests(
+        &self,
+        server_timestamp: ServerTimestamp,
+    ) -> anyhow::Result<Vec<CollectionRequest>> {
+        BookmarksEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .get_collection_requests(server_timestamp)
+    }
+
+    fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
+        BookmarksEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .get_sync_assoc()
+    }
+
+    fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
+        BookmarksEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .reset(assoc)
+    }
+
+    fn wipe(&self) -> anyhow::Result<()> {
+        BookmarksEngine {
+            db: &self.db.lock().unwrap(),
+            interruptee: &self.scope,
+        }
+        .wipe()
+    }
+}
+
+// Deprecated `SyncEngine` implementation for bookmarks.  This is used by the older syncing and
+// import code.  Let's either delete that code or refactor it to use BookmarksSyncEngine, then
+// delete this struct and merge the code into BookmarksSyncEngine.
 pub struct BookmarksEngine<'a> {
     pub db: &'a PlacesDb,
     interruptee: &'a SqlInterruptScope,
