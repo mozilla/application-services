@@ -114,6 +114,7 @@ impl ConcreteCodeOracle {
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
+            TypeIdentifier::Option(ref inner) => Box::new(structural::OptionalCodeType::new(inner)),
             TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),
             TypeIdentifier::StringMap(ref v_type) => {
                 let k_type = &TypeIdentifier::String;

@@ -11,6 +11,67 @@ use crate::{
     intermediate_representation::Literal,
 };
 
+pub(crate) struct OptionalCodeType {
+    inner: TypeIdentifier,
+}
+
+impl OptionalCodeType {
+    pub(crate) fn new(inner: &TypeIdentifier) -> Self {
+        Self {
+            inner: inner.clone(),
+        }
+    }
+}
+
+impl CodeType for OptionalCodeType {
+    /// The language specific label used to reference this type. This will be used in
+    /// method signatures and property declarations.
+    fn type_label(&self, oracle: &dyn CodeOracle) -> String {
+        format!(
+            "{item}?",
+            item = oracle.find(&self.inner).type_label(oracle),
+        )
+    }
+
+    /// The language specific expression that gets a value of the `prop` from the `vars` object.
+    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+        // all getters are optional.
+        oracle.find(&self.inner).get_value(oracle, vars, prop)
+    }
+
+    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
+    /// the `override` is of type `T?`.
+    fn with_fallback(
+        &self,
+        _oracle: &dyn CodeOracle,
+        overrides: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        format!(
+            "{overrides} ?: {default}",
+            overrides = overrides,
+            default = default
+        )
+    }
+
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn variables_type(&self, oracle: &dyn CodeOracle) -> VariablesType {
+        oracle.find(&self.inner).variables_type(oracle)
+    }
+
+    /// A representation of the given literal for this type.
+    /// N.B. `Literal` is aliased from `interface::Literal`, so may not be whole suited to this task.
+    fn literal(&self, oracle: &dyn CodeOracle, literal: &Literal) -> String {
+        match literal {
+            serde_json::Value::Null => "null".to_string(),
+            _ => oracle.find(&self.inner).literal(oracle, literal),
+        }
+    }
+}
+
+// Map type
+
 pub(crate) struct MapCodeType {
     k_type: TypeIdentifier,
     v_type: TypeIdentifier,
