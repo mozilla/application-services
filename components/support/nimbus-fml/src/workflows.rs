@@ -137,7 +137,7 @@ mod test {
     #[test]
     fn test_with_full_homescreen() -> Result<()> {
         generate_and_assert(
-            "test/with_objects.kts",
+            "test/full_homescreen.kts",
             "fixtures/ir/full_homescreen.json",
             true,
         )?;

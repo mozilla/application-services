@@ -16,3 +16,6 @@ serde_yaml = "0.8.21"
 askama = "0.10.5"
 textwrap = "0.14.2"
 heck = "0.3.3"
+
+[dev-dependencies]
+tempdir = "0.3.7"

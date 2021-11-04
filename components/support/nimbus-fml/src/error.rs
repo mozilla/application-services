@@ -16,6 +16,10 @@ pub enum FMLError {
     #[error("YAML Error: {0}")]
     YAMLError(#[from] serde_yaml::Error),
 
+    #[allow(dead_code)]
+    #[error("Can't find file: {0}")]
+    InvalidPath(String),
+
     #[error("Unexpected template problem: {0}")]
     TemplateProblem(#[from] askama::Error),
 

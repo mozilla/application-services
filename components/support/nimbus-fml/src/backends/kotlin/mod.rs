@@ -28,9 +28,11 @@ pub(crate) fn generate_struct(
 
 #[cfg(test)]
 pub mod test {
+    use crate::error::FMLError;
     use crate::util::{join, pkg_dir, sdk_dir};
     use anyhow::{bail, Result};
-    use std::path::PathBuf;
+    use tempdir::TempDir;
+    use std::path::{Path, PathBuf};
     use std::process::Command;
 
     // The root of the Android kotlin package structure
@@ -75,62 +77,20 @@ pub mod test {
         )
     }
 
-    fn build_dir() -> String {
-        use crate::util;
-        join(util::build_dir(), "android")
-    }
-
-    fn manifest_build_dir() -> String {
-        join(build_dir(), "manifests")
-    }
-
-    fn classpath() -> Result<String> {
-        let cp = [
-            json_jar(),
-            prepare_runtime_build_dir()?,
-            manifest_build_dir(),
-        ];
-        Ok(cp.join(":"))
-    }
-
-    // Prepare the build directory, by compiling the runtime, and FeatureVariables.kt
-    // If the directory already exists, then do nothing more; it takes time
-    // to spin up the kotlinc.
-    // If you need to change the runtime files, then you'll need to remove the build file.
-    fn prepare_runtime_build_dir() -> Result<String> {
-        let dir_str = join(build_dir(), "runtime");
-        let build_dir: PathBuf = PathBuf::from(&dir_str);
-        if build_dir.is_dir() {
-            return Ok(dir_str);
-        }
-
-        let status = Command::new("kotlinc")
-            // Our generated bindings should not produce any warnings; fail tests if they do.
-            .arg("-Werror")
-            // Reflect $CLASSPATH from the environment, to help find `json.jar`.
-            .arg("-classpath")
-            .arg(json_jar())
-            .arg("-d")
-            .arg(&dir_str)
-            .arg(&variables_kt())
-            .arg(&features_kt())
-            .arg(&runtime_dir())
-            .arg(&nimbus_internals_kt())
-            .spawn()?
-            .wait()?;
-        if status.success() {
-            Ok(dir_str)
-        } else {
-            bail!("running `kotlinc` failed preparing a build directory",)
-        }
+    fn classpath(classes: &Path) -> Result<String> {
+        Ok(format!("{}:{}", json_jar(), classes.to_str().unwrap()))
     }
 
     // Compile a genertaed manifest file against the mocked out Android runtime.
-    pub fn compile_manifest_kt(path: String) -> Result<()> {
-        let build_dir = manifest_build_dir();
+    pub fn compile_manifest_kt(manifest_path: String) -> Result<TempDir> {
+        let path = PathBuf::from(&manifest_path);
+        let prefix = path.file_stem().ok_or_else(|| FMLError::InvalidPath(manifest_path.clone()))?;
+        let prefix = prefix.to_str().ok_or_else(|| FMLError::InvalidPath(manifest_path.clone()))?;
+        let temp = TempDir::new(prefix)?;
+        let build_dir = temp.path();
 
         // We need this to exist so we don't create a compile time warning for the first test.
-        std::fs::create_dir_all(&build_dir)?;
+        // std::fs::create_dir_all(&build_dir)?;
 
         let status = Command::new("kotlinc")
             // Our generated bindings should not produce any warnings; fail tests if they do.
@@ -138,14 +98,18 @@ pub mod test {
             .arg("-J-ea")
             // Reflect $CLASSPATH from the environment, to help find `json.jar`.
             .arg("-classpath")
-            .arg(classpath()?)
+            .arg(json_jar())
             .arg("-d")
             .arg(&build_dir)
-            .arg(&path)
+            .arg(&variables_kt())
+            .arg(&features_kt())
+            .arg(&runtime_dir())
+            .arg(&nimbus_internals_kt())
+            .arg(&manifest_path)
             .spawn()?
             .wait()?;
         if status.success() {
-            Ok(())
+            Ok(temp)
         } else {
             bail!("running `kotlinc` failed compiling a generated manifest")
         }
@@ -153,21 +117,22 @@ pub mod test {
 
     // Given a generated manifest, run a kts script against it.
     pub fn run_script_with_generated_code(manifest_kt: String, script: &str) -> Result<()> {
-        compile_manifest_kt(manifest_kt)?;
-        let build_dir = prepare_runtime_build_dir()?;
+        let temp_dir = compile_manifest_kt(manifest_kt)?;
+        let build_dir = temp_dir.path();
+
         let status = Command::new("kotlinc")
             // Our generated bindings should not produce any warnings; fail tests if they do.
             .arg("-Werror")
             .arg("-J-ea")
             // Reflect $CLASSPATH from the environment, to help find `json.jar`.
             .arg("-classpath")
-            .arg(&classpath()?)
-            .arg("-d")
-            .arg(&build_dir)
+            .arg(&classpath(&build_dir)?)
             .arg("-script")
             .arg(&script)
             .spawn()?
             .wait()?;
+
+        drop(temp_dir);
         if status.success() {
             Ok(())
         } else {
