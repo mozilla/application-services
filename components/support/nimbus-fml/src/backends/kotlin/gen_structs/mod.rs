@@ -5,11 +5,6 @@
 use askama::Template;
 use std::collections::HashSet;
 
-//  use anyhow::Result;
-//  use serde::{Deserialize, Serialize};
-
-//  use crate::MergeWith;
-
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::FeatureManifest,
@@ -23,51 +18,6 @@ mod identifiers;
 mod object;
 mod primitives;
 mod structural;
-
-//  // Some config options for it the caller wants to customize the generated Kotlin.
-//  // Note that this can only be used to control details of the Kotlin *that do not affect the underlying component*,
-//  // sine the details of the underlying component are entirely determined by the `FeatureManifest`.
-//  #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-//  pub struct Config {
-//      package_name: Option<String>,
-//      cdylib_name: Option<String>,
-//  }
-
-//  impl Config {
-//      pub fn package_name(&self) -> String {
-//          if let Some(package_name) = &self.package_name {
-//              package_name.clone()
-//          } else {
-//              "uniffi".into()
-//          }
-//      }
-
-//      pub fn cdylib_name(&self) -> String {
-//          if let Some(cdylib_name) = &self.cdylib_name {
-//              cdylib_name.clone()
-//          } else {
-//              "uniffi".into()
-//          }
-//      }
-//  }
-
-// //  impl From<&FeatureManifest> for Config {
-// //      fn from(ci: &FeatureManifest) -> Self {
-// //          Config {
-// //              package_name: Some(format!("uniffi.{}", ci.namespace())),
-// //              cdylib_name: Some(format!("uniffi_{}", ci.namespace())),
-// //          }
-// //      }
-// //  }
-
-// //  impl MergeWith for Config {
-// //      fn merge_with(&self, other: &Self) -> Self {
-// //          Config {
-// //              package_name: self.package_name.merge_with(&other.package_name),
-// //              cdylib_name: self.cdylib_name.merge_with(&other.cdylib_name),
-// //          }
-// //      }
-// //  }
 
 impl Config {
     fn package_name(&self) -> Option<String> {
@@ -100,24 +50,23 @@ impl<'a> FeatureManifestDeclaration<'a> {
 
     pub fn members(&self) -> Vec<Box<dyn CodeDeclaration + 'a>> {
         let fm = self.fm;
-        vec![
-           //  Box::new(object::ObjectRuntime::new(ci)) as Box<dyn CodeDeclaration>,
-        ]
-        .into_iter()
-        .chain(fm.iter_feature_defs().into_iter().map(|inner| {
-            Box::new(feature::FeatureCodeDeclaration::new(
-                fm,
-                &self.config,
-                inner,
-            )) as Box<dyn CodeDeclaration>
-        }))
-        .chain(fm.iter_enum_defs().map(|inner| {
-            Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-        }))
-        .chain(fm.iter_object_defs().into_iter().map(|inner| {
-            Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
-        }))
-        .collect()
+
+        fm.iter_feature_defs()
+            .into_iter()
+            .map(|inner| {
+                Box::new(feature::FeatureCodeDeclaration::new(
+                    fm,
+                    &self.config,
+                    inner,
+                )) as Box<dyn CodeDeclaration>
+            })
+            .chain(fm.iter_enum_defs().map(|inner| {
+                Box::new(enum_::EnumCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .chain(fm.iter_object_defs().into_iter().map(|inner| {
+                Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .collect()
     }
 
     pub fn initialization_code(&self) -> Vec<String> {
@@ -133,12 +82,6 @@ impl<'a> FeatureManifestDeclaration<'a> {
         self.members()
             .into_iter()
             .filter_map(|member| member.definition_code(oracle))
-            //  .chain(
-            //      self.fm
-            //          .iter_types()
-            //          .into_iter()
-            //          .filter_map(|type_| oracle.find(&type_).helper_code(oracle)),
-            //  )
             .collect()
     }
 
@@ -149,13 +92,6 @@ impl<'a> FeatureManifestDeclaration<'a> {
             .into_iter()
             .filter_map(|member| member.imports(oracle))
             .flatten()
-            //  .chain(
-            //      self.ci
-            //          .iter_types()
-            //          .into_iter()
-            //          .filter_map(|type_| oracle.find(&type_).imports(oracle))
-            //          .flatten(),
-            //  )
             .collect::<HashSet<String>>()
             .into_iter()
             .collect();
@@ -178,11 +114,6 @@ impl ConcreteCodeOracle {
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
 
-            // TypeIdentifier::Optional(ref inner) => {
-            //     let outer = type_.clone();
-            //     let inner = *inner.to_owned();
-            //     Box::new(structural::OptionalCodeType::new(inner, outer))
-            // }
             TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),
             TypeIdentifier::StringMap(ref v_type) => {
                 let k_type = &TypeIdentifier::String;
