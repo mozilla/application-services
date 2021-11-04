@@ -258,6 +258,15 @@ fn main() -> Result<()> {
             println!("Opting out of experiment '{}'", experiment);
             nimbus_client.opt_out(experiment.to_string())?;
         }
+        ("opt-out-all", _) => {
+            println!("======================================");
+            println!("Opting out of ALL experiments:");
+            let experiments = nimbus_client.get_all_experiments().unwrap();
+            for experiment in experiments {
+                println!("\t'{}'", &experiment.slug);
+                nimbus_client.opt_out(experiment.slug)?;
+            }
+        }
         // gen_uuid will generate a UUID that gets enrolled in a given number of
         // experiments, optionally settting the generated ID in the database.
         ("gen-uuid", Some(matches)) => {
