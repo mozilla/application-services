@@ -23,26 +23,26 @@ lazy_static::lazy_static! {
 }
 
 pub fn disconnect() {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.disconnect();
 }
 
 pub fn wipe(engine: &str) -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.wipe(engine)
 }
 
 pub fn reset(engine: &str) -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.reset(engine)
 }
 
 pub fn reset_all() -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.reset_all()
 }
 
 pub fn sync(params: msg_types::SyncParams) -> Result<msg_types::SyncResult> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.sync(params)
 }

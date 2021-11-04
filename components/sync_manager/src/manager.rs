@@ -6,7 +6,7 @@ use crate::error::*;
 use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
 use std::collections::{HashMap, HashSet};
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 use std::time::SystemTime;
 use sync15::{
     self,
@@ -32,21 +32,14 @@ const DEVICE_TYPE_TABLET: i32 = DeviceType::Tablet as i32;
 const DEVICE_TYPE_VR: i32 = DeviceType::Vr as i32;
 const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 
+#[derive(Default)]
 pub struct SyncManager {
-    mem_cached_state: Option<MemoryCachedState>,
-}
-
-impl Default for SyncManager {
-    fn default() -> Self {
-        Self::new()
-    }
+    mem_cached_state: Mutex<Option<MemoryCachedState>>,
 }
 
 impl SyncManager {
     pub fn new() -> Self {
-        Self {
-            mem_cached_state: None,
-        }
+        Self::default()
     }
 
     pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
@@ -65,7 +58,7 @@ impl SyncManager {
         tabs::get_registered_sync_engine(engine)
     }
 
-    pub fn wipe(&mut self, engine: &str) -> Result<()> {
+    pub fn wipe(&self, engine: &str) -> Result<()> {
         match engine {
             "logins" => {
                 if let Some(engine) = Self::logins_engine(engine) {
@@ -95,7 +88,7 @@ impl SyncManager {
         }
     }
 
-    pub fn reset(&mut self, engine: &str) -> Result<()> {
+    pub fn reset(&self, engine: &str) -> Result<()> {
         match engine {
             "bookmarks" | "history" => {
                 if let Some(engine) = Self::places_engine(engine) {
@@ -119,7 +112,7 @@ impl SyncManager {
         }
     }
 
-    pub fn reset_all(&mut self) -> Result<()> {
+    pub fn reset_all(&self) -> Result<()> {
         if let Some(engine) = Self::places_engine("history") {
             engine.reset(&EngineSyncAssociation::Disconnected)?;
         }
@@ -135,7 +128,7 @@ impl SyncManager {
         Ok(())
     }
 
-    pub fn disconnect(&mut self) {
+    pub fn disconnect(&self) {
         if let Some(engine) = Self::places_engine("bookmarks") {
             if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
                 log::error!("Failed to reset bookmarks: {}", e);
@@ -173,7 +166,8 @@ impl SyncManager {
         }
     }
 
-    pub fn sync(&mut self, params: SyncParams) -> Result<SyncResult> {
+    pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
+        let mut state = self.mem_cached_state.lock().unwrap();
         let mut have_engines = vec![];
         let bookmarks = Self::places_engine("bookmarks");
         let history = Self::places_engine("history");
@@ -201,13 +195,12 @@ impl SyncManager {
         }
         check_engine_list(&params.engines_to_sync, &have_engines)?;
 
-        let next_sync_after = self
-            .mem_cached_state
+        let next_sync_after = state
             .as_ref()
             .and_then(|mcs| mcs.get_next_sync_after());
         if !backoff_in_effect(next_sync_after, &params) {
             log::info!("No backoff in effect (or we decided to ignore it), starting sync");
-            self.do_sync(params)
+            self.do_sync(params, &mut state)
         } else {
             let ts = system_time_to_millis(next_sync_after);
             log::warn!(
@@ -227,7 +220,7 @@ impl SyncManager {
         }
     }
 
-    fn do_sync(&mut self, mut params: SyncParams) -> Result<SyncResult> {
+    fn do_sync(&self, mut params: SyncParams, state: &mut Option<MemoryCachedState>) -> Result<SyncResult> {
         let bookmarks = Self::places_engine("bookmarks");
         let history = Self::places_engine("history");
         let tabs = Self::tabs_engine("tabs");
@@ -260,7 +253,7 @@ impl SyncManager {
         let p = Arc::new(AtomicUsize::new(0));
         let interruptee = sql_support::SqlInterruptScope::new(p);
 
-        let mut mem_cached_state = self.mem_cached_state.take().unwrap_or_default();
+        let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
         // `sync_multiple` takes a &[&dyn Engine], but we need something to hold
         // ownership of our engines.
@@ -348,7 +341,7 @@ impl SyncManager {
                 is_user_action: params.reason == (SyncReason::User as i32),
             }),
         );
-        self.mem_cached_state = Some(mem_cached_state);
+        *state = Some(mem_cached_state);
 
         log::info!("Sync finished with status {:?}", result.service_status);
         let status = ServiceStatus::from(result.service_status) as i32;
