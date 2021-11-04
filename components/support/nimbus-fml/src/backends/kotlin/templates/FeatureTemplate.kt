@@ -51,7 +51,3 @@ specify all values needed for the  feature #}
         {{ nimbus_object }}.api?.recordExposureEvent({{ raw_name|quoted }})
     }
 }
-
-{{ inner.doc()|comment("") }}
-val {{ nimbus_object }}.Features.{{prop_name}}: {{class_name}}
-    get() = {{class_name}}({{ nimbus_object }}.api?.getVariables({{ raw_name|quoted }}, false))

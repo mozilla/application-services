@@ -31,9 +31,9 @@ pub mod test {
     use crate::error::FMLError;
     use crate::util::{join, pkg_dir, sdk_dir};
     use anyhow::{bail, Result};
-    use tempdir::TempDir;
     use std::path::{Path, PathBuf};
     use std::process::Command;
+    use tempdir::TempDir;
 
     // The root of the Android kotlin package structure
     fn sdk_android_dir() -> String {
@@ -84,8 +84,12 @@ pub mod test {
     // Compile a genertaed manifest file against the mocked out Android runtime.
     pub fn compile_manifest_kt(manifest_path: String) -> Result<TempDir> {
         let path = PathBuf::from(&manifest_path);
-        let prefix = path.file_stem().ok_or_else(|| FMLError::InvalidPath(manifest_path.clone()))?;
-        let prefix = prefix.to_str().ok_or_else(|| FMLError::InvalidPath(manifest_path.clone()))?;
+        let prefix = path
+            .file_stem()
+            .ok_or_else(|| FMLError::InvalidPath(manifest_path.clone()))?;
+        let prefix = prefix
+            .to_str()
+            .ok_or_else(|| FMLError::InvalidPath(manifest_path.clone()))?;
         let temp = TempDir::new(prefix)?;
         let build_dir = temp.path();
 

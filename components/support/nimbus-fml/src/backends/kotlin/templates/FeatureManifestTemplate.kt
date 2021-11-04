@@ -9,6 +9,7 @@ package {{ package_name }}
 
 import org.mozilla.experiments.nimbus.Variables
 import org.mozilla.experiments.nimbus.FeaturesInterface
+import org.mozilla.experiments.nimbus.internal.FeatureHolder
 import org.mozilla.experiments.nimbus.internal.mapValues
 import org.mozilla.experiments.nimbus.internal.mapKeys
 import org.mozilla.experiments.nimbus.internal.mapEntries
@@ -24,7 +25,18 @@ import {{ imported_class }}
  * This is generated.
  */
 object {{ nimbus_object }} {
-    class Features
+    class Features {
+        {%- for f in self.iter_feature_defs() %}
+        {%- let raw_name = f.name() %}
+        {%- let class_name = raw_name|class_name %}
+        {{ f.doc()|comment("        ") }}
+        val {{raw_name|var_name}}: FeatureHolder<{{class_name}}> by lazy {
+            FeatureHolder({ {{ nimbus_object }}.api }, {{ raw_name|quoted }}) { variables ->
+                {{ class_name }}(variables)
+            }
+        }
+        {%- endfor %}
+    }
 
     /**
      * This should be populated at app launch.

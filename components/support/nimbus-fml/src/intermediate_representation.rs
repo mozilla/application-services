@@ -264,6 +264,7 @@ impl EnumDef {
         self.variants.clone()
     }
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FromStringDef {
     pub name: String,

@@ -7,7 +7,7 @@ use std::collections::HashSet;
 
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType, TypeIdentifier},
-    intermediate_representation::FeatureManifest,
+    intermediate_representation::{FeatureDef, FeatureManifest},
     Config,
 };
 
@@ -67,6 +67,10 @@ impl<'a> FeatureManifestDeclaration<'a> {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
             }))
             .collect()
+    }
+
+    pub fn iter_feature_defs(&self) -> Vec<&FeatureDef> {
+        self.fm.iter_feature_defs().collect::<_>()
     }
 
     pub fn initialization_code(&self) -> Vec<String> {
