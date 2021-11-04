@@ -229,9 +229,6 @@ fn sync(
     // That's OK for the short term, and ultimately, syncing functionality
     // will be in places_api, which will give us this for free.
 
-    // Migrate state, which we must do before we sync *any* engine.
-    HistoryEngine::migrate_v1_global_state(&conn)?;
-
     let mut error_to_report = None;
     let engines_to_sync: Vec<&dyn SyncEngine> = engines.iter().map(AsRef::as_ref).collect();
 
