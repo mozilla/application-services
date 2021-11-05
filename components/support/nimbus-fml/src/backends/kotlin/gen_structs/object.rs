@@ -52,8 +52,8 @@ impl CodeType for ObjectCodeType {
         VariablesType::Variables
     }
 
-    fn transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
-        None
+    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        Some(format!("{}::create", self.type_label(oracle)))
     }
 
     /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
@@ -116,5 +116,85 @@ impl ObjectCodeDeclaration {
 impl CodeDeclaration for ObjectCodeDeclaration {
     fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         Some(self.render().unwrap())
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use serde_json::json;
+
+    use crate::backends::TypeIdentifier;
+
+    use super::*;
+
+    struct TestCodeOracle;
+    impl CodeOracle for TestCodeOracle {
+        fn find(&self, _type_: &TypeIdentifier) -> Box<dyn CodeType> {
+            unreachable!()
+        }
+    }
+
+    fn oracle() -> Box<dyn CodeOracle> {
+        Box::new(TestCodeOracle) as Box<dyn CodeOracle>
+    }
+
+    fn code_type(name: &str) -> Box<dyn CodeType> {
+        Box::new(ObjectCodeType::new(name.to_string())) as Box<dyn CodeType>
+    }
+
+    fn getter_with_fallback(
+        ct: &dyn CodeType,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        def: &dyn Display,
+    ) -> String {
+        let oracle = &*oracle();
+        let getter = ct.get_value(oracle, vars, prop);
+        ct.with_fallback(oracle, &getter, def)
+    }
+
+    #[test]
+    fn test_type_label() {
+        let ct = code_type("AnObject");
+        let oracle = &*oracle();
+        assert_eq!("AnObject".to_string(), ct.type_label(oracle))
+    }
+
+    #[test]
+    fn test_literal() {
+        let ct = code_type("AnObject");
+        let oracle = &*oracle();
+        assert_eq!("AnObject()".to_string(), ct.literal(oracle, &json!({})));
+    }
+
+    #[test]
+    fn test_get_value() {
+        let ct = code_type("AnObject");
+        let oracle = &*oracle();
+
+        assert_eq!(
+            r#"v?.getVariables("the-property")"#.to_string(),
+            ct.get_value(oracle, &"v?", &"the-property")
+        );
+    }
+
+    #[test]
+    fn test_with_fallback() {
+        let ct = code_type("AnObject");
+        let oracle = &*oracle();
+
+        assert_eq!(
+            "vars?.let { AnObject(it, default._defaults) } ?: default".to_string(),
+            ct.with_fallback(oracle, &"vars", &"default")
+        );
+    }
+
+    #[test]
+    fn test_getter_with_fallback() {
+        let ct = code_type("AnObject");
+        assert_eq!(
+            r#"vars?.getVariables("the-property")?.let { AnObject(it, default._defaults) } ?: default"#
+            .to_string(),
+            getter_with_fallback(&*ct, &"vars?", &"the-property", &"default"));
     }
 }

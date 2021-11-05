@@ -38,7 +38,7 @@ impl CodeType for BooleanCodeType {
     }
 
     /// A representation of the given literal for this type.
-    /// N.B. `Literal` is aliased from `interface::Literal`, so may not be whole suited to this task.
+    /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(&self, _oracle: &dyn CodeOracle, literal: &Literal) -> String {
         match literal {
             serde_json::Value::Bool(v) => {
@@ -84,7 +84,7 @@ impl CodeType for IntCodeType {
     }
 
     /// A representation of the given literal for this type.
-    /// N.B. `Literal` is aliased from `interface::Literal`, so may not be whole suited to this task.
+    /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(&self, _oracle: &dyn CodeOracle, literal: &Literal) -> String {
         match literal {
             serde_json::Value::Number(v) => {
@@ -126,13 +126,126 @@ impl CodeType for StringCodeType {
     }
 
     /// A representation of the given literal for this type.
-    /// N.B. `Literal` is aliased from `interface::Literal`, so may not be whole suited to this task.
+    /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(&self, _oracle: &dyn CodeOracle, literal: &Literal) -> String {
         match literal {
             serde_json::Value::String(v) => {
-                format!("\"{0}\"", v)
+                // Usually, we'd be wanting to escape this, for security reasons. However, this is
+                // will cause a kotlinc compile time error when the app is built if the string is malformed
+                // in the manifest.
+                format!(r#""{}""#, v)
             }
             _ => unreachable!("Expecting a string"),
         }
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+
+    use serde_json::json;
+
+    use crate::backends::TypeIdentifier;
+
+    use super::*;
+
+    struct TestCodeOracle;
+    impl CodeOracle for TestCodeOracle {
+        fn find(&self, _type_: &TypeIdentifier) -> Box<dyn CodeType> {
+            unreachable!()
+        }
+    }
+
+    fn oracle() -> Box<dyn CodeOracle> {
+        Box::new(TestCodeOracle) as Box<dyn CodeOracle>
+    }
+
+    fn bool_type() -> Box<dyn CodeType> {
+        Box::new(BooleanCodeType) as Box<dyn CodeType>
+    }
+
+    fn string_type() -> Box<dyn CodeType> {
+        Box::new(StringCodeType) as Box<dyn CodeType>
+    }
+
+    fn int_type() -> Box<dyn CodeType> {
+        Box::new(IntCodeType) as Box<dyn CodeType>
+    }
+
+    #[test]
+    fn test_type_label() {
+        let oracle = &*oracle();
+
+        let ct = bool_type();
+        assert_eq!("Boolean".to_string(), ct.type_label(oracle));
+
+        let ct = string_type();
+        assert_eq!("String".to_string(), ct.type_label(oracle));
+
+        let ct = int_type();
+        assert_eq!("Int".to_string(), ct.type_label(oracle));
+    }
+
+    #[test]
+    fn test_literal() {
+        let oracle = &*oracle();
+
+        let ct = bool_type();
+        assert_eq!("true".to_string(), ct.literal(oracle, &json!(true)));
+        assert_eq!("false".to_string(), ct.literal(oracle, &json!(false)));
+
+        let ct = string_type();
+        assert_eq!(r#""no""#.to_string(), ct.literal(oracle, &json!("no")));
+        assert_eq!(r#""yes""#.to_string(), ct.literal(oracle, &json!("yes")));
+
+        let ct = int_type();
+        assert_eq!("1".to_string(), ct.literal(oracle, &json!(1)));
+        assert_eq!("2".to_string(), ct.literal(oracle, &json!(2)));
+    }
+
+    #[test]
+    fn test_get_value() {
+        let oracle = &*oracle();
+
+        let ct = bool_type();
+        assert_eq!(
+            r#"v?.getBool("the-property")"#.to_string(),
+            ct.get_value(oracle, &"v?", &"the-property")
+        );
+
+        let ct = string_type();
+        assert_eq!(
+            r#"v?.getString("the-property")"#.to_string(),
+            ct.get_value(oracle, &"v?", &"the-property")
+        );
+
+        let ct = int_type();
+        assert_eq!(
+            r#"v?.getInt("the-property")"#.to_string(),
+            ct.get_value(oracle, &"v?", &"the-property")
+        );
+    }
+
+    #[test]
+    fn test_with_fallback() {
+        let oracle = &*oracle();
+
+        let ct = bool_type();
+        assert_eq!(
+            "value ?: default".to_string(),
+            ct.with_fallback(oracle, &"value", &"default")
+        );
+
+        let ct = string_type();
+        assert_eq!(
+            "value ?: default".to_string(),
+            ct.with_fallback(oracle, &"value", &"default")
+        );
+
+        let ct = int_type();
+        assert_eq!(
+            "value ?: default".to_string(),
+            ct.with_fallback(oracle, &"value", &"default")
+        );
     }
 }

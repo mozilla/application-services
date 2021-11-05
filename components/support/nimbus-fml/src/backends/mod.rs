@@ -96,7 +96,7 @@ pub trait CodeType {
     }
 
     /// A representation of the given literal for this type.
-    /// N.B. `Literal` is aliased from `interface::Literal`, so may not be whole suited to this task.
+    /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(&self, oracle: &dyn CodeOracle, _literal: &Literal) -> String {
         unimplemented!("Unimplemented for {}", self.type_label(oracle))
     }
