@@ -82,9 +82,7 @@ pub mod test {
     }
 
     fn detect_kotlinc() -> Result<bool> {
-        let output = Command::new("which")
-            .arg("kotlinc")
-            .output()?;
+        let output = Command::new("which").arg("kotlinc").output()?;
 
         Ok(output.status.success())
     }
