@@ -2,13 +2,12 @@ package org.mozilla.experiments.nimbus.internal
 
 import org.mozilla.experiments.nimbus.FeaturesInterface
 import org.mozilla.experiments.nimbus.Variables
-import java.lang.ref.SoftReference
 import java.lang.ref.WeakReference
-import java.util.concurrent.atomic.AtomicReference
 
-class FeatureHolder<T>(private val apiFn: () -> FeaturesInterface?,
-                       private val featureId: String,
-                       private val create: (Variables?) -> T
+class FeatureHolder<T>(
+    private val apiFn: () -> FeaturesInterface?,
+    private val featureId: String,
+    private val create: (Variables?) -> T
 ) {
     private var exposureRecorder: (() -> Unit)? = null
 

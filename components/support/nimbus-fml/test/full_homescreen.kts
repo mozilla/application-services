@@ -29,6 +29,3 @@ assert(feature1.sectionsEnabled[HomeScreenSection.POCKET] == true)
 // Record the exposure and test it.
 MyNimbus.features.homescreen.recordExposure()
 assert(api.isExposed("homescreen"))
-
-
-assert(feature.sectionsEnabled.isNotEmpty())

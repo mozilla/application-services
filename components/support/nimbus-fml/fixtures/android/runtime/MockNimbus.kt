@@ -5,16 +5,13 @@
 package org.mozilla.experiments.nimbus
 
 import android.content.Context
-import org.mozilla.experiments.nimbus.FeaturesInterface
-import org.mozilla.experiments.nimbus.JSONVariables
-import org.mozilla.experiments.nimbus.Variables
 import org.json.JSONObject
 
-class MockNimbus(val context: Context, val map: Map<String, JSONObject>): FeaturesInterface {
+class MockNimbus(val context: Context, val map: Map<String, JSONObject>) : FeaturesInterface {
 
     constructor(vararg pairs: Pair<String, String>, context: Context = Context()) : this(
         context,
-        mapOf(*pairs).mapValues { entry ->
+        pairs.toMap().mapValues { entry ->
             JSONObject(entry.value)
         }
     )
