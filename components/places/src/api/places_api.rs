@@ -12,7 +12,7 @@ use crate::storage::{
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
 use rusqlite::OpenFlags;
-use sql_support::SqlInterruptHandle;
+use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::mem;
@@ -83,6 +83,7 @@ pub struct PlacesApi {
     sync_state: Mutex<Option<SyncState>>,
     coop_tx_lock: Arc<Mutex<()>>,
     sync_conn_active: AtomicBool,
+    sync_interrupt_counter: Arc<AtomicUsize>,
     id: usize,
 }
 impl PlacesApi {
@@ -121,6 +122,7 @@ impl PlacesApi {
                     write_connection: Mutex::new(Some(connection)),
                     sync_state: Mutex::new(None),
                     sync_conn_active: AtomicBool::new(false),
+                    sync_interrupt_counter: Arc::new(AtomicUsize::new(0)),
                     id,
                     coop_tx_lock,
                 };
@@ -215,7 +217,7 @@ impl PlacesApi {
         self.do_sync_one(
             "history",
             move |conn, mem_cached_state, disk_cached_state| {
-                let interruptee = conn.begin_interrupt_scope();
+                let interruptee = self.begin_sync_interrupt_scope();
                 let engine = HistoryEngine::new(conn, &interruptee);
                 sync_multiple(
                     &[&engine],
@@ -238,7 +240,7 @@ impl PlacesApi {
         self.do_sync_one(
             "bookmarks",
             move |conn, mem_cached_state, disk_cached_state| {
-                let interruptee = conn.begin_interrupt_scope();
+                let interruptee = self.begin_sync_interrupt_scope();
                 let engine = BookmarksEngine::new(conn, &interruptee);
                 sync_multiple(
                     &[&engine],
@@ -315,7 +317,7 @@ impl PlacesApi {
 
         let sync_state = guard.as_ref().unwrap();
 
-        let interruptee = conn.begin_interrupt_scope();
+        let interruptee = self.begin_sync_interrupt_scope();
         let bm_engine = BookmarksEngine::new(&conn, &interruptee);
         let history_engine = HistoryEngine::new(&conn, &interruptee);
         let mut mem_cached_state = sync_state.mem_cached_state.take();
@@ -378,7 +380,27 @@ impl PlacesApi {
         Ok(())
     }
 
-    /// Get a new interrupt handle for the sync connection.
+    /// Create a new SqlInterruptScope for syncing
+    ///
+    /// Call this at the begining of a sync operation.  Then if interrupt_sync() is called, we will
+    /// interrupt the current DB query and return `InterruptedError`
+    pub fn begin_sync_interrupt_scope(&self) -> SqlInterruptScope {
+        SqlInterruptScope::new(self.sync_interrupt_counter.clone())
+    }
+
+    /// Interrupt the current sync operation if one is in progress
+    pub fn interrupt_sync(&self) {
+        // TODO: update the sync connection code so we can implement this method.  This will fix #1684.
+    }
+
+    // Deprecated/Broken interrupt handler method, let's try to replace it with the above methods
+    // ASAP
+    //
+    // There are two issues with this one:
+    //   - As soon as this method returns, the sync connection will be dropped, which means the
+    //     SqlInterruptHandle will not work.
+    //   - We want the sync connection to be lazy, but we call this on initialization and force a
+    //     connection to be created.
     pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
         // Probably not necessary to lock here, since this should only get
         // called in startup.
