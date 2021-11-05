@@ -81,6 +81,14 @@ pub mod test {
         Ok(format!("{}:{}", json_jar(), classes.to_str().unwrap()))
     }
 
+    fn detect_kotlinc() -> Result<bool> {
+        let output = Command::new("which")
+            .arg("kotlinc")
+            .output()?;
+
+        Ok(output.status.success())
+    }
+
     // Compile a genertaed manifest file against the mocked out Android runtime.
     pub fn compile_manifest_kt(manifest_path: String) -> Result<TempDir> {
         let path = PathBuf::from(&manifest_path);
@@ -118,6 +126,10 @@ pub mod test {
 
     // Given a generated manifest, run a kts script against it.
     pub fn run_script_with_generated_code(manifest_kt: String, script: &str) -> Result<()> {
+        if !detect_kotlinc()? {
+            println!("SDK-446 Install kotlinc or add it the PATH to run tests");
+            return Ok(());
+        }
         let temp_dir = compile_manifest_kt(manifest_kt)?;
         let build_dir = temp_dir.path();
 
