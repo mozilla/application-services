@@ -1,5 +1,3 @@
-use std::{collections::HashMap, slice::Iter};
-
 /* This Source Code Form is subject to the terms of the Mozilla Public
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +5,7 @@ use crate::error::{FMLError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::slice::Iter;
 
 /// The `TypeRef` enum defines a reference to a type.
 ///
@@ -374,7 +373,7 @@ mod unit_tests {
     fn validate_duplicate_enum_defs_fail() -> Result<()> {
         let mut fm = get_simple_homescreen_feature();
         fm.enum_defs.push(EnumDef {
-            name: "SectionId".into(),
+            name: "HomeScreenSection".into(),
             doc: "The sections of the homescreen".into(),
             variants: vec![
                 VariantDef::new("top-sites", "The original frecency sorted sites"),
