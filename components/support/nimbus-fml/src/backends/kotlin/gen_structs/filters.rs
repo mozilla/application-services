@@ -12,11 +12,6 @@ pub fn type_label(type_: &TypeIdentifier) -> Result<String, askama::Error> {
     Ok(oracle.find(type_).type_label(&oracle))
 }
 
-pub fn _canonical_name(type_: &TypeIdentifier) -> Result<String, askama::Error> {
-    let oracle = ConcreteCodeOracle;
-    Ok(oracle.find(type_).canonical_name(&oracle))
-}
-
 pub fn literal(type_: &TypeIdentifier, literal: &Literal) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
     Ok(oracle.find(type_).literal(&oracle, literal))

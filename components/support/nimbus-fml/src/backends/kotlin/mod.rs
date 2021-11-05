@@ -93,9 +93,6 @@ pub mod test {
         let temp = TempDir::new(prefix)?;
         let build_dir = temp.path();
 
-        // We need this to exist so we don't create a compile time warning for the first test.
-        // std::fs::create_dir_all(&build_dir)?;
-
         let status = Command::new("kotlinc")
             // Our generated bindings should not produce any warnings; fail tests if they do.
             .arg("-Werror")
@@ -130,7 +127,7 @@ pub mod test {
             .arg("-J-ea")
             // Reflect $CLASSPATH from the environment, to help find `json.jar`.
             .arg("-classpath")
-            .arg(&classpath(&build_dir)?)
+            .arg(&classpath(build_dir)?)
             .arg("-script")
             .arg(&script)
             .spawn()?

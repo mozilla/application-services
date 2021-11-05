@@ -4,28 +4,27 @@
 
 //! # Backend traits
 //!
-//! This module provides a number of traits useful for implementing a backend for Uniffi.
+//! This module provides a number of traits useful for implementing a backend for FML structs.
 //!
-//! A `CodeType` is needed for each type that will cross the FFI. It should provide helper machinery
-//! in the target language to lift from and lower into a value of that type into a primitive type
-//! (the FFIType), and foreign language expressions that call into the machinery. This helper code
-//! can be provided by a template file.
+//! A [CodeType] is needed for each type that is referred to in the feature definition (i.e. every [TypeRef]
+//! instance should have corresponding `CodeType` instance). Helper code for types might include managing how merging/overriding of
+//! defaults occur.
 //!
-//! A `CodeDeclaration` is needed for each type that is declared in the UDL file. This has access to
-//! the [ComponentInterface], which is the closest thing to an Intermediate Representation.
+//! A [CodeDeclaration] is needed for each type that is declared in the manifest file: i.e. an Object classes, Enum classes and Feature classes.
+//! This has access to intermediate structs of the [crate::intermediate_representation::FeatureManifest] so may want to do some additional lookups to help rendering.
 //!
-//! `CodeDeclaration`s provide the target language's version of the UDL type, including forwarding method calls
-//! into Rust. It is likely if you're implementing a `CodeDeclaration` for this purpose, it will also need to cross
-//! the FFI, and you'll also need a `CodeType`.
+//! `CodeDeclaration`s provide the target language's version of the type defined in the feature manifest. For objects and features, this would
+//! be objects that have properties corresponding to the FML variables. For enums, this would mean the Enum class definition. In all cases, this will
+//! likely be attached to an [askama::Template].
 //!
 //! `CodeDeclaration`s can also be used to conditionally include code: e.g. only include the CallbackInterfaceRuntime
 //! if the user has used at least one callback interface.
 //!
 //! Each backend has a wrapper template for each file it needs to generate. This should collect the `CodeDeclaration`s that
-//! the backend and `ComponentInterface` between them specify and use them to stitch together a file in the target language.
+//! the backend and `FeatureManifest` between them specify and use them to stitch together a file in the target language.
 //!
-//! The `CodeOracle` provides methods to map the `Type` values found in the `ComponentInterface` to the `CodeType`s specified
-//! by the backend. It also provides methods for transforming identifiers into the coding standard for the target language.
+//! The [CodeOracle] provides methods to map the `TypeRef` values found in the `FeatureManifest` to the `CodeType`s specified
+//! by the backend.
 //!
 //! Each backend will have its own `filter` module, which is used by the askama templates used in all `CodeType`s and `CodeDeclaration`s.
 //! This filter provides methods to generate expressions and identifiers in the target language. These are all forwarded to the oracle.
@@ -38,19 +37,16 @@ use crate::intermediate_representation::TypeRef;
 pub type TypeIdentifier = TypeRef;
 
 /// An object to look up a foreign language code specific renderer for a given type used.
-/// Every `Type` referred to in the `ComponentInterface` should map to a corresponding
+/// Every [TypeRef] referred to in the [crate::intermediate_representation::FeatureManifest] should map to a corresponding
 /// `CodeType`.
 ///
 /// The mapping may be opaque, but the oracle always knows the answer.
-///
-/// In adddition, the oracle knows how to render identifiers (function names,
-/// class names, variable names etc).
 pub trait CodeOracle {
     fn find(&self, type_: &TypeIdentifier) -> Box<dyn CodeType>;
 }
 
 /// A Trait to emit foreign language code to handle referenced types.
-/// A type which is specified in the UDL (i.e. a member of the component interface)
+/// A type which is specified in the FML (i.e. a type that a variable declares itself of)
 /// will have a `CodeDeclaration` as well, but for types used e.g. primitive types, Strings, etc
 /// only a `CodeType` is needed.
 pub trait CodeType {
@@ -86,26 +82,14 @@ pub trait CodeType {
         default: &dyn Display,
     ) -> String;
 
-    /// A representation of this type label that can be used as part of another
-    /// identifier. e.g. `read_foo()`, or `FooInternals`.
-    ///
-    /// This is especially useful when creating specialized objects or methods to deal
-    /// with this type only.
-    fn canonical_name(&self, oracle: &dyn CodeOracle) -> String {
-        self.type_label(oracle)
-    }
-
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(&self, oracle: &dyn CodeOracle, _literal: &Literal) -> String {
         unimplemented!("Unimplemented for {}", self.type_label(oracle))
     }
 
-    /// The lift/lower/read/write methods above must be producing expressions that
-    /// can be part of a larger statement. Most of the time, that is a function call
-    /// to do the work for it.
-    /// The functions being called by those experessions should be declared in the
-    /// helper code generated by this method.
+    /// Optional helper code to make this type work.
+    /// This might include functions to patch a default value with another.
     fn helper_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         None
     }
@@ -118,11 +102,10 @@ pub trait CodeType {
 }
 
 /// A trait that is able to render a declaration about a particular member declared in
-/// the `ComponentInterface`.
-/// Like `CodeType`, it can render declaration code and imports. It also is able to render
-/// code at start-up of the FFI.
+/// the `FeatureManifest`.
+/// Like `CodeType`, it can render declaration code and imports.
 /// All methods are optional, and there is no requirement that the trait be used for a particular
-/// `interface::` member. Thus, it can also be useful for conditionally rendering code.
+/// member. Thus, it can also be useful for conditionally rendering code.
 pub trait CodeDeclaration {
     /// A list of imports that are needed if this type is in use.
     /// Classes are imported exactly once.
@@ -143,6 +126,8 @@ pub trait CodeDeclaration {
     }
 }
 
+/// The generated code is running against hand written code to give type safe, error free access to JSON.
+/// This is the `Variables` object. This enum gives the underlying types that the `Variables` object supports.
 pub enum VariablesType {
     Bool,
     #[allow(dead_code)]
@@ -154,6 +139,9 @@ pub enum VariablesType {
     Variables,
 }
 
+/// The Variables objects use a naming convention to name its methods. e.g. `getBool`, `getBoolList`, `getBoolMap`.
+/// In part this is to make generating code easier.
+/// This is the mapping from type to identifier part that corresponds to its type.
 impl Display for VariablesType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let nm = match self {
