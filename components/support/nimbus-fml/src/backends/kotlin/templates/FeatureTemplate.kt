@@ -46,8 +46,4 @@ specify all values needed for the  feature #}
         {{ t|with_fallback(overrides, defaults) }}
     }
     {%- endfor %}
-
-    fun recordExposure() {
-        {{ nimbus_object }}.api?.recordExposureEvent({{ raw_name|quoted }})
-    }
 }

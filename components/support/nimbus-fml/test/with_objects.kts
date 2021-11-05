@@ -8,34 +8,36 @@ import org.mozilla.experiments.nimbus.MockNimbus
 // The api isn't ready yet.
 val feature = MyNimbus.features.withObjectsFeature.value()
 
+// Show the property level defaults.
 assert(feature.anObject.aString == "yes")
+assert(feature.anObjectWithFeatureDefaults.aString == "yes")
+assert(feature.anObject.javaClass == feature.anObjectWithFeatureDefaults.javaClass) // It's the same class.
 
-MyNimbus.features.withObjectsFeature.recordExposure()
-
-// Let's give the generated code a Nimbus object with some
-// configuration in it to override the defaults.
+// Test if we can override the defaults with JSON coming from Nimbus.
 val api = MockNimbus("with-objects-feature" to """{
-    "an-object": {
-        "a-string": "YES"
+    "an-object-with-feature-defaults": {
+        "a-string": "Sounds good"
     }
 }""")
-
 MyNimbus.api = api
-// As an aside, we want to record the exposure on the feature we've just configured.
+
+// Side test: we just configured a feature with the defaults shipped with the app: the MyNimbus.api wasn't
+// set when we needed the feature, so the defaults were used. Likely we shouldn't count
+// that as an exposure.
 MyNimbus.features.withObjectsFeature.recordExposure()
-// The api won't record the exposre, because it wasn't the one that the feature was
-// configured with.
 assert(!api.isExposed("with-objects-feature"))
 
-// So now we can compare the feature config from when Nimbus wasn't ready or configured
-// to the one where we're overriding parts of the feature with the JSON from the server.
-val oldFeature = feature
-val newFeature = MyNimbus.features.withObjectsFeature.value()
+// Now test the selectively overidden properties of the feature.
+val feature1 = MyNimbus.features.withObjectsFeature.value()
 
-assert(oldFeature.anObject.aString == "yes")
-assert(newFeature.anObject.aString == "YES")
+assert(feature1.anObject.aString == "yes")
+assert(feature1.anObjectWithFeatureDefaults.aString == "Sounds good")
 
-// Let's check that the exposure is recorded properly.
+// Record the exposure and test it.
 MyNimbus.features.withObjectsFeature.recordExposure()
 assert(api.isExposed("with-objects-feature"))
-assert(api.getExposureCount("with-objects-feature") == 1)
+
+// Just to make sure, the `feature` object that we used earlier is still giving the same values, taken
+// from the property defaults.
+assert(feature.anObject.aString == "yes")
+assert(feature.anObjectWithFeatureDefaults.aString == "yes")
