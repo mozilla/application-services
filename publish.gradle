@@ -212,7 +212,7 @@ ext.configureUniFFIBindgen = { udlFilePath ->
         def uniffiGeneratedPath = "generated/source/uniffi/${variant.name}/java"
         def t = tasks.register("generate${variant.name.capitalize()}UniFFIBindings", Exec) {
             workingDir project.rootDir
-            commandLine 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/${udlFilePath}", '--language', 'kotlin', '--out-dir', "${buildDir}/${uniffiGeneratedPath}"
+            commandLine '/usr/bin/env', 'cargo', 'uniffi-bindgen', 'generate', "${project.projectDir}/${udlFilePath}", '--language', 'kotlin', '--out-dir', "${buildDir}/${uniffiGeneratedPath}"
             outputs.dir "${buildDir}/${uniffiGeneratedPath}"
             // Re-generate if the interface definition changes.
             inputs.file "${project.projectDir}/${udlFilePath}"

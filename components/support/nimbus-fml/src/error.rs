@@ -13,8 +13,20 @@ pub enum FMLError {
     IOError(#[from] std::io::Error),
     #[error("JSON Error: {0}")]
     JSONError(#[from] serde_json::Error),
-    #[error("Invalid path: {0}")]
+    #[error("YAML Error: {0}")]
+    YAMLError(#[from] serde_yaml::Error),
+
+    #[allow(dead_code)]
+    #[error("Can't find file: {0}")]
     InvalidPath(String),
+
+    #[error("Unexpected template problem: {0}")]
+    TemplateProblem(#[from] askama::Error),
+
+    #[error("Fatal error: {0}")]
+    Fatal(#[from] anyhow::Error),
+
+    #[allow(dead_code)]
     #[error("Internal error: {0}")]
     InternalError(&'static str),
     #[error("Validation Error: {0}")]

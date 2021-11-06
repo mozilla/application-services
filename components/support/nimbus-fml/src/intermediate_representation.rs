@@ -5,6 +5,7 @@ use crate::error::{FMLError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use std::slice::Iter;
 
 /// The `TypeRef` enum defines a reference to a type.
 ///
@@ -46,11 +47,14 @@ pub(crate) type StringId = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FeatureManifest {
+    #[serde(rename = "enums")]
     pub enum_defs: Vec<EnumDef>,
+    #[serde(rename = "objects")]
     pub obj_defs: Vec<ObjectDef>,
     // `hints` are useful for things that will be constructed from strings
     // such as images and display text.
     pub hints: HashMap<StringId, FromStringDef>,
+    #[serde(rename = "features")]
     pub feature_defs: Vec<FeatureDef>,
 }
 
@@ -196,6 +200,18 @@ impl FeatureManifest {
         // or in the feature definition
         Ok(())
     }
+
+    pub fn iter_enum_defs(&self) -> Iter<EnumDef> {
+        self.enum_defs.iter()
+    }
+
+    pub fn iter_object_defs(&self) -> Iter<ObjectDef> {
+        self.obj_defs.iter()
+    }
+
+    pub fn iter_feature_defs(&self) -> Iter<FeatureDef> {
+        self.feature_defs.iter()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -215,6 +231,18 @@ impl FeatureDef {
             default,
         }
     }
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub fn props(&self) -> Vec<PropDef> {
+        self.props.clone()
+    }
+    pub fn _default(&self) -> Option<Literal> {
+        self.default.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -222,6 +250,18 @@ pub struct EnumDef {
     pub name: String,
     pub doc: String,
     pub variants: Vec<VariantDef>,
+}
+
+impl EnumDef {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub fn variants(&self) -> Vec<VariantDef> {
+        self.variants.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -233,8 +273,8 @@ pub struct FromStringDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct VariantDef {
-    name: String,
-    doc: String,
+    pub(crate) name: String,
+    pub(crate) doc: String,
 }
 impl VariantDef {
     #[allow(dead_code)]
@@ -244,13 +284,19 @@ impl VariantDef {
             doc: doc.into(),
         }
     }
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn doc(&self) -> String {
+        self.doc.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ObjectDef {
-    name: String,
-    doc: String,
-    props: Vec<PropDef>,
+    pub(crate) name: String,
+    pub(crate) doc: String,
+    pub(crate) props: Vec<PropDef>,
 }
 impl ObjectDef {
     #[allow(dead_code)]
@@ -261,17 +307,42 @@ impl ObjectDef {
             props,
         }
     }
+    pub(crate) fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub(crate) fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub(crate) fn props(&self) -> Vec<PropDef> {
+        self.props.clone()
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PropDef {
     pub name: String,
     pub doc: String,
+    #[serde(rename = "type")]
     pub typ: TypeRef,
     pub default: Literal,
 }
 
-type Literal = Value;
+impl PropDef {
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+    pub fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub fn typ(&self) -> TypeRef {
+        self.typ.clone()
+    }
+    pub fn default(&self) -> Literal {
+        self.default.clone()
+    }
+}
+
+pub type Literal = Value;
 
 #[cfg(test)]
 mod unit_tests {
@@ -302,7 +373,7 @@ mod unit_tests {
     fn validate_duplicate_enum_defs_fail() -> Result<()> {
         let mut fm = get_simple_homescreen_feature();
         fm.enum_defs.push(EnumDef {
-            name: "SectionId".into(),
+            name: "HomeScreenSection".into(),
             doc: "The sections of the homescreen".into(),
             variants: vec![
                 VariantDef::new("top-sites", "The original frecency sorted sites"),

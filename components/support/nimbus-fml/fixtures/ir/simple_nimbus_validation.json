@@ -1,0 +1,109 @@
+{
+  "enums": [
+    {
+      "name": "Position",
+      "doc": "Where to put the menu bar?",
+      "variants": [
+        {
+          "name": "top",
+          "doc": "The top of the screen"
+        },
+        {
+          "name": "bottom",
+          "doc": "The bottom of the screen"
+        }
+      ]
+    }
+  ],
+  "objects": [],
+  "hints": {},
+  "features": [
+    {
+      "name": "nimbus-validation",
+      "doc": "A simple validation feature",
+      "props": [
+        {
+          "name": "enabled",
+          "doc": "An example boolean property",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "name": "row-count",
+          "doc": "An example integer property",
+          "type": "Int",
+          "default": 2
+        },
+        {
+          "name": "deeplink",
+          "doc": "An example string property",
+          "type": "String",
+          "default": "deeplink://settings"
+        },
+        {
+          "name": "menu-position",
+          "doc": "Where to put the menu",
+          "type": {
+            "Enum": "Position"
+          },
+          "default": "bottom"
+        },
+        {
+          "name": "enum-map",
+          "doc": "A map of enums to booleans",
+          "type": {
+            "EnumMap": [
+              {
+                "Enum": "Position"
+              },
+              "Boolean"
+            ]
+          },
+          "default": {
+            "bottom": true,
+            "top": false
+          }
+        },
+        {
+          "name": "string-map",
+          "doc": "A map of string to enums",
+          "type": {
+            "StringMap": {
+              "Enum": "Position"
+            }
+          },
+          "default": {
+            "bar": "top",
+            "foo": "bottom"
+          }
+        },
+        {
+          "name": "int-list",
+          "doc": "A list of numbers",
+          "type": {
+            "List": "Int"
+          },
+          "default": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "enum-list",
+          "doc": "A list of enums",
+          "type": {
+            "List": {
+              "Enum": "Position"
+            }
+          },
+          "default": [
+            "top",
+            "bottom"
+          ]
+        }
+      ],
+      "default": null
+    }
+  ]
+}

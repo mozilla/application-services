@@ -5,6 +5,8 @@
 pub mod error;
 pub mod intermediate_representation;
 pub mod parser;
+pub mod backends;
+mod util;
 
 #[cfg(test)]
 #[allow(dead_code)]

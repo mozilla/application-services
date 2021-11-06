@@ -1,0 +1,61 @@
+{
+  "enums": [],
+  "objects": [
+    {
+      "name": "ExampleObject",
+      "doc": "An example object",
+      "props": [
+        {
+          "name": "a-string",
+          "doc": "A string",
+          "type": "String",
+          "default": "yes"
+        },
+        {
+          "name": "a-number",
+          "doc": "A number",
+          "type": "Int",
+          "default": 42
+        }
+      ]
+    }
+  ],
+  "hints": {},
+  "features": [
+    {
+      "name": "with-objects-feature",
+      "doc": "A feature with objects feature",
+      "props": [
+        {
+          "name": "an-object",
+          "doc": "A single object",
+          "type": {
+            "Object": "ExampleObject"
+          },
+          "default": {}
+        },
+        {
+          "name": "an-object-with-new-defaults",
+          "doc": "A single object with defaults from the constructor",
+          "type": {
+            "Object": "ExampleObject"
+          },
+          "default": {}
+        },
+        {
+          "name": "an-object-with-feature-defaults",
+          "doc": "A single object with defaults from the feature",
+          "type": {
+            "Object": "ExampleObject"
+          },
+          "default": {}
+        }
+      ],
+      "default": {
+        "an-object-with-feature-defaults": {
+          "a-string": "YES: overridden from the FEATURE"
+        }
+      }
+    }
+  ]
+}

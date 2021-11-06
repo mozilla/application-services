@@ -45,7 +45,7 @@ typealias EnrolledExperiment = EnrolledExperiment
 /**
  * This is the main experiments API, which is exposed through the global [Nimbus] object.
  */
-interface NimbusInterface {
+interface NimbusInterface : FeaturesInterface {
     /**
      * Get the list of currently enrolled experiments
      *
@@ -95,7 +95,7 @@ interface NimbusInterface {
      * @return a [Variables] object used to configure the feature.
      */
     @AnyThread
-    fun getVariables(featureId: String, recordExposureEvent: Boolean = true): Variables = NullVariables.instance
+    override fun getVariables(featureId: String, recordExposureEvent: Boolean): Variables = NullVariables.instance
 
     /**
      * Open the database and populate the SDK so as make it usable by feature developers.
@@ -197,7 +197,7 @@ interface NimbusInterface {
      * @param featureId string representing the id of the feature for which to record the exposure
      *     event.
      */
-    fun recordExposureEvent(featureId: String) = Unit
+    override fun recordExposureEvent(featureId: String) = Unit
 
     /**
      * Control the opt out for all experiments at once. This is likely a user action.

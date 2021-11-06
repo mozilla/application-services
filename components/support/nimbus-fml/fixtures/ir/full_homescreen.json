@@ -1,7 +1,7 @@
 {
-  "enum_defs": [
+  "enums": [
     {
-      "name": "SectionId",
+      "name": "HomeScreenSection",
       "doc": "The sections of the homescreen",
       "variants": [
         {
@@ -15,13 +15,21 @@
         {
           "name": "recently-saved",
           "doc": "Tabs that have been bookmarked recently"
+        },
+        {
+          "name": "recent-explorations",
+          "doc": "Tabs from another source"
+        },
+        {
+          "name": "pocket",
+          "doc": "Tabs from another source"
         }
       ]
     }
   ],
-  "obj_defs": [],
+  "objects": [],
   "hints": {},
-  "feature_defs": [
+  "features": [
     {
       "name": "homescreen",
       "doc": "Represents the homescreen feature",
@@ -29,19 +37,35 @@
         {
           "name": "sections-enabled",
           "doc": "A map of booleans",
-          "typ": {
+          "type": {
             "EnumMap": [
               {
-                "Enum": "SectionId"
+                "Enum": "HomeScreenSection"
               },
-              "String"
+              "Boolean"
             ]
           },
           "default": {
             "jump-back-in": false,
+            "pocket": false,
+            "recent-explorations": false,
             "recently-saved": false,
             "top-sites": true
           }
+        },
+        {
+          "name": "section-ordering",
+          "doc": "The ordering of the sections on the homescreen",
+          "type": {
+            "List": {
+              "Enum": "HomeScreenSection"
+            }
+          },
+          "default": [
+            "top-sites",
+            "jump-back-in",
+            "recently-saved"
+          ]
         }
       ],
       "default": null
