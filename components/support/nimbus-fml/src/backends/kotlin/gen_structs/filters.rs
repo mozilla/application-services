@@ -21,24 +21,15 @@ pub fn literal(
     Ok(oracle.find(type_).literal(&oracle, renderer, literal))
 }
 
-pub fn get_value(
+pub fn property(
     type_: &TypeIdentifier,
-    vars: &dyn fmt::Display,
     prop: &dyn fmt::Display,
-) -> Result<String, askama::Error> {
-    let oracle = ConcreteCodeOracle;
-    Ok(oracle.find(type_).get_value(&oracle, vars, prop))
-}
-
-pub fn with_fallback(
-    type_: &TypeIdentifier,
-    overrides: &dyn fmt::Display,
+    vars: &dyn fmt::Display,
     default: &dyn fmt::Display,
 ) -> Result<String, askama::Error> {
-    let oracle = ConcreteCodeOracle;
-    Ok(oracle
-        .find(type_)
-        .with_fallback(&oracle, overrides, default))
+    let oracle = &ConcreteCodeOracle;
+    let ct = oracle.find(type_);
+    Ok(ct.property_getter(oracle, vars, prop, default))
 }
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).

@@ -143,4 +143,10 @@ mod test {
         )?;
         Ok(())
     }
+
+    #[test]
+    fn test_with_app_menu() -> Result<()> {
+        generate_and_assert("test/app_menu.kts", "fixtures/ir/app_menu.json", true)?;
+        Ok(())
+    }
 }

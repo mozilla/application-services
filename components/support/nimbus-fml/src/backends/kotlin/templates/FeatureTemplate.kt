@@ -40,10 +40,8 @@ specify all values needed for the  feature #}
     {%- let prop_kt = p.name()|var_name %}
     {{ p.doc()|comment("    ") }}
     val {{ prop_kt }}: {{ p.typ()|type_label }} by lazy {
-        {%- let t = p.typ() %}
-        {%- let overrides = t|get_value("_variables?", p.name()) %}
         {%- let defaults = format!("_defaults.{}", prop_kt) %}
-        {{ t|with_fallback(overrides, defaults) }}
+        {{ p.typ()|property(p.name(), "_variables", defaults)}}
     }
     {%- endfor %}
 }

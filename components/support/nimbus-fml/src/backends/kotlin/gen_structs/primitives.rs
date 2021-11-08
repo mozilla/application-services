@@ -2,8 +2,6 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use std::fmt::Display;
-
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 
@@ -20,21 +18,6 @@ impl CodeType for BooleanCodeType {
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Bool
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -73,21 +56,6 @@ impl CodeType for IntCodeType {
         VariablesType::Int
     }
 
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
-    }
-
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
@@ -118,21 +86,6 @@ impl CodeType for StringCodeType {
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::String
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -247,42 +200,19 @@ mod unit_tests {
         let ct = bool_type();
         assert_eq!(
             r#"v?.getBool("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = string_type();
         assert_eq!(
             r#"v?.getString("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = int_type();
         assert_eq!(
             r#"v?.getInt("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
-        );
-    }
-
-    #[test]
-    fn test_with_fallback() {
-        let oracle = &*oracle();
-
-        let ct = bool_type();
-        assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
-        );
-
-        let ct = string_type();
-        assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
-        );
-
-        let ct = int_type();
-        assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
     }
 }

@@ -34,24 +34,23 @@ impl CodeType for OptionalCodeType {
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        // all getters are optional.
-        oracle.find(&self.inner).get_value(oracle, vars, prop)
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
+    fn property_getter(
         &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
         default: &dyn Display,
     ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
+        // all getters are optional.
+        oracle
+            .find(&self.inner)
+            .property_getter(oracle, vars, prop, default)
+    }
+
+    /// The name of the type as it's represented in the `Variables` object.
+    /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
+    fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        oracle.find(&self.inner).create_transform(oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -102,59 +101,104 @@ impl CodeType for MapCodeType {
         )
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        let k_type = oracle.find(&self.k_type);
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
         let v_type = oracle.find(&self.v_type);
-
-        let getter = format!(
-            "{vars}.get{vt}Map({prop})",
+        format!(
+            "{vars}?.get{vt}Map({prop})",
             vars = vars,
             vt = v_type.variables_type(oracle),
             prop = identifiers::quoted(prop),
-        );
-
-        let mapper = match (k_type.transform(oracle), v_type.transform(oracle)) {
-            (Some(k), Some(v)) => format!("?.mapEntries({k}, {v})", k = k, v = v),
-            (None, Some(v)) => format!("?.mapValues({v})", v = v),
-            (Some(k), None) => format!("?.mapKeys({k})", k = k),
-            _ => "".into(),
-        };
-
-        format!("{}{}", getter, mapper)
+        )
     }
 
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        match &self.v_type {
-            // https://mozilla-hub.atlassian.net/browse/SDK-435
-            TypeIdentifier::Object(..) => {
-                unimplemented!("SDK-435 Cannot yet merge maps of objects")
-            }
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        let k_type = oracle.find(&self.k_type);
+        let v_type = oracle.find(&self.v_type);
+        Some(
+            match (
+                k_type.create_transform(oracle),
+                v_type.create_transform(oracle),
+            ) {
+                (Some(k), Some(v)) => {
+                    if v.starts_with('{') {
+                        format!("mapEntries({k}) {v}", k = k, v = v)
+                    } else {
+                        format!("mapEntries({k}, {v})", k = k, v = v)
+                    }
+                }
+                (None, Some(v)) => {
+                    if v.starts_with('{') {
+                        format!("mapValues {v}", v = v)
+                    } else {
+                        format!("mapValues({v})", v = v)
+                    }
+                }
+                // We could do something with keys, but it's only every strings and enums.
+                (Some(k), None) => format!("mapKeys({k})", k = k),
+                _ => return None,
+            },
+        )
+    }
 
-            // https://mozilla-hub.atlassian.net/browse/SDK-435
-            TypeIdentifier::EnumMap(..) | TypeIdentifier::StringMap(..) => {
-                unimplemented!("SDK-435 Cannot yet merge maps of maps")
-            }
-
-            _ => format!(
-                "{overrides}?.let {{ overrides -> {default} + overrides }} ?: {default}",
-                overrides = overrides,
-                default = default
+    fn value_merger(&self, oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
+        let v_type = oracle.find(&self.v_type);
+        Some(match v_type.merge_transform(oracle) {
+            Some(transform) if transform.starts_with('{') => format!(
+                "mergeWith({default}) {transform}",
+                default = default,
+                transform = transform
             ),
-        }
+            Some(transform) => format!(
+                "mergeWith({default}, {transform})",
+                default = default,
+                transform = transform
+            ),
+            None => format!("mergeWith({})", default),
+        })
+    }
+
+    fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        let vtype = oracle.find(&self.v_type).variables_type(oracle);
+
+        self.value_mapper(oracle)
+            .map(|mapper| {
+                format!(
+                    r#"{{ _vars -> _vars.as{vtype}Map()?.{mapper} }}"#,
+                    vtype = vtype,
+                    mapper = mapper
+                )
+            })
+            .or_else(|| {
+                Some(format!(
+                    r#"{{ _vars -> _vars.as{vtype}Map()? }}"#,
+                    vtype = vtype
+                ))
+            })
+    }
+
+    fn merge_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        let overrides = "_overrides";
+        let defaults = "_defaults";
+
+        self.value_merger(oracle, &defaults).map(|merger| {
+            format!(
+                r#"{{ {overrides}, {defaults} -> {overrides}.{merger} }}"#,
+                overrides = overrides,
+                defaults = defaults,
+                merger = merger
+            )
+        })
     }
 
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
-        unimplemented!("Nesting maps in to lists and maps are not supported")
+        VariablesType::Variables
     }
 
     /// A representation of the given literal for this type.
@@ -169,12 +213,6 @@ impl CodeType for MapCodeType {
             serde_json::Value::Object(v) => v,
             _ => unreachable!(),
         };
-
-        if let TypeIdentifier::Object(..) = &self.v_type {
-            // https://mozilla-hub.atlassian.net/browse/SDK-434
-            unimplemented!("SDK-434 Cannot render object literals in maps")
-        };
-
         let k_type = oracle.find(&self.k_type);
         let v_type = oracle.find(&self.v_type);
         let src: Vec<String> = variant
@@ -216,44 +254,39 @@ impl CodeType for ListCodeType {
         )
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        let v_type = oracle.find(&self.inner);
-
-        let getter = format!(
-            "{vars}.get{vt}List({prop})",
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        let vtype = oracle.find(&self.inner).variables_type(oracle);
+        format!(
+            "{vars}?.get{vt}List(\"{prop}\")",
             vars = vars,
-            vt = v_type.variables_type(oracle),
-            prop = identifiers::quoted(prop),
-        );
-
-        let mapper = match v_type.transform(oracle) {
-            Some(item) => format!("?.mapNotNull({item})", item = item),
-            _ => "".into(),
-        };
-
-        format!("{}{}", getter, mapper)
+            vt = vtype,
+            prop = prop
+        )
     }
 
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        let transform = oracle.find(&self.inner).create_transform(oracle)?;
+        Some(if transform.starts_with('{') {
+            format!("mapNotNull {}", transform)
+        } else {
+            format!("mapNotNull({})", transform)
+        })
+    }
+
+    fn value_merger(&self, _oracle: &dyn CodeOracle, _default: &dyn Display) -> Option<String> {
+        // We never merge lists.
+        None
     }
 
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
-        unimplemented!("Nesting lists in to lists and maps are not supported")
+        unimplemented!("Because lists do not merge very well, maps of lists or lists of lists are not supported")
     }
 
     /// A representation of the given literal for this type.
@@ -268,11 +301,6 @@ impl CodeType for ListCodeType {
             serde_json::Value::Array(v) => v,
             _ => unreachable!(),
         };
-
-        if let TypeIdentifier::Object(..) = &self.inner {
-            // https://mozilla-hub.atlassian.net/browse/SDK-434
-            unimplemented!("SDK-434 Cannot render object literals in lists")
-        }
 
         let v_type = oracle.find(&self.inner);
         let src: Vec<String> = variant
@@ -353,8 +381,7 @@ mod unit_tests {
         def: &dyn Display,
     ) -> String {
         let oracle = &*oracle();
-        let getter = ct.get_value(oracle, vars, prop);
-        ct.with_fallback(oracle, &getter, def)
+        ct.property_getter(oracle, vars, prop, def)
     }
 
     #[test]
@@ -391,43 +418,20 @@ mod unit_tests {
 
         let ct = list_type("AnEnum");
         assert_eq!(
-            "v?.getStringList(\"the-property\")?.mapNotNull(AnEnum::enumValue)".to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getStringList("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = list_type("AnObject");
         assert_eq!(
-            "v?.getVariablesList(\"the-property\")?.mapNotNull(AnObject::create)".to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getVariablesList("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = list_type("String");
         assert_eq!(
-            "v?.getStringList(\"the-property\")".to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
-        );
-    }
-
-    #[test]
-    fn test_list_with_fallback() {
-        let oracle = &*oracle();
-
-        let ct = list_type("AnObject");
-        assert_eq!(
-            "list ?: default".to_string(),
-            ct.with_fallback(oracle, &"list", &"default")
-        );
-
-        let ct = list_type("AnEnum");
-        assert_eq!(
-            "list ?: default".to_string(),
-            ct.with_fallback(oracle, &"list", &"default")
-        );
-
-        let ct = list_type("String");
-        assert_eq!(
-            "list ?: default".to_string(),
-            ct.with_fallback(oracle, &"list", &"default")
+            r#"v?.getStringList("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
     }
 
@@ -436,21 +440,21 @@ mod unit_tests {
         let ct = list_type("String");
         assert_eq!(
             r#"vars?.getStringList("the-property") ?: default"#.to_string(),
-            getter_with_fallback(&*ct, &"vars?", &"the-property", &"default")
+            getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
 
         let ct = list_type("AnEnum");
         assert_eq!(
             r#"vars?.getStringList("the-property")?.mapNotNull(AnEnum::enumValue) ?: default"#
                 .to_string(),
-            getter_with_fallback(&*ct, &"vars?", &"the-property", &"default")
+            getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
 
         let ct = list_type("AnObject");
         assert_eq!(
             r#"vars?.getVariablesList("the-property")?.mapNotNull(AnObject::create) ?: default"#
                 .to_string(),
-            getter_with_fallback(&*ct, &"vars?", &"the-property", &"default")
+            getter_with_fallback(&*ct, &"vars", &"the-property", &"default")
         );
     }
 
@@ -488,47 +492,50 @@ mod unit_tests {
 
         let ct = map_type("String", "AnEnum");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapValues(AnEnum::enumValue)"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getStringMap("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapKeys(AnEnum::enumValue)"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getStringMap("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-            r#"v?.getStringMap("the-property")?.mapEntries(AnEnum::enumValue, Another::enumValue)"#
-                .to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getStringMap("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
-
-        let ct = map_type("AnEnum", "AnObject");
-        assert_eq!(r#"v?.getVariablesMap("the-property")?.mapEntries(AnEnum::enumValue, AnObject::create)"#.to_string(), ct.get_value(oracle, &"v?", &"the-property"));
     }
 
     #[test]
-    fn test_map_with_fallback() {
+    fn test_map_getter_with_fallback() {
         let oracle = &*oracle();
 
-        let ct = map_type("String", "String");
+        let ct = map_type("String", "AnEnum");
         assert_eq!(
-            "value?.let { overrides -> default + overrides } ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            r#"v?.getStringMap("the-property")?.mapValues(AnEnum::enumValue)?.mergeWith(def) ?: def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
-            "value?.let { overrides -> default + overrides } ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            r#"v?.getStringMap("the-property")?.mapKeys(AnEnum::enumValue)?.mergeWith(def) ?: def"#
+                .to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
 
         let ct = map_type("AnEnum", "Another");
         assert_eq!(
-            "value?.let { overrides -> default + overrides } ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            r#"v?.getStringMap("the-property")?.mapEntries(AnEnum::enumValue, Another::enumValue)?.mergeWith(def) ?: def"#
+                .to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
+
+        let ct = map_type("AnEnum", "AnObject");
+        assert_eq!(
+            r#"v?.getVariablesMap("the-property")?.mapEntries(AnEnum::enumValue, AnObject::create)?.mergeWith(def, AnObject::mergeWith) ?: def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def"));
     }
 }

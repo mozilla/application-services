@@ -34,19 +34,6 @@ impl CodeType for ObjectCodeType {
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(
-        &self,
-        _oracle: &dyn CodeOracle,
-        vars: &dyn Display,
-        prop: &dyn Display,
-    ) -> String {
-        format!(
-            "{vars}.getVariables({prop})",
-            vars = vars,
-            // transform = self.transform(oracle).unwrap(),
-            prop = identifiers::quoted(prop)
-        )
-    }
 
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
@@ -54,24 +41,16 @@ impl CodeType for ObjectCodeType {
         VariablesType::Variables
     }
 
-    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+    fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
         Some(format!("{}::create", self.type_label(oracle)))
     }
 
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides}?.let {{ {t}(it, {default}._defaults) }} ?: {default}",
-            t = self.type_label(oracle),
-            overrides = overrides,
-            default = default
-        )
+    fn merge_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        Some(format!("{}::mergeWith", self.type_label(oracle)))
+    }
+
+    fn value_merger(&self, _oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
+        Some(format!("mergeWith({})", default))
     }
 
     fn literal(
@@ -204,8 +183,7 @@ mod unit_tests {
         def: &dyn Display,
     ) -> String {
         let oracle = &*oracle();
-        let getter = ct.get_value(oracle, vars, prop);
-        ct.with_fallback(oracle, &getter, def)
+        ct.property_getter(oracle, vars, prop, def)
     }
 
     #[test]
@@ -233,18 +211,7 @@ mod unit_tests {
 
         assert_eq!(
             r#"v?.getVariables("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
-        );
-    }
-
-    #[test]
-    fn test_with_fallback() {
-        let ct = code_type("AnObject");
-        let oracle = &*oracle();
-
-        assert_eq!(
-            "vars?.let { AnObject(it, default._defaults) } ?: default".to_string(),
-            ct.with_fallback(oracle, &"vars", &"default")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
     }
 
@@ -252,8 +219,8 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariables("the-property")?.let { AnObject(it, default._defaults) } ?: default"#
+            r#"vars?.getVariables("the-property")?.let(AnObject::create)?.mergeWith(default) ?: default"#
             .to_string(),
-            getter_with_fallback(&*ct, &"vars?", &"the-property", &"default"));
+            getter_with_fallback(&*ct, &"vars", &"the-property", &"default"));
     }
 }

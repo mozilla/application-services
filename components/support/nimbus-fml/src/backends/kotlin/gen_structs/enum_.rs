@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use askama::Template;
-use std::fmt::Display;
 
 use super::filters;
 use super::identifiers;
@@ -31,16 +30,6 @@ impl CodeType for EnumCodeType {
         identifiers::class_name(&self.id)
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        format!(
-            "{vars}.getString({prop}, {transform})",
-            vars = vars,
-            transform = self.transform(oracle).unwrap(),
-            prop = identifiers::quoted(prop)
-        )
-    }
-
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
@@ -48,26 +37,11 @@ impl CodeType for EnumCodeType {
     }
 
     /// A function handle that is capable of turning the variables type to the TypeRef type.
-    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+    fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
         Some(format!(
             "{enum_type}::enumValue",
             enum_type = self.type_label(oracle)
         ))
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -180,19 +154,19 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            "v?.getString(\"the-property\", AEnum::enumValue)".to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getString("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
     }
 
     #[test]
-    fn test_with_fallback() {
+    fn test_getter_with_fallback() {
         let ct = code_type("AEnum");
         let oracle = &*oracle();
 
         assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            r#"v?.getString("the-property")?.let(AEnum::enumValue) ?: def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
     }
 }

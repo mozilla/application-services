@@ -55,13 +55,56 @@ pub trait CodeType {
     fn type_label(&self, oracle: &dyn CodeOracle) -> String;
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        let getter = self.value_getter(oracle, vars, prop);
+
+        let getter = if let Some(mapper) = self.value_mapper(oracle) {
+            format!("{getter}?.{mapper}", getter = getter, mapper = mapper)
+        } else {
+            getter
+        };
+
+        let getter = if let Some(merger) = self.value_merger(oracle, default) {
+            format!("{getter}?.{merger}", getter = getter, merger = merger)
+        } else {
+            getter
+        };
+
         format!(
-            "{vars}.get{vt}(\"{prop}\")",
+            "{getter} ?: {fallback}",
+            getter = getter,
+            fallback = default
+        )
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        let vt = self.variables_type(oracle);
+        format!(
+            "{vars}?.get{vt}(\"{prop}\")",
             vars = vars,
-            vt = self.variables_type(oracle),
+            vt = vt,
             prop = prop
         )
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        let transform = self.create_transform(oracle)?;
+        Some(format!("let({})", transform))
+    }
+
+    fn value_merger(&self, _oracle: &dyn CodeOracle, _default: &dyn Display) -> Option<String> {
+        None
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -69,18 +112,14 @@ pub trait CodeType {
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType;
 
     /// A function handle that is capable of turning the variables type to the TypeRef type.
-    fn transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+    fn create_transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         None
     }
 
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String;
+    /// A function handle that is capable of merging two instances of the same class. By default, this is None.
+    fn merge_transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        None
+    }
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
