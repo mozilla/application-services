@@ -40,7 +40,8 @@ pub fn select_count(conn: &PlacesDb, stmt: &str) -> u32 {
 }
 
 fn do_import(places_api: &PlacesApi, android_db_file_url: Url) -> Result<HistoryMigrationResult> {
-    let conn = places_api.open_sync_connection()?;
+    let conn_mutex = places_api.get_sync_connection()?;
+    let conn = conn_mutex.lock().unwrap();
 
     let scope = conn.begin_interrupt_scope();
 

@@ -586,7 +586,7 @@ fn set_reupload(validity: &mut SyncedBookmarkValidity) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::places_api::{test::new_mem_api, PlacesApi, SyncConn};
+    use crate::api::places_api::{test::new_mem_api, PlacesApi};
     use crate::storage::bookmarks::BookmarkRootGuid;
 
     use crate::bookmark_sync::record::{BookmarkItemRecord, FolderRecord};
@@ -595,8 +595,9 @@ mod tests {
     use serde_json::{json, Value};
     use sync15::Payload;
 
-    fn apply_incoming(api: &PlacesApi, records_json: Value) -> SyncConn<'_> {
-        let conn = api.open_sync_connection().expect("should get a connection");
+    fn apply_incoming(api: &PlacesApi, records_json: Value) {
+        let db = api.get_sync_connection().expect("should get a db mutex");
+        let conn = db.lock().unwrap();
 
         let server_timestamp = ServerTimestamp(0);
         let applicator = IncomingApplicator::new(&conn);
@@ -618,8 +619,6 @@ mod tests {
             }
             _ => panic!("unexpected json value"),
         }
-
-        conn
     }
 
     fn assert_incoming_creates_mirror_item(record_json: Value, expected: &SyncedBookmarkItem) {
@@ -628,10 +627,13 @@ mod tests {
             .expect("id must be a string")
             .to_string();
         let api = new_mem_api();
-        let conn = apply_incoming(&api, record_json);
-        let got = SyncedBookmarkItem::get(&conn, &guid.into())
-            .expect("should work")
-            .expect("item should exist");
+        apply_incoming(&api, record_json);
+        let got = SyncedBookmarkItem::get(
+            &api.get_sync_connection().unwrap().lock().unwrap(),
+            &guid.into(),
+        )
+        .expect("should work")
+        .expect("item should exist");
         assert_eq!(*expected, got);
     }
 
@@ -894,7 +896,8 @@ mod tests {
     #[test]
     fn test_apply_unknown() {
         let api = new_mem_api();
-        let conn = api.open_sync_connection().expect("should get a connection");
+        let db = api.get_sync_connection().expect("should get a db mutex");
+        let conn = db.lock().unwrap();
         let applicator = IncomingApplicator::new(&conn);
 
         let record = json!({
