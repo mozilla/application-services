@@ -5,8 +5,6 @@
 #![warn(rust_2018_idioms)]
 
 use cli_support::fxa_creds::{get_cli_fxa, get_default_fxa_config};
-use places::bookmark_sync::engine::BookmarksEngine;
-use places::history_sync::engine::HistoryEngine;
 use places::storage::bookmarks::{
     fetch_tree, insert_tree, BookmarkNode, BookmarkRootGuid, BookmarkTreeNode, FetchDepth,
     FolderNode, SeparatorNode,
@@ -171,17 +169,6 @@ fn sync(
     wait: u64,
 ) -> Result<()> {
     use_reqwest_backend();
-    let conn = api.open_sync_connection()?;
-
-    // interrupts are per-connection, so we need to set that up here.
-    let interrupt_handle = conn.new_interrupt_handle();
-
-    ctrlc::set_handler(move || {
-        println!("received Ctrl+C!");
-        interrupt_handle.interrupt();
-    })
-    .expect("Error setting Ctrl-C handler");
-    let interruptee = conn.begin_interrupt_scope();
 
     let cli_fxa = get_cli_fxa(get_default_fxa_config(), &cred_file)?;
 
@@ -197,21 +184,15 @@ fn sync(
     let mut global_state: Option<String> = None;
     let engines: Vec<Box<dyn SyncEngine>> = if engine_names.is_empty() {
         vec![
-            Box::new(BookmarksEngine::new(&conn, &interruptee)),
-            Box::new(HistoryEngine::new(&conn, &interruptee)),
+            places::get_registered_sync_engine("bookmarks").unwrap(),
+            places::get_registered_sync_engine("history").unwrap(),
         ]
     } else {
         engine_names.sort();
         engine_names.dedup();
         engine_names
             .into_iter()
-            .map(|name| -> Box<dyn SyncEngine> {
-                match name.as_str() {
-                    "bookmarks" => Box::new(BookmarksEngine::new(&conn, &interruptee)),
-                    "history" => Box::new(HistoryEngine::new(&conn, &interruptee)),
-                    _ => unimplemented!("Can't sync unsupported engine {}", name),
-                }
-            })
+            .map(|name| places::get_registered_sync_engine(&name).unwrap())
             .collect()
     };
     for engine in &engines {
@@ -239,7 +220,7 @@ fn sync(
             &mut mem_cached_state,
             &cli_fxa.client_init.clone(),
             &cli_fxa.root_sync_key,
-            &interruptee,
+            &api.dummy_sync_interrupt_scope(),
             None,
         );
 
@@ -379,6 +360,8 @@ fn main() -> Result<()> {
     let db_path = opts.database_path;
     let api = PlacesApi::new_old(&db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
+    // Needed to make the get_registered_sync_engine() calls work.
+    api.clone().register_with_sync_manager();
 
     match opts.cmd {
         Command::Sync {
