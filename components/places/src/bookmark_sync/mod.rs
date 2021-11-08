@@ -10,6 +10,7 @@ pub mod record;
 mod tests;
 
 use crate::error::*;
+pub use engine::BookmarksSyncEngine;
 use rusqlite::types::{ToSql, ToSqlOutput};
 use rusqlite::Result as RusqliteResult;
 

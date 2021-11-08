@@ -84,7 +84,8 @@ pub fn import_ios_bookmarks(
 }
 
 fn do_import_ios_bookmarks(places_api: &PlacesApi, ios_db_file_url: Url) -> Result<()> {
-    let conn = places_api.open_sync_connection()?;
+    let conn_mutex = places_api.get_sync_connection()?;
+    let conn = conn_mutex.lock().unwrap();
 
     let scope = conn.begin_interrupt_scope();
 

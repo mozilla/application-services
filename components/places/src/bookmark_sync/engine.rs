@@ -8,7 +8,6 @@ use super::record::{
     SeparatorRecord,
 };
 use super::{SyncedBookmarkKind, SyncedBookmarkValidity};
-use crate::api::places_api::ConnectionType;
 use crate::db::{GlobalChangeCounterTracker, PlacesDb};
 use crate::error::*;
 use crate::frecency::{calculate_frecency, DEFAULT_FRECENCY_SETTINGS};
@@ -30,6 +29,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -60,11 +60,6 @@ where
     fn aborted(&self) -> bool {
         self.0.was_interrupted()
     }
-}
-
-pub struct BookmarksEngine<'a> {
-    pub db: &'a PlacesDb,
-    scope: &'a SqlInterruptScope,
 }
 
 fn stage_incoming(
@@ -889,14 +884,24 @@ pub(crate) fn update_frecencies(db: &PlacesDb, scope: &SqlInterruptScope) -> Res
     Ok(())
 }
 
-impl<'a> BookmarksEngine<'a> {
-    pub fn new(db: &'a PlacesDb, scope: &'a SqlInterruptScope) -> Self {
-        assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, scope }
+// Short-lived struct that's constructed each sync
+pub struct BookmarksSyncEngine {
+    db: Arc<Mutex<PlacesDb>>,
+    // Pub so that it can be used by the PlacesApi methods.  Once all syncing goes through the
+    // `SyncManager` we should be able to make this private.
+    pub(crate) scope: SqlInterruptScope,
+}
+
+impl BookmarksSyncEngine {
+    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+        Self {
+            db,
+            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
+        }
     }
 }
 
-impl<'a> SyncEngine for BookmarksEngine<'a> {
+impl SyncEngine for BookmarksSyncEngine {
     #[inline]
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         COLLECTION_NAME.into()
@@ -907,24 +912,25 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> anyhow::Result<OutgoingChangeset> {
+        let conn = self.db.lock().unwrap();
         assert_eq!(inbound.len(), 1, "bookmarks only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         // Stage all incoming items.
         let mut incoming_telemetry = telemetry::EngineIncoming::new();
-        let timestamp = stage_incoming(self.db, self.scope, inbound, &mut incoming_telemetry)?;
+        let timestamp = stage_incoming(&conn, &self.scope, inbound, &mut incoming_telemetry)?;
         telem.incoming(incoming_telemetry);
 
         // write the timestamp now, so if we are interrupted merging or
         // creating outgoing changesets we don't need to re-download the same
         // records.
-        put_meta(self.db, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
+        put_meta(&conn, LAST_SYNC_META_KEY, &(timestamp.as_millis() as i64))?;
 
         // Merge.
-        let mut merger = Merger::with_telemetry(self.db, self.scope, timestamp, telem);
+        let mut merger = Merger::with_telemetry(&conn, &self.scope, timestamp, telem);
         merger.merge()?;
 
         // Finally, stage outgoing items.
-        let outgoing = fetch_outgoing_records(self.db, self.scope, timestamp)?;
+        let outgoing = fetch_outgoing_records(&conn, &self.scope, timestamp)?;
         Ok(outgoing)
     }
 
@@ -933,9 +939,10 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
-        push_synced_items(self.db, self.scope, new_timestamp, records_synced)?;
-        update_frecencies(self.db, self.scope)?;
-        self.db.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
+        let conn = self.db.lock().unwrap();
+        push_synced_items(&conn, &self.scope, new_timestamp, records_synced)?;
+        update_frecencies(&conn, &self.scope)?;
+        conn.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
         Ok(())
     }
 
@@ -943,8 +950,9 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
+        let conn = self.db.lock().unwrap();
         let since =
-            ServerTimestamp(get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default());
+            ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
             vec![]
         } else {
@@ -955,8 +963,9 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let global = get_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
-        let coll = get_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+        let conn = self.db.lock().unwrap();
+        let global = get_meta(&conn, GLOBAL_SYNCID_META_KEY)?;
+        let coll = get_meta(&conn, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
             EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
@@ -965,7 +974,8 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(self.db, assoc)?;
+        let conn = self.db.lock().unwrap();
+        reset(&conn, assoc)?;
         Ok(())
     }
 
@@ -976,7 +986,8 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
     fn wipe(&self) -> anyhow::Result<()> {
-        let tx = self.db.begin_transaction()?;
+        let conn = self.db.lock().unwrap();
+        let tx = conn.begin_transaction()?;
         let sql = format!(
             "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
              SELECT guid, now()
@@ -999,8 +1010,8 @@ impl<'a> SyncEngine for BookmarksEngine<'a> {
             ]),
             sync_status = SyncStatus::Normal as u8
         );
-        self.db.execute_batch(&sql)?;
-        create_synced_bookmark_roots(self.db)?;
+        conn.execute_batch(&sql)?;
+        create_synced_bookmark_roots(&conn)?;
         tx.commit()?;
         Ok(())
     }
@@ -1723,7 +1734,7 @@ impl<'a> fmt::Display for RootsFragment<'a> {
 mod tests {
     use super::*;
     use crate::api::places_api::{test::new_mem_api, ConnectionType, PlacesApi};
-    use crate::bookmark_sync::{engine::BookmarksEngine, tests::SyncedBookmarkItem};
+    use crate::bookmark_sync::tests::SyncedBookmarkItem;
     use crate::db::PlacesDb;
     use crate::storage::{
         bookmarks::{
@@ -1778,17 +1789,20 @@ mod tests {
         }
     }
 
+    fn create_sync_engine(api: &PlacesApi) -> BookmarksSyncEngine {
+        BookmarksSyncEngine::new(api.get_sync_connection().unwrap())
+    }
+
     // Applys the incoming records, and also "finishes" the sync by pretending
     // we uploaded the outgoing items and marks them as uploaded.
     // Returns the GUIDs of the outgoing items.
     fn apply_incoming(
-        conn: &PlacesDb,
+        api: &PlacesApi,
         remote_time: ServerTimestamp,
         records_json: Value,
     ) -> Vec<Guid> {
         // suck records into the engine.
-        let interrupt_scope = conn.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(conn, &interrupt_scope);
+        let engine = create_sync_engine(api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), remote_time);
 
@@ -1825,7 +1839,9 @@ mod tests {
             .apply_incoming(vec![incoming], &mut telemetry::Engine::new("bookmarks"))
             .expect("Should apply incoming and stage outgoing records");
 
-        let mut stmt = conn
+        let sync_db = api.get_sync_connection().unwrap();
+        let syncer = sync_db.lock().unwrap();
+        let mut stmt = syncer
             .prepare("SELECT guid FROM itemsToUpload")
             .expect("Should prepare statement to fetch uploaded GUIDs");
         let uploaded_guids: Vec<Guid> = stmt
@@ -1836,7 +1852,7 @@ mod tests {
             .map(std::result::Result::unwrap)
             .collect();
 
-        push_synced_items(engine.db, engine.scope, remote_time, uploaded_guids.clone())
+        push_synced_items(&syncer, &engine.scope, remote_time, uploaded_guids.clone())
             .expect("Should push synced changes back to the engine");
         uploaded_guids
     }
@@ -1847,11 +1863,12 @@ mod tests {
         local_folder: &SyncGuid,
         local_tree: Value,
     ) {
-        let conn = api
-            .open_sync_connection()
-            .expect("should get a sync connection");
-        apply_incoming(&conn, ServerTimestamp(0), records_json);
-        assert_local_json_tree(&conn, local_folder, local_tree);
+        apply_incoming(api, ServerTimestamp(0), records_json);
+        assert_local_json_tree(
+            &api.get_sync_connection().unwrap().lock().unwrap(),
+            local_folder,
+            local_tree,
+        );
     }
 
     #[test]
@@ -1880,10 +1897,11 @@ mod tests {
         ];
 
         let api = new_mem_api();
-        let conn = api.open_sync_connection()?;
+        let db = api.get_sync_connection().unwrap();
+        let conn = db.lock().unwrap();
 
         // suck records into the database.
-        let interrupt_scope = conn.begin_interrupt_scope();
+        let interrupt_scope = api.dummy_sync_interrupt_scope();
 
         let mut incoming = IncomingChangeset::new(COLLECTION_NAME, ServerTimestamp(0));
 
@@ -1949,7 +1967,8 @@ mod tests {
         let previously_ts: Timestamp = (now - Duration::new(10, 0)).into();
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
+        let sync_db = api.get_sync_connection().unwrap();
+        let syncer = sync_db.lock().unwrap();
 
         writer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2104,10 +2123,9 @@ mod tests {
             "Should mark frecency for new URL as stale"
         );
 
-        let syncer = api
-            .open_sync_connection()
-            .expect("Should return Sync connection");
-        let interrupt_scope = syncer.begin_interrupt_scope();
+        let sync_db = api.get_sync_connection().unwrap();
+        let syncer = sync_db.lock().unwrap();
+        let interrupt_scope = api.dummy_sync_interrupt_scope();
 
         update_frecencies(&syncer, &interrupt_scope).expect("Should update frecencies");
 
@@ -2316,9 +2334,7 @@ mod tests {
 
         // Boilerplate to apply incoming records, since we want to check
         // outgoing record contents.
-        let syncer = api.open_sync_connection()?;
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         if let Value::Array(records) = remote_records {
             for record in records {
@@ -2662,10 +2678,8 @@ mod tests {
             "children": ["bookmarkAAAA"],
         }]);
 
-        let db = api
-            .open_sync_connection()
-            .expect("Should open Sync connection");
-
+        let db_mutex = api.get_sync_connection().unwrap();
+        let db = db_mutex.lock().unwrap();
         let tx = db.begin_transaction()?;
         let applicator = IncomingApplicator::new(&db);
 
@@ -2756,7 +2770,8 @@ mod tests {
     fn test_apply() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
+        let db = api.get_sync_connection().unwrap();
+        let syncer = db.lock().unwrap();
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2809,8 +2824,9 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        // Drop the sync connection to avoid a deadlock when the sync engine locks the mutex
+        drop(syncer);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -2932,7 +2948,8 @@ mod tests {
     #[test]
     fn test_apply_invalid_url() -> Result<()> {
         let api = new_mem_api();
-        let syncer = api.open_sync_connection()?;
+        let db = api.get_sync_connection().unwrap();
+        let syncer = db.lock().unwrap();
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2959,8 +2976,9 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        // Drop the sync connection to avoid a deadlock when the sync engine locks the mutex
+        drop(syncer);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -3034,9 +3052,7 @@ mod tests {
             }),
         );
         // a first sync, which will populate our mirror.
-        let syncer = api.open_sync_connection()?;
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
         let outgoing = engine
             .apply_incoming(
                 vec![IncomingChangeset::new(
@@ -3102,7 +3118,7 @@ mod tests {
 
         // We deleted everything from unfiled.
         assert_local_json_tree(
-            &syncer,
+            &api.get_sync_connection().unwrap().lock().unwrap(),
             &BookmarkRootGuid::Unfiled.as_guid(),
             json!({"children" : []}),
         );
@@ -3115,7 +3131,6 @@ mod tests {
 
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
@@ -3139,8 +3154,7 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -3318,9 +3332,7 @@ mod tests {
             "children": ["bookmarkAAA2", "bookmarkBBB2", "bookmarkCCC2"],
         }]);
 
-        let syncer = api.open_sync_connection()?;
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         if let Value::Array(records) = remote_records {
             for record in records {
@@ -3492,7 +3504,6 @@ mod tests {
     fn test_wipe() -> Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let records = vec![
             json!({
@@ -3569,8 +3580,7 @@ mod tests {
             }),
         ];
 
-        let interrupt_scope = syncer.begin_interrupt_scope();
-        let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+        let engine = create_sync_engine(&api);
 
         let mut incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(0));
         for record in records {
@@ -3728,9 +3738,7 @@ mod tests {
 
         {
             // scope to kill our sync connection.
-            let syncer = api.open_sync_connection()?;
-            let interrupt_scope = syncer.begin_interrupt_scope();
-            let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+            let engine = create_sync_engine(&api);
 
             assert_eq!(
                 engine.get_sync_assoc()?,
@@ -3743,13 +3751,20 @@ mod tests {
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+
+            let db = api.get_sync_connection().unwrap();
+            let syncer = db.lock().unwrap();
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
             let sync_ids = CollSyncIds {
                 global: Guid::random(),
                 coll: Guid::random(),
             };
+            // Temporarily drop the sync connection to avoid a deadlock when the sync engine locks
+            // the mutex
+            drop(syncer);
             engine.reset(&EngineSyncAssociation::Connected(sync_ids.clone()))?;
+            let syncer = db.lock().unwrap();
             assert_eq!(
                 get_meta::<Guid>(&syncer, GLOBAL_SYNCID_META_KEY)?,
                 Some(sync_ids.global)
@@ -3762,9 +3777,7 @@ mod tests {
         }
         // do it all again - after the reset we should get the same results.
         {
-            let syncer = api.open_sync_connection()?;
-            let interrupt_scope = syncer.begin_interrupt_scope();
-            let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+            let engine = create_sync_engine(&api);
 
             let incoming = IncomingChangeset::new(engine.collection_name(), ServerTimestamp(1_000));
             let outgoing =
@@ -3772,9 +3785,16 @@ mod tests {
             let synced_ids: Vec<Guid> = outgoing.changes.iter().map(|c| c.id.clone()).collect();
             assert_eq!(synced_ids.len(), 5, "should be 4 roots + 1 outgoing item");
             engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
+
+            let db = api.get_sync_connection().unwrap();
+            let syncer = db.lock().unwrap();
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
+            // Temporarily drop the sync connection to avoid a deadlock when the sync engine locks
+            // the mutex
+            drop(syncer);
             engine.reset(&EngineSyncAssociation::Disconnected)?;
+            let syncer = db.lock().unwrap();
             assert_eq!(
                 get_meta::<Option<String>>(&syncer, GLOBAL_SYNCID_META_KEY)?,
                 None
@@ -3793,14 +3813,13 @@ mod tests {
     fn test_dedupe_local_newer() -> anyhow::Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let local_modified = Timestamp::now();
         let remote_modified = local_modified.as_millis() as f64 / 1000f64 - 5f64;
 
         // Start with merged items.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -3850,7 +3869,7 @@ mod tests {
 
         // Add older remote dupes.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp(local_modified.as_millis() as i64),
             json!([{
                 "id": "menu",
@@ -3910,14 +3929,13 @@ mod tests {
     fn test_deduping_remote_newer() -> anyhow::Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
         let remote_modified = local_modified.as_millis() as f64 / 1000f64;
 
         // Start with merged items.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -4014,7 +4032,7 @@ mod tests {
 
         // Add newer remote items.
         apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
@@ -4145,7 +4163,6 @@ mod tests {
     fn test_reconcile_sync_metadata() -> anyhow::Result<()> {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
-        let syncer = api.open_sync_connection()?;
 
         let local_modified = Timestamp::from(Timestamp::now().as_millis() - 5000);
         let remote_modified = local_modified.as_millis() as f64 / 1000f64;
@@ -4195,7 +4212,7 @@ mod tests {
         );
 
         let outgoing = apply_incoming(
-            &syncer,
+            &api,
             ServerTimestamp::from_float_seconds(remote_modified),
             json!([{
                 "id": "menu",
