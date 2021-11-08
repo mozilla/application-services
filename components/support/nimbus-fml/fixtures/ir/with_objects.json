@@ -16,6 +16,28 @@
           "doc": "A number",
           "type": "Int",
           "default": 42
+        },
+        {
+          "name": "nested",
+          "doc": "The nesting of the nested object",
+          "type": {
+            "Object": "Nested"
+          },
+          "default": {
+            "property-source": "example-object-property-via-constructor"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Nested",
+      "doc": "An object for nesting in others",
+      "props": [
+        {
+          "name": "property-source",
+          "doc": "This property is set by Nimbus, but where?",
+          "type": "String",
+          "default": "nested-object-property"
         }
       ]
     }
@@ -40,7 +62,12 @@
           "type": {
             "Object": "ExampleObject"
           },
-          "default": {}
+          "default": {
+            "a-string": "YES: overridden from the CONSTRUCTOR!",
+            "nested": {
+              "property-source": "an-object-with-new-defaults-constructor"
+            }
+          }
         },
         {
           "name": "an-object-with-feature-defaults",

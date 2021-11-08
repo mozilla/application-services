@@ -15,7 +15,7 @@ public class {{class_name}}
 specify all values needed for the  feature #}
     data class Defaults({% for p in inner.props() %}
         {%- let t = p.typ() %}
-        val {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(p.default()) }}{% if !loop.last %},{% endif %}
+        val {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default()) }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     )
 {# A constructor for Nimbus to use.  #}

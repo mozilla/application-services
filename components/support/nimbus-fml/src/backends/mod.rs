@@ -84,7 +84,12 @@ pub trait CodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, oracle: &dyn CodeOracle, _literal: &Literal) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        _renderer: &dyn LiteralRenderer,
+        _literal: &Literal,
+    ) -> String {
         unimplemented!("Unimplemented for {}", self.type_label(oracle))
     }
 
@@ -98,6 +103,20 @@ pub trait CodeType {
     /// Classes are imported exactly once.
     fn imports(&self, _oracle: &dyn CodeOracle) -> Option<Vec<String>> {
         None
+    }
+}
+
+pub trait LiteralRenderer {
+    fn literal(&self, _oracle: &dyn CodeOracle, _typ: &TypeIdentifier, value: &Literal) -> String;
+}
+
+impl<T, C> LiteralRenderer for T
+where
+    T: std::ops::Deref<Target = C>,
+    C: LiteralRenderer,
+{
+    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal) -> String {
+        self.deref().literal(oracle, typ, value)
     }
 }
 

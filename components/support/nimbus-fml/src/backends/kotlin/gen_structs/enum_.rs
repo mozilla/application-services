@@ -7,6 +7,7 @@ use std::fmt::Display;
 
 use super::filters;
 use super::identifiers;
+use crate::backends::LiteralRenderer;
 use crate::backends::VariablesType;
 use crate::{
     backends::{CodeDeclaration, CodeOracle, CodeType},
@@ -71,7 +72,12 @@ impl CodeType for EnumCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        _renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         let variant = match literal {
             serde_json::Value::String(v) => v,
             _ => unreachable!(),
@@ -112,13 +118,24 @@ mod unit_tests {
 
     use serde_json::json;
 
-    use crate::backends::TypeIdentifier;
-
     use super::*;
+    use crate::backends::TypeIdentifier;
 
     struct TestCodeOracle;
     impl CodeOracle for TestCodeOracle {
         fn find(&self, _type_: &TypeIdentifier) -> Box<dyn CodeType> {
+            unreachable!()
+        }
+    }
+
+    struct TestRenderer;
+    impl LiteralRenderer for TestRenderer {
+        fn literal(
+            &self,
+            _oracle: &dyn CodeOracle,
+            _typ: &TypeIdentifier,
+            _value: &Literal,
+        ) -> String {
             unreachable!()
         }
     }
@@ -142,14 +159,18 @@ mod unit_tests {
     fn test_literal() {
         let ct = code_type("AEnum");
         let oracle = &*oracle();
-        assert_eq!("AEnum.FOO".to_string(), ct.literal(oracle, &json!("foo")));
+        let finder = &TestRenderer;
+        assert_eq!(
+            "AEnum.FOO".to_string(),
+            ct.literal(oracle, finder, &json!("foo"))
+        );
         assert_eq!(
             "AEnum.BAR_BAZ".to_string(),
-            ct.literal(oracle, &json!("barBaz"))
+            ct.literal(oracle, finder, &json!("barBaz"))
         );
         assert_eq!(
             "AEnum.A_B_C".to_string(),
-            ct.literal(oracle, &json!("a-b-c"))
+            ct.literal(oracle, finder, &json!("a-b-c"))
         );
     }
 

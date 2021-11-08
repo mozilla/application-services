@@ -212,6 +212,14 @@ impl FeatureManifest {
     pub fn iter_feature_defs(&self) -> Iter<FeatureDef> {
         self.feature_defs.iter()
     }
+
+    pub fn find_object(&self, nm: &str) -> ObjectDef {
+        if let Some(obj) = self.iter_object_defs().find(|o| o.name() == nm) {
+            obj.clone()
+        } else {
+            unreachable!("This is a bug in FML")
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -315,6 +323,14 @@ impl ObjectDef {
     }
     pub(crate) fn props(&self) -> Vec<PropDef> {
         self.props.clone()
+    }
+
+    pub(crate) fn find_prop(&self, nm: &str) -> PropDef {
+        self.props
+            .iter()
+            .find(|p| p.name == nm)
+            .unwrap_or_else(|| unreachable!("Can't find {}. This is a bug in FML", nm))
+            .clone()
     }
 }
 

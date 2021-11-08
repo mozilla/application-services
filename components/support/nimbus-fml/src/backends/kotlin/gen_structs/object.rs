@@ -5,12 +5,14 @@
 use askama::Template;
 use std::fmt::Display;
 
-use crate::backends::{CodeDeclaration, CodeOracle, CodeType, VariablesType};
-use crate::intermediate_representation::{self, FeatureManifest, ObjectDef};
+use crate::backends::{
+    CodeDeclaration, CodeOracle, CodeType, LiteralRenderer, TypeIdentifier, VariablesType,
+};
+use crate::intermediate_representation::{FeatureManifest, Literal, ObjectDef};
 
 use super::filters;
 
-use super::{identifiers, ConcreteCodeOracle};
+use super::identifiers;
 
 pub struct ObjectRuntime;
 
@@ -75,22 +77,10 @@ impl CodeType for ObjectCodeType {
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
-        literal: &intermediate_representation::Literal,
+        renderer: &dyn LiteralRenderer,
+        literal: &Literal,
     ) -> String {
-        match literal {
-            serde_json::Value::Object(map) => {
-                if map.is_empty() {
-                    format!("{}()", self.id)
-                } else {
-                    // https://mozilla-hub.atlassian.net/browse/SDK-433
-                    unimplemented!("SDK-433: Object literals are not yet implemented")
-                }
-            }
-            _ => unreachable!(
-                "An JSON object is expected for {} object literal",
-                self.type_label(oracle)
-            ),
-        }
+        renderer.literal(oracle, &TypeIdentifier::Object(self.id.clone()), literal)
     }
 }
 
@@ -98,13 +88,13 @@ impl CodeType for ObjectCodeType {
 #[template(syntax = "kt", escape = "none", path = "ObjectTemplate.kt")]
 pub(crate) struct ObjectCodeDeclaration {
     inner: ObjectDef,
-    _oracle: ConcreteCodeOracle,
+    fm: FeatureManifest,
 }
 
 impl ObjectCodeDeclaration {
-    pub fn new(_fm: &FeatureManifest, inner: &ObjectDef) -> Self {
+    pub fn new(fm: &FeatureManifest, inner: &ObjectDef) -> Self {
         Self {
-            _oracle: Default::default(),
+            fm: fm.clone(),
             inner: inner.clone(),
         }
     }
@@ -119,11 +109,60 @@ impl CodeDeclaration for ObjectCodeDeclaration {
     }
 }
 
+impl LiteralRenderer for ObjectCodeDeclaration {
+    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal) -> String {
+        object_literal(&self.fm, &self, oracle, typ, value)
+    }
+}
+
+pub(crate) fn object_literal(
+    fm: &FeatureManifest,
+    renderer: &dyn LiteralRenderer,
+    oracle: &dyn CodeOracle,
+    typ: &TypeIdentifier,
+    value: &Literal,
+) -> String {
+    let id = if let TypeIdentifier::Object(id) = typ {
+        id
+    } else {
+        return oracle.find(typ).literal(oracle, renderer, value);
+    };
+    let literal_map = if let Literal::Object(map) = value {
+        map
+    } else {
+        unreachable!(
+            "An JSON object is expected for {} object literal",
+            oracle.find(typ).type_label(oracle)
+        )
+    };
+
+    let def = fm.find_object(id);
+
+    let args: Vec<String> = literal_map
+        .iter()
+        .map(|(k, v)| {
+            let prop = def.find_prop(k);
+
+            format!(
+                "{var_name} = {var_value}",
+                var_name = identifiers::var_name(k),
+                var_value = oracle.find(&prop.typ).literal(oracle, renderer, v)
+            )
+        })
+        .collect();
+
+    format!(
+        "{typelabel}({args})",
+        typelabel = oracle.find(typ).type_label(oracle),
+        args = args.join(", ")
+    )
+}
+
 #[cfg(test)]
 mod unit_tests {
     use serde_json::json;
 
-    use crate::backends::TypeIdentifier;
+    use crate::{backends::TypeIdentifier, intermediate_representation::Literal};
 
     use super::*;
 
@@ -131,6 +170,22 @@ mod unit_tests {
     impl CodeOracle for TestCodeOracle {
         fn find(&self, _type_: &TypeIdentifier) -> Box<dyn CodeType> {
             unreachable!()
+        }
+    }
+
+    struct TestRenderer;
+    impl LiteralRenderer for TestRenderer {
+        fn literal(
+            &self,
+            _oracle: &dyn CodeOracle,
+            typ: &TypeIdentifier,
+            _value: &Literal,
+        ) -> String {
+            if let TypeIdentifier::Object(nm) = typ {
+                format!("{}()", nm)
+            } else {
+                unreachable!()
+            }
         }
     }
 
@@ -164,7 +219,11 @@ mod unit_tests {
     fn test_literal() {
         let ct = code_type("AnObject");
         let oracle = &*oracle();
-        assert_eq!("AnObject()".to_string(), ct.literal(oracle, &json!({})));
+        let finder = &TestRenderer;
+        assert_eq!(
+            "AnObject()".to_string(),
+            ct.literal(oracle, finder, &json!({}))
+        );
     }
 
     #[test]

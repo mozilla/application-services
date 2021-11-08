@@ -4,7 +4,7 @@
 use super::{identifiers, ConcreteCodeOracle};
 use std::fmt;
 
-use crate::backends::{CodeOracle, TypeIdentifier};
+use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
 use crate::intermediate_representation::Literal;
 
 pub fn type_label(type_: &TypeIdentifier) -> Result<String, askama::Error> {
@@ -12,9 +12,13 @@ pub fn type_label(type_: &TypeIdentifier) -> Result<String, askama::Error> {
     Ok(oracle.find(type_).type_label(&oracle))
 }
 
-pub fn literal(type_: &TypeIdentifier, literal: &Literal) -> Result<String, askama::Error> {
+pub fn literal(
+    type_: &TypeIdentifier,
+    renderer: &dyn LiteralRenderer,
+    literal: &Literal,
+) -> Result<String, askama::Error> {
     let oracle = ConcreteCodeOracle;
-    Ok(oracle.find(type_).literal(&oracle, literal))
+    Ok(oracle.find(type_).literal(&oracle, renderer, literal))
 }
 
 pub fn get_value(
