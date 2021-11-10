@@ -10,6 +10,7 @@ package mozilla.appservices.places
 
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import mozilla.appservices.places.uniffi.PlacesException
 
 @Structure.FieldOrder("code", "message")
 internal open class RustError : Structure() {
@@ -19,21 +20,21 @@ internal open class RustError : Structure() {
     companion object {
         fun makeException(code: Int, message: String): PlacesException {
             return when (code) {
-                2 -> UrlParseFailed(message)
-                3 -> PlacesConnectionBusy(message)
-                4 -> OperationInterrupted(message)
-                5 -> BookmarksCorruption(message)
+                2 -> PlacesException.UrlParseFailed(message)
+                3 -> PlacesException.PlacesConnectionBusy(message)
+                4 -> PlacesException.OperationInterrupted(message)
+                5 -> PlacesException.BookmarksCorruption(message)
 
-                64 -> InvalidParent(message)
-                65 -> UnknownBookmarkItem(message)
-                66 -> UrlTooLong(message)
-                67 -> InvalidBookmarkUpdate(message)
-                68 -> CannotUpdateRoot(message)
+                64 -> PlacesException.InvalidParent(message)
+                65 -> PlacesException.UnknownBookmarkItem(message)
+                66 -> PlacesException.UrlTooLong(message)
+                67 -> PlacesException.InvalidBookmarkUpdate(message)
+                68 -> PlacesException.CannotUpdateRoot(message)
 
-                -1 -> InternalPanic(message)
+                -1 -> PlacesException.InternalPanic(message)
                 // Note: `1` is used as a generic catch all, but we
                 // might as well handle the others the same way.
-                else -> PlacesException(message)
+                else -> PlacesException.UnexpectedPlacesException(message)
             }
         }
     }

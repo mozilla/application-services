@@ -8,7 +8,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
 import mozilla.appservices.places.uniffi.DocumentType
-import mozilla.appservices.places.uniffi.ErrorWrapper
+import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
@@ -188,22 +188,24 @@ internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
     synchronized(syncOn) {
         try {
             return callback()
-        } catch (e: ErrorWrapper.Wrapped) {
-            // uniffi-generated functions currently return just a single error
-            // type, which inside its message is the underlying error code
-            // and message, which we can use to construct the actual error
-            // from the hand-written FFI.
-            if (e.message != null) {
-                try {
-                    val (code, message) = e.message.split('|', limit = 2)
-                    throw RustError.makeException(code.toInt(), message)
-                } catch (_: NumberFormatException) {
-                    // how to log? Not clear it matters TBH - all the details
-                    // should be visible in the generic exception we throw below,
-                    // and it should be impossible anyway!
-                }
-            }
-            throw RuntimeException("Unexpected error: $e")
+        } catch (e: PlacesException) {
+
+            throw e
+            // // uniffi-generated functions currently return just a single error
+            // // type, which inside its message is the underlying error code
+            // // and message, which we can use to construct the actual error
+            // // from the hand-written FFI.
+            // if (e.message != null) {
+            //     try {
+            //         val (code, message) = e.message.split('|', limit = 2)
+            //         throw RustError.makeException(code.toInt(), message)
+            //     } catch (_: NumberFormatException) {
+            //         // how to log? Not clear it matters TBH - all the details
+            //         // should be visible in the generic exception we throw below,
+            //         // and it should be impossible anyway!
+            //     }
+            // }
+            // throw RuntimeException("Unexpected error: $e")
         }
     }
 }
@@ -1254,11 +1256,11 @@ class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : Auto
     }
 }
 
-open class PlacesException(msg: String) : Exception(msg)
-open class InternalPanic(msg: String) : PlacesException(msg)
-open class UrlParseFailed(msg: String) : PlacesException(msg)
-open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
-open class OperationInterrupted(msg: String) : PlacesException(msg)
+// open class PlacesException(msg: String) : Exception(msg)
+// open class InternalPanic(msg: String) : PlacesException(msg)
+// open class UrlParseFailed(msg: String) : PlacesException(msg)
+// open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
+// open class OperationInterrupted(msg: String) : PlacesException(msg)
 
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */
@@ -1509,25 +1511,25 @@ class PlacesManagerCounterMetrics(
             return callback()
         } catch (e: Exception) {
             when (e) {
-                is UrlParseFailed -> {
+                is PlacesException.UrlParseFailed -> {
                     errCount["url_parse_failed"].add()
                 }
-                is OperationInterrupted -> {
+                is PlacesException.OperationInterrupted -> {
                     errCount["operation_interrupted"].add()
                 }
-                is InvalidParent -> {
+                is PlacesException.InvalidParent -> {
                     errCount["invalid_parent"].add()
                 }
-                is UnknownBookmarkItem -> {
+                is PlacesException.UnknownBookmarkItem -> {
                     errCount["unknown_bookmark_item"].add()
                 }
-                is UrlTooLong -> {
+                is PlacesException.UrlTooLong -> {
                     errCount["url_too_long"].add()
                 }
-                is InvalidBookmarkUpdate -> {
+                is PlacesException.InvalidBookmarkUpdate -> {
                     errCount["invalid_bookmark_update"].add()
                 }
-                is CannotUpdateRoot -> {
+                is PlacesException.CannotUpdateRoot -> {
                     errCount["cannot_update_root"].add()
                 }
                 else -> {
