@@ -82,6 +82,9 @@ pub enum ErrorKind {
     InvalidMetadataObservation(InvalidMetadataObservation),
 }
 
+// This defines the `Error` and `Result` types exported by this module.
+// These errors do not make it across the FFI, so can be considered "private" to the
+// Rust side of the world.
 error_support::define_error! {
     ErrorKind {
         (SyncAdapterError, sync15::Error),
@@ -164,6 +167,7 @@ pub enum InvalidMetadataObservation {
     ViewTimeTooLong,
 }
 
+// This is the error object thrown over the FFI.
 #[derive(Debug, thiserror::Error)]
 pub enum PlacesError {
     #[error("Unexpected error: {0}")]

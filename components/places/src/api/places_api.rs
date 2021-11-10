@@ -106,6 +106,13 @@ pub struct SyncState {
     pub disk_cached_state: Cell<Option<String>>,
 }
 
+/// For uniffi we need to expose our `Arc` returning constructor as a global function :(
+/// https://github.com/mozilla/uniffi-rs/pull/1063 would fix this, but got some pushback
+/// meaning we are forced into this unfortunate workaround.
+pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
+    PlacesApi::new(db_name)
+}
+
 /// The entry-point to the places API. This object gives access to database
 /// connections and other helpers. It enforces that only 1 write connection
 /// can exist to the database at once.
