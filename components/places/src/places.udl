@@ -3,28 +3,28 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 namespace places {
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     HistoryMetadata? places_get_latest_history_metadata_for_url(i64 handle, string url);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     sequence<HistoryMetadata> places_get_history_metadata_between(i64 handle, i64 start, i64 end);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     sequence<HistoryMetadata> places_get_history_metadata_since(i64 handle, i64 start);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     sequence<HistoryMetadata> places_query_history_metadata(i64 handle, string query, i32 limit);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     sequence<HistoryHighlight> places_get_history_highlights(i64 handle, HistoryHighlightWeights weights, i32 limit);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     void places_note_history_metadata_observation(i64 handle, HistoryMetadataObservation data);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     void places_metadata_delete(i64 handle, string url, string? referrer_url, string? search_term);
 
-    [Throws=ErrorWrapper]
+    [Throws=PlacesError]
     void places_metadata_delete_older_than(i64 handle, i64 older_than);
 };
 
@@ -80,6 +80,16 @@ dictionary Dummy {
 };
 
 [Error]
-enum ErrorWrapper {
-    "Wrapped"
+enum PlacesError {
+    "UnexpectedPlacesException",
+    "UrlParseFailed",
+    "PlacesConnectionBusy",
+    "OperationInterrupted",
+    "BookmarksCorruption",
+    "InvalidParent",
+    "UnknownBookmarkItem",
+    "UrlTooLong",
+    "InvalidBookmarkUpdate",
+    "CannotUpdateRoot",
+    "InternalPanic",
 };

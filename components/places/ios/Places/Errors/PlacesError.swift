@@ -9,85 +9,34 @@ import os.log
 #endif
 
 /// Indicates an error occurred while calling into the places storage layer
-public enum PlacesError: LocalizedError {
-    /// This indicates an attempt to use a connection after the PlacesAPI
-    /// it came from is destroyed. This indicates a usage error of this library.
-    case connUseAfterAPIClosed
-
-    /// This is a catch-all error code used for errors not yet exposed to consumers,
-    /// typically since it doesn't seem like there's a sane way for them to be handled.
-    case unexpected(message: String)
-
-    /// The rust code implementing places storage paniced. This always indicates a bug.
-    case panic(message: String)
-
-    /// The place we were given is invalid.
-    case invalidPlace(message: String)
-
-    /// We failed to parse the provided URL.
-    case urlParseError(message: String)
-
-    /// The requested operation failed because the database was busy
-    /// performing operations on a separate connection to the same DB.
-    case databaseBusy(message: String)
-
-    /// The requested operation failed because it was interrupted
-    case databaseInterrupted(message: String)
-
-    /// The requested operation failed because the store is corrupt
-    case databaseCorrupt(message: String)
-
-    /// Thrown on insertions and updates that specify a parent which
-    /// is not a folder
-    case invalidParent(message: String)
-
-    /// Thrown on insertions and updates that specify a GUID which
-    /// does not exist.
-    case noSuchItem(message: String)
-
-    /// Thrown on insertions and updates that attempt to insert or
-    /// update a bookmark URL beyond the maximum length of
-    /// 65536 bytes.
-    case urlTooLong(message: String)
-
-    /// Thrown when attempting to update a bookmark in an illegal way,
-    /// for example, trying to set the URL of a folder, the title of
-    /// a separator, etc.
-    case illegalChange(message: String)
-
-    /// Thrown when attempting to update or delete a root, or
-    /// insert a new item as a child of root________.
-    case cannotUpdateRoot(message: String)
-
+extension PlacesError: LocalizedError {
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
         switch self {
-        case .connUseAfterAPIClosed:
-            return "PlacesError.connUseAfterAPIClosed"
-        case let .unexpected(message):
-            return "PlacesError.unexpected: \(message)"
-        case let .panic(message):
-            return "PlacesError.panic: \(message)"
-        case let .invalidPlace(message):
-            return "PlacesError.invalidPlace: \(message)"
-        case let .urlParseError(message):
-            return "PlacesError.urlParseError: \(message)"
-        case let .databaseBusy(message):
-            return "PlacesError.databaseBusy: \(message)"
-        case let .databaseInterrupted(message):
-            return "PlacesError.databaseInterrupted: \(message)"
-        case let .databaseCorrupt(message):
-            return "PlacesError.databaseCorrupt: \(message)"
-        case let .invalidParent(message):
-            return "PlacesError.invalidParent: \(message)"
-        case let .noSuchItem(message):
-            return "PlacesError.noSuchItem: \(message)"
-        case let .urlTooLong(message):
-            return "PlacesError.urlTooLong: \(message)"
-        case let .illegalChange(message):
-            return "PlacesError.illegalChange: \(message)"
-        case let .cannotUpdateRoot(message):
-            return "PlacesError.cannotUpdateRoot: \(message)"
+        case let .UnexpectedPlacesException(message):
+            return "PlacesError.UnexpectedPlacesException: \(message)"
+        case let .InternalPanic(message):
+            return "PlacesError.InternalPanic: \(message)"
+        case let .InvalidParent(message):
+            return "PlacesError.InvalidParent: \(message)"
+        case let .UrlParseFailed(message):
+            return "PlacesError.UrlParseFailed: \(message)"
+        case let .PlacesConnectionBusy(message):
+            return "PlacesError.PlacesConnectionBusy: \(message)"
+        case let .OperationInterrupted(message):
+            return "PlacesError.OperationInterrupted: \(message)"
+        case let .BookmarksCorruption(message):
+            return "PlacesError.BookmarksCorruption: \(message)"
+        case let .InvalidParent(message):
+            return "PlacesError.InvalidParent: \(message)"
+        case let .UnknownBookmarkItem(message):
+            return "PlacesError.UnknownBookmarkItem: \(message)"
+        case let .UrlTooLong(message):
+            return "PlacesError.UrlTooLong: \(message)"
+        case let .InvalidBookmarkUpdate(message):
+            return "PlacesError.InvalidBookmarkUpdate: \(message)"
+        case let .CannotUpdateRoot(message):
+            return "PlacesError.CannotUpdateRoot: \(message)"
         }
     }
 
@@ -104,24 +53,24 @@ public enum PlacesError: LocalizedError {
         case Places_NoError:
             return nil
         case Places_UrlParseError:
-            return .urlParseError(message: message)
+            return .UrlParseFailed(message: message)
         case Places_DatabaseBusy:
-            return .databaseBusy(message: message)
+            return .PlacesConnectionBusy(message: message)
         case Places_DatabaseInterrupted:
-            return .databaseInterrupted(message: message)
+            return .OperationInterrupted(message: message)
         case Places_Corrupt:
-            return .databaseCorrupt(message: message)
+            return .BookmarksCorruption(message: message)
 
         case Places_InvalidPlace_InvalidParent:
-            return .invalidParent(message: message)
+            return .InvalidParent(message: message)
         case Places_InvalidPlace_NoSuchItem:
-            return .noSuchItem(message: message)
+            return .UnknownBookmarkItem(message: message)
         case Places_InvalidPlace_UrlTooLong:
-            return .urlTooLong(message: message)
+            return .UrlTooLong(message: message)
         case Places_InvalidPlace_IllegalChange:
-            return .illegalChange(message: message)
+            return .InvalidBookmarkUpdate(message: message)
         case Places_InvalidPlace_CannotUpdateRoot:
-            return .cannotUpdateRoot(message: message)
+            return .CannotUpdateRoot(message: message)
 
         case Places_Panic:
             return .panic(message: message)
@@ -148,7 +97,7 @@ public enum PlacesError: LocalizedError {
     @discardableResult
     static func unwrap<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) throws -> T {
         guard let result = try PlacesError.tryUnwrap(callback) else {
-            throw PlacesError.unexpected(message: "Unexpected error after unwrapping")
+            throw PlacesError.UnexpectedPlacesException(message: "Unexpected error after unwrapping")
         }
         return result
     }
@@ -182,7 +131,7 @@ public enum PlacesError: LocalizedError {
                 let message = splitError[1]
                 throw makeException(code: PlacesErrorCode(code), message: message)!
             default:
-                throw PlacesError.unexpected(message: "Unexpected Error")
+                throw PlacesError.UnexpectedPlacesException(message: "Unexpected Error")
             }
         }
     }

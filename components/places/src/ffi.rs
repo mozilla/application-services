@@ -4,7 +4,7 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use crate::error::{Error, ErrorKind, InvalidPlaceInfo};
+use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::msg_types;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
@@ -29,10 +29,10 @@ fn parse_url(url: &str) -> crate::Result<url::Url> {
 fn places_get_latest_history_metadata_for_url(
     handle: i64,
     url: String,
-) -> Result<Option<HistoryMetadata>, ErrorWrapper> {
+) -> Result<Option<HistoryMetadata>, PlacesError> {
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             let url = parse_url(url.as_str())?;
             let metadata = crate::storage::history_metadata::get_latest_for_url(conn, &url)?;
             Ok(metadata)
@@ -44,11 +44,11 @@ fn places_get_history_metadata_between(
     handle: i64,
     start: i64,
     end: i64,
-) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
+) -> Result<Vec<HistoryMetadata>, PlacesError> {
     log::debug!("places_get_history_metadata_between");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             let between = crate::storage::history_metadata::get_between(conn, start, end)?;
             Ok(between)
         },
@@ -58,11 +58,11 @@ fn places_get_history_metadata_between(
 fn places_get_history_metadata_since(
     handle: i64,
     start: i64,
-) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
+) -> Result<Vec<HistoryMetadata>, PlacesError> {
     log::debug!("places_get_history_metadata_since");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             let since = crate::storage::history_metadata::get_since(conn, start)?;
             Ok(since)
         },
@@ -73,11 +73,11 @@ fn places_query_history_metadata(
     handle: i64,
     query: String,
     limit: i32,
-) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
+) -> Result<Vec<HistoryMetadata>, PlacesError> {
     log::debug!("places_get_history_metadata_since");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             let metadata = crate::storage::history_metadata::query(conn, query.as_str(), limit)?;
             Ok(metadata)
         },
@@ -88,11 +88,11 @@ fn places_get_history_highlights(
     handle: i64,
     weights: HistoryHighlightWeights,
     limit: i32,
-) -> Result<Vec<HistoryHighlight>, ErrorWrapper> {
+) -> Result<Vec<HistoryHighlight>, PlacesError> {
     log::debug!("places_get_history_highlights");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             let highlights =
                 crate::storage::history_metadata::get_highlights(conn, weights, limit)?;
             Ok(highlights)
@@ -103,22 +103,22 @@ fn places_get_history_highlights(
 fn places_note_history_metadata_observation(
     handle: i64,
     data: HistoryMetadataObservation,
-) -> Result<(), ErrorWrapper> {
+) -> Result<(), PlacesError> {
     log::debug!("places_note_history_metadata_observation");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             crate::storage::history_metadata::apply_metadata_observation(conn, data)?;
             Ok(())
         },
     )
 }
 
-fn places_metadata_delete_older_than(handle: i64, older_than: i64) -> Result<(), ErrorWrapper> {
+fn places_metadata_delete_older_than(handle: i64, older_than: i64) -> Result<(), PlacesError> {
     log::debug!("places_note_history_metadata_observation");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             crate::storage::history_metadata::delete_older_than(conn, older_than)?;
             Ok(())
         },
@@ -130,11 +130,11 @@ fn places_metadata_delete(
     url: String,
     referrer_url: Option<String>,
     search_term: Option<String>,
-) -> Result<(), ErrorWrapper> {
+) -> Result<(), PlacesError> {
     log::debug!("places_metadata_delete_metadata");
     CONNECTIONS.get(
         Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
+        |conn| -> Result<_, PlacesError> {
             crate::storage::history_metadata::delete_metadata(
                 conn,
                 url.as_str(),
@@ -270,36 +270,9 @@ fn get_error_number(err: &Error) -> i32 {
     }
 }
 
-/// This is very very hacky - we somehow need to ensure the same error hierarchy
-/// exists for both hand-written FFI functions and those generated by uniffi,
-/// and there doesn't seem to be a clean way of doing that. So our .udl defines
-/// a single error type - ErrorWrapper::Wrapped(). The `String` message there
-/// is, roughly, `format!("{}|{}", extern_error.code, extern_error.message)`.
-/// There then exists code on the Swift and Kotlin side of the world which
-/// unpacks this and returns the exact same error objects as if it was an
-/// `ExternError` in the first place.
-#[derive(Debug)]
-pub enum ErrorWrapper {
-    Wrapped(String),
-}
-
-impl ToString for ErrorWrapper {
-    fn to_string(&self) -> String {
-        match self {
-            ErrorWrapper::Wrapped(e) => e.to_string(),
-        }
-    }
-}
-
-impl From<Error> for ErrorWrapper {
-    fn from(e: Error) -> ErrorWrapper {
-        ErrorWrapper::Wrapped(format!("{}|{}", get_error_number(&e), e.to_string()))
-    }
-}
-
-impl From<HandleError> for ErrorWrapper {
-    fn from(e: HandleError) -> ErrorWrapper {
-        ErrorWrapper::Wrapped(format!("{}|{}", error_codes::UNEXPECTED, e.to_string()))
+impl From<HandleError> for PlacesError {
+    fn from(e: HandleError) -> PlacesError {
+        PlacesError::from(e)
     }
 }
 
