@@ -2,16 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+[Wrapped]
+typedef string Url;
+
 namespace places {
-    [Throws=ErrorWrapper]
-    HistoryMetadata? places_get_latest_history_metadata_for_url(i64 handle, string url);
-
-    [Throws=ErrorWrapper]
-    sequence<HistoryMetadata> places_get_history_metadata_between(i64 handle, i64 start, i64 end);
-
-    [Throws=ErrorWrapper]
-    sequence<HistoryMetadata> places_get_history_metadata_since(i64 handle, i64 start);
-
     [Throws=ErrorWrapper]
     sequence<HistoryMetadata> places_query_history_metadata(i64 handle, string query, i32 limit);
 
@@ -26,6 +20,31 @@ namespace places {
 
     [Throws=ErrorWrapper]
     void places_metadata_delete_older_than(i64 handle, i64 older_than);
+};
+
+enum ConnectionType {
+    "ReadOnly",
+    "ReadWrite",
+    "Sync", // ideally we wouldn't need to expose this and should guard against it being used (it's internal only)
+};
+
+interface PlacesApi {
+    [Throws=ErrorWrapper]
+    PlacesConnection new_connection(ConnectionType conn_type);
+};
+
+interface PlacesConnection {
+    [Throws=ErrorWrapper]
+    constructor();
+
+    [Throws=ErrorWrapper]
+    HistoryMetadata? get_latest_history_metadata_for_url(Url url);
+
+    [Throws=ErrorWrapper]
+    sequence<HistoryMetadata> places_get_history_metadata_between(i64 handle, i64 start, i64 end);
+
+    [Throws=ErrorWrapper]
+    sequence<HistoryMetadata> places_get_history_metadata_since(i64 handle, i64 start);
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
