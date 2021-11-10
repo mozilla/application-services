@@ -2,10 +2,23 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+<<<<<<< HEAD
 [Wrapped]
 typedef string Url;
 
 namespace places {
+=======
+namespace places {
+    [Throws=PlacesError]
+    HistoryMetadata? places_get_latest_history_metadata_for_url(i64 handle, string url);
+
+    [Throws=PlacesError]
+    sequence<HistoryMetadata> places_get_history_metadata_between(i64 handle, i64 start, i64 end);
+
+    [Throws=PlacesError]
+    sequence<HistoryMetadata> places_get_history_metadata_since(i64 handle, i64 start);
+
+>>>>>>> f07d8873a (initial conversion of errors for places uniffication)
     [Throws=PlacesError]
     PlacesApi places_api_new(string db_path);
 };

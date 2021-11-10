@@ -1241,6 +1241,11 @@ class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : Auto
     }
 }
 
+// open class PlacesException(msg: String) : Exception(msg)
+// open class InternalPanic(msg: String) : PlacesException(msg)
+// open class UrlParseFailed(msg: String) : PlacesException(msg)
+// open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
+// open class OperationInterrupted(msg: String) : PlacesException(msg)
 
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */
