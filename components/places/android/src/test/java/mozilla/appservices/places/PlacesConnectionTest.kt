@@ -9,6 +9,7 @@ import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.syncmanager.SyncManager
+import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
