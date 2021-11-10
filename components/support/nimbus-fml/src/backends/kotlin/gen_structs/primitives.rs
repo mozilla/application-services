@@ -4,7 +4,7 @@
 
 use std::fmt::Display;
 
-use crate::backends::{CodeOracle, CodeType, VariablesType};
+use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 
 pub(crate) struct BooleanCodeType;
@@ -39,7 +39,12 @@ impl CodeType for BooleanCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, _oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        _oracle: &dyn CodeOracle,
+        _renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         match literal {
             serde_json::Value::Bool(v) => {
                 if *v {
@@ -85,7 +90,12 @@ impl CodeType for IntCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, _oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        _oracle: &dyn CodeOracle,
+        _renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         match literal {
             serde_json::Value::Number(v) => {
                 format!("{:.0}", v)
@@ -127,7 +137,12 @@ impl CodeType for StringCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, _oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        _oracle: &dyn CodeOracle,
+        _renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         match literal {
             serde_json::Value::String(v) => {
                 // Usually, we'd be wanting to escape this, for security reasons. However, this is
@@ -152,6 +167,18 @@ mod unit_tests {
     struct TestCodeOracle;
     impl CodeOracle for TestCodeOracle {
         fn find(&self, _type_: &TypeIdentifier) -> Box<dyn CodeType> {
+            unreachable!()
+        }
+    }
+
+    struct TestRenderer;
+    impl LiteralRenderer for TestRenderer {
+        fn literal(
+            &self,
+            _oracle: &dyn CodeOracle,
+            _typ: &TypeIdentifier,
+            _value: &Literal,
+        ) -> String {
             unreachable!()
         }
     }
@@ -189,18 +216,28 @@ mod unit_tests {
     #[test]
     fn test_literal() {
         let oracle = &*oracle();
+        let finder = &TestRenderer;
 
         let ct = bool_type();
-        assert_eq!("true".to_string(), ct.literal(oracle, &json!(true)));
-        assert_eq!("false".to_string(), ct.literal(oracle, &json!(false)));
+        assert_eq!("true".to_string(), ct.literal(oracle, finder, &json!(true)));
+        assert_eq!(
+            "false".to_string(),
+            ct.literal(oracle, finder, &json!(false))
+        );
 
         let ct = string_type();
-        assert_eq!(r#""no""#.to_string(), ct.literal(oracle, &json!("no")));
-        assert_eq!(r#""yes""#.to_string(), ct.literal(oracle, &json!("yes")));
+        assert_eq!(
+            r#""no""#.to_string(),
+            ct.literal(oracle, finder, &json!("no"))
+        );
+        assert_eq!(
+            r#""yes""#.to_string(),
+            ct.literal(oracle, finder, &json!("yes"))
+        );
 
         let ct = int_type();
-        assert_eq!("1".to_string(), ct.literal(oracle, &json!(1)));
-        assert_eq!("2".to_string(), ct.literal(oracle, &json!(2)));
+        assert_eq!("1".to_string(), ct.literal(oracle, finder, &json!(1)));
+        assert_eq!("2".to_string(), ct.literal(oracle, finder, &json!(2)));
     }
 
     #[test]
