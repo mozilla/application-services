@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.syncmanager.SyncManager
+import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -126,7 +127,7 @@ class PlacesConnectionTest {
         try {
             db.noteObservation(VisitObservation(url = "http://www.[].com", visitType = VisitType.LINK))
         } catch (e: PlacesException) {
-            assert(e is UrlParseFailed)
+            assert(e is PlacesException.UrlParseFailed)
         }
     }
     // Basically equivalent to test_get_visited in rust, but exercises the FFI,
@@ -391,7 +392,7 @@ class PlacesConnectionTest {
         try {
             db.noteObservation(VisitObservation(url = "4", visitType = VisitType.REDIRECT_TEMPORARY, at = 160000))
             fail("Should have thrown")
-        } catch (e: UrlParseFailed) {
+        } catch (e: PlacesException.UrlParseFailed) {
             // nothing to do here
         }
 
@@ -437,7 +438,7 @@ class PlacesConnectionTest {
                 title = "example"
             )
             fail("Should have thrown")
-        } catch (e: UrlParseFailed) {
+        } catch (e: PlacesException.UrlParseFailed) {
             // nothing to do here
         }
 
@@ -591,7 +592,7 @@ class PlacesConnectionTest {
             db.noteHistoryMetadataObservationViewTime(metaKeyBad, 200)
             assert(false) // should fail
         } catch (e: PlacesException) {
-            assert(e is UrlParseFailed)
+            assert(e is PlacesException.UrlParseFailed)
         }
     }
 

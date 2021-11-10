@@ -163,3 +163,161 @@ pub enum InvalidMetadataObservation {
     #[error("Observed view time is invalid (too long)")]
     ViewTimeTooLong,
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum PlacesError {
+    #[error("Unexpected error: {0}")]
+    UnexpectedPlacesException(String),
+
+    #[error("UrlParseFailed: {0}")]
+    UrlParseFailed(String),
+
+    #[error("PlacesConnectionBusy error: {0}")]
+    PlacesConnectionBusy(String),
+
+    #[error("Operation Interrupted: {0}")]
+    OperationInterrupted(String),
+
+    /**
+    * Error indicating bookmarks corruption. If this occurs, we
+     * would appreciate reports.
+     *
+     * Eventually it should be fixed up, when detected as part of
+     * `runMaintenance`.
+    */
+    #[error("BookmarksCorruption error: {0}")]
+    BookmarksCorruption(String),
+
+    /**
+     * Thrown when providing a guid referring to a non-folder as the
+     * parentGUID parameter to a create or update
+     */
+    #[error("Invalid Parent: {0}")]
+    InvalidParent(String),
+
+    /**
+     * Thrown when providing a guid to a create or update function
+     * which does not refer to a known bookmark.
+     */
+    #[error("Unknown bookmark: {0}")]
+    UnknownBookmarkItem(String),
+
+    /**
+     * Thrown when attempting to insert a URL greater than 65536 bytes
+     * (after punycoding and percent encoding).
+     *
+     * Attempting to truncate the URL is difficult and subtle, and
+     * is guaranteed to result in a URL different from the one the
+     * user attempted to bookmark, and so an error is thrown instead.
+     */
+    #[error("URL too long: {0}")]
+    UrlTooLong(String),
+
+    /**
+     * Thrown when attempting to update a bookmark item in an illegal
+     * way. For example, attempting to change the URL of a bookmark
+     * folder, or update the title of a separator, etc.
+     */
+    #[error("Invalid Bookmark: {0}")]
+    InvalidBookmarkUpdate(String),
+
+    /**
+     * Thrown when:
+     *
+     * - Attempting to insert a child under BookmarkRoot.Root,
+     * - Attempting to update any of the bookmark roots.
+     * - Attempting to delete any of the bookmark roots.
+     */
+    #[error("CannotUpdateRoot error: {0}")]
+    CannotUpdateRoot(String),
+
+    #[error("Unexpected error: {0}")]
+    InternalPanic(String),
+}
+
+// A port of the error conversion stuff that was in ffi.rs - it turns our
+// "internal" errors into "public" ones.
+impl From<Error> for PlacesError {
+    fn from(error: Error) -> PlacesError {
+        let label = error.to_string();
+        let kind = error.kind();
+        match kind {
+            ErrorKind::InvalidPlaceInfo(info) => {
+                log::error!("Invalid place info: {}", info);
+                let label = info.to_string();
+                match &info {
+                    InvalidPlaceInfo::InvalidParent(..) => PlacesError::InvalidParent(label),
+                    InvalidPlaceInfo::NoSuchGuid(..) => {
+                        PlacesError::UnexpectedPlacesException(label)
+                        //TODO: Not 1-1 change
+                        //error_codes::INVALID_PLACE_INFO_NO_ITEM
+                    }
+                    InvalidPlaceInfo::UrlTooLong => PlacesError::InvalidParent(label),
+                    InvalidPlaceInfo::IllegalChange(..) => {
+                        //TODO: Not 1-1 change
+                        //error_codes::INVALID_PLACE_INFO_ILLEGAL_CHANGE
+                        PlacesError::UnexpectedPlacesException(label)
+                    }
+                    InvalidPlaceInfo::CannotUpdateRoot(..) => PlacesError::CannotUpdateRoot(label),
+                    _ => PlacesError::UnexpectedPlacesException(label),
+                }
+            }
+            ErrorKind::UrlParseError(e) => {
+                log::error!("URL parse error: {}", e);
+                PlacesError::UrlParseFailed(e.to_string())
+                //error_codes::URL_PARSE_ERROR
+            }
+            // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
+            // so we just use a `if` guard.
+            ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, msg))
+                if err.code == rusqlite::ErrorCode::DatabaseBusy =>
+            {
+                log::error!("Database busy: {:?} {:?}", err, msg);
+                PlacesError::PlacesConnectionBusy(label)
+            }
+            ErrorKind::SqlError(rusqlite::Error::SqliteFailure(err, _))
+                if err.code == rusqlite::ErrorCode::OperationInterrupted =>
+            {
+                log::info!("Operation interrupted");
+                PlacesError::OperationInterrupted(label)
+            }
+            ErrorKind::InterruptedError(err) => {
+                // Can't unify with the above ... :(
+                log::info!("Operation interrupted");
+                PlacesError::OperationInterrupted(err.to_string())
+            }
+            ErrorKind::Corruption(e) => {
+                log::info!("The store is corrupt: {}", e);
+                //error_codes::DATABASE_CORRUPT
+                PlacesError::BookmarksCorruption(e.to_string())
+            }
+            ErrorKind::SyncAdapterError(e) => {
+                use sync15::ErrorKind;
+                match e.kind() {
+                    ErrorKind::StoreError(store_error) => {
+                        // If it's a type-erased version of one of our errors, try
+                        // and resolve it.
+                        if let Some(places_err) = store_error.downcast_ref::<Error>() {
+                            log::info!("Recursing to resolve places error");
+                            // This recursively gets the error #
+                            //get_error_number(places_err)
+                            PlacesError::UnexpectedPlacesException(places_err.to_string())
+                        } else {
+                            log::error!("Unexpected sync error: {:?}", label);
+                            PlacesError::UnexpectedPlacesException(label)
+                        }
+                    }
+                    _ => {
+                        log::error!("Unexpected sync error: {:?}", label);
+                        PlacesError::UnexpectedPlacesException(label)
+                    }
+                }
+            }
+
+            err => {
+                log::error!("Unexpected error: {:?}", err);
+                PlacesError::InternalPanic(label)
+            }
+        }
+    }
+}
