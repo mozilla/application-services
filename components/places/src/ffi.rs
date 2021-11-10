@@ -10,63 +10,86 @@ use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
+use crate::ConnectionType;
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
     ErrorCode, ExternError, Handle, HandleError,
 };
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use url::Url;
 
 lazy_static::lazy_static! {
     pub static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
     pub static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
 }
 
-fn parse_url(url: &str) -> crate::Result<url::Url> {
-    Ok(url::Url::parse(url)?)
+impl UniffiCustomTypeWrapper for Url {
+    type Wrapped = String;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<url::Url> {
+        Ok(Url::parse(val.as_str())?)
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        obj.into()
+    }
 }
 
-fn places_get_latest_history_metadata_for_url(
-    handle: i64,
-    url: String,
-) -> Result<Option<HistoryMetadata>, ErrorWrapper> {
-    CONNECTIONS.get(
-        Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
-            let url = parse_url(url.as_str())?;
-            let metadata = crate::storage::history_metadata::get_latest_for_url(conn, &url)?;
-            Ok(metadata)
-        },
-    )
+impl PlacesApi {
+    fn new_connection(
+        &self,
+        conn_type: ConnectionType,
+    ) -> Result<Arc<PlacesConnection>, ErrorWrapper> {
+        let db = self.open_connection(conn_type)?;
+        let connection = PlacesConnection { db: Mutex::new(db) };
+        Ok(Arc::new(connection))
+    }
 }
 
-fn places_get_history_metadata_between(
-    handle: i64,
-    start: i64,
-    end: i64,
-) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
-    log::debug!("places_get_history_metadata_between");
-    CONNECTIONS.get(
-        Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
-            let between = crate::storage::history_metadata::get_between(conn, start, end)?;
-            Ok(between)
-        },
-    )
+pub struct PlacesConnection {
+    db: Mutex<PlacesDb>,
 }
 
-fn places_get_history_metadata_since(
-    handle: i64,
-    start: i64,
-) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
-    log::debug!("places_get_history_metadata_since");
-    CONNECTIONS.get(
-        Handle::from_u64(handle as u64)?,
-        |conn| -> Result<_, ErrorWrapper> {
-            let since = crate::storage::history_metadata::get_since(conn, start)?;
-            Ok(since)
-        },
-    )
+impl PlacesConnection {
+    pub fn new() -> Self {
+        unreachable!();
+    }
+
+    fn get_latest_history_metadata_for_url(
+        &self,
+        url: Url,
+    ) -> Result<Option<HistoryMetadata>, ErrorWrapper> {
+        let conn = self.db.lock().unwrap();
+        Ok(crate::storage::history_metadata::get_latest_for_url(
+            &conn, &url,
+        )?)
+    }
+
+    fn places_get_history_metadata_between(
+        &self,
+        handle: i64,
+        start: i64,
+        end: i64,
+    ) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
+        log::debug!("places_get_history_metadata_between");
+
+        let conn = self.db.lock().unwrap();
+        let between = crate::storage::history_metadata::get_between(&conn, start, end)?;
+        Ok(between)
+    }
+
+    fn places_get_history_metadata_since(
+        &self,
+        handle: i64,
+        start: i64,
+    ) -> Result<Vec<HistoryMetadata>, ErrorWrapper> {
+        log::debug!("places_get_history_metadata_since");
+
+        let conn = self.db.lock().unwrap();
+        let since = crate::storage::history_metadata::get_since(&conn, start)?;
+        Ok(since)
+    }
 }
 
 fn places_query_history_metadata(
@@ -291,6 +314,12 @@ impl ToString for ErrorWrapper {
     }
 }
 
+impl From<anyhow::Error> for ErrorWrapper {
+    fn from(e: anyhow::Error) -> ErrorWrapper {
+        ErrorWrapper::Wrapped(format!("{}|{}", error_codes::UNEXPECTED, e.to_string()))
+    }
+}
+
 impl From<Error> for ErrorWrapper {
     fn from(e: Error) -> ErrorWrapper {
         ErrorWrapper::Wrapped(format!("{}|{}", get_error_number(&e), e.to_string()))
@@ -299,7 +328,7 @@ impl From<Error> for ErrorWrapper {
 
 impl From<HandleError> for ErrorWrapper {
     fn from(e: HandleError) -> ErrorWrapper {
-        ErrorWrapper::Wrapped(format!("{}|{}", error_codes::UNEXPECTED, e.to_string()))
+        ErrorWrapper::Wrapped(e.to_string())
     }
 }
 
