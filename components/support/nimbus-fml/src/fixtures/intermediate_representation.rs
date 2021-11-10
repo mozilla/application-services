@@ -89,24 +89,42 @@ pub(crate) fn get_simple_nimbus_validation_feature() -> FeatureManifest {
 pub(crate) fn get_with_objects_feature() -> FeatureManifest {
     FeatureManifest {
         enum_defs: Default::default(),
-        obj_defs: vec![ObjectDef::new(
-            "ExampleObject",
-            "An example object",
-            vec![
-                PropDef {
-                    name: "a-string".into(),
-                    doc: "A string".into(),
+        obj_defs: vec![
+            ObjectDef::new(
+                "ExampleObject",
+                "An example object",
+                vec![
+                    PropDef {
+                        name: "a-string".into(),
+                        doc: "A string".into(),
+                        typ: TypeRef::String,
+                        default: json!("yes"),
+                    },
+                    PropDef {
+                        name: "a-number".into(),
+                        doc: "A number".into(),
+                        typ: TypeRef::Int,
+                        default: json!(42),
+                    },
+                    PropDef {
+                        name: "nested".into(),
+                        doc: "The nesting of the nested object".into(),
+                        typ: TypeRef::Object("Nested".into()),
+                        default: json!({"property-source": "example-object-property-via-constructor"}),
+                    },
+                ],
+            ),
+            ObjectDef::new(
+                "Nested",
+                "An object for nesting in others",
+                vec![PropDef {
+                    name: "property-source".into(),
+                    doc: "This property is set by Nimbus, but where?".into(),
                     typ: TypeRef::String,
-                    default: json!("yes"),
-                },
-                PropDef {
-                    name: "a-number".into(),
-                    doc: "A number".into(),
-                    typ: TypeRef::Int,
-                    default: json!(42),
-                },
-            ],
-        )],
+                    default: json!("nested-object-property".to_string()),
+                }],
+            ),
+        ],
         hints: Default::default(),
         feature_defs: vec![FeatureDef::new(
             "with-objects-feature",
@@ -122,10 +140,10 @@ pub(crate) fn get_with_objects_feature() -> FeatureManifest {
                     name: "an-object-with-new-defaults".into(),
                     doc: "A single object with defaults from the constructor".into(),
                     typ: TypeRef::Object("ExampleObject".into()),
-                    default: json!({}),
-                    // default: json!({
-                    //     "a-string": "YES: overridden from the CONSTRUCTOR!"
-                    // }),
+                    default: json!({
+                        "a-string": "YES: overridden from the CONSTRUCTOR!",
+                        "nested": {"property-source": "an-object-with-new-defaults-constructor"}
+                    }),
                 },
                 PropDef {
                     name: "an-object-with-feature-defaults".into(),

@@ -21,7 +21,7 @@ specify all values needed for the  feature #}
     constructor(
         _variables: Variables? = null, {% for p in inner.props() %}
         {%- let t = p.typ() %}
-        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(p.default()) }}{% if !loop.last %},{% endif %}
+        {{p.name()|var_name}}: {{ t|type_label }} = {{ t|literal(self, p.default()) }}{% if !loop.last %},{% endif %}
     {%- endfor %}
     ) : this(
         _variables = _variables,

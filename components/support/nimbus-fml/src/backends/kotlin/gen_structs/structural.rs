@@ -5,7 +5,7 @@
 use std::fmt::Display;
 
 use super::identifiers;
-use crate::backends::VariablesType;
+use crate::backends::{LiteralRenderer, VariablesType};
 use crate::{
     backends::{CodeOracle, CodeType, TypeIdentifier},
     intermediate_representation::Literal,
@@ -62,10 +62,15 @@ impl CodeType for OptionalCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         match literal {
             serde_json::Value::Null => "null".to_string(),
-            _ => oracle.find(&self.inner).literal(oracle, literal),
+            _ => oracle.find(&self.inner).literal(oracle, renderer, literal),
         }
     }
 }
@@ -154,7 +159,12 @@ impl CodeType for MapCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         let variant = match literal {
             serde_json::Value::Object(v) => v,
             _ => unreachable!(),
@@ -172,8 +182,8 @@ impl CodeType for MapCodeType {
             .map(|(k, v)| {
                 format!(
                     "{k} to {v}",
-                    k = k_type.literal(oracle, &Literal::String(k.clone())),
-                    v = v_type.literal(oracle, v)
+                    k = k_type.literal(oracle, renderer, &Literal::String(k.clone())),
+                    v = v_type.literal(oracle, renderer, v)
                 )
             })
             .collect();
@@ -248,7 +258,12 @@ impl CodeType for ListCodeType {
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
-    fn literal(&self, oracle: &dyn CodeOracle, literal: &Literal) -> String {
+    fn literal(
+        &self,
+        oracle: &dyn CodeOracle,
+        renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String {
         let variant = match literal {
             serde_json::Value::Array(v) => v,
             _ => unreachable!(),
@@ -260,7 +275,10 @@ impl CodeType for ListCodeType {
         }
 
         let v_type = oracle.find(&self.inner);
-        let src: Vec<String> = variant.iter().map(|v| v_type.literal(oracle, v)).collect();
+        let src: Vec<String> = variant
+            .iter()
+            .map(|v| v_type.literal(oracle, renderer, v))
+            .collect();
 
         format!("listOf({})", src.join(", "))
     }
@@ -293,6 +311,18 @@ mod unit_tests {
                 TypeIdentifier::EnumMap(k, v) => Box::new(MapCodeType::new(k, v)),
                 _ => unreachable!(),
             }
+        }
+    }
+
+    struct TestRenderer;
+    impl LiteralRenderer for TestRenderer {
+        fn literal(
+            &self,
+            _oracle: &dyn CodeOracle,
+            _typ: &TypeIdentifier,
+            _value: &Literal,
+        ) -> String {
+            unreachable!()
         }
     }
 
@@ -340,16 +370,18 @@ mod unit_tests {
     #[test]
     fn test_list_literal() {
         let oracle = &*oracle();
+        let finder = &TestRenderer;
+
         let ct = list_type("String");
         assert_eq!(
             r#"listOf("x", "y", "z")"#.to_string(),
-            ct.literal(oracle, &json!(["x", "y", "z"]))
+            ct.literal(oracle, finder, &json!(["x", "y", "z"]))
         );
 
         let ct = list_type("AnEnum");
         assert_eq!(
             r#"listOf(AnEnum.X, AnEnum.Y, AnEnum.Z)"#.to_string(),
-            ct.literal(oracle, &json!(["x", "y", "z"]))
+            ct.literal(oracle, finder, &json!(["x", "y", "z"]))
         );
     }
 
@@ -435,16 +467,18 @@ mod unit_tests {
     #[test]
     fn test_map_literal() {
         let oracle = &*oracle();
+        let finder = &TestRenderer;
+
         let ct = map_type("String", "AnEnum");
         assert_eq!(
             r#"mapOf("a" to AnEnum.A, "b" to AnEnum.B)"#.to_string(),
-            ct.literal(oracle, &json!({"a": "a", "b": "b"}))
+            ct.literal(oracle, finder, &json!({"a": "a", "b": "b"}))
         );
 
         let ct = map_type("AnEnum", "String");
         assert_eq!(
             r#"mapOf(AnEnum.A to "a", AnEnum.B to "b")"#.to_string(),
-            ct.literal(oracle, &json!({"a": "a", "b": "b"}))
+            ct.literal(oracle, finder, &json!({"a": "a", "b": "b"}))
         );
     }
 

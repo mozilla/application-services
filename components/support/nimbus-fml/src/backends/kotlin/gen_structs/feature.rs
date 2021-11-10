@@ -5,9 +5,10 @@
 use askama::Template;
 
 use super::filters;
+use super::object::object_literal;
 use crate::{
-    backends::{CodeDeclaration, CodeOracle},
-    intermediate_representation::{FeatureDef, FeatureManifest},
+    backends::{CodeDeclaration, CodeOracle, LiteralRenderer, TypeIdentifier},
+    intermediate_representation::{FeatureDef, FeatureManifest, Literal},
     Config,
 };
 
@@ -16,13 +17,15 @@ use crate::{
 pub(crate) struct FeatureCodeDeclaration {
     nimbus_object_name: String,
     inner: FeatureDef,
+    fm: FeatureManifest,
 }
 
 impl FeatureCodeDeclaration {
-    pub fn new(_fm: &FeatureManifest, config: &Config, inner: &FeatureDef) -> Self {
+    pub fn new(fm: &FeatureManifest, config: &Config, inner: &FeatureDef) -> Self {
         Self {
             nimbus_object_name: config.nimbus_object_name(),
             inner: inner.clone(),
+            fm: fm.clone(),
         }
     }
     pub fn inner(&self) -> &FeatureDef {
@@ -36,5 +39,11 @@ impl FeatureCodeDeclaration {
 impl CodeDeclaration for FeatureCodeDeclaration {
     fn definition_code(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         Some(self.render().unwrap())
+    }
+}
+
+impl LiteralRenderer for FeatureCodeDeclaration {
+    fn literal(&self, oracle: &dyn CodeOracle, typ: &TypeIdentifier, value: &Literal) -> String {
+        object_literal(&self.fm, &self, oracle, typ, value)
     }
 }
