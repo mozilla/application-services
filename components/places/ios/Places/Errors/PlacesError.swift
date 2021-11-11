@@ -9,55 +9,7 @@ import os.log
 #endif
 
 /// Indicates an error occurred while calling into the places storage layer
-public enum PlacesError: LocalizedError {
-    /// This indicates an attempt to use a connection after the PlacesAPI
-    /// it came from is destroyed. This indicates a usage error of this library.
-    case connUseAfterAPIClosed
-
-    /// This is a catch-all error code used for errors not yet exposed to consumers,
-    /// typically since it doesn't seem like there's a sane way for them to be handled.
-    case unexpected(message: String)
-
-    /// The rust code implementing places storage paniced. This always indicates a bug.
-    case panic(message: String)
-
-    /// The place we were given is invalid.
-    case invalidPlace(message: String)
-
-    /// We failed to parse the provided URL.
-    case urlParseError(message: String)
-
-    /// The requested operation failed because the database was busy
-    /// performing operations on a separate connection to the same DB.
-    case databaseBusy(message: String)
-
-    /// The requested operation failed because it was interrupted
-    case databaseInterrupted(message: String)
-
-    /// The requested operation failed because the store is corrupt
-    case databaseCorrupt(message: String)
-
-    /// Thrown on insertions and updates that specify a parent which
-    /// is not a folder
-    case invalidParent(message: String)
-
-    /// Thrown on insertions and updates that specify a GUID which
-    /// does not exist.
-    case noSuchItem(message: String)
-
-    /// Thrown on insertions and updates that attempt to insert or
-    /// update a bookmark URL beyond the maximum length of
-    /// 65536 bytes.
-    case urlTooLong(message: String)
-
-    /// Thrown when attempting to update a bookmark in an illegal way,
-    /// for example, trying to set the URL of a folder, the title of
-    /// a separator, etc.
-    case illegalChange(message: String)
-
-    /// Thrown when attempting to update or delete a root, or
-    /// insert a new item as a child of root________.
-    case cannotUpdateRoot(message: String)
+extension PlacesError: LocalizedError {
 
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
