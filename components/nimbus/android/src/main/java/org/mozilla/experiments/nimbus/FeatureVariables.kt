@@ -88,6 +88,8 @@ interface Variables {
      */
     fun getStringMap(key: String): Map<String, String>? = null
 
+    fun asStringMap(): Map<String, String>? = null
+
     /**
      * Finds a integer typed value for this key. If none exists, `null` is returned.
      *
@@ -107,6 +109,8 @@ interface Variables {
      */
     fun getIntMap(key: String): Map<String, Int>? = null
 
+    fun asIntMap(): Map<String, Int>? = null
+
     /**
      * Finds a boolean typed value for this key. If none exists, `null` is returned.
      *
@@ -125,6 +129,8 @@ interface Variables {
      * as their values. If none exists, then `null` is returned.
      */
     fun getBoolMap(key: String): Map<String, Boolean>? = null
+
+    fun asBoolMap(): Map<String, Boolean>? = null
 
     /**
      * Uses `getString(key: String)` to find the name of a drawable resource. If no value for `key`
@@ -217,6 +223,8 @@ interface Variables {
      * are omitted from the final map.
      */
     fun getVariablesMap(key: String): Map<String, Variables>? = null
+
+    fun asVariablesMap(): Map<String, JSONVariables>? = null
 
     // This may be important when transforming into a code generated object.
     /**
@@ -385,14 +393,17 @@ class JSONVariables(
     override fun getString(key: String) = json.value<String>(key)
     override fun getStringList(key: String) = json.values<String>(key)
     override fun getStringMap(key: String) = json.mapOf<String>(key)
+    override fun asStringMap() = json.asMap<String>()
 
     override fun getInt(key: String) = json.value<Int>(key)
     override fun getIntList(key: String) = json.values<Int>(key)
     override fun getIntMap(key: String) = json.mapOf<Int>(key)
+    override fun asIntMap() = json.asMap<Int>()
 
     override fun getBool(key: String) = json.value<Boolean>(key)
     override fun getBoolList(key: String) = json.values<Boolean>(key)
     override fun getBoolMap(key: String) = json.mapOf<Boolean>(key)
+    override fun asBoolMap() = json.asMap<Boolean>()
 
     // Methods used to get sub-objects. We immediately re-wrap an JSON object if it exists.
     override fun getVariables(key: String) = json.value<JSONObject>(key)?.let(this::asVariables)
@@ -404,6 +415,8 @@ class JSONVariables(
 
     override fun getVariablesMap(key: String): Map<String, Variables>? =
         json.mapOf<JSONObject>(key)?.mapValues(this::asVariables)
+
+    override fun asVariablesMap() = json.asMap<JSONObject>()?.mapValues(this::asVariables)
 
     private fun asVariables(json: JSONObject) = JSONVariables(context, json)
 }
