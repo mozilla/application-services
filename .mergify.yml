@@ -43,4 +43,3 @@ pull_request_rules:
       merge:
         method: rebase
         rebase_fallback: none
-        strict: false
