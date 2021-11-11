@@ -1,3 +1,14 @@
+queue_rules:
+  - name: default
+    conditions:
+      # Conditions to get out of the queue (= merged)
+      - "check-success=Decision Task"
+      - "check-success=run-tests"
+      - "check-success=check-formatting"
+      - "#check-success-or-neutral>=5" # we should always have at least this many checks
+      - "#check-pending=0"
+      - "#check-stale=0"
+      - "#check-failure=0"
 pull_request_rules:
   - name: remove outdated reviews for non-core authors
     conditions:
@@ -40,6 +51,7 @@ pull_request_rules:
       # and mergify respects these rules, so the expected behaviour here is that mergify will only
       # merge when it can cleanly put the exact commits of the PR directly on top of `main`
       # (and thus avoid having to re-write any commits or create merge commits of its own).
-      merge:
+      queue:
         method: rebase
+        name: default
         rebase_fallback: none
