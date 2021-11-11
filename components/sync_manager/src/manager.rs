@@ -3,14 +3,14 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::msg_types::{DeviceType, ServiceStatus, SyncParams, SyncReason, SyncResult};
+use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
 use std::collections::{HashMap, HashSet};
 use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 use std::time::SystemTime;
 use sync15::{
     self,
-    clients::{self, Command, CommandProcessor, CommandStatus, Settings},
+    clients::{Command, CommandProcessor, CommandStatus, Settings},
     EngineSyncAssociation, MemoryCachedState, SyncEngine,
 };
 
@@ -20,17 +20,6 @@ const BOOKMARKS_ENGINE: &str = "bookmarks";
 const TABS_ENGINE: &str = "tabs";
 const ADDRESSES_ENGINE: &str = "addresses";
 const CREDIT_CARDS_ENGINE: &str = "creditcards";
-
-// Casts aren't allowed in `match` arms, so we can't directly match
-// `SyncParams.device_type`, which is an `i32`, against `DeviceType`
-// variants. Instead, we reflect all variants into constants, cast them
-// into the target type, and match against them. Please keep this list in sync
-// with `msg_types::DeviceType` and `sync15::clients::DeviceType`.
-const DEVICE_TYPE_DESKTOP: i32 = DeviceType::Desktop as i32;
-const DEVICE_TYPE_MOBILE: i32 = DeviceType::Mobile as i32;
-const DEVICE_TYPE_TABLET: i32 = DeviceType::Tablet as i32;
-const DEVICE_TYPE_VR: i32 = DeviceType::Vr as i32;
-const DEVICE_TYPE_TV: i32 = DeviceType::Tv as i32;
 
 #[derive(Default)]
 pub struct SyncManager {
@@ -84,7 +73,7 @@ impl SyncManager {
                 }
                 Ok(())
             }
-            _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+            _ => Err(SyncManagerError::UnknownEngine(engine.into())),
         }
     }
 
@@ -108,7 +97,7 @@ impl SyncManager {
                 }
                 Ok(())
             }
-            _ => Err(ErrorKind::UnknownEngine(engine.into()).into()),
+            _ => Err(SyncManagerError::UnknownEngine(engine.into())),
         }
     }
 
@@ -193,26 +182,23 @@ impl SyncManager {
         if credit_cards.is_some() {
             have_engines.push(CREDIT_CARDS_ENGINE);
         }
-        check_engine_list(&params.engines_to_sync, &have_engines)?;
+        check_engine_list(&params.engines, &have_engines)?;
 
-        let next_sync_after = state
-            .as_ref()
-            .and_then(|mcs| mcs.get_next_sync_after());
+        let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         if !backoff_in_effect(next_sync_after, &params) {
             log::info!("No backoff in effect (or we decided to ignore it), starting sync");
             self.do_sync(params, &mut state)
         } else {
-            let ts = system_time_to_millis(next_sync_after);
             log::warn!(
                 "Backoff still in effect (until {:?}), bailing out early",
-                ts
+                next_sync_after
             );
             Ok(SyncResult {
-                status: ServiceStatus::BackedOff as i32,
-                results: Default::default(),
-                have_declined: false,
-                declined: vec![],
-                next_sync_allowed_at: ts,
+                status: ServiceStatus::BackedOff,
+                successful: Default::default(),
+                failures: Default::default(),
+                declined: None,
+                next_sync_allowed_at: next_sync_after,
                 persisted_state: params.persisted_state.unwrap_or_default(),
                 // It would be nice to record telemetry here.
                 telemetry_json: None,
@@ -220,7 +206,11 @@ impl SyncManager {
         }
     }
 
-    fn do_sync(&self, mut params: SyncParams, state: &mut Option<MemoryCachedState>) -> Result<SyncResult> {
+    fn do_sync(
+        &self,
+        mut params: SyncParams,
+        state: &mut Option<MemoryCachedState>,
+    ) -> Result<SyncResult> {
         let bookmarks = Self::places_engine("bookmarks");
         let history = Self::places_engine("history");
         let tabs = Self::tabs_engine("tabs");
@@ -228,8 +218,8 @@ impl SyncManager {
         let addresses = Self::autofill_engine("addresses");
         let credit_cards = Self::autofill_engine("creditcards");
 
-        let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.acct_sync_key)?;
-        let tokenserver_url = url::Url::parse(&params.acct_tokenserver_url)?;
+        let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.auth_info.sync_key)?;
+        let tokenserver_url = url::Url::parse(&params.auth_info.tokenserver_url)?;
 
         let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE) && bookmarks.is_some();
         let history_sync = should_sync(&params, HISTORY_ENGINE) && history.is_some();
@@ -299,33 +289,20 @@ impl SyncManager {
         let engine_refs: Vec<&dyn sync15::SyncEngine> = engines.iter().map(|s| &**s).collect();
 
         let client_init = sync15::Sync15StorageClientInit {
-            key_id: params.acct_key_id.clone(),
-            access_token: params.acct_access_token.clone(),
+            key_id: params.auth_info.kid.clone(),
+            access_token: params.auth_info.fxa_access_token.clone(),
             tokenserver_url,
         };
-        let engines_to_change = if params.engines_to_change_state.is_empty() {
+        let engines_to_change = if params.enabled_changes.is_empty() {
             None
         } else {
-            Some(&params.engines_to_change_state)
+            Some(&params.enabled_changes)
         };
 
         let settings = Settings {
-            fxa_device_id: params.fxa_device_id,
-            device_name: params.device_name,
-            device_type: match params.device_type {
-                DEVICE_TYPE_DESKTOP => clients::DeviceType::Desktop,
-                DEVICE_TYPE_MOBILE => clients::DeviceType::Mobile,
-                DEVICE_TYPE_TABLET => clients::DeviceType::Tablet,
-                DEVICE_TYPE_VR => clients::DeviceType::VR,
-                DEVICE_TYPE_TV => clients::DeviceType::TV,
-                _ => {
-                    log::warn!(
-                        "Unknown device type {}; assuming desktop",
-                        params.device_type
-                    );
-                    clients::DeviceType::Desktop
-                }
-            },
+            fxa_device_id: params.device_settings.fxa_device_id,
+            device_name: params.device_settings.name,
+            device_type: params.device_settings.kind,
         };
         let c = SyncClient::new(settings);
         let result = sync15::sync_multiple_with_command_processor(
@@ -338,52 +315,36 @@ impl SyncManager {
             &interruptee,
             Some(sync15::SyncRequestInfo {
                 engines_to_state_change: engines_to_change,
-                is_user_action: params.reason == (SyncReason::User as i32),
+                is_user_action: matches!(params.reason, SyncReason::User),
             }),
         );
         *state = Some(mem_cached_state);
 
         log::info!("Sync finished with status {:?}", result.service_status);
-        let status = ServiceStatus::from(result.service_status) as i32;
-        let results: HashMap<String, String> = result
-            .engine_results
-            .into_iter()
-            .map(|(e, r)| {
-                log::info!("engine {:?} status: {:?}", e, r);
-                (
-                    e,
-                    match r {
-                        Ok(()) => "".to_string(),
-                        Err(err) => {
-                            let msg = err.to_string();
-                            if msg.is_empty() {
-                                log::error!(
-                                    "Bug: error message string is empty for error: {:?}",
-                                    err
-                                );
-                                // This shouldn't happen, but we use empty string to
-                                // indicate success on the other side, so just ensure
-                                // our errors error can't be
-                                "<unspecified error>".to_string()
-                            } else {
-                                msg
-                            }
-                        }
-                    },
-                )
-            })
-            .collect();
-
-        // Unwrap here can never fail -- it indicates trying to serialize an
-        // unserializable type.
+        let status = ServiceStatus::from(result.service_status);
+        for (engine, result) in result.engine_results.iter() {
+            log::info!("engine {:?} status: {:?}", engine, result);
+        }
+        let mut successful: Vec<String> = Vec::new();
+        let mut failures: HashMap<String, String> = HashMap::new();
+        for (engine, result) in result.engine_results.into_iter() {
+            match result {
+                Ok(_) => {
+                    successful.push(engine);
+                }
+                Err(err) => {
+                    failures.insert(engine, err.to_string());
+                }
+            }
+        }
         let telemetry_json = serde_json::to_string(&result.telemetry).unwrap();
 
         Ok(SyncResult {
             status,
-            results,
-            have_declined: result.declined.is_some(),
-            declined: result.declined.unwrap_or_default(),
-            next_sync_allowed_at: system_time_to_millis(result.next_sync_after),
+            successful,
+            failures,
+            declined: result.declined,
+            next_sync_allowed_at: result.next_sync_after,
             persisted_state: disk_cached_state.unwrap_or_default(),
             telemetry_json: Some(telemetry_json),
         })
@@ -394,15 +355,13 @@ fn backoff_in_effect(next_sync_after: Option<SystemTime>, p: &SyncParams) -> boo
     let now = SystemTime::now();
     if let Some(nsa) = next_sync_after {
         if nsa > now {
-            return if p.reason == (SyncReason::User as i32)
-                || p.reason == (SyncReason::EnabledChange as i32)
-            {
+            return if matches!(p.reason, SyncReason::User | SyncReason::EnabledChange) {
                 log::info!(
                     "Still under backoff, but syncing anyway because reason is {:?}",
                     p.reason
                 );
                 false
-            } else if !p.engines_to_change_state.is_empty() {
+            } else if !p.enabled_changes.is_empty() {
                 log::info!(
                     "Still under backoff, but syncing because we have enabled state changes."
                 );
@@ -434,42 +393,43 @@ impl From<sync15::ServiceStatus> for ServiceStatus {
     }
 }
 
-fn system_time_to_millis(st: Option<SystemTime>) -> Option<i64> {
-    use std::convert::TryFrom;
-    let d = st?.duration_since(std::time::UNIX_EPOCH).ok()?;
-    // This should always succeed for remotely sane values.
-    i64::try_from(d.as_secs() * 1_000 + u64::from(d.subsec_nanos()) / 1_000_000).ok()
-}
-
 fn should_sync(p: &SyncParams, engine: &str) -> bool {
-    p.sync_all_engines || p.engines_to_sync.iter().any(|e| e == engine)
+    match &p.engines {
+        SyncEngineSelection::All => true,
+        SyncEngineSelection::Some { engines } => engines.iter().any(|e| e == engine),
+    }
 }
 
-fn check_engine_list(list: &[String], have_engines: &[&str]) -> Result<()> {
+fn check_engine_list(selection: &SyncEngineSelection, have_engines: &[&str]) -> Result<()> {
     log::trace!(
         "Checking engines requested ({:?}) vs local engines ({:?})",
-        list,
+        selection,
         have_engines
     );
-    for e in list {
-        if [
-            ADDRESSES_ENGINE,
-            CREDIT_CARDS_ENGINE,
-            BOOKMARKS_ENGINE,
-            HISTORY_ENGINE,
-            LOGINS_ENGINE,
-            TABS_ENGINE,
-        ]
-        .contains(&e.as_ref())
-        {
-            if !have_engines.iter().any(|engine| e == engine) {
-                return Err(ErrorKind::UnsupportedFeature(e.to_string()).into());
+    match selection {
+        SyncEngineSelection::All => Ok(()),
+        SyncEngineSelection::Some { engines } => {
+            for e in engines {
+                if [
+                    ADDRESSES_ENGINE,
+                    CREDIT_CARDS_ENGINE,
+                    BOOKMARKS_ENGINE,
+                    HISTORY_ENGINE,
+                    LOGINS_ENGINE,
+                    TABS_ENGINE,
+                ]
+                .contains(&e.as_ref())
+                {
+                    if !have_engines.iter().any(|engine| e == engine) {
+                        return Err(SyncManagerError::UnsupportedFeature(e.to_string()));
+                    }
+                } else {
+                    return Err(SyncManagerError::UnknownEngine(e.to_string()));
+                }
             }
-        } else {
-            return Err(ErrorKind::UnknownEngine(e.to_string()).into());
+            Ok(())
         }
     }
-    Ok(())
 }
 
 struct SyncClient(Settings);
@@ -493,8 +453,8 @@ impl CommandProcessor for SyncClient {
         };
         match result {
             Ok(()) => Ok(CommandStatus::Applied),
-            Err(err) => match err.kind() {
-                ErrorKind::UnknownEngine(_) => Ok(CommandStatus::Unsupported),
+            Err(err) => match err {
+                SyncManagerError::UnknownEngine(_) => Ok(CommandStatus::Unsupported),
                 _ => Err(err.into()),
             },
         }

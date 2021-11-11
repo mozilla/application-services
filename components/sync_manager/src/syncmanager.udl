@@ -1,0 +1,91 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+namespace syncmanager { };
+
+[Error]
+enum SyncManagerError {
+    "UnknownEngine",
+    "UnsupportedFeature",
+    "Sync15Error",
+    "UrlParseError",
+    "InterruptedError",
+    "JsonError",
+    "LoginsError",
+    "PlacesError",
+    "AnyhowError",
+};
+
+dictionary SyncParams {
+    SyncReason reason;
+    SyncEngineSelection engines;
+    record<DOMString, boolean> enabled_changes;
+    record<DOMString, string> local_encryption_keys;
+    SyncAuthInfo auth_info;
+    string? persisted_state;
+    DeviceSettings device_settings;
+};
+
+[Enum]
+interface SyncEngineSelection {
+    All();
+    Some(sequence<string> engines);
+};
+
+enum SyncReason {
+    "Scheduled",
+    "User",
+    "PreSleep",
+    "Startup",
+    "EnabledChange",
+};
+
+dictionary SyncAuthInfo {
+    string kid;
+    string fxa_access_token;
+    string sync_key;
+    string tokenserver_url;
+};
+
+dictionary DeviceSettings {
+    string fxa_device_id;
+    string name;
+    DeviceType kind;
+};
+
+enum DeviceType {
+    "Desktop",
+    "Mobile",
+    "Tablet",
+    "VR",
+    "TV",
+};
+
+dictionary SyncResult {
+    ServiceStatus status;
+    record<DOMString, string> failures;
+    sequence<string> successful;
+    string persisted_state;
+    sequence<string>? declined;
+    timestamp? next_sync_allowed_at;
+    string? telemetry_json;
+};
+
+enum ServiceStatus {
+    "Ok",
+    "NetworkError",
+    "ServiceError",
+    "AuthError",
+    "BackedOff",
+    "OtherError",
+};
+
+interface SyncManager {
+    constructor();
+
+    void disconnect();
+
+    [Throws=SyncManagerError]
+    SyncResult sync(SyncParams params);
+};

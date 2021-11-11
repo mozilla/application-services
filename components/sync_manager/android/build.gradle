@@ -1,6 +1,5 @@
 
 apply from: "$rootDir/build-scripts/component-common.gradle"
-apply from: "$rootDir/build-scripts/protobuf-common.gradle"
 apply from: "$rootDir/publish.gradle"
 
 dependencies {
@@ -8,5 +7,6 @@ dependencies {
     api project(':sync15')
 }
 
+ext.configureUniFFIBindgen("../src/syncmanager.udl")
 ext.dependsOnTheMegazord()
 ext.configurePublish()

@@ -11,11 +11,12 @@ crate-type = ["cdylib"]
 [dependencies]
 fxa-client = { path = "../../components/fxa-client" }
 logins = { path = "../../components/logins" }
+tabs = { path = "../../components/tabs/" }
+sync_manager = { path = "../../components/sync_manager/" }
 places-ffi = { path = "../../components/places/ffi" }
 push = { path = "../../components/push" }
 rc_log_ffi = { path = "../../components/rc_log" }
 viaduct = { path = "../../components/viaduct" }
-sync_manager_ffi = { path = "../../components/sync_manager/ffi" }
 nimbus-sdk = { path = "../../components/nimbus" }
 autofill = { path = "../../components/autofill" }
 crashtest = { path = "../../components/crashtest" }

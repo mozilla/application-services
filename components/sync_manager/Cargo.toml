@@ -12,12 +12,8 @@ sync15 = { path = "../sync15" }
 places = { path = "../places" }
 logins = { path = "../logins" }
 tabs = { path = "../tabs" }
-ffi-support = "0.4"
 thiserror = "1.0"
 anyhow = "1.0"
-error-support = { path = "../support/error" }
-prost = "0.8"
-prost-derive = "0.8"
 lazy_static = "1.4"
 log = "0.4"
 sql-support = { path = "../support/sql" }
@@ -26,3 +22,8 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1"
 interrupt-support = { path = "../support/interrupt" }
+uniffi = "^0.14"
+uniffi_macros = "^0.14"
+
+[build-dependencies]
+uniffi_build = { version = "^0.14.0", features=["builtin-bindgen"] }
