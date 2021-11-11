@@ -2,17 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use askama::Template;
 use std::fmt::Display;
 
+use askama::Template;
+
+use super::common;
+use super::common::code_type;
 use super::filters;
-use super::identifiers;
-use crate::backends::LiteralRenderer;
-use crate::backends::VariablesType;
-use crate::{
-    backends::{CodeDeclaration, CodeOracle, CodeType},
-    intermediate_representation::{EnumDef, FeatureManifest, Literal},
-};
+use crate::backends::{CodeDeclaration, CodeOracle, CodeType, LiteralRenderer, VariablesType};
+use crate::intermediate_representation::{EnumDef, FeatureManifest, Literal};
 
 pub(crate) struct EnumCodeType {
     id: String,
@@ -28,17 +26,30 @@ impl CodeType for EnumCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
-        identifiers::class_name(&self.id)
+        common::class_name(&self.id)
     }
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        format!(
-            "{vars}.getString({prop}, {transform})",
-            vars = vars,
-            transform = self.transform(oracle).unwrap(),
-            prop = identifiers::quoted(prop)
-        )
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -48,26 +59,11 @@ impl CodeType for EnumCodeType {
     }
 
     /// A function handle that is capable of turning the variables type to the TypeRef type.
-    fn transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
+    fn create_transform(&self, oracle: &dyn CodeOracle) -> Option<String> {
         Some(format!(
             "{enum_type}::enumValue",
             enum_type = self.type_label(oracle)
         ))
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -86,7 +82,7 @@ impl CodeType for EnumCodeType {
         format!(
             "{}.{}",
             self.type_label(oracle),
-            identifiers::enum_variant_name(variant)
+            common::enum_variant_name(variant)
         )
     }
 }
@@ -180,19 +176,19 @@ mod unit_tests {
         let oracle = &*oracle();
 
         assert_eq!(
-            "v?.getString(\"the-property\", AEnum::enumValue)".to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            r#"v?.getString("the-property")"#.to_string(),
+            ct.value_getter(oracle, &"v", &"the-property")
         );
     }
 
     #[test]
-    fn test_with_fallback() {
+    fn test_getter_with_fallback() {
         let ct = code_type("AEnum");
         let oracle = &*oracle();
 
         assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            r#"v?.getString("the-property")?.let(AEnum::enumValue) ?: def"#.to_string(),
+            ct.property_getter(oracle, &"v", &"the-property", &"def")
         );
     }
 }

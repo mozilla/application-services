@@ -49,19 +49,68 @@ pub trait CodeOracle {
 /// A type which is specified in the FML (i.e. a type that a variable declares itself of)
 /// will have a `CodeDeclaration` as well, but for types used e.g. primitive types, Strings, etc
 /// only a `CodeType` is needed.
+///
+/// This includes generating an literal of the type from the right type of JSON and
+/// expressions to get a property from the JSON backed `Variables` object.
 pub trait CodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, oracle: &dyn CodeOracle) -> String;
 
-    /// The language specific expression that gets a value of the `prop` from the `vars` object.
-    fn get_value(&self, oracle: &dyn CodeOracle, vars: &dyn Display, prop: &dyn Display) -> String {
-        format!(
-            "{vars}.get{vt}(\"{prop}\")",
-            vars = vars,
-            vt = self.variables_type(oracle),
-            prop = prop
-        )
+    /// The language specific expression that gets a value of the `prop` from the `vars` object,
+    /// and fallbacks to the `default` value.
+    ///
+    /// /// All the propertis follow this general pattern:
+    ///
+    /// ```
+    /// variables?.{{ value_getter }}
+    ///         ?.{{ value_mapper }}
+    ///         ?.{{ value_merger }}
+    ///         ?: {{ default_fallback}}
+    /// ```
+    ///
+    /// In the case of structural types and objects, `value_mapper` and `value_merger`
+    /// become mutually recursive to generate quite complicated properties.
+    ///
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String;
+
+    /// The expression needed to get a value out of a `Variables` objectm with the `prop` key.
+    ///
+    /// This will almost certainly use the `variables_type` method to determine which method to use.
+    /// e.g. `vars?.getString("prop")`
+    ///
+    /// The `value_mapper` will be used to transform this value into the required value.
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String;
+
+    /// The method call here will use the `create_transform` to transform the value coming out of
+    /// the `Variables` object into the desired type.
+    ///
+    /// e.g. a string will need to be transformed into an enum, so the value mapper in Kotlin will be
+    /// `let(Enum::enumValue)`.
+    ///
+    /// If the value is `None`, then no mapper is used.
+    fn value_mapper(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        None
+    }
+
+    /// The method call to merge the value with the defaults.
+    ///
+    /// This may use the `merge_transform`.
+    ///
+    /// If this returns `None`, no merging happens, and implicit `null` replacement happens.
+    fn value_merger(&self, _oracle: &dyn CodeOracle, _default: &dyn Display) -> Option<String> {
+        None
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -69,29 +118,23 @@ pub trait CodeType {
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType;
 
     /// A function handle that is capable of turning the variables type to the TypeRef type.
-    fn transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+    fn create_transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
         None
     }
 
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String;
+    /// A function handle that is capable of merging two instances of the same class. By default, this is None.
+    fn merge_transform(&self, _oracle: &dyn CodeOracle) -> Option<String> {
+        None
+    }
 
     /// A representation of the given literal for this type.
     /// N.B. `Literal` is aliased from `serde_json::Value`.
     fn literal(
         &self,
         oracle: &dyn CodeOracle,
-        _renderer: &dyn LiteralRenderer,
-        _literal: &Literal,
-    ) -> String {
-        unimplemented!("Unimplemented for {}", self.type_label(oracle))
-    }
+        renderer: &dyn LiteralRenderer,
+        literal: &Literal,
+    ) -> String;
 
     /// Optional helper code to make this type work.
     /// This might include functions to patch a default value with another.

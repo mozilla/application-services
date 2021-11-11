@@ -4,6 +4,7 @@
 
 use std::fmt::Display;
 
+use super::common::code_type;
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 
@@ -16,25 +17,33 @@ impl CodeType for BooleanCodeType {
         "Boolean".into()
     }
 
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
+    }
+
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Bool
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -67,25 +76,33 @@ impl CodeType for IntCodeType {
         "Int".into()
     }
 
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
+    }
+
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::Int
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -114,25 +131,33 @@ impl CodeType for StringCodeType {
         "String".into()
     }
 
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
+    }
+
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
         VariablesType::String
-    }
-
-    /// Accepts two runtime expressions and returns a runtime experession to combine. If the `default` is of type `T`,
-    /// the `override` is of type `T?`.
-    fn with_fallback(
-        &self,
-        _oracle: &dyn CodeOracle,
-        overrides: &dyn Display,
-        default: &dyn Display,
-    ) -> String {
-        format!(
-            "{overrides} ?: {default}",
-            overrides = overrides,
-            default = default
-        )
     }
 
     /// A representation of the given literal for this type.
@@ -247,42 +272,19 @@ mod unit_tests {
         let ct = bool_type();
         assert_eq!(
             r#"v?.getBool("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = string_type();
         assert_eq!(
             r#"v?.getString("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
 
         let ct = int_type();
         assert_eq!(
             r#"v?.getInt("the-property")"#.to_string(),
-            ct.get_value(oracle, &"v?", &"the-property")
-        );
-    }
-
-    #[test]
-    fn test_with_fallback() {
-        let oracle = &*oracle();
-
-        let ct = bool_type();
-        assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
-        );
-
-        let ct = string_type();
-        assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
-        );
-
-        let ct = int_type();
-        assert_eq!(
-            "value ?: default".to_string(),
-            ct.with_fallback(oracle, &"value", &"default")
+            ct.value_getter(oracle, &"v", &"the-property")
         );
     }
 }
