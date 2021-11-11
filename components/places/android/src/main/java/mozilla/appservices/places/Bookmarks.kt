@@ -417,52 +417,6 @@ data class BookmarkUpdateInfo(
     }
 }
 
-/**
- * Error indicating bookmarks corruption. If this occurs, we
- * would appreciate reports.
- *
- * Eventually it should be fixed up, when detected as part of
- * `runMaintenance`.
- */
-open class BookmarksCorruption(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when attempting to insert a URL greater than 65536 bytes
- * (after punycoding and percent encoding).
- *
- * Attempting to truncate the URL is difficult and subtle, and
- * is guaranteed to result in a URL different from the one the
- * user attempted to bookmark, and so an error is thrown instead.
- */
-open class UrlTooLong(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when attempting to update a bookmark item in an illegal
- * way. For example, attempting to change the URL of a bookmark
- * folder, or update the title of a separator, etc.
- */
-open class InvalidBookmarkUpdate(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when providing a guid to a create or update function
- * which does not refer to a known bookmark.
- */
-open class UnknownBookmarkItem(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when:
- *
- * - Attempting to insert a child under BookmarkRoot.Root,
- * - Attempting to update any of the bookmark roots.
- * - Attempting to delete any of the bookmark roots.
- */
-open class CannotUpdateRoot(msg: String) : PlacesException(msg)
-
-/**
- * Thrown when providing a guid referring to a non-folder as the
- * parentGUID parameter to a create or update
- */
-open class InvalidParent(msg: String) : PlacesException(msg)
 
 /**
  * Turn the protobuf rust passes us into a BookmarkTreeNode.
