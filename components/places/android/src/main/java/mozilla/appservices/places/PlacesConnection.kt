@@ -186,24 +186,7 @@ internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
         try {
             return callback()
         } catch (e: PlacesException) {
-
             throw e
-            // // uniffi-generated functions currently return just a single error
-            // // type, which inside its message is the underlying error code
-            // // and message, which we can use to construct the actual error
-            // // from the hand-written FFI.
-            // if (e.message != null) {
-            //     try {
-            //         val (code, message) = e.message.split('|', limit = 2)
-            //         throw RustError.makeException(code.toInt(), message)
-            //     } catch (_: NumberFormatException) {
-            //         // how to log? Not clear it matters TBH - all the details
-            //         // should be visible in the generic exception we throw below,
-            //         // and it should be impossible anyway!
-            //     }
-            // }
-            // throw RuntimeException("Unexpected error: $e")
-        }
     }
 }
 
@@ -1260,11 +1243,6 @@ class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : Auto
     }
 }
 
-// open class PlacesException(msg: String) : Exception(msg)
-// open class InternalPanic(msg: String) : PlacesException(msg)
-// open class UrlParseFailed(msg: String) : PlacesException(msg)
-// open class PlacesConnectionBusy(msg: String) : PlacesException(msg)
-// open class OperationInterrupted(msg: String) : PlacesException(msg)
 
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */

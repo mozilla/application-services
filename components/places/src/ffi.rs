@@ -295,8 +295,7 @@ fn get_error_number(err: &Error) -> i32 {
 
 impl From<HandleError> for PlacesError {
     fn from(e: HandleError) -> PlacesError {
-        // TODO: Need to transform this properly
-        PlacesError::UnexpectedPlacesException("HandleError not converted".to_string())
+        PlacesError::from(e)
     }
 }
 

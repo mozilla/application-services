@@ -179,12 +179,12 @@ pub enum PlacesError {
     OperationInterrupted(String),
 
     /**
-    * Error indicating bookmarks corruption. If this occurs, we
+     * Error indicating bookmarks corruption. If this occurs, we
      * would appreciate reports.
      *
      * Eventually it should be fixed up, when detected as part of
      * `runMaintenance`.
-    */
+     */
     #[error("BookmarksCorruption error: {0}")]
     BookmarksCorruption(String),
 
@@ -246,17 +246,12 @@ impl From<Error> for PlacesError {
                 log::error!("Invalid place info: {}", info);
                 let label = info.to_string();
                 match &info {
-                    InvalidPlaceInfo::InvalidParent(..) => PlacesError::InvalidParent(label),
-                    InvalidPlaceInfo::NoSuchGuid(..) => {
-                        PlacesError::UnexpectedPlacesException(label)
-                        //TODO: Not 1-1 change
-                        //error_codes::INVALID_PLACE_INFO_NO_ITEM
+                    InvalidPlaceInfo::InvalidParent(..) | InvalidPlaceInfo::UrlTooLong => {
+                        PlacesError::InvalidParent(label)
                     }
-                    InvalidPlaceInfo::UrlTooLong => PlacesError::InvalidParent(label),
+                    InvalidPlaceInfo::NoSuchGuid(..) => PlacesError::UnknownBookmarkItem(label),
                     InvalidPlaceInfo::IllegalChange(..) => {
-                        //TODO: Not 1-1 change
-                        //error_codes::INVALID_PLACE_INFO_ILLEGAL_CHANGE
-                        PlacesError::UnexpectedPlacesException(label)
+                        PlacesError::InvalidBookmarkUpdate(label)
                     }
                     InvalidPlaceInfo::CannotUpdateRoot(..) => PlacesError::CannotUpdateRoot(label),
                     _ => PlacesError::UnexpectedPlacesException(label),
@@ -265,7 +260,6 @@ impl From<Error> for PlacesError {
             ErrorKind::UrlParseError(e) => {
                 log::error!("URL parse error: {}", e);
                 PlacesError::UrlParseFailed(e.to_string())
-                //error_codes::URL_PARSE_ERROR
             }
             // Can't pattern match on `err` without adding a dep on the sqlite3-sys crate,
             // so we just use a `if` guard.
@@ -288,7 +282,6 @@ impl From<Error> for PlacesError {
             }
             ErrorKind::Corruption(e) => {
                 log::info!("The store is corrupt: {}", e);
-                //error_codes::DATABASE_CORRUPT
                 PlacesError::BookmarksCorruption(e.to_string())
             }
             ErrorKind::SyncAdapterError(e) => {
@@ -299,9 +292,7 @@ impl From<Error> for PlacesError {
                         // and resolve it.
                         if let Some(places_err) = store_error.downcast_ref::<Error>() {
                             log::info!("Recursing to resolve places error");
-                            // This recursively gets the error #
-                            //get_error_number(places_err)
-                            PlacesError::UnexpectedPlacesException(places_err.to_string())
+                            PlacesError::from(places_err)
                         } else {
                             log::error!("Unexpected sync error: {:?}", label);
                             PlacesError::UnexpectedPlacesException(label)
@@ -319,5 +310,11 @@ impl From<Error> for PlacesError {
                 PlacesError::InternalPanic(label)
             }
         }
+    }
+}
+
+impl From<&Error> for PlacesError {
+    fn from(e: &Error) -> PlacesError {
+        PlacesError::from(e)
     }
 }
