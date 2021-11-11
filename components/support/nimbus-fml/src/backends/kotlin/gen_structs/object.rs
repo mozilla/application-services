@@ -12,7 +12,7 @@ use crate::intermediate_representation::{FeatureManifest, Literal, ObjectDef};
 
 use super::filters;
 
-use super::identifiers;
+use super::common::{self, code_type};
 
 pub struct ObjectRuntime;
 
@@ -30,7 +30,30 @@ impl ObjectCodeType {
 
 impl CodeType for ObjectCodeType {
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
-        identifiers::class_name(&self.id)
+        common::class_name(&self.id)
+    }
+
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
     }
 
     /// The language specific expression that gets a value of the `prop` from the `vars` object.
@@ -50,7 +73,7 @@ impl CodeType for ObjectCodeType {
     }
 
     fn value_merger(&self, _oracle: &dyn CodeOracle, default: &dyn Display) -> Option<String> {
-        Some(format!("mergeWith({})", default))
+        Some(format!("_mergeWith({})", default))
     }
 
     fn literal(
@@ -124,7 +147,7 @@ pub(crate) fn object_literal(
 
             format!(
                 "{var_name} = {var_value}",
-                var_name = identifiers::var_name(k),
+                var_name = common::var_name(k),
                 var_value = oracle.find(&prop.typ).literal(oracle, renderer, v)
             )
         })
@@ -219,7 +242,7 @@ mod unit_tests {
     fn test_getter_with_fallback() {
         let ct = code_type("AnObject");
         assert_eq!(
-            r#"vars?.getVariables("the-property")?.let(AnObject::create)?.mergeWith(default) ?: default"#
+            r#"vars?.getVariables("the-property")?.let(AnObject::create)?._mergeWith(default) ?: default"#
             .to_string(),
             getter_with_fallback(&*ct, &"vars", &"the-property", &"default"));
     }

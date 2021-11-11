@@ -4,7 +4,7 @@
 
 use std::fmt::Display;
 
-use super::identifiers;
+use super::common::{self, code_type};
 use crate::backends::{LiteralRenderer, VariablesType};
 use crate::{
     backends::{CodeOracle, CodeType, TypeIdentifier},
@@ -45,6 +45,15 @@ impl CodeType for OptionalCodeType {
         oracle
             .find(&self.inner)
             .property_getter(oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -91,6 +100,16 @@ impl MapCodeType {
 }
 
 impl CodeType for MapCodeType {
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, oracle: &dyn CodeOracle) -> String {
@@ -112,7 +131,7 @@ impl CodeType for MapCodeType {
             "{vars}?.get{vt}Map({prop})",
             vars = vars,
             vt = v_type.variables_type(oracle),
-            prop = identifiers::quoted(prop),
+            prop = common::quoted(prop),
         )
     }
 
@@ -254,6 +273,16 @@ impl CodeType for ListCodeType {
         )
     }
 
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
     fn value_getter(
         &self,
         oracle: &dyn CodeOracle,
@@ -286,7 +315,9 @@ impl CodeType for ListCodeType {
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
-        unimplemented!("Because lists do not merge very well, maps of lists or lists of lists are not supported")
+        // Our current implementation of Variables doesn't have a getListList() or getListMap().
+        // We do allow getVariablesList and getVariablesMap, but not an vars.asList().
+        unimplemented!("Lists and maps of lists aren't supported. The workaround is to use a list of map of list holder objects")
     }
 
     /// A representation of the given literal for this type.

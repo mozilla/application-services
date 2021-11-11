@@ -1,7 +1,7 @@
 // /* This Source Code Form is subject to the terms of the Mozilla Public
 //  * License, v. 2.0. If a copy of the MPL was not distributed with this
 //  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
-use super::{identifiers, ConcreteCodeOracle};
+use super::{common, ConcreteCodeOracle};
 use std::fmt;
 
 use crate::backends::{CodeOracle, LiteralRenderer, TypeIdentifier};
@@ -34,17 +34,17 @@ pub fn property(
 
 /// Get the idiomatic Kotlin rendering of a class name (for enums, records, errors, etc).
 pub fn class_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::class_name(nm))
+    Ok(common::class_name(nm))
 }
 
 /// Get the idiomatic Kotlin rendering of a variable name.
 pub fn var_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::var_name(nm))
+    Ok(common::var_name(nm))
 }
 
 /// Get the idiomatic Kotlin rendering of an individual enum variant.
 pub fn enum_variant_name(nm: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::enum_variant_name(nm))
+    Ok(common::enum_variant_name(nm))
 }
 
 pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::Error> {
@@ -67,5 +67,5 @@ pub fn comment(txt: &dyn fmt::Display, spaces: &str) -> Result<String, askama::E
 }
 
 pub fn quoted(txt: &dyn fmt::Display) -> Result<String, askama::Error> {
-    Ok(identifiers::quoted(txt))
+    Ok(common::quoted(txt))
 }

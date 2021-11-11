@@ -2,16 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::fmt::Display;
+
 use askama::Template;
 
+use super::common;
+use super::common::code_type;
 use super::filters;
-use super::identifiers;
-use crate::backends::LiteralRenderer;
-use crate::backends::VariablesType;
-use crate::{
-    backends::{CodeDeclaration, CodeOracle, CodeType},
-    intermediate_representation::{EnumDef, FeatureManifest, Literal},
-};
+use crate::backends::{CodeDeclaration, CodeOracle, CodeType, LiteralRenderer, VariablesType};
+use crate::intermediate_representation::{EnumDef, FeatureManifest, Literal};
 
 pub(crate) struct EnumCodeType {
     id: String,
@@ -27,7 +26,30 @@ impl CodeType for EnumCodeType {
     /// The language specific label used to reference this type. This will be used in
     /// method signatures and property declarations.
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
-        identifiers::class_name(&self.id)
+        common::class_name(&self.id)
+    }
+
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -60,7 +82,7 @@ impl CodeType for EnumCodeType {
         format!(
             "{}.{}",
             self.type_label(oracle),
-            identifiers::enum_variant_name(variant)
+            common::enum_variant_name(variant)
         )
     }
 }

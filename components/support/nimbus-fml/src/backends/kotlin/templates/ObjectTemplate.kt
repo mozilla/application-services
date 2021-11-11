@@ -41,7 +41,7 @@ specify all values needed for the  feature #}
     }
     {%- endfor %}
 
-    internal fun mergeWith(defaults: {{class_name}}): {{class_name}} =
+    internal fun _mergeWith(defaults: {{class_name}}): {{class_name}} =
         {{class_name}}(_variables = this._variables, _defaults = defaults._defaults)
 
     companion object {
@@ -49,6 +49,6 @@ specify all values needed for the  feature #}
             {{class_name}}(_variables = variables)
 
         internal fun mergeWith(overrides: {{class_name}}, defaults: {{class_name}}): {{class_name}} =
-            overrides.mergeWith(defaults)
+            overrides._mergeWith(defaults)
     }
 }

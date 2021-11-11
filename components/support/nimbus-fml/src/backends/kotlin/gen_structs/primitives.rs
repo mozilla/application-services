@@ -2,6 +2,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+use std::fmt::Display;
+
+use super::common::code_type;
 use crate::backends::{CodeOracle, CodeType, LiteralRenderer, VariablesType};
 use crate::intermediate_representation::Literal;
 
@@ -12,6 +15,29 @@ impl CodeType for BooleanCodeType {
     /// method signatures and property declarations.
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
         "Boolean".into()
+    }
+
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
@@ -50,6 +76,29 @@ impl CodeType for IntCodeType {
         "Int".into()
     }
 
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
+    }
+
     /// The name of the type as it's represented in the `Variables` object.
     /// The string return may be used to combine with an indentifier, e.g. a `Variables` method name.
     fn variables_type(&self, _oracle: &dyn CodeOracle) -> VariablesType {
@@ -80,6 +129,29 @@ impl CodeType for StringCodeType {
     /// method signatures and property declarations.
     fn type_label(&self, _oracle: &dyn CodeOracle) -> String {
         "String".into()
+    }
+
+    fn property_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+        default: &dyn Display,
+    ) -> String {
+        code_type::property_getter(self, oracle, vars, prop, default)
+    }
+
+    fn value_getter(
+        &self,
+        oracle: &dyn CodeOracle,
+        vars: &dyn Display,
+        prop: &dyn Display,
+    ) -> String {
+        code_type::value_getter(self, oracle, vars, prop)
+    }
+
+    fn value_mapper(&self, oracle: &dyn CodeOracle) -> Option<String> {
+        code_type::value_mapper(self, oracle)
     }
 
     /// The name of the type as it's represented in the `Variables` object.
