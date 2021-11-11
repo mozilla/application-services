@@ -16,7 +16,8 @@ pub use nimbus;
 pub use places_ffi;
 pub use push;
 pub use rc_log_ffi;
-pub use sync_manager_ffi;
+pub use sync_manager;
+pub use tabs;
 pub use viaduct;
 
 /// In order to support the use case of consumers who don't know about megazords
