@@ -117,6 +117,7 @@ impl SyncManager {
         Ok(())
     }
 
+    /// Disconnect engines from sync, deleting/resetting the sync-related data
     pub fn disconnect(&self) {
         if let Some(engine) = Self::places_engine("bookmarks") {
             if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
@@ -155,6 +156,7 @@ impl SyncManager {
         }
     }
 
+    /// Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
     pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
         let mut state = self.mem_cached_state.lock().unwrap();
         let mut have_engines = vec![];
