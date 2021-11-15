@@ -138,7 +138,8 @@ impl PlacesApi {
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
     pub fn new_old(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
         let db_name = normalize_path(db_name)?;
-        Self::new_or_existing(db_name)
+        let api = Self::new_or_existing(db_name)?;
+        Ok(*api)
     }
 
     /// Create a new, or fetch an already open, memory-based PlacesApi. You must
