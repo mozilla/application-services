@@ -109,8 +109,7 @@ impl PlacesConnection {
         log::debug!("places_get_history_highlights");
 
         let conn = self.db.lock().unwrap();
-        let highlights =
-            crate::storage::history_metadata::get_highlights(&conn, weights, limit)?;
+        let highlights = crate::storage::history_metadata::get_highlights(&conn, weights, limit)?;
         Ok(highlights)
     }
 

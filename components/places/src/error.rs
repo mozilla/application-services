@@ -179,12 +179,12 @@ pub enum PlacesError {
     OperationInterrupted(String),
 
     /**
-    * Error indicating bookmarks corruption. If this occurs, we
+     * Error indicating bookmarks corruption. If this occurs, we
      * would appreciate reports.
      *
      * Eventually it should be fixed up, when detected as part of
      * `runMaintenance`.
-    */
+     */
     #[error("BookmarksCorruption error: {0}")]
     BookmarksCorruption(String),
 

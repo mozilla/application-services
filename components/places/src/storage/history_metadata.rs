@@ -1495,7 +1495,13 @@ mod tests {
         );
 
         assert_eq!(6, get_since(&conn, 0).expect("get worked").len());
-        delete_metadata(&conn, &Url::parse("http://mozilla.com/1").unwrap(), None, None).expect("delete metadata");
+        delete_metadata(
+            &conn,
+            &Url::parse("http://mozilla.com/1").unwrap(),
+            None,
+            None,
+        )
+        .expect("delete metadata");
         assert_eq!(5, get_since(&conn, 0).expect("get worked").len());
 
         delete_metadata(
@@ -1516,8 +1522,13 @@ mod tests {
         .expect("delete metadata");
         assert_eq!(3, get_since(&conn, 0).expect("get worked").len());
 
-        delete_metadata(&conn, &Url::parse("http://mozilla.com/1").unwrap(), None, Some("1 with search"))
-            .expect("delete metadata");
+        delete_metadata(
+            &conn,
+            &Url::parse("http://mozilla.com/1").unwrap(),
+            None,
+            Some("1 with search"),
+        )
+        .expect("delete metadata");
         assert_eq!(2, get_since(&conn, 0).expect("get worked").len());
 
         // key doesn't match, do nothing
