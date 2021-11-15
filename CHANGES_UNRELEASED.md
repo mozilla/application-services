@@ -18,3 +18,7 @@ Use the template below to make assigning a version number during the release cut
   - Description of the change with a link to the pull request ([#0000](https://github.com/mozilla/application-services/pull/0000))
 
 -->
+
+## Push
+### What's changed
+  - Push internally no longer uses the `error_support` dependency to simplify the code. It now directly defines exactly one error enum and exposes that to `uniffi`. This should have no implication to the consumer code ([#4650](https://github.com/mozilla/application-services/pull/4650))
