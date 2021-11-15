@@ -8,7 +8,11 @@ exclude = ["/android", "/ios"]
 
 [features]
 log_query_plans = ["sql-support/log_query_plans"]
-default = []
+# uniffi_hacks is a temp feature we can use to introduce hacks required for the uniffication
+# effort, but which must be removed before landing. A feature seems better than commenting out
+# code or XXX comments.
+uniffi_hacks = []
+default = ["uniffi_hacks"]
 
 [dependencies]
 sync15 = { path = "../sync15" }
