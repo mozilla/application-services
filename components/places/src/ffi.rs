@@ -104,8 +104,16 @@ impl PlacesConnection {
         weights: HistoryHighlightWeights,
         limit: i32,
     ) -> Result<Vec<HistoryHighlight>, PlacesError> {
+<<<<<<< HEAD
         log::debug!("get_history_highlights");
         self.with_conn(|conn| history_metadata::get_highlights(&conn, weights, limit))
+=======
+        log::debug!("places_get_history_highlights");
+
+        let conn = self.db.lock().unwrap();
+        let highlights = crate::storage::history_metadata::get_highlights(&conn, weights, limit)?;
+        Ok(highlights)
+>>>>>>> 5c8c23827 (Converted kotlin history metadata functions)
     }
 
     fn note_history_metadata_observation(
