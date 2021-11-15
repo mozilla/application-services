@@ -283,6 +283,8 @@ impl PlacesApi {
                     mem_cached_state,
                     client_init,
                     key_bundle,
+                    // The interrupt system is not currently working (#1684), but we need to pass
+                    // in something, so let's use the engine scope.
                     &engine.scope,
                     None,
                 )
@@ -305,6 +307,8 @@ impl PlacesApi {
                     mem_cached_state,
                     client_init,
                     key_bundle,
+                    // The interrupt system is not currently working (#1684), but we need to pass
+                    // in something, so let's use the engine scope.
                     &engine.scope,
                     None,
                 )
@@ -386,6 +390,8 @@ impl PlacesApi {
             &mut mem_cached_state,
             client_init,
             key_bundle,
+            // The interrupt system is not currently working (#1684), but we need to pass
+            // in something, so let's use the engine scope.
             &bm_engine.scope,
             None,
         );
