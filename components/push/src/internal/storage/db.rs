@@ -6,7 +6,7 @@ use std::{ops::Deref, path::Path};
 use rusqlite::{Connection, NO_PARAMS};
 use sql_support::{open_database, ConnExt};
 
-use crate::internal::error::{ErrorKind, Result};
+use crate::error::{PushError, Result};
 
 use super::{record::PushRecord, schema};
 
@@ -53,7 +53,7 @@ impl PushDb {
         // Instead, remap to StorageError and provide the path to the file that couldn't be opened.
         let initializer = schema::PushConnectionInitializer {};
         let db = open_database::open_database(path, &initializer).map_err(|orig| {
-            ErrorKind::StorageError(format!(
+            PushError::StorageError(format!(
                 "Could not open database file {:?} - {}",
                 &path.as_os_str(),
                 orig,
@@ -83,7 +83,7 @@ impl PushDb {
     // In case it's needed.
     pub fn uuid_to_dashed(uuid: &str) -> Result<String> {
         if !uuid.is_ascii() || uuid.len() < 32 || uuid.len() > 36 {
-            return Err(ErrorKind::GeneralError("UUID is invalid".to_owned()).into());
+            return Err(PushError::GeneralError("UUID is invalid".to_owned()));
         }
         let norm = Self::normalize_uuid(uuid);
         Ok(format!(
@@ -246,7 +246,7 @@ impl Storage for PushDb {
             &[(":key", &key)],
             true,
         )
-        .map_err(|e| ErrorKind::StorageSqlError(e).into())
+        .map_err(PushError::StorageSqlError)
     }
 
     fn set_meta(&self, key: &str, value: &str) -> Result<()> {
@@ -258,8 +258,8 @@ impl Storage for PushDb {
 
 #[cfg(test)]
 mod test {
+    use crate::error::Result;
     use crate::internal::crypto::{Crypto, Cryptography};
-    use crate::internal::error::Result;
 
     use super::PushDb;
     use crate::internal::crypto::get_random_bytes;

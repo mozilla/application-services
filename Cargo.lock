@@ -2406,7 +2406,6 @@ dependencies = [
  "base64 0.12.3",
  "bincode",
  "env_logger 0.8.4",
- "error-support",
  "hex",
  "lazy_static",
  "log",

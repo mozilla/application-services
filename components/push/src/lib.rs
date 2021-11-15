@@ -184,17 +184,19 @@ uniffi_macros::include_scaffolding!("push");
 // All implementation detail lives in the `internal` module
 mod internal;
 use std::sync::Mutex;
-
-pub use crate::internal::error::*;
+mod error;
+use error::*;
 
 // The following are only exposed for use by the examples
+pub use error::Result as InternalResult;
 pub use internal::communications::Connection;
 pub use internal::crypto::get_random_bytes;
-pub use internal::error::Result as InternalResult;
 pub use internal::storage::Storage as InternalStorage;
 pub use internal::PushConfiguration;
 pub use internal::PushManager as InternalPushManager;
 // =====================
+
+pub use error::PushError;
 
 /// Object representing the PushManager used to manage subscriptions
 ///
@@ -417,70 +419,6 @@ impl PushManager {
     }
 }
 
-/// Public facing Error that the crate produces
-///
-/// This is created from an internal error as the error passes through the FFI
-
-#[derive(Debug, thiserror::Error)]
-pub enum PushError {
-    /// An unspecified general error has occured
-    #[error("General Error: {0:?}")]
-    GeneralError(String),
-
-    /// An error occurred while running a cryptographic operation
-    #[error("Crypto error: {0}")]
-    CryptoError(String),
-
-    /// A Client communication error
-    #[error("Communication Error: {0:?}")]
-    CommunicationError(String),
-
-    /// An error returned from the registration Server
-    #[error("Communication Server Error: {0}")]
-    CommunicationServerError(String),
-
-    /// Channel is already registered, generate new channelID
-    #[error("Channel already registered.")]
-    AlreadyRegisteredError,
-
-    /// An error with Storage
-    #[error("Storage Error: {0:?}")]
-    StorageError(String),
-
-    #[error("No record for chid {0:?}")]
-    RecordNotFoundError(String),
-
-    /// A failure to encode data to/from storage.
-    #[error("Error executing SQL: {0}")]
-    StorageSqlError(String),
-
-    /// The registration token could not be found
-    #[error("Missing Registration Token")]
-    MissingRegistrationTokenError,
-
-    #[error("Transcoding Error: {0}")]
-    TranscodingError(String),
-
-    /// A failure to parse a URL.
-    #[error("URL parse error: {0:?}")]
-    UrlParseError(String),
-
-    /// A failure deserializing json.
-    #[error("Failed to parse json: {0}")]
-    JSONDeserializeError(String),
-
-    /// The UAID was not recognized by the server
-    #[error("Unrecognized UAID: {0}")]
-    UAIDNotRecognizedError(String),
-
-    /// Was unable to send request to server
-    #[error("Unable to send request to server: {0}")]
-    RequestError(String),
-
-    #[error("Error opening database: {0}")]
-    OpenDatabaseError(String),
-}
-
 /// The types of supported native bridges.
 ///
 /// FCM = Google Android Firebase Cloud Messaging
@@ -494,40 +432,6 @@ pub enum BridgeType {
     Adm,
     Apns,
     Test,
-}
-
-// We define how to convert from an internal error
-// into the external facing [`PushError`]
-// note that the some variants of the internal error
-// carry another error they were generated from
-// this information is dropped and replaced with a message
-// which is the stringified error
-impl From<internal::error::Error> for PushError {
-    fn from(err: internal::error::Error) -> Self {
-        match err.kind() {
-            ErrorKind::GeneralError(message) => PushError::GeneralError(message.clone()),
-            ErrorKind::CryptoError(message) => PushError::CryptoError(message.clone()),
-            ErrorKind::CommunicationError(message) => {
-                PushError::CommunicationError(message.clone())
-            }
-            ErrorKind::CommunicationServerError(message) => {
-                PushError::CommunicationServerError(message.clone())
-            }
-            ErrorKind::AlreadyRegisteredError => PushError::AlreadyRegisteredError,
-            ErrorKind::StorageError(message) => PushError::StorageError(message.clone()),
-            ErrorKind::RecordNotFoundError(chid) => PushError::RecordNotFoundError(chid.clone()),
-            ErrorKind::StorageSqlError(e) => PushError::StorageSqlError(e.to_string()),
-            ErrorKind::MissingRegistrationTokenError => PushError::MissingRegistrationTokenError,
-            ErrorKind::TranscodingError(message) => PushError::TranscodingError(message.clone()),
-            ErrorKind::UrlParseError(e) => PushError::UrlParseError(e.to_string()),
-            ErrorKind::JSONDeserializeError(e) => PushError::JSONDeserializeError(e.to_string()),
-            ErrorKind::UAIDNotRecognizedError(message) => {
-                PushError::UAIDNotRecognizedError(message.clone())
-            }
-            ErrorKind::RequestError(e) => PushError::RequestError(e.to_string()),
-            ErrorKind::OpenDatabaseError(e) => PushError::OpenDatabaseError(e.to_string()),
-        }
-    }
 }
 
 /// Dispatch Information returned from [`PushManager::dispatch_info_for_chid`]

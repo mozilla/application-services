@@ -6,12 +6,12 @@
 //!
 //! "privileged" system calls may require additional handling and should be flagged as such.
 
+use crate::error::{self, PushError, Result};
 use crate::internal::communications::{
     connect, ConnectHttp, Connection, PersistedRateLimiter, RegisterResponse,
 };
 use crate::internal::config::PushConfiguration;
 use crate::internal::crypto::{Crypto, Cryptography, KeyV1 as Key};
-use crate::internal::error::{self, ErrorKind, Result};
 use crate::internal::storage::{PushRecord, Storage, Store};
 use crate::{
     DispatchInfo, KeyInfo, PushSubscriptionChanged, SubscriptionInfo, SubscriptionResponse,
@@ -108,7 +108,7 @@ impl PushManager {
         if let Some(record) = self.store.get_record(channel_id)? {
             let uaid = self.store.get_uaid()?.ok_or_else(|| {
                 // should be impossible - we should delete all records when we lose our uiad.
-                ErrorKind::StorageError("DB has a subscription but no UAID".to_string())
+                PushError::StorageError("DB has a subscription but no UAID".to_string())
             })?;
             log::debug!("returning existing subscription for '{}'", scope);
             return Ok((
@@ -139,10 +139,9 @@ impl PushManager {
             let new_auth = match info.secret {
                 Some(ref secret) => secret,
                 None => {
-                    return Err(ErrorKind::GeneralError(
+                    return Err(PushError::GeneralError(
                         "Server gave us a new uaid but no secret?".to_string(),
-                    )
-                    .into())
+                    ))
                 }
             };
             log::info!(
@@ -189,7 +188,9 @@ impl PushManager {
         }
         let conn = self.make_connection()?;
         if conn.uaid.is_none() {
-            return Err(ErrorKind::GeneralError("No subscriptions created yet.".into()).into());
+            return Err(PushError::GeneralError(
+                "No subscriptions created yet.".into(),
+            ));
         }
         conn.unsubscribe(channel_id)?;
         self.store.delete_record(channel_id)
@@ -218,8 +219,8 @@ impl PushManager {
             return Ok(false);
         }
         if let Err(e) = conn.update(new_token) {
-            match e.kind() {
-                ErrorKind::UAIDNotRecognizedError(_) => {
+            match e {
+                PushError::UAIDNotRecognizedError(_) => {
                     // Our subscriptions are dead, but for now, just let the existing mechanisms
                     // deal with that (eg, next `subscribe()` or `verify_connection()`)
                     log::info!("updating our token indicated our subscriptions are gone");
@@ -261,11 +262,11 @@ impl PushManager {
         let val = self
             .store
             .get_record(chid)
-            .map_err(|e| ErrorKind::StorageError(format!("{:?}", e)))?
-            .ok_or_else(|| ErrorKind::RecordNotFoundError(chid.to_owned()))?;
+            .map_err(|e| PushError::StorageError(format!("{:?}", e)))?
+            .ok_or_else(|| PushError::RecordNotFoundError(chid.to_owned()))?;
         let key = Key::deserialize(&val.key)?;
         Crypto::decrypt(&key, body, encoding, salt, dh)
-            .map_err(|e| ErrorKind::CryptoError(format!("{:?}", e)).into())
+            .map_err(|e| PushError::CryptoError(format!("{:?}", e)))
     }
 
     pub fn get_record_by_chid(&self, chid: &str) -> error::Result<Option<DispatchInfo>> {
