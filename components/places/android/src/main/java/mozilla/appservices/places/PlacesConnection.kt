@@ -7,12 +7,16 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
+import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
+import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
+import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
+import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -26,6 +30,8 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
+typealias Url = String
+
 /**
  * An implementation of a [PlacesManager] backed by a Rust Places library.
  *
@@ -35,7 +41,10 @@ import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManage
  * @param path an absolute path to a file that will be used for the internal database.
  */
 class PlacesApi(path: String) : PlacesManager, AutoCloseable {
+    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesApi - one
+    // via a handle in the old-school HandleMap, and the other via uniffi.
     private var handle: AtomicLong = AtomicLong(0)
+    private var api: UniffiPlacesApi
     private var writeConn: PlacesWriterConnection
 
     init {
@@ -44,12 +53,17 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                 LibPlacesFFI.INSTANCE.places_api_new(path, error)
             }
         )
-        writeConn = PlacesWriterConnection(
-            rustCall(this) { error ->
-                LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
-            },
-            this
-        )
+        // as per https://github.com/mozilla/uniffi-rs/pull/1063, there was some
+        // pushback on allowing this to actually be a constructor, so it's a global
+        // function instead :(
+        api = placesApiNew(path)
+
+        // Our connections also live a double-life.
+        val connHandle = rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
+        }
+        val uniffiConnection = api.newConnection(ConnectionType.READ_WRITE)
+        writeConn = PlacesWriterConnection(connHandle, uniffiConnection, this)
     }
 
     companion object {
@@ -65,10 +79,13 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun openReader(): PlacesReaderConnection {
+        // This is starting to get messy - we actually end up with 2 different raw uniffi
+        // connections inside a single PlacesReaderConnection. WCPGW?
         val connHandle = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
-        return PlacesReaderConnection(connHandle)
+        val conn = api.newConnection(ConnectionType.READ_ONLY)
+        return PlacesReaderConnection(connHandle, conn)
     }
 
     override fun getWriter(): PlacesWriterConnection {
@@ -179,17 +196,6 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
     }
 }
 
-// Call a uniffi-generated function.
-@Suppress("TooGenericExceptionThrown")
-internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
-    synchronized(syncOn) {
-        try {
-            return callback()
-        } catch (e: PlacesException) {
-            throw e
-    }
-}
-
 @Suppress("TooGenericExceptionThrown")
 internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String {
     val cstring = rustCall(syncOn, callback)
@@ -214,12 +220,17 @@ internal inline fun rustCallForOptString(syncOn: Any, callback: (RustError.ByRef
 }
 
 @Suppress("TooGenericExceptionCaught")
-open class PlacesConnection internal constructor(connHandle: Long) : InterruptibleConnection, AutoCloseable {
+open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: UniffiPlacesConnection) : InterruptibleConnection, AutoCloseable {
+    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesConnection- one
+    // via a handle in the old-school HandleMap, and the other via uniffi.
+    // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
     protected var handle: AtomicLong = AtomicLong(0)
+    protected var conn: UniffiPlacesConnection
     protected var interruptHandle: InterruptHandle
 
     init {
         handle.set(connHandle)
+        conn = uniffiConn
         try {
             interruptHandle = InterruptHandle(
                 rustCall { err ->
@@ -242,6 +253,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
                 LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
             }
         }
+        conn.destroy()
         interruptHandle.close()
     }
 
@@ -273,8 +285,8 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
  *
  * This class is thread safe.
  */
-open class PlacesReaderConnection internal constructor(connHandle: Long) :
-    PlacesConnection(connHandle),
+open class PlacesReaderConnection internal constructor(connHandle: Long, conn: UniffiPlacesConnection) :
+    PlacesConnection(connHandle, conn),
     ReadableHistoryConnection,
     ReadableHistoryMetadataConnection,
     ReadableBookmarksConnection {
@@ -411,33 +423,27 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
-    override suspend fun getLatestHistoryMetadataForUrl(url: String): HistoryMetadata? {
-        return rustCallUniffi(this) {
-            mozilla.appservices.places.uniffi.placesGetLatestHistoryMetadataForUrl(this.handle.get(), url)
+    override suspend fun getLatestHistoryMetadataForUrl(url: Url): HistoryMetadata? {
+        return readQueryCounters.measure {
+            this.conn.getLatestHistoryMetadataForUrl(url)
         }
     }
 
     override suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata> {
-        readQueryCounters.measure {
-            return rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesGetHistoryMetadataSince(this.handle.get(), since)
-            }
+        return readQueryCounters.measure {
+            this.conn.getHistoryMetadataSince(since)
         }
     }
 
     override suspend fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata> {
-        readQueryCounters.measure {
-            return rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesGetHistoryMetadataBetween(this.handle.get(), start, end)
-            }
+        return readQueryCounters.measure {
+            this.conn.getHistoryMetadataBetween(start, end)
         }
     }
 
     override suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata> {
-        readQueryCounters.measure {
-            return rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesQueryHistoryMetadata(this.handle.get(), query, limit)
-            }
+        return readQueryCounters.measure {
+            this.conn.queryHistoryMetadata(query, limit)
         }
     }
 
@@ -445,10 +451,8 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         weights: HistoryHighlightWeights,
         limit: Int
     ): List<HistoryHighlight> {
-        readQueryCounters.measure {
-            return rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesGetHistoryHighlights(this.handle.get(), weights, limit)
-            }
+        return readQueryCounters.measure {
+            this.conn.getHistoryHighlights(weights, limit)
         }
     }
 
@@ -557,8 +561,8 @@ fun visitTransitionSet(l: List<VisitType>): Int {
  *
  * This class is thread safe.
  */
-class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
-    PlacesReaderConnection(connHandle),
+class PlacesWriterConnection internal constructor(connHandle: Long, conn: UniffiPlacesConnection, api: PlacesApi) :
+    PlacesReaderConnection(connHandle, conn),
     WritableHistoryConnection,
     WritableHistoryMetadataConnection,
     WritableBookmarksConnection {
@@ -657,9 +661,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
         // NB: Even though `MsgTypes.HistoryMetadataObservation` has an optional title field, we ignore it here.
         // That's used by consumers which aren't already using the history observation APIs.
         return writeQueryCounters.measure {
-            rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesNoteHistoryMetadataObservation(this.handle.get(), observation)
-            }
+            this.conn.noteHistoryMetadataObservation(observation)
         }
     }
 
@@ -685,22 +687,17 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
 
     override suspend fun deleteHistoryMetadataOlderThan(olderThan: Long) {
         return writeQueryCounters.measure {
-            rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesMetadataDeleteOlderThan(this.handle.get(), olderThan)
-            }
+            this.conn.metadataDeleteOlderThan(olderThan)
         }
     }
 
     override suspend fun deleteHistoryMetadata(key: HistoryMetadataKey) {
         return writeQueryCounters.measure {
-            rustCallUniffi(this) {
-                mozilla.appservices.places.uniffi.placesMetadataDelete(
-                    this.handle.get(),
-                    key.url,
-                    key.referrerUrl,
-                    key.searchTerm
-                )
-            }
+            this.conn.metadataDelete(
+                key.url,
+                key.referrerUrl,
+                key.searchTerm
+            )
         }
     }
 
