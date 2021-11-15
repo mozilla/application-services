@@ -17,14 +17,14 @@ use std::iter::FromIterator;
 use url::Url;
 use viaduct::{header_names, status_codes, Headers, Request};
 
-use crate::internal::config::PushConfiguration;
-use crate::internal::error::{
+use crate::error::{
     self,
-    ErrorKind::{
+    PushError::{
         AlreadyRegisteredError, CommunicationError, CommunicationServerError,
         UAIDNotRecognizedError,
     },
 };
+use crate::internal::config::PushConfiguration;
 use crate::internal::storage::Store;
 
 mod rate_limiter;
@@ -108,12 +108,12 @@ pub fn connect(
     // find connection via options
 
     if options.socket_protocol.is_some() && options.http_protocol.is_some() {
-        return Err(
-            CommunicationError("Both socket and HTTP protocols cannot be set.".to_owned()).into(),
-        );
+        return Err(CommunicationError(
+            "Both socket and HTTP protocols cannot be set.".to_owned(),
+        ));
     };
     if options.socket_protocol.is_some() {
-        return Err(CommunicationError("Unsupported".to_owned()).into());
+        return Err(CommunicationError("Unsupported".to_owned()));
     };
     let connection = ConnectHttp {
         options,
@@ -134,7 +134,7 @@ impl ConnectHttp {
                     format!("webpush {}", self.auth.clone().unwrap()),
                 )
                 .map_err(|e| {
-                    error::ErrorKind::CommunicationError(format!("Header error: {:?}", e))
+                    error::PushError::CommunicationError(format!("Header error: {:?}", e))
                 })?;
         };
         Ok(headers)
@@ -153,21 +153,21 @@ impl ConnectHttp {
             return Err(CommunicationServerError(format!(
                 "General Server Error: {}",
                 response_error.message
-            ))
-            .into());
+            )));
         }
         if response.is_client_error() {
             let response_error = response.json::<ResponseError>()?;
             if response.status == status_codes::CONFLICT {
-                return Err(AlreadyRegisteredError.into());
+                return Err(AlreadyRegisteredError);
             }
             if response.status == status_codes::GONE && response_error.errno == UAID_NOT_FOUND_ERRNO
             {
-                return Err(UAIDNotRecognizedError(response_error.message).into());
+                return Err(UAIDNotRecognizedError(response_error.message));
             }
-            return Err(
-                CommunicationError(format!("Unhandled client error {:?}", response)).into(),
-            );
+            return Err(CommunicationError(format!(
+                "Unhandled client error {:?}",
+                response
+            )));
         }
         Ok(())
     }
@@ -175,7 +175,7 @@ impl ConnectHttp {
     fn format_unsubscribe_url(&self) -> error::Result<String> {
         let uaid = match &self.uaid {
             Some(u) => u,
-            _ => return Err(CommunicationError("No UAID set".into()).into()),
+            _ => return Err(CommunicationError("No UAID set".into())),
         };
         Ok(format!(
             "{}://{}/v1/{}/{}/registration/{}",
@@ -197,9 +197,9 @@ impl Connection for ConnectHttp {
     ) -> error::Result<RegisterResponse> {
         // check that things are set
         if self.options.http_protocol.is_none() || self.options.bridge_type.is_none() {
-            return Err(
-                CommunicationError("Bridge type or application id not set.".to_owned()).into(),
-            );
+            return Err(CommunicationError(
+                "Bridge type or application id not set.".to_owned(),
+            ));
         }
         let options = self.options.clone();
         let bridge_type = &options.bridge_type.unwrap();
@@ -228,8 +228,7 @@ impl Connection for ConnectHttp {
                 None => {
                     return Err(CommunicationError(
                         "Can't subscribe until we have a native registration id".to_string(),
-                    )
-                    .into())
+                    ))
                 }
             },
         );
@@ -274,7 +273,7 @@ impl Connection for ConnectHttp {
         let ensure_resp_field = |name: &str| -> error::Result<String> {
             match response[name].as_str() {
                 Some(s) => Ok(s.to_string()),
-                None => Err(CommunicationError(format!("response has no `{}`", name)).into()),
+                None => Err(CommunicationError(format!("response has no `{}`", name))),
             }
         };
 
@@ -340,7 +339,7 @@ impl Connection for ConnectHttp {
         }
         let uaid = match &self.uaid {
             Some(u) => u,
-            _ => return Err(CommunicationError("No UAID set".into()).into()),
+            _ => return Err(CommunicationError("No UAID set".into())),
         };
         // Updating `self.registration_id` shouldn't be necessary - `self` should not live beyond
         // this call and it's our caller who persists the new value and supplies it.
@@ -376,14 +375,14 @@ impl Connection for ConnectHttp {
         }
 
         if self.auth.is_none() {
-            return Err(CommunicationError("Connection is unauthorized".into()).into());
+            return Err(CommunicationError("Connection is unauthorized".into()));
         }
         if self.uaid.is_none() {
-            return Err(CommunicationError("No UAID set".into()).into());
+            return Err(CommunicationError("No UAID set".into()));
         }
         let options = self.options.clone();
         if options.bridge_type.is_none() {
-            return Err(CommunicationError("No Bridge Type set".into()).into());
+            return Err(CommunicationError("No Bridge Type set".into()));
         }
         let url = format!(
             "{}://{}/v1/{}/{}/registration/{}",
@@ -402,16 +401,15 @@ impl Connection for ConnectHttp {
                 return Err(CommunicationServerError(format!(
                     "Could not fetch channel list: {}",
                     e
-                ))
-                .into());
+                )));
             }
         };
         self.check_response_error(&response)?;
         let payload: Payload = response.json()?;
         if payload.uaid != self.uaid.clone().unwrap() {
-            return Err(
-                CommunicationServerError("Invalid Response from server".to_string()).into(),
-            );
+            return Err(CommunicationServerError(
+                "Invalid Response from server".to_string(),
+            ));
         }
         Ok(payload
             .channel_ids
@@ -422,12 +420,12 @@ impl Connection for ConnectHttp {
 
     // Add one or more new broadcast subscriptions.
     fn broadcast_subscribe(&self, _broadcast: BroadcastValue) -> error::Result<BroadcastValue> {
-        Err(CommunicationError("Unsupported".to_string()).into())
+        Err(CommunicationError("Unsupported".to_string()))
     }
 
     // get the list of broadcasts
     fn broadcasts(&self) -> error::Result<BroadcastValue> {
-        Err(CommunicationError("Unsupported".to_string()).into())
+        Err(CommunicationError("Unsupported".to_string()))
     }
 
     /// Verify that the server and client both have matching channel information. A "false"
@@ -440,7 +438,7 @@ impl Connection for ConnectHttp {
         let local_channels: HashSet<String> = channels.iter().cloned().collect();
         let remote_channels: HashSet<String> = match self.channel_list() {
             Ok(v) => HashSet::from_iter(v),
-            Err(e) => match e.kind() {
+            Err(e) => match e {
                 UAIDNotRecognizedError(_) => {
                     // We do not unsubscribe, because the server already lost our UAID
                     // XXX - update `self` just for tests. Should kill `&mut self`
@@ -859,10 +857,7 @@ mod test {
             // communication error
             let err = conn.verify_connection(&[channel_id]).unwrap_err();
             channel_list_mock.assert();
-            assert!(matches!(
-                err.kind(),
-                error::ErrorKind::CommunicationError(_)
-            ));
+            assert!(matches!(err, error::PushError::CommunicationError(_)));
             // we double check that we did not wipe our uaid
             assert!(conn.uaid.is_some());
             assert!(conn.auth.is_some());
@@ -922,10 +917,7 @@ mod test {
             // server error
             let err = conn.verify_connection(&[channel_id]).unwrap_err();
             channel_list_mock.assert();
-            assert!(matches!(
-                err.kind(),
-                error::ErrorKind::CommunicationServerError(_)
-            ));
+            assert!(matches!(err, error::PushError::CommunicationServerError(_)));
             // we double check that we did not wipe our uaid
             assert!(conn.uaid.is_some());
             assert!(conn.auth.is_some());
@@ -963,10 +955,7 @@ mod test {
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let err = conn.subscribe(&channel_id, None).unwrap_err();
             ap_mock.assert();
-            assert!(matches!(
-                err.kind(),
-                error::ErrorKind::AlreadyRegisteredError
-            ));
+            assert!(matches!(err, error::PushError::AlreadyRegisteredError));
         }
     }
 }

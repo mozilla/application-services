@@ -113,7 +113,7 @@ fn now_secs() -> u64 {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::internal::error::Result;
+    use crate::error::Result;
 
     static PERIODIC_INTERVAL: u64 = 24 * 3600;
     static VERIFY_NOW_INTERVAL: u64 = PERIODIC_INTERVAL + 3600;

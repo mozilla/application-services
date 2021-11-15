@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::internal::error;
+use crate::error;
 use rc_crypto::ece::{self, EcKeyComponents, LocalKeyPair};
 use rc_crypto::ece_crypto::RcCryptoLocalKeyPair;
 use rc_crypto::rand;
@@ -35,13 +35,13 @@ impl Key {
     // would compile because both types derive `Serialize`.
     pub(crate) fn serialize(&self) -> error::Result<Vec<u8>> {
         bincode::serialize(&VersionnedKey::V1(self.clone())).map_err(|e| {
-            error::ErrorKind::GeneralError(format!("Could not serialize key: {:?}", e)).into()
+            error::PushError::GeneralError(format!("Could not serialize key: {:?}", e))
         })
     }
 
     pub(crate) fn deserialize(bytes: &[u8]) -> error::Result<Self> {
         let versionned: VersionnedKey = bincode::deserialize(bytes).map_err(|e| {
-            error::ErrorKind::GeneralError(format!("Could not de-serialize key: {:?}", e))
+            error::PushError::GeneralError(format!("Could not de-serialize key: {:?}", e))
         })?;
         match versionned {
             VersionnedKey::V1(prv_key) => Ok(prv_key),
@@ -100,7 +100,7 @@ pub struct Crypto;
 pub fn get_random_bytes(size: usize) -> error::Result<Vec<u8>> {
     let mut bytes = vec![0u8; size];
     rand::fill(&mut bytes).map_err(|e| {
-        error::ErrorKind::CryptoError(format!("Could not generate random bytes: {:?}", e))
+        error::PushError::CryptoError(format!("Could not generate random bytes: {:?}", e))
     })?;
     Ok(bytes)
 }
@@ -138,10 +138,10 @@ impl Cryptography for Crypto {
         rc_crypto::ensure_initialized();
 
         let key = RcCryptoLocalKeyPair::generate_random().map_err(|e| {
-            error::ErrorKind::CryptoError(format!("Could not generate key: {:?}", e))
+            error::PushError::CryptoError(format!("Could not generate key: {:?}", e))
         })?;
         let components = key.raw_components().map_err(|e| {
-            error::ErrorKind::CryptoError(format!("Could not extract key components: {:?}", e))
+            error::PushError::CryptoError(format!("Could not extract key components: {:?}", e))
         })?;
         let auth = get_random_bytes(SER_AUTH_LENGTH)?;
         Ok(Key {
@@ -176,13 +176,15 @@ impl Cryptography for Crypto {
         let d_salt = extract_value(salt, "salt");
         let d_dh = extract_value(dh, "dh");
         let d_body = base64::decode_config(body, base64::URL_SAFE_NO_PAD).map_err(|e| {
-            error::ErrorKind::TranscodingError(format!("Could not parse incoming body: {:?}", e))
+            error::PushError::TranscodingError(format!("Could not parse incoming body: {:?}", e))
         })?;
 
         match encoding.to_lowercase().as_str() {
             "aesgcm" => Self::decrypt_aesgcm(key, &d_body, d_salt, d_dh),
             "aes128gcm" => Self::decrypt_aes128gcm(key, &d_body),
-            _ => Err(error::ErrorKind::CryptoError("Unknown Content Encoding".to_string()).into()),
+            _ => Err(error::PushError::CryptoError(
+                "Unknown Content Encoding".to_string(),
+            )),
         }
     }
 
@@ -195,33 +197,34 @@ impl Cryptography for Crypto {
         let dh = match crypto_key {
             Some(v) => v,
             None => {
-                return Err(error::ErrorKind::CryptoError("Missing public key".to_string()).into());
+                return Err(error::PushError::CryptoError(
+                    "Missing public key".to_string(),
+                ));
             }
         };
         let salt = match salt {
             Some(v) => v,
             None => {
-                return Err(error::ErrorKind::CryptoError("Missing salt".to_string()).into());
+                return Err(error::PushError::CryptoError("Missing salt".to_string()));
             }
         };
         let block = match ece::legacy::AesGcmEncryptedBlock::new(&dh, &salt, 4096, content.to_vec())
         {
             Ok(b) => b,
             Err(e) => {
-                return Err(error::ErrorKind::CryptoError(format!(
+                return Err(error::PushError::CryptoError(format!(
                     "Could not create block: {}",
                     e
-                ))
-                .into());
+                )));
             }
         };
         ece::legacy::decrypt_aesgcm(key.key_pair(), key.auth_secret(), &block)
-            .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
+            .map_err(|_| error::PushError::CryptoError("Decryption error".to_owned()))
     }
 
     fn decrypt_aes128gcm(key: &Key, content: &[u8]) -> error::Result<Vec<u8>> {
         ece::decrypt(key.key_pair(), key.auth_secret(), content)
-            .map_err(|_| error::ErrorKind::CryptoError("Decryption error".to_owned()).into())
+            .map_err(|_| error::PushError::CryptoError("Decryption error".to_owned()))
     }
 }
 

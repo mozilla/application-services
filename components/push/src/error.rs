@@ -2,18 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-error_support::define_error! {
-    ErrorKind {
-        (StorageSqlError, rusqlite::Error),
-        (UrlParseError, url::ParseError),
-        (JSONDeserializeError, serde_json::Error),
-        (RequestError, viaduct::Error),
-        (OpenDatabaseError, sql_support::open_database::Error),
-    }
-}
+pub type Result<T, E = PushError> = std::result::Result<T, E>;
 
 #[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
+pub enum PushError {
     /// An unspecified general error has occured
     #[error("General Error: {0:?}")]
     GeneralError(String),
