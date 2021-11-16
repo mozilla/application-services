@@ -513,10 +513,19 @@ impl LoginDb {
         let now_ms = util::system_time_ms_i64(SystemTime::now());
         let tx = self.unchecked_transaction()?;
 
-        // XXX - it's not clear that throwing here on a dupe is the correct thing to do - eg, a
-        // user updated the username to one that already exists - the better thing to do is
-        // probably just remove the dupe.
-        let entry = self.fixup_and_check_for_dupes(&guid, entry, encdec)?;
+        let entry = entry.fixup()?;
+
+        // Check if there's an existing login that's the dupe of this login.  That indicates that
+        // something has gone wrong with our underlying logic.  However, if we do see a dupe login,
+        // just log an error and continue.  This avoids a crash on android-components
+        // (mozilla-mobile/android-components#11251).
+
+        if self.check_for_dupes(&guid, &entry, encdec).is_err() {
+            // Try to detect if sync is enabled by checking if there are any mirror logins
+            let has_mirror_row: bool =
+                self.db.query_one("SELECT EXISTS (SELECT 1 FROM loginsM)")?;
+            log::error!("Duplicate in update() (has_mirror_row: {})", has_mirror_row);
+        }
 
         // Note: This fail with NoSuchRecord if the record doesn't exist.
         self.ensure_local_overlay_exists(&guid)?;
@@ -1811,6 +1820,25 @@ mod tests {
                     &TEST_ENCRYPTOR
                 )
                 .is_err());
+        }
+
+        #[test]
+        fn test_update_with_duplicate_login() {
+            // If we have duplicate logins in the database, it should be possible to update them
+            // without triggering a DuplicateLogin error
+            let db = LoginDb::open_in_memory().unwrap();
+            let login = make_saved_login(&db, "user", "pass");
+            let mut dupe = login.clone().encrypt(&TEST_ENCRYPTOR).unwrap();
+            dupe.record.id = "different-guid".to_string();
+            db.insert_new_login(&dupe).unwrap();
+
+            let mut entry = login.entry();
+            entry.sec_fields.password = "pass2".to_string();
+            db.update(&login.record.id, entry, &TEST_ENCRYPTOR).unwrap();
+
+            let mut entry = login.entry();
+            entry.sec_fields.password = "pass3".to_string();
+            db.add_or_update(entry, &TEST_ENCRYPTOR).unwrap();
         }
     }
 }
