@@ -118,4 +118,7 @@ interface SyncManager {
     // Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
     [Throws=SyncManagerError]
     SyncResult sync(SyncParams params);
+
+    // Get a list of engine names available for syncing
+    sequence<string> get_available_engines();
 };

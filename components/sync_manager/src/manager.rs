@@ -47,6 +47,21 @@ impl SyncManager {
         tabs::get_registered_sync_engine(engine)
     }
 
+    fn get_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
+        match engine {
+            "history" => Self::places_engine("history"),
+            "bookmarks" => Self::places_engine("bookmarks"),
+            "addresses" => Self::autofill_engine("addresses"),
+            "creditcards" => Self::autofill_engine("creditcards"),
+            "logins" => Self::logins_engine("logins"),
+            "tabs" => Self::tabs_engine("tabs"),
+            _ => {
+                log::warn!("get_engine() unknown engine: {}", engine);
+                None
+            }
+        }
+    }
+
     pub fn wipe(&self, engine: &str) -> Result<()> {
         match engine {
             "logins" => {
@@ -350,6 +365,21 @@ impl SyncManager {
             persisted_state: disk_cached_state.unwrap_or_default(),
             telemetry_json: Some(telemetry_json),
         })
+    }
+
+    pub fn get_available_engines(&self) -> Vec<String> {
+        let engine_names = vec![
+            "bookmarks",
+            "history",
+            "tabs",
+            "logins",
+            "addresses",
+            "creditcards",
+        ];
+        engine_names
+            .into_iter()
+            .filter_map(|name| Self::get_engine(name).map(|_| name.to_string()))
+            .collect()
     }
 }
 

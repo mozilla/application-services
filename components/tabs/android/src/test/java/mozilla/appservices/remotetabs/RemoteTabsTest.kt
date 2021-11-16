@@ -1,9 +1,11 @@
 package mozilla.appservices.remotetabs
 
 import mozilla.appservices.Megazord
+import mozilla.appservices.syncmanager.SyncManager
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.junit.Assert
 import org.junit.Before
 import org.junit.Test
 
@@ -45,5 +47,15 @@ class RemoteTabsTest {
     fun getAllTest() {
         val store = getTestStore()
         store.getAll()
+    }
+
+    @Test
+    fun testRegisterWithSyncmanager() {
+        val syncManager = SyncManager()
+
+        Assert.assertFalse(syncManager.getAvailableEngines().contains("tabs"))
+
+        getTestStore().registerWithSyncManager()
+        Assert.assertTrue(syncManager.getAvailableEngines().contains("tabs"))
     }
 }
