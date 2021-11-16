@@ -178,56 +178,43 @@ pub enum PlacesError {
     #[error("Operation Interrupted: {0}")]
     OperationInterrupted(String),
 
-    /**
-     * Error indicating bookmarks corruption. If this occurs, we
-     * would appreciate reports.
-     *
-     * Eventually it should be fixed up, when detected as part of
-     * `runMaintenance`.
-     */
+    /// Error indicating bookmarks corruption. If this occurs, we
+    /// would appreciate reports.
+    ///
+    /// Eventually it should be fixed up, when detected as part of
+    /// `runMaintenance`.
     #[error("BookmarksCorruption error: {0}")]
     BookmarksCorruption(String),
 
-    /**
-     * Thrown when providing a guid referring to a non-folder as the
-     * parentGUID parameter to a create or update
-     */
+    /// Thrown when providing a guid referring to a non-folder as the
+    /// parentGUID parameter to a create or update
     #[error("Invalid Parent: {0}")]
     InvalidParent(String),
 
-    /**
-     * Thrown when providing a guid to a create or update function
-     * which does not refer to a known bookmark.
-     */
+    /// Thrown when providing a guid to a create or update function
+    /// which does not refer to a known bookmark.
     #[error("Unknown bookmark: {0}")]
     UnknownBookmarkItem(String),
 
-    /**
-     * Thrown when attempting to insert a URL greater than 65536 bytes
-     * (after punycoding and percent encoding).
-     *
-     * Attempting to truncate the URL is difficult and subtle, and
-     * is guaranteed to result in a URL different from the one the
-     * user attempted to bookmark, and so an error is thrown instead.
-     */
+    /// Thrown when attempting to insert a URL greater than 65536 bytes
+    /// (after punycoding and percent encoding).
+    ///
+    /// Attempting to truncate the URL is difficult and subtle, and
+    /// is guaranteed to result in a URL different from the one the
+    /// user attempted to bookmark, and so an error is thrown instead.
     #[error("URL too long: {0}")]
     UrlTooLong(String),
 
-    /**
-     * Thrown when attempting to update a bookmark item in an illegal
-     * way. For example, attempting to change the URL of a bookmark
-     * folder, or update the title of a separator, etc.
-     */
+    /// Thrown when attempting to update a bookmark item in an illegal
+    /// way. For example, attempting to change the URL of a bookmark
+    /// folder, or update the title of a separator, etc.
     #[error("Invalid Bookmark: {0}")]
     InvalidBookmarkUpdate(String),
 
-    /**
-     * Thrown when:
-     *
-     * - Attempting to insert a child under BookmarkRoot.Root,
-     * - Attempting to update any of the bookmark roots.
-     * - Attempting to delete any of the bookmark roots.
-     */
+    /// Thrown when:
+    /// - Attempting to insert a child under BookmarkRoot.Root,
+    /// - Attempting to update any of the bookmark roots.
+    /// - Attempting to delete any of the bookmark roots.
     #[error("CannotUpdateRoot error: {0}")]
     CannotUpdateRoot(String),
 
