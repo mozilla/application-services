@@ -57,7 +57,14 @@ fn main() -> Result<()> {
             )?,
             _ => unimplemented!(),
         },
-        ("experimenter", Some(_cmd)) => unimplemented!(),
+        ("experimenter", Some(cmd)) => workflows::generate_experimenter_manifest(
+            config,
+            GenerateExperimenterManifestCmd {
+                manifest: file_path("INPUT", cmd, &cwd)?,
+                output: file_path("output", cmd, &cwd)?,
+                load_from_ir: cmd.is_present("ir"),
+            },
+        )?,
         (word, _) => unimplemented!("Command {} not implemented", word),
     };
 
@@ -86,6 +93,12 @@ pub struct GenerateStructCmd {
     manifest: PathBuf,
     output: PathBuf,
     language: TargetLanguage,
+    load_from_ir: bool,
+}
+
+pub struct GenerateExperimenterManifestCmd {
+    manifest: PathBuf,
+    output: PathBuf,
     load_from_ir: bool,
 }
 

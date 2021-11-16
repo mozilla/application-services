@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{backends, TargetLanguage};
+use crate::{backends, GenerateExperimenterManifestCmd, TargetLanguage};
 
 use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
@@ -13,14 +13,7 @@ use std::path::Path;
 use crate::GenerateStructCmd;
 
 pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<()> {
-    let ir = if !cmd.load_from_ir {
-        let parser: Parser = Parser::new(&cmd.manifest)?;
-        parser.get_intermediate_representation()?
-    } else {
-        let string = slurp_file(&cmd.manifest)?;
-        serde_json::from_str::<FeatureManifest>(&string)?
-    };
-
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir)?;
     let language = cmd.language;
     match language {
         TargetLanguage::IR => {
@@ -33,8 +26,27 @@ pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<
     Ok(())
 }
 
+pub(crate) fn generate_experimenter_manifest(
+    config: Config,
+    cmd: GenerateExperimenterManifestCmd,
+) -> Result<()> {
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir)?;
+    backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
+    Ok(())
+}
+
 fn slurp_file(path: &Path) -> Result<String> {
     Ok(std::fs::read_to_string(path)?)
+}
+
+fn load_feature_manifest(path: &Path, load_from_ir: bool) -> Result<FeatureManifest> {
+    Ok(if !load_from_ir {
+        let parser: Parser = Parser::new(&path)?;
+        parser.get_intermediate_representation()?
+    } else {
+        let string = slurp_file(&path)?;
+        serde_json::from_str::<FeatureManifest>(&string)?
+    })
 }
 
 #[cfg(test)]

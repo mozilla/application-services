@@ -49,3 +49,17 @@ subcommands:
                 global: true
     - experimenter:
         about: Generate code for Experimenter
+        args:
+            - INPUT:
+                help: Sets the input file to use
+                required: true
+                index: 1
+            - ir:
+                help: The input file is intermediate representation. Useful for debugging FML.
+                long: ir
+            - output:
+                help: The output file
+                short: o
+                long: output
+                value_name: FILE
+                required: true
