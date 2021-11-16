@@ -5,6 +5,7 @@ package mozilla.appservices.logins
 
 import androidx.test.core.app.ApplicationProvider
 import mozilla.appservices.Megazord
+import mozilla.appservices.syncmanager.SyncManager
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -233,5 +234,16 @@ class DatabaseLoginsStorageTest {
         assertEquals(53, LoginsStoreMetrics.migrationTotalDuration.testGetValue())
         // Note the truncation of the first error string.
         assertEquals(listOf("Invalid login: Login has illegal field: Origin is ", "Invalid login: Origin is empty"), LoginsStoreMetrics.migrationErrors.testGetValue())
+    }
+
+    @Test
+    fun testRegisterWithSyncmanager() {
+        val store = createTestStore()
+        val syncManager = SyncManager()
+
+        assertFalse(syncManager.getAvailableEngines().contains("logins"))
+
+        store.registerWithSyncManager()
+        assertTrue(syncManager.getAvailableEngines().contains("logins"))
     }
 }
