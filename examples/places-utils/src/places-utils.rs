@@ -377,7 +377,7 @@ fn main() -> Result<()> {
     }
 
     let db_path = opts.database_path;
-    let api = PlacesApi::new(&db_path)?;
+    let api = PlacesApi::new_old(&db_path)?;
     let db = api.open_connection(ConnectionType::ReadWrite)?;
 
     match opts.cmd {

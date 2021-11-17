@@ -153,7 +153,6 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         }
     }
 
-
     /**
      * Return the raw handle used to reference this PlacesApi.
      *

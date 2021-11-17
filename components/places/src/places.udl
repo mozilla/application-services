@@ -6,6 +6,8 @@
 typedef string Url;
 
 namespace places {
+    // [Throws=PlacesError]
+    // PlacesApi places_api_new(string db_name);
 };
 
 enum ConnectionType {
@@ -16,7 +18,7 @@ enum ConnectionType {
 
 interface PlacesApi {
     [Throws=PlacesError]
-    constructor(string db_name);
+    constructor();
 
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);

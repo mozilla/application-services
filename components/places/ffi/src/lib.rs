@@ -36,7 +36,7 @@ pub extern "C" fn places_api_new(db_path: FfiStr<'_>, error: &mut ExternError) -
     log::debug!("places_api_new");
     APIS.insert_with_result(error, || {
         let path = db_path.as_str();
-        PlacesApi::new(path)
+        PlacesApi::new_old(path)
     })
 }
 

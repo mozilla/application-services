@@ -128,7 +128,7 @@ fn test_import_unsupported_db_version() -> Result<()> {
     let fennec_path = tmpdir.path().join("browser.db");
     let fennec_db = empty_fennec_db(&fennec_path)?;
     fennec_db.execute("PRAGMA user_version=22", NO_PARAMS)?;
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     match places::import::import_fennec_bookmarks(&places_api, fennec_path)
         .unwrap_err()
         .kind()
@@ -342,7 +342,7 @@ fn test_import() -> Result<()> {
         ))?
         .execute(NO_PARAMS)?;
 
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
 
     let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
     let expected_metrics = BookmarksMigrationResult {
@@ -401,7 +401,7 @@ fn test_timestamp_sanitization() -> Result<()> {
         insert_bookmarks(&fennec_db, &get_fennec_roots())?;
         insert_bookmarks(&fennec_db, &bookmarks)?;
 
-        let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+        let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
         places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
         let reader = places_api.open_connection(ConnectionType::ReadOnly)?;
@@ -487,7 +487,7 @@ fn test_timestamp_sanitization_tags() -> Result<()> {
         insert_bookmarks(&fennec_db, &get_fennec_roots())?;
         insert_bookmarks(&fennec_db, &bookmarks)?;
 
-        let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+        let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
         places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
         let reader = places_api.open_connection(ConnectionType::ReadOnly)?;
@@ -574,7 +574,7 @@ fn test_positions() -> Result<()> {
     insert_bookmarks(&fennec_db, &get_fennec_roots())?;
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
     let unfiled = fetch_bookmark(
@@ -625,7 +625,7 @@ fn test_null_parent() -> Result<()> {
         ))?
         .execute(NO_PARAMS)?;
 
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
     // should have ended up in unfiled.
@@ -686,7 +686,7 @@ fn test_invalid_utf8() -> Result<()> {
         ))?
         .execute(NO_PARAMS)?;
 
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
     let conn = places_api.open_connection(ConnectionType::ReadOnly)?;
 
@@ -713,7 +713,7 @@ fn test_empty_db() -> Result<()> {
     let fennec_path = tmpdir.path().join("browser.db");
     empty_fennec_db(&fennec_path)?;
 
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
 
     // There were 0 Fennec bookmarks imported...
@@ -798,7 +798,7 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     insert_bookmarks(&fennec_db, &get_fennec_roots())?;
     insert_bookmarks(&fennec_db, &bookmarks)?;
 
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     let metrics = places::import::import_fennec_bookmarks(&places_api, fennec_path)?;
     assert_eq!(metrics.num_failed, 0);
 

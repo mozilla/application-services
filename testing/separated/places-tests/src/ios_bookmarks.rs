@@ -333,7 +333,7 @@ fn test_import_empty() -> Result<()> {
     let ios_db = empty_ios_db(&ios_path)?;
 
     nodes.populate(&ios_db)?;
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     places::import::import_ios_bookmarks(&places_api, ios_path)?;
 
     Ok(())
@@ -373,7 +373,7 @@ fn test_import_basic() -> Result<()> {
     });
 
     nodes.populate(&ios_db)?;
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     places::import::import_ios_bookmarks(&places_api, ios_path)?;
 
     let places_db = places_api.open_connection(ConnectionType::ReadOnly)?;
@@ -431,7 +431,7 @@ fn test_import_with_local() -> Result<()> {
     });
 
     nodes.populate(&ios_db)?;
-    let places_api = PlacesApi::new(tmpdir.path().join("places.sqlite"))?;
+    let places_api = PlacesApi::new_old(tmpdir.path().join("places.sqlite"))?;
     places::import::import_ios_bookmarks(&places_api, ios_path)?;
 
     let places_db = places_api.open_connection(ConnectionType::ReadOnly)?;

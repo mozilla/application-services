@@ -86,12 +86,20 @@ pub struct PlacesApi {
     sync_interrupt_counter: Arc<AtomicUsize>,
     id: usize,
 }
+
+pub fn places_api_new(db_name: impl AsRef<Path>) -> Result<Arc<PlacesApi>> {
+    PlacesApi::new_old(db_name)
+}
+
 impl PlacesApi {
+    pub fn new() -> Result<Self> {
+        unreachable!();
+    }
+
     /// Create a new, or fetch an already open, PlacesApi backed by a file on disk.
-    pub fn new(db_name: impl AsRef<Path>) -> Result<Self> {
+    pub fn new_old(db_name: impl AsRef<Path>) -> Result<Arc<Self>> {
         let db_name = normalize_path(db_name)?;
-        let api = Self::new_or_existing(db_name)?;
-        Ok(*api)
+        Self::new_or_existing(db_name)
     }
 
     /// Create a new, or fetch an already open, memory-based PlacesApi. You must
@@ -574,13 +582,13 @@ mod tests {
         let dirname = tempfile::tempdir().unwrap();
         let db_name = dirname.path().join("temp.db");
         let id = {
-            let api = PlacesApi::new(&db_name)?;
+            let api = PlacesApi::new_old(&db_name)?;
             let conn = api.open_connection(ConnectionType::ReadWrite)?;
             conn.execute_batch("PRAGMA user_version = 1;")?;
             api.close_connection(conn)?;
             api.id
         };
-        let api2 = PlacesApi::new(&db_name)?;
+        let api2 = PlacesApi::new_old(&db_name)?;
         assert_ne!(id, api2.id);
         let conn = api2.open_connection(ConnectionType::ReadWrite)?;
         assert_ne!(1, conn.db.query_one::<i64>("PRAGMA user_version")?);
