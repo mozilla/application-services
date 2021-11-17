@@ -56,10 +56,19 @@ mod test {
     use std::path::PathBuf;
 
     use anyhow::anyhow;
+    use jsonschema::JSONSchema;
+    use tempdir::TempDir;
 
     use super::*;
     use crate::backends::kotlin;
     use crate::util::{generated_src_dir, join, pkg_dir};
+
+    const MANIFEST_PATHS: &[&str] = &[
+        "fixtures/ir/simple_nimbus_validation.json",
+        "fixtures/ir/simple_nimbus_validation.json",
+        "fixtures/ir/with_objects.json",
+        "fixtures/ir/full_homescreen.json",
+    ];
 
     // Given a manifest.fml and script.kts in the tests directory generate
     // a manifest.kt and run the script against it.
@@ -146,6 +155,46 @@ mod test {
     #[test]
     fn test_with_app_menu() -> Result<()> {
         generate_and_assert("test/app_menu.kts", "fixtures/ir/app_menu.json", true)?;
+        Ok(())
+    }
+
+    fn validate_against_experimenter_schema<P: AsRef<Path>>(
+        schema_path: P,
+        generated_json: &serde_json::Value,
+    ) -> Result<()> {
+        let schema = fs::read_to_string(&schema_path)?;
+        let schema: serde_json::Value = serde_json::from_str(&schema)?;
+        let compiled = JSONSchema::compile(&schema).expect("The schema is invalid");
+        let res = compiled.validate(generated_json);
+        if let Err(e) = res {
+            let mut errs: String = "Validation errors: \n".into();
+            for err in e {
+                errs.push_str(&format!("{}\n", err));
+            }
+            panic!("{}", errs);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_schema_validation() -> Result<()> {
+        for path in MANIFEST_PATHS {
+            let out_tmpdir = TempDir::new("schema_validation").unwrap();
+            let manifest_fml = join(pkg_dir(), path);
+            let curr_out = out_tmpdir.as_ref().join(path.split('/').last().unwrap());
+            let cmd = GenerateExperimenterManifestCmd {
+                manifest: manifest_fml.into(),
+                output: curr_out.clone(),
+                load_from_ir: true,
+            };
+            generate_experimenter_manifest(None, cmd)?;
+            let generated = fs::read_to_string(curr_out)?;
+            let generated_json = serde_json::from_str(&generated)?;
+            validate_against_experimenter_schema(
+                join(pkg_dir(), "ExperimentFeatureManifest.schema.json"),
+                &generated_json,
+            )?;
+        }
         Ok(())
     }
 }

@@ -15,14 +15,8 @@ use crate::{
 use crate::error::Result;
 
 #[derive(Debug, Default, Clone, Serialize)]
-struct ExperimenterFeatureManifest {
-    #[serde(rename = "Feature")]
-    feature: Feature,
-}
-
-#[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct Feature {
+struct ExperimenterFeatureManifest {
     description: String,
     has_exposure: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -44,15 +38,13 @@ impl From<FeatureManifest> for ExperimenterFeatureManifest {
         // for the sake of a draft, I just generate the first one
         let feature = fm.feature_defs[0].clone();
         Self {
-            feature: Feature {
-                description: feature.doc(),
-                has_exposure: true,
-                is_early_startup: None,
-                // NOTE: Where does this description come from
-                // and should it be in our IR for the FML
-                exposure_description: Some("".into()),
-                variables: feature.props().into(),
-            },
+            description: feature.doc(),
+            has_exposure: true,
+            is_early_startup: None,
+            // NOTE: Where does this description come from
+            // and should it be in our IR for the FML
+            exposure_description: Some("".into()),
+            variables: feature.props().into(),
         }
     }
 }
