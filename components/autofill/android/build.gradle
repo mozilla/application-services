@@ -8,6 +8,7 @@ dependencies {
 
     testImplementation 'androidx.test:core-ktx:1.2.0'
     testImplementation 'androidx.work:work-testing:2.2.0'
+    testImplementation project(":syncmanager")
 }
 
 ext.configureUniFFIBindgen("../src/autofill.udl")

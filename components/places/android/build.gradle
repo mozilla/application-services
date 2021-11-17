@@ -18,6 +18,7 @@ dependencies {
     testImplementation "androidx.test:core-ktx:$androidx_test_core_version"
     testImplementation "androidx.work:work-testing:$androidx_work_testing_version"
     testImplementation "org.mozilla.telemetry:glean-native-forUnitTests:$project.ext.glean_version"
+    testImplementation project(':syncmanager')
 }
 
 ext.configureUniFFIBindgen("../src/places.udl")

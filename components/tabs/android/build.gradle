@@ -4,6 +4,8 @@ apply from: "$rootDir/publish.gradle"
 dependencies {
     // Part of the public API.
     api project(':sync15')
+
+    testImplementation project(':syncmanager')
 }
 
 ext.configureUniFFIBindgen("../src/tabs.udl")

@@ -7,10 +7,13 @@ import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.runBlocking
 import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.DocumentType
+import mozilla.appservices.syncmanager.SyncManager
 import mozilla.components.service.glean.testing.GleanTestRule
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
@@ -590,5 +593,17 @@ class PlacesConnectionTest {
         } catch (e: PlacesException) {
             assert(e is UrlParseFailed)
         }
+    }
+
+    @Test
+    fun testRegisterWithSyncmanager() {
+        val syncManager = SyncManager()
+
+        assertFalse(syncManager.getAvailableEngines().contains("history"))
+        assertFalse(syncManager.getAvailableEngines().contains("bookmarks"))
+
+        api.registerWithSyncManager()
+        assertTrue(syncManager.getAvailableEngines().contains("history"))
+        assertTrue(syncManager.getAvailableEngines().contains("bookmarks"))
     }
 }

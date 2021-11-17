@@ -6,50 +6,43 @@
 #![warn(rust_2018_idioms)]
 
 pub mod error;
-mod ffi;
 pub mod manager;
+mod types;
 
-pub use error::{Error, ErrorKind, Result};
-
-pub mod msg_types {
-    include!("mozilla.appservices.syncmanager.protobuf.rs");
-}
+pub use error::{Result, SyncManagerError};
+use sync15::clients::DeviceType;
+pub use types::*;
 
 use manager::SyncManager;
-use places::PlacesApi;
-use std::sync::Arc;
 use std::sync::Mutex;
 
 lazy_static::lazy_static! {
     static ref MANAGER: Mutex<SyncManager> = Mutex::new(SyncManager::new());
 }
 
-pub fn set_places(places: Arc<PlacesApi>) {
-    let mut manager = MANAGER.lock().unwrap();
-    manager.set_places(places);
-}
-
 pub fn disconnect() {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.disconnect();
 }
 
 pub fn wipe(engine: &str) -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.wipe(engine)
 }
 
 pub fn reset(engine: &str) -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.reset(engine)
 }
 
 pub fn reset_all() -> Result<()> {
-    let mut manager = MANAGER.lock().unwrap();
+    let manager = MANAGER.lock().unwrap();
     manager.reset_all()
 }
 
-pub fn sync(params: msg_types::SyncParams) -> Result<msg_types::SyncResult> {
-    let mut manager = MANAGER.lock().unwrap();
+pub fn sync(params: SyncParams) -> Result<SyncResult> {
+    let manager = MANAGER.lock().unwrap();
     manager.sync(params)
 }
+
+uniffi_macros::include_scaffolding!("syncmanager");

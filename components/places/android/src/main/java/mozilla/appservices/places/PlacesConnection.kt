@@ -58,13 +58,10 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         private const val READ_WRITE: Int = 2
     }
 
-    /**
-     * Return the raw handle used to reference this PlacesApi.
-     *
-     * Generally should only be used to pass the handle into `SyncManager.setPlaces`
-     */
-    fun getHandle(): Long {
-        return this.handle.get()
+    override fun registerWithSyncManager() {
+        rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_api_register_with_sync_manager(handle.get(), error)
+        }
     }
 
     override fun openReader(): PlacesReaderConnection {
@@ -822,6 +819,13 @@ class SyncAuthInfo(
  * functionality.
  */
 interface PlacesManager {
+    /**
+     * Registers with the sync manager.
+     *
+     * Call this to enable bookmarks/history syncing functionality
+     */
+    fun registerWithSyncManager()
+
     /**
      * Open a reader connection.
      */

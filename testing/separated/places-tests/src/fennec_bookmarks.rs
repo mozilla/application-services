@@ -733,7 +733,7 @@ enum TimestampTestType {
 
 fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     use places::api::places_api::ConnectionType;
-    use places::bookmark_sync::engine::BookmarksEngine;
+    use places::bookmark_sync::engine::BookmarksSyncEngine;
     use places::storage::bookmarks::bookmarks_get_url_for_keyword;
     use places::storage::tags;
     use serde_json::json;
@@ -803,7 +803,6 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
     assert_eq!(metrics.num_failed, 0);
 
     let writer = places_api.open_connection(ConnectionType::ReadWrite)?;
-    let syncer = places_api.open_sync_connection()?;
 
     // Should be no bookmark with keyword 'a' yet.
     assert_eq!(bookmarks_get_url_for_keyword(&writer, "a")?, None);
@@ -844,8 +843,7 @@ fn do_test_sync_after_migrate(test_type: TimestampTestType) -> Result<()> {
         }),
     ];
 
-    let interrupt_scope = syncer.begin_interrupt_scope();
-    let engine = BookmarksEngine::new(&syncer, &interrupt_scope);
+    let engine = BookmarksSyncEngine::new(places_api.get_sync_connection().unwrap());
 
     let mut incoming =
         IncomingChangeset::new(engine.collection_name().to_string(), server_timestamp);

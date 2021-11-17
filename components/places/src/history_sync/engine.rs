@@ -2,14 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
-use rusqlite::Connection;
 use sql_support::SqlInterruptScope;
-use std::ops::Deref;
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 use sync15::telemetry;
 use sync15::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
@@ -64,29 +62,24 @@ fn do_sync_finished(
     Ok(())
 }
 
-// A HistoryEngine is short-lived and constructed each sync by something which
-// owns the connection and ClientInfo.
-pub struct HistoryEngine<'a> {
-    pub db: &'a PlacesDb,
-    scope: &'a SqlInterruptScope,
+// Short-lived struct that's constructed each sync
+pub struct HistorySyncEngine {
+    pub db: Arc<Mutex<PlacesDb>>,
+    // Public because we use it in the [PlacesApi] sync methods.  We can probably make this private
+    // once all syncing goes through the sync manager.
+    pub(crate) scope: SqlInterruptScope,
 }
 
-impl<'a> HistoryEngine<'a> {
-    pub fn new(db: &'a PlacesDb, scope: &'a SqlInterruptScope) -> Self {
-        assert_eq!(db.conn_type(), ConnectionType::Sync);
-        Self { db, scope }
+impl HistorySyncEngine {
+    pub fn new(db: Arc<Mutex<PlacesDb>>) -> Self {
+        Self {
+            db,
+            scope: SqlInterruptScope::new(Arc::new(AtomicUsize::new(0))),
+        }
     }
 }
 
-impl<'a> Deref for HistoryEngine<'a> {
-    type Target = Connection;
-    #[inline]
-    fn deref(&self) -> &Connection {
-        self.db
-    }
-}
-
-impl<'a> SyncEngine for HistoryEngine<'a> {
+impl SyncEngine for HistorySyncEngine {
     fn collection_name(&self) -> std::borrow::Cow<'static, str> {
         "history".into()
     }
@@ -98,7 +91,8 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "history only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
-        Ok(do_apply_incoming(self.db, self.scope, inbound, telem)?)
+        let conn = self.db.lock().unwrap();
+        Ok(do_apply_incoming(&conn, &self.scope, inbound, telem)?)
     }
 
     fn sync_finished(
@@ -106,7 +100,7 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
-        do_sync_finished(self.db, new_timestamp, records_synced)?;
+        do_sync_finished(&self.db.lock().unwrap(), new_timestamp, records_synced)?;
         Ok(())
     }
 
@@ -114,8 +108,9 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
+        let conn = self.db.lock().unwrap();
         let since =
-            ServerTimestamp(get_meta::<i64>(self.db, LAST_SYNC_META_KEY)?.unwrap_or_default());
+            ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
             vec![]
         } else {
@@ -127,8 +122,9 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let global = get_meta(self.db, GLOBAL_SYNCID_META_KEY)?;
-        let coll = get_meta(self.db, COLLECTION_SYNCID_META_KEY)?;
+        let conn = self.db.lock().unwrap();
+        let global = get_meta(&conn, GLOBAL_SYNCID_META_KEY)?;
+        let coll = get_meta(&conn, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
             EngineSyncAssociation::Connected(CollSyncIds { global, coll })
         } else {
@@ -137,12 +133,12 @@ impl<'a> SyncEngine for HistoryEngine<'a> {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(self.db, assoc)?;
+        reset(&self.db.lock().unwrap(), assoc)?;
         Ok(())
     }
 
     fn wipe(&self) -> anyhow::Result<()> {
-        delete_everything(self.db)?;
+        delete_everything(&self.db.lock().unwrap())?;
         Ok(())
     }
 }
