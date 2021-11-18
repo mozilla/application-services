@@ -7,12 +7,16 @@ package mozilla.appservices.places
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.StringArray
+import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
+import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
+import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
+import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -26,6 +30,8 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
+typealias Url = String
+
 /**
  * An implementation of a [PlacesManager] backed by a Rust Places library.
  *
@@ -35,12 +41,11 @@ import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManage
  * @param path an absolute path to a file that will be used for the internal database.
  */
 class PlacesApi(path: String) : PlacesManager, AutoCloseable {
+    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesApi - one
+    // via a handle in the old-school HandleMap, and the other via uniffi.
     private var handle: AtomicLong = AtomicLong(0)
+    private var api: UniffiPlacesApi
     private var writeConn: PlacesWriterConnection
-
-    // for history metadata
-    private var writeConn2: PlacesConnection
-    private var readConn: PlacesConnection
 
     init {
         handle.set(
@@ -48,109 +53,24 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
                 LibPlacesFFI.INSTANCE.places_api_new(path, error)
             }
         )
-        writeConn = PlacesWriterConnection(
-            rustCall(this) { error ->
-                LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
-            },
-            this
-        )
+        // as per https://github.com/mozilla/uniffi-rs/pull/1063, there was some
+        // very odd pushback on allowing this to actually be a constructor, even
+        // though that's exactly how it it's always been used for Places.
+        // So it's a global function instead :(
+        api = placesApiNew(path)
 
-        this.writeConn = this.api.newConnection(ConnectionType::ReadWrite)
-        this.readConn = this.api.newConnection(ConnectionType::ReadOnly)
+        // Our connections also live a double-life.
+        val connHandle = rustCall(this) { error ->
+            LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_WRITE, error)
+        }
+        val uniffiConnection = api.newConnection(ConnectionType.READ_WRITE)
+        writeConn = PlacesWriterConnection(connHandle, uniffiConnection, this)
     }
 
     companion object {
         // These numbers come from `places::db::ConnectionType`
         private const val READ_ONLY: Int = 1
         private const val READ_WRITE: Int = 2
-    }
-
-    @Throws(PlacesException::class) // ???
-    fun getLatestHistoryMetadataForUrl(url: Url): HistoryMetadata? {
-        return this.readConn.placesGetLatestHistoryMetadataForUrl(url)
-    }
-
-    @Throws(PlacesException::class)
-    fun getHistoryMetadataSince(since: Long): List<HistoryMetadata> {
-        return readQueryCounters.measure {
-            this.readConn.placesGetHistoryMetadataSince(since)
-        }
-    }
-
-    @Throws(PlacesException::class)
-    fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata> {
-        return readQueryCounters.measure {
-            this.readConn.placesGetHistoryMetadataBetween(start, end)
-        }
-    }
-
-    @Throws(PlacesException::class)
-    fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata> {
-        return readQueryCounters.measure {
-            this.readConn.placesQueryHistoryMetadata(query, limit)
-        }
-    }
-
-    @Throws(PlacesException::class)
-    fun getHighlights(
-        weights: HistoryHighlightWeights,
-        limit: Int
-    ): List<HistoryHighlight> {
-        return readQueryCounters.measure {
-            this.readConn.placesGetHistoryHighlights(weights, limit)
-        }
-    }
-
-    @Throws(PlacesException::class)
-    fun noteHistoryMetadataObservation(observation: HistoryMetadataObservation) {
-        // Different types of `HistoryMetadataObservation` are flattened out into a list of values.
-        // The other side of this (rust code) is going to deal with missing/absent values. We're just
-        // passing them along here.
-        // NB: Even though `MsgTypes.HistoryMetadataObservation` has an optional title field, we ignore it here.
-        // That's used by consumers which aren't already using the history observation APIs.
-        return writeQueryCounters.measure {
-            this.writeConn2.placesNoteHistoryMetadataObservation(observation)
-        }
-    }
-
-    @Throws(PlacesException::class)
-    fun noteHistoryMetadataObservationViewTime(key: HistoryMetadataKey, viewTime: Int) {
-        val obs = HistoryMetadataObservation(
-            url = key.url,
-            searchTerm = key.searchTerm,
-            referrerUrl = key.referrerUrl,
-            viewTime = viewTime
-        )
-        noteHistoryMetadataObservation(obs)
-    }
-
-    @Throws(PlacesException::class)
-    fun noteHistoryMetadataObservationDocumentType(key: HistoryMetadataKey, documentType: DocumentType) {
-        val obs = HistoryMetadataObservation(
-            url = key.url,
-            searchTerm = key.searchTerm,
-            referrerUrl = key.referrerUrl,
-            documentType = documentType
-        )
-        noteHistoryMetadataObservation(obs)
-    }
-
-    @Throws(PlacesException::class)
-    fun deleteHistoryMetadataOlderThan(olderThan: Long) {
-        return writeQueryCounters.measure {
-            this.writeConn2.placesMetadataDeleteOlderThan(olderThan)
-        }
-    }
-
-    @Throws(PlacesException::class)
-    fun deleteHistoryMetadata(key: HistoryMetadataKey) {
-        return writeQueryCounters.measure {
-            this.writeConn2.placesMetadataDelete(
-                key.url,
-                key.referrerUrl,
-                key.searchTerm
-            )
-        }
     }
 
     /**
@@ -163,10 +83,13 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun openReader(): PlacesReaderConnection {
+        // This is starting to get messy - we actually end up with 2 different raw uniffi
+        // connections inside a single PlacesReaderConnection. WCPGW?
         val connHandle = rustCall(this) { error ->
             LibPlacesFFI.INSTANCE.places_connection_new(handle.get(), READ_ONLY, error)
         }
-        return PlacesReaderConnection(connHandle)
+        val conn = api.newConnection(ConnectionType.READ_ONLY)
+        return PlacesReaderConnection(connHandle, conn)
     }
 
     override fun getWriter(): PlacesWriterConnection {
@@ -277,34 +200,6 @@ internal inline fun <U> rustCall(syncOn: Any, callback: (RustError.ByReference) 
     }
 }
 
-// Call a uniffi-generated function.
-@Suppress("TooGenericExceptionThrown")
-internal inline fun <U> rustCallUniffi(syncOn: Any, callback: () -> U): U {
-    synchronized(syncOn) {
-        try {
-            return callback()
-        } catch (e: PlacesException) {
-
-            throw e
-            // // uniffi-generated functions currently return just a single error
-            // // type, which inside its message is the underlying error code
-            // // and message, which we can use to construct the actual error
-            // // from the hand-written FFI.
-            // if (e.message != null) {
-            //     try {
-            //         val (code, message) = e.message.split('|', limit = 2)
-            //         throw RustError.makeException(code.toInt(), message)
-            //     } catch (_: NumberFormatException) {
-            //         // how to log? Not clear it matters TBH - all the details
-            //         // should be visible in the generic exception we throw below,
-            //         // and it should be impossible anyway!
-            //     }
-            // }
-            // throw RuntimeException("Unexpected error: $e")
-        }
-    }
-}
-
 @Suppress("TooGenericExceptionThrown")
 internal inline fun rustCallForString(syncOn: Any, callback: (RustError.ByReference) -> Pointer?): String {
     val cstring = rustCall(syncOn, callback)
@@ -329,12 +224,17 @@ internal inline fun rustCallForOptString(syncOn: Any, callback: (RustError.ByRef
 }
 
 @Suppress("TooGenericExceptionCaught")
-open class PlacesConnection internal constructor(connHandle: Long) : InterruptibleConnection, AutoCloseable {
+open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: UniffiPlacesConnection) : InterruptibleConnection, AutoCloseable {
+    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesConnection- one
+    // via a handle in the old-school HandleMap, and the other via uniffi.
+    // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
     protected var handle: AtomicLong = AtomicLong(0)
+    protected var conn: UniffiPlacesConnection
     protected var interruptHandle: InterruptHandle
 
     init {
         handle.set(connHandle)
+        conn = uniffiConn
         try {
             interruptHandle = InterruptHandle(
                 rustCall { err ->
@@ -357,6 +257,7 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
                 LibPlacesFFI.INSTANCE.places_connection_destroy(handle, error)
             }
         }
+        conn.destroy()
         interruptHandle.close()
     }
 
@@ -388,8 +289,8 @@ open class PlacesConnection internal constructor(connHandle: Long) : Interruptib
  *
  * This class is thread safe.
  */
-open class PlacesReaderConnection internal constructor(connHandle: Long) :
-    PlacesConnection(connHandle),
+open class PlacesReaderConnection internal constructor(connHandle: Long, conn: UniffiPlacesConnection) :
+    PlacesConnection(connHandle, conn),
     ReadableHistoryConnection,
     ReadableHistoryMetadataConnection,
     ReadableBookmarksConnection {
@@ -526,6 +427,39 @@ open class PlacesReaderConnection internal constructor(connHandle: Long) :
         }
     }
 
+    override suspend fun getLatestHistoryMetadataForUrl(url: Url): HistoryMetadata? {
+        return readQueryCounters.measure {
+            this.conn.getLatestHistoryMetadataForUrl(url)
+        }
+    }
+
+    override suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata> {
+        return readQueryCounters.measure {
+            this.conn.getHistoryMetadataSince(since)
+        }
+    }
+
+    override suspend fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata> {
+        return readQueryCounters.measure {
+            this.conn.getHistoryMetadataBetween(start, end)
+        }
+    }
+
+    override suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata> {
+        return readQueryCounters.measure {
+            this.conn.queryHistoryMetadata(query, limit)
+        }
+    }
+
+    override suspend fun getHighlights(
+        weights: HistoryHighlightWeights,
+        limit: Int
+    ): List<HistoryHighlight> {
+        return readQueryCounters.measure {
+            this.conn.getHistoryHighlights(weights, limit)
+        }
+    }
+
     override fun getBookmark(guid: String): BookmarkTreeNode? {
         readQueryCounters.measure {
             val rustBuf = rustCall { err ->
@@ -631,8 +565,8 @@ fun visitTransitionSet(l: List<VisitType>): Int {
  *
  * This class is thread safe.
  */
-class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesApi) :
-    PlacesReaderConnection(connHandle),
+class PlacesWriterConnection internal constructor(connHandle: Long, conn: UniffiPlacesConnection, api: PlacesApi) :
+    PlacesReaderConnection(connHandle, conn),
     WritableHistoryConnection,
     WritableHistoryMetadataConnection,
     WritableBookmarksConnection {
@@ -721,6 +655,53 @@ class PlacesWriterConnection internal constructor(connHandle: Long, api: PlacesA
                 val existedByte = LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
                 existedByte.toInt() != 0
             }
+        }
+    }
+
+    override suspend fun noteHistoryMetadataObservation(observation: HistoryMetadataObservation) {
+        // Different types of `HistoryMetadataObservation` are flattened out into a list of values.
+        // The other side of this (rust code) is going to deal with missing/absent values. We're just
+        // passing them along here.
+        // NB: Even though `MsgTypes.HistoryMetadataObservation` has an optional title field, we ignore it here.
+        // That's used by consumers which aren't already using the history observation APIs.
+        return writeQueryCounters.measure {
+            this.conn.noteHistoryMetadataObservation(observation)
+        }
+    }
+
+    override suspend fun noteHistoryMetadataObservationViewTime(key: HistoryMetadataKey, viewTime: Int) {
+        val obs = HistoryMetadataObservation(
+            url = key.url,
+            searchTerm = key.searchTerm,
+            referrerUrl = key.referrerUrl,
+            viewTime = viewTime
+        )
+        noteHistoryMetadataObservation(obs)
+    }
+
+    override suspend fun noteHistoryMetadataObservationDocumentType(key: HistoryMetadataKey, documentType: DocumentType) {
+        val obs = HistoryMetadataObservation(
+            url = key.url,
+            searchTerm = key.searchTerm,
+            referrerUrl = key.referrerUrl,
+            documentType = documentType
+        )
+        noteHistoryMetadataObservation(obs)
+    }
+
+    override suspend fun deleteHistoryMetadataOlderThan(olderThan: Long) {
+        return writeQueryCounters.measure {
+            this.conn.metadataDeleteOlderThan(olderThan)
+        }
+    }
+
+    override suspend fun deleteHistoryMetadata(key: HistoryMetadataKey) {
+        return writeQueryCounters.measure {
+            this.conn.metadataDelete(
+                key.url,
+                key.referrerUrl,
+                key.searchTerm
+            )
         }
     }
 
@@ -921,6 +902,85 @@ interface InterruptibleConnection : AutoCloseable {
      * Interrupt ongoing operations running on a separate thread.
      */
     fun interrupt()
+}
+
+/**
+ * This interface exposes the 'read' part of the [HistoryMetadata] storage API.
+ */
+interface ReadableHistoryMetadataConnection : InterruptibleConnection {
+    /**
+     * Returns the most recent [HistoryMetadata] for the provided [url].
+     *
+     * @param url Url to search by.
+     * @return [HistoryMetadata] if there's a matching record, `null` otherwise.
+     */
+    suspend fun getLatestHistoryMetadataForUrl(url: String): HistoryMetadata?
+
+    /**
+     * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is greater or equal to [since].
+     *
+     * @param since Timestmap to search by.
+     * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
+     */
+    suspend fun getHistoryMetadataSince(since: Long): List<HistoryMetadata>
+
+    /**
+     * Returns all [HistoryMetadata] where [HistoryMetadata.updatedAt] is between [start] and [end], inclusive.
+     *
+     * @param start A `start` timestamp.
+     * @param end An `end` timestamp.
+     * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
+     */
+    suspend fun getHistoryMetadataBetween(start: Long, end: Long): List<HistoryMetadata>
+
+    /**
+     * Searches through [HistoryMetadata] by [query], matching records by [HistoryMetadata.url],
+     * [HistoryMetadata.title] and [HistoryMetadata.searchTerm].
+     *
+     * @param query A search query.
+     * @param limit A maximum number of records to return.
+     * @return A `List` of matching [HistoryMetadata], empty if nothing is found.
+     */
+    suspend fun queryHistoryMetadata(query: String, limit: Int): List<HistoryMetadata>
+
+    /**
+     * Returns an ordered list of [HistoryHighlight], ranked by their "highlight score".
+     * A highlight score takes into account factors listed in [HistoryHighlightWeights].
+     *
+     * @param weights A set of weights that specify importance of various factors to the highlight score.
+     * @param limit A maximum number of records to return.
+     * @return A `List` of ranked [HistoryHighlight], empty if no history/metadata is found.
+     */
+    suspend fun getHighlights(weights: HistoryHighlightWeights, limit: Int): List<HistoryHighlight>
+}
+
+/**
+ * This interface exposes the 'write' part of the [HistoryMetadata] storage API.
+ */
+interface WritableHistoryMetadataConnection : ReadableHistoryMetadataConnection {
+    /**
+     * Record or update metadata information about a URL. See [HistoryMetadataObservation].
+     */
+    suspend fun noteHistoryMetadataObservation(observation: HistoryMetadataObservation)
+    // There's a bit of an impedance mismatch here; `HistoryMetadataKey` is
+    // a concept that only exists here and not in the rust. We can iterate on
+    // this as the entire "history metadata" requirement evolves.
+    suspend fun noteHistoryMetadataObservationViewTime(key: HistoryMetadataKey, viewTime: Int)
+    suspend fun noteHistoryMetadataObservationDocumentType(key: HistoryMetadataKey, documentType: DocumentType)
+
+    /**
+     * Deletes [HistoryMetadata] with [HistoryMetadata.updatedAt] older than [olderThan].
+     *
+     * @param olderThan A timestamp to delete records by. Exclusive.
+     */
+    suspend fun deleteHistoryMetadataOlderThan(olderThan: Long)
+
+    /**
+     * Deletes metadata records that match [key].
+     *
+     * @param key A [HistoryMetadataKey] for which to delete metadata records.
+     */
+    suspend fun deleteHistoryMetadata(key: HistoryMetadataKey)
 }
 
 interface ReadableHistoryConnection : InterruptibleConnection {

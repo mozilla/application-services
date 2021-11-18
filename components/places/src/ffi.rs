@@ -19,6 +19,8 @@ use ffi_support::{
 use std::sync::{Arc, Mutex};
 use url::Url;
 
+use crate::api::places_api::places_api_new;
+
 lazy_static::lazy_static! {
     pub static ref APIS: ConcurrentHandleMap<Arc<PlacesApi>> = ConcurrentHandleMap::new();
     pub static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
@@ -56,7 +58,7 @@ impl PlacesConnection {
         unreachable!();
     }
 
-    fn places_get_latest_history_metadata_for_url(
+    fn get_latest_history_metadata_for_url(
         &self,
         url: Url,
     ) -> Result<Option<HistoryMetadata>, PlacesError> {
@@ -66,30 +68,27 @@ impl PlacesConnection {
         )?)
     }
 
-    fn places_get_history_metadata_between(
+    fn get_history_metadata_between(
         &self,
         start: i64,
         end: i64,
     ) -> Result<Vec<HistoryMetadata>, PlacesError> {
-        log::debug!("places_get_history_metadata_between");
+        log::debug!("get_history_metadata_between");
 
         let conn = self.db.lock().unwrap();
         let between = crate::storage::history_metadata::get_between(&conn, start, end)?;
         Ok(between)
     }
 
-    fn places_get_history_metadata_since(
-        &self,
-        start: i64,
-    ) -> Result<Vec<HistoryMetadata>, PlacesError> {
-        log::debug!("places_get_history_metadata_since");
+    fn get_history_metadata_since(&self, start: i64) -> Result<Vec<HistoryMetadata>, PlacesError> {
+        log::debug!("get_history_metadata_since");
 
         let conn = self.db.lock().unwrap();
         let since = crate::storage::history_metadata::get_since(&conn, start)?;
         Ok(since)
     }
 
-    fn places_query_history_metadata(
+    fn query_history_metadata(
         &self,
         query: String,
         limit: i32,
@@ -101,44 +100,44 @@ impl PlacesConnection {
         Ok(metadata)
     }
 
-    fn places_get_history_highlights(
+    fn get_history_highlights(
         &self,
         weights: HistoryHighlightWeights,
         limit: i32,
     ) -> Result<Vec<HistoryHighlight>, PlacesError> {
-        log::debug!("places_get_history_highlights");
+        log::debug!("get_history_highlights");
 
         let conn = self.db.lock().unwrap();
         let highlights = crate::storage::history_metadata::get_highlights(&conn, weights, limit)?;
         Ok(highlights)
     }
 
-    fn places_note_history_metadata_observation(
+    fn note_history_metadata_observation(
         &self,
         data: HistoryMetadataObservation,
     ) -> Result<(), PlacesError> {
-        log::debug!("places_note_history_metadata_observation");
+        log::debug!("note_history_metadata_observation");
 
         let conn = self.db.lock().unwrap();
         crate::storage::history_metadata::apply_metadata_observation(&conn, data)?;
         Ok(())
     }
 
-    fn places_metadata_delete_older_than(&self, older_than: i64) -> Result<(), PlacesError> {
-        log::debug!("places_note_history_metadata_observation");
+    fn metadata_delete_older_than(&self, older_than: i64) -> Result<(), PlacesError> {
+        log::debug!("note_history_metadata_observation");
 
         let conn = self.db.lock().unwrap();
         crate::storage::history_metadata::delete_older_than(&conn, older_than)?;
         Ok(())
     }
 
-    fn places_metadata_delete(
+    fn metadata_delete(
         &self,
         url: Url,
         referrer_url: Option<Url>,
         search_term: Option<String>,
     ) -> Result<(), PlacesError> {
-        log::debug!("places_metadata_delete_metadata");
+        log::debug!("metadata_delete_metadata");
 
         let conn = self.db.lock().unwrap();
         crate::storage::history_metadata::delete_metadata(

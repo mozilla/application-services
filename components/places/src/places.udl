@@ -6,8 +6,8 @@
 typedef string Url;
 
 namespace places {
-    // [Throws=PlacesError]
-    // PlacesApi places_api_new(string db_name);
+    [Throws=PlacesError]
+    PlacesApi places_api_new(string db_path);
 };
 
 enum ConnectionType {
@@ -26,31 +26,28 @@ interface PlacesApi {
 
 interface PlacesConnection {
     [Throws=PlacesError]
-    constructor();
+    HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 
     [Throws=PlacesError]
-    HistoryMetadata? places_get_latest_history_metadata_for_url(Url url);
+    sequence<HistoryMetadata> get_history_metadata_between(i64 start, i64 end);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> places_get_history_metadata_between(i64 start, i64 end);
+    sequence<HistoryMetadata> get_history_metadata_since(i64 start);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> places_get_history_metadata_since(i64 start);
+    sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> places_query_history_metadata(string query, i32 limit);
+    sequence<HistoryHighlight> get_history_highlights(HistoryHighlightWeights weights, i32 limit);
 
     [Throws=PlacesError]
-    sequence<HistoryHighlight> places_get_history_highlights(HistoryHighlightWeights weights, i32 limit);
+    void note_history_metadata_observation(HistoryMetadataObservation data);
 
     [Throws=PlacesError]
-    void places_note_history_metadata_observation(HistoryMetadataObservation data);
+    void metadata_delete(Url url, Url? referrer_url, string? search_term);
 
     [Throws=PlacesError]
-    void places_metadata_delete(Url url, Url? referrer_url, string? search_term);
-
-    [Throws=PlacesError]
-    void places_metadata_delete_older_than(i64 older_than);
+    void metadata_delete_older_than(i64 older_than);
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
