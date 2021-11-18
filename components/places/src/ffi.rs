@@ -264,14 +264,9 @@ fn get_error_number(err: &Error) -> i32 {
 }
 
 impl From<HandleError> for PlacesError {
-<<<<<<< HEAD
     fn from(_e: HandleError) -> PlacesError {
         // TODO: Need to transform this properly
         PlacesError::UnexpectedPlacesException("HandleError not converted".to_string())
-=======
-    fn from(e: HandleError) -> PlacesError {
-        PlacesError::from(e)
->>>>>>> e6c7f443a (Removed PlacesAPI constructor)
     }
 }
 
