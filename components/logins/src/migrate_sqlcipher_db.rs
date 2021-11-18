@@ -452,7 +452,7 @@ fn insert_logins(
     let mut num_failed_insert: u64 = 0;
     let mut insert_errors: Vec<String> = Vec::new();
 
-    let new_db = store.db.lock().unwrap();
+    let new_db = store.db.lock();
     let conn = new_db.conn();
     let tx = conn.unchecked_transaction()?;
 
@@ -706,7 +706,7 @@ fn get_login_from_row(row: &Row<'_>) -> Result<Login> {
 }
 
 fn migrate_sync_metadata(cipher_conn: &Connection, store: &LoginStore) -> Result<MigrationMetrics> {
-    let new_db = store.db.lock().unwrap();
+    let new_db = store.db.lock();
     let conn = new_db.conn();
     let import_start = Instant::now();
 

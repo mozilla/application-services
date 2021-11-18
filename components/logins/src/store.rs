@@ -6,8 +6,9 @@ use crate::encryption::EncryptorDecryptor;
 use crate::error::*;
 use crate::login::{EncryptedLogin, Login, LoginEntry};
 use crate::LoginsSyncEngine;
+use parking_lot::Mutex;
 use std::path::Path;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine};
 
 // Our "sync manager" will use whatever is stashed here.
@@ -20,7 +21,7 @@ lazy_static::lazy_static! {
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
 pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
-    let weak = STORE_FOR_MANAGER.lock().unwrap();
+    let weak = STORE_FOR_MANAGER.lock();
     match weak.upgrade() {
         None => None,
         Some(store) => match name {
@@ -48,28 +49,28 @@ impl LoginStore {
     }
 
     pub fn list(&self) -> Result<Vec<EncryptedLogin>> {
-        self.db.lock().unwrap().get_all()
+        self.db.lock().get_all()
     }
 
     pub fn get(&self, id: &str) -> Result<Option<EncryptedLogin>> {
-        self.db.lock().unwrap().get_by_id(id)
+        self.db.lock().get_by_id(id)
     }
 
     pub fn get_by_base_domain(&self, base_domain: &str) -> Result<Vec<EncryptedLogin>> {
-        self.db.lock().unwrap().get_by_base_domain(base_domain)
+        self.db.lock().get_by_base_domain(base_domain)
     }
 
     pub fn find_login_to_update(&self, entry: LoginEntry, enc_key: &str) -> Result<Option<Login>> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().unwrap().find_login_to_update(entry, &encdec)
+        self.db.lock().find_login_to_update(entry, &encdec)
     }
 
     pub fn touch(&self, id: &str) -> Result<()> {
-        self.db.lock().unwrap().touch(id)
+        self.db.lock().touch(id)
     }
 
     pub fn delete(&self, id: &str) -> Result<bool> {
-        self.db.lock().unwrap().delete(id)
+        self.db.lock().delete(id)
     }
 
     pub fn wipe(&self) -> Result<()> {
@@ -78,14 +79,14 @@ impl LoginStore {
         // sense though.
         // TODO: this is exposed to android-components consumers - we should
         // check if anyone actually calls it.
-        let db = self.db.lock().unwrap();
+        let db = self.db.lock();
         let scope = db.begin_interrupt_scope();
         db.wipe(&scope)?;
         Ok(())
     }
 
     pub fn wipe_local(&self) -> Result<()> {
-        self.db.lock().unwrap().wipe_local()?;
+        self.db.lock().wipe_local()?;
         Ok(())
     }
 
@@ -100,22 +101,22 @@ impl LoginStore {
 
     pub fn update(&self, id: &str, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().unwrap().update(id, entry, &encdec)
+        self.db.lock().update(id, entry, &encdec)
     }
 
     pub fn add(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().unwrap().add(entry, &encdec)
+        self.db.lock().add(entry, &encdec)
     }
 
     pub fn add_or_update(&self, entry: LoginEntry, enc_key: &str) -> Result<EncryptedLogin> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
-        self.db.lock().unwrap().add_or_update(entry, &encdec)
+        self.db.lock().add_or_update(entry, &encdec)
     }
 
     pub fn import_multiple(&self, logins: Vec<Login>, enc_key: &str) -> Result<String> {
         let encdec = EncryptorDecryptor::new(enc_key)?;
-        let metrics = self.db.lock().unwrap().import_multiple(logins, &encdec)?;
+        let metrics = self.db.lock().import_multiple(logins, &encdec)?;
         Ok(serde_json::to_string(&metrics)?)
     }
 
@@ -181,7 +182,7 @@ impl LoginStore {
     // `register_with_sync_manager()` is logically what's happening so that's
     // the name it gets.
     pub fn register_with_sync_manager(self: Arc<Self>) {
-        let mut state = STORE_FOR_MANAGER.lock().unwrap();
+        let mut state = STORE_FOR_MANAGER.lock();
         *state = Arc::downgrade(&self);
     }
 
@@ -343,11 +344,7 @@ mod test {
         Arc::clone(&store).register_with_sync_manager();
         assert_eq!(Arc::strong_count(&store), 1);
         assert_eq!(Arc::weak_count(&store), 1);
-        let registered = STORE_FOR_MANAGER
-            .lock()
-            .unwrap()
-            .upgrade()
-            .expect("should upgrade");
+        let registered = STORE_FOR_MANAGER.lock().upgrade().expect("should upgrade");
         assert!(Arc::ptr_eq(&store, &registered));
         drop(registered);
         // should be no new references
@@ -355,7 +352,7 @@ mod test {
         assert_eq!(Arc::weak_count(&store), 1);
         // dropping the registered object should drop the registration.
         drop(store);
-        assert!(STORE_FOR_MANAGER.lock().unwrap().upgrade().is_none());
+        assert!(STORE_FOR_MANAGER.lock().upgrade().is_none());
     }
 }
 

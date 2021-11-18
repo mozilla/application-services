@@ -44,10 +44,10 @@
 use crate::api::places_api::ConnectionType;
 use crate::db::PlacesDb;
 use crate::error::*;
+use parking_lot::Mutex;
 use rusqlite::{Connection, TransactionBehavior};
 use sql_support::{ConnExt, UncheckedTransaction};
 use std::ops::Deref;
-use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 impl PlacesDb {
@@ -78,7 +78,7 @@ impl PlacesDb {
             ConnectionType::ReadWrite,
             "coop_transaction must only be called on the ReadWrite connection"
         );
-        let _lock = self.coop_tx_lock.lock().unwrap();
+        let _lock = self.coop_tx_lock.lock();
         get_tx_with_retry_on_locked(self.conn())
     }
 }
@@ -121,7 +121,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         commit_after: Duration,
         coop: &'conn Mutex<()>,
     ) -> Result<Self> {
-        let _lock = coop.lock().unwrap();
+        let _lock = coop.lock();
         let tx = get_tx_with_retry_on_locked(conn)?;
         Ok(Self {
             tx,
@@ -168,7 +168,7 @@ impl<'conn> ChunkedCoopTransaction<'conn> {
         // database is being checkpointed - so we still perform exactly 1 retry,
         // which we do while we have the lock, because we don't want our other
         // write connection to win this race either.
-        let _lock = self.coop.lock().unwrap();
+        let _lock = self.coop.lock();
         self.tx = get_tx_with_retry_on_locked(self.tx.conn)?;
         Ok(())
     }
