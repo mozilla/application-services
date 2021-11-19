@@ -12,10 +12,9 @@ mod gen_structs;
 
 pub(crate) fn generate_struct(
     manifest: FeatureManifest,
-    config: Option<Config>,
+    config: Config,
     cmd: GenerateStructCmd,
 ) -> Result<()> {
-    let config = config.unwrap_or_default();
     let kt = gen_structs::FeatureManifestDeclaration::new(config, &manifest);
 
     let path = cmd.output;
