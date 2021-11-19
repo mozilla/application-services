@@ -8,17 +8,11 @@ use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
 use crate::parser::Parser;
 use crate::Config;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::GenerateStructCmd;
 
-pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -> Result<()> {
-    let config = if let Some(path) = config {
-        Some(slurp_config(&path)?)
-    } else {
-        None
-    };
-
+pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<()> {
     let ir = if !cmd.load_from_ir {
         let parser: Parser = Parser::new(&cmd.manifest)?;
         parser.get_intermediate_representation()?
@@ -39,20 +33,15 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
     Ok(())
 }
 
-fn slurp_config(path: &Path) -> Result<Config> {
-    let string = std::fs::read_to_string(path)?;
-    Ok(serde_yaml::from_str::<Config>(&string)?)
-}
-
 fn slurp_file(path: &Path) -> Result<String> {
     Ok(std::fs::read_to_string(path)?)
 }
 
 #[cfg(test)]
 mod test {
-
     use std::convert::TryInto;
     use std::fs;
+    use std::path::PathBuf;
 
     use anyhow::anyhow;
 
@@ -93,7 +82,7 @@ mod test {
             load_from_ir: is_ir,
             language,
         };
-        generate_struct(None, cmd)?;
+        generate_struct(Default::default(), cmd)?;
         run_script_with_generated_code(language, manifest_kt, &test_script)?;
         Ok(())
     }

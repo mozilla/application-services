@@ -30,24 +30,35 @@ fn main() -> Result<()> {
     let cwd = std::env::current_dir()?;
 
     let config = if matches.is_present("config") {
-        Some(file_path("config", &matches, &cwd)?)
+        util::slurp_config(&file_path("config", &matches, &cwd)?)?
     } else {
-        None
+        Default::default()
     };
 
     match matches.subcommand() {
-        ("struct", Some(cmd)) => workflows::generate_struct(
-            config,
-            GenerateStructCmd {
-                manifest: file_path("INPUT", cmd, &cwd)?,
-                output: file_path("output", cmd, &cwd)?,
-                language: cmd
-                    .value_of("language")
-                    .expect("Language is required")
-                    .try_into()?,
-                load_from_ir: cmd.is_present("ir"),
-            },
-        )?,
+        ("android", Some(cmd)) => match cmd.subcommand() {
+            ("features", Some(cmd)) => workflows::generate_struct(
+                Config {
+                    nimbus_object_name: cmd
+                        .value_of("class_name")
+                        .map(str::to_string)
+                        .or(config.nimbus_object_name),
+                    package_name: cmd
+                        .value_of("package")
+                        .map(str::to_string)
+                        .or(config.package_name),
+                    ..config
+                },
+                GenerateStructCmd {
+                    language: TargetLanguage::Kotlin,
+                    manifest: file_path("INPUT", &matches, &cwd)?,
+                    output: file_path("output", &matches, &cwd)?,
+                    load_from_ir: matches.is_present("ir"),
+                },
+            )?,
+            _ => unimplemented!(),
+        },
+        ("experimenter", Some(_cmd)) => unimplemented!(),
         (word, _) => unimplemented!("Command {} not implemented", word),
     };
 
