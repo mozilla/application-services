@@ -6,6 +6,7 @@
 
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::msg_types;
+use crate::storage::history_metadata;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
@@ -58,14 +59,21 @@ impl PlacesConnection {
         unreachable!();
     }
 
+    // A helper that gets the connection from the mutex and converts errors.
+    fn with_conn<F, T>(&self, f: F) -> Result<T, PlacesError>
+    where
+        F: FnOnce(&PlacesDb) -> crate::error::Result<T>,
+    {
+        let conn = self.db.lock().unwrap();
+        Ok(f(&conn)?)
+    }
+
     fn get_latest_history_metadata_for_url(
         &self,
         url: Url,
     ) -> Result<Option<HistoryMetadata>, PlacesError> {
-        let conn = self.db.lock().unwrap();
-        Ok(crate::storage::history_metadata::get_latest_for_url(
-            &conn, &url,
-        )?)
+        log::debug!("get_latest_history_metadata_for_url");
+        self.with_conn(|conn| history_metadata::get_latest_for_url(&conn, &url))
     }
 
     fn get_history_metadata_between(
@@ -74,18 +82,12 @@ impl PlacesConnection {
         end: i64,
     ) -> Result<Vec<HistoryMetadata>, PlacesError> {
         log::debug!("get_history_metadata_between");
-
-        let conn = self.db.lock().unwrap();
-        let between = crate::storage::history_metadata::get_between(&conn, start, end)?;
-        Ok(between)
+        self.with_conn(|conn| history_metadata::get_between(&conn, start, end))
     }
 
     fn get_history_metadata_since(&self, start: i64) -> Result<Vec<HistoryMetadata>, PlacesError> {
         log::debug!("get_history_metadata_since");
-
-        let conn = self.db.lock().unwrap();
-        let since = crate::storage::history_metadata::get_since(&conn, start)?;
-        Ok(since)
+        self.with_conn(|conn| history_metadata::get_since(&conn, start))
     }
 
     fn query_history_metadata(
@@ -94,10 +96,7 @@ impl PlacesConnection {
         limit: i32,
     ) -> Result<Vec<HistoryMetadata>, PlacesError> {
         log::debug!("places_get_history_metadata_since");
-
-        let conn = self.db.lock().unwrap();
-        let metadata = crate::storage::history_metadata::query(&conn, query.as_str(), limit)?;
-        Ok(metadata)
+        self.with_conn(|conn| history_metadata::query(&conn, query.as_str(), limit))
     }
 
     fn get_history_highlights(
@@ -106,10 +105,7 @@ impl PlacesConnection {
         limit: i32,
     ) -> Result<Vec<HistoryHighlight>, PlacesError> {
         log::debug!("get_history_highlights");
-
-        let conn = self.db.lock().unwrap();
-        let highlights = crate::storage::history_metadata::get_highlights(&conn, weights, limit)?;
-        Ok(highlights)
+        self.with_conn(|conn| history_metadata::get_highlights(&conn, weights, limit))
     }
 
     fn note_history_metadata_observation(
@@ -117,18 +113,12 @@ impl PlacesConnection {
         data: HistoryMetadataObservation,
     ) -> Result<(), PlacesError> {
         log::debug!("note_history_metadata_observation");
-
-        let conn = self.db.lock().unwrap();
-        crate::storage::history_metadata::apply_metadata_observation(&conn, data)?;
-        Ok(())
+        self.with_conn(|conn| history_metadata::apply_metadata_observation(&conn, data))
     }
 
     fn metadata_delete_older_than(&self, older_than: i64) -> Result<(), PlacesError> {
         log::debug!("note_history_metadata_observation");
-
-        let conn = self.db.lock().unwrap();
-        crate::storage::history_metadata::delete_older_than(&conn, older_than)?;
-        Ok(())
+        self.with_conn(|conn| history_metadata::delete_older_than(&conn, older_than))
     }
 
     fn metadata_delete(
@@ -138,15 +128,14 @@ impl PlacesConnection {
         search_term: Option<String>,
     ) -> Result<(), PlacesError> {
         log::debug!("metadata_delete_metadata");
-
-        let conn = self.db.lock().unwrap();
-        crate::storage::history_metadata::delete_metadata(
-            &conn,
-            &url,
-            referrer_url.as_ref(),
-            search_term.as_deref(),
-        )?;
-        Ok(())
+        self.with_conn(|conn| {
+            history_metadata::delete_metadata(
+                &conn,
+                &url,
+                referrer_url.as_ref(),
+                search_term.as_deref(),
+            )
+        })
     }
 }
 
