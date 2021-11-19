@@ -151,9 +151,11 @@ impl LoginsSyncEngine {
         }
         scope.err_if_interrupted()?;
 
-        sql_support::each_chunk_mapped(
-            records,
-            |r| r.0.id.as_str(),
+        sql_support::each_chunk(
+            &sync_data
+                .iter()
+                .map(|s| s.guid.as_str().to_string())
+                .collect::<Vec<String>>(),
             |chunk, offset| -> Result<()> {
                 // pairs the bound parameter for the guid with an integer index.
                 let values_with_idx = sql_support::repeat_display(chunk.len(), ",", |i, f| {
@@ -682,6 +684,9 @@ mod tests {
     #[test]
     fn test_bad_record() {
         let store = LoginStore::new_in_memory().unwrap();
+        for id in ["dummy_000001", "dummy_000002", "dummy_000003"] {
+            insert_login(&store.db.lock(), id, Some("password"), Some("password"));
+        }
         let (res, telem) = run_fetch_login_data(
             store,
             &[
