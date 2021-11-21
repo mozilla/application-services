@@ -13,9 +13,7 @@ TL;DR: do what Rust's builtin warnings and clippy lints tell you
 
 - All Rust types, traits, structs, and enum variants must follow `UpperCamelCase`. 
 
-- Static and constant variables should be written in `SCREAMING_SNAKE_CASE`. 
-
-- The functions of all component `ffi/src/lib.rs` files should also follow `snake_case`, but with an additional prefix based on the library of that function. 
+- Static and constant variables should be written in `SCREAMING_SNAKE_CASE`. s
 
 For more in-depth Rust conventions, see the [Rust Style Guide](https://doc.rust-lang.org/1.0.0/style/style/naming/README.html).
 
@@ -33,8 +31,6 @@ const COMMON_SQL
 - Names of types and protocols are `UpperCamelCase`.
 
 - All other uses are `lowerCamelCase`.
-
-- Concerning this project, when dealing with Swift code, use Rust convention for FFI binding files (e.g. `RustFxAFFI.h`).
 
 For more in-depth Swift conventions, check out the [Swift API Design Guidelines](https://swift.org/documentation/api-design-guidelines/).
 

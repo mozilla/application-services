@@ -1,6 +1,6 @@
 # Dependency Management Guidelines
 
-This repo uses third-party code from a variety of sources, so we need to be mindful
+This repository uses third-party code from a variety of sources, so we need to be mindful
 of how these dependencies will affect our consumers.  Considerations include:
 
 * General code quality.
@@ -14,7 +14,7 @@ guidelines we've developed so far.
 ## Rust Code
 
 Unlike [Firefox](https://firefox-source-docs.mozilla.org/build/buildsystem/rust.html),
-we do not vendor third-party source code directly into the repo.  Instead we rely on
+we do not vendor third-party source code directly into the repository.  Instead we rely on
 `Cargo.lock` and its hash validation to ensure that each build uses an identical copy
 of all third-party crates.  These are the measures we use for ongoing maintence of our
 existing dependencies:
@@ -22,11 +22,10 @@ existing dependencies:
 * Check `Cargo.lock` into the repository.
 * Generate built artifacts using the `--locked` flag to `cargo build`, as an additional
   assurance that the existing `Cargo.lock` will be respected.
-    * TODO: how to actually make this happen via rust-android-gradle plugin?
 * Regularly run [cargo-audit](https://github.com/RustSec/cargo-audit) in CI to alert us to
   security problems in our dependencies.
-    * It runs on every PR, and once per hour as a scheduled job with failures reported to slack.
-* Use [a home-grown tool](../tools/dependency_summary.py) to generate a summary of dependency licenses
+    * It runs on every PR, and once per hour on the `main` branch
+* Use [a home-grown tool](https://github.com/mozilla/application-services/blob/main/tools/dependency_summary.py) to generate a summary of dependency licenses
   and to check them for compatibility with MPL-2.0.
     * Check these summaries into the repository and have CI alert on unexpected changes,
       to guard against pulling in new versions of a dependency under a different license.
@@ -50,7 +49,7 @@ We try to balance this responsibility against the many benefits of using existin
     but should still be given some thought.
     * There is still the potential for supply-chain compromise with dev dependencies!
 * As part of the PR that introduces the new dependency:
-    * Regenerate dependency summary files using the [regenerate_dependency_summaries.sh](../tools/regenerate_dependency_summaries.sh).
+    * Regenerate dependency summary files using the [regenerate_dependency_summaries.sh](https://github.com/mozilla/application-services/blob/main/tools/regenerate_dependency_summaries.sh).
     * Explicitly describe your consideration of the above points.
 
 Updating to new versions of existing dependencies is a normal part of software development

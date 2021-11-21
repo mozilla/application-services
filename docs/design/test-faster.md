@@ -5,7 +5,7 @@
 We'd like to keep `cargo test`, `cargo build`, `cargo check`, ... reasonably
 fast, and we'd *really* like to keep them fast if you pass `-p` for a specific
 project. Unfortunately, there are a few ways this can become unexpectedly slow.
-The easiest of these for us to combat at the moment is probably unfortunate
+The easiest of these problems for us to combat at the moment is the unfortunate
 placement of dev-dependencies in our build graph.
 
 If you perform a `cargo test -p foo`, all dev-dependencies of `foo` must be
@@ -17,9 +17,7 @@ dependencies it needs for those tests, instead of waiting for your benchmark
 suite, or the arg-parser your examples use, or etc.
 
 Unfortunately, all cargo knows is that these are `dev-dependencies`, and not
-which targets actually use them. (Aside: Now that per-target feature selection
-is stable we actually could fix this, however it would be extremely tedious, far
-worse than the approach outlined in this document).
+which targets actually use them.
 
 Additionally, unqualified invocations of cargo (that is, without `-p`) might
 have an even worse time if we aren't careful. If I run, `cargo test`, cargo
@@ -28,16 +26,15 @@ dependencies, if `places` depends on `fxa-client`, all of `fxa-clients`
 dev-dependencies must be compiled, ready, and linked in at least to the `lib`
 target before we can even think about starting on `places`.
 
-This should all sound somewhat obvious, and I guess it is. We have not been
-careful about what shape the dependency graph ends up as when example code is
+We have not been careful about what shape the dependency graph ends up as when example code is
 taken into consideration (as it is by cargo during certain builds), and as a
-result, we have this problem. The problem is that this isn't really a problem we
+result, we have this problem. Which isn't really a problem we
 want to fix: Example code can and should depend on several different components,
 and use them together in interesting ways.
 
-So, because we don't really want to change the things our examples do, or make
+So, because we don't want to change what our examples do, or make
 major architectural changes of the non-test code for something like this, we
-need to do something.
+need to do something else.
 
 ## The Solution
 
@@ -54,9 +51,7 @@ crates so that:
    caches.
 4. ...
 
-There's no firm rule for this, but the following guidelines seem easy to follow:
-
-Basically, some rules of thumb for when / when not to do this:
+Some rules of thumb for when / when not to do this:
 
 - All rust examples should be put in `examples/*`.
 
@@ -75,7 +70,7 @@ To be clear, this is way more important for benchmarks (which always compile as
 release and have a costly link phase).
 
 
-Anyway, say you have a directory structure like the following:
+Say you have a directory structure like the following:
 
 ```
 mycrate
