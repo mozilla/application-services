@@ -6,8 +6,9 @@ use crate::db::PlacesDb;
 use crate::error::*;
 use crate::storage::history::{delete_everything, history_sync::reset};
 use crate::storage::{get_meta, put_meta};
+use parking_lot::Mutex;
 use sql_support::SqlInterruptScope;
-use std::sync::{atomic::AtomicUsize, Arc, Mutex};
+use std::sync::{atomic::AtomicUsize, Arc};
 use sync15::telemetry;
 use sync15::{
     CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset, OutgoingChangeset,
@@ -91,7 +92,7 @@ impl SyncEngine for HistorySyncEngine {
     ) -> anyhow::Result<OutgoingChangeset> {
         assert_eq!(inbound.len(), 1, "history only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         Ok(do_apply_incoming(&conn, &self.scope, inbound, telem)?)
     }
 
@@ -100,7 +101,7 @@ impl SyncEngine for HistorySyncEngine {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<Guid>,
     ) -> anyhow::Result<()> {
-        do_sync_finished(&self.db.lock().unwrap(), new_timestamp, records_synced)?;
+        do_sync_finished(&self.db.lock(), new_timestamp, records_synced)?;
         Ok(())
     }
 
@@ -108,7 +109,7 @@ impl SyncEngine for HistorySyncEngine {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         let since =
             ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
@@ -122,7 +123,7 @@ impl SyncEngine for HistorySyncEngine {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         let global = get_meta(&conn, GLOBAL_SYNCID_META_KEY)?;
         let coll = get_meta(&conn, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
@@ -133,12 +134,12 @@ impl SyncEngine for HistorySyncEngine {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        reset(&self.db.lock().unwrap(), assoc)?;
+        reset(&self.db.lock(), assoc)?;
         Ok(())
     }
 
     fn wipe(&self) -> anyhow::Result<()> {
-        delete_everything(&self.db.lock().unwrap())?;
+        delete_everything(&self.db.lock())?;
         Ok(())
     }
 }

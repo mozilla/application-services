@@ -59,14 +59,14 @@ pub struct TestDb {
 
 impl TestDb {
     pub fn new() -> Rc<Self> {
-        use std::sync::{Arc, Mutex};
+        use std::sync::Arc;
         let dir = TempDir::new("placesbench").unwrap();
         let file = dir.path().join("places.sqlite");
         let mut db = PlacesDb::open(
             &file,
             ConnectionType::ReadWrite,
             0,
-            Arc::new(Mutex::new(())),
+            Arc::new(parking_lot::Mutex::new(())),
         )
         .unwrap();
         println!("Populating test database...");

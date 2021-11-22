@@ -342,7 +342,6 @@ fn get_encryption_key(store: &LoginStore) -> Option<String> {
     store
         .db
         .lock()
-        .unwrap()
         .query_row(
             "SELECT value FROM loginsSyncMeta WHERE key = 'sync-pass-key'",
             NO_PARAMS,
@@ -356,7 +355,6 @@ fn set_encryption_key(store: &LoginStore, key: &str) -> rusqlite::Result<()> {
     store
         .db
         .lock()
-        .unwrap()
         .execute(
             "
         INSERT INTO  loginsSyncMeta (key, value)
@@ -550,7 +548,7 @@ fn main() -> Result<()> {
             'x' | 'X' => {
                 log::info!("Running arbitrary SQL, there's no way this could go wrong!");
                 if let Some(sql) = prompt_string("SQL (one line only, press enter when done):\n") {
-                    let db = store.db.lock().unwrap();
+                    let db = store.db.lock();
                     if let Err(e) = show_sql(&db, &sql) {
                         log::warn!("Failed to run sql query: {}", e);
                     }

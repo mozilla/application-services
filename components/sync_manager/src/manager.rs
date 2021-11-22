@@ -5,8 +5,9 @@
 use crate::error::*;
 use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, SyncResult};
 use crate::{reset, reset_all, wipe};
+use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::sync::{atomic::AtomicUsize, Arc, Mutex};
+use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     self,
@@ -173,7 +174,7 @@ impl SyncManager {
 
     /// Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
     pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
-        let mut state = self.mem_cached_state.lock().unwrap();
+        let mut state = self.mem_cached_state.lock();
         let mut have_engines = vec![];
         let bookmarks = Self::places_engine("bookmarks");
         let history = Self::places_engine("history");

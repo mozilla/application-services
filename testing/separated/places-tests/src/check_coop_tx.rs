@@ -7,7 +7,7 @@ use places::{PlacesDb, Result};
 use rusqlite::NO_PARAMS;
 use std::fs::remove_file;
 use std::sync::mpsc::sync_channel;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
 
 fn update(t: &PlacesDb, n: u32) -> Result<()> {
@@ -29,7 +29,7 @@ fn test_coop_tx() {
     let _ = remove_file(path); // ignore error
     let _ = env_logger::try_init();
 
-    let coop_tx_lock = Arc::new(Mutex::new(()));
+    let coop_tx_lock = Arc::new(parking_lot::Mutex::new(()));
 
     let dbmain = PlacesDb::open(path, ConnectionType::ReadWrite, 0, coop_tx_lock.clone()).unwrap();
     let (tx, rx) = sync_channel(0);
