@@ -1,3 +1,8 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+use std::collections::HashMap;
 use std::fmt::Display;
 
 use serde::Serialize;
@@ -7,10 +12,6 @@ use crate::intermediate_representation::{PropDef, TypeRef};
 use crate::{
     intermediate_representation::FeatureManifest, Config, GenerateExperimenterManifestCmd,
 };
-
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::Result;
 
@@ -31,21 +32,25 @@ struct ExperimenterFeatureManifest {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Variables(serde_json::Value);
 
-impl From<FeatureManifest> for ExperimenterFeatureManifest {
+impl From<FeatureManifest> for HashMap<String, ExperimenterFeatureManifest> {
     fn from(fm: FeatureManifest) -> Self {
-        // TODO: Figure out how experimenter consumes features
-        // i.e, does it expect each feature individually, or all together
-        // for the sake of a draft, I just generate the first one
-        let feature = fm.feature_defs[0].clone();
-        Self {
-            description: feature.doc(),
-            has_exposure: true,
-            is_early_startup: None,
-            // NOTE: Where does this description come from
-            // and should it be in our IR for the FML
-            exposure_description: Some("".into()),
-            variables: feature.props().into(),
-        }
+        fm.feature_defs
+            .iter()
+            .map(|feature| {
+                (
+                    feature.name(),
+                    ExperimenterFeatureManifest {
+                        description: feature.doc(),
+                        has_exposure: true,
+                        is_early_startup: None,
+                        // TODO: Add exposure description to the IR so
+                        // we can use it here if it's needed
+                        exposure_description: Some("".into()),
+                        variables: feature.props().into(),
+                    },
+                )
+            })
+            .collect()
     }
 }
 
@@ -78,7 +83,6 @@ impl From<TypeRef> for ExperimentManifestPropType {
             | TypeRef::Enum(_) => Self::Json,
             TypeRef::Boolean => Self::Boolean,
             TypeRef::Int => Self::Int,
-            // TODO: are the bundle types equivalent to strings for experimenter purposes?
             TypeRef::String | TypeRef::BundleImage(_) | TypeRef::BundleText(_) => Self::String,
             TypeRef::Option(inner) => Self::from(inner),
         }
@@ -113,7 +117,7 @@ pub(crate) fn generate_manifest(
     _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: ExperimenterFeatureManifest = ir.into();
+    let experiment_manifest: HashMap<String, ExperimenterFeatureManifest> = ir.into();
     let output_str = serde_json::to_string_pretty(&experiment_manifest)?;
     std::fs::write(cmd.output, output_str)?;
     Ok(())
