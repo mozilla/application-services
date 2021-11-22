@@ -10,7 +10,6 @@ import os.log
 
 /// Indicates an error occurred while calling into the places storage layer
 extension PlacesError: LocalizedError {
-
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
         switch self {
