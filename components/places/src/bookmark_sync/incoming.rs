@@ -597,7 +597,7 @@ mod tests {
 
     fn apply_incoming(api: &PlacesApi, records_json: Value) {
         let db = api.get_sync_connection().expect("should get a db mutex");
-        let conn = db.lock().unwrap();
+        let conn = db.lock();
 
         let server_timestamp = ServerTimestamp(0);
         let applicator = IncomingApplicator::new(&conn);
@@ -628,12 +628,9 @@ mod tests {
             .to_string();
         let api = new_mem_api();
         apply_incoming(&api, record_json);
-        let got = SyncedBookmarkItem::get(
-            &api.get_sync_connection().unwrap().lock().unwrap(),
-            &guid.into(),
-        )
-        .expect("should work")
-        .expect("item should exist");
+        let got = SyncedBookmarkItem::get(&api.get_sync_connection().unwrap().lock(), &guid.into())
+            .expect("should work")
+            .expect("item should exist");
         assert_eq!(*expected, got);
     }
 
@@ -897,7 +894,7 @@ mod tests {
     fn test_apply_unknown() {
         let api = new_mem_api();
         let db = api.get_sync_connection().expect("should get a db mutex");
-        let conn = db.lock().unwrap();
+        let conn = db.lock();
         let applicator = IncomingApplicator::new(&conn);
 
         let record = json!({

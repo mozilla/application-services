@@ -380,6 +380,19 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/Frommi/miniz_oxide/master/miniz_oxide/LICENSE-MIT.md",
         }
     },
+    "parking_lot_core": {
+        "repository": {
+            "check": "https://github.com/Amanieu/parking_lot",
+        },
+        "licence": {
+            "check": None,
+            "fixup": "Apache-2.0",
+        },
+        "license_file": {
+            "check": None,
+            "fixup": "https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE",
+        },
+    },
     "phf": {
         "repository": {
             "check": "https://github.com/sfackler/rust-phf",

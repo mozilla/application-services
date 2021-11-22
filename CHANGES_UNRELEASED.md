@@ -22,3 +22,8 @@ Use the template below to make assigning a version number during the release cut
 ## Logins
 ### What's changed
   - The `update()` and `add_or_update()` methods will log rather than return an error when trying to update a duplicate login (#4648)
+
+## Logins, Places, SyncManager
+### What's Changed
+  - These packages all use `parking_lot::Mutex` instead of `std::Mutex`, meaning we should no
+    longer see errors about mutexes being poisoned.
