@@ -47,7 +47,6 @@ fn main() -> Result<()> {
                         .value_of("package")
                         .map(str::to_string)
                         .or(config.package_name),
-                    ..config
                 },
                 GenerateStructCmd {
                     language: TargetLanguage::Kotlin,
