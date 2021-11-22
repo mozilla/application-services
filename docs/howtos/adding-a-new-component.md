@@ -107,7 +107,7 @@ to confirm that this is all working correctly.
 
 
 ## The Swift Bindings
-
+### Creating the directory structure
 Make a `./components/<your_crate_name>/ios` subdirectory to contain
 Swift- and iOS-specific code. The UniFFI-generated swift bindings will
 be written to a subdirectory named `Generated`.
@@ -129,6 +129,8 @@ So you would end up with a directory structure something like this:
         * `Generated/`
           * Generated Swift code will be written into this directory.
 
+### Adding your component to the Carthage Megazord
+> **NOTE** *We are close to removing Carthage support completely from our repository. For any new components please move on to the next section on adding your component to the [Swift Package Manager megazord](#including-the-component-in-the-swift-package-manager-megazord).*
 
 Edit `megazords/ios/MozillaAppServices.h` and add an import line for your component,
 like:
@@ -190,4 +192,30 @@ The result should look something like this:
 
 Use the XCode Test Navigator to run your tests and check whether
 they're passing.
+
+### Including the component in the Swift Package Manager megazord
+> *For more information on our Swift Package Manager design, check the [ADR that introduced the Swift Package Manager](../adr/0003-swift-packaging.md)*
+
+You will need to do the following steps to include the component in the megazord:
+1. Update its `uniffi.toml` to include the following settings:
+        ```toml
+        [bindings.swift]
+        ffi_module_name = "MozillaRustComponents"
+        ffi_module_filename = "<crate_name>FFI"
+        ```
+1. Add the component as a dependency to the `Cargo.toml` in [`megazords/ios-rust/`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/Cargo.toml)
+1. Add a `pub use` declaration for the component in [`megazords/ios-rust/src/lib.rs`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/src/lib.rs)
+1. Add logic to the [`megazords/ios-rust/build-xcframework.sh`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/build-xcframework.sh) to copy or generate its header file into the build
+1. Add an `#import` for its header file to [`megazords/ios-rust/MozillaRustComponents.h`](https://github.com/mozilla/application-services/blob/main/megazords/ios-rust/MozillaRustComponents.h) 
+
+### Distribute your component with `rust-components-swift`
+
+To distribute your component with `rust-components-swift` follow the following steps:
+1. Add logic for dynamically generating any swift code to the [`generate.sh` script in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/generate.sh). You can use that script to generate:
+    - `uniffi` bindings
+    - `Glean` metrics
+1. Edit the [`Package.swift` in the `rust-components-swift` repo](https://github.com/mozilla/rust-components-swift/blob/main/Package.swift) to add the new component
+    - Add a new library product for the component under `products`
+    - Add a corresponding target for the component under `targets`
+        - Make sure it depends on `MozillaRustComponentsWrapper` to pull in pre-compiled Rust Code, and any third-party Swift Packages it requires.
 
