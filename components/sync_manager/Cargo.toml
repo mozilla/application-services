@@ -21,6 +21,7 @@ url = "2.2"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
+parking_lot = "0.5"
 interrupt-support = { path = "../support/interrupt" }
 uniffi = "^0.14"
 uniffi_macros = "^0.14"

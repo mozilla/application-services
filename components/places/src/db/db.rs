@@ -6,6 +6,7 @@ use super::schema;
 use crate::api::places_api::ConnectionType;
 use crate::error::*;
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 use rusqlite::{self, Connection, Transaction};
 use sql_support::{
     open_database::{self, open_database_with_flags, ConnectionInitializer},
@@ -17,7 +18,7 @@ use std::path::Path;
 
 use std::sync::{
     atomic::{AtomicI64, AtomicUsize, Ordering},
-    Arc, Mutex, RwLock,
+    Arc, RwLock,
 };
 
 pub const MAX_VARIABLE_NUMBER: usize = 999;

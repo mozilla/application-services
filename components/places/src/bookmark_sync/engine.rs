@@ -23,13 +23,14 @@ use dogear::{
     self, AbortSignal, CompletionOps, Content, Item, MergedRoot, TelemetryEvent, Tree, UploadItem,
     UploadTombstone,
 };
+use parking_lot::Mutex;
 use rusqlite::{Row, NO_PARAMS};
 use sql_support::{self, ConnExt, SqlInterruptScope};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fmt;
-use std::sync::{atomic::AtomicUsize, Arc, Mutex};
+use std::sync::{atomic::AtomicUsize, Arc};
 use sync15::{
     telemetry, CollSyncIds, CollectionRequest, EngineSyncAssociation, IncomingChangeset,
     OutgoingChangeset, Payload, ServerTimestamp, SyncEngine,
@@ -912,7 +913,7 @@ impl SyncEngine for BookmarksSyncEngine {
         inbound: Vec<IncomingChangeset>,
         telem: &mut telemetry::Engine,
     ) -> anyhow::Result<OutgoingChangeset> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         assert_eq!(inbound.len(), 1, "bookmarks only requests one item");
         let inbound = inbound.into_iter().next().unwrap();
         // Stage all incoming items.
@@ -939,7 +940,7 @@ impl SyncEngine for BookmarksSyncEngine {
         new_timestamp: ServerTimestamp,
         records_synced: Vec<SyncGuid>,
     ) -> anyhow::Result<()> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         push_synced_items(&conn, &self.scope, new_timestamp, records_synced)?;
         update_frecencies(&conn, &self.scope)?;
         conn.pragma_update(None, "wal_checkpoint", &"PASSIVE")?;
@@ -950,7 +951,7 @@ impl SyncEngine for BookmarksSyncEngine {
         &self,
         server_timestamp: ServerTimestamp,
     ) -> anyhow::Result<Vec<CollectionRequest>> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         let since =
             ServerTimestamp(get_meta::<i64>(&conn, LAST_SYNC_META_KEY)?.unwrap_or_default());
         Ok(if since == server_timestamp {
@@ -963,7 +964,7 @@ impl SyncEngine for BookmarksSyncEngine {
     }
 
     fn get_sync_assoc(&self) -> anyhow::Result<EngineSyncAssociation> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         let global = get_meta(&conn, GLOBAL_SYNCID_META_KEY)?;
         let coll = get_meta(&conn, COLLECTION_SYNCID_META_KEY)?;
         Ok(if let (Some(global), Some(coll)) = (global, coll) {
@@ -974,7 +975,7 @@ impl SyncEngine for BookmarksSyncEngine {
     }
 
     fn reset(&self, assoc: &EngineSyncAssociation) -> anyhow::Result<()> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         reset(&conn, assoc)?;
         Ok(())
     }
@@ -986,7 +987,7 @@ impl SyncEngine for BookmarksSyncEngine {
     /// Conceptually, the next sync will merge an empty local tree, and a full
     /// remote tree.
     fn wipe(&self) -> anyhow::Result<()> {
-        let conn = self.db.lock().unwrap();
+        let conn = self.db.lock();
         let tx = conn.begin_transaction()?;
         let sql = format!(
             "INSERT INTO moz_bookmarks_deleted(guid, dateRemoved)
@@ -1840,7 +1841,7 @@ mod tests {
             .expect("Should apply incoming and stage outgoing records");
 
         let sync_db = api.get_sync_connection().unwrap();
-        let syncer = sync_db.lock().unwrap();
+        let syncer = sync_db.lock();
         let mut stmt = syncer
             .prepare("SELECT guid FROM itemsToUpload")
             .expect("Should prepare statement to fetch uploaded GUIDs");
@@ -1865,7 +1866,7 @@ mod tests {
     ) {
         apply_incoming(api, ServerTimestamp(0), records_json);
         assert_local_json_tree(
-            &api.get_sync_connection().unwrap().lock().unwrap(),
+            &api.get_sync_connection().unwrap().lock(),
             local_folder,
             local_tree,
         );
@@ -1898,7 +1899,7 @@ mod tests {
 
         let api = new_mem_api();
         let db = api.get_sync_connection().unwrap();
-        let conn = db.lock().unwrap();
+        let conn = db.lock();
 
         // suck records into the database.
         let interrupt_scope = api.dummy_sync_interrupt_scope();
@@ -1968,7 +1969,7 @@ mod tests {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let sync_db = api.get_sync_connection().unwrap();
-        let syncer = sync_db.lock().unwrap();
+        let syncer = sync_db.lock();
 
         writer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2124,7 +2125,7 @@ mod tests {
         );
 
         let sync_db = api.get_sync_connection().unwrap();
-        let syncer = sync_db.lock().unwrap();
+        let syncer = sync_db.lock();
         let interrupt_scope = api.dummy_sync_interrupt_scope();
 
         update_frecencies(&syncer, &interrupt_scope).expect("Should update frecencies");
@@ -2679,7 +2680,7 @@ mod tests {
         }]);
 
         let db_mutex = api.get_sync_connection().unwrap();
-        let db = db_mutex.lock().unwrap();
+        let db = db_mutex.lock();
         let tx = db.begin_transaction()?;
         let applicator = IncomingApplicator::new(&db);
 
@@ -2771,7 +2772,7 @@ mod tests {
         let api = new_mem_api();
         let writer = api.open_connection(ConnectionType::ReadWrite)?;
         let db = api.get_sync_connection().unwrap();
-        let syncer = db.lock().unwrap();
+        let syncer = db.lock();
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -2949,7 +2950,7 @@ mod tests {
     fn test_apply_invalid_url() -> Result<()> {
         let api = new_mem_api();
         let db = api.get_sync_connection().unwrap();
-        let syncer = db.lock().unwrap();
+        let syncer = db.lock();
 
         syncer
             .execute("UPDATE moz_bookmarks SET syncChangeCounter = 0", NO_PARAMS)
@@ -3118,7 +3119,7 @@ mod tests {
 
         // We deleted everything from unfiled.
         assert_local_json_tree(
-            &api.get_sync_connection().unwrap().lock().unwrap(),
+            &api.get_sync_connection().unwrap().lock(),
             &BookmarkRootGuid::Unfiled.as_guid(),
             json!({"children" : []}),
         );
@@ -3753,7 +3754,7 @@ mod tests {
             engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
 
             let db = api.get_sync_connection().unwrap();
-            let syncer = db.lock().unwrap();
+            let syncer = db.lock();
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
             let sync_ids = CollSyncIds {
@@ -3764,7 +3765,7 @@ mod tests {
             // the mutex
             drop(syncer);
             engine.reset(&EngineSyncAssociation::Connected(sync_ids.clone()))?;
-            let syncer = db.lock().unwrap();
+            let syncer = db.lock();
             assert_eq!(
                 get_meta::<Guid>(&syncer, GLOBAL_SYNCID_META_KEY)?,
                 Some(sync_ids.global)
@@ -3787,14 +3788,14 @@ mod tests {
             engine.sync_finished(ServerTimestamp(2_000), synced_ids)?;
 
             let db = api.get_sync_connection().unwrap();
-            let syncer = db.lock().unwrap();
+            let syncer = db.lock();
             assert_eq!(get_meta::<i64>(&syncer, LAST_SYNC_META_KEY)?, Some(2_000));
 
             // Temporarily drop the sync connection to avoid a deadlock when the sync engine locks
             // the mutex
             drop(syncer);
             engine.reset(&EngineSyncAssociation::Disconnected)?;
-            let syncer = db.lock().unwrap();
+            let syncer = db.lock();
             assert_eq!(
                 get_meta::<Option<String>>(&syncer, GLOBAL_SYNCID_META_KEY)?,
                 None

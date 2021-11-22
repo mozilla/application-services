@@ -11,6 +11,7 @@ use crate::storage::{
 };
 use crate::util::normalize_path;
 use lazy_static::lazy_static;
+use parking_lot::Mutex;
 use rusqlite::OpenFlags;
 use sql_support::{SqlInterruptHandle, SqlInterruptScope};
 use std::cell::Cell;
@@ -19,7 +20,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
-    Arc, Mutex, Weak,
+    Arc, Weak,
 };
 use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncEngine, SyncResult};
 
@@ -42,7 +43,7 @@ lazy_static::lazy_static! {
 // Called by the sync manager to get a sync engine via the PlacesApi previously
 // registered with the sync manager.
 pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
-    match PLACES_API_FOR_SYNC_MANAGER.lock().unwrap().upgrade() {
+    match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
         None => {
             log::error!("get_registered_sync_engine: no PlacesApi registered");
             None
@@ -180,7 +181,7 @@ impl PlacesApi {
     }
 
     fn new_or_existing(db_name: PathBuf) -> Result<Arc<Self>> {
-        let mut guard = APIS.lock().unwrap();
+        let mut guard = APIS.lock();
         Self::new_or_existing_into(&mut guard, db_name)
     }
 
@@ -198,7 +199,7 @@ impl PlacesApi {
             }
             ConnectionType::ReadWrite => {
                 // We only allow one of these.
-                let mut guard = self.write_connection.lock().unwrap();
+                let mut guard = self.write_connection.lock();
                 match mem::replace(&mut *guard, None) {
                     #[cfg(not(feature = "uniffi_hacks"))]
                     None => Err(ErrorKind::ConnectionAlreadyOpen.into()),
@@ -230,7 +231,7 @@ impl PlacesApi {
     //     get_sync_connection() will reuse it.
     pub fn get_sync_connection(&self) -> Result<Arc<Mutex<PlacesDb>>> {
         // First step: lock the outer mutex
-        let mut conn = self.sync_connection.lock().unwrap();
+        let mut conn = self.sync_connection.lock();
         match conn.upgrade() {
             // If our Weak is still alive, then re-use that
             Some(db) => Ok(db),
@@ -284,7 +285,7 @@ impl PlacesApi {
     // `register_with_sync_manager()` is logically what's happening so that's
     // the name it gets.
     pub fn register_with_sync_manager(self: Arc<Self>) {
-        *PLACES_API_FOR_SYNC_MANAGER.lock().unwrap() = Arc::downgrade(&self);
+        *PLACES_API_FOR_SYNC_MANAGER.lock() = Arc::downgrade(&self);
     }
 
     // NOTE: These should be deprecated as soon as possible - that will be once
@@ -346,12 +347,12 @@ impl PlacesApi {
     where
         F: FnOnce(Arc<Mutex<PlacesDb>>, &mut MemoryCachedState, &mut Option<String>) -> SyncResult,
     {
-        let mut guard = self.sync_state.lock().unwrap();
+        let mut guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock().unwrap())?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock())?),
             });
         }
 
@@ -362,7 +363,7 @@ impl PlacesApi {
         let mut result = syncer(conn.clone(), &mut mem_cached_state, &mut disk_cached_state);
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        self.set_disk_persisted_state(&conn.lock().unwrap(), &disk_cached_state)?;
+        self.set_disk_persisted_state(&conn.lock(), &disk_cached_state)?;
         sync_state.mem_cached_state.replace(mem_cached_state);
         sync_state.disk_cached_state.replace(disk_cached_state);
 
@@ -389,12 +390,12 @@ impl PlacesApi {
         client_init: &sync15::Sync15StorageClientInit,
         key_bundle: &sync15::KeyBundle,
     ) -> Result<SyncResult> {
-        let mut guard = self.sync_state.lock().unwrap();
+        let mut guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
         if guard.is_none() {
             *guard = Some(SyncState {
                 mem_cached_state: Cell::default(),
-                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock().unwrap())?),
+                disk_cached_state: Cell::new(self.get_disk_persisted_state(&conn.lock())?),
             });
         }
 
@@ -419,7 +420,7 @@ impl PlacesApi {
         );
         // even on failure we set the persisted state - sync itself takes care
         // to ensure this has been None'd out if necessary.
-        if let Err(e) = self.set_disk_persisted_state(&conn.lock().unwrap(), &disk_cached_state) {
+        if let Err(e) = self.set_disk_persisted_state(&conn.lock(), &disk_cached_state) {
             log::error!("Failed to persist the sync state: {:?}", e);
         }
         sync_state.mem_cached_state.replace(mem_cached_state);
@@ -430,43 +431,37 @@ impl PlacesApi {
 
     pub fn wipe_bookmarks(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
+        let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
 
-        storage::bookmarks::delete_everything(&conn.lock().unwrap())?;
+        storage::bookmarks::delete_everything(&conn.lock())?;
         Ok(())
     }
 
     pub fn reset_bookmarks(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
+        let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
 
-        bookmark_sync::reset(
-            &conn.lock().unwrap(),
-            &sync15::EngineSyncAssociation::Disconnected,
-        )?;
+        bookmark_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
     pub fn wipe_history(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
+        let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
 
-        storage::history::delete_everything(&conn.lock().unwrap())?;
+        storage::history::delete_everything(&conn.lock())?;
         Ok(())
     }
 
     pub fn reset_history(&self) -> Result<()> {
         // Take the lock to prevent syncing while we're doing this.
-        let _guard = self.sync_state.lock().unwrap();
+        let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
 
-        history_sync::reset(
-            &conn.lock().unwrap(),
-            &sync15::EngineSyncAssociation::Disconnected,
-        )?;
+        history_sync::reset(&conn.lock(), &sync15::EngineSyncAssociation::Disconnected)?;
         Ok(())
     }
 
@@ -490,9 +485,9 @@ impl PlacesApi {
     pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
         // Probably not necessary to lock here, since this should only get
         // called in startup.
-        let _guard = self.sync_state.lock().unwrap();
+        let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
-        let db = conn.lock().unwrap();
+        let db = conn.lock();
         Ok(db.new_interrupt_handle())
     }
 }

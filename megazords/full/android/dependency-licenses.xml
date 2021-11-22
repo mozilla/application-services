@@ -225,6 +225,10 @@ the details of which are reproduced below.
     <url>https://github.com/rust-lang/log/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
+    <name>Apache License 2.0: maybe-uninit</name>
+    <url>https://github.com/est31/maybe-uninit/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
     <name>Apache License 2.0: num-integer</name>
     <url>https://github.com/rust-num/num-integer/blob/master/LICENSE-APACHE</url>
   </license>
@@ -239,6 +243,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: opaque-debug</name>
     <url>https://github.com/RustCrypto/utils/blob/master/opaque-debug/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: parking_lot</name>
+    <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: parking_lot_core</name>
+    <url>https://github.com/Amanieu/parking_lot/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: paste</name>
@@ -287,6 +299,10 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: quote</name>
     <url>https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: rand</name>
+    <url>https://github.com/rust-lang-nursery/rand/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: rand</name>
@@ -363,6 +379,14 @@ the details of which are reproduced below.
   <license>
     <name>Apache License 2.0: smallvec</name>
     <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: smallvec</name>
+    <url>https://github.com/servo/rust-smallvec/blob/master/LICENSE-APACHE</url>
+  </license>
+  <license>
+    <name>Apache License 2.0: stable_deref_trait</name>
+    <url>https://github.com/storyyeller/stable_deref_trait/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: static_assertions</name>
@@ -515,6 +539,10 @@ the details of which are reproduced below.
   <license>
     <name>MIT License: ordered-float</name>
     <url>https://github.com/reem/rust-ordered-float/blob/master/LICENSE-MIT</url>
+  </license>
+  <license>
+    <name>MIT License: owning_ref</name>
+    <url>https://github.com/Kimundi/owning-ref-rs/blob/master/LICENSE</url>
   </license>
   <license>
     <name>MIT License: radium</name>
