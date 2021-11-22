@@ -224,10 +224,10 @@ impl FeatureManifest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FeatureDef {
-    name: String,
-    doc: String,
-    props: Vec<PropDef>,
-    default: Option<Literal>,
+    pub(crate) name: String,
+    pub(crate) doc: String,
+    pub(crate) props: Vec<PropDef>,
+    pub(crate) default: Option<Literal>,
 }
 impl FeatureDef {
     #[allow(dead_code)]
@@ -370,11 +370,11 @@ mod unit_tests {
 
     #[test]
     fn can_ir_represent_smoke_test() -> Result<()> {
-        let m1 = intermediate_representation::get_simple_homescreen_feature();
-        let string = serde_json::to_string(&m1)?;
-        let m2: FeatureManifest = serde_json::from_str(&string)?;
+        let reference_manifest = intermediate_representation::get_simple_homescreen_feature();
+        let json_string = serde_json::to_string(&reference_manifest)?;
+        let manifest_from_json: FeatureManifest = serde_json::from_str(&json_string)?;
 
-        assert_eq!(m1, m2);
+        assert_eq!(reference_manifest, manifest_from_json);
 
         Ok(())
     }

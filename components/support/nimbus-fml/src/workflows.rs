@@ -8,7 +8,6 @@ use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
 use crate::parser::Parser;
 use crate::Config;
-use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use crate::GenerateStructCmd;
@@ -21,9 +20,8 @@ pub(crate) fn generate_struct(config: Option<PathBuf>, cmd: GenerateStructCmd) -
     };
 
     let ir = if !cmd.load_from_ir {
-        let file = File::open(cmd.manifest)?;
-        let _parser: Parser = Parser::new(file);
-        unimplemented!("No parser is available")
+        let parser: Parser = Parser::new(&cmd.manifest)?;
+        parser.get_intermediate_representation()?
     } else {
         let string = slurp_file(&cmd.manifest)?;
         serde_json::from_str::<FeatureManifest>(&string)?
