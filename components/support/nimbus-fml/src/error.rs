@@ -31,6 +31,8 @@ pub enum FMLError {
     InternalError(&'static str),
     #[error("Validation Error: {0}")]
     ValidationError(String),
+    #[error("Type Parsing Error: {0}")]
+    TypeParsingError(String),
 }
 
 pub type Result<T, E = FMLError> = std::result::Result<T, E>;
