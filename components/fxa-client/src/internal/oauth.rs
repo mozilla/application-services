@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 pub mod attached_clients;
+use super::scopes;
 use super::{
     error::*,
     http_client::{
@@ -327,6 +328,7 @@ impl FirefoxAccount {
         resp: OAuthTokenResponse,
         scoped_keys_flow: Option<ScopedKeysFlow>,
     ) -> Result<()> {
+        let sync_scope_granted = resp.scope.split(' ').any(|s| s == scopes::OLD_SYNC);
         if let Some(ref jwe) = resp.keys_jwe {
             let scoped_keys_flow = scoped_keys_flow.ok_or({
                 ErrorKind::UnrecoverableServerError("Got a JWE but have no JWK to decrypt it.")
@@ -334,10 +336,19 @@ impl FirefoxAccount {
             let decrypted_keys = scoped_keys_flow.decrypt_keys_jwe(jwe)?;
             let scoped_keys: serde_json::Map<String, serde_json::Value> =
                 serde_json::from_str(&decrypted_keys)?;
+            if sync_scope_granted && !scoped_keys.contains_key(scopes::OLD_SYNC) {
+                log::error!(
+                    "Sync scope granted, but no sync scoped key (scope granted: {}, key scopes: {})",
+                    resp.scope,
+                    scoped_keys.keys().map(|s| s.as_ref()).collect::<Vec<&str>>().join(", ")
+                );
+            }
             for (scope, key) in scoped_keys {
                 let scoped_key: ScopedKey = serde_json::from_value(key)?;
                 self.state.scoped_keys.insert(scope, scoped_key);
             }
+        } else if sync_scope_granted {
+            log::error!("Sync scope granted, but keys_jwe is None");
         }
 
         // If the client requested a 'tokens/session' OAuth scope then as part of the code
