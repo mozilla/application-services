@@ -23,6 +23,13 @@ features:
         description: This is the background color
         type: String
         default: white
+      player-mapping:
+        description: This is the map of the player type to a button
+        type: Map<PlayerProfile, Button>
+        default: {
+          "child": {},
+          "adult": {}
+        }
     defaults:
       - channel: release
         value: {
