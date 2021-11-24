@@ -13,6 +13,9 @@ import os.log
 
 internal typealias APIHandle = UInt64
 internal typealias ConnectionHandle = UInt64
+internal typealias UniffiPlacesApi = PlacesApi
+internal typealias UniffiPlacesConnection = PlacesConnection
+internal typealias Url = String
 
 /**
  * This is something like a places connection manager. It primarialy exists to
@@ -24,6 +27,8 @@ internal typealias ConnectionHandle = UInt64
 public class PlacesAPI {
     private let handle: APIHandle
     private let writeConn: PlacesWriteConnection
+    private let api: UniffiPlacesApi
+
     private let queue = DispatchQueue(label: "com.mozilla.places.api")
     private let interruptHandle: InterruptHandle
 
@@ -39,11 +44,14 @@ public class PlacesAPI {
             places_api_new(path, error)
         }
         self.handle = handle
+        try self.api = placesApiNew(dbPath: path)
+
         do {
             let writeHandle = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadWrite), error)
             }
-            writeConn = try PlacesWriteConnection(handle: writeHandle)
+            let uniffiConn = try api.newConnection(connType: ConnectionType.readWrite)
+            writeConn = try PlacesWriteConnection(handle: writeHandle, conn: uniffiConn)
 
             interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
                 places_new_sync_conn_interrupt_handle(handle, error)
@@ -130,10 +138,11 @@ public class PlacesAPI {
      */
     open func openReader() throws -> PlacesReadConnection {
         return try queue.sync {
-            let conn = try PlacesError.unwrap { error in
+            let connHandle = try PlacesError.unwrap { error in
                 places_connection_new(handle, Int32(PlacesConn_ReadOnly), error)
             }
-            return try PlacesReadConnection(handle: conn, api: self)
+            let uniffiConn = try api.newConnection(connType: ConnectionType.readOnly)
+            return try PlacesReadConnection(handle: connHandle, conn: uniffiConn)
         }
     }
 
@@ -246,13 +255,18 @@ public class PlacesAPI {
  * A read-only connection to the places database.
  */
 public class PlacesReadConnection {
+    // As a temp work-around while we uniffi, we actually have 2 references to a PlacesConnection- one
+    // via a handle in the old-school HandleMap, and the other via uniffi.
+    // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
     fileprivate let queue = DispatchQueue(label: "com.mozilla.places.conn")
     fileprivate var handle: ConnectionHandle
+    fileprivate var conn: UniffiPlacesConnection
     fileprivate weak var api: PlacesAPI?
     fileprivate let interruptHandle: InterruptHandle
 
-    fileprivate init(handle: ConnectionHandle, api: PlacesAPI? = nil) throws {
+    fileprivate init(handle: ConnectionHandle, conn: UniffiPlacesConnection, api: PlacesAPI? = nil) throws {
         self.handle = handle
+        self.conn = conn
         self.api = api
         interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
             places_new_interrupt_handle(handle, error)
@@ -262,7 +276,7 @@ public class PlacesReadConnection {
     // Note: caller synchronizes!
     fileprivate func checkApi() throws {
         if api == nil {
-            throw PlacesError.connUseAfterAPIClosed
+            throw PlacesError.ConnUseAfterAPIClosed
         }
     }
 
@@ -526,7 +540,7 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             return try PlacesError.unwrapWithUniffi { _ in
-                try placesGetLatestHistoryMetadataForUrl(handle: Int64(self.handle), url: url)
+                try self.conn.getLatestHistoryMetadataForUrl(url: url)
             }
         }
     }
@@ -535,7 +549,7 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesGetHistoryMetadataSince(handle: Int64(self.handle), start: since)
+                try self.conn.getHistoryMetadataSince(since: since)
             }
             return result ?? []
         }
@@ -545,7 +559,7 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesGetHistoryMetadataBetween(handle: Int64(self.handle), start: start, end: end)
+                try self.conn.getHistoryMetadataBetween(start: start, end: end)
             }
             return result ?? []
         }
@@ -555,7 +569,7 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesGetHistoryHighlights(handle: Int64(self.handle), weights: weights, limit: limit)
+                try self.conn.getHistoryHighlights(weights: weights, limit: limit)
             }
             return result ?? []
         }
@@ -565,7 +579,7 @@ public class PlacesReadConnection {
         return try queue.sync {
             try self.checkApi()
             let result = try PlacesError.unwrapWithUniffi { _ in
-                try placesQueryHistoryMetadata(handle: Int64(self.handle), query: query, limit: limit)
+                try self.conn.queryHistoryMetadata(query: query, limit: limit)
             }
             return result ?? []
         }
@@ -892,7 +906,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
     ) throws {
         try queue.sync {
             try self.checkApi()
-            try placesNoteHistoryMetadataObservation(handle: Int64(self.handle), data: observation)
+            try self.conn.noteHistoryMetadataObservation(data: observation)
         }
     }
 
@@ -932,7 +946,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
         try queue.sync {
             try self.checkApi()
             try PlacesError.unwrapWithUniffi { _ in
-                try placesMetadataDeleteOlderThan(handle: Int64(self.handle), olderThan: olderThan)
+                try self.conn.metadataDeleteOlderThan(olderThan: olderThan)
             }
         }
     }
@@ -941,8 +955,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
         try queue.sync {
             try self.checkApi()
             try PlacesError.unwrapWithUniffi { _ in
-                try placesMetadataDelete(
-                    handle: Int64(self.handle),
+                try self.conn.metadataDelete(
                     url: key.url,
                     referrerUrl: key.referrerUrl,
                     searchTerm: key.searchTerm
