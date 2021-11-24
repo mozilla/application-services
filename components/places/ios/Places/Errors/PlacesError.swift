@@ -27,8 +27,6 @@ extension PlacesError: LocalizedError {
             return "PlacesError.OperationInterrupted: \(message)"
         case let .BookmarksCorruption(message):
             return "PlacesError.BookmarksCorruption: \(message)"
-        case let .InvalidParent(message):
-            return "PlacesError.InvalidParent: \(message)"
         case let .UnknownBookmarkItem(message):
             return "PlacesError.UnknownBookmarkItem: \(message)"
         case let .UrlTooLong(message):
@@ -73,11 +71,11 @@ extension PlacesError: LocalizedError {
             return .CannotUpdateRoot(message: message)
 
         case Places_Panic:
-            return .panic(message: message)
+            return .InternalPanic(message: message)
         // Note: `1` is used as a generic catch all, but we
         // might as well handle the others the same way.
         default:
-            return .unexpected(message: message)
+            return .UnexpectedPlacesException(message: message)
         }
     }
 
@@ -113,26 +111,6 @@ extension PlacesError: LocalizedError {
             // Can't log what the error is without jumping through hoops apparently, oh well...
             os_log("Hit places error when throwing is impossible %{public}@", type: .error, "\(e)")
             return nil
-        }
-    }
-
-    @discardableResult
-    static func unwrapWithUniffi<T>(_ callback: (UnsafeMutablePointer<PlacesRustError>) throws -> T?) throws -> T? {
-        do {
-            var err = PlacesRustError(code: Places_NoError, message: nil)
-            return try callback(&err)
-        } catch let errorWrapper as ErrorWrapper {
-            switch errorWrapper {
-            case let .Wrapped(message):
-                let splitError = message.components(separatedBy: "|")
-
-                // If we couldn't get the right code, default to unexpected error
-                let code = Int32(splitError[0]) ?? 1
-                let message = splitError[1]
-                throw makeException(code: PlacesErrorCode(code), message: message)!
-            default:
-                throw PlacesError.UnexpectedPlacesException(message: "Unexpected Error")
-            }
         }
     }
 }

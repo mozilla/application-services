@@ -29,7 +29,7 @@ interface PlacesConnection {
     sequence<HistoryMetadata> get_history_metadata_between(i64 start, i64 end);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> get_history_metadata_since(i64 start);
+    sequence<HistoryMetadata> get_history_metadata_since(i64 since);
 
     [Throws=PlacesError]
     sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
