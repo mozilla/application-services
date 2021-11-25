@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Display;
 
 use serde::Serialize;
@@ -13,7 +14,7 @@ use crate::{
     intermediate_representation::FeatureManifest, Config, GenerateExperimenterManifestCmd,
 };
 
-use crate::error::Result;
+use crate::error::{FMLError, Result};
 
 #[derive(Debug, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,12 +33,13 @@ struct ExperimenterFeatureManifest {
 #[derive(Debug, Default, Clone, Serialize)]
 pub struct Variables(serde_json::Value);
 
-impl From<FeatureManifest> for HashMap<String, ExperimenterFeatureManifest> {
-    fn from(fm: FeatureManifest) -> Self {
+impl TryFrom<FeatureManifest> for HashMap<String, ExperimenterFeatureManifest> {
+    type Error = crate::error::FMLError;
+    fn try_from(fm: FeatureManifest) -> Result<Self> {
         fm.feature_defs
             .iter()
             .map(|feature| {
-                (
+                Ok((
                     feature.name(),
                     ExperimenterFeatureManifest {
                         description: feature.doc(),
@@ -46,11 +48,47 @@ impl From<FeatureManifest> for HashMap<String, ExperimenterFeatureManifest> {
                         // TODO: Add exposure description to the IR so
                         // we can use it here if it's needed
                         exposure_description: Some("".into()),
-                        variables: feature.props().into(),
+                        variables: fm.props_to_variables(&feature.props)?,
                     },
-                )
+                ))
             })
             .collect()
+    }
+}
+
+impl FeatureManifest {
+    fn props_to_variables(&self, props: &[PropDef]) -> Result<Variables> {
+        // Ideally this would be implemented as a `TryFrom<Vec<PropDef>>`
+        // however, we need a reference to the `FeatureManifest` to get the valid
+        // variants of an enum
+        let mut map = serde_json::Map::new();
+        props.iter().try_for_each(|prop| -> Result<()> {
+            let typ = ExperimentManifestPropType::from(prop.typ()).to_string();
+            let mut val = json!({
+                "type": typ,
+                "description": prop.doc(),
+            });
+            if let TypeRef::Enum(e) = prop.typ() {
+                let enum_def = self
+                    .enum_defs
+                    .iter()
+                    .find(|enum_def| e == enum_def.name)
+                    .ok_or(FMLError::InternalError("Found enum with no definition"))?;
+                val.as_object_mut().unwrap().insert(
+                    "enum".into(),
+                    serde_json::to_value(
+                        enum_def
+                            .variants
+                            .iter()
+                            .map(|variant| variant.name())
+                            .collect::<Vec<String>>(),
+                    )?,
+                );
+            }
+            map.insert(prop.name(), val);
+            Ok(())
+        })?;
+        Ok(Variables(serde_json::Value::Object(map)))
     }
 }
 
@@ -79,11 +117,13 @@ impl From<TypeRef> for ExperimentManifestPropType {
             TypeRef::Object(_)
             | TypeRef::EnumMap(_, _)
             | TypeRef::StringMap(_)
-            | TypeRef::List(_)
-            | TypeRef::Enum(_) => Self::Json,
+            | TypeRef::List(_) => Self::Json,
             TypeRef::Boolean => Self::Boolean,
             TypeRef::Int => Self::Int,
-            TypeRef::String | TypeRef::BundleImage(_) | TypeRef::BundleText(_) => Self::String,
+            TypeRef::String
+            | TypeRef::BundleImage(_)
+            | TypeRef::BundleText(_)
+            | TypeRef::Enum(_) => Self::String,
             TypeRef::Option(inner) => Self::from(inner),
         }
     }
@@ -95,29 +135,12 @@ impl From<Box<TypeRef>> for ExperimentManifestPropType {
     }
 }
 
-impl From<Vec<PropDef>> for Variables {
-    fn from(properties: Vec<PropDef>) -> Self {
-        let mut map = serde_json::Map::new();
-        properties.iter().for_each(|prop| {
-            let typ = ExperimentManifestPropType::from(prop.typ()).to_string();
-            map.insert(
-                prop.name(),
-                json!({
-                    "type": typ,
-                    "description": prop.doc(),
-                }),
-            );
-        });
-        Self(serde_json::Value::Object(map))
-    }
-}
-
 pub(crate) fn generate_manifest(
     ir: FeatureManifest,
     _config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let experiment_manifest: HashMap<String, ExperimenterFeatureManifest> = ir.into();
+    let experiment_manifest: HashMap<String, ExperimenterFeatureManifest> = ir.try_into()?;
     let output_str = serde_json::to_string_pretty(&experiment_manifest)?;
     std::fs::write(cmd.output, output_str)?;
     Ok(())

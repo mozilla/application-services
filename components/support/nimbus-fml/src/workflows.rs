@@ -41,10 +41,10 @@ fn slurp_file(path: &Path) -> Result<String> {
 
 fn load_feature_manifest(path: &Path, load_from_ir: bool) -> Result<FeatureManifest> {
     Ok(if !load_from_ir {
-        let parser: Parser = Parser::new(&path)?;
+        let parser: Parser = Parser::new(path)?;
         parser.get_intermediate_representation()?
     } else {
-        let string = slurp_file(&path)?;
+        let string = slurp_file(path)?;
         serde_json::from_str::<FeatureManifest>(&string)?
     })
 }
