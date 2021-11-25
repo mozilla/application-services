@@ -316,7 +316,7 @@ mod unit_tests {
             name: "label".to_string(),
             doc: "This is the label for the button".to_string(),
             typ: TypeRef::String,
-            default: serde_json::Value::Null,
+            default: serde_json::Value::String("REQUIRED FIELD".to_string()),
         }));
         assert!(obj_def.props.contains(&PropDef {
             name: "color".to_string(),
