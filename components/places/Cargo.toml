@@ -35,8 +35,8 @@ error-support = { path = "../support/error" }
 sync-guid = { path = "../support/guid", features = ["rusqlite_support", "random"]}
 thiserror = "1.0"
 anyhow = "1.0"
-uniffi = "^0.14"
-uniffi_macros = "^0.14"
+uniffi = "^0.15"
+uniffi_macros = "^0.15"
 
 [dependencies.rusqlite]
 version = "0.24.2"
@@ -48,4 +48,4 @@ tempfile = "3.1"
 env_logger = {version = "0.7", default-features = false}
 
 [build-dependencies]
-uniffi_build = { version = "^0.14", features=["builtin-bindgen"] }
+uniffi_build = { version = "^0.15", features=["builtin-bindgen"] }
