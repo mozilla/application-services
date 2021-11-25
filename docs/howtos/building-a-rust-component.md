@@ -1,9 +1,7 @@
 # Guide to Building a Syncable Rust Component
 
-This is a guide to creating a new Syncable Rust Component like many of the
-components in this repo. If you are looking for information how to build (ie,
-compile, etc) the existing components, you are looking for
-[our build documentation](https://github.com/mozilla/application-services/blob/main/docs/building.md)
+> This is a guide to creating a new Syncable Rust Component like many of the components in this repo. If you are looking for information how to build (ie,compile, etc) the existing components, you are looking for [our build documentation](../building.md)
+
 
 Welcome!
 
@@ -36,13 +34,13 @@ think it should be used.]
 
 The "Store" is the entry-point for the consuming application - it provides the
 core functionality exposed by the component and manages your databases and other
-singletons. The responsibilities of this will include things like creating the
+singletons. The responsibilities of the "Store" will include things like creating the
 DB if it doesn't exist, doing schema upgrades etc.
 
 The functionality exposed by the "Store" will depend on the complexity of the
 API being exposed. For example, for `webext-storage`, where there are only a
 handful of simple public functions, it just directly exposes all the
-functionalty of the component. However, for Places, which has a much more
+functionality of the component. However, for Places, which has a much more
 complex API, the (logical) Store instead supplies "Connection" instances which
 expose the actual functionality.
 
@@ -62,7 +60,7 @@ We typically have a "DB" abstraction which manages the database itself - the
 logic for handling schema upgrades etc and enforcing the "only 1 writer" rule
 is done by this.
 
-However, this is just a convenience - the DB abstrations aren't really passed
+However, this is just a convenience - the DB abstractions aren't really passed
 around - we just pass raw connections (or transactions) around. For example, if
 there's a utility function that reads from the DB, it will just have a Rusqlite
 connection passed. (Again, older components don't really do this well, but
@@ -150,12 +148,12 @@ data itself - often in a `meta` table.
 All logic for knowing which records need to be sync must be part of the
 application logic, and will often be implemented using `triggers`. It's quite
 common for components to use a "change counter" strategy, which can be
-summaried as:
+summarized as:
 
 * Every table which defines the "top level" items being synced will have a
   column called something like 'sync_change_counter' - the app will probably
   track this counter manually instead of using a trigger, because sync itself
-  will need different behaviour when it updates the records.
+  will need different behavior when it updates the records.
 
 * At sync time, items with a non-zero change counter are candidates for syncing.
 
@@ -221,4 +219,4 @@ Here are some earlier blog posts on the topic which might be helpful:
 * [Building and Deploying a Rust library on iOS](https://mozilla.github.io/firefox-browser-architecture/experiments/2017-09-06-rust-on-ios.html)
 * [Blog post re: lessons in binding to Rust code from iOS](https://discourse.mozilla.org/t/dear-diary-turns-out-x-platform-is-hard/25348)
 
-The above are likely to be superceded by uniffi docs, but for now, good luck!
+The above are likely to be superseded by uniffi docs, but for now, good luck!

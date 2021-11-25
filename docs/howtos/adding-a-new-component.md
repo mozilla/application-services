@@ -1,6 +1,6 @@
 # Adding a new component to Application Services
 
-Each component in the Application Services repo has three parts (the Rust code,
+Each component in the Application Services repository has three parts (the Rust code,
 the Kotlin wrapper, and the Swift wrapper) so there are quite a few moving
 parts involved in adding a new component. This is a rapid-fire list of all
 the things you'll need to do if adding a new component from scratch.
@@ -20,14 +20,14 @@ Use [UniFFI](https://mozilla.github.io/uniffi-rs/) to define how your crate's
 API will get exposed to foreign-language bindings. By convention, put the interface
 definition file at `./components/<your_crate_name>/<your_crate_name>.udl`. Use
 the `builtin-bindgen` feature of UniFFI to simplify the build process, by
-putting this in your `Cargo.toml`:
+putting the following in your `Cargo.toml`:
 
 ```
 [build-dependencies]
 uniffi_build = { version = "<latest version here>", features=["builtin-bindgen"] }
 ```
 
-Include your new crate in the application-services workspace, by adding
+Include your new crate in the `application-services` workspace, by adding
 it to the `members` and `default-members` lists in the `Cargo.toml` at
 the root of the repository.
 
@@ -36,8 +36,8 @@ In order to be published to consumers, your crate must be included in the
 
 * For Android, add it as a dependency in `./megazords/full/Cargo.toml` and
   add a `pub use <your_crate_name>` to `./megazords/full/src/lib.rs`.
-* For iOS, add it as a dependency in `./megazords/ios/rust/Cargo.toml` and
-  add a `pub use <your_crate_name>` to `./megazords/ios/rust/src/lib.rs`.
+* For iOS, add it as a dependency in `./megazords/ios-rust/rust/Cargo.toml` and
+  add a `pub use <your_crate_name>` to `./megazords/ios-rust/src/lib.rs`.
 
 Run `cargo check -p <your_crate_name>` in the repository root to confirm that
 things are configured properly. This will also have the side-effect of updating
@@ -57,7 +57,7 @@ your own component's directory, and edit it to replace the references to
 Create a file `./components/<your_crate_name>/uniffi.toml` with the
 following contents:
 
-```
+```toml
 [bindings.kotlin]
 package_name = "mozilla.appservices.<your_crate_name>"
 cdylib_name = "megazord"
@@ -66,7 +66,7 @@ cdylib_name = "megazord"
 Create a file `./components/<your_crate_name>/android/src/main/AndroidManifest.xml`
 with the following contents:
 
-```
+```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.mozilla.appservices.<your_crate_name>" />
 ```
