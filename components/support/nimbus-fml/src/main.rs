@@ -57,12 +57,12 @@ fn main() -> Result<()> {
             )?,
             _ => unimplemented!(),
         },
-        ("experimenter", Some(cmd)) => workflows::generate_experimenter_manifest(
+        ("experimenter", _) => workflows::generate_experimenter_manifest(
             config,
             GenerateExperimenterManifestCmd {
-                manifest: file_path("INPUT", cmd, &cwd)?,
-                output: file_path("output", cmd, &cwd)?,
-                load_from_ir: cmd.is_present("ir"),
+                manifest: file_path("INPUT", &matches, &cwd)?,
+                output: file_path("output", &matches, &cwd)?,
+                load_from_ir: matches.is_present("ir"),
             },
         )?,
         (word, _) => unimplemented!("Command {} not implemented", word),
