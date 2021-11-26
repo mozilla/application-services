@@ -5,6 +5,9 @@
 [Wrapped]
 typedef string Url;
 
+[Wrapped]
+typedef string Guid;
+
 namespace places {
     [Throws=PlacesError]
     PlacesApi places_api_new(string db_path);
@@ -22,6 +25,15 @@ interface PlacesApi {
 };
 
 interface PlacesConnection {
+    /*
+     * Bookmarks functions
+     */
+    [Throws=PlacesError]
+    boolean delete_bookmark_node(Guid guid);
+
+    /*
+     * History Metadata functions
+     */
     [Throws=PlacesError]
     HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 

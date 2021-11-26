@@ -478,6 +478,9 @@ class PlacesConnectionTest {
         )
 
         db.getBookmarksTree(folderGUID, false)
+
+        assert(db.deleteBookmarkNode(itemGUID))
+        assert(!db.deleteBookmarkNode("no-such-guid"))
     }
 
     @Test

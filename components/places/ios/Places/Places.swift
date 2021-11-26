@@ -661,10 +661,8 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func deleteBookmarkNode(guid: String) throws -> Bool {
         return try queue.sync {
             try self.checkApi()
-            let resByte = try PlacesError.unwrap { error in
-                bookmarks_delete(self.handle, guid, error)
-            }
-            return resByte != 0
+            // XXX - PlacesError.unwrap? markh needs to dig his mac out :)
+            return try self.conn.deleteBookmarkNode(guid: guid)
         }
     }
 

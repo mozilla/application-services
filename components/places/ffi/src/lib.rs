@@ -643,16 +643,6 @@ pub unsafe extern "C" fn bookmarks_update(
 }
 
 #[no_mangle]
-pub extern "C" fn bookmarks_delete(handle: u64, id: FfiStr<'_>, error: &mut ExternError) -> u8 {
-    log::debug!("bookmarks_delete");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let guid = SyncGuid::from(id.as_str());
-        let did_delete = bookmarks::delete_bookmark(conn, &guid)?;
-        Ok(did_delete)
-    })
-}
-
-#[no_mangle]
 pub extern "C" fn bookmarks_get_all_with_url(
     handle: u64,
     url: FfiStr<'_>,

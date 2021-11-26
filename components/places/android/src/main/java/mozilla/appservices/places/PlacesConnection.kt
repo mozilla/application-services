@@ -647,10 +647,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
 
     override fun deleteBookmarkNode(guid: String): Boolean {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                val existedByte = LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
-                existedByte.toInt() != 0
-            }
+            this.conn.deleteBookmarkNode(guid)
         }
     }
 

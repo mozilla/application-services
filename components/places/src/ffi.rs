@@ -7,6 +7,7 @@
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::msg_types;
+use crate::storage::bookmarks;
 use crate::storage::history_metadata;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
@@ -20,6 +21,7 @@ use ffi_support::{
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
+use sync_guid::Guid;
 use url::Url;
 
 lazy_static::lazy_static! {
@@ -36,6 +38,18 @@ impl UniffiCustomTypeWrapper for Url {
 
     fn wrap(val: Self::Wrapped) -> uniffi::Result<url::Url> {
         Ok(Url::parse(val.as_str())?)
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        obj.into()
+    }
+}
+
+impl UniffiCustomTypeWrapper for Guid {
+    type Wrapped = String;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+        Ok(Guid::from_string(val))
     }
 
     fn unwrap(obj: Self) -> Self::Wrapped {
@@ -65,6 +79,12 @@ impl PlacesConnection {
         Ok(f(&conn)?)
     }
 
+    // Bookmarks
+    fn delete_bookmark_node(&self, guid: Guid) -> Result<bool> {
+        self.with_conn(|conn| bookmarks::delete_bookmark(conn, &guid))
+    }
+
+    // History Metadata
     fn get_latest_history_metadata_for_url(&self, url: Url) -> Result<Option<HistoryMetadata>> {
         self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
     }
