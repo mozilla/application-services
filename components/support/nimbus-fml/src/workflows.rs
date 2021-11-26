@@ -187,7 +187,7 @@ mod test {
                 output: curr_out.clone(),
                 load_from_ir: true,
             };
-            generate_experimenter_manifest(None, cmd)?;
+            generate_experimenter_manifest(Default::default(), cmd)?;
             let generated = fs::read_to_string(curr_out)?;
             let generated_json = serde_json::from_str(&generated)?;
             validate_against_experimenter_schema(
