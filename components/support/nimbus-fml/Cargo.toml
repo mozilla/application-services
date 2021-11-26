@@ -19,3 +19,4 @@ heck = "0.3.3"
 
 [dev-dependencies]
 tempdir = "0.3.7"
+jsonschema = { version = "0.13", default-features = false }
