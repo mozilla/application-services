@@ -27,15 +27,18 @@ args:
         long: output
         value_name: FILE
         global: true
+    - channel:
+        help: The channel to generate the defaults for
+        long: channel
+        short: h
+        global: true
+        takes_value: true
 subcommands:
     - android:
         about: Generate code for Android
         subcommands:
             - features:
                 about: Generate feature structs against the Feature Variables API.
-                args:
-                    - channel:
-                        help: The channel which the default will use. Unimplemented.
         args:
             - package:
                 help: The package name where the features class will live
@@ -49,3 +52,5 @@ subcommands:
                 global: true
     - experimenter:
         about: Generate code for Experimenter
+    - intermediate-repr:
+        about: Generate the intermediate representation json

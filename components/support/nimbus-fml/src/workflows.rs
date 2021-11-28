@@ -2,7 +2,7 @@
 * License, v. 2.0. If a copy of the MPL was not distributed with this
 * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use crate::{backends, GenerateExperimenterManifestCmd, TargetLanguage};
+use crate::{backends, GenerateExperimenterManifestCmd, GenerateIRCmd, TargetLanguage};
 
 use crate::error::Result;
 use crate::intermediate_representation::FeatureManifest;
@@ -13,7 +13,7 @@ use std::path::Path;
 use crate::GenerateStructCmd;
 
 pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<()> {
-    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir)?;
+    let ir = load_feature_manifest(&config, &cmd.manifest, cmd.load_from_ir)?;
     let language = cmd.language;
     match language {
         TargetLanguage::IR => {
@@ -30,8 +30,14 @@ pub(crate) fn generate_experimenter_manifest(
     config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir)?;
+    let ir = load_feature_manifest(&config, &cmd.manifest, cmd.load_from_ir)?;
     backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
+    Ok(())
+}
+
+pub(crate) fn generate_ir(config: Config, cmd: GenerateIRCmd) -> Result<()> {
+    let ir = load_feature_manifest(&config, &cmd.manifest, cmd.load_from_ir)?;
+    std::fs::write(cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
 }
 
@@ -39,9 +45,13 @@ fn slurp_file(path: &Path) -> Result<String> {
     Ok(std::fs::read_to_string(path)?)
 }
 
-fn load_feature_manifest(path: &Path, load_from_ir: bool) -> Result<FeatureManifest> {
+fn load_feature_manifest(
+    config: &Config,
+    path: &Path,
+    load_from_ir: bool,
+) -> Result<FeatureManifest> {
     Ok(if !load_from_ir {
-        let parser: Parser = Parser::new(path)?;
+        let parser: Parser = Parser::new(config, path)?;
         parser.get_intermediate_representation()?
     } else {
         let string = slurp_file(path)?;
