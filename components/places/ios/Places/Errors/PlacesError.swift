@@ -13,6 +13,8 @@ extension PlacesError: LocalizedError {
     /// Our implementation of the localizedError protocol -- (This shows up in Sentry)
     public var errorDescription: String? {
         switch self {
+        case let .ConnUseAfterApiClosed(message):
+            return "PlacesError.ConnUseAfterApiClosed: \(message)"
         case let .UnexpectedPlacesException(message):
             return "PlacesError.UnexpectedPlacesException: \(message)"
         case let .InternalPanic(message):

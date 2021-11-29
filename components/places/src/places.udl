@@ -111,4 +111,5 @@ enum PlacesError {
     "InvalidBookmarkUpdate",
     "CannotUpdateRoot",
     "InternalPanic",
+    "ConnUseAfterApiClosed",
 };

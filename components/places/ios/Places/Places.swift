@@ -276,7 +276,7 @@ public class PlacesReadConnection {
     // Note: caller synchronizes!
     fileprivate func checkApi() throws {
         if api == nil {
-            throw PlacesError.ConnUseAfterAPIClosed
+            throw PlacesError.ConnUseAfterApiClosed(message: "api is null")
         }
     }
 
@@ -539,7 +539,7 @@ public class PlacesReadConnection {
     open func getLatestHistoryMetadataForUrl(url: String) throws -> HistoryMetadata? {
         return try queue.sync {
             try self.checkApi()
-            return try PlacesError.unwrapWithUniffi { _ in
+            return try PlacesError.unwrap { _ in
                 try self.conn.getLatestHistoryMetadataForUrl(url: url)
             }
         }
@@ -548,7 +548,7 @@ public class PlacesReadConnection {
     open func getHistoryMetadataSince(since: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
+            let result = try PlacesError.unwrap { _ in
                 try self.conn.getHistoryMetadataSince(since: since)
             }
             return result ?? []
@@ -558,7 +558,7 @@ public class PlacesReadConnection {
     open func getHistoryMetadataBetween(start: Int64, end: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
+            let result = try PlacesError.unwrap { _ in
                 try self.conn.getHistoryMetadataBetween(start: start, end: end)
             }
             return result ?? []
@@ -568,7 +568,7 @@ public class PlacesReadConnection {
     open func getHighlights(weights: HistoryHighlightWeights, limit: Int32) throws -> [HistoryHighlight] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
+            let result = try PlacesError.unwrap { _ in
                 try self.conn.getHistoryHighlights(weights: weights, limit: limit)
             }
             return result ?? []
@@ -578,7 +578,7 @@ public class PlacesReadConnection {
     open func queryHistoryMetadata(query: String, limit: Int32) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
+            let result = try PlacesError.unwrap { _ in
                 try self.conn.queryHistoryMetadata(query: query, limit: limit)
             }
             return result ?? []
@@ -945,7 +945,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func deleteHistoryMetadataOlderThan(olderThan: Int64) throws {
         try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrapWithUniffi { _ in
+            try PlacesError.unwrap { _ in
                 try self.conn.metadataDeleteOlderThan(olderThan: olderThan)
             }
         }
@@ -954,7 +954,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func deleteHistoryMetadata(key: HistoryMetadataKey) throws {
         try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrapWithUniffi { _ in
+            try PlacesError.unwrap { _ in
                 try self.conn.metadataDelete(
                     url: key.url,
                     referrerUrl: key.referrerUrl,

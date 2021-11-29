@@ -224,6 +224,10 @@ pub enum PlacesError {
 
     #[error("Unexpected error: {0}")]
     InternalPanic(String),
+
+    /// If the PlacesAPI that returned this connection object has been closed.
+    #[error("Conn used after Api closed: {0}")]
+    ConnUseAfterApiClosed(String),
 }
 
 // A port of the error conversion stuff that was in ffi.rs - it turns our
