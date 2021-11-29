@@ -18,6 +18,14 @@ internal typealias UniffiPlacesConnection = PlacesConnection
 internal typealias Url = String
 
 /**
+ * This is specifically for throwing when there is
+ * API misuse and/or connection issues with PlacesReadConnection
+ */
+public enum PlacesApiError: Error {
+    case connUseAfterApiClosed
+}
+
+/**
  * This is something like a places connection manager. It primarialy exists to
  * ensure that only a single write connection is active at once.
  *
@@ -276,7 +284,7 @@ public class PlacesReadConnection {
     // Note: caller synchronizes!
     fileprivate func checkApi() throws {
         if api == nil {
-            throw PlacesError.ConnUseAfterApiClosed(message: "api is null")
+            throw PlacesApiError.connUseAfterApiClosed
         }
     }
 
@@ -939,10 +947,10 @@ public class PlacesWriteConnection: PlacesReadConnection {
         try queue.sync {
             try self.checkApi()
             try self.conn.metadataDelete(
-                    url: key.url,
-                    referrerUrl: key.referrerUrl,
-                    searchTerm: key.searchTerm
-                )
+                url: key.url,
+                referrerUrl: key.referrerUrl,
+                searchTerm: key.searchTerm
+            )
         }
     }
 }
