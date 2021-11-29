@@ -231,6 +231,7 @@ ext.rustTargets = [
 switch (DefaultPlatform.RESOURCE_PREFIX) {
     case 'darwin':
     case 'darwin-x86-64':
+    case 'darwin-aarch64':
         ext.nativeRustTarget = 'darwin'
         break
     case 'linux-x86-64':
