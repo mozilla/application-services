@@ -381,7 +381,7 @@ class PlacesTests: XCTestCase {
 
         // Testing a Uniffi-ed error
         do {
-            _ = try db.getLatestHistoryMetadataForUrl(url: "somerandomurl")
+            _ = try db.noteHistoryMetadataObservation(observation: HistoryMetadataObservation(url: "http://www.[].com"))
             XCTFail("Call did not throw")
         } catch let caughtError as PlacesError {
             if case PlacesError.UrlParseFailed = caughtError {
