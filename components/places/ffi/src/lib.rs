@@ -163,22 +163,6 @@ pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut Exte
     ffi_support::call_with_output(error, || handle.interrupt())
 }
 
-/// Add an observation to the database. The observation is a VisitObservation represented as JSON.
-/// Errors are logged.
-#[no_mangle]
-pub extern "C" fn places_note_observation(
-    handle: u64,
-    json_observation: FfiStr<'_>,
-    error: &mut ExternError,
-) {
-    log::debug!("places_note_observation");
-    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
-        let json = json_observation.as_str();
-        let visit: places::VisitObservation = serde_json::from_str(json)?;
-        places::api::apply_observation(conn, visit)
-    })
-}
-
 /// Execute a query, returning a `Vec<SearchResult>` as a JSON string. Returned string must be freed
 /// using `places_destroy_string`. Returns null and logs on errors (for now).
 #[no_mangle]
