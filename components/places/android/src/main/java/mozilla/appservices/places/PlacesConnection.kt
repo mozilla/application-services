@@ -1259,7 +1259,6 @@ enum class VisitType(val type: Int) {
 
 private val intToVisitType: Map<Int, VisitType> = VisitType.values().associateBy(VisitType::type)
 
-
 enum class SearchResultReason {
     KEYWORD,
     ORIGIN,
