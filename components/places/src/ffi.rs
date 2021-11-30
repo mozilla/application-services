@@ -7,12 +7,14 @@
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::msg_types;
-use crate::storage::history_metadata;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
+use crate::storage::{history, history_metadata};
 use crate::ConnectionType;
+use crate::VisitObservation;
+use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -20,6 +22,7 @@ use ffi_support::{
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
+use types::Timestamp;
 use url::Url;
 
 lazy_static::lazy_static! {
@@ -40,6 +43,18 @@ impl UniffiCustomTypeWrapper for Url {
 
     fn unwrap(obj: Self) -> Self::Wrapped {
         obj.into()
+    }
+}
+
+impl UniffiCustomTypeWrapper for Timestamp {
+    type Wrapped = u64;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+        Ok(Timestamp(val))
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        obj.as_millis()
     }
 }
 
@@ -112,6 +127,14 @@ impl PlacesConnection {
                 search_term.as_deref(),
             )
         })
+    }
+
+    /// Add an observation to the database.
+    fn apply_observation(&self, visit: VisitObservation) -> Result<()> {
+        match self.with_conn(|conn| history::apply_observation(conn, visit)) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e),
+        }
     }
 }
 
