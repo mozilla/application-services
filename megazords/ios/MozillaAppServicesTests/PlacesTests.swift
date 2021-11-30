@@ -371,7 +371,7 @@ class PlacesTests: XCTestCase {
             _ = try db.updateBookmarkNode(guid: "123", parentGUID: "456")
             XCTFail("Call did not throw")
         } catch let caughtError as PlacesError {
-            if case PlacesError.noSuchItem = caughtError {
+            if case PlacesError.UnknownBookmarkItem = caughtError {
             } else {
                 XCTFail("Not the correct error ")
             }
@@ -381,10 +381,10 @@ class PlacesTests: XCTestCase {
 
         // Testing a Uniffi-ed error
         do {
-            _ = try db.getLatestHistoryMetadataForUrl(url: "somerandomurl")
+            _ = try db.noteHistoryMetadataObservation(observation: HistoryMetadataObservation(url: "http://www.[].com"))
             XCTFail("Call did not throw")
         } catch let caughtError as PlacesError {
-            if case PlacesError.urlParseError = caughtError {
+            if case PlacesError.UrlParseFailed = caughtError {
             } else {
                 XCTAssertEqual(caughtError.localizedDescription, "Error")
                 XCTFail("Not the correct PlacesError")

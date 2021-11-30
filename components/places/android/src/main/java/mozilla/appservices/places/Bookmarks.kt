@@ -417,7 +417,6 @@ data class BookmarkUpdateInfo(
     }
 }
 
-
 /**
  * Turn the protobuf rust passes us into a BookmarkTreeNode.
  *
