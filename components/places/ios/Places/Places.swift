@@ -18,6 +18,14 @@ internal typealias UniffiPlacesConnection = PlacesConnection
 internal typealias Url = String
 
 /**
+ * This is specifically for throwing when there is
+ * API misuse and/or connection issues with PlacesReadConnection
+ */
+public enum PlacesApiError: Error {
+    case connUseAfterApiClosed
+}
+
+/**
  * This is something like a places connection manager. It primarialy exists to
  * ensure that only a single write connection is active at once.
  *
@@ -276,7 +284,7 @@ public class PlacesReadConnection {
     // Note: caller synchronizes!
     fileprivate func checkApi() throws {
         if api == nil {
-            throw PlacesError.ConnUseAfterAPIClosed
+            throw PlacesApiError.connUseAfterApiClosed
         }
     }
 
@@ -539,49 +547,35 @@ public class PlacesReadConnection {
     open func getLatestHistoryMetadataForUrl(url: String) throws -> HistoryMetadata? {
         return try queue.sync {
             try self.checkApi()
-            return try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.getLatestHistoryMetadataForUrl(url: url)
-            }
+            return try self.conn.getLatestHistoryMetadataForUrl(url: url)
         }
     }
 
     open func getHistoryMetadataSince(since: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.getHistoryMetadataSince(since: since)
-            }
-            return result ?? []
+            return try self.conn.getHistoryMetadataSince(since: since)
         }
     }
 
     open func getHistoryMetadataBetween(start: Int64, end: Int64) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.getHistoryMetadataBetween(start: start, end: end)
-            }
-            return result ?? []
+            return try self.conn.getHistoryMetadataBetween(start: start, end: end)
         }
     }
 
     open func getHighlights(weights: HistoryHighlightWeights, limit: Int32) throws -> [HistoryHighlight] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.getHistoryHighlights(weights: weights, limit: limit)
-            }
-            return result ?? []
+            return try self.conn.getHistoryHighlights(weights: weights, limit: limit)
         }
     }
 
     open func queryHistoryMetadata(query: String, limit: Int32) throws -> [HistoryMetadata] {
         return try queue.sync {
             try self.checkApi()
-            let result = try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.queryHistoryMetadata(query: query, limit: limit)
-            }
-            return result ?? []
+            return try self.conn.queryHistoryMetadata(query: query, limit: limit)
         }
     }
 
@@ -945,22 +939,18 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func deleteHistoryMetadataOlderThan(olderThan: Int64) throws {
         try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.metadataDeleteOlderThan(olderThan: olderThan)
-            }
+            try self.conn.metadataDeleteOlderThan(olderThan: olderThan)
         }
     }
 
     open func deleteHistoryMetadata(key: HistoryMetadataKey) throws {
         try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrapWithUniffi { _ in
-                try self.conn.metadataDelete(
-                    url: key.url,
-                    referrerUrl: key.referrerUrl,
-                    searchTerm: key.searchTerm
-                )
-            }
+            try self.conn.metadataDelete(
+                url: key.url,
+                referrerUrl: key.referrerUrl,
+                searchTerm: key.searchTerm
+            )
         }
     }
 }
