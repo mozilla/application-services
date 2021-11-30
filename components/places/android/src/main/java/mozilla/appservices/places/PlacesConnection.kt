@@ -17,6 +17,7 @@ import mozilla.appservices.places.uniffi.HistoryMetadataObservation
 import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
 import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
 import mozilla.appservices.places.uniffi.placesApiNew
+import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -569,11 +570,8 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
     // The reference to our PlacesAPI. Mostly used to know how to handle getting closed.
     val apiRef = WeakReference(api)
     override fun noteObservation(data: VisitObservation) {
-        val json = data.toJSON().toString()
         return writeQueryCounters.measure {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_note_observation(this.handle.get(), json, error)
-            }
+            this.conn.applyObservation(data)
         }
     }
 
@@ -1261,41 +1259,6 @@ enum class VisitType(val type: Int) {
 
 private val intToVisitType: Map<Int, VisitType> = VisitType.values().associateBy(VisitType::type)
 
-/**
- * Encapsulates either information about a visit to a page, or meta information about the page,
- * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
- */
-data class VisitObservation(
-    val url: String,
-    val visitType: VisitType,
-    val title: String? = null,
-    val isError: Boolean? = null,
-    val isRedirectSource: Boolean? = null,
-    val isPermanentRedirectSource: Boolean? = null,
-    /** Milliseconds */
-    val at: Long? = null,
-    val referrer: String? = null,
-    val isRemote: Boolean? = null,
-    val previewImageUrl: String? = null
-) {
-    fun toJSON(): JSONObject {
-        val o = JSONObject()
-        o.put("url", this.url)
-        // Absence of visit_type indicates that this is an update.
-        if (this.visitType != VisitType.UPDATE_PLACE) {
-            o.put("visit_type", this.visitType.type)
-        }
-        this.title?.let { o.put("title", it) }
-        this.isError?.let { o.put("is_error", it) }
-        this.isRedirectSource?.let { o.put("is_redirect_source", it) }
-        this.isPermanentRedirectSource?.let { o.put("is_permanent_redirect_source", it) }
-        this.at?.let { o.put("at", it) }
-        this.referrer?.let { o.put("referrer", it) }
-        this.isRemote?.let { o.put("is_remote", it) }
-        this.previewImageUrl?.let { o.put("preview_image_url", it) }
-        return o
-    }
-}
 
 enum class SearchResultReason {
     KEYWORD,
