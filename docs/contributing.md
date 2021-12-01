@@ -25,8 +25,9 @@ Below are a few different queries you can use to find appropriate issues to work
 
 
 ## Sending Pull Requests ##
-
 Patches should be submitted as [pull requests](https://help.github.com/articles/about-pull-requests/) (PRs).
+
+> When submitting PRs, We expect external contributors to push patches to a [fork](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks) of [`application-services`](https://github.com/mozilla/application-services). For more information about submitting PRs from forks, read [GitHub's guide](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork).
 
 Before submitting a PR:
 - Your patch should include new tests that cover your changes, or be accompanied by explanation for why it doesn't need any. It is your and your reviewer's responsibility to ensure your patch includes adequate tests.
