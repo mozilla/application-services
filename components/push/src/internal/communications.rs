@@ -289,7 +289,7 @@ impl Connection for ConnectHttp {
                     log::info!("Old uaid exists, using that: {}", uaid);
                     uaid.clone()
                 } else {
-                    return Err(CommunicationError("Could not determine uaid".into()))
+                    return Err(CommunicationError("Could not determine uaid".into()));
                 }
             }
         };
@@ -557,6 +557,43 @@ mod test {
             .create();
             let mut conn =
                 connect(config.clone(), None, None, Some(SENDER_ID.to_string())).unwrap();
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
+            let response = conn.subscribe(&channel_id, None).unwrap();
+            ap_ns_mock.assert();
+            assert_eq!(response.uaid, DUMMY_UAID);
+            // make sure we have stored the secret.
+            assert_eq!(conn.auth, None);
+        }
+        // SUBSCRIPTION - uaid already cached, but server
+        // doesn't return a uaid
+        {
+            let body = json!({
+                "uaid": null,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": null,
+            })
+            .to_string();
+            let ap_ns_mock = mock(
+                "POST",
+                format!(
+                    "/v1/test/{}/registration/{}/subscription",
+                    SENDER_ID, DUMMY_UAID
+                )
+                .as_ref(),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(
+                config.clone(),
+                Some(DUMMY_UAID.into()),
+                None,
+                Some(SENDER_ID.to_string()),
+            )
+            .unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_ns_mock.assert();
