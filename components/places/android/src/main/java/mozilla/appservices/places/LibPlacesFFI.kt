@@ -8,7 +8,6 @@ package mozilla.appservices.places
 import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
-import com.sun.jna.StringArray
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.places.BuildConfig
 
@@ -145,7 +144,6 @@ internal interface LibPlacesFFI : Library {
         frecencyThreshold: Long,
         error: RustError.ByReference
     ): RustBuffer.ByValue
-
 
     fun places_reset(
         handle: PlacesApiHandle,
