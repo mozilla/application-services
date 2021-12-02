@@ -12,7 +12,7 @@ consumer project. Here are our current best-practices for approaching this on iO
    rm -rf Carthage/Build/iOS/MozillaAppServices.framework
    rsync -ad path/to/application-services/Carthage/Build/iOS/MozillaAppServices.framework/ Carthage/Build/iOS/MozillaAppServices.framework/
    ```
-1. Open the consuming app project in XCode and build it from there.
+1. Open the consuming app project in Xcode and build it from there.
 
 After making changes to application-services code, you will need to re-run these steps in order to
 copy the latest changes over into the consuming app.

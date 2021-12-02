@@ -47,7 +47,7 @@ For this step, run the following script from inside the `rust-components-swift` 
 ```sh
 ./make_tag -l ../application-services X.Y.Z
 ```
-Once that is done, your local checkout will now have a git tag `X.Y.Z` that can be pointed to by xCode
+Once that is done, your local checkout will now have a git tag `X.Y.Z` that can be pointed to by Xcode
 
 ## Include the local checkout of `rust-components-swift` in `Focus`
 This is the final step to include your local changes into `Focus`. Do the following steps:
