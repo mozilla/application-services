@@ -1,3 +1,11 @@
+# v86.2.1 (_2021-12-02_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v86.2.0...v86.2.1)
+
+## Push
+### What's fixed
+  - Fixes a bug where the subscriptions would fail because the server didn't return the `uaid`, this seems to happen only when the client sends request that include the `uaid`.([#4697](https://github.com/mozilla/application-services/pull/4697))
+
 # v86.2.0 (_2021-11-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v86.1.0...v86.2.0)
