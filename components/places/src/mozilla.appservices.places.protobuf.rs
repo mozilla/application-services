@@ -1,32 +1,3 @@
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryVisitInfo {
-    #[prost(string, required, tag="1")]
-    pub url: ::prost::alloc::string::String,
-    #[prost(string, optional, tag="2")]
-    pub title: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int64, required, tag="3")]
-    pub timestamp: i64,
-    #[prost(int32, required, tag="4")]
-    pub visit_type: i32,
-    #[prost(bool, required, tag="5")]
-    pub is_hidden: bool,
-    #[prost(string, optional, tag="6")]
-    pub preview_image_url: ::core::option::Option<::prost::alloc::string::String>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryVisitInfos {
-    #[prost(message, repeated, tag="1")]
-    pub infos: ::prost::alloc::vec::Vec<HistoryVisitInfo>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HistoryVisitInfosWithBound {
-    #[prost(message, repeated, tag="1")]
-    pub infos: ::prost::alloc::vec::Vec<HistoryVisitInfo>,
-    #[prost(int64, required, tag="2")]
-    pub bound: i64,
-    #[prost(int64, required, tag="3")]
-    pub offset: i64,
-}
 ///*
 /// A bookmark node.
 ///

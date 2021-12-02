@@ -18,6 +18,8 @@ import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
 import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
 import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.places.uniffi.VisitObservation
+import mozilla.appservices.places.uniffi.HistoryVisitInfo
+import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -322,79 +324,21 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
     }
 
     override fun getVisited(urls: List<String>): List<Boolean> {
-        // Note urlStrings has a potential footgun in that StringArray has a `size()` method
-        // which returns the size *in bytes*. Hence us using urls.size (which is an element count)
-        // for the actual number of urls!
-        val urlStrings = StringArray(urls.toTypedArray(), "utf8")
-        val byteBuffer = ByteBuffer.allocateDirect(urls.size)
-        byteBuffer.order(ByteOrder.nativeOrder())
-        readQueryCounters.measure {
-            rustCall { error ->
-                val bufferPtr = Native.getDirectBufferPointer(byteBuffer)
-                LibPlacesFFI.INSTANCE.places_get_visited(
-                    this.handle.get(),
-                    urlStrings, urls.size,
-                    bufferPtr, urls.size,
-                    error
-                )
-            }
-        }
-        val result = ArrayList<Boolean>(urls.size)
-        for (index in 0 until urls.size) {
-            val wasVisited = byteBuffer.get(index)
-            if (wasVisited != 0.toByte() && wasVisited != 1.toByte()) {
-                throw java.lang.RuntimeException(
-                    "Places bug! Memory corruption possible! Report me!"
-                )
-            }
-            result.add(wasVisited == 1.toByte())
-        }
-        return result
+        return this.conn.getVisited(urls)
     }
 
     override fun getVisitedUrlsInRange(start: Long, end: Long, includeRemote: Boolean): List<String> {
-        val urlsJson = rustCallForString { error ->
-            val incRemoteArg: Byte = if (includeRemote) { 1 } else { 0 }
-            LibPlacesFFI.INSTANCE.places_get_visited_urls_in_range(
-                this.handle.get(), start, end, incRemoteArg, error
-            )
-        }
-        val arr = JSONArray(urlsJson)
-        val result = mutableListOf<String>()
-        for (idx in 0 until arr.length()) {
-            result.add(arr.getString(idx))
-        }
-        return result
+        return this.conn.getVisitedUrlsInRange(start, end, includeRemote)
     }
 
-    override fun getVisitInfos(start: Long, end: Long, excludeTypes: List<VisitType>): List<VisitInfo> {
+    override fun getVisitInfos(start: Long, end: Long, excludeTypes: List<VisitType>): List<HistoryVisitInfo> {
         readQueryCounters.measure {
-            val infoBuffer = rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_get_visit_infos(
-                    this.handle.get(), start, end, visitTransitionSet(excludeTypes), error
-                )
-            }
-            try {
-                val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
-                return VisitInfo.fromMessage(infos)
-            } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
-            }
+            return this.conn.getVisitInfos(start, end, visitTransitionSet(excludeTypes))
         }
     }
 
-    override fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType>): List<VisitInfo> {
-        val infoBuffer = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_get_visit_page(
-                this.handle.get(), offset, count, visitTransitionSet(excludeTypes), error
-            )
-        }
-        try {
-            val infos = MsgTypes.HistoryVisitInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
-            return VisitInfo.fromMessage(infos)
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
-        }
+    override fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType>): List<HistoryVisitInfo> {
+        return this.conn.getVisitPage(offset, count, visitTransitionSet(excludeTypes))
     }
 
     override fun getVisitPageWithBound(
@@ -402,26 +346,12 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
         offset: Long,
         count: Long,
         excludeTypes: List<VisitType>
-    ): VisitInfosWithBound {
-        val infoBuffer = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_get_visit_page_with_bound(
-                this.handle.get(), offset, bound, count, visitTransitionSet(excludeTypes), error
-            )
-        }
-        try {
-            val infos = MsgTypes.HistoryVisitInfosWithBound.parseFrom(infoBuffer.asCodedInputStream()!!)
-            return VisitInfosWithBound.fromMessage(infos)
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
-        }
+    ): HistoryVisitInfosWithBound {
+        return this.conn.getVisitPageWithBound(offset, bound, count, visitTransitionSet(excludeTypes))
     }
 
     override fun getVisitCount(excludeTypes: List<VisitType>): Long {
-        return rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_get_visit_count(
-                this.handle.get(), visitTransitionSet(excludeTypes), error
-            )
-        }
+        return this.conn.getVisitCount(visitTransitionSet(excludeTypes))
     }
 
     override suspend fun getLatestHistoryMetadataForUrl(url: Url): HistoryMetadata? {
@@ -1046,7 +976,7 @@ interface ReadableHistoryConnection : InterruptibleConnection {
         start: Long,
         end: Long = Long.MAX_VALUE,
         excludeTypes: List<VisitType> = listOf()
-    ): List<VisitInfo>
+    ): List<HistoryVisitInfo>
 
     /**
      * Return a "page" of history results. Each page will have visits in descending order
@@ -1060,7 +990,7 @@ interface ReadableHistoryConnection : InterruptibleConnection {
      * @param count The number of items to return in the page.
      * @param excludeTypes List of visit types to exclude.
      */
-    fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType> = listOf()): List<VisitInfo>
+    fun getVisitPage(offset: Long, count: Long, excludeTypes: List<VisitType> = listOf()): List<HistoryVisitInfo>
 
     /**
      * Page more efficiently than using simple numeric offset. We first figure out
@@ -1078,7 +1008,7 @@ interface ReadableHistoryConnection : InterruptibleConnection {
         offset: Long,
         count: Long,
         excludeTypes: List<VisitType> = listOf()
-    ): VisitInfosWithBound
+    ): HistoryVisitInfosWithBound
 
     /**
      * Get the number of history visits.
@@ -1352,83 +1282,6 @@ enum class FrecencyThresholdOption(val value: Long) {
 
     /** Skip visited pages that were only visited once. */
     SKIP_ONE_TIME_PAGES(101)
-}
-
-/**
- * Information about a history visit. Returned by `PlacesAPI.getVisitInfos`.
- */
-data class VisitInfo(
-    /**
-     * The URL of the page that was visited.
-     */
-    val url: String,
-
-    /**
-     * The title of the page that was visited, if known.
-     */
-    val title: String?,
-
-    /**
-     * The time the page was visited in integer milliseconds since the unix epoch.
-     */
-    val visitTime: Long,
-
-    /**
-     * What the transition type of the visit is.
-     */
-    val visitType: VisitType,
-
-    /**
-     * Whether the page is hidden because it redirected to another page, or was
-     * visited in a frame.
-     */
-    val isHidden: Boolean,
-
-    /**
-     * The preview image of the page that was visited, if known.
-     */
-    val previewImageUrl: String?
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.HistoryVisitInfos): List<VisitInfo> {
-            return msg.infosList.map {
-                VisitInfo(
-                    url = it.url,
-                    title = it.title,
-                    visitTime = it.timestamp,
-                    visitType = intToVisitType[it.visitType]!!,
-                    isHidden = it.isHidden,
-                    previewImageUrl = if (it.previewImageUrl.isNullOrEmpty()) null else it.previewImageUrl
-                )
-            }
-        }
-    }
-}
-
-data class VisitInfosWithBound(
-    val infos: List<VisitInfo>,
-    val bound: Long,
-    val offset: Long
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.HistoryVisitInfosWithBound): VisitInfosWithBound {
-            val infoList = msg.infosList.map {
-                VisitInfo(
-                    url = it.url,
-                    title = it.title,
-                    visitTime = it.timestamp,
-                    visitType = intToVisitType[it.visitType]!!,
-                    isHidden = it.isHidden,
-                    previewImageUrl = it.previewImageUrl
-                )
-            }
-            return VisitInfosWithBound(
-                infos = infoList,
-                bound = msg.bound,
-                offset = msg.offset
-            )
-        }
-    }
 }
 
 /**

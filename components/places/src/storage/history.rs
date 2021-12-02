@@ -10,13 +10,12 @@ use crate::hash;
 use crate::history_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
-use crate::msg_types::{
-    HistoryVisitInfo, HistoryVisitInfos, HistoryVisitInfosWithBound, TopFrecentSiteInfo,
-    TopFrecentSiteInfos,
-};
+use crate::msg_types::{TopFrecentSiteInfo, TopFrecentSiteInfos};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
+use crate::types::{
+    HistoryVisitInfo, HistoryVisitInfosWithBound, SyncStatus, VisitTransition, VisitTransitionSet,
+};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};
@@ -1265,7 +1264,7 @@ pub fn get_visit_infos(
     start: Timestamp,
     end: Timestamp,
     exclude_types: VisitTransitionSet,
-) -> Result<HistoryVisitInfos> {
+) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
@@ -1283,7 +1282,7 @@ pub fn get_visit_infos(
         },
         HistoryVisitInfo::from_row,
     )?;
-    Ok(HistoryVisitInfos { infos })
+    Ok(infos)
 }
 
 pub fn get_visit_count(db: &PlacesDb, exclude_types: VisitTransitionSet) -> Result<i64> {
@@ -1310,7 +1309,7 @@ pub fn get_visit_page(
     offset: i64,
     count: i64,
     exclude_types: VisitTransitionSet,
-) -> Result<HistoryVisitInfos> {
+) -> Result<Vec<HistoryVisitInfo>> {
     let allowed_types = exclude_types.complement();
     let infos = db.query_rows_and_then_named_cached(
         "SELECT h.url, h.title, v.visit_date, v.visit_type, h.hidden, h.preview_image_url
@@ -1329,7 +1328,7 @@ pub fn get_visit_page(
         },
         HistoryVisitInfo::from_row,
     )?;
-    Ok(HistoryVisitInfos { infos })
+    Ok(infos)
 }
 
 pub fn get_visit_page_with_bound(

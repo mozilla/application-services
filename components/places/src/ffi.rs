@@ -6,15 +6,16 @@
 
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
-use crate::msg_types;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
 use crate::storage::{history, history_metadata};
+use crate::types::{HistoryVisitInfo, VisitTransitionSet};
 use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
+use crate::{msg_types, HistoryVisitInfosWithBound};
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -47,14 +48,26 @@ impl UniffiCustomTypeWrapper for Url {
 }
 
 impl UniffiCustomTypeWrapper for Timestamp {
-    type Wrapped = u64;
+    type Wrapped = i64;
 
     fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
-        Ok(Timestamp(val))
+        Ok(Timestamp(val as u64))
     }
 
     fn unwrap(obj: Self) -> Self::Wrapped {
-        obj.as_millis()
+        obj.as_millis() as i64
+    }
+}
+
+impl UniffiCustomTypeWrapper for VisitTransitionSet {
+    type Wrapped = i32;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+        Ok(VisitTransitionSet::from_u16(val as u16).expect("Bug: Invalid VisitTransitionSet"))
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        VisitTransitionSet::into_u16(obj) as i32
     }
 }
 
@@ -135,6 +148,68 @@ impl PlacesConnection {
             Ok(_) => Ok(()),
             Err(e) => Err(e),
         }
+    }
+
+    fn get_visited_urls_in_range(
+        &self,
+        start: i64,
+        end: i64,
+        include_remote: bool,
+    ) -> Result<Vec<String>> {
+        self.with_conn(|conn| {
+            history::get_visited_urls(
+                conn,
+                // Probably should allow into()...
+                types::Timestamp(start.max(0) as u64),
+                types::Timestamp(end.max(0) as u64),
+                include_remote,
+            )
+        })
+    }
+
+    fn get_visit_infos(
+        &self,
+        start_date: i64,
+        end_date: i64,
+        exclude_types: VisitTransitionSet,
+    ) -> Result<Vec<HistoryVisitInfo>> {
+        self.with_conn(|conn| {
+            history::get_visit_infos(
+                conn,
+                types::Timestamp(start_date.max(0) as u64),
+                types::Timestamp(end_date.max(0) as u64),
+                exclude_types,
+            )
+        })
+    }
+
+    fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> Result<i64> {
+        self.with_conn(|conn| history::get_visit_count(conn, exclude_types))
+    }
+
+    fn get_visit_page(
+        &self,
+        offset: i64,
+        count: i64,
+        exclude_types: VisitTransitionSet,
+    ) -> Result<Vec<HistoryVisitInfo>> {
+        self.with_conn(|conn| history::get_visit_page(conn, offset, count, exclude_types))
+    }
+
+    fn get_visit_page_with_bound(
+        &self,
+        bound: i64,
+        offset: i64,
+        count: i64,
+        exclude_types: VisitTransitionSet,
+    ) -> Result<HistoryVisitInfosWithBound> {
+        self.with_conn(|conn| {
+            history::get_visit_page_with_bound(conn, bound, offset, count, exclude_types)
+        })
+    }
+
+    fn get_visited(&self, urls: Vec<Url>) -> Result<Vec<bool>> {
+        self.with_conn(|conn| history::get_visited(conn, urls))
     }
 }
 
@@ -270,8 +345,6 @@ impl From<Error> for ExternError {
 
 implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
 implement_into_ffi_by_protobuf!(msg_types::TopFrecentSiteInfos);
-implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
-implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfosWithBound);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
 implement_into_ffi_by_delegation!(

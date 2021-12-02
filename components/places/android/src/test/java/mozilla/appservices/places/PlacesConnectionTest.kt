@@ -282,11 +282,11 @@ class PlacesConnectionTest {
     // as well as the handling of invalid urls.
     @Test
     fun testGetVisitInfos() {
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.LINK, at = 100000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitTransition.LINK, at = 250000u))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.LINK, at = 100000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitTransition.LINK, at = 250000))
         var infos = db.getVisitInfos(125000, 225000, excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY))
         assertEquals(2, infos.size)
         assertEquals("https://www.example.com/2b", infos[0].url)
@@ -300,15 +300,15 @@ class PlacesConnectionTest {
 
     @Test
     fun testGetVisitPage() {
-        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.LINK, at = 100000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitTransition.LINK, at = 110000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 120000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3b", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitTransition.LINK, at = 140000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/5", visitType = VisitTransition.LINK, at = 150000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/6", visitType = VisitTransition.LINK, at = 160000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/7", visitType = VisitTransition.LINK, at = 170000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/8", visitType = VisitTransition.LINK, at = 180000u))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/1", visitType = VisitTransition.LINK, at = 100000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2", visitType = VisitTransition.LINK, at = 110000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 120000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3b", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/4", visitType = VisitTransition.LINK, at = 140000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/5", visitType = VisitTransition.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/6", visitType = VisitTransition.LINK, at = 160000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/7", visitType = VisitTransition.LINK, at = 170000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/8", visitType = VisitTransition.LINK, at = 180000))
 
         assertEquals(9, db.getVisitCount())
         assertEquals(7, db.getVisitCount(excludeTypes = listOf(VisitType.REDIRECT_TEMPORARY)))
@@ -384,15 +384,15 @@ class PlacesConnectionTest {
         assert(!PlacesManagerMetrics.writeQueryCount.testHasValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["url_parse_failed"].testHasValue())
 
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000u))
-        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000u))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2a", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 130000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/2b", visitType = VisitTransition.LINK, at = 150000))
+        db.noteObservation(VisitObservation(url = "https://www.example.com/3", visitType = VisitTransition.LINK, at = 200000))
 
         assertEquals(3, PlacesManagerMetrics.writeQueryCount.testGetValue())
         assert(!PlacesManagerMetrics.writeQueryErrorCount["__other__"].testHasValue())
 
         try {
-            db.noteObservation(VisitObservation(url = "4", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 160000u))
+            db.noteObservation(VisitObservation(url = "4", visitType = VisitTransition.REDIRECT_TEMPORARY, at = 160000))
             fail("Should have thrown")
         } catch (e: PlacesException.UrlParseFailed) {
             // nothing to do here
