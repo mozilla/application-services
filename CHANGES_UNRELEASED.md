@@ -27,3 +27,7 @@ Use the template below to make assigning a version number during the release cut
 ### What's Changed
   - These packages all use `parking_lot::Mutex` instead of `std::Mutex`, meaning we should no
     longer see errors about mutexes being poisoned.
+
+## Push
+### What's fixed
+  - Fixes a bug where the subscriptions would fail because the server didn't return the `uaid`, this seems to happen only when the client sends request that include the `uaid`.([#4697](https://github.com/mozilla/application-services/pull/4697))
