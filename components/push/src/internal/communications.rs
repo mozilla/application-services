@@ -277,8 +277,22 @@ impl Connection for ConnectHttp {
             }
         };
 
-        // uaid (same or different) is always returned.
-        let uaid = ensure_resp_field("uaid")?;
+        // In practice, we seem to be getting response from the server
+        // without the `uaid` field, so we attempt to use the `uaid`
+        // we have cached if that exists.
+        // look at: https://github.com/mozilla/application-services/issues/4691
+        let uaid = match response["uaid"].as_str() {
+            Some(s) => s.to_string(),
+            None => {
+                log::warn!("Server did not return a uaid");
+                if let Some(uaid) = &self.uaid {
+                    log::info!("Old uaid exists, using that: {}", uaid);
+                    uaid.clone()
+                } else {
+                    return Err(CommunicationError("Could not determine uaid".into()))
+                }
+            }
+        };
         // secret only returned when uaid changes.
         let secret = response["secret"].as_str().map(ToString::to_string);
         // XXX - we only update `self.` here due to tests. We should fix the tests, and while at
