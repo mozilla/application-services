@@ -277,8 +277,22 @@ impl Connection for ConnectHttp {
             }
         };
 
-        // uaid (same or different) is always returned.
-        let uaid = ensure_resp_field("uaid")?;
+        // In practice, we seem to be getting response from the server
+        // without the `uaid` field, so we attempt to use the `uaid`
+        // we have cached if that exists.
+        // look at: https://github.com/mozilla/application-services/issues/4691
+        let uaid = match response["uaid"].as_str() {
+            Some(s) => s.to_string(),
+            None => {
+                log::warn!("Server did not return a uaid");
+                if let Some(uaid) = &self.uaid {
+                    log::info!("Old uaid exists, using that: {}", uaid);
+                    uaid.clone()
+                } else {
+                    return Err(CommunicationError("Could not determine uaid".into()));
+                }
+            }
+        };
         // secret only returned when uaid changes.
         let secret = response["secret"].as_str().map(ToString::to_string);
         // XXX - we only update `self.` here due to tests. We should fix the tests, and while at
@@ -543,6 +557,43 @@ mod test {
             .create();
             let mut conn =
                 connect(config.clone(), None, None, Some(SENDER_ID.to_string())).unwrap();
+            let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
+            let response = conn.subscribe(&channel_id, None).unwrap();
+            ap_ns_mock.assert();
+            assert_eq!(response.uaid, DUMMY_UAID);
+            // make sure we have stored the secret.
+            assert_eq!(conn.auth, None);
+        }
+        // SUBSCRIPTION - uaid already cached, but server
+        // doesn't return a uaid
+        {
+            let body = json!({
+                "uaid": null,
+                "channelID": DUMMY_CHID,
+                "endpoint": "https://example.com/update",
+                "senderid": SENDER_ID,
+                "secret": null,
+            })
+            .to_string();
+            let ap_ns_mock = mock(
+                "POST",
+                format!(
+                    "/v1/test/{}/registration/{}/subscription",
+                    SENDER_ID, DUMMY_UAID
+                )
+                .as_ref(),
+            )
+            .with_status(200)
+            .with_header("content-type", "application/json")
+            .with_body(body)
+            .create();
+            let mut conn = connect(
+                config.clone(),
+                Some(DUMMY_UAID.into()),
+                None,
+                Some(SENDER_ID.to_string()),
+            )
+            .unwrap();
             let channel_id = hex::encode(crate::internal::crypto::get_random_bytes(16).unwrap());
             let response = conn.subscribe(&channel_id, None).unwrap();
             ap_ns_mock.assert();
