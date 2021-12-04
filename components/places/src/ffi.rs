@@ -211,6 +211,55 @@ impl PlacesConnection {
     fn get_visited(&self, urls: Vec<Url>) -> Result<Vec<bool>> {
         self.with_conn(|conn| history::get_visited(conn, urls))
     }
+
+    fn delete_visits_for(&self, url: Url) -> Result<()> {
+        self.with_conn(|conn| {
+            let guid = match Url::parse(url.as_str()) {
+                Ok(url) => history::url_to_guid(conn, &url)?,
+                Err(e) => {
+                    log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
+                    history::href_to_guid(conn, url.clone().as_str())?
+                }
+            };
+            if let Some(guid) = guid {
+                history::delete_visits_for(conn, &guid)?;
+            }
+            Ok(())
+        })
+    }
+
+    fn delete_visits_between(&self, start: i64, end: i64) -> Result<()> {
+        self.with_conn(|conn| {
+            history::delete_visits_between(
+                conn,
+                types::Timestamp(start.max(0) as u64),
+                types::Timestamp(end.max(0) as u64),
+            )
+        })
+    }
+
+    fn delete_visit(&self, url: Url, timestamp: i64) -> Result<()> {
+        self.with_conn(|conn| {
+            match Url::parse(url.as_str()) {
+                Ok(url) => {
+                    history::delete_place_visit_at_time(
+                        conn,
+                        &url,
+                        types::Timestamp(timestamp.max(0) as u64),
+                    )?;
+                }
+                Err(e) => {
+                    log::warn!("Invalid URL passed to places_delete_visit, {}", e);
+                    history::delete_place_visit_at_time_by_href(
+                        conn,
+                        url.as_str(),
+                        types::Timestamp(timestamp.max(0) as u64),
+                    )?;
+                }
+            };
+            Ok(())
+        })
+    }
 }
 
 pub mod error_codes {

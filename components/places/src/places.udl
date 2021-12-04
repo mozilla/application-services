@@ -71,6 +71,15 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     sequence<boolean> get_visited(sequence<Url> urls);
+
+    [Throws=PlacesError]
+    void delete_visits_for(Url url);
+
+    [Throws=PlacesError]
+    void delete_visits_between(i64 start, i64 end);
+
+    [Throws=PlacesError]
+    void delete_visit(Url url, i64 timestamp);
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?

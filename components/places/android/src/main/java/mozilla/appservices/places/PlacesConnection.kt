@@ -503,21 +503,13 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
 
     override fun deleteVisitsFor(url: String) {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_delete_visits_for(
-                    this.handle.get(), url, error
-                )
-            }
+            this.conn.deleteVisitsFor(url)
         }
     }
 
     override fun deleteVisit(url: String, visitTimestamp: Long) {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_delete_visit(
-                    this.handle.get(), url, visitTimestamp, error
-                )
-            }
+            this.conn.deleteVisit(url, visitTimestamp)
         }
     }
 
@@ -527,11 +519,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
 
     override fun deleteVisitsBetween(startTime: Long, endTime: Long) {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_delete_visits_between(
-                    this.handle.get(), startTime, endTime, error
-                )
-            }
+            this.conn.deleteVisitsBetween(startTime, endTime)
         }
     }
 
@@ -1182,8 +1170,6 @@ enum class VisitType(val type: Int) {
     FRAMED_LINK(8),
     RELOAD(9)
 }
-
-private val intToVisitType: Map<Int, VisitType> = VisitType.values().associateBy(VisitType::type)
 
 enum class SearchResultReason {
     KEYWORD,
