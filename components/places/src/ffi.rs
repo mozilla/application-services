@@ -6,16 +6,16 @@
 
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
+use crate::msg_types;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
 use crate::storage::{history, history_metadata};
-use crate::types::{HistoryVisitInfo, VisitTransitionSet};
+use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
-use crate::{msg_types, HistoryVisitInfosWithBound};
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -39,7 +39,10 @@ impl UniffiCustomTypeWrapper for Url {
     type Wrapped = String;
 
     fn wrap(val: Self::Wrapped) -> uniffi::Result<url::Url> {
-        Ok(Url::parse(val.as_str())?)
+        match Url::parse(val.as_str()) {
+            Ok(url) => Ok(url),
+            Err(e) => Err(PlacesError::UrlParseFailed(e.to_string()).into()),
+        }
     }
 
     fn unwrap(obj: Self) -> Self::Wrapped {
@@ -208,8 +211,18 @@ impl PlacesConnection {
         })
     }
 
-    fn get_visited(&self, urls: Vec<Url>) -> Result<Vec<bool>> {
-        self.with_conn(|conn| history::get_visited(conn, urls))
+    // This is identical to get_visited in history.rs but takes a list of strings instead of urls
+    // This is necessary b/c we still need to return 'false' for bad URLs which prevents us from
+    // parsing/filtering them before reaching the history layer
+    fn get_visited(&self, urls: Vec<String>) -> Result<Vec<bool>> {
+        let iter = urls.into_iter();
+        let mut result = vec![false; iter.len()];
+        let url_idxs = iter
+            .enumerate()
+            .filter_map(|(idx, s)| Url::parse(&s).ok().map(|url| (idx, url)))
+            .collect::<Vec<_>>();
+        self.with_conn(|conn| history::get_visited_into(conn, &url_idxs, &mut result))?;
+        Ok(result)
     }
 
     fn delete_visits_for(&self, url: Url) -> Result<()> {
@@ -260,6 +273,22 @@ impl PlacesConnection {
             Ok(())
         })
     }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct HistoryVisitInfo {
+    pub url: String,
+    pub title: Option<String>,
+    pub timestamp: i64,
+    pub visit_type: i32,
+    pub is_hidden: bool,
+    pub preview_image_url: Option<String>,
+}
+#[derive(Clone, PartialEq)]
+pub struct HistoryVisitInfosWithBound {
+    pub infos: Vec<HistoryVisitInfo>,
+    pub bound: i64,
+    pub offset: i64,
 }
 
 pub mod error_codes {

@@ -70,7 +70,7 @@ interface PlacesConnection {
     HistoryVisitInfosWithBound get_visit_page_with_bound(i64 bound, i64 offset, i64 count, VisitTransitionSet exclude_types);
 
     [Throws=PlacesError]
-    sequence<boolean> get_visited(sequence<Url> urls);
+    sequence<boolean> get_visited(sequence<string> urls);
 
     [Throws=PlacesError]
     void delete_visits_for(Url url);

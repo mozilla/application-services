@@ -101,22 +101,6 @@ impl<'de> serde::Deserialize<'de> for VisitTransition {
     }
 }
 
-#[derive(Clone, PartialEq)]
-pub struct HistoryVisitInfo {
-    pub url: String,
-    pub title: Option<String>,
-    pub timestamp: i64,
-    pub visit_type: i32,
-    pub is_hidden: bool,
-    pub preview_image_url: Option<String>,
-}
-#[derive(Clone, PartialEq)]
-pub struct HistoryVisitInfosWithBound {
-    pub infos: Vec<HistoryVisitInfo>,
-    pub bound: i64,
-    pub offset: i64,
-}
-
 /// Bookmark types.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(u8)]

@@ -5,6 +5,7 @@
 use super::{fetch_page_info, new_page_info, PageInfo, RowId};
 use crate::db::PlacesDb;
 use crate::error::Result;
+use crate::ffi::{HistoryVisitInfo, HistoryVisitInfosWithBound};
 use crate::frecency;
 use crate::hash;
 use crate::history_sync::engine::{
@@ -13,9 +14,7 @@ use crate::history_sync::engine::{
 use crate::msg_types::{TopFrecentSiteInfo, TopFrecentSiteInfos};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
-use crate::types::{
-    HistoryVisitInfo, HistoryVisitInfosWithBound, SyncStatus, VisitTransition, VisitTransitionSet,
-};
+use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
 use rusqlite::types::ToSql;
 use rusqlite::Result as RusqliteResult;
 use rusqlite::{Row, NO_PARAMS};

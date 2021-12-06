@@ -12,9 +12,9 @@ pub mod tags;
 
 use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
+use crate::ffi::HistoryVisitInfo;
 use crate::msg_types::TopFrecentSiteInfo;
 use crate::types::{SyncStatus, VisitTransition};
-use crate::HistoryVisitInfo;
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;

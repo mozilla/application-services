@@ -98,26 +98,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
-    fun places_delete_visits_for(
-        handle: PlacesConnectionHandle,
-        url: String,
-        out_err: RustError.ByReference
-    )
-
-    fun places_delete_visits_between(
-        handle: PlacesConnectionHandle,
-        start: Long,
-        end: Long,
-        out_err: RustError.ByReference
-    )
-
-    fun places_delete_visit(
-        handle: PlacesConnectionHandle,
-        visit_url: String,
-        visit_timestamp: Long,
-        out_err: RustError.ByReference
-    )
-
     fun places_wipe_local(
         handle: PlacesConnectionHandle,
         out_err: RustError.ByReference
