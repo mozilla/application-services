@@ -255,6 +255,16 @@ impl PlacesConnection {
             Ok(())
         })
     }
+
+    fn get_top_frecent_site_infos(
+        &self,
+        num_items: i32,
+        frecency_threshold: i64,
+    ) -> Result<Vec<TopFrecentSiteInfo>> {
+        self.with_conn(|conn| {
+            crate::storage::history::get_top_frecent_site_infos(conn, num_items, frecency_threshold)
+        })
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -271,6 +281,11 @@ pub struct HistoryVisitInfosWithBound {
     pub infos: Vec<HistoryVisitInfo>,
     pub bound: i64,
     pub offset: i64,
+}
+
+pub struct TopFrecentSiteInfo {
+    pub url: Url,
+    pub title: Option<String>,
 }
 
 pub mod error_codes {
@@ -404,7 +419,6 @@ impl From<Error> for ExternError {
 }
 
 implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
-implement_into_ffi_by_protobuf!(msg_types::TopFrecentSiteInfos);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
 implement_into_ffi_by_delegation!(

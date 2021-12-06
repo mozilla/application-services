@@ -80,6 +80,9 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     void delete_visit(string url, Timestamp timestamp);
+
+    [Throws=PlacesError]
+    sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, i64 frecency_threshold);
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
@@ -180,6 +183,12 @@ dictionary VisitObservation {
 dictionary Dummy {
     sequence<HistoryMetadata>? md;
 };
+
+dictionary TopFrecentSiteInfo {
+    Url url;
+    string? title;
+};
+
 
 [Error]
 enum PlacesError {

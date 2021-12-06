@@ -13,6 +13,7 @@ import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
 import mozilla.appservices.places.uniffi.HistoryMetadata
 import mozilla.appservices.places.uniffi.HistoryMetadataObservation
+import mozilla.appservices.places.uniffi.TopFrecentSiteInfo
 import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
 import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
 import mozilla.appservices.places.uniffi.placesApiNew
@@ -308,15 +309,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
     }
 
     override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {
-        val infoBuffer = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_get_top_frecent_site_infos(this.handle.get(), numItems, frecencyThreshold.value, error)
-        }
-        try {
-            val infos = MsgTypes.TopFrecentSiteInfos.parseFrom(infoBuffer.asCodedInputStream()!!)
-            return TopFrecentSiteInfo.fromMessage(infos)
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(infoBuffer)
-        }
+        return this.conn.getTopFrecentSiteInfos(numItems, frecencyThreshold.value)
     }
 
     override fun getVisited(urls: List<String>): List<Boolean> {
@@ -1230,29 +1223,6 @@ data class HistoryMetadataKey(
     val searchTerm: String?,
     val referrerUrl: String?
 )
-
-/**
- * Information about a top frecent site. Returned by `PlacesAPI.getTopFrecentSiteInfos`.
- */
-data class TopFrecentSiteInfo(
-    /**
-     * The URL of the page that was visited.
-     */
-    val url: String,
-
-    /**
-     * The title of the page that was visited, if known.
-     */
-    val title: String?
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.TopFrecentSiteInfos): List<TopFrecentSiteInfo> {
-            return msg.infosList.map {
-                TopFrecentSiteInfo(url = it.url, title = it.title)
-            }
-        }
-    }
-}
 
 /**
  * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
