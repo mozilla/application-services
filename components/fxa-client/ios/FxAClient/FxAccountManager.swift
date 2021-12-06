@@ -52,9 +52,7 @@ open class FxAccountManager {
         setupInternalListeners()
     }
 
-    private lazy var statePersistenceCallback: FxAStatePersistenceCallback = {
-        FxAStatePersistenceCallback(manager: self)
-    }()
+    private lazy var statePersistenceCallback: FxAStatePersistenceCallback = .init(manager: self)
 
     /// Starts the FxA account manager and advances the state machine.
     /// It is required to call this method before doing anything else with the manager.
