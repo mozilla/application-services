@@ -1359,7 +1359,7 @@ pub fn get_visit_page_with_bound(
     )?;
 
     if let Some(l) = infos.last() {
-        if l.timestamp == bound {
+        if l.timestamp.as_millis_i64() == bound {
             // all items' timestamp are equal to the previous bound
             let offset = offset + infos.len() as i64;
             Ok(HistoryVisitInfosWithBound {
@@ -1376,7 +1376,7 @@ pub fn get_visit_page_with_bound(
                 .count() as i64;
             Ok(HistoryVisitInfosWithBound {
                 infos,
-                bound,
+                bound: bound.as_millis_i64(),
                 offset,
             })
         }

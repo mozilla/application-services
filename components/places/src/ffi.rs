@@ -100,12 +100,18 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
     }
 
-    fn get_history_metadata_between(&self, start: i64, end: i64) -> Result<Vec<HistoryMetadata>> {
-        self.with_conn(|conn| history_metadata::get_between(conn, start, end))
+    fn get_history_metadata_between(
+        &self,
+        start: Timestamp,
+        end: Timestamp,
+    ) -> Result<Vec<HistoryMetadata>> {
+        self.with_conn(|conn| {
+            history_metadata::get_between(conn, start.as_millis_i64(), end.as_millis_i64())
+        })
     }
 
-    fn get_history_metadata_since(&self, start: i64) -> Result<Vec<HistoryMetadata>> {
-        self.with_conn(|conn| history_metadata::get_since(conn, start))
+    fn get_history_metadata_since(&self, start: Timestamp) -> Result<Vec<HistoryMetadata>> {
+        self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
     }
 
     fn query_history_metadata(&self, query: String, limit: i32) -> Result<Vec<HistoryMetadata>> {
@@ -125,8 +131,8 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 
-    fn metadata_delete_older_than(&self, older_than: i64) -> Result<()> {
-        self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than))
+    fn metadata_delete_older_than(&self, older_than: Timestamp) -> Result<()> {
+        self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
     }
 
     fn metadata_delete(
@@ -147,43 +153,33 @@ impl PlacesConnection {
 
     /// Add an observation to the database.
     fn apply_observation(&self, visit: VisitObservation) -> Result<()> {
-        match self.with_conn(|conn| history::apply_observation(conn, visit)) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e),
-        }
+        self.with_conn(|conn| history::apply_observation(conn, visit))?;
+        Ok(())
     }
 
     fn get_visited_urls_in_range(
         &self,
-        start: i64,
-        end: i64,
+        start: Timestamp,
+        end: Timestamp,
         include_remote: bool,
-    ) -> Result<Vec<String>> {
+    ) -> Result<Vec<Url>> {
         self.with_conn(|conn| {
-            history::get_visited_urls(
-                conn,
-                // Probably should allow into()...
-                types::Timestamp(start.max(0) as u64),
-                types::Timestamp(end.max(0) as u64),
-                include_remote,
-            )
+            let urls = history::get_visited_urls(conn, start, end, include_remote)?
+                .iter()
+                // Turn the list of strings into valid Urls
+                .filter_map(|s| Url::parse(&s).ok())
+                .collect::<Vec<_>>();
+            Ok(urls)
         })
     }
 
     fn get_visit_infos(
         &self,
-        start_date: i64,
-        end_date: i64,
+        start_date: Timestamp,
+        end_date: Timestamp,
         exclude_types: VisitTransitionSet,
     ) -> Result<Vec<HistoryVisitInfo>> {
-        self.with_conn(|conn| {
-            history::get_visit_infos(
-                conn,
-                types::Timestamp(start_date.max(0) as u64),
-                types::Timestamp(end_date.max(0) as u64),
-                exclude_types,
-            )
-        })
+        self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
     }
 
     fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> Result<i64> {
@@ -225,9 +221,9 @@ impl PlacesConnection {
         Ok(result)
     }
 
-    fn delete_visits_for(&self, url: Url) -> Result<()> {
+    fn delete_visits_for(&self, url: String) -> Result<()> {
         self.with_conn(|conn| {
-            let guid = match Url::parse(url.as_str()) {
+            let guid = match Url::parse(&url) {
                 Ok(url) => history::url_to_guid(conn, &url)?,
                 Err(e) => {
                     log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
@@ -241,33 +237,19 @@ impl PlacesConnection {
         })
     }
 
-    fn delete_visits_between(&self, start: i64, end: i64) -> Result<()> {
-        self.with_conn(|conn| {
-            history::delete_visits_between(
-                conn,
-                types::Timestamp(start.max(0) as u64),
-                types::Timestamp(end.max(0) as u64),
-            )
-        })
+    fn delete_visits_between(&self, start: Timestamp, end: Timestamp) -> Result<()> {
+        self.with_conn(|conn| history::delete_visits_between(conn, start, end))
     }
 
-    fn delete_visit(&self, url: Url, timestamp: i64) -> Result<()> {
+    fn delete_visit(&self, url: String, timestamp: Timestamp) -> Result<()> {
         self.with_conn(|conn| {
-            match Url::parse(url.as_str()) {
+            match Url::parse(&url) {
                 Ok(url) => {
-                    history::delete_place_visit_at_time(
-                        conn,
-                        &url,
-                        types::Timestamp(timestamp.max(0) as u64),
-                    )?;
+                    history::delete_place_visit_at_time(conn, &url, timestamp)?;
                 }
                 Err(e) => {
                     log::warn!("Invalid URL passed to places_delete_visit, {}", e);
-                    history::delete_place_visit_at_time_by_href(
-                        conn,
-                        url.as_str(),
-                        types::Timestamp(timestamp.max(0) as u64),
-                    )?;
+                    history::delete_place_visit_at_time_by_href(conn, url.as_str(), timestamp)?;
                 }
             };
             Ok(())
@@ -279,7 +261,7 @@ impl PlacesConnection {
 pub struct HistoryVisitInfo {
     pub url: String,
     pub title: Option<String>,
-    pub timestamp: i64,
+    pub timestamp: Timestamp,
     pub visit_type: i32,
     pub is_hidden: bool,
     pub preview_image_url: Option<String>,

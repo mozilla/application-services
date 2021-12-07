@@ -194,7 +194,7 @@ impl HistoryVisitInfo {
         Ok(Self {
             url: row.get("url")?,
             title: row.get("title")?,
-            timestamp: visit_date.0 as i64,
+            timestamp: visit_date,
             visit_type: visit_type as i32,
             is_hidden: row.get("hidden")?,
             preview_image_url: row.get("preview_image_url")?,

@@ -31,10 +31,10 @@ interface PlacesConnection {
     HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> get_history_metadata_between(i64 start, i64 end);
+    sequence<HistoryMetadata> get_history_metadata_between(Timestamp start, Timestamp end);
 
     [Throws=PlacesError]
-    sequence<HistoryMetadata> get_history_metadata_since(i64 since);
+    sequence<HistoryMetadata> get_history_metadata_since(Timestamp since);
 
     [Throws=PlacesError]
     sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
@@ -49,16 +49,16 @@ interface PlacesConnection {
     void metadata_delete(Url url, Url? referrer_url, string? search_term);
 
     [Throws=PlacesError]
-    void metadata_delete_older_than(i64 older_than);
+    void metadata_delete_older_than(Timestamp older_than);
 
     [Throws=PlacesError]
     void apply_observation(VisitObservation visit);
 
     [Throws=PlacesError]
-    sequence<string> get_visited_urls_in_range(i64 start, i64 end, boolean include_remote);
+    sequence<Url> get_visited_urls_in_range(Timestamp start, Timestamp end, boolean include_remote);
 
     [Throws=PlacesError]
-    sequence<HistoryVisitInfo> get_visit_infos(i64 start_date, i64 end_date, VisitTransitionSet exclude_types);
+    sequence<HistoryVisitInfo> get_visit_infos(Timestamp start_date, Timestamp end_date, VisitTransitionSet exclude_types);
 
     [Throws=PlacesError]
     i64 get_visit_count(VisitTransitionSet exclude_types);
@@ -73,13 +73,13 @@ interface PlacesConnection {
     sequence<boolean> get_visited(sequence<string> urls);
 
     [Throws=PlacesError]
-    void delete_visits_for(Url url);
+    void delete_visits_for(string url);
 
     [Throws=PlacesError]
-    void delete_visits_between(i64 start, i64 end);
+    void delete_visits_between(Timestamp start, Timestamp end);
 
     [Throws=PlacesError]
-    void delete_visit(Url url, i64 timestamp);
+    void delete_visit(string url, Timestamp timestamp);
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
@@ -146,7 +146,7 @@ dictionary HistoryHighlight {
 dictionary HistoryVisitInfo {
     string url;
     string? title;
-    i64 timestamp;
+    Timestamp timestamp;
     i32 visit_type;
     boolean is_hidden;
     string? preview_image_url;
