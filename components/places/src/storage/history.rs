@@ -3036,7 +3036,10 @@ mod tests {
         let infos_with_bound =
             get_visit_page_with_bound(&conn, now_i64 - 200_000, 7, 1, VisitTransitionSet::empty())
                 .unwrap();
-        assert_eq!(infos_with_bound.infos[0].url, "https://www.example.com/9",);
+        assert_eq!(
+            infos_with_bound.infos[0].url,
+            Url::parse("https://www.example.com/9").unwrap(),
+        );
 
         // test when offset fall on one item after visited_date changes
         let infos_with_bound =

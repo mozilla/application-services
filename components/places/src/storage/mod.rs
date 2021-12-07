@@ -191,13 +191,18 @@ impl HistoryVisitInfo {
             // is fine.
             .unwrap_or(VisitTransition::Link);
         let visit_date: Timestamp = row.get("visit_date")?;
+        let url: String = row.get("url")?;
+        let preview_image_url: Option<String> = row.get("preview_image_url")?;
         Ok(Self {
-            url: row.get("url")?,
+            url: Url::parse(&url)?,
             title: row.get("title")?,
             timestamp: visit_date,
             visit_type: visit_type as i32,
             is_hidden: row.get("hidden")?,
-            preview_image_url: row.get("preview_image_url")?,
+            preview_image_url: match preview_image_url {
+                Some(s) => Some(Url::parse(&s)?),
+                None => None,
+            },
         })
     }
 }

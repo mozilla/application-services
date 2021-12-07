@@ -144,12 +144,13 @@ dictionary HistoryHighlight {
 };
 
 dictionary HistoryVisitInfo {
-    string url;
+    Url url;
     string? title;
     Timestamp timestamp;
+    // XXX - This should use the VisitType enum when it gets uniffied
     i32 visit_type;
     boolean is_hidden;
-    string? preview_image_url;
+    Url? preview_image_url;
 };
 
 dictionary HistoryVisitInfosWithBound {

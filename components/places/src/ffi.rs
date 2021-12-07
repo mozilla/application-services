@@ -167,7 +167,7 @@ impl PlacesConnection {
             let urls = history::get_visited_urls(conn, start, end, include_remote)?
                 .iter()
                 // Turn the list of strings into valid Urls
-                .filter_map(|s| Url::parse(&s).ok())
+                .filter_map(|s| Url::parse(s).ok())
                 .collect::<Vec<_>>();
             Ok(urls)
         })
@@ -259,12 +259,12 @@ impl PlacesConnection {
 
 #[derive(Clone, PartialEq)]
 pub struct HistoryVisitInfo {
-    pub url: String,
+    pub url: Url,
     pub title: Option<String>,
     pub timestamp: Timestamp,
     pub visit_type: i32,
     pub is_hidden: bool,
-    pub preview_image_url: Option<String>,
+    pub preview_image_url: Option<Url>,
 }
 #[derive(Clone, PartialEq)]
 pub struct HistoryVisitInfosWithBound {
