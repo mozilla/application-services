@@ -8,6 +8,7 @@ import com.sun.jna.Native
 import com.sun.jna.Pointer
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
+import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.appservices.places.uniffi.HistoryHighlight
 import mozilla.appservices.places.uniffi.HistoryHighlightWeights
@@ -309,7 +310,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
     }
 
     override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {
-        return this.conn.getTopFrecentSiteInfos(numItems, frecencyThreshold.value)
+        return this.conn.getTopFrecentSiteInfos(numItems, frecencyThreshold)
     }
 
     override fun getVisited(urls: List<String>): List<Boolean> {
@@ -1223,18 +1224,6 @@ data class HistoryMetadataKey(
     val searchTerm: String?,
     val referrerUrl: String?
 )
-
-/**
- * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
- * with a frecency score greater or equal to the [value].
- */
-enum class FrecencyThresholdOption(val value: Long) {
-    /** Returns all visited pages. */
-    NONE(0),
-
-    /** Skip visited pages that were only visited once. */
-    SKIP_ONE_TIME_PAGES(101)
-}
 
 /**
  * A helper class for gathering basic count metrics on different kinds of PlacesManager operations.
