@@ -8,7 +8,6 @@ package mozilla.appservices.places
 import com.sun.jna.Library
 import com.sun.jna.Pointer
 import com.sun.jna.PointerType
-import com.sun.jna.StringArray
 import mozilla.appservices.support.native.loadIndirect
 import org.mozilla.appservices.places.BuildConfig
 
@@ -84,26 +83,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): Pointer?
 
-    /** Note: urls_len and buffer_len must be the same length. The argument is somewhat redundant, but
-     * is provided for a slight additional amount of sanity checking. These lengths are the number
-     * of elements present (and not e.g. the number of bytes allocated). */
-    fun places_get_visited(
-        handle: PlacesConnectionHandle,
-        urls: StringArray,
-        urls_len: Int,
-        buffer: Pointer,
-        buf_len: Int,
-        out_err: RustError.ByReference
-    )
-
-    fun places_get_visited_urls_in_range(
-        handle: PlacesConnectionHandle,
-        start: Long,
-        end: Long,
-        include_remote: Byte,
-        out_err: RustError.ByReference
-    ): Pointer?
-
     fun places_new_interrupt_handle(
         conn: PlacesConnectionHandle,
         out_err: RustError.ByReference
@@ -116,26 +95,6 @@ internal interface LibPlacesFFI : Library {
 
     fun places_interrupt(
         conn: RawPlacesInterruptHandle,
-        out_err: RustError.ByReference
-    )
-
-    fun places_delete_visits_for(
-        handle: PlacesConnectionHandle,
-        url: String,
-        out_err: RustError.ByReference
-    )
-
-    fun places_delete_visits_between(
-        handle: PlacesConnectionHandle,
-        start: Long,
-        end: Long,
-        out_err: RustError.ByReference
-    )
-
-    fun places_delete_visit(
-        handle: PlacesConnectionHandle,
-        visit_url: String,
-        visit_timestamp: Long,
         out_err: RustError.ByReference
     )
 
@@ -165,37 +124,6 @@ internal interface LibPlacesFFI : Library {
         frecencyThreshold: Long,
         error: RustError.ByReference
     ): RustBuffer.ByValue
-
-    fun places_get_visit_infos(
-        handle: PlacesConnectionHandle,
-        startDate: Long,
-        endDate: Long,
-        excludeTypes: Int,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_get_visit_page(
-        handle: PlacesConnectionHandle,
-        offset: Long,
-        count: Long,
-        excludeTypes: Int,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_get_visit_page_with_bound(
-        handle: PlacesConnectionHandle,
-        bound: Long,
-        offset: Long,
-        count: Long,
-        excludeTypes: Int,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun places_get_visit_count(
-        handle: PlacesConnectionHandle,
-        excludeTypes: Int,
-        error: RustError.ByReference
-    ): Long
 
     fun places_reset(
         handle: PlacesApiHandle,

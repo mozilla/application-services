@@ -7,12 +7,15 @@
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::msg_types;
-use crate::storage::history_metadata;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
+use crate::storage::{history, history_metadata};
+use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
+use crate::VisitObservation;
+use crate::VisitTransition;
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -20,6 +23,7 @@ use ffi_support::{
 };
 use parking_lot::Mutex;
 use std::sync::Arc;
+use types::Timestamp;
 use url::Url;
 
 lazy_static::lazy_static! {
@@ -35,11 +39,38 @@ impl UniffiCustomTypeWrapper for Url {
     type Wrapped = String;
 
     fn wrap(val: Self::Wrapped) -> uniffi::Result<url::Url> {
-        Ok(Url::parse(val.as_str())?)
+        match Url::parse(val.as_str()) {
+            Ok(url) => Ok(url),
+            Err(e) => Err(PlacesError::UrlParseFailed(e.to_string()).into()),
+        }
     }
 
     fn unwrap(obj: Self) -> Self::Wrapped {
         obj.into()
+    }
+}
+
+impl UniffiCustomTypeWrapper for Timestamp {
+    type Wrapped = i64;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+        Ok(Timestamp(val as u64))
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        obj.as_millis() as i64
+    }
+}
+
+impl UniffiCustomTypeWrapper for VisitTransitionSet {
+    type Wrapped = i32;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<Self> {
+        Ok(VisitTransitionSet::from_u16(val as u16).expect("Bug: Invalid VisitTransitionSet"))
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        VisitTransitionSet::into_u16(obj) as i32
     }
 }
 
@@ -69,12 +100,18 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::get_latest_for_url(conn, &url))
     }
 
-    fn get_history_metadata_between(&self, start: i64, end: i64) -> Result<Vec<HistoryMetadata>> {
-        self.with_conn(|conn| history_metadata::get_between(conn, start, end))
+    fn get_history_metadata_between(
+        &self,
+        start: Timestamp,
+        end: Timestamp,
+    ) -> Result<Vec<HistoryMetadata>> {
+        self.with_conn(|conn| {
+            history_metadata::get_between(conn, start.as_millis_i64(), end.as_millis_i64())
+        })
     }
 
-    fn get_history_metadata_since(&self, start: i64) -> Result<Vec<HistoryMetadata>> {
-        self.with_conn(|conn| history_metadata::get_since(conn, start))
+    fn get_history_metadata_since(&self, start: Timestamp) -> Result<Vec<HistoryMetadata>> {
+        self.with_conn(|conn| history_metadata::get_since(conn, start.as_millis_i64()))
     }
 
     fn query_history_metadata(&self, query: String, limit: i32) -> Result<Vec<HistoryMetadata>> {
@@ -94,8 +131,8 @@ impl PlacesConnection {
         self.with_conn(|conn| history_metadata::apply_metadata_observation(conn, data))
     }
 
-    fn metadata_delete_older_than(&self, older_than: i64) -> Result<()> {
-        self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than))
+    fn metadata_delete_older_than(&self, older_than: Timestamp) -> Result<()> {
+        self.with_conn(|conn| history_metadata::delete_older_than(conn, older_than.as_millis_i64()))
     }
 
     fn metadata_delete(
@@ -113,6 +150,127 @@ impl PlacesConnection {
             )
         })
     }
+
+    /// Add an observation to the database.
+    fn apply_observation(&self, visit: VisitObservation) -> Result<()> {
+        self.with_conn(|conn| history::apply_observation(conn, visit))?;
+        Ok(())
+    }
+
+    fn get_visited_urls_in_range(
+        &self,
+        start: Timestamp,
+        end: Timestamp,
+        include_remote: bool,
+    ) -> Result<Vec<Url>> {
+        self.with_conn(|conn| {
+            let urls = history::get_visited_urls(conn, start, end, include_remote)?
+                .iter()
+                // Turn the list of strings into valid Urls
+                .filter_map(|s| Url::parse(s).ok())
+                .collect::<Vec<_>>();
+            Ok(urls)
+        })
+    }
+
+    fn get_visit_infos(
+        &self,
+        start_date: Timestamp,
+        end_date: Timestamp,
+        exclude_types: VisitTransitionSet,
+    ) -> Result<Vec<HistoryVisitInfo>> {
+        self.with_conn(|conn| history::get_visit_infos(conn, start_date, end_date, exclude_types))
+    }
+
+    fn get_visit_count(&self, exclude_types: VisitTransitionSet) -> Result<i64> {
+        self.with_conn(|conn| history::get_visit_count(conn, exclude_types))
+    }
+
+    fn get_visit_page(
+        &self,
+        offset: i64,
+        count: i64,
+        exclude_types: VisitTransitionSet,
+    ) -> Result<Vec<HistoryVisitInfo>> {
+        self.with_conn(|conn| history::get_visit_page(conn, offset, count, exclude_types))
+    }
+
+    fn get_visit_page_with_bound(
+        &self,
+        bound: i64,
+        offset: i64,
+        count: i64,
+        exclude_types: VisitTransitionSet,
+    ) -> Result<HistoryVisitInfosWithBound> {
+        self.with_conn(|conn| {
+            history::get_visit_page_with_bound(conn, bound, offset, count, exclude_types)
+        })
+    }
+
+    // This is identical to get_visited in history.rs but takes a list of strings instead of urls
+    // This is necessary b/c we still need to return 'false' for bad URLs which prevents us from
+    // parsing/filtering them before reaching the history layer
+    fn get_visited(&self, urls: Vec<String>) -> Result<Vec<bool>> {
+        let iter = urls.into_iter();
+        let mut result = vec![false; iter.len()];
+        let url_idxs = iter
+            .enumerate()
+            .filter_map(|(idx, s)| Url::parse(&s).ok().map(|url| (idx, url)))
+            .collect::<Vec<_>>();
+        self.with_conn(|conn| history::get_visited_into(conn, &url_idxs, &mut result))?;
+        Ok(result)
+    }
+
+    fn delete_visits_for(&self, url: String) -> Result<()> {
+        self.with_conn(|conn| {
+            let guid = match Url::parse(&url) {
+                Ok(url) => history::url_to_guid(conn, &url)?,
+                Err(e) => {
+                    log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
+                    history::href_to_guid(conn, url.clone().as_str())?
+                }
+            };
+            if let Some(guid) = guid {
+                history::delete_visits_for(conn, &guid)?;
+            }
+            Ok(())
+        })
+    }
+
+    fn delete_visits_between(&self, start: Timestamp, end: Timestamp) -> Result<()> {
+        self.with_conn(|conn| history::delete_visits_between(conn, start, end))
+    }
+
+    fn delete_visit(&self, url: String, timestamp: Timestamp) -> Result<()> {
+        self.with_conn(|conn| {
+            match Url::parse(&url) {
+                Ok(url) => {
+                    history::delete_place_visit_at_time(conn, &url, timestamp)?;
+                }
+                Err(e) => {
+                    log::warn!("Invalid URL passed to places_delete_visit, {}", e);
+                    history::delete_place_visit_at_time_by_href(conn, url.as_str(), timestamp)?;
+                }
+            };
+            Ok(())
+        })
+    }
+}
+
+#[derive(Clone, PartialEq)]
+pub struct HistoryVisitInfo {
+    pub url: Url,
+    pub title: Option<String>,
+    pub timestamp: Timestamp,
+    pub visit_type: i32,
+    pub is_hidden: bool,
+    pub preview_image_url: Option<Url>,
+}
+#[derive(Clone, PartialEq)]
+pub struct HistoryVisitInfosWithBound {
+    pub infos: Vec<HistoryVisitInfo>,
+    pub bound: i64,
+    pub offset: i64,
 }
 
 pub mod error_codes {
@@ -247,8 +405,6 @@ impl From<Error> for ExternError {
 
 implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
 implement_into_ffi_by_protobuf!(msg_types::TopFrecentSiteInfos);
-implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfos);
-implement_into_ffi_by_protobuf!(msg_types::HistoryVisitInfosWithBound);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
 implement_into_ffi_by_delegation!(

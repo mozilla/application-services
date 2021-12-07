@@ -8,7 +8,7 @@ use std::convert::{TryFrom, TryInto};
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct VisitTransitionSet {
-    bits: u16,
+    pub(crate) bits: u16,
 }
 
 const ALL_BITS_SET: u16 = (1u16 << (VisitTransition::Link as u8))

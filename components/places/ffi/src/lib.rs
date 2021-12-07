@@ -16,7 +16,6 @@ use places::error::*;
 pub use places::ffi::{APIS, CONNECTIONS};
 use places::msg_types::{BookmarkNodeList, SearchResultList};
 use places::storage::bookmarks;
-use places::types::VisitTransitionSet;
 use places::{storage, ConnectionType, PlacesApi};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
@@ -163,22 +162,6 @@ pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut Exte
     ffi_support::call_with_output(error, || handle.interrupt())
 }
 
-/// Add an observation to the database. The observation is a VisitObservation represented as JSON.
-/// Errors are logged.
-#[no_mangle]
-pub extern "C" fn places_note_observation(
-    handle: u64,
-    json_observation: FfiStr<'_>,
-    error: &mut ExternError,
-) {
-    log::debug!("places_note_observation");
-    CONNECTIONS.call_with_result_mut(error, handle, |conn| {
-        let json = json_observation.as_str();
-        let visit: places::VisitObservation = serde_json::from_str(json)?;
-        places::api::apply_observation(conn, visit)
-    })
-}
-
 /// Execute a query, returning a `Vec<SearchResult>` as a JSON string. Returned string must be freed
 /// using `places_destroy_string`. Returns null and logs on errors (for now).
 #[no_mangle]
@@ -214,131 +197,6 @@ pub extern "C" fn places_match_url(
 ) -> *mut c_char {
     log::debug!("places_match_url");
     CONNECTIONS.call_with_result(error, handle, |conn| match_url(conn, search.as_str()))
-}
-
-/// # Safety
-/// This takes a bunch of pointers and dereferences all of them. It was written
-/// this way to avoid unnecessary overhead, but should really be rewritten to
-/// use protobufs.
-#[no_mangle]
-pub unsafe extern "C" fn places_get_visited(
-    handle: u64,
-    urls: *const *const c_char,
-    urls_len: i32,
-    byte_buffer: *mut bool,
-    byte_buffer_len: i32,
-    error: &mut ExternError,
-) {
-    log::debug!("places_get_visited");
-    // This function has a dumb amount of overhead and copying...
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<()> {
-        assert!(
-            urls_len >= 0,
-            "Negative array length provided to places_get_visited {}",
-            urls_len
-        );
-        assert_eq!(byte_buffer_len, urls_len);
-        let url_ptrs = std::slice::from_raw_parts(urls, urls_len as usize);
-        let output = std::slice::from_raw_parts_mut(byte_buffer, byte_buffer_len as usize);
-        let urls = url_ptrs
-            .iter()
-            .enumerate()
-            .filter_map(|(idx, &p)| {
-                let s = FfiStr::from_raw(p).as_str();
-                url::Url::parse(s).ok().map(|url| (idx, url))
-            })
-            .collect::<Vec<_>>();
-        storage::history::get_visited_into(conn, &urls, output)?;
-        Ok(())
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_visited_urls_in_range(
-    handle: u64,
-    start: i64,
-    end: i64,
-    include_remote: u8, // JNA has issues with bools...
-    error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("places_get_visited_in_range");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let visited = storage::history::get_visited_urls(
-            conn,
-            // Probably should allow into()...
-            types::Timestamp(start.max(0) as u64),
-            types::Timestamp(end.max(0) as u64),
-            include_remote != 0,
-        )?;
-        Ok(serde_json::to_string(&visited)?)
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_delete_visits_for(handle: u64, url: FfiStr<'_>, error: &mut ExternError) {
-    log::debug!("places_delete_visits_for");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let url = parse_url(url.as_str())?;
-        let guid = match parse_url(url.as_str()) {
-            Ok(url) => storage::history::url_to_guid(conn, &url)?,
-            Err(e) => {
-                log::warn!("Invalid URL passed to places_delete_visits_for, {}", e);
-                storage::history::href_to_guid(conn, url.clone().as_str())?
-            }
-        };
-        if let Some(guid) = guid {
-            storage::history::delete_visits_for(conn, &guid)?;
-        }
-        Ok(())
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_delete_visits_between(
-    handle: u64,
-    start: i64,
-    end: i64,
-    error: &mut ExternError,
-) {
-    log::debug!("places_delete_visits_between");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::delete_visits_between(
-            conn,
-            types::Timestamp(start.max(0) as u64),
-            types::Timestamp(end.max(0) as u64),
-        )?;
-        Ok(())
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_delete_visit(
-    handle: u64,
-    url: FfiStr<'_>,
-    timestamp: i64,
-    error: &mut ExternError,
-) {
-    log::debug!("places_delete_visit");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        match parse_url(url.as_str()) {
-            Ok(url) => {
-                storage::history::delete_place_visit_at_time(
-                    conn,
-                    &url,
-                    types::Timestamp(timestamp.max(0) as u64),
-                )?;
-            }
-            Err(e) => {
-                log::warn!("Invalid URL passed to places_delete_visit, {}", e);
-                storage::history::delete_place_visit_at_time_by_href(
-                    conn,
-                    url.as_str(),
-                    types::Timestamp(timestamp.max(0) as u64),
-                )?;
-            }
-        };
-        Ok(())
-    })
 }
 
 #[no_mangle]
@@ -379,88 +237,6 @@ pub extern "C" fn places_get_top_frecent_site_infos(
     log::debug!("places_get_top_frecent_site_infos");
     CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
         storage::history::get_top_frecent_site_infos(conn, num_items, frecency_threshold)
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_visit_infos(
-    handle: u64,
-    start_date: i64,
-    end_date: i64,
-    exclude_types: i32,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_get_visit_infos");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_visit_infos(
-            conn,
-            types::Timestamp(start_date.max(0) as u64),
-            types::Timestamp(end_date.max(0) as u64),
-            VisitTransitionSet::from_u16(exclude_types as u16)
-                .expect("Bug: Invalid VisitTransitionSet"),
-        )
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_visit_count(
-    handle: u64,
-    exclude_types: i32,
-    error: &mut ExternError,
-) -> i64 {
-    log::debug!("places_get_visit_count");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_visit_count(
-            conn,
-            // Note: it's a bug in our FFI android (or swift, eventually) code
-            // if this expect fires.
-            VisitTransitionSet::from_u16(exclude_types as u16)
-                .expect("Bug: Invalid VisitTransitionSet"),
-        )
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_visit_page(
-    handle: u64,
-    offset: i64,
-    count: i64,
-    exclude_types: i32,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_get_visit_page");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_visit_page(
-            conn,
-            offset,
-            count,
-            // Note: it's a bug in our FFI android (or swift, eventually) code
-            // if this expect fires.
-            VisitTransitionSet::from_u16(exclude_types as u16)
-                .expect("Bug: Invalid VisitTransitionSet"),
-        )
-    })
-}
-
-#[no_mangle]
-pub extern "C" fn places_get_visit_page_with_bound(
-    handle: u64,
-    bound: i64,
-    offset: i64,
-    count: i64,
-    exclude_types: i32,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_get_visit_page_with_bound");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        storage::history::get_visit_page_with_bound(
-            conn,
-            bound,
-            offset,
-            count,
-            VisitTransitionSet::from_u16(exclude_types as u16)
-                .expect("Bug: Invalid VisitTransitionSet"),
-        )
     })
 }
 
