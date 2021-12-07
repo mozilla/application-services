@@ -289,6 +289,83 @@ pub struct HistoryVisitInfosWithBound {
     pub bound: i64,
     pub offset: i64,
 }
+// registerWithSyncManager(handle: u64, error: &mut ExternError) {
+//     log::debug!("register_with_sync_manager");
+//     APIS.call_with_output(error, handle, |api| {
+//         api.clone().register_with_sync_manager()
+//     })
+// }
+
+// #[no_mangle]
+// pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
+//     log::debug!("places_reset");
+//     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+//         api.reset_history()?;
+//         Ok(())
+//     })
+// }
+
+fn wipe_local(&self) -> Result<()> {
+    self.with_conn(|conn| storage::history::wipe_local(conn))
+}
+
+fn run_maintenance(&self) -> Result<()> {
+    self.with_conn(|conn| storage::run_maintenance(conn))
+}
+
+fn prune_destructively(&self) -> Result<()> {
+    self.with_conn(|conn| storage::history::prune_destructively(conn))
+}
+
+fn delete_everything(&self) -> Result<()> {
+    self.with_conn(|conn| storage::history::delete_everything(conn))
+}
+
+//     #[no_mangle]
+// pub extern "C" fn sync15_history_sync(
+//     handle: u64,
+//     key_id: FfiStr<'_>,
+//     access_token: FfiStr<'_>,
+//     sync_key: FfiStr<'_>,
+//     tokenserver_url: FfiStr<'_>,
+//     error: &mut ExternError,
+// ) -> *mut c_char {
+//     log::debug!("sync15_history_sync");
+//     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+//         let ping = api.sync_history(
+//             &sync15::Sync15StorageClientInit {
+//                 key_id: key_id.into_string(),
+//                 access_token: access_token.into_string(),
+//                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
+//             },
+//             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
+//         )?;
+//         Ok(ping)
+//     })
+// }
+
+// #[no_mangle]
+// pub extern "C" fn sync15_bookmarks_sync(
+//     handle: u64,
+//     key_id: FfiStr<'_>,
+//     access_token: FfiStr<'_>,
+//     sync_key: FfiStr<'_>,
+//     tokenserver_url: FfiStr<'_>,
+//     error: &mut ExternError,
+// ) -> *mut c_char {
+//     log::debug!("sync15_bookmarks_sync");
+//     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
+//         let ping = api.sync_bookmarks(
+//             &sync15::Sync15StorageClientInit {
+//                 key_id: key_id.into_string(),
+//                 access_token: access_token.into_string(),
+//                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
+//             },
+//             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
+//         )?;
+//         Ok(ping)
+//     })
+// }
 
 pub struct TopFrecentSiteInfo {
     pub url: Url,
