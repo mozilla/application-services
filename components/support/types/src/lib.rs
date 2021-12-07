@@ -36,6 +36,10 @@ impl Timestamp {
     pub fn as_millis(self) -> u64 {
         self.0
     }
+
+    pub fn as_millis_i64(self) -> i64 {
+        self.0 as i64
+    }
     /// In desktop sync, bookmarks are clamped to Jan 23, 1993 (which is 727747200000)
     /// There's no good reason history records could be older than that, so we do
     /// the same here (even though desktop's history currently doesn't)

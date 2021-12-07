@@ -9,25 +9,6 @@ option java_outer_classname = "MsgTypes";
 option swift_prefix = "MsgTypes_";
 option optimize_for = LITE_RUNTIME;
 
-message HistoryVisitInfo {
-    required string url = 1;
-    optional string title = 2;
-    required int64 timestamp = 3;
-    required int32 visit_type = 4;
-    required bool is_hidden = 5;
-    optional string preview_image_url = 6;
-}
-
-message HistoryVisitInfos {
-    repeated HistoryVisitInfo infos = 1;
-}
-
-message HistoryVisitInfosWithBound {
-    repeated HistoryVisitInfo infos = 1;
-    required int64 bound = 2;
-    required int64 offset = 3;
-}
-
 /**
  * A bookmark node.
  *
