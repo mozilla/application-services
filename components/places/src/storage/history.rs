@@ -5,13 +5,12 @@
 use super::{fetch_page_info, new_page_info, PageInfo, RowId};
 use crate::db::PlacesDb;
 use crate::error::Result;
-use crate::ffi::{HistoryVisitInfo, HistoryVisitInfosWithBound};
+use crate::ffi::{HistoryVisitInfo, HistoryVisitInfosWithBound, TopFrecentSiteInfo};
 use crate::frecency;
 use crate::hash;
 use crate::history_sync::engine::{
     COLLECTION_SYNCID_META_KEY, GLOBAL_SYNCID_META_KEY, LAST_SYNC_META_KEY,
 };
-use crate::msg_types::{TopFrecentSiteInfo, TopFrecentSiteInfos};
 use crate::observation::VisitObservation;
 use crate::storage::{delete_meta, delete_pending_temp_tables, get_meta, put_meta};
 use crate::types::{SyncStatus, VisitTransition, VisitTransitionSet};
@@ -1221,7 +1220,7 @@ pub fn get_top_frecent_site_infos(
     db: &PlacesDb,
     num_items: i32,
     frecency_threshold: i64,
-) -> Result<TopFrecentSiteInfos> {
+) -> Result<Vec<TopFrecentSiteInfo>> {
     // Get the complement of the visit types that should be excluded.
     let allowed_types = VisitTransitionSet::for_specific(&[
         VisitTransition::Download,
@@ -1255,7 +1254,7 @@ pub fn get_top_frecent_site_infos(
         },
         TopFrecentSiteInfo::from_row,
     )?;
-    Ok(TopFrecentSiteInfos { infos })
+    Ok(infos)
 }
 
 pub fn get_visit_infos(
