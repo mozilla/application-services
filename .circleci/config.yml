@@ -490,9 +490,6 @@ workflows:
   check-protobuf-uptodate:
     jobs:
       - Check Protobuf files are up-to-date
-  check-dependencies:
-    jobs:
-      - Check Rust dependencies
   bash-lint:
     jobs:
       - Lint Bash scripts
