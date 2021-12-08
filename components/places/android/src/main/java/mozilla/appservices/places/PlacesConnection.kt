@@ -114,30 +114,22 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
-            LibPlacesFFI.INSTANCE.sync15_history_sync(
-                this.handle.get(),
+        val pingJSONString = this.api.historySync(
                 syncInfo.kid,
                 syncInfo.fxaAccessToken,
                 syncInfo.syncKey,
-                syncInfo.tokenserverURL,
-                error
+                syncInfo.tokenserverURL
             )
-        }
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
     override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
-            LibPlacesFFI.INSTANCE.sync15_bookmarks_sync(
-                this.handle.get(),
+        val pingJSONString = this.api.bookmarksSync(
                 syncInfo.kid,
                 syncInfo.fxaAccessToken,
                 syncInfo.syncKey,
-                syncInfo.tokenserverURL,
-                error
+                syncInfo.tokenserverURL
             )
-        }
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 

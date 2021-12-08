@@ -185,15 +185,12 @@ public class PlacesAPI {
      */
     open func syncBookmarks(unlockInfo: SyncUnlockInfo) throws -> String {
         return try queue.sync {
-            let pingStr = try PlacesError.unwrap { err in
-                sync15_bookmarks_sync(handle,
-                                      unlockInfo.kid,
-                                      unlockInfo.fxaAccessToken,
-                                      unlockInfo.syncKey,
-                                      unlockInfo.tokenserverURL,
-                                      err)
-            }
-            return String(freeingPlacesString: pingStr)
+            return try self.api.bookmarksSync(
+                keyId: unlockInfo.kid,
+                accessToken: unlockInfo.fxaAccessToken,
+                syncKey: unlockInfo.syncKey,
+                tokenserverUrl: unlockInfo.tokenserverURL
+            )
         }
     }
 
@@ -218,9 +215,7 @@ public class PlacesAPI {
      */
     open func resetHistorySyncMetadata() throws {
         return try queue.sync {
-            try PlacesError.unwrap { err in
-                places_reset(handle, err)
-            }
+            try self.api.resetHistory()
         }
     }
 
@@ -624,9 +619,7 @@ public class PlacesWriteConnection: PlacesReadConnection {
     open func runMaintenance() throws {
         return try queue.sync {
             try self.checkApi()
-            try PlacesError.unwrap { error in
-                places_run_maintenance(self.handle, error)
-            }
+            try self.conn.runMaintenance()
         }
     }
 

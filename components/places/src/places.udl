@@ -30,6 +30,12 @@ interface PlacesApi {
 
     [Throws=PlacesError]
     void reset_history();
+
+    [Throws=PlacesError]
+    string history_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
+
+    [Throws=PlacesError]
+    string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
 };
 
 interface PlacesConnection {
@@ -86,9 +92,6 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     void delete_visit(string url, Timestamp timestamp);
-
-    [Throws=PlacesError]
-    void metadata_delete_older_than(i64 older_than);
 
     [Throws=PlacesError]
     void delete_everything();

@@ -6,7 +6,6 @@
 
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
-use crate::msg_types;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
@@ -16,6 +15,7 @@ use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
+use crate::{msg_types, storage};
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -82,6 +82,52 @@ impl PlacesApi {
         let db = self.open_connection(conn_type)?;
         let connection = PlacesConnection { db: Mutex::new(db) };
         Ok(Arc::new(connection))
+    }
+
+    // NOTE: These should be deprecated as soon as possible - that will be once
+    // we have implemented the sync manager and migrated consumers to that.
+    fn history_sync(
+        &self,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: Url,
+    ) -> Result<String> {
+        let root_sync_key = match sync15::KeyBundle::from_ksync_base64(sync_key.as_str()) {
+            Ok(key) => Ok(key),
+            Err(err) => Err(PlacesError::UnexpectedPlacesException(err.to_string())),
+        }?;
+        let ping = self.sync_history(
+            &sync15::Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url,
+            },
+            &root_sync_key,
+        )?;
+        Ok(serde_json::to_string(&ping).unwrap())
+    }
+
+    fn bookmarks_sync(
+        &self,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: Url,
+    ) -> Result<String> {
+        let root_sync_key = match sync15::KeyBundle::from_ksync_base64(sync_key.as_str()) {
+            Ok(key) => Ok(key),
+            Err(err) => Err(PlacesError::UnexpectedPlacesException(err.to_string())),
+        }?;
+        let ping = self.sync_bookmarks(
+            &sync15::Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url,
+            },
+            &root_sync_key,
+        )?;
+        Ok(serde_json::to_string(&ping).unwrap())
     }
 }
 
@@ -272,6 +318,22 @@ impl PlacesConnection {
             )
         })
     }
+
+    fn wipe_local(&self) -> Result<()> {
+        self.with_conn(|conn| history::wipe_local(conn))
+    }
+
+    fn run_maintenance(&self) -> Result<()> {
+        self.with_conn(|conn| storage::run_maintenance(conn))
+    }
+
+    fn prune_destructively(&self) -> Result<()> {
+        self.with_conn(|conn| history::prune_destructively(conn))
+    }
+
+    fn delete_everything(&self) -> Result<()> {
+        self.with_conn(|conn| history::delete_everything(conn))
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -289,83 +351,6 @@ pub struct HistoryVisitInfosWithBound {
     pub bound: i64,
     pub offset: i64,
 }
-// registerWithSyncManager(handle: u64, error: &mut ExternError) {
-//     log::debug!("register_with_sync_manager");
-//     APIS.call_with_output(error, handle, |api| {
-//         api.clone().register_with_sync_manager()
-//     })
-// }
-
-// #[no_mangle]
-// pub extern "C" fn places_reset(handle: u64, error: &mut ExternError) {
-//     log::debug!("places_reset");
-//     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
-//         api.reset_history()?;
-//         Ok(())
-//     })
-// }
-
-fn wipe_local(&self) -> Result<()> {
-    self.with_conn(|conn| storage::history::wipe_local(conn))
-}
-
-fn run_maintenance(&self) -> Result<()> {
-    self.with_conn(|conn| storage::run_maintenance(conn))
-}
-
-fn prune_destructively(&self) -> Result<()> {
-    self.with_conn(|conn| storage::history::prune_destructively(conn))
-}
-
-fn delete_everything(&self) -> Result<()> {
-    self.with_conn(|conn| storage::history::delete_everything(conn))
-}
-
-//     #[no_mangle]
-// pub extern "C" fn sync15_history_sync(
-//     handle: u64,
-//     key_id: FfiStr<'_>,
-//     access_token: FfiStr<'_>,
-//     sync_key: FfiStr<'_>,
-//     tokenserver_url: FfiStr<'_>,
-//     error: &mut ExternError,
-// ) -> *mut c_char {
-//     log::debug!("sync15_history_sync");
-//     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
-//         let ping = api.sync_history(
-//             &sync15::Sync15StorageClientInit {
-//                 key_id: key_id.into_string(),
-//                 access_token: access_token.into_string(),
-//                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
-//             },
-//             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
-//         )?;
-//         Ok(ping)
-//     })
-// }
-
-// #[no_mangle]
-// pub extern "C" fn sync15_bookmarks_sync(
-//     handle: u64,
-//     key_id: FfiStr<'_>,
-//     access_token: FfiStr<'_>,
-//     sync_key: FfiStr<'_>,
-//     tokenserver_url: FfiStr<'_>,
-//     error: &mut ExternError,
-// ) -> *mut c_char {
-//     log::debug!("sync15_bookmarks_sync");
-//     APIS.call_with_result(error, handle, |api| -> places::Result<_> {
-//         let ping = api.sync_bookmarks(
-//             &sync15::Sync15StorageClientInit {
-//                 key_id: key_id.into_string(),
-//                 access_token: access_token.into_string(),
-//                 tokenserver_url: parse_url(tokenserver_url.as_str())?,
-//             },
-//             &sync15::KeyBundle::from_ksync_base64(sync_key.as_str())?,
-//         )?;
-//         Ok(ping)
-//     })
-// }
 
 pub struct TopFrecentSiteInfo {
     pub url: Url,
