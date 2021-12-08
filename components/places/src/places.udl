@@ -80,6 +80,20 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     void delete_visit(string url, Timestamp timestamp);
+
+    [Throws=PlacesError]
+    sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, FrecencyThresholdOption threshold_option);
+};
+
+/**
+ * Frecency threshold options for fetching top frecent sites. Requests a page that was visited
+ * with a frecency score greater or equal to the value associated with the enums
+ */
+enum FrecencyThresholdOption {
+// Returns all visited pages. The frecency score is 0
+  "None",
+// Skip visited pages that were only visited once. The frecency score is 101
+  "SkipOneTimePages",
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?
@@ -180,6 +194,12 @@ dictionary VisitObservation {
 dictionary Dummy {
     sequence<HistoryMetadata>? md;
 };
+
+dictionary TopFrecentSiteInfo {
+    Url url;
+    string? title;
+};
+
 
 [Error]
 enum PlacesError {

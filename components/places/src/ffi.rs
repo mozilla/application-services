@@ -31,6 +31,9 @@ lazy_static::lazy_static! {
     pub static ref CONNECTIONS: ConcurrentHandleMap<PlacesDb> = ConcurrentHandleMap::new();
 }
 
+// From https://searchfox.org/mozilla-central/rev/1674b86019a96f076e0f98f1d0f5f3ab9d4e9020/browser/components/newtab/lib/TopSitesFeed.jsm#87
+const SKIP_ONE_PAGE_FRECENCY_THRESHOLD: i64 = 101 + 1;
+
 // All of our functions in this module use a `Result` type with the error we throw over
 // the FFI.
 type Result<T> = std::result::Result<T, PlacesError>;
@@ -255,6 +258,20 @@ impl PlacesConnection {
             Ok(())
         })
     }
+
+    fn get_top_frecent_site_infos(
+        &self,
+        num_items: i32,
+        threshold_option: FrecencyThresholdOption,
+    ) -> Result<Vec<TopFrecentSiteInfo>> {
+        self.with_conn(|conn| {
+            crate::storage::history::get_top_frecent_site_infos(
+                conn,
+                num_items,
+                threshold_option.value(),
+            )
+        })
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -271,6 +288,25 @@ pub struct HistoryVisitInfosWithBound {
     pub infos: Vec<HistoryVisitInfo>,
     pub bound: i64,
     pub offset: i64,
+}
+
+pub struct TopFrecentSiteInfo {
+    pub url: Url,
+    pub title: Option<String>,
+}
+
+pub enum FrecencyThresholdOption {
+    None,
+    SkipOneTimePages,
+}
+
+impl FrecencyThresholdOption {
+    fn value(&self) -> i64 {
+        match self {
+            FrecencyThresholdOption::None => 0,
+            FrecencyThresholdOption::SkipOneTimePages => SKIP_ONE_PAGE_FRECENCY_THRESHOLD,
+        }
+    }
 }
 
 pub mod error_codes {
@@ -404,7 +440,6 @@ impl From<Error> for ExternError {
 }
 
 implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
-implement_into_ffi_by_protobuf!(msg_types::TopFrecentSiteInfos);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
 implement_into_ffi_by_delegation!(

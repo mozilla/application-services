@@ -9,6 +9,7 @@ import mozilla.appservices.Megazord
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.VisitTransition
+import mozilla.appservices.places.uniffi.FrecencyThresholdOption
 import mozilla.appservices.syncmanager.SyncManager
 import mozilla.appservices.places.uniffi.PlacesException
 import mozilla.components.service.glean.testing.GleanTestRule
