@@ -345,10 +345,16 @@ impl PlacesConnection {
     }
 
     fn query_autocomplete(&self, search: String, limit: i32) -> Result<Vec<SearchResult>> {
-        self.with_conn(|conn| search_frecent(conn, SearchParams {
-            search_string: search,
-            limit: limit as u32,
-        }).map(|search_results| search_results.into_iter().map(Into::into).collect()))
+        self.with_conn(|conn| {
+            search_frecent(
+                conn,
+                SearchParams {
+                    search_string: search,
+                    limit: limit as u32,
+                },
+            )
+            .map(|search_results| search_results.into_iter().map(Into::into).collect())
+        })
     }
 
     fn accept_result(&self, search_string: String, url: Url) -> Result<()> {
@@ -399,7 +405,7 @@ impl FrecencyThresholdOption {
 // a better approach would be to:
 // - Rename the `Url` in the internal MatchReason to have a different name
 // - Fix the mismatch between the consumers and the rust layer with the Tags
-//     variant in the internal MatchReason, the rust layer uses a 
+//     variant in the internal MatchReason, the rust layer uses a
 //     variant with associated data, the kotlin layers assumes a flat enum.
 pub struct SearchResult {
     pub url: Url,

@@ -4,8 +4,8 @@
 
 use crate::db::PlacesDb;
 use crate::error::Result;
+use crate::ffi::{MatchReason as FfiMatchReason, SearchResult as FfiSearchResult};
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
-use crate::ffi::{SearchResult as FfiSearchResult, MatchReason as FfiMatchReason};
 use rusqlite::{types::ToSql, Row};
 use serde_derive::*;
 use sql_support::{maybe_log_plan, ConnExt};
@@ -345,11 +345,7 @@ impl From<SearchResult> for FfiSearchResult {
             url: res.url.into(),
             title: res.title,
             frecency: res.frecency,
-            reasons: res
-                .reasons
-                .into_iter()
-                .map(Into::into)
-                .collect::<Vec<_>>(),
+            reasons: res.reasons.into_iter().map(Into::into).collect::<Vec<_>>(),
         }
     }
 }
