@@ -24,6 +24,18 @@ enum ConnectionType {
 interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
+
+    [Self=ByArc]
+    void register_with_sync_manager();
+
+    [Throws=PlacesError]
+    void reset_history();
+
+    [Throws=PlacesError]
+    string history_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
+
+    [Throws=PlacesError]
+    string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
 };
 
 interface PlacesConnection {
@@ -83,6 +95,24 @@ interface PlacesConnection {
 
     [Throws=PlacesError]
     sequence<TopFrecentSiteInfo> get_top_frecent_site_infos(i32 num_items, FrecencyThresholdOption threshold_option);
+
+    // These three methods below are not actively being used by the consumers, we should investigate further
+    // and remove if so https://github.com/mozilla/application-services/issues/4719
+    [Throws=PlacesError]
+    void wipe_local_history();
+
+    //From a-c: will not remove any history from remote devices, but it will prevent deleted
+    // history from returning.
+    [Throws=PlacesError]
+    void delete_everything_history();
+
+    // Exactly the same as wipe_local_history
+    [Throws=PlacesError]
+    void prune_destructively();
+
+    [Throws=PlacesError]
+    void run_maintenance();
+
 };
 
 /**
