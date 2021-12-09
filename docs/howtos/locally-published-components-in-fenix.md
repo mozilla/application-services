@@ -8,6 +8,21 @@ from there.
 With support from the upstream project, it's possible to do this in a single step using
 our auto-publishing workflow.
 
+## rust.targets
+
+Both the auto-publishing and manual workflows can be sped up significantly by
+using the `rust.targets` property which limits which architectures the Rust
+code gets build against.  You can set this property by creating/editing the
+`local.properties` file in the repository root and adding a line like
+`rust.targets=x86,linux-x86-64`.  The trick is knowing which targets to put in
+that comma separated list:
+
+  - Use `x86` for running the app on most emulators (in rare cases, when you have a 64-bit emulator, you'll want `x86_64`)
+  - If you're running the `android-components` or `fenix` unit tests, then you'll need the architecture of your machine:
+    - OSX: `darwin`
+    - Linux: `linux-x86-64`:
+    - Windows `win32-x86-64-gnu`
+
 ## Using the auto-publishing workflow
 
 Some consumers (notably [Fenix](https://github.com/mozilla-mobile/fenix/)) have support for
@@ -41,12 +56,8 @@ on `android-components`, this procedure involves three separate repos:
        where `$N` is some number that you haven't used for this before.
 
        Example: `libraryVersion: 0.27.0-TESTING3`
-    2. Check your `local.properties` file, and add `rust.targets=x86` if you're
-       testing on the emulator, `rust.targets=arm` if you're testing on 32-bit
-       arm (arm64 for 64-bit arm, etc). This will make the build that's done in
-       the next step much faster.
 
-    3. Run `./gradlew publishToMavenLocal`. This may take between 5 and 10 minutes.
+    2. Run `./gradlew publishToMavenLocal`. This may take between 5 and 10 minutes.
 
 2. Inside the `android-components` repository root:
     1. In [`.buildconfig.yml`](https://github.com/mozilla-mobile/android-components/blob/main/.buildconfig.yml), change
