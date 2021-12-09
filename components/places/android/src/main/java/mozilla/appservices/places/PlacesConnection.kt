@@ -630,11 +630,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
     }
 
     override fun acceptResult(searchString: String, url: String) {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_accept_result(
-                this.handle.get(), searchString, url, error
-            )
-        }
+        return this.conn.acceptResult(searchString, url)
     }
 
     @Synchronized

@@ -52,6 +52,9 @@ interface PlacesConnection {
     sequence<SearchResult> query_autocomplete(string search, i32 limit);
 
     [Throws=PlacesError]
+    void accept_result(string search_string, Url url);
+
+    [Throws=PlacesError]
     sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
 
     [Throws=PlacesError]

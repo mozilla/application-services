@@ -4,7 +4,7 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
-use crate::api::matcher::{search_frecent, SearchParams};
+use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::storage::history_metadata::{
@@ -349,6 +349,10 @@ impl PlacesConnection {
             search_string: search,
             limit: limit as u32,
         }).map(|search_results| search_results.into_iter().map(Into::into).collect()))
+    }
+
+    fn accept_result(&self, search_string: String, url: Url) -> Result<()> {
+        self.with_conn(|conn| matcher::accept_result(conn, &search_string, &url))
     }
 }
 
