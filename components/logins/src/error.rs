@@ -8,7 +8,7 @@ use std::ffi::OsString;
 // into `error_support`.
 macro_rules! throw {
     ($e:expr) => {
-        return Err(Into::into($e));
+        return Err(Into::into($e))
     };
 }
 

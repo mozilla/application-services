@@ -463,6 +463,7 @@ pub struct Parser {
     enums: Vec<EnumDef>,
     objects: Vec<ObjectDef>,
     features: Vec<FeatureDef>,
+    #[allow(dead_code)]
     channels: Vec<String>,
 }
 

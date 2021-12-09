@@ -1119,10 +1119,12 @@ pub fn insert_tree(db: &PlacesDb, tree: &FolderNode) -> Result<()> {
 #[derive(Debug)]
 struct FetchedTreeRow {
     level: u32,
+    #[allow(dead_code)]
     id: RowId,
     guid: SyncGuid,
     // parent and parent_guid are Option<> only to handle the root - we would
     // assert but they aren't currently used.
+    #[allow(dead_code)]
     parent: Option<RowId>,
     parent_guid: Option<SyncGuid>,
     node_type: BookmarkType,
@@ -1370,9 +1372,12 @@ pub(crate) struct RawBookmark {
     pub date_added: Timestamp,
     pub date_modified: Timestamp,
     pub guid: SyncGuid,
+    #[allow(dead_code)]
     pub sync_status: SyncStatus,
+    #[allow(dead_code)]
     pub sync_change_counter: u32,
     pub child_count: u32,
+    #[allow(dead_code)]
     pub grandparent_id: Option<RowId>,
 }
 

@@ -126,9 +126,12 @@ pub enum PushPayload {
 
 #[derive(Debug, Deserialize)]
 pub struct CommandReceivedPushPayload {
+    #[allow(dead_code)]
     command: String,
     index: u64,
+    #[allow(dead_code)]
     sender: String,
+    #[allow(dead_code)]
     url: String,
 }
 
