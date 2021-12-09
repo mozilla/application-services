@@ -84,8 +84,9 @@ impl PlacesApi {
         Ok(Arc::new(connection))
     }
 
-    // NOTE: These should be deprecated as soon as possible - that will be once
-    // we have implemented the sync manager and migrated consumers to that.
+    // NOTE: These methods are unused on Android but will remain needed for
+    // iOS until we can move them to the sync manager and replace their existing
+    // sync engines with ours
     fn history_sync(
         &self,
         key_id: String,
@@ -319,20 +320,27 @@ impl PlacesConnection {
         })
     }
 
-    fn wipe_local(&self) -> Result<()> {
+    // XXX - We probably need to document/name this a little better as it's specifically for
+    // history and NOT bookmarks...
+    fn wipe_local_history(&self) -> Result<()> {
         self.with_conn(|conn| history::wipe_local(conn))
     }
 
-    fn run_maintenance(&self) -> Result<()> {
-        self.with_conn(|conn| storage::run_maintenance(conn))
+    // Calls wipe_local_history but also updates the
+    // sync metadata to only sync after most recent visit to prevent
+    // further syncing of older data
+    fn delete_everything_history(&self) -> Result<()> {
+        self.with_conn(|conn| history::delete_everything(conn))
     }
 
+    // XXX - This just calls wipe_local under the hood...
+    // should probably have this go away?
     fn prune_destructively(&self) -> Result<()> {
         self.with_conn(|conn| history::prune_destructively(conn))
     }
 
-    fn delete_everything(&self) -> Result<()> {
-        self.with_conn(|conn| history::delete_everything(conn))
+    fn run_maintenance(&self) -> Result<()> {
+        self.with_conn(|conn| storage::run_maintenance(conn))
     }
 }
 

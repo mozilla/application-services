@@ -16,7 +16,7 @@ use places::error::*;
 pub use places::ffi::{APIS, CONNECTIONS};
 use places::msg_types::{BookmarkNodeList, SearchResultList};
 use places::storage::bookmarks;
-use places::{storage, ConnectionType, PlacesApi};
+use places::{ConnectionType, PlacesApi};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use sync_guid::Guid as SyncGuid;

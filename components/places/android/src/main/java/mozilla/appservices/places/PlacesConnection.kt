@@ -506,7 +506,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
     }
 
     override fun wipeLocal() {
-        this.conn.wipeLocal()
+        this.conn.wipeLocalHistory()
     }
 
     override fun runMaintenance() {
@@ -519,7 +519,7 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
 
     override fun deleteEverything() {
         return writeQueryCounters.measure {
-            this.conn.deleteEverything()
+            this.conn.deleteEverythingHistory()
         }
     }
 
