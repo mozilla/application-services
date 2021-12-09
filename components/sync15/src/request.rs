@@ -548,6 +548,7 @@ mod test {
     #[derive(Debug, Clone)]
     struct PostedData {
         body: String,
+        #[allow(dead_code)]
         xius: ServerTimestamp,
         batch: Option<String>,
         commit: bool,

@@ -24,24 +24,15 @@ struct ImportPlacesOptions {
 
 #[derive(Default, Debug, Clone)]
 struct LegacyPlaceVisit {
-    id: i64,
     date: i64,
     visit_type: u8,
-    from_visit: i64,
 }
 
 #[derive(Default, Debug, Clone)]
 struct LegacyPlace {
     id: i64,
-    guid: String,
     url: String,
     title: Option<String>,
-    hidden: i64,
-    typed: i64,
-    last_visit_date: i64,
-    visit_count: i64,
-    description: Option<String>,
-    preview_image_url: Option<String>,
     visits: Vec<LegacyPlaceVisit>,
 }
 
@@ -49,20 +40,11 @@ impl LegacyPlace {
     pub fn from_row(row: &rusqlite::Row<'_>) -> Self {
         Self {
             id: row.get_unwrap("place_id"),
-            guid: row.get_unwrap("place_guid"),
             title: row.get_unwrap("place_title"),
             url: row.get_unwrap("place_url"),
-            description: row.get_unwrap("place_description"),
-            preview_image_url: row.get_unwrap("place_preview_image_url"),
-            typed: row.get_unwrap("place_typed"),
-            hidden: row.get_unwrap("place_hidden"),
-            visit_count: row.get_unwrap("place_visit_count"),
-            last_visit_date: row.get_unwrap("place_last_visit_date"),
             visits: vec![LegacyPlaceVisit {
-                id: row.get_unwrap("visit_id"),
                 date: row.get_unwrap("visit_date"),
                 visit_type: row.get_unwrap("visit_type"),
-                from_visit: row.get_unwrap("visit_from_visit"),
             }],
         }
     }
@@ -158,10 +140,8 @@ fn import_places(
         let id: i64 = row.get("place_id")?;
         if current_place.id == id {
             current_place.visits.push(LegacyPlaceVisit {
-                id: row.get("visit_id")?,
                 date: row.get("visit_date")?,
                 visit_type: row.get("visit_type")?,
-                from_visit: row.get("visit_from_visit")?,
             });
             continue;
         }
