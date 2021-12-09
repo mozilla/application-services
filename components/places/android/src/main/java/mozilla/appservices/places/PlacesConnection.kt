@@ -74,9 +74,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun registerWithSyncManager() {
-        rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_api_register_with_sync_manager(handle.get(), error)
-        }
+        this.api.registerWithSyncManager()
     }
 
     override fun openReader(): PlacesReaderConnection {
@@ -116,30 +114,22 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun syncHistory(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
-            LibPlacesFFI.INSTANCE.sync15_history_sync(
-                this.handle.get(),
+        val pingJSONString = this.api.historySync(
                 syncInfo.kid,
                 syncInfo.fxaAccessToken,
                 syncInfo.syncKey,
-                syncInfo.tokenserverURL,
-                error
+                syncInfo.tokenserverURL
             )
-        }
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
     override fun syncBookmarks(syncInfo: SyncAuthInfo): SyncTelemetryPing {
-        val pingJSONString = rustCallForString(this) { error ->
-            LibPlacesFFI.INSTANCE.sync15_bookmarks_sync(
-                this.handle.get(),
+        val pingJSONString = this.api.bookmarksSync(
                 syncInfo.kid,
                 syncInfo.fxaAccessToken,
                 syncInfo.syncKey,
-                syncInfo.tokenserverURL,
-                error
+                syncInfo.tokenserverURL
             )
-        }
         return SyncTelemetryPing.fromJSONString(pingJSONString)
     }
 
@@ -173,9 +163,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun resetHistorySyncMetadata() {
-        rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_reset(this.handle.get(), error)
-        }
+        this.api.resetHistory()
     }
 
     override fun resetBookmarkSyncMetadata() {
@@ -518,28 +506,20 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
     }
 
     override fun wipeLocal() {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_wipe_local(this.handle.get(), error)
-        }
+        this.conn.wipeLocalHistory()
     }
 
     override fun runMaintenance() {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_run_maintenance(this.handle.get(), error)
-        }
+        this.conn.runMaintenance()
     }
 
     override fun pruneDestructively() {
-        rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_prune_destructively(this.handle.get(), error)
-        }
+        this.conn.pruneDestructively()
     }
 
     override fun deleteEverything() {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.places_delete_everything(this.handle.get(), error)
-            }
+            this.conn.deleteEverythingHistory()
         }
     }
 

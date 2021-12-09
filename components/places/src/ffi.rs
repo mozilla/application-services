@@ -6,7 +6,6 @@
 
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
-use crate::msg_types;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
@@ -16,6 +15,7 @@ use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
+use crate::{msg_types, storage};
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
     implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
@@ -82,6 +82,53 @@ impl PlacesApi {
         let db = self.open_connection(conn_type)?;
         let connection = PlacesConnection { db: Mutex::new(db) };
         Ok(Arc::new(connection))
+    }
+
+    // NOTE: These methods are unused on Android but will remain needed for
+    // iOS until we can move them to the sync manager and replace their existing
+    // sync engines with ours
+    fn history_sync(
+        &self,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: Url,
+    ) -> Result<String> {
+        let root_sync_key = match sync15::KeyBundle::from_ksync_base64(sync_key.as_str()) {
+            Ok(key) => Ok(key),
+            Err(err) => Err(PlacesError::UnexpectedPlacesException(err.to_string())),
+        }?;
+        let ping = self.sync_history(
+            &sync15::Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url,
+            },
+            &root_sync_key,
+        )?;
+        Ok(serde_json::to_string(&ping).unwrap())
+    }
+
+    fn bookmarks_sync(
+        &self,
+        key_id: String,
+        access_token: String,
+        sync_key: String,
+        tokenserver_url: Url,
+    ) -> Result<String> {
+        let root_sync_key = match sync15::KeyBundle::from_ksync_base64(sync_key.as_str()) {
+            Ok(key) => Ok(key),
+            Err(err) => Err(PlacesError::UnexpectedPlacesException(err.to_string())),
+        }?;
+        let ping = self.sync_bookmarks(
+            &sync15::Sync15StorageClientInit {
+                key_id,
+                access_token,
+                tokenserver_url,
+            },
+            &root_sync_key,
+        )?;
+        Ok(serde_json::to_string(&ping).unwrap())
     }
 }
 
@@ -271,6 +318,29 @@ impl PlacesConnection {
                 threshold_option.value(),
             )
         })
+    }
+
+    // XXX - We probably need to document/name this a little better as it's specifically for
+    // history and NOT bookmarks...
+    fn wipe_local_history(&self) -> Result<()> {
+        self.with_conn(|conn| history::wipe_local(conn))
+    }
+
+    // Calls wipe_local_history but also updates the
+    // sync metadata to only sync after most recent visit to prevent
+    // further syncing of older data
+    fn delete_everything_history(&self) -> Result<()> {
+        self.with_conn(|conn| history::delete_everything(conn))
+    }
+
+    // XXX - This just calls wipe_local under the hood...
+    // should probably have this go away?
+    fn prune_destructively(&self) -> Result<()> {
+        self.with_conn(|conn| history::prune_destructively(conn))
+    }
+
+    fn run_maintenance(&self) -> Result<()> {
+        self.with_conn(|conn| storage::run_maintenance(conn))
     }
 }
 
