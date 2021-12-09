@@ -342,7 +342,7 @@ impl SearchResult {
 impl From<SearchResult> for FfiSearchResult {
     fn from(res: SearchResult) -> Self {
         Self {
-            url: res.url.into(),
+            url: res.url,
             title: res.title,
             frecency: res.frecency,
             reasons: res.reasons.into_iter().map(Into::into).collect::<Vec<_>>(),
