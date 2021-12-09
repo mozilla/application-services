@@ -404,6 +404,9 @@ impl FrecencyThresholdOption {
 // We define those types to cross the FFI
 // a better approach would be to:
 // - Rename the `Url` in the internal MatchReason to have a different name
+//    This is because `uniffi` fails to parse the UDL if an enum variant
+//    shadows a type, in this case, the wrapped type `Url`.
+//    look at: https://github.com/mozilla/uniffi-rs/issues/1137
 // - Fix the mismatch between the consumers and the rust layer with the Tags
 //     variant in the internal MatchReason, the rust layer uses a
 //     variant with associated data, the kotlin layers assumes a flat enum.
