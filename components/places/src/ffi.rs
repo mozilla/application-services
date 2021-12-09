@@ -354,6 +354,10 @@ impl PlacesConnection {
     fn accept_result(&self, search_string: String, url: Url) -> Result<()> {
         self.with_conn(|conn| matcher::accept_result(conn, &search_string, &url))
     }
+
+    fn match_url(&self, query: String) -> Result<Option<Url>> {
+        self.with_conn(|conn| matcher::match_url(conn, query))
+    }
 }
 
 #[derive(Clone, PartialEq)]

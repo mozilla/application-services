@@ -285,9 +285,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
     }
 
     override fun matchUrl(query: String): String? {
-        return rustCallForOptString { error ->
-            LibPlacesFFI.INSTANCE.places_match_url(this.handle.get(), query, error)
-        }
+        return this.conn.matchUrl(query)
     }
 
     override fun getTopFrecentSiteInfos(numItems: Int, frecencyThreshold: FrecencyThresholdOption): List<TopFrecentSiteInfo> {

@@ -60,10 +60,6 @@ void places_note_observation(PlacesConnectionHandle handle,
                              const char *_Nonnull observation_json,
                              PlacesRustError *_Nonnull out_err);
 
-char *_Nullable places_match_url(PlacesConnectionHandle handle,
-                                 const char *_Nonnull search,
-                                 PlacesRustError *_Nonnull out_err);
-
 void places_bookmarks_import_from_ios(PlacesAPIHandle handle,
                                       const char *_Nonnull db_path,
                                       PlacesRustError *_Nonnull out_err);

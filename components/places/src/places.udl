@@ -55,6 +55,9 @@ interface PlacesConnection {
     void accept_result(string search_string, Url url);
 
     [Throws=PlacesError]
+    Url? match_url(string query);
+
+    [Throws=PlacesError]
     sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
 
     [Throws=PlacesError]

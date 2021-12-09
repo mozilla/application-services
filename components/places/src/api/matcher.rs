@@ -85,7 +85,7 @@ pub fn search_frecent(conn: &PlacesDb, params: SearchParams) -> Result<Vec<Searc
     Ok(matches)
 }
 
-pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<String>> {
+pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Url>> {
     let scope = conn.begin_interrupt_scope();
     let matcher = OriginOrUrl::new(query.as_ref());
     // Note: The matcher ignores the limit argument (it's a trait method)
@@ -94,7 +94,7 @@ pub fn match_url(conn: &PlacesDb, query: impl AsRef<str>) -> Result<Option<Strin
     // Doing it like this lets us move the result, avoiding a copy (which almost
     // certainly doesn't matter but whatever)
     if let Some(res) = results.into_iter().next() {
-        Ok(Some(res.url.into()))
+        Ok(Some(res.url))
     } else {
         Ok(None)
     }
@@ -185,7 +185,7 @@ fn looks_like_origin(string: &str) -> bool {
 pub enum MatchReason {
     Keyword,
     Origin,
-    UrlMatch,
+    Url,
     PreviousUse,
     Bookmark,
     // Hrm... This will probably make this all serialize weird...
@@ -304,7 +304,7 @@ impl SearchResult {
         let frecency = row.get::<_, i64>("frecency")?;
         let bookmarked = row.get::<_, bool>("bookmarked")?;
 
-        let mut reasons = vec![MatchReason::UrlMatch];
+        let mut reasons = vec![MatchReason::Url];
         if bookmarked {
             reasons.push(MatchReason::Bookmark);
         }
@@ -359,7 +359,7 @@ impl From<MatchReason> for FfiMatchReason {
         match mr {
             MatchReason::Keyword => FfiMatchReason::Keyword,
             MatchReason::Origin => FfiMatchReason::Origin,
-            MatchReason::UrlMatch => FfiMatchReason::UrlMatch,
+            MatchReason::Url => FfiMatchReason::UrlMatch,
             MatchReason::PreviousUse => FfiMatchReason::PreviousUse,
             MatchReason::Bookmark => FfiMatchReason::Bookmark,
             MatchReason::Tags(_) => FfiMatchReason::Tags,
@@ -702,7 +702,7 @@ mod tests {
             .iter()
             .any(|result| result.title == "example.com/"
                 && result.url.as_str() == "http://example.com/"
-                && result.reasons == [MatchReason::UrlMatch]));
+                && result.reasons == [MatchReason::Url]));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -716,7 +716,7 @@ mod tests {
             .iter()
             .any(|result| result.title == "example.com/123"
                 && result.url.as_str() == "http://example.com/123"
-                && result.reasons == [MatchReason::UrlMatch]));
+                && result.reasons == [MatchReason::Url]));
 
         accept_result(&conn, "ample", &url).expect("Should accept input history match");
 
@@ -779,7 +779,7 @@ mod tests {
             // Should we consider un-punycoding the title? (firefox desktop doesn't...)
             .any(|result| result.title == "xn--exmple-cua.com/"
                 && result.url.as_str() == "http://xn--exmple-cua.com/"
-                && result.reasons == [MatchReason::UrlMatch]));
+                && result.reasons == [MatchReason::Url]));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -794,7 +794,7 @@ mod tests {
                 .iter()
                 .any(|result| result.title == "xn--exmple-cua.com/123"
                     && result.url.as_str() == "http://xn--exmple-cua.com/123"
-                    && result.reasons == [MatchReason::UrlMatch]),
+                    && result.reasons == [MatchReason::Url]),
             "{:?}",
             by_url_with_path
         );

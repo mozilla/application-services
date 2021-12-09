@@ -63,13 +63,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
-    /** Returns a URL, or null if no match was found. */
-    fun places_match_url(
-        handle: PlacesConnectionHandle,
-        search: String,
-        out_err: RustError.ByReference
-    ): Pointer?
-
     fun places_new_interrupt_handle(
         conn: PlacesConnectionHandle,
         out_err: RustError.ByReference

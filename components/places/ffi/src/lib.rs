@@ -21,7 +21,7 @@ use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use sync_guid::Guid as SyncGuid;
 
-use places::api::matcher::{self, match_url};
+use places::api::matcher;
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> places::Result<url::Url> {
@@ -160,18 +160,6 @@ pub extern "C" fn places_new_interrupt_handle(
 #[no_mangle]
 pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut ExternError) {
     ffi_support::call_with_output(error, || handle.interrupt())
-}
-
-/// Execute a query, returning a URL string or null. Returned string must be freed
-/// using `places_destroy_string`. Returns null if no match is found.
-#[no_mangle]
-pub extern "C" fn places_match_url(
-    handle: u64,
-    search: FfiStr<'_>,
-    error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("places_match_url");
-    CONNECTIONS.call_with_result(error, handle, |conn| match_url(conn, search.as_str()))
 }
 
 #[no_mangle]
