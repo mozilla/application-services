@@ -21,6 +21,7 @@ import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
+import mozilla.appservices.places.uniffi.SearchResult
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -280,15 +281,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
     ReadableHistoryMetadataConnection,
     ReadableBookmarksConnection {
     override fun queryAutocomplete(query: String, limit: Int): List<SearchResult> {
-        val resultBuffer = rustCall { error ->
-            LibPlacesFFI.INSTANCE.places_query_autocomplete(this.handle.get(), query, limit, error)
-        }
-        try {
-            val results = MsgTypes.SearchResultList.parseFrom(resultBuffer.asCodedInputStream()!!)
-            return SearchResult.fromCollectionMessage(results)
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(resultBuffer)
-        }
+        return this.conn.queryAutocomplete(query, limit)
     }
 
     override fun matchUrl(query: String): String? {
@@ -1143,53 +1136,6 @@ enum class VisitType(val type: Int) {
     DOWNLOAD(7),
     FRAMED_LINK(8),
     RELOAD(9)
-}
-
-enum class SearchResultReason {
-    KEYWORD,
-    ORIGIN,
-    URL,
-    PREVIOUS_USE,
-    BOOKMARK,
-    TAG;
-
-    companion object {
-        fun fromMessage(reason: MsgTypes.SearchResultReason): SearchResultReason {
-            return when (reason) {
-                MsgTypes.SearchResultReason.KEYWORD -> KEYWORD
-                MsgTypes.SearchResultReason.ORIGIN -> ORIGIN
-                MsgTypes.SearchResultReason.URL -> URL
-                MsgTypes.SearchResultReason.PREVIOUS_USE -> PREVIOUS_USE
-                MsgTypes.SearchResultReason.BOOKMARK -> BOOKMARK
-                MsgTypes.SearchResultReason.TAG -> TAG
-            }
-        }
-    }
-}
-
-data class SearchResult(
-    val url: String,
-    val title: String,
-    val frecency: Long,
-    val reasons: List<SearchResultReason>
-) {
-    companion object {
-        internal fun fromMessage(msg: MsgTypes.SearchResultMessage): SearchResult {
-            return SearchResult(
-                url = msg.url,
-                title = msg.title,
-                frecency = msg.frecency,
-                reasons = msg.reasonsList.map {
-                    SearchResultReason.fromMessage(it)
-                }
-            )
-        }
-        internal fun fromCollectionMessage(msg: MsgTypes.SearchResultList): List<SearchResult> {
-            return msg.resultsList.map {
-                fromMessage(it)
-            }
-        }
-    }
 }
 
 /**

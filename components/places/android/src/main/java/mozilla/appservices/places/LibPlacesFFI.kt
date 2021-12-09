@@ -63,14 +63,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
-    /** Returns JSON string, which you need to free with places_destroy_string */
-    fun places_query_autocomplete(
-        handle: PlacesConnectionHandle,
-        search: String,
-        limit: Int,
-        out_err: RustError.ByReference
-    ): RustBuffer.ByValue
-
     /** Returns a URL, or null if no match was found. */
     fun places_match_url(
         handle: PlacesConnectionHandle,

@@ -134,33 +134,3 @@ pub struct BookmarkNodeList {
     #[prost(message, repeated, tag="1")]
     pub nodes: ::prost::alloc::vec::Vec<BookmarkNode>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SearchResultMessage {
-    #[prost(string, required, tag="1")]
-    pub url: ::prost::alloc::string::String,
-    #[prost(string, required, tag="2")]
-    pub title: ::prost::alloc::string::String,
-    #[prost(int64, required, tag="3")]
-    pub frecency: i64,
-    #[prost(enumeration="SearchResultReason", repeated, tag="4")]
-    pub reasons: ::prost::alloc::vec::Vec<i32>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SearchResultList {
-    #[prost(message, repeated, tag="1")]
-    pub results: ::prost::alloc::vec::Vec<SearchResultMessage>,
-}
-/// Protobuf allows nesting these, but prost behaves weirdly if we do.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum SearchResultReason {
-    /// Never used in practice. Maybe remove this from here and from the rust enum?
-    Keyword = 1,
-    Origin = 2,
-    Url = 3,
-    PreviousUse = 4,
-    Bookmark = 5,
-    /// If we get real tag support, just add `optional string tags` to SearchResult below, but
-    /// for now expose that it was because of tags.
-    Tag = 6,
-}

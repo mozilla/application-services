@@ -60,11 +60,6 @@ void places_note_observation(PlacesConnectionHandle handle,
                              const char *_Nonnull observation_json,
                              PlacesRustError *_Nonnull out_err);
 
-char *_Nullable places_query_autocomplete(PlacesConnectionHandle handle,
-                                          const char *_Nonnull search,
-                                          int32_t limit,
-                                          PlacesRustError *_Nonnull out_err);
-
 char *_Nullable places_match_url(PlacesConnectionHandle handle,
                                  const char *_Nonnull search,
                                  PlacesRustError *_Nonnull out_err);

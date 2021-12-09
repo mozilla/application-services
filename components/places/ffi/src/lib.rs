@@ -14,14 +14,14 @@ use ffi_support::{
 };
 use places::error::*;
 pub use places::ffi::{APIS, CONNECTIONS};
-use places::msg_types::{BookmarkNodeList, SearchResultList};
+use places::msg_types::BookmarkNodeList;
 use places::storage::bookmarks;
 use places::{ConnectionType, PlacesApi};
 use sql_support::SqlInterruptHandle;
 use std::os::raw::c_char;
 use sync_guid::Guid as SyncGuid;
 
-use places::api::matcher::{self, match_url, search_frecent, SearchParams};
+use places::api::matcher::{self, match_url};
 
 // indirection to help `?` figure out the target error type
 fn parse_url(url: &str) -> places::Result<url::Url> {
@@ -160,31 +160,6 @@ pub extern "C" fn places_new_interrupt_handle(
 #[no_mangle]
 pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut ExternError) {
     ffi_support::call_with_output(error, || handle.interrupt())
-}
-
-/// Execute a query, returning a `Vec<SearchResult>` as a JSON string. Returned string must be freed
-/// using `places_destroy_string`. Returns null and logs on errors (for now).
-#[no_mangle]
-pub extern "C" fn places_query_autocomplete(
-    handle: u64,
-    search: FfiStr<'_>,
-    limit: u32,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_query_autocomplete");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let results = search_frecent(
-            conn,
-            SearchParams {
-                search_string: search.into_string(),
-                limit,
-            },
-        )?
-        .into_iter()
-        .map(|r| r.into())
-        .collect();
-        Ok(SearchResultList { results })
-    })
 }
 
 /// Execute a query, returning a URL string or null. Returned string must be freed

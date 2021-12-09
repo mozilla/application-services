@@ -5,7 +5,7 @@
 use crate::db::PlacesDb;
 use crate::error::Result;
 pub use crate::match_impl::{MatchBehavior, SearchBehavior};
-use crate::msg_types::{SearchResultMessage, SearchResultReason};
+use crate::ffi::{SearchResult as FfiSearchResult, MatchReason as FfiMatchReason};
 use rusqlite::{types::ToSql, Row};
 use serde_derive::*;
 use sql_support::{maybe_log_plan, ConnExt};
@@ -185,7 +185,7 @@ fn looks_like_origin(string: &str) -> bool {
 pub enum MatchReason {
     Keyword,
     Origin,
-    Url,
+    UrlMatch,
     PreviousUse,
     Bookmark,
     // Hrm... This will probably make this all serialize weird...
@@ -304,7 +304,7 @@ impl SearchResult {
         let frecency = row.get::<_, i64>("frecency")?;
         let bookmarked = row.get::<_, bool>("bookmarked")?;
 
-        let mut reasons = vec![MatchReason::Url];
+        let mut reasons = vec![MatchReason::UrlMatch];
         if bookmarked {
             reasons.push(MatchReason::Bookmark);
         }
@@ -339,7 +339,7 @@ impl SearchResult {
     }
 }
 
-impl From<SearchResult> for SearchResultMessage {
+impl From<SearchResult> for FfiSearchResult {
     fn from(res: SearchResult) -> Self {
         Self {
             url: res.url.into(),
@@ -348,21 +348,21 @@ impl From<SearchResult> for SearchResultMessage {
             reasons: res
                 .reasons
                 .into_iter()
-                .map(|r| Into::<SearchResultReason>::into(r) as i32)
-                .collect::<Vec<i32>>(),
+                .map(Into::into)
+                .collect::<Vec<_>>(),
         }
     }
 }
 
-impl From<MatchReason> for SearchResultReason {
+impl From<MatchReason> for FfiMatchReason {
     fn from(mr: MatchReason) -> Self {
         match mr {
-            MatchReason::Keyword => SearchResultReason::Keyword,
-            MatchReason::Origin => SearchResultReason::Origin,
-            MatchReason::Url => SearchResultReason::Url,
-            MatchReason::PreviousUse => SearchResultReason::PreviousUse,
-            MatchReason::Bookmark => SearchResultReason::Bookmark,
-            MatchReason::Tags(_) => SearchResultReason::Tag,
+            MatchReason::Keyword => FfiMatchReason::Keyword,
+            MatchReason::Origin => FfiMatchReason::Origin,
+            MatchReason::UrlMatch => FfiMatchReason::UrlMatch,
+            MatchReason::PreviousUse => FfiMatchReason::PreviousUse,
+            MatchReason::Bookmark => FfiMatchReason::Bookmark,
+            MatchReason::Tags(_) => FfiMatchReason::Tags,
         }
     }
 }
@@ -702,7 +702,7 @@ mod tests {
             .iter()
             .any(|result| result.title == "example.com/"
                 && result.url.as_str() == "http://example.com/"
-                && result.reasons == [MatchReason::Url]));
+                && result.reasons == [MatchReason::UrlMatch]));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -716,7 +716,7 @@ mod tests {
             .iter()
             .any(|result| result.title == "example.com/123"
                 && result.url.as_str() == "http://example.com/123"
-                && result.reasons == [MatchReason::Url]));
+                && result.reasons == [MatchReason::UrlMatch]));
 
         accept_result(&conn, "ample", &url).expect("Should accept input history match");
 
@@ -779,7 +779,7 @@ mod tests {
             // Should we consider un-punycoding the title? (firefox desktop doesn't...)
             .any(|result| result.title == "xn--exmple-cua.com/"
                 && result.url.as_str() == "http://xn--exmple-cua.com/"
-                && result.reasons == [MatchReason::Url]));
+                && result.reasons == [MatchReason::UrlMatch]));
 
         let by_url_with_path = search_frecent(
             &conn,
@@ -794,7 +794,7 @@ mod tests {
                 .iter()
                 .any(|result| result.title == "xn--exmple-cua.com/123"
                     && result.url.as_str() == "http://xn--exmple-cua.com/123"
-                    && result.reasons == [MatchReason::Url]),
+                    && result.reasons == [MatchReason::UrlMatch]),
             "{:?}",
             by_url_with_path
         );
