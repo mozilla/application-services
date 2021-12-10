@@ -12,12 +12,13 @@ use places::storage::bookmarks::{
 use places::types::BookmarkType;
 use places::{ConnectionType, PlacesApi, PlacesDb};
 use serde_derive::*;
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use structopt::StructOpt;
 use sync15::{
     sync_multiple, EngineSyncAssociation, MemoryCachedState, SetupStorageClient,
-    Sync15StorageClient, SyncEngine,
+    Sync15StorageClient, SyncEngine, SyncEngineId,
 };
 use sync_guid::Guid as SyncGuid;
 use types::Timestamp;
@@ -184,15 +185,18 @@ fn sync(
     let mut global_state: Option<String> = None;
     let engines: Vec<Box<dyn SyncEngine>> = if engine_names.is_empty() {
         vec![
-            places::get_registered_sync_engine("bookmarks").unwrap(),
-            places::get_registered_sync_engine("history").unwrap(),
+            places::get_registered_sync_engine(&SyncEngineId::Bookmarks).unwrap(),
+            places::get_registered_sync_engine(&SyncEngineId::History).unwrap(),
         ]
     } else {
         engine_names.sort();
         engine_names.dedup();
         engine_names
             .into_iter()
-            .map(|name| places::get_registered_sync_engine(&name).unwrap())
+            .map(|name| {
+                places::get_registered_sync_engine(&SyncEngineId::try_from(name.as_ref()).unwrap())
+                    .unwrap()
+            })
             .collect()
     };
     for engine in &engines {

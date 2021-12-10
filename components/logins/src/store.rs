@@ -9,7 +9,7 @@ use crate::LoginsSyncEngine;
 use parking_lot::Mutex;
 use std::path::Path;
 use std::sync::{Arc, Weak};
-use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine};
+use sync15::{sync_multiple, EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId};
 
 // Our "sync manager" will use whatever is stashed here.
 lazy_static::lazy_static! {
@@ -20,15 +20,15 @@ lazy_static::lazy_static! {
 
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
-pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     let weak = STORE_FOR_MANAGER.lock();
     match weak.upgrade() {
         None => None,
-        Some(store) => match name {
-            "logins" => Some(Box::new(LoginsSyncEngine::new(Arc::clone(&store)))),
+        Some(store) => match engine_id {
+            SyncEngineId::Passwords => Some(Box::new(LoginsSyncEngine::new(Arc::clone(&store)))),
             // panicing here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
-            _ => unreachable!("can't provide unknown engine: {}", name),
+            _ => unreachable!("can't provide unknown engine: {}", engine_id),
         },
     }
 }

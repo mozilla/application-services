@@ -241,9 +241,9 @@ class DatabaseLoginsStorageTest {
         val store = createTestStore()
         val syncManager = SyncManager()
 
-        assertFalse(syncManager.getAvailableEngines().contains("logins"))
+        assertFalse(syncManager.getAvailableEngines().contains("passwords"))
 
         store.registerWithSyncManager()
-        assertTrue(syncManager.getAvailableEngines().contains("logins"))
+        assertTrue(syncManager.getAvailableEngines().contains("passwords"))
     }
 }
