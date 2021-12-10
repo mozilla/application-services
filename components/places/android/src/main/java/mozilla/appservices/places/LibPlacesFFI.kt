@@ -63,21 +63,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
-    /** Returns JSON string, which you need to free with places_destroy_string */
-    fun places_query_autocomplete(
-        handle: PlacesConnectionHandle,
-        search: String,
-        limit: Int,
-        out_err: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    /** Returns a URL, or null if no match was found. */
-    fun places_match_url(
-        handle: PlacesConnectionHandle,
-        search: String,
-        out_err: RustError.ByReference
-    ): Pointer?
-
     fun places_new_interrupt_handle(
         conn: PlacesConnectionHandle,
         out_err: RustError.ByReference
@@ -182,13 +167,6 @@ internal interface LibPlacesFFI : Library {
     fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
 
     fun places_destroy_bytebuffer(bb: RustBuffer.ByValue)
-
-    fun places_accept_result(
-        handle: PlacesConnectionHandle,
-        search_string: String,
-        url: String,
-        out_err: RustError.ByReference
-    )
 }
 
 internal typealias PlacesConnectionHandle = Long
