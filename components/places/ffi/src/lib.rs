@@ -37,18 +37,6 @@ pub extern "C" fn places_api_new(db_path: FfiStr<'_>, error: &mut ExternError) -
     })
 }
 
-/// Get an interrupt handle for the PlacesApi's sync connection.
-#[no_mangle]
-pub extern "C" fn places_new_sync_conn_interrupt_handle(
-    handle: u64,
-    error: &mut ExternError,
-) -> *mut SqlInterruptHandle {
-    log::debug!("places_new_sync_conn_interrupt_handle");
-    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
-        api.new_sync_conn_interrupt_handle()
-    })
-}
-
 #[no_mangle]
 pub extern "C" fn places_connection_new(
     handle: u64,
@@ -123,41 +111,62 @@ pub extern "C" fn places_history_import_from_fennec(
     })
 }
 
-// Best effort, ignores failure.
+/// Execute a query, returning a `Vec<SearchResult>` as a JSON string. Returned string must be freed
+/// using `places_destroy_string`. Returns null and logs on errors (for now).
 #[no_mangle]
-pub extern "C" fn places_api_return_write_conn(
-    api_handle: u64,
-    write_handle: u64,
+pub extern "C" fn places_query_autocomplete(
+    handle: u64,
+    search: FfiStr<'_>,
+    limit: u32,
     error: &mut ExternError,
-) {
-    log::debug!("places_api_return_write_conn");
-    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
-        let write_conn = if let Ok(Some(conn)) = CONNECTIONS.remove_u64(write_handle) {
-            conn
-        } else {
-            log::warn!("Can't return connection to PlacesApi because it does not exist");
-            return Ok(());
-        };
-        if let Err(e) = api.close_connection(write_conn) {
-            log::warn!("Failed to close connection: {}", e);
-        }
-        Ok(())
+) -> ByteBuffer {
+    log::debug!("places_query_autocomplete");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let results = search_frecent(
+            conn,
+            SearchParams {
+                search_string: search.into_string(),
+                limit,
+            },
+        )?
+        .into_iter()
+        .map(|r| r.into())
+        .collect();
+        Ok(SearchResultList { results })
     })
 }
 
-/// Get the interrupt handle for a connection. Must be destroyed with
-/// `places_interrupt_handle_destroy`.
+/// Execute a query, returning a URL string or null. Returned string must be freed
+/// using `places_destroy_string`. Returns null if no match is found.
 #[no_mangle]
-pub extern "C" fn places_new_interrupt_handle(
+pub extern "C" fn places_match_url(
     handle: u64,
+    search: FfiStr<'_>,
     error: &mut ExternError,
-) -> *mut SqlInterruptHandle {
-    CONNECTIONS.call_with_output(error, handle, |conn| conn.new_interrupt_handle())
+) -> *mut c_char {
+    log::debug!("places_match_url");
+    CONNECTIONS.call_with_result(error, handle, |conn| match_url(conn, search.as_str()))
 }
 
 #[no_mangle]
-pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut ExternError) {
-    ffi_support::call_with_output(error, || handle.interrupt())
+pub extern "C" fn places_accept_result(
+    handle: u64,
+    search_string: FfiStr<'_>,
+    url: FfiStr<'_>,
+    error: &mut ExternError,
+) {
+    log::debug!("places_accept_result");
+    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
+        let search_string = search_string.as_str();
+        let url = if let Ok(url) = parse_url(url.as_str()) {
+            url
+        } else {
+            log::warn!("Ignoring invalid URL in places_accept_result");
+            return Ok(());
+        };
+        matcher::accept_result(conn, search_string, &url)?;
+        Ok(())
+    })
 }
 
 #[no_mangle]

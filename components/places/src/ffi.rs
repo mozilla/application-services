@@ -23,6 +23,7 @@ use ffi_support::{
     ErrorCode, ExternError,
 };
 use parking_lot::Mutex;
+use sql_support::SqlInterruptHandle;
 use std::sync::Arc;
 use types::Timestamp;
 use url::Url;
@@ -131,6 +132,12 @@ impl PlacesApi {
         )?;
         Ok(serde_json::to_string(&ping).unwrap())
     }
+
+    fn api_return_write_conn(&self) -> Result<()> {
+        let conn = self.open_connection(ConnectionType::ReadWrite)?;
+        self.close_connection(conn)?;
+        Ok(())
+    }
 }
 
 pub struct PlacesConnection {
@@ -145,6 +152,12 @@ impl PlacesConnection {
     {
         let conn = self.db.lock();
         Ok(f(&conn)?)
+    }
+
+    fn new_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
+        Ok(Arc::new(
+            self.with_conn(|conn| Ok(conn.new_interrupt_handle()))?,
+        ))
     }
 
     fn get_latest_history_metadata_for_url(&self, url: Url) -> Result<Option<HistoryMetadata>> {

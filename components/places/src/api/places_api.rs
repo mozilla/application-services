@@ -481,13 +481,13 @@ impl PlacesApi {
     //     SqlInterruptHandle will not work.
     //   - We want the sync connection to be lazy, but we call this on initialization and force a
     //     connection to be created.
-    pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
+    pub fn new_sync_conn_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
         // Probably not necessary to lock here, since this should only get
         // called in startup.
         let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
         let db = conn.lock();
-        Ok(db.new_interrupt_handle())
+        Ok(Arc::new(db.new_interrupt_handle()))
     }
 }
 

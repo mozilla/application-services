@@ -25,6 +25,12 @@ interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
 
+    [Throws=PlacesError]
+    SqlInterruptHandle new_sync_conn_interrupt_handle();
+
+    [Throws=PlacesError]
+    void api_return_write_conn();
+
     [Self=ByArc]
     void register_with_sync_manager();
 
@@ -39,6 +45,10 @@ interface PlacesApi {
 };
 
 interface PlacesConnection {
+
+    [Throws=PlacesError]
+    SqlInterruptHandle new_interrupt_handle();
+
     [Throws=PlacesError]
     HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 
@@ -122,6 +132,10 @@ interface PlacesConnection {
     [Throws=PlacesError]
     void run_maintenance();
 
+};
+
+interface SqlInterruptHandle {
+     void interrupt();
 };
 
 /**
