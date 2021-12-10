@@ -49,6 +49,15 @@ interface PlacesConnection {
     sequence<HistoryMetadata> get_history_metadata_since(Timestamp since);
 
     [Throws=PlacesError]
+    sequence<SearchResult> query_autocomplete(string search, i32 limit);
+
+    [Throws=PlacesError]
+    void accept_result(string search_string, Url url);
+
+    [Throws=PlacesError]
+    Url? match_url(string query);
+
+    [Throws=PlacesError]
     sequence<HistoryMetadata> query_history_metadata(string query, i32 limit);
 
     [Throws=PlacesError]
@@ -124,6 +133,22 @@ enum FrecencyThresholdOption {
   "None",
 // Skip visited pages that were only visited once. The frecency score is 101
   "SkipOneTimePages",
+};
+
+dictionary SearchResult {
+    Url url;
+    string title;
+    i64 frecency;
+    sequence<MatchReason> reasons;
+};
+
+enum MatchReason {
+  "Keyword",
+  "Origin",
+  "UrlMatch",
+  "PreviousUse",
+  "Bookmark",
+  "Tags"
 };
 
 // Some kind of namespacing for uniffi would be ideal. Multiple udl/macro defns?

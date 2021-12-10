@@ -4,6 +4,7 @@
 
 // This module implement the traits that make the FFI code easier to manage.
 
+use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
 use crate::storage::history_metadata::{
@@ -342,6 +343,27 @@ impl PlacesConnection {
     fn run_maintenance(&self) -> Result<()> {
         self.with_conn(|conn| storage::run_maintenance(conn))
     }
+
+    fn query_autocomplete(&self, search: String, limit: i32) -> Result<Vec<SearchResult>> {
+        self.with_conn(|conn| {
+            search_frecent(
+                conn,
+                SearchParams {
+                    search_string: search,
+                    limit: limit as u32,
+                },
+            )
+            .map(|search_results| search_results.into_iter().map(Into::into).collect())
+        })
+    }
+
+    fn accept_result(&self, search_string: String, url: Url) -> Result<()> {
+        self.with_conn(|conn| matcher::accept_result(conn, &search_string, &url))
+    }
+
+    fn match_url(&self, query: String) -> Result<Option<Url>> {
+        self.with_conn(|conn| matcher::match_url(conn, query))
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -379,6 +401,30 @@ impl FrecencyThresholdOption {
     }
 }
 
+// We define those types to cross the FFI
+// a better approach would be to:
+// - Rename the `Url` in the internal MatchReason to have a different name
+//    This is because `uniffi` fails to parse the UDL if an enum variant
+//    shadows a type, in this case, the wrapped type `Url`.
+//    look at: https://github.com/mozilla/uniffi-rs/issues/1137
+// - Fix the mismatch between the consumers and the rust layer with the Tags
+//     variant in the internal MatchReason, the rust layer uses a
+//     variant with associated data, the kotlin layers assumes a flat enum.
+pub struct SearchResult {
+    pub url: Url,
+    pub title: String,
+    pub frecency: i64,
+    pub reasons: Vec<MatchReason>,
+}
+
+pub enum MatchReason {
+    Keyword,
+    Origin,
+    UrlMatch,
+    PreviousUse,
+    Bookmark,
+    Tags,
+}
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
 
@@ -509,7 +555,6 @@ impl From<Error> for ExternError {
     }
 }
 
-implement_into_ffi_by_protobuf!(msg_types::SearchResultList);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
 implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
 implement_into_ffi_by_delegation!(
