@@ -22,6 +22,7 @@ import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
 import mozilla.appservices.places.uniffi.SearchResult
+import mozilla.appservices.places.uniffi.SqlInterruptHandle
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -101,9 +102,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         if (handle != 0L) {
             if (writeHandle != 0L) {
                 try {
-                    rustCall(this) { err ->
-                        LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
-                    }
+                    this.api.apiReturnWriteConn()
                 } catch (e: PlacesException) {
                     // Ignore it.
                 }
@@ -222,11 +221,7 @@ open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: U
         handle.set(connHandle)
         conn = uniffiConn
         try {
-            interruptHandle = InterruptHandle(
-                rustCall { err ->
-                    LibPlacesFFI.INSTANCE.places_new_interrupt_handle(connHandle, err)
-                }!!
-            )
+            interruptHandle = InterruptHandle(this.conn.newInterruptHandle())!!
         } catch (e: Throwable) {
             rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
@@ -1089,9 +1084,9 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
     fun acceptResult(searchString: String, url: String)
 }
 
-class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : AutoCloseable {
+class InterruptHandle internal constructor(raw: SqlInterruptHandle) : AutoCloseable {
     // We synchronize all accesses, so this probably doesn't need AtomicReference.
-    private val handle: AtomicReference<RawPlacesInterruptHandle?> = AtomicReference(raw)
+    private val handle: AtomicReference<SqlInterruptHandle?> = AtomicReference(raw)
 
     @Synchronized
     override fun close() {
@@ -1104,11 +1099,7 @@ class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : Auto
     @Synchronized
     fun interrupt() {
         handle.get()?.let {
-            val e = RustError.ByReference()
-            LibPlacesFFI.INSTANCE.places_interrupt(it, e)
-            if (e.isFailure()) {
-                throw e.intoException()
-            }
+            this.interrupt()
         }
     }
 }

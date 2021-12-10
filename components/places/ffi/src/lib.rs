@@ -111,64 +111,6 @@ pub extern "C" fn places_history_import_from_fennec(
     })
 }
 
-/// Execute a query, returning a `Vec<SearchResult>` as a JSON string. Returned string must be freed
-/// using `places_destroy_string`. Returns null and logs on errors (for now).
-#[no_mangle]
-pub extern "C" fn places_query_autocomplete(
-    handle: u64,
-    search: FfiStr<'_>,
-    limit: u32,
-    error: &mut ExternError,
-) -> ByteBuffer {
-    log::debug!("places_query_autocomplete");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let results = search_frecent(
-            conn,
-            SearchParams {
-                search_string: search.into_string(),
-                limit,
-            },
-        )?
-        .into_iter()
-        .map(|r| r.into())
-        .collect();
-        Ok(SearchResultList { results })
-    })
-}
-
-/// Execute a query, returning a URL string or null. Returned string must be freed
-/// using `places_destroy_string`. Returns null if no match is found.
-#[no_mangle]
-pub extern "C" fn places_match_url(
-    handle: u64,
-    search: FfiStr<'_>,
-    error: &mut ExternError,
-) -> *mut c_char {
-    log::debug!("places_match_url");
-    CONNECTIONS.call_with_result(error, handle, |conn| match_url(conn, search.as_str()))
-}
-
-#[no_mangle]
-pub extern "C" fn places_accept_result(
-    handle: u64,
-    search_string: FfiStr<'_>,
-    url: FfiStr<'_>,
-    error: &mut ExternError,
-) {
-    log::debug!("places_accept_result");
-    CONNECTIONS.call_with_result(error, handle, |conn| -> places::Result<_> {
-        let search_string = search_string.as_str();
-        let url = if let Ok(url) = parse_url(url.as_str()) {
-            url
-        } else {
-            log::warn!("Ignoring invalid URL in places_accept_result");
-            return Ok(());
-        };
-        matcher::accept_result(conn, search_string, &url)?;
-        Ok(())
-    })
-}
-
 #[no_mangle]
 pub extern "C" fn bookmarks_reset(handle: u64, error: &mut ExternError) {
     log::debug!("bookmarks_reset");
@@ -343,4 +285,5 @@ define_bytebuffer_destructor!(places_destroy_bytebuffer);
 define_handle_map_deleter!(APIS, places_api_destroy);
 
 define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);
-define_box_destructor!(SqlInterruptHandle, places_interrupt_handle_destroy);
+// TODO: This needs to go
+//define_box_destructor!(SqlInterruptHandle, places_interrupt_handle_destroy);

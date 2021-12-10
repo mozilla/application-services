@@ -21,10 +21,15 @@ enum ConnectionType {
     "Sync", // ideally we wouldn't need to expose this and should guard against it being used (it's internal only)
 };
 
+interface SqlInterruptHandle {
+     void interrupt();
+};
+
 interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
 
+    //NOTE: this doesn't appear to be actively used and can probably remove
     [Throws=PlacesError]
     SqlInterruptHandle new_sync_conn_interrupt_handle();
 
@@ -132,10 +137,6 @@ interface PlacesConnection {
     [Throws=PlacesError]
     void run_maintenance();
 
-};
-
-interface SqlInterruptHandle {
-     void interrupt();
 };
 
 /**
