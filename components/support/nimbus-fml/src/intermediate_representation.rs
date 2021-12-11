@@ -222,7 +222,7 @@ impl FeatureManifest {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct FeatureDef {
     pub(crate) name: String,
     pub(crate) doc: String,

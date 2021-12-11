@@ -13,7 +13,7 @@ use std::path::Path;
 use crate::GenerateStructCmd;
 
 pub(crate) fn generate_struct(config: Config, cmd: GenerateStructCmd) -> Result<()> {
-    let ir = load_feature_manifest(&config, &cmd.manifest, cmd.load_from_ir)?;
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     let language = cmd.language;
     match language {
         TargetLanguage::IR => {
@@ -30,13 +30,13 @@ pub(crate) fn generate_experimenter_manifest(
     config: Config,
     cmd: GenerateExperimenterManifestCmd,
 ) -> Result<()> {
-    let ir = load_feature_manifest(&config, &cmd.manifest, cmd.load_from_ir)?;
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     backends::experimenter_manifest::generate_manifest(ir, config, cmd)?;
     Ok(())
 }
 
-pub(crate) fn generate_ir(config: Config, cmd: GenerateIRCmd) -> Result<()> {
-    let ir = load_feature_manifest(&config, &cmd.manifest, cmd.load_from_ir)?;
+pub(crate) fn generate_ir(_config: Config, cmd: GenerateIRCmd) -> Result<()> {
+    let ir = load_feature_manifest(&cmd.manifest, cmd.load_from_ir, &cmd.channel)?;
     std::fs::write(cmd.output, serde_json::to_string_pretty(&ir)?)?;
     Ok(())
 }
@@ -46,12 +46,12 @@ fn slurp_file(path: &Path) -> Result<String> {
 }
 
 fn load_feature_manifest(
-    config: &Config,
     path: &Path,
     load_from_ir: bool,
+    channel: &str,
 ) -> Result<FeatureManifest> {
     Ok(if !load_from_ir {
-        let parser: Parser = Parser::new(config, path)?;
+        let parser: Parser = Parser::new(path, channel)?;
         parser.get_intermediate_representation()?
     } else {
         let string = slurp_file(path)?;
@@ -82,7 +82,6 @@ mod test {
 
     // Given a manifest.fml and script.kts in the tests directory generate
     // a manifest.kt and run the script against it.
-    #[allow(dead_code)]
     fn generate_and_assert(test_script: &str, manifest: &str, is_ir: bool) -> Result<()> {
         let test_script = join(pkg_dir(), test_script);
         let pbuf = PathBuf::from(&test_script);
@@ -112,6 +111,7 @@ mod test {
             output: manifest_kt.clone().into(),
             load_from_ir: is_ir,
             language,
+            channel: "release".into(),
         };
         generate_struct(Default::default(), cmd)?;
         run_script_with_generated_code(language, manifest_kt, &test_script)?;
@@ -196,6 +196,7 @@ mod test {
                 manifest: manifest_fml.into(),
                 output: curr_out.clone(),
                 load_from_ir: true,
+                channel: "release".into(),
             };
             generate_experimenter_manifest(Default::default(), cmd)?;
             let generated = fs::read_to_string(curr_out)?;

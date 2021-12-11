@@ -24,6 +24,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const RELEASE_CHANNEL: &str = "release";
+
 fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
@@ -47,16 +49,16 @@ fn main() -> Result<()> {
                         .value_of("package")
                         .map(str::to_string)
                         .or(config.package_name),
-                    channel: matches
-                        .value_of("channel")
-                        .map(str::to_string)
-                        .or(config.channel),
                 },
                 GenerateStructCmd {
                     language: TargetLanguage::Kotlin,
                     manifest: file_path("INPUT", &matches, &cwd)?,
                     output: file_path("output", &matches, &cwd)?,
                     load_from_ir: matches.is_present("ir"),
+                    channel: matches
+                        .value_of("channel")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
                 },
             )?,
             _ => unimplemented!(),
@@ -67,20 +69,22 @@ fn main() -> Result<()> {
                 manifest: file_path("INPUT", &matches, &cwd)?,
                 output: file_path("output", &matches, &cwd)?,
                 load_from_ir: matches.is_present("ir"),
-            },
-        )?,
-        ("intermediate-repr", _) => workflows::generate_ir(
-            Config {
                 channel: matches
                     .value_of("channel")
                     .map(str::to_string)
-                    .or(config.channel),
-                ..config
+                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
             },
+        )?,
+        ("intermediate-repr", _) => workflows::generate_ir(
+            config,
             GenerateIRCmd {
                 manifest: file_path("INPUT", &matches, &cwd)?,
                 output: file_path("output", &matches, &cwd)?,
                 load_from_ir: matches.is_present("ir"),
+                channel: matches
+                    .value_of("channel")
+                    .map(str::to_string)
+                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
             },
         )?,
         (word, _) => unimplemented!("Command {} not implemented", word),
@@ -105,7 +109,6 @@ fn file_path(name: &str, args: &ArgMatches, cwd: &Path) -> Result<PathBuf> {
 pub struct Config {
     pub package_name: Option<String>,
     pub nimbus_object_name: Option<String>,
-    pub channel: Option<String>,
 }
 
 pub struct GenerateStructCmd {
@@ -113,18 +116,21 @@ pub struct GenerateStructCmd {
     output: PathBuf,
     language: TargetLanguage,
     load_from_ir: bool,
+    channel: String,
 }
 
 pub struct GenerateExperimenterManifestCmd {
     manifest: PathBuf,
     output: PathBuf,
     load_from_ir: bool,
+    channel: String,
 }
 
 pub struct GenerateIRCmd {
     manifest: PathBuf,
     output: PathBuf,
     load_from_ir: bool,
+    channel: String,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
