@@ -3,6 +3,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  */
 
+use std::convert::TryFrom;
+
 use crate::enrollment::{
     EnrolledReason, EnrollmentStatus, ExperimentEnrollment, NotEnrolledReason,
 };
@@ -14,6 +16,7 @@ use crate::{matcher::AppContext, sampling};
 use crate::{Branch, Experiment};
 use jexl_eval::Evaluator;
 use serde_derive::*;
+use serde_json::{json, Value};
 use uuid::Uuid;
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Bucket {}
@@ -219,7 +222,12 @@ fn targeting(
     expression_statement: &str,
     targeting_attributes: &TargetingAttributes,
 ) -> Option<EnrollmentStatus> {
-    match Evaluator::new().eval_in_context(expression_statement, targeting_attributes) {
+    match Evaluator::new()
+        .with_transform("minimum_version", |args| {
+            Ok(is_minimum_version_transform(args)?)
+        })
+        .eval_in_context(expression_statement, targeting_attributes)
+    {
         Ok(res) => match res.as_bool() {
             Some(true) => None,
             Some(false) => Some(EnrollmentStatus::NotEnrolled {
@@ -235,10 +243,66 @@ fn targeting(
     }
 }
 
+use crate::versioning::Version;
+fn is_minimum_version_transform(args: &[Value]) -> Result<Value> {
+    let curr_version = args
+        .get(0)
+        .ok_or(NimbusError::VersionParsingError("".into()))?;
+    let curr_version = curr_version
+        .as_str()
+        .ok_or(NimbusError::VersionParsingError("".into()))?;
+    let min_version = args
+        .get(1)
+        .ok_or(NimbusError::VersionParsingError("".into()))?;
+    let min_version = min_version
+        .as_str()
+        .ok_or(NimbusError::VersionParsingError("".into()))?;
+    let min_version = Version::try_from(min_version)?;
+    let curr_version = Version::try_from(curr_version)?;
+    Ok(json!(curr_version >= min_version))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{BucketConfig, Experiment, RandomizationUnit};
+
+    #[test]
+    fn test_minimum_version_targeting_passes() -> Result<()> {
+        // Here's our valid jexl statement
+        let expression_statement = "app_version|minimum_version('96.0')";
+        let ctx = AppContext {
+            app_version: Some("97pre.1.0-beta.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        assert_eq!(targeting(expression_statement, &targeting_attributes), None);
+        Ok(())
+    }
+
+    #[test]
+    fn test_minimum_version_targeting_fails() -> Result<()> {
+        // Here's our valid jexl statement
+        let expression_statement = "app_version|minimum_version('96+.0')";
+        let ctx = AppContext {
+            app_version: Some("96.1".into()),
+            ..Default::default()
+        };
+        let targeting_attributes = TargetingAttributes {
+            app_context: ctx,
+            ..Default::default()
+        };
+        assert_eq!(
+            targeting(expression_statement, &targeting_attributes),
+            Some(EnrollmentStatus::NotEnrolled {
+                reason: NotEnrolledReason::NotTargeted
+            })
+        );
+        Ok(())
+    }
 
     #[test]
     fn test_targeting() {
