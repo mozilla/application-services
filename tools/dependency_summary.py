@@ -552,12 +552,6 @@ PACKAGE_METADATA_FIXUPS = {
     },
     # These packages do not make it easy to infer a URL at which their license can be read,
     # so we track it down by hand and hard-code it here.
-    "ansi_term": {
-        "repository": {
-            "check": None,
-            "fixup": "https://github.com/ogham/rust-ansi-term",
-        },
-    },
     "c2-chacha": {
         "repository": {
             "check": "https://github.com/cryptocorrosion/cryptocorrosion",
@@ -742,6 +736,17 @@ PACKAGE_METADATA_FIXUPS = {
             "fixup": "https://raw.githubusercontent.com/LeopoldArkham/humansize/master/LICENSE-APACHE",
         }
     },
+
+    "encoding_rs": {
+        "license": {
+            "check": None,
+            "fixup": "(Apache-2.0 OR MIT) AND BSD-3-Clause"
+        },
+        "license_url": {
+            "check": None,
+            "fixup": "https://raw.githubusercontent.com/hsivonen/encoding_rs/master/COPYRIGHT"
+        }
+    }
 }
 
 # Sets of common licence file names, by license type.
@@ -980,6 +985,11 @@ class WorkspaceMetadata(object):
         based on whether it's acceptable at all, and then how convenient it is to work with
         here in the license summary tool...
         """
+        # Special case for `encoding_rs`, which is the only dependency in the
+        # tree that has an "AND" in its license
+        if licenseId == "(Apache-2.0 OR MIT) AND BSD-3-Clause":
+            return licenseId
+
         # Split "A/B" and "A OR B" into individual license names.
         licenses = set(l.strip()
                        for l in re.split(r"\s*(?:/|\sOR\s)\s*", licenseId))

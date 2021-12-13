@@ -286,7 +286,7 @@ the details of which are reproduced below.
   </license>
   <license>
     <name>Apache License 2.0: proc-macro2</name>
-    <url>https://github.com/alexcrichton/proc-macro2/blob/master/LICENSE-APACHE</url>
+    <url>https://github.com/dtolnay/proc-macro2/blob/master/LICENSE-APACHE</url>
   </license>
   <license>
     <name>Apache License 2.0: prost</name>

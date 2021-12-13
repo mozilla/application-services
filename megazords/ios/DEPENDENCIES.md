@@ -45,6 +45,7 @@ the details of which are reproduced below.
 * [BSD-2-Clause License: arrayref](#bsd-2-clause-license-arrayref)
 * [BSD-3-Clause License: sqlcipher](#bsd-3-clause-license-sqlcipher)
 * [Optional Notice: SQLite](#optional-notice-sqlite)
+* [(Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs](#(apache-20-or-mit)-and-bsd-3-clause-license-encoding_rs)
 -------------
 ## Mozilla Public License 2.0
 
@@ -465,7 +466,6 @@ The following text applies to code linked from these dependencies:
 [digest](https://github.com/RustCrypto/traits),
 [dogear](https://github.com/mozilla/dogear),
 [either](https://github.com/bluss/either),
-[encoding_rs](https://github.com/hsivonen/encoding_rs),
 [env_logger](https://github.com/env-logger-rs/env_logger/),
 [fallible-iterator](https://github.com/sfackler/rust-fallible-iterator),
 [fallible-streaming-iterator](https://github.com/sfackler/fallible-streaming-iterator),
@@ -522,7 +522,7 @@ The following text applies to code linked from these dependencies:
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro-hack](https://github.com/dtolnay/proc-macro-hack),
-[proc-macro2](https://github.com/alexcrichton/proc-macro2),
+[proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
 [quote](https://github.com/dtolnay/quote),
@@ -2051,5 +2051,31 @@ The following text applies to code linked from these dependencies:
 
 ```
 This software makes use of the 'SQLite' database engine, and we are very grateful to D. Richard Hipp and team for producing it.
+```
+-------------
+## (Apache-2.0 OR MIT) AND BSD-3-Clause License: encoding_rs
+
+The following text applies to code linked from these dependencies:
+[encoding_rs](https://github.com/hsivonen/encoding_rs)
+
+```
+encoding_rs is copyright Mozilla Foundation.
+
+Licensed under the Apache License, Version 2.0
+<LICENSE-APACHE or
+https://www.apache.org/licenses/LICENSE-2.0> or the MIT
+license <LICENSE-MIT or https://opensource.org/licenses/MIT>,
+at your option. All files in the project carrying such
+notice may not be copied, modified, or distributed except
+according to those terms.
+
+This crate includes data derived from the data files supplied
+with the WHATWG Encoding Standard, which, when incorporated into
+source code, are licensed under the BSD 3-Clause License
+<LICENSE-WHATWG>.
+
+Test code within encoding_rs is dedicated to the Public Domain when so
+designated (see the individual files for PD/CC0-dedicated sections).
+
 ```
 -------------
