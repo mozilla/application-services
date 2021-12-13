@@ -1,0 +1,73 @@
+name: Dependency Check
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+     - '**Cargo.toml'
+     - '**Cargo.lock'
+     - '**requirements.txt'
+  pull_request:
+    branches: [ main ]
+    paths:
+     - '**Cargo.toml'
+     - '**Cargo.lock'
+     - '**requirements.txt'
+  schedule:
+    # Runs at 7:00 UTC every day
+     - cron: '0 7 * * *'
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  check-dependencies:
+    # Run on macos to detect iOS dependencies
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: [3.7]
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          submodules: 'recursive'
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r ./tools/requirements.txt
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+      - name: Run Cargo Audit
+        run: |
+            cargo install cargo-audit
+            # Explanation for ignored issues:
+            #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
+            #                        There is currently no fixed version available.
+            #  * RUSTSEC-2020-0159:  A possible Segfault in `chrono`'s `localtime_r' invocation, at the time of this
+            #                        patch, there is no fixed versions available, but an issue is filed on chrono: https://github.com/chronotope/chrono/issues/602
+            #  * RUSTSEC-2020-0071: Related to the one above, `chrono` pulls in a version of `time` that has the same problem, where invocations of
+            #                       `localtime_r` could segfault, our code base doesn't trigger this, there is a PR on chrono that should
+            #                       fix this: https://github.com/chronotope/chrono/pull/578
+            #                       note that both the Nimbus-SDK and glean use chrono, so if we would like to move away from it, both projects
+            #                       need to do that before we can remove the ignores (assuming `chrono` doesn't release a fixed version)
+            #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
+            #                       version of `yaml-rust`, which will be released in `v3` and additionally, 
+            #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
+            #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
+            cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
+      - name: Check for any unrecorded changes in our dependency trees
+        run: |
+            cargo metadata --locked > /dev/null
+            python ./tools/dependency_summary.py --check ./DEPENDENCIES.md
+            python ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
+            python ./tools/dependency_summary.py --all-ios-targets --package ios_rust --check megazords/ios-rust/DEPENDENCIES.md
+            python ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
+            python ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
