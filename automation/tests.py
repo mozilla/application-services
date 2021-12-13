@@ -188,19 +188,6 @@ def calc_rust_items(branch_changes=None, default_features_only=False):
         if p.has_default_features():
             yield p, RustFeatures.NONE
 
-# Define a couple functions to avoid this clippy issue:
-# https://github.com/rust-lang/rust-clippy/issues/4612h
-#
-# The safest way to avoid the issue is running cargo clean.  For changes mode
-# we use the faster method of touching the changed files so only they get
-# rebuilt.
-
-def cargo_clean():
-    """
-    Force cargo to rebuild rust files
-    """
-    run_command(['cargo', 'clean'])
-
 def touch_changed_paths(branch_changes):
     """
     Quick version of force_rebuild() for change mode
@@ -334,7 +321,6 @@ def calc_steps(args):
             yield step
     elif args.mode == 'rust-tests':
         print_rust_environment()
-        yield Step('cargo clean', cargo_clean)
         for package, features in calc_rust_items():
             # There are no tests in examples/ packages, so don't waste time on them.
             if "examples" not in package.manifest_path.parts:
@@ -343,7 +329,6 @@ def calc_steps(args):
                     run_rust_test, package, features)
     elif args.mode == 'rust-clippy':
         print_rust_environment()
-        yield Step('cargo clean', cargo_clean)
         for package, features in calc_rust_items():
             yield Step(
                 'clippy for {} ({})'.format(package.name, features.label()),
