@@ -26,7 +26,7 @@ pub(crate) struct EnumBody {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub(crate) struct ObjectFieldBody {
+pub(crate) struct FieldBody {
     description: String,
     #[serde(default)]
     required: bool,
@@ -39,34 +39,147 @@ pub(crate) struct ObjectFieldBody {
 pub(crate) struct ObjectBody {
     description: String,
     failable: Option<bool>,
-    fields: HashMap<String, ObjectFieldBody>,
+    fields: HashMap<String, FieldBody>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub(crate) struct Types {
     enums: HashMap<String, EnumBody>,
     objects: HashMap<String, ObjectBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub(crate) struct FeatureVariableBody {
-    description: String,
-    #[serde(rename = "type")]
-    variable_type: String,
-    default: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
 pub(crate) struct FeatureBody {
     description: String,
-    variables: HashMap<String, FeatureVariableBody>,
+    variables: HashMap<String, FieldBody>,
     default: Option<serde_json::Value>,
 }
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub(crate) struct ManifestFrontEnd {
     types: Types,
     features: HashMap<String, FeatureBody>,
     channels: Vec<String>,
+}
+
+impl ManifestFrontEnd {
+    /// Retrieves all the types represented in the Manifest
+    ///
+    /// # Returns
+    /// Returns a [`std::collections::HashMap<String,TypeRef>`] where
+    /// the key is the name of the type, and the TypeRef represents the type itself
+    fn get_types(&self) -> HashMap<String, TypeRef> {
+        self.types
+            .enums
+            .iter()
+            .map(|(s, _)| (s.clone(), TypeRef::Enum(s.clone())))
+            .chain(
+                self.types
+                    .objects
+                    .iter()
+                    .map(|(s, _)| (s.clone(), TypeRef::Object(s.clone()))),
+            )
+            .collect()
+    }
+
+    /// Transforms a front-end field definition, a tuple of [`String`] and [`FieldBody`],
+    /// into a [`PropDef`]
+    ///
+    /// # Arguments
+    /// - `field`: The [`(&String, &FieldBody)`] tuple to get the propdef from
+    ///
+    /// # Returns
+    /// return the IR [`PropDef`]
+    fn get_prop_def_from_field(&self, field: (&String, &FieldBody)) -> PropDef {
+        let types = self.get_types();
+        PropDef {
+            name: field.0.into(),
+            doc: field.1.description.clone(),
+            typ: match get_typeref_from_string(
+                field.1.variable_type.to_owned(),
+                Some(types.clone()),
+            ) {
+                Ok(type_ref) => type_ref,
+                Err(e) => {
+                    // Try matching against the user defined types
+                    match types.get(&field.1.variable_type) {
+                        Some(type_ref) => type_ref.to_owned(),
+                        None => panic!(
+                            "{}\n{} is not a valid FML type or user defined type",
+                            e, field.1.variable_type
+                        ),
+                    }
+                }
+            },
+            default: json!(field.1.default),
+        }
+    }
+
+    /// Retrieves all the feature definitions represented in the manifest
+    ///
+    /// # Returns
+    /// Returns a [`std::vec::Vec<FeatureDef>`]
+    fn get_feature_defs(&self) -> Vec<FeatureDef> {
+        self.features
+            .iter()
+            .map(|f| FeatureDef {
+                name: f.0.clone(),
+                doc: f.1.description.clone(),
+                props: f
+                    .1
+                    .variables
+                    .iter()
+                    .map(|v| self.get_prop_def_from_field(v))
+                    .collect(),
+                default: f.1.default.clone(),
+            })
+            .collect()
+    }
+
+    /// Retrieves all the Object type definitions represented in the manifest
+    ///
+    /// # Returns
+    /// Returns a [`std::vec::Vec<ObjectDef>`]
+    fn get_objects(&self) -> Vec<ObjectDef> {
+        self.types
+            .objects
+            .iter()
+            .map(|t| ObjectDef {
+                name: t.0.clone(),
+                doc: t.1.description.clone(),
+                props: t
+                    .1
+                    .fields
+                    .iter()
+                    .map(|v| self.get_prop_def_from_field(v))
+                    .collect(),
+            })
+            .collect()
+    }
+
+    /// Retrieves all the Enum type definitions represented in the manifest
+    ///
+    /// # Returns
+    /// Returns a [`std::vec::Vec<EnumDef>`]
+    fn get_enums(&self) -> Vec<EnumDef> {
+        self.types
+            .enums
+            .clone()
+            .into_iter()
+            .map(|t| EnumDef {
+                name: t.0,
+                doc: t.1.description,
+                variants: t
+                    .1
+                    .variants
+                    .iter()
+                    .map(|v| VariantDef {
+                        name: v.0.clone(),
+                        doc: v.1.description.clone(),
+                    })
+                    .collect(),
+            })
+            .collect()
+    }
 }
 
 fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLError> {
@@ -87,6 +200,198 @@ fn parse_typeref_string(input: String) -> Result<(String, Option<String>), FMLEr
             Some(object_type_name.to_string()),
         )),
         None => Ok((type_ref_name.to_string(), None)),
+    }
+}
+
+/// Collects the channel defaults of the feature manifest
+/// and merges them by channel
+///
+/// **NOTE**: defaults with no channel apply to **all** channels
+///
+/// # Arguments
+/// - `defaults`: a [`serde_json::Value`] representing the array of defaults
+///
+/// # Returns
+/// Returns a [`std::collections::HashMap<String, serde_json::Value>`] representing
+/// the merged defaults. The key is the name of the channel and the value is the
+/// merged json.
+///
+/// # Errors
+/// Will return errors in the following cases (not exhaustive):
+/// - The `defaults` argument is not an array
+/// - There is a `channel` in the `defaults` argument that doesn't
+///     exist in the `channels` argument
+fn collect_channel_defaults(
+    defaults: serde_json::Value,
+    channels: &[String],
+) -> Result<HashMap<String, serde_json::Value>, FMLError> {
+    // We initialize the map to have an entry for every valid channel
+    let mut channel_map = channels
+        .iter()
+        .map(|channel_name| (channel_name.clone(), json!({})))
+        .collect::<HashMap<_, _>>();
+    let defaults = serde_json::from_value::<Vec<DefaultBlock>>(defaults)?;
+    for default in defaults {
+        if let Some(channel) = default.channel {
+            if let Some(old_default) = channel_map.get(&channel).cloned() {
+                if default.targeting.is_none() {
+                    // TODO: we currently ignore any defaults with targeting involved
+                    let merged = merge_two_defaults(&old_default, &default.value);
+                    channel_map.insert(channel, merged);
+                }
+            } else {
+                return Err(FMLError::InvalidChannelError(channel));
+            }
+        // This is a default with no channel, so it applies to all channels
+        } else {
+            channel_map = channel_map
+                .into_iter()
+                .map(|(channel, old_default)| {
+                    (channel, merge_two_defaults(&old_default, &default.value))
+                })
+                .collect();
+        }
+    }
+    Ok(channel_map)
+}
+
+/// Transforms a feature definition with unmerged defaults into a feature
+/// definition with its defaults merged.
+///
+/// # How the algorithm works:
+/// There are two types of defaults:
+/// 1. Field level defaults
+/// 1. Feature level defaults, that are listed by channel
+///
+/// The algorithm gathers the field level defaults first, they are the base
+/// defaults. Then, it gathers the feature level defaults and merges them by
+/// calling [`collect_channel_defaults`]. Finally, it overwrites any common
+/// defaults between the merged feature level defaults and the field level defaults
+///
+/// # Example:
+/// Assume we have the following feature manifest
+/// ```yaml
+///  variables:
+///   positive:
+///   description: This is a positive button
+///   type: Button
+///   default:
+///     {
+///       "label": "Ok then",
+///       "color": "blue"
+///     }
+///  default:
+///      - channel: release
+///      value: {
+///        "positive": {
+///          "color": "green"
+///        }
+///      }
+///      - value: {
+///      "positive": {
+///        "alt-text": "Go Ahead!"
+///      }
+/// }   
+/// ```
+///
+/// The result of the algorithm would be a default that looks like:
+/// ```yaml
+/// variables:
+///     positive:
+///     default:
+///     {
+///         "label": "Ok then",
+///         "color": "green",
+///         "alt-text": "Go Ahead!"
+///     }
+///         
+/// ```
+///
+/// - The `label` comes from the original field level default
+/// - The `color` comes from the `release` channel feature level default
+/// - The `alt-text` comes from the feature level default with no channel (that applies to all channels)
+///
+/// # Arguments
+/// - `feature_def`: a [`FeatureDef`] representing the feature definition to transform
+/// - `channel`: a [`Option<&String>`] representing the channel to merge back into the field variables
+/// - `supported_channels`: a [`&[String]`] representing the channels that are supported by the manifest
+/// If the `channel` is `None` we default to using the `release` channel
+///
+/// # Returns
+/// Returns a transformed [`FeatureDef`] with its defaults merged
+fn merge_feature_defaults(
+    feature_def: FeatureDef,
+    channel: &str,
+    supported_channels: &[String],
+) -> Result<FeatureDef, FMLError> {
+    if !supported_channels.iter().any(|c| c == channel) {
+        return Err(FMLError::InvalidChannelError(channel.into()));
+    }
+    let mut variable_defaults = serde_json::Map::new();
+    let mut res = feature_def.clone();
+    for prop in feature_def.props {
+        variable_defaults.insert(prop.name, prop.default);
+    }
+    if let Some(defaults) = feature_def.default {
+        let merged_defaults = collect_channel_defaults(defaults, supported_channels)?;
+        if let Some(default_to_merged) = merged_defaults.get(channel) {
+            let merged = merge_two_defaults(
+                &serde_json::Value::Object(variable_defaults),
+                default_to_merged,
+            );
+            let map = merged.as_object().ok_or(FMLError::InternalError(
+                "Map was merged into a different type",
+            ))?;
+            let new_props = res
+                .props
+                .iter()
+                .map(|prop| {
+                    let mut res = prop.clone();
+                    if let Some(default) = map.get(&prop.name).cloned() {
+                        res.default = default
+                    }
+                    res
+                })
+                .collect::<Vec<_>>();
+
+            res.props = new_props;
+        }
+    }
+    Ok(res)
+}
+
+/// Merges two [`serde_json::Value`]s into one
+///
+/// # Arguments:
+/// - `old_default`: a reference to a [`serde_json::Value`], that represents the old default
+/// - `new_default`: a reference to a [`serde_json::Value`], that represents the new default, this takes
+///     precedence over the `old_default` if they have conflicting fields
+///
+/// # Returns
+/// A merged [`serde_json::Value`] that contains all fields from `old_default` and `new_default`, merging
+/// where there is a conflict. If the `old_default` and `new_default` are not both objects, this function
+/// returns the `new_default`
+fn merge_two_defaults(
+    old_default: &serde_json::Value,
+    new_default: &serde_json::Value,
+) -> serde_json::Value {
+    use serde_json::Value::Object;
+    match (old_default.clone(), new_default.clone()) {
+        (Object(old), Object(new)) => {
+            let mut merged = serde_json::Map::new();
+            for (key, val) in old {
+                merged.insert(key, val);
+            }
+            for (key, val) in new {
+                if let Some(old_val) = merged.get(&key).cloned() {
+                    merged.insert(key, merge_two_defaults(&old_val, &val));
+                } else {
+                    merged.insert(key, val);
+                }
+            }
+            Object(merged)
+        }
+        (_, new) => new,
     }
 }
 
@@ -161,107 +466,15 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn new(path: &Path) -> Result<Parser, FMLError> {
+    pub fn new(path: &Path, channel: &str) -> Result<Parser, FMLError> {
         let manifest = serde_yaml::from_str::<ManifestFrontEnd>(&std::fs::read_to_string(path)?)?;
-
-        // Capture the user types supplied in the manifest
-        // to be able to look them up easily by name
-        let mut types: HashMap<String, TypeRef> = HashMap::new();
-
-        let enums: Vec<EnumDef> = manifest
-            .types
-            .enums
-            .clone()
+        let enums = manifest.get_enums();
+        let objects = manifest.get_objects();
+        let features = manifest
+            .get_feature_defs()
             .into_iter()
-            .map(|t| EnumDef {
-                name: t.0,
-                doc: t.1.description,
-                variants: t
-                    .1
-                    .variants
-                    .iter()
-                    .map(|v| VariantDef {
-                        name: v.0.clone(),
-                        doc: v.1.description.clone(),
-                    })
-                    .collect(),
-            })
-            .collect();
-
-        // Collect the enums
-        enums.iter().for_each(|e| {
-            types.insert(e.name.to_owned(), TypeRef::Enum(e.name.to_owned()));
-        });
-
-        let objects: Vec<ObjectDef> = manifest
-            .types
-            .objects
-            .into_iter()
-            .map(|t| ObjectDef {
-                name: t.0,
-                doc: t.1.description,
-                props: t
-                    .1
-                    .fields
-                    .into_iter()
-                    .map(|v| PropDef {
-                        name: v.0,
-                        doc: v.1.description,
-                        typ: get_typeref_from_string(v.1.variable_type, Some(types.clone()))
-                            .unwrap(),
-                        default: match v.1.default {
-                            Some(d) => json!(d),
-                            None => serde_json::Value::Null,
-                        },
-                    })
-                    .collect(),
-            })
-            .collect();
-
-        objects.iter().for_each(|o| {
-            types.insert(o.name.to_owned(), TypeRef::Object(o.name.to_owned()));
-        });
-
-        let features: Vec<FeatureDef> = manifest
-            .features
-            .into_iter()
-            .map(|f| FeatureDef {
-                name: f.0,
-                doc: f.1.description,
-                props: f
-                    .1
-                    .variables
-                    .into_iter()
-                    .map(|v| PropDef {
-                        name: v.0,
-                        doc: v.1.description,
-                        typ: match get_typeref_from_string(
-                            v.1.variable_type.to_owned(),
-                            Some(types.clone()),
-                        ) {
-                            Ok(type_ref) => type_ref,
-                            Err(e) => {
-                                // Try matching against the user defined types
-                                match types.get(&v.1.variable_type) {
-                                    Some(type_ref) => type_ref.to_owned(),
-                                    None => panic!(
-                                        "{}\n{} is not a valid FML type or user defined type",
-                                        e, v.1.variable_type
-                                    ),
-                                }
-                            }
-                        },
-                        default: json!(v.1.default),
-                    })
-                    .collect(),
-                default: if f.1.default.is_some() {
-                    Some(json!(f.1.default))
-                } else {
-                    None
-                },
-            })
-            .collect();
-
+            .map(|feature_def| merge_feature_defaults(feature_def, channel, &manifest.channels))
+            .collect::<Result<Vec<_>, FMLError>>()?;
         Ok(Parser {
             enums,
             objects,
@@ -280,15 +493,29 @@ impl Parser {
     }
 }
 
+#[derive(Debug, Deserialize)]
+struct DefaultBlock {
+    channel: Option<String>,
+    value: serde_json::Value,
+    targeting: Option<String>,
+}
+
 #[cfg(test)]
 mod unit_tests {
+
+    use std::vec;
+
     use super::*;
-    use crate::error::Result;
+    use crate::{
+        error::Result,
+        util::{join, pkg_dir},
+    };
 
     #[test]
     fn test_parse_from_front_end_representation() -> Result<()> {
-        let path_buf = Path::new("./fixtures/fe/nimbus_features.yaml");
-        let parser = Parser::new(path_buf)?;
+        let path = join(pkg_dir(), "fixtures/fe/nimbus_features.yaml");
+        let path_buf = Path::new(&path);
+        let parser = Parser::new(path_buf, "release")?;
         let ir = parser.get_intermediate_representation()?;
 
         // Validate parsed enums
@@ -339,8 +566,10 @@ mod unit_tests {
         assert!(positive_button.name == *"positive");
         assert!(positive_button.doc == *"This is a positive button");
         assert!(positive_button.typ == TypeRef::Object("Button".to_string()));
+        // We verify that the label, which came from the field default is "Ok then"
+        // and the color default, which came from the feature default is "green"
         assert!(positive_button.default.get("label").unwrap().as_str() == Some("Ok then"));
-        assert!(positive_button.default.get("color").unwrap().as_str() == Some("blue"));
+        assert!(positive_button.default.get("color").unwrap().as_str() == Some("green"));
         let negative_button = feature_def
             .props
             .iter()
@@ -382,6 +611,87 @@ mod unit_tests {
                 })
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_merging_defaults() -> Result<()> {
+        let path = join(pkg_dir(), "fixtures/fe/default_merging.yaml");
+        let path_buf = Path::new(&path);
+        let parser = Parser::new(path_buf, "release")?;
+        let ir = parser.get_intermediate_representation()?;
+        let feature_def = ir.feature_defs.first().unwrap();
+        let positive_button = feature_def
+            .props
+            .iter()
+            .find(|x| x.name == "positive")
+            .unwrap();
+        // We validate that the no-channel feature level default got merged back
+        assert_eq!(
+            positive_button
+                .default
+                .get("alt-text")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "Go Ahead!"
+        );
+        // We validate that the orignal field level default don't get lost if no
+        // feature level default with the same name exists
+        assert_eq!(
+            positive_button
+                .default
+                .get("label")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "Ok then"
+        );
+        // We validate that feature level default overwrite field level defaults if one exists
+        // in the field level, it's blue, but on the feature level it's green
+        assert_eq!(
+            positive_button
+                .default
+                .get("color")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "green"
+        );
+        // We now re-run this, but merge back the nightly channel instead
+        let parser = Parser::new(path_buf, "nightly")?;
+        let ir = parser.get_intermediate_representation()?;
+        let feature_def = ir.feature_defs.first().unwrap();
+        let positive_button = feature_def
+            .props
+            .iter()
+            .find(|x| x.name == "positive")
+            .unwrap();
+        // We validate that feature level default overwrite field level defaults if one exists
+        // in the field level, it's blue, but on the feature level it's bright-red
+        // note that it's bright-red because we merged back the `nightly`
+        // channel, instead of the `release` channel that merges back
+        // by default
+        assert_eq!(
+            positive_button
+                .default
+                .get("color")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "bright-red"
+        );
+        // We againt validate that regardless
+        // of the channel, the no-channel feature level default got merged back
+        assert_eq!(
+            positive_button
+                .default
+                .get("alt-text")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+            "Go Ahead!"
+        );
         Ok(())
     }
 
@@ -664,6 +974,823 @@ mod unit_tests {
         // get_typeref_from_string("Map<>".to_string()).unwrap_err();
         // get_typeref_from_string("Map<21>".to_string()).unwrap_err();
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_two_defaults_both_objects_no_intersection() -> Result<()> {
+        let old_default = json!({
+            "button-color": "blue",
+            "dialog_option": "greetings",
+            "is_enabled": false,
+            "num_items": 5
+        });
+        let new_default = json!({
+            "new_homepage": true,
+            "item_order": ["first", "second", "third"],
+        });
+        let merged = merge_two_defaults(&old_default, &new_default);
+        assert_eq!(
+            json!({
+                "button-color": "blue",
+                "dialog_option": "greetings",
+                "is_enabled": false,
+                "num_items": 5,
+                "new_homepage": true,
+                "item_order": ["first", "second", "third"],
+            }),
+            merged
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_two_defaults_intersecting_different_types() -> Result<()> {
+        // if there is an intersection, but they are different types, we just take the new one
+        let old_default = json!({
+            "button-color": "blue",
+            "dialog_option": "greetings",
+            "is_enabled": {
+                "value": false
+            },
+            "num_items": 5
+        });
+        let new_default = json!({
+            "new_homepage": true,
+            "is_enabled": true,
+            "item_order": ["first", "second", "third"],
+        });
+        let merged = merge_two_defaults(&old_default, &new_default);
+        assert_eq!(
+            json!({
+                "button-color": "blue",
+                "dialog_option": "greetings",
+                "is_enabled": true,
+                "num_items": 5,
+                "new_homepage": true,
+                "item_order": ["first", "second", "third"],
+            }),
+            merged
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_two_defaults_non_map_intersection() -> Result<()> {
+        // if they intersect on both key and type, but the type intersected is not an object, we just take the new one
+        let old_default = json!({
+            "button-color": "blue",
+            "dialog_option": "greetings",
+            "is_enabled": false,
+            "num_items": 5
+        });
+        let new_default = json!({
+            "button-color": "green",
+            "new_homepage": true,
+            "is_enabled": true,
+            "num_items": 10,
+            "item_order": ["first", "second", "third"],
+        });
+        let merged = merge_two_defaults(&old_default, &new_default);
+        assert_eq!(
+            json!({
+                "button-color": "green",
+                "dialog_option": "greetings",
+                "is_enabled": true,
+                "num_items": 10,
+                "new_homepage": true,
+                "item_order": ["first", "second", "third"],
+            }),
+            merged
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_two_defaults_map_intersection_recursive_merge() -> Result<()> {
+        // if they intersect on both key and type, but the type intersected is not an object, we just take the new one
+        let old_default = json!({
+            "button-color": "blue",
+            "dialog_item": {
+                "title": "hello",
+                "message": "bobo",
+                "priority": 10,
+            },
+            "is_enabled": false,
+            "num_items": 5
+        });
+        let new_default = json!({
+            "button-color": "green",
+            "new_homepage": true,
+            "is_enabled": true,
+            "dialog_item": {
+                "message": "fofo",
+                "priority": 11,
+                "subtitle": "hey there"
+            },
+            "num_items": 10,
+            "item_order": ["first", "second", "third"],
+        });
+        let merged = merge_two_defaults(&old_default, &new_default);
+        assert_eq!(
+            json!({
+                "button-color": "green",
+                "dialog_item": {
+                    "title": "hello",
+                    "message": "fofo",
+                    "priority": 11,
+                    "subtitle": "hey there"
+                },
+                "is_enabled": true,
+                "num_items": 10,
+                "new_homepage": true,
+                "item_order": ["first", "second", "third"],
+            }),
+            merged
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_two_defaults_highlevel_non_maps() -> Result<()> {
+        let old_default = json!(["array", "json"]);
+        let new_default = json!(["another", "array"]);
+        let merged = merge_two_defaults(&old_default, &new_default);
+        assert_eq!(json!(["another", "array"]), merged);
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_non_array_json() -> Result<()> {
+        let input = json!({
+            "bobo": "fofo"
+        });
+        collect_channel_defaults(input, &[]).expect_err("Should have returned an error");
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_channels_no_merging() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            }
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "dark-green"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "light-green"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_channels_merging_same_channel() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green",
+                    "title": "heya"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-red",
+                    "subtitle": "hello",
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "title": "hello there"
+                }
+            }
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "dark-red",
+                        "title": "heya",
+                        "subtitle": "hello"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "light-green",
+                        "title": "hello there"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_no_channel_applies_to_all() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+            {
+                "value": {
+                    "title": "heya"
+                }
+            }
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "green",
+                        "title": "heya"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "dark-green",
+                        "title": "heya"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "light-green",
+                        "title": "heya"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_no_channel_overwrites_all() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+            {
+                "value": {
+                    "button-color": "red"
+                }
+            }
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "red"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "red"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "red"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_no_channel_gets_overwritten_if_followed_by_channel() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+            {
+                "value": {
+                    "button-color": "red"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-red"
+                }
+            }
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "red"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "dark-red"
+                    })
+                ),
+                (
+                    "beta".to_string(),
+                    json!({
+                        "button-color": "red"
+                    })
+                )
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_fail_if_invalid_channel_supplied() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            {
+                "channel": "beta",
+                "value": {
+                    "button-color": "light-green"
+                }
+            },
+            {
+                "channel": "bobo",
+                "value": {
+                    "button-color": "no color"
+                }
+            }
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )
+        .expect_err("Should return error");
+        if let FMLError::InvalidChannelError(name) = res {
+            assert_eq!(name, "bobo");
+        } else {
+            panic!(
+                "Should have returned a InvalidChannelError, returned {:?}",
+                res
+            )
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_channel_defaults_empty_default_created_if_none_supplied_in_feature() -> Result<()> {
+        let input = json!([
+            {
+                "channel": "release",
+                "value": {
+                    "button-color": "green"
+                }
+            },
+            {
+                "channel": "nightly",
+                "value": {
+                    "button-color": "dark-green"
+                }
+            },
+            // No entry fo beta supplied, we will still get an entry in the result
+            // but it will be empty
+        ]);
+        let res = collect_channel_defaults(
+            input,
+            &[
+                "release".to_string(),
+                "nightly".to_string(),
+                "beta".to_string(),
+            ],
+        )?;
+        assert_eq!(
+            vec![
+                (
+                    "release".to_string(),
+                    json!({
+                        "button-color": "green"
+                    })
+                ),
+                (
+                    "nightly".to_string(),
+                    json!({
+                        "button-color": "dark-green"
+                    })
+                ),
+                ("beta".to_string(), json!({}))
+            ]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+            res
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_feature_default_unsupported_channel() -> Result<()> {
+        let feature_def: FeatureDef = Default::default();
+        let err =
+            merge_feature_defaults(feature_def, "nightly", &["release".into(), "beta".into()])
+                .expect_err("Should return an error");
+        if let FMLError::InvalidChannelError(channel_name) = err {
+            assert_eq!(channel_name, "nightly");
+        } else {
+            panic!(
+                "Should have returned an InvalidChannelError, returned: {:?}",
+                err
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_feature_default_overwrite_field_default_based_on_channel() -> Result<()> {
+        let feature_def = FeatureDef {
+            props: vec![PropDef {
+                name: "button-color".into(),
+                default: json!("blue"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }],
+            default: Some(json!([
+                {
+                    "channel": "nightly",
+                    "value": {
+                        "button-color": "dark-green"
+                    }
+                },
+                {
+                    "channel": "release",
+                    "value": {
+                        "button-color": "green"
+                    }
+                },
+                {
+                    "channel": "beta",
+                    "value": {
+                        "button-color": "light-green"
+                    }
+                },
+            ])),
+            ..Default::default()
+        };
+        let res = merge_feature_defaults(
+            feature_def,
+            "nightly",
+            &["release".into(), "beta".into(), "nightly".into()],
+        )?;
+        assert_eq!(
+            res.props,
+            vec![PropDef {
+                name: "button-color".into(),
+                default: json!("dark-green"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_feature_default_field_default_not_overwritten_if_no_feature_default_for_channel(
+    ) -> Result<()> {
+        let feature_def = FeatureDef {
+            props: vec![PropDef {
+                name: "button-color".into(),
+                default: json!("blue"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }],
+            default: Some(json!([
+                {
+                    "channel": "release",
+                    "value": {
+                        "button-color": "green"
+                    }
+                },
+                {
+                    "channel": "beta",
+                    "value": {
+                        "button-color": "light-green"
+                    }
+                },
+            ])),
+            ..Default::default()
+        };
+        let res = merge_feature_defaults(
+            feature_def,
+            "nightly",
+            &["release".into(), "beta".into(), "nightly".into()],
+        )?;
+        assert_eq!(
+            res.props,
+            vec![PropDef {
+                name: "button-color".into(),
+                default: json!("blue"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_feature_default_overwrite_nested_field_default() -> Result<()> {
+        let feature_def = FeatureDef {
+            props: vec![PropDef {
+                name: "Dialog".into(),
+                default: json!({
+                    "button-color": "blue",
+                    "title": "hello",
+                    "inner": {
+                        "bobo": "fofo",
+                        "other-field": "other-value"
+                    }
+                }),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }],
+            default: Some(json!([
+                {
+                    "channel": "nightly",
+                    "value": {
+                        "Dialog": {
+                            "button-color": "dark-green",
+                            "inner": {
+                                "bobo": "nightly"
+                            }
+                        }
+                    }
+                },
+                {
+                    "channel": "release",
+                    "value": {
+                        "Dialog": {
+                            "button-color": "green",
+                            "inner": {
+                                "bobo": "release",
+                                "new-field": "new-value"
+                            }
+                        }
+                    }
+                },
+                {
+                    "channel": "beta",
+                    "value": {
+                        "Dialog": {
+                            "button-color": "light-green",
+                            "inner": {
+                                "bobo": "beta"
+                            }
+                        }
+                    }
+                },
+            ])),
+            ..Default::default()
+        };
+        let res = merge_feature_defaults(
+            feature_def,
+            "release",
+            &["release".into(), "beta".into(), "nightly".into()],
+        )?;
+        assert_eq!(
+            res.props,
+            vec![PropDef {
+                name: "Dialog".into(),
+                default: json!({
+                        "button-color": "green",
+                        "title": "hello",
+                        "inner": {
+                            "bobo": "release",
+                            "other-field": "other-value",
+                            "new-field": "new-value"
+                        }
+                }),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_merge_feature_default_overwrite_field_default_based_on_channel_using_only_no_channel_default(
+    ) -> Result<()> {
+        let feature_def = FeatureDef {
+            props: vec![PropDef {
+                name: "button-color".into(),
+                default: json!("blue"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }],
+            default: Some(json!([
+                // No channel applies to all channel
+                // so the nightly channel will get this
+                {
+                    "value": {
+                        "button-color": "dark-green"
+                    }
+                },
+                {
+                    "channel": "release",
+                    "value": {
+                        "button-color": "green"
+                    }
+                },
+                {
+                    "channel": "beta",
+                    "value": {
+                        "button-color": "light-green"
+                    }
+                },
+            ])),
+            ..Default::default()
+        };
+        let res = merge_feature_defaults(
+            feature_def,
+            "nightly",
+            &["release".into(), "beta".into(), "nightly".into()],
+        )?;
+        assert_eq!(
+            res.props,
+            vec![PropDef {
+                name: "button-color".into(),
+                default: json!("dark-green"),
+                doc: "".into(),
+                typ: TypeRef::String,
+            }]
+        );
         Ok(())
     }
 }

@@ -24,6 +24,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const RELEASE_CHANNEL: &str = "release";
+
 fn main() -> Result<()> {
     let yaml = load_yaml!("cli.yaml");
     let matches = App::from_yaml(yaml).get_matches();
@@ -53,6 +55,10 @@ fn main() -> Result<()> {
                     manifest: file_path("INPUT", &matches, &cwd)?,
                     output: file_path("output", &matches, &cwd)?,
                     load_from_ir: matches.is_present("ir"),
+                    channel: matches
+                        .value_of("channel")
+                        .map(str::to_string)
+                        .unwrap_or_else(|| RELEASE_CHANNEL.into()),
                 },
             )?,
             _ => unimplemented!(),
@@ -63,6 +69,22 @@ fn main() -> Result<()> {
                 manifest: file_path("INPUT", &matches, &cwd)?,
                 output: file_path("output", &matches, &cwd)?,
                 load_from_ir: matches.is_present("ir"),
+                channel: matches
+                    .value_of("channel")
+                    .map(str::to_string)
+                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
+            },
+        )?,
+        ("intermediate-repr", _) => workflows::generate_ir(
+            config,
+            GenerateIRCmd {
+                manifest: file_path("INPUT", &matches, &cwd)?,
+                output: file_path("output", &matches, &cwd)?,
+                load_from_ir: matches.is_present("ir"),
+                channel: matches
+                    .value_of("channel")
+                    .map(str::to_string)
+                    .unwrap_or_else(|| RELEASE_CHANNEL.into()),
             },
         )?,
         (word, _) => unimplemented!("Command {} not implemented", word),
@@ -94,12 +116,21 @@ pub struct GenerateStructCmd {
     output: PathBuf,
     language: TargetLanguage,
     load_from_ir: bool,
+    channel: String,
 }
 
 pub struct GenerateExperimenterManifestCmd {
     manifest: PathBuf,
     output: PathBuf,
     load_from_ir: bool,
+    channel: String,
+}
+
+pub struct GenerateIRCmd {
+    manifest: PathBuf,
+    output: PathBuf,
+    load_from_ir: bool,
+    channel: String,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]

@@ -46,10 +46,20 @@ features:
         }
       - channel: nightly
         value: {
-          "negative": {
+          "positive": {
             "color": "bright-red"
           }
         }
+      # A default without a channel, should apply
+      # to all
+      - value: {
+        "positive": {
+          "alt-text": "Go Ahead!"
+        },
+        "negative": {
+          "alt-text": "STOP"
+        }
+      }
 channels:
   - release
   - nightly
