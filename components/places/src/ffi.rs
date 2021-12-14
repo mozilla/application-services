@@ -148,6 +148,9 @@ impl PlacesConnection {
         Ok(f(&conn)?)
     }
 
+    // This should be refactored/removed as part of https://github.com/mozilla/application-services/issues/1684
+    // We have to use Arc in the return type to be able to properly
+    // pass the SqlInterruptHandle as an object through Uniffi
     fn new_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
         Ok(Arc::new(
             self.with_conn(|conn| Ok(conn.new_interrupt_handle()))?,
