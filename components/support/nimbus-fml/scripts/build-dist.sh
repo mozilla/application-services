@@ -19,7 +19,7 @@ dry_run=false
 root_dir=$(dirname "$0")/../../../..
 fml_dir=$root_dir/components/support/nimbus-fml
 target_dir=$root_dir/target
-filename=$(basename $fml_dir)
+filename=$(basename "$fml_dir")
 
 # But we'll dump the zip file wherever we run the script from.
 dist_file=${filename}.zip
