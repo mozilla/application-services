@@ -136,6 +136,12 @@ internal interface LibPlacesFFI : Library {
     /** Destroy strings returned from libplaces_ffi calls. */
     fun places_destroy_string(s: Pointer)
 
+    fun places_api_return_write_conn(
+        apiHandle: PlacesApiHandle,
+        writeHandle: PlacesConnectionHandle,
+        err: RustError.ByReference
+    )
+
     /** Destroy connection created using `places_connection_new` */
     fun places_connection_destroy(handle: PlacesConnectionHandle, out_err: RustError.ByReference)
 
@@ -143,7 +149,7 @@ internal interface LibPlacesFFI : Library {
     fun places_api_destroy(handle: PlacesApiHandle, out_err: RustError.ByReference)
 
     /** Destroy handle created using `places_new_interrupt_handle` */
-    fun places_interrupt_handle_destroy(obj: SqlInterruptHandle)
+    fun places_interrupt_handle_destroy(obj: RawPlacesInterruptHandle)
 
     fun places_destroy_bytebuffer(bb: RustBuffer.ByValue)
 }

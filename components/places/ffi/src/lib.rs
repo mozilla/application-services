@@ -111,6 +111,27 @@ pub extern "C" fn places_history_import_from_fennec(
     })
 }
 
+// Best effort, ignores failure.
+#[no_mangle]
+pub extern "C" fn places_api_return_write_conn(
+    api_handle: u64,
+    write_handle: u64,
+    error: &mut ExternError,
+) {
+    log::debug!("places_api_return_write_conn");
+    APIS.call_with_result(error, api_handle, |api| -> places::Result<_> {
+        let write_conn = if let Ok(Some(conn)) = CONNECTIONS.remove_u64(write_handle) {
+            conn
+        } else {
+            log::warn!("Can't return connection to PlacesApi because it does not exist");
+            return Ok(());
+        };
+        if let Err(e) = api.close_connection(write_conn) {
+            log::warn!("Failed to close connection: {}", e);
+        }
+        Ok(())
+    })
+}
 #[no_mangle]
 pub extern "C" fn bookmarks_reset(handle: u64, error: &mut ExternError) {
     log::debug!("bookmarks_reset");
@@ -285,5 +306,4 @@ define_bytebuffer_destructor!(places_destroy_bytebuffer);
 define_handle_map_deleter!(APIS, places_api_destroy);
 
 define_handle_map_deleter!(CONNECTIONS, places_connection_destroy);
-// TODO: This needs to go
-//define_box_destructor!(SqlInterruptHandle, places_interrupt_handle_destroy);
+define_box_destructor!(SqlInterruptHandle, places_interrupt_handle_destroy);

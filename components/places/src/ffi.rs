@@ -132,13 +132,6 @@ impl PlacesApi {
         )?;
         Ok(serde_json::to_string(&ping).unwrap())
     }
-
-    // TODO: Relook into this and fix appropiately
-    fn api_return_write_conn(&self) -> Result<()> {
-        let conn = self.open_connection(ConnectionType::ReadWrite)?;
-        self.close_connection(conn)?;
-        Ok(())
-    }
 }
 
 pub struct PlacesConnection {

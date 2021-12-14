@@ -29,12 +29,8 @@ interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
 
-    //NOTE: this doesn't appear to be actively used and can probably remove
     [Throws=PlacesError]
     SqlInterruptHandle new_sync_conn_interrupt_handle();
-
-    [Throws=PlacesError]
-    void api_return_write_conn();
 
     [Self=ByArc]
     void register_with_sync_manager();

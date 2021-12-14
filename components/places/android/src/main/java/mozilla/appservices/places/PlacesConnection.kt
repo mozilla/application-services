@@ -102,7 +102,9 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
         if (handle != 0L) {
             if (writeHandle != 0L) {
                 try {
-                    this.api.apiReturnWriteConn()
+                    rustCall(this) { err ->
+                        LibPlacesFFI.INSTANCE.places_api_return_write_conn(handle, writeHandle, err)
+                    }
                 } catch (e: PlacesException) {
                     // Ignore it.
                 }
@@ -215,13 +217,13 @@ open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: U
     // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
     protected var handle: AtomicLong = AtomicLong(0)
     protected var conn: UniffiPlacesConnection
-    protected var interruptHandle: InterruptHandle
+    protected var interruptHandle: SqlInterruptHandle
 
     init {
         handle.set(connHandle)
         conn = uniffiConn
         try {
-            interruptHandle = InterruptHandle(this.conn.newInterruptHandle())!!
+            interruptHandle = this.conn.newInterruptHandle()
         } catch (e: Throwable) {
             rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
@@ -1084,25 +1086,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
     fun acceptResult(searchString: String, url: String)
 }
 
-class InterruptHandle internal constructor(raw: SqlInterruptHandle) : AutoCloseable {
-    // We synchronize all accesses, so this probably doesn't need AtomicReference.
-    private val handle: AtomicReference<SqlInterruptHandle?> = AtomicReference(raw)
-
-    @Synchronized
-    override fun close() {
-        val toFree = handle.getAndSet(null)
-        if (toFree != null) {
-            LibPlacesFFI.INSTANCE.places_interrupt_handle_destroy(toFree)
-        }
-    }
-
-    @Synchronized
-    fun interrupt() {
-        handle.get()?.let {
-            this.interrupt()
-        }
-    }
-}
 
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */

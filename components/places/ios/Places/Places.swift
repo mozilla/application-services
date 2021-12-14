@@ -38,7 +38,7 @@ public class PlacesAPI {
     private let api: UniffiPlacesApi
 
     private let queue = DispatchQueue(label: "com.mozilla.places.api")
-    private let interruptHandle: InterruptHandle
+    private let interruptHandle: SqlInterruptHandle
 
     /**
      * Initialize a PlacesAPI
@@ -61,9 +61,7 @@ public class PlacesAPI {
             let uniffiConn = try api.newConnection(connType: ConnectionType.readWrite)
             writeConn = try PlacesWriteConnection(handle: writeHandle, conn: uniffiConn)
 
-            interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
-                places_new_sync_conn_interrupt_handle(handle, error)
-            })
+            interruptHandle = try api.newSyncConnInterruptHandle()
 
             writeConn.api = self
         } catch let e {
@@ -265,15 +263,13 @@ public class PlacesReadConnection {
     fileprivate var handle: ConnectionHandle
     fileprivate var conn: UniffiPlacesConnection
     fileprivate weak var api: PlacesAPI?
-    fileprivate let interruptHandle: InterruptHandle
+    fileprivate let interruptHandle: SqlInterruptHandle
 
     fileprivate init(handle: ConnectionHandle, conn: UniffiPlacesConnection, api: PlacesAPI? = nil) throws {
         self.handle = handle
         self.conn = conn
         self.api = api
-        interruptHandle = InterruptHandle(ptr: try PlacesError.unwrap { error in
-            places_new_interrupt_handle(handle, error)
-        })
+        interruptHandle = try self.conn.newInterruptHandle()
     }
 
     // Note: caller synchronizes!
@@ -944,24 +940,6 @@ public class PlacesWriteConnection: PlacesReadConnection {
                 referrerUrl: key.referrerUrl,
                 searchTerm: key.searchTerm
             )
-        }
-    }
-}
-
-// Wrapper around rust interrupt handle.
-private class InterruptHandle {
-    let ptr: OpaquePointer
-    init(ptr: OpaquePointer) {
-        self.ptr = ptr
-    }
-
-    deinit {
-        places_interrupt_handle_destroy(self.ptr)
-    }
-
-    func interrupt() {
-        PlacesError.unwrapOrLog { error in
-            places_interrupt(self.ptr, error)
         }
     }
 }
