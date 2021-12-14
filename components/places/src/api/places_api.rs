@@ -22,7 +22,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Weak,
 };
-use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncEngine, SyncResult};
+use sync15::{sync_multiple, telemetry, MemoryCachedState, SyncEngine, SyncEngineId, SyncResult};
 
 // Not clear if this should be here, but this is the "global sync state"
 // which is persisted to disk and reused for all engines.
@@ -42,17 +42,17 @@ lazy_static::lazy_static! {
 
 // Called by the sync manager to get a sync engine via the PlacesApi previously
 // registered with the sync manager.
-pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     match PLACES_API_FOR_SYNC_MANAGER.lock().upgrade() {
         None => {
             log::error!("get_registered_sync_engine: no PlacesApi registered");
             None
         }
         Some(places_api) => match places_api.get_sync_connection() {
-            Ok(db) => match name {
-                "bookmarks" => Some(Box::new(BookmarksSyncEngine::new(db))),
-                "history" => Some(Box::new(HistorySyncEngine::new(db))),
-                _ => unreachable!("can't provide unknown engine: {}", name),
+            Ok(db) => match engine_id {
+                SyncEngineId::Bookmarks => Some(Box::new(BookmarksSyncEngine::new(db))),
+                SyncEngineId::History => Some(Box::new(HistorySyncEngine::new(db))),
+                _ => unreachable!("can't provide unknown engine: {}", engine_id),
             },
             Err(e) => {
                 log::error!("get_registered_sync_engine: {}", e);

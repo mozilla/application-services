@@ -10,6 +10,7 @@ use std::cell::RefCell;
 use std::sync::{Arc, Mutex, Weak};
 use sync15::{
     sync_multiple, telemetry, KeyBundle, MemoryCachedState, Sync15StorageClientInit, SyncEngine,
+    SyncEngineId,
 };
 
 // Our "sync manager" will use whatever is stashed here.
@@ -20,15 +21,15 @@ lazy_static::lazy_static! {
 
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
-pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     let weak = STORE_FOR_MANAGER.lock().unwrap();
     match weak.upgrade() {
         None => None,
-        Some(store) => match name {
-            "tabs" => Some(Box::new(TabsEngine::new(Arc::clone(&store)))),
+        Some(store) => match engine_id {
+            SyncEngineId::Tabs => Some(Box::new(TabsEngine::new(Arc::clone(&store)))),
             // panicing here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
-            _ => unreachable!("can't provide unknown engine: {}", name),
+            _ => unreachable!("can't provide unknown engine: {}", engine_id),
         },
     }
 }

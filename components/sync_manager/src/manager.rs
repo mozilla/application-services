@@ -7,20 +7,14 @@ use crate::types::{ServiceStatus, SyncEngineSelection, SyncParams, SyncReason, S
 use crate::{reset, reset_all, wipe};
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
+use std::convert::TryFrom;
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::time::SystemTime;
 use sync15::{
     self,
     clients::{Command, CommandProcessor, CommandStatus, Settings},
-    EngineSyncAssociation, MemoryCachedState, SyncEngine,
+    EngineSyncAssociation, MemoryCachedState, SyncEngine, SyncEngineId,
 };
-
-const LOGINS_ENGINE: &str = "passwords";
-const HISTORY_ENGINE: &str = "history";
-const BOOKMARKS_ENGINE: &str = "bookmarks";
-const TABS_ENGINE: &str = "tabs";
-const ADDRESSES_ENGINE: &str = "addresses";
-const CREDIT_CARDS_ENGINE: &str = "creditcards";
 
 #[derive(Default)]
 pub struct SyncManager {
@@ -32,180 +26,63 @@ impl SyncManager {
         Self::default()
     }
 
-    pub fn autofill_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        autofill::get_registered_sync_engine(engine)
+    fn get_engine_id(engine_name: &str) -> Result<SyncEngineId> {
+        SyncEngineId::try_from(engine_name).map_err(SyncManagerError::UnknownEngine)
     }
 
-    pub fn logins_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        logins::get_registered_sync_engine(engine)
-    }
-
-    pub fn places_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        places::get_registered_sync_engine(engine)
-    }
-
-    pub fn tabs_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        tabs::get_registered_sync_engine(engine)
-    }
-
-    fn get_engine(engine: &str) -> Option<Box<dyn SyncEngine>> {
-        match engine {
-            "history" => Self::places_engine("history"),
-            "bookmarks" => Self::places_engine("bookmarks"),
-            "addresses" => Self::autofill_engine("addresses"),
-            "creditcards" => Self::autofill_engine("creditcards"),
-            "logins" => Self::logins_engine("logins"),
-            "tabs" => Self::tabs_engine("tabs"),
-            _ => {
-                log::warn!("get_engine() unknown engine: {}", engine);
-                None
-            }
+    fn get_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
+        match engine_id {
+            SyncEngineId::History => places::get_registered_sync_engine(engine_id),
+            SyncEngineId::Bookmarks => places::get_registered_sync_engine(engine_id),
+            SyncEngineId::Addresses => autofill::get_registered_sync_engine(engine_id),
+            SyncEngineId::CreditCards => autofill::get_registered_sync_engine(engine_id),
+            SyncEngineId::Passwords => logins::get_registered_sync_engine(engine_id),
+            SyncEngineId::Tabs => tabs::get_registered_sync_engine(engine_id),
         }
     }
 
-    pub fn wipe(&self, engine: &str) -> Result<()> {
-        match engine {
-            "logins" => {
-                if let Some(engine) = Self::logins_engine(engine) {
-                    engine.wipe()?;
-                }
-                Ok(())
-            }
-            "bookmarks" => {
-                if let Some(engine) = Self::places_engine(engine) {
-                    engine.wipe()?;
-                }
-                Ok(())
-            }
-            "history" => {
-                if let Some(engine) = Self::places_engine(engine) {
-                    engine.wipe()?;
-                }
-                Ok(())
-            }
-            "addresses" | "creditcards" => {
-                if let Some(engine) = Self::autofill_engine(engine) {
-                    engine.wipe()?;
-                }
-                Ok(())
-            }
-            _ => Err(SyncManagerError::UnknownEngine(engine.into())),
+    pub fn wipe(&self, engine_name: &str) -> Result<()> {
+        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
+            engine.wipe()?;
         }
+        Ok(())
     }
 
-    pub fn reset(&self, engine: &str) -> Result<()> {
-        match engine {
-            "bookmarks" | "history" => {
-                if let Some(engine) = Self::places_engine(engine) {
-                    engine.reset(&EngineSyncAssociation::Disconnected)?;
-                }
-                Ok(())
-            }
-            "addresses" | "creditcards" => {
-                if let Some(engine) = Self::autofill_engine(engine) {
-                    engine.reset(&EngineSyncAssociation::Disconnected)?;
-                }
-                Ok(())
-            }
-            "logins" => {
-                if let Some(engine) = Self::logins_engine(engine) {
-                    engine.reset(&EngineSyncAssociation::Disconnected)?;
-                }
-                Ok(())
-            }
-            _ => Err(SyncManagerError::UnknownEngine(engine.into())),
+    pub fn reset(&self, engine_name: &str) -> Result<()> {
+        if let Some(engine) = Self::get_engine(&Self::get_engine_id(engine_name)?) {
+            engine.reset(&EngineSyncAssociation::Disconnected)?;
         }
+        Ok(())
     }
 
     pub fn reset_all(&self) -> Result<()> {
-        if let Some(engine) = Self::places_engine("history") {
+        for (_, engine) in self.iter_registered_engines() {
             engine.reset(&EngineSyncAssociation::Disconnected)?;
-        }
-        if let Some(engine) = Self::places_engine("bookmarks") {
-            engine.reset(&EngineSyncAssociation::Disconnected)?;
-        }
-        if let Some(addresses) = Self::autofill_engine("addresses") {
-            addresses.reset(&EngineSyncAssociation::Disconnected)?;
-        }
-        if let Some(credit_cards) = Self::autofill_engine("creditcards") {
-            credit_cards.reset(&EngineSyncAssociation::Disconnected)?;
         }
         Ok(())
     }
 
     /// Disconnect engines from sync, deleting/resetting the sync-related data
     pub fn disconnect(&self) {
-        if let Some(engine) = Self::places_engine("bookmarks") {
-            if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
-                log::error!("Failed to reset bookmarks: {}", e);
+        for engine_id in SyncEngineId::iter() {
+            if let Some(engine) = Self::get_engine(&engine_id) {
+                if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
+                    log::error!("Failed to reset {}: {}", engine_id, e);
+                }
+            } else {
+                log::warn!("Unable to reset {}, be sure to call register_with_sync_manager before disconnect if this is surprising", engine_id);
             }
-        } else {
-            log::warn!("Unable to reset bookmarks, be sure to call register_with_sync_manager before disconnect if this is surprising");
-        }
-        if let Some(engine) = Self::places_engine("history") {
-            if let Err(e) = engine.reset(&EngineSyncAssociation::Disconnected) {
-                log::error!("Failed to reset history: {}", e);
-            }
-        } else {
-            log::warn!("Unable to reset history, be sure to call register_with_sync_manager before disconnect if this is surprising");
-        }
-        if let Some(addresses) = Self::autofill_engine("addresses") {
-            if let Err(e) = addresses.reset(&EngineSyncAssociation::Disconnected) {
-                log::error!("Failed to reset addresses: {}", e);
-            }
-        } else {
-            log::warn!("Unable to reset addresses, be sure to call register_with_sync_manager before disconnect if this is surprising");
-        }
-        if let Some(credit_cards) = Self::autofill_engine("creditcards") {
-            if let Err(e) = credit_cards.reset(&EngineSyncAssociation::Disconnected) {
-                log::error!("Failed to reset credit cards: {}", e);
-            }
-        } else {
-            log::warn!("Unable to reset credit cards, be sure to call register_with_sync_manager before disconnect if this is surprising");
-        }
-        if let Some(logins) = Self::logins_engine("logins") {
-            if let Err(e) = logins.reset(&EngineSyncAssociation::Disconnected) {
-                log::error!("Failed to reset logins: {}", e);
-            }
-        } else {
-            log::warn!("Unable to reset logins, be sure to call register_with_sync_manager before disconnect if this is surprising");
         }
     }
 
     /// Perform a sync.  See [SyncParams] and [SyncResult] for details on how this works
     pub fn sync(&self, params: SyncParams) -> Result<SyncResult> {
         let mut state = self.mem_cached_state.lock();
-        let mut have_engines = vec![];
-        let bookmarks = Self::places_engine("bookmarks");
-        let history = Self::places_engine("history");
-        let tabs = Self::tabs_engine("tabs");
-        let logins = Self::logins_engine("logins");
-        let addresses = Self::autofill_engine("addresses");
-        let credit_cards = Self::autofill_engine("creditcards");
-        if bookmarks.is_some() {
-            have_engines.push(BOOKMARKS_ENGINE);
-        }
-        if history.is_some() {
-            have_engines.push(HISTORY_ENGINE);
-        }
-        if logins.is_some() {
-            have_engines.push(LOGINS_ENGINE);
-        }
-        if tabs.is_some() {
-            have_engines.push(TABS_ENGINE);
-        }
-        if addresses.is_some() {
-            have_engines.push(ADDRESSES_ENGINE);
-        }
-        if credit_cards.is_some() {
-            have_engines.push(CREDIT_CARDS_ENGINE);
-        }
-        check_engine_list(&params.engines, &have_engines)?;
-
+        let engines = self.calc_engines_to_sync(&params.engines)?;
         let next_sync_after = state.as_ref().and_then(|mcs| mcs.get_next_sync_after());
         if !backoff_in_effect(next_sync_after, &params) {
             log::info!("No backoff in effect (or we decided to ignore it), starting sync");
-            self.do_sync(params, &mut state)
+            self.do_sync(params, &mut state, engines)
         } else {
             log::warn!(
                 "Backoff still in effect (until {:?}), bailing out early",
@@ -228,74 +105,15 @@ impl SyncManager {
         &self,
         mut params: SyncParams,
         state: &mut Option<MemoryCachedState>,
+        mut engines: Vec<Box<dyn SyncEngine>>,
     ) -> Result<SyncResult> {
-        let bookmarks = Self::places_engine("bookmarks");
-        let history = Self::places_engine("history");
-        let tabs = Self::tabs_engine("tabs");
-        let logins = Self::logins_engine("logins");
-        let addresses = Self::autofill_engine("addresses");
-        let credit_cards = Self::autofill_engine("creditcards");
-
         let key_bundle = sync15::KeyBundle::from_ksync_base64(&params.auth_info.sync_key)?;
         let tokenserver_url = url::Url::parse(&params.auth_info.tokenserver_url)?;
-
-        let bookmarks_sync = should_sync(&params, BOOKMARKS_ENGINE) && bookmarks.is_some();
-        let history_sync = should_sync(&params, HISTORY_ENGINE) && history.is_some();
-        let logins_sync = should_sync(&params, LOGINS_ENGINE) && logins.is_some();
-        let tabs_sync = should_sync(&params, TABS_ENGINE) && tabs.is_some();
-        let addresses_sync = should_sync(&params, ADDRESSES_ENGINE) && addresses.is_some();
-        let credit_cards_sync = should_sync(&params, CREDIT_CARDS_ENGINE) && credit_cards.is_some();
-
-        let bs = if bookmarks_sync { bookmarks } else { None };
-        let hs = if history_sync { history } else { None };
-        let ts = if tabs_sync { tabs } else { None };
-        let ls = if logins_sync { logins } else { None };
-        let ads = if addresses_sync { addresses } else { None };
-        let cs = if credit_cards_sync {
-            credit_cards
-        } else {
-            None
-        };
-
         // TODO(issue 1684) this isn't ideal, we should have real support for interruption.
         let p = Arc::new(AtomicUsize::new(0));
         let interruptee = sql_support::SqlInterruptScope::new(p);
-
         let mut mem_cached_state = state.take().unwrap_or_default();
         let mut disk_cached_state = params.persisted_state.take();
-        // `sync_multiple` takes a &[&dyn Engine], but we need something to hold
-        // ownership of our engines.
-        let mut engines: Vec<Box<dyn sync15::SyncEngine>> = vec![];
-
-        if let Some(bookmarks) = bs {
-            assert!(bookmarks_sync, "Should have already checked");
-            engines.push(bookmarks);
-        }
-
-        if let Some(history) = hs {
-            assert!(history_sync, "Should have already checked");
-            engines.push(history);
-        }
-
-        if let Some(logins) = ls {
-            assert!(logins_sync, "Should have already checked");
-            engines.push(logins);
-        }
-
-        if let Some(tbs) = ts {
-            assert!(tabs_sync, "Should have already checked");
-            engines.push(tbs);
-        }
-
-        if let Some(add) = ads {
-            assert!(addresses_sync, "Should have already checked");
-            engines.push(add);
-        }
-
-        if let Some(cc) = cs {
-            assert!(credit_cards_sync, "Should have already checked");
-            engines.push(cc);
-        }
 
         // tell engines about the local encryption key.
         for engine in engines.iter_mut() {
@@ -368,19 +186,49 @@ impl SyncManager {
         })
     }
 
+    fn iter_registered_engines(&self) -> impl Iterator<Item = (SyncEngineId, Box<dyn SyncEngine>)> {
+        SyncEngineId::iter().filter_map(|id| Self::get_engine(&id).map(|engine| (id, engine)))
+    }
+
     pub fn get_available_engines(&self) -> Vec<String> {
-        let engine_names = vec![
-            "bookmarks",
-            "history",
-            "tabs",
-            "logins",
-            "addresses",
-            "creditcards",
-        ];
-        engine_names
-            .into_iter()
-            .filter_map(|name| Self::get_engine(name).map(|_| name.to_string()))
+        self.iter_registered_engines()
+            .map(|(name, _)| name.to_string())
             .collect()
+    }
+
+    fn calc_engines_to_sync(
+        &self,
+        selection: &SyncEngineSelection,
+    ) -> Result<Vec<Box<dyn SyncEngine>>> {
+        let mut engine_map: HashMap<_, _> = self.iter_registered_engines().collect();
+        log::trace!(
+            "Checking engines requested ({:?}) vs local engines ({:?})",
+            selection,
+            engine_map
+                .iter()
+                .map(|(engine_id, _)| engine_id.name())
+                .collect::<Vec<_>>(),
+        );
+        if let SyncEngineSelection::Some {
+            engines: engine_names,
+        } = selection
+        {
+            // Validate selection and convert to SyncEngineId
+            let mut selected_engine_ids: HashSet<SyncEngineId> = HashSet::new();
+            for name in engine_names {
+                let engine_id = Self::get_engine_id(name)?;
+                if !engine_map.contains_key(&engine_id) {
+                    return Err(SyncManagerError::UnsupportedFeature(name.to_string()));
+                }
+                selected_engine_ids.insert(engine_id);
+            }
+            // Filter engines based on the selection
+            engine_map = engine_map
+                .into_iter()
+                .filter(|(engine_id, _)| selected_engine_ids.contains(engine_id))
+                .collect()
+        }
+        Ok(engine_map.into_iter().map(|(_, engine)| engine).collect())
     }
 }
 
@@ -426,45 +274,6 @@ impl From<sync15::ServiceStatus> for ServiceStatus {
     }
 }
 
-fn should_sync(p: &SyncParams, engine: &str) -> bool {
-    match &p.engines {
-        SyncEngineSelection::All => true,
-        SyncEngineSelection::Some { engines } => engines.iter().any(|e| e == engine),
-    }
-}
-
-fn check_engine_list(selection: &SyncEngineSelection, have_engines: &[&str]) -> Result<()> {
-    log::trace!(
-        "Checking engines requested ({:?}) vs local engines ({:?})",
-        selection,
-        have_engines
-    );
-    match selection {
-        SyncEngineSelection::All => Ok(()),
-        SyncEngineSelection::Some { engines } => {
-            for e in engines {
-                if [
-                    ADDRESSES_ENGINE,
-                    CREDIT_CARDS_ENGINE,
-                    BOOKMARKS_ENGINE,
-                    HISTORY_ENGINE,
-                    LOGINS_ENGINE,
-                    TABS_ENGINE,
-                ]
-                .contains(&e.as_ref())
-                {
-                    if !have_engines.iter().any(|engine| e == engine) {
-                        return Err(SyncManagerError::UnsupportedFeature(e.to_string()));
-                    }
-                } else {
-                    return Err(SyncManagerError::UnknownEngine(e.to_string()));
-                }
-            }
-            Ok(())
-        }
-    }
-}
-
 struct SyncClient(Settings);
 
 impl SyncClient {
@@ -495,5 +304,17 @@ impl CommandProcessor for SyncClient {
 
     fn fetch_outgoing_commands(&self) -> anyhow::Result<HashSet<Command>> {
         Ok(HashSet::new())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_engine_id_sanity() {
+        for engine_id in SyncEngineId::iter() {
+            assert_eq!(engine_id, SyncEngineId::try_from(engine_id.name()).unwrap());
+        }
     }
 }

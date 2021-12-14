@@ -13,7 +13,7 @@ use rusqlite::{
 use sql_support::{self, ConnExt};
 use std::path::Path;
 use std::sync::{Arc, Mutex, Weak};
-use sync15_traits::SyncEngine;
+use sync15_traits::{SyncEngine, SyncEngineId};
 use sync_guid::Guid;
 
 // Our "sync manager" will use whatever is stashed here.
@@ -26,16 +26,18 @@ lazy_static::lazy_static! {
 
 /// Called by the sync manager to get a sync engine via the store previously
 /// registered with the sync manager.
-pub fn get_registered_sync_engine(name: &str) -> Option<Box<dyn SyncEngine>> {
+pub fn get_registered_sync_engine(engine_id: &SyncEngineId) -> Option<Box<dyn SyncEngine>> {
     let weak = STORE_FOR_MANAGER.lock().unwrap();
     match weak.upgrade() {
         None => None,
-        Some(store) => match name {
-            "addresses" => Some(Box::new(crate::sync::address::create_engine(store))),
-            "creditcards" => Some(Box::new(crate::sync::credit_card::create_engine(store))),
+        Some(store) => match engine_id {
+            SyncEngineId::Addresses => Some(Box::new(crate::sync::address::create_engine(store))),
+            SyncEngineId::CreditCards => {
+                Some(Box::new(crate::sync::credit_card::create_engine(store)))
+            }
             // panicing here seems reasonable - it's a static error if this
             // it hit, not something that runtime conditions can influence.
-            _ => unreachable!("can't provide unknown engine: {}", name),
+            _ => unreachable!("can't provide unknown engine: {}", engine_id),
         },
     }
 }
