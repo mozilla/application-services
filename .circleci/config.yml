@@ -487,7 +487,6 @@ jobs:
     steps:
       - full-checkout
       - install-rust
-      - install-ghr
       - run:
           name: Build nimbus-fml
           command: |

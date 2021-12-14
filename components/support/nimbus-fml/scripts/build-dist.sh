@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+# Small script to be run on the CI server to cross compile nimbus-fml on Android
+# and iOS developer machines.
+#
+# It installs the tools and targets needed via brew and rustup, cross compiles the nimbus-fml
+# and then zips up all OS/architecture versions into a single archive.
+#
+# CircleCI then stores this as an artifact, and pushes it to Github on each release.
+#
+# This will be downloaded and unzipped as part of the buid processes for iOS and Android.
 targets="aarch64-apple-darwin x86_64-unknown-linux-musl x86_64-apple-darwin"
 dry_run=false
 
+# Assume we're in $root_dir/components/support/nimbus-fml/scripts
 root_dir=$(dirname "$0")/../../../..
 fml_dir=$root_dir/components/support/nimbus-fml
 target_dir=$root_dir/target
-filename=nimbus-fml
+filename=$(basename $fml_dir)
+
+# But we'll dump the zip file wherever we run the script from.
 dist_file=${filename}.zip
 
 prompt='$'
@@ -21,8 +36,8 @@ else
     echo "$prompt $cargo_clean"
 fi
 
-# Now we need to add a linker
-
+# Compiling for Linux, getting the tools from homebrew.
+# https://blog.filippo.io/easy-windows-and-linux-cross-compilers-for-macos/
 zip_cmd="zip $(pwd)/$dist_file "
 
 for TARGET in $targets ; do
@@ -34,15 +49,16 @@ for TARGET in $targets ; do
     if [[ $dry_run != "true" ]] ; then
         $rustup
         (cd "$fml_dir" && $cargo_build)
-
     else
         echo "$prompt $rustup"
         echo "$prompt (cd $fml_dir && $cargo_build )"
     fi
 
+    # Keep building the zip command with the file w
     zip_cmd="$zip_cmd $TARGET/release/$filename"
-
 done
+
+# Finish up by executing the zip command.
 echo
 echo "## Preparing dist archive"
 if [[ $dry_run != "true" ]] ; then
