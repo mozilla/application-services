@@ -487,6 +487,7 @@ jobs:
     steps:
       - full-checkout
       - install-rust
+      - setup-rust-target-version
       - run:
           name: Build nimbus-fml
           command: |
@@ -494,19 +495,25 @@ jobs:
               # On non-release builds do not update brew (takes ages).
               echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
             fi
+            # Produces nimbus-fml.zip archive and a checksum.
             ./components/support/nimbus-fml/scripts/build-dist.sh
       - store_artifacts:
           name: Store nimbus-fml build archive in workspace
           path: nimbus-fml.zip
           destination: nimbus-fml.zip
+      - store_artifacts:
+          name: Store nimbus-fml checksum in workspace
+          path: nimbus-fml.sha256
+          destination: nimbus-fml.sha256
   release-nimbus-fml:
     executor: macos
     steps:
       - install-ghr
       - run:
-          name: Release nimbus-fml archive on Github
+          name: Release nimbus-fml archive and checksum on Github
           command: |
             ghr -replace "${CIRCLE_TAG}" nimbus-fml.zip
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.sha256
 
 workflows:
   version: 2

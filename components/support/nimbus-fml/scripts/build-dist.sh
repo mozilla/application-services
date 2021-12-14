@@ -25,6 +25,9 @@ filename=$(basename "$fml_dir")
 dist_file=${filename}.zip
 
 prompt='$'
+# Compiling for Linux, getting the tools from homebrew.
+# https://blog.filippo.io/easy-windows-and-linux-cross-compilers-for-macos/
+# We'd like to run nimbus-fml on developer machines and the Android CIs (which are linux)
 echo "## Installing tools for cross compiling"
 install_musl_cross="brew install filosottile/musl-cross/musl-cross"
 cargo_clean="cargo clean"
@@ -36,9 +39,9 @@ else
     echo "$prompt $cargo_clean"
 fi
 
-# Compiling for Linux, getting the tools from homebrew.
-# https://blog.filippo.io/easy-windows-and-linux-cross-compilers-for-macos/
-zip_cmd="zip $(pwd)/$dist_file "
+# Start creating a zip command with the zipfile
+zipfile="$(pwd)/$dist_file"
+zip_cmd="zip $zipfile"
 
 for TARGET in $targets ; do
     echo
@@ -54,15 +57,18 @@ for TARGET in $targets ; do
         echo "$prompt (cd $fml_dir && $cargo_build )"
     fi
 
-    # Keep building the zip command with the file w
+    # Keep building the zip command with the commands as we build them.
     zip_cmd="$zip_cmd $TARGET/release/$filename"
 done
 
 # Finish up by executing the zip command.
 echo
 echo "## Preparing dist archive"
+checksum="shasum -a 256 $zipfile"
 if [[ $dry_run != "true" ]] ; then
     (cd "$target_dir" && $zip_cmd )
+    $checksum > "$filename.sha256"
 else
     echo "$prompt (cd $target_dir ; $zip_cmd )"
+    echo "$prompt $checksum > $filename.sha256"
 fi
