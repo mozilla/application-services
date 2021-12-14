@@ -22,6 +22,7 @@ import mozilla.appservices.places.uniffi.VisitObservation
 import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
 import mozilla.appservices.places.uniffi.SearchResult
+import mozilla.appservices.places.uniffi.SqlInterruptHandle
 import mozilla.appservices.support.native.toNioDirectBuffer
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
@@ -29,7 +30,6 @@ import mozilla.components.service.glean.private.LabeledMetricType
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
@@ -216,17 +216,13 @@ open class PlacesConnection internal constructor(connHandle: Long, uniffiConn: U
     // Each method here will use one or the other, depending on whether it's been uniffi'd or not.
     protected var handle: AtomicLong = AtomicLong(0)
     protected var conn: UniffiPlacesConnection
-    protected var interruptHandle: InterruptHandle
+    protected var interruptHandle: SqlInterruptHandle
 
     init {
         handle.set(connHandle)
         conn = uniffiConn
         try {
-            interruptHandle = InterruptHandle(
-                rustCall { err ->
-                    LibPlacesFFI.INSTANCE.places_new_interrupt_handle(connHandle, err)
-                }!!
-            )
+            interruptHandle = this.conn.newInterruptHandle()
         } catch (e: Throwable) {
             rustCall { error ->
                 LibPlacesFFI.INSTANCE.places_connection_destroy(this.handle.getAndSet(0), error)
@@ -1087,30 +1083,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * @param url The chosen URL string
      */
     fun acceptResult(searchString: String, url: String)
-}
-
-class InterruptHandle internal constructor(raw: RawPlacesInterruptHandle) : AutoCloseable {
-    // We synchronize all accesses, so this probably doesn't need AtomicReference.
-    private val handle: AtomicReference<RawPlacesInterruptHandle?> = AtomicReference(raw)
-
-    @Synchronized
-    override fun close() {
-        val toFree = handle.getAndSet(null)
-        if (toFree != null) {
-            LibPlacesFFI.INSTANCE.places_interrupt_handle_destroy(toFree)
-        }
-    }
-
-    @Synchronized
-    fun interrupt() {
-        handle.get()?.let {
-            val e = RustError.ByReference()
-            LibPlacesFFI.INSTANCE.places_interrupt(it, e)
-            if (e.isFailure()) {
-                throw e.intoException()
-            }
-        }
-    }
 }
 
 enum class VisitType(val type: Int) {
