@@ -23,6 +23,7 @@ use ffi_support::{
     ErrorCode, ExternError,
 };
 use parking_lot::Mutex;
+use sql_support::SqlInterruptHandle;
 use std::sync::Arc;
 use types::Timestamp;
 use url::Url;
@@ -145,6 +146,15 @@ impl PlacesConnection {
     {
         let conn = self.db.lock();
         Ok(f(&conn)?)
+    }
+
+    // This should be refactored/removed as part of https://github.com/mozilla/application-services/issues/1684
+    // We have to use Arc in the return type to be able to properly
+    // pass the SqlInterruptHandle as an object through Uniffi
+    fn new_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
+        Ok(Arc::new(
+            self.with_conn(|conn| Ok(conn.new_interrupt_handle()))?,
+        ))
     }
 
     fn get_latest_history_metadata_for_url(&self, url: Url) -> Result<Option<HistoryMetadata>> {

@@ -37,18 +37,6 @@ pub extern "C" fn places_api_new(db_path: FfiStr<'_>, error: &mut ExternError) -
     })
 }
 
-/// Get an interrupt handle for the PlacesApi's sync connection.
-#[no_mangle]
-pub extern "C" fn places_new_sync_conn_interrupt_handle(
-    handle: u64,
-    error: &mut ExternError,
-) -> *mut SqlInterruptHandle {
-    log::debug!("places_new_sync_conn_interrupt_handle");
-    APIS.call_with_result(error, handle, |api| -> places::Result<_> {
-        api.new_sync_conn_interrupt_handle()
-    })
-}
-
 #[no_mangle]
 pub extern "C" fn places_connection_new(
     handle: u64,
@@ -144,22 +132,6 @@ pub extern "C" fn places_api_return_write_conn(
         Ok(())
     })
 }
-
-/// Get the interrupt handle for a connection. Must be destroyed with
-/// `places_interrupt_handle_destroy`.
-#[no_mangle]
-pub extern "C" fn places_new_interrupt_handle(
-    handle: u64,
-    error: &mut ExternError,
-) -> *mut SqlInterruptHandle {
-    CONNECTIONS.call_with_output(error, handle, |conn| conn.new_interrupt_handle())
-}
-
-#[no_mangle]
-pub extern "C" fn places_interrupt(handle: &SqlInterruptHandle, error: &mut ExternError) {
-    ffi_support::call_with_output(error, || handle.interrupt())
-}
-
 #[no_mangle]
 pub extern "C" fn bookmarks_reset(handle: u64, error: &mut ExternError) {
     log::debug!("bookmarks_reset");

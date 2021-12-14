@@ -473,21 +473,23 @@ impl PlacesApi {
         SqlInterruptScope::new(Arc::new(AtomicUsize::new(0)))
     }
 
-    // Deprecated/Broken interrupt handler method, let's try to replace it with the above methods
-    // ASAP
+    // Deprecated/Broken interrupt handler method
+    // This should be removed as part of https://github.com/mozilla/application-services/issues/1684
     //
     // There are two issues with this one:
     //   - As soon as this method returns, the sync connection will be dropped, which means the
     //     SqlInterruptHandle will not work.
     //   - We want the sync connection to be lazy, but we call this on initialization and force a
     //     connection to be created.
-    pub fn new_sync_conn_interrupt_handle(&self) -> Result<SqlInterruptHandle> {
+    // We have to use Arc in the return type to be able to properly
+    // pass the SqlInterruptHandle as an object through Uniffi
+    pub fn new_sync_conn_interrupt_handle(&self) -> Result<Arc<SqlInterruptHandle>> {
         // Probably not necessary to lock here, since this should only get
         // called in startup.
         let _guard = self.sync_state.lock();
         let conn = self.get_sync_connection()?;
         let db = conn.lock();
-        Ok(db.new_interrupt_handle())
+        Ok(Arc::new(db.new_interrupt_handle()))
     }
 }
 

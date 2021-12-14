@@ -63,21 +63,6 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     )
 
-    fun places_new_interrupt_handle(
-        conn: PlacesConnectionHandle,
-        out_err: RustError.ByReference
-    ): RawPlacesInterruptHandle?
-
-    fun places_new_sync_conn_interrupt_handle(
-        api: PlacesApiHandle,
-        out_err: RustError.ByReference
-    ): RawPlacesInterruptHandle?
-
-    fun places_interrupt(
-        conn: RawPlacesInterruptHandle,
-        out_err: RustError.ByReference
-    )
-
     fun bookmarks_get_all_with_url(
         handle: PlacesConnectionHandle,
         url: String,

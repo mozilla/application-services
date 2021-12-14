@@ -21,9 +21,16 @@ enum ConnectionType {
     "Sync", // ideally we wouldn't need to expose this and should guard against it being used (it's internal only)
 };
 
+interface SqlInterruptHandle {
+     void interrupt();
+};
+
 interface PlacesApi {
     [Throws=PlacesError]
     PlacesConnection new_connection(ConnectionType conn_type);
+
+    [Throws=PlacesError]
+    SqlInterruptHandle new_sync_conn_interrupt_handle();
 
     [Self=ByArc]
     void register_with_sync_manager();
@@ -39,6 +46,10 @@ interface PlacesApi {
 };
 
 interface PlacesConnection {
+
+    [Throws=PlacesError]
+    SqlInterruptHandle new_interrupt_handle();
+
     [Throws=PlacesError]
     HistoryMetadata? get_latest_history_metadata_for_url(Url url);
 
