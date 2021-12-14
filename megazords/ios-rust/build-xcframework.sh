@@ -94,6 +94,7 @@ CFLAGS_x86_64_apple_ios="-target x86_64-apple-ios" \
   cargo_build x86_64-apple-ios
 
 # Hardware iOS targets
+rustup target add aarch64-apple-ios-sim
 cargo_build aarch64-apple-ios
 
 # M1 iOS simulator.
