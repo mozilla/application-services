@@ -30,7 +30,6 @@ import mozilla.components.service.glean.private.LabeledMetricType
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
@@ -1085,7 +1084,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      */
     fun acceptResult(searchString: String, url: String)
 }
-
 
 enum class VisitType(val type: Int) {
     /** This isn't a visit, but a request to update meta data about a page */
