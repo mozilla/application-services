@@ -1,0 +1,4 @@
+# Required to cross compile nimbus-fml to linux.
+# Recommended by https://blog.filippo.io/easy-windows-and-linux-cross-compilers-for-macos/
+[target.x86_64-unknown-linux-musl]
+linker = "x86_64-linux-musl-gcc"

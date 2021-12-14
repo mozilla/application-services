@@ -81,6 +81,21 @@ commands:
             ./rustup-init -y --no-modify-path
             rm rustup-init
             echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> $BASH_ENV
+  install-ghr:
+    steps:
+      - run:
+          name: Install GHR
+          command: |
+            GHR=ghr_v0.12.0_darwin_amd64
+            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
+            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
+            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
+            unzip "${GHR}.zip"
+
+            echo "export PATH=$PATH:$(pwd)/$GHR" >> $BASH_ENV
+      # Run in a different shell to source $BASH_ENV
+      - run: |
+          ghr --version
   build-libs:
     parameters:
       platform:
@@ -178,7 +193,7 @@ commands:
             #                       note that both the Nimbus-SDK and glean use chrono, so if we would like to move away from it, both projects
             #                       need to do that before we can remove the ignores (assuming `chrono` doesn't release a fixed version)
             #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
-            #                       version of `yaml-rust`, which will be released in `v3` and additionally, 
+            #                       version of `yaml-rust`, which will be released in `v3` and additionally,
             #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
             #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
             cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
@@ -451,30 +466,54 @@ jobs:
       - full-checkout
       - attach_workspace:
           at: .
+      - install-ghr
       - run:
           name: Release Carthage archive on GitHub
           command: |
-            GHR=ghr_v0.12.0_darwin_amd64
-            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
-            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
-            unzip "${GHR}.zip"
-            ./${GHR}/ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
+            ghr -replace "${CIRCLE_TAG}" MozillaAppServices.framework.zip
   XCFramework release:
     executor: macos
     steps:
       - full-checkout
       - attach_workspace:
           at: .
+      - install-ghr
       - run:
           name: Release XCFramework archive on GitHub
           command: |
-            GHR=ghr_v0.12.0_darwin_amd64
-            GHR_SHA256=c868ef9fc5dd8c8a397b74d84051d83693c42dd59041cb17b66f90f563477249
-            curl -sfSL --retry 5 --retry-delay 10 -O "https://github.com/tcnksm/ghr/releases/download/v0.12.0/${GHR}.zip"
-            echo "${GHR_SHA256} *${GHR}.zip" | shasum -a 256 -c -
-            unzip "${GHR}.zip"
-            ./${GHR}/ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+            ghr -replace "${CIRCLE_TAG}" megazords/ios-rust/MozillaRustComponents.xcframework.zip
+  build-nimbus-fml:
+    executor: macos
+    steps:
+      - full-checkout
+      - install-rust
+      - setup-rust-target-version
+      - run:
+          name: Build nimbus-fml
+          command: |
+            if [ -z "${CIRCLE_TAG}" ]; then
+              # On non-release builds do not update brew (takes ages).
+              echo 'export HOMEBREW_NO_AUTO_UPDATE=1' >> $BASH_ENV
+            fi
+            # Produces nimbus-fml.zip archive and a checksum.
+            ./components/support/nimbus-fml/scripts/build-dist.sh
+      - store_artifacts:
+          name: Store nimbus-fml build archive in workspace
+          path: nimbus-fml.zip
+          destination: nimbus-fml.zip
+      - store_artifacts:
+          name: Store nimbus-fml checksum in workspace
+          path: nimbus-fml.sha256
+          destination: nimbus-fml.sha256
+  release-nimbus-fml:
+    executor: macos
+    steps:
+      - install-ghr
+      - run:
+          name: Release nimbus-fml archive and checksum on Github
+          command: |
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.zip
+            ghr -replace "${CIRCLE_TAG}" nimbus-fml.sha256
 
 workflows:
   version: 2
@@ -540,6 +579,20 @@ workflows:
       - XCFramework release:
           requires:
             - iOS build and test
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+  nimbus-artifacts:
+    jobs:
+      - build-nimbus-fml:
+          filters: # required since `Release` has tag filters AND requires `Build`
+            tags:
+              only: /.*/
+      - release-nimbus-fml:
+          requires:
+            - build-nimbus-fml
           filters:
             branches:
               ignore: /.*/
