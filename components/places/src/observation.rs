@@ -3,7 +3,6 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::types::*;
-use serde_derive::*;
 use types::Timestamp;
 use url::Url;
 
@@ -20,56 +19,27 @@ use url::Url;
 /// It exposes a "builder api", but for convenience, that API allows Options too.
 /// So, eg, `.with_title(None)` or `with_is_error(None)` is allowed but records
 /// no observation.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct VisitObservation {
     /// Ideally, we'd use url::Url here with `serde_url`, but we really would
     /// like to expose these errors over the FFI as UrlParseErrors and not json
     /// errors, and we also would like to do so without parsing strings.
-    pub url: String,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    pub url: Url,
     pub title: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
     pub visit_type: Option<VisitTransition>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
     pub is_error: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
     pub is_redirect_source: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
     pub is_permanent_redirect_source: Option<bool>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
     pub at: Option<Timestamp>,
-
-    /// Semantically also a url::Url, See the comment about the `url` property.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub referrer: Option<String>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
+    pub referrer: Option<Url>,
     pub is_remote: Option<bool>,
-
-    /// Semantically also a url::Url, See the comment about the `url` property.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(default)]
-    pub preview_image_url: Option<String>,
+    pub preview_image_url: Option<Url>,
 }
 
 impl VisitObservation {
     pub fn new(url: Url) -> Self {
         VisitObservation {
-            url: url.into(),
+            url: url,
             title: None,
             visit_type: None,
             is_error: None,
@@ -125,8 +95,7 @@ impl VisitObservation {
         self
     }
 
-    // v is a String instead of a Url to allow testing invalid urls as input.
-    pub fn with_preview_image_url(mut self, v: impl Into<Option<String>>) -> Self {
+    pub fn with_preview_image_url(mut self, v: impl Into<Option<Url>>) -> Self {
         self.preview_image_url = v.into();
         self
     }

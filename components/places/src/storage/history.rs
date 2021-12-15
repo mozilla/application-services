@@ -45,27 +45,25 @@ pub fn apply_observation_direct(
     db: &PlacesDb,
     visit_ob: VisitObservation,
 ) -> Result<Option<RowId>> {
-    let url = Url::parse(&visit_ob.url)?;
     // Don't insert urls larger than our length max.
-    if url.as_str().len() > super::URL_LENGTH_MAX {
+    if visit_ob.url.as_str().len() > super::URL_LENGTH_MAX {
         return Ok(None);
     }
     // Make sure we have a valid preview URL - it should parse, and not exceed max size.
     // In case the URL is too long, ignore it and proceed with the rest of the observation.
     // In case the URL is entirely invalid, let the caller know by failing.
     let preview_image_url = if let Some(ref piu) = visit_ob.preview_image_url {
-        let url = Url::parse(piu)?;
-        if url.as_str().len() > super::URL_LENGTH_MAX {
+        if piu.as_str().len() > super::URL_LENGTH_MAX {
             None
         } else {
-            Some(url)
+            Some(piu.clone())
         }
     } else {
         None
     };
-    let mut page_info = match fetch_page_info(db, &url)? {
+    let mut page_info = match fetch_page_info(db, &visit_ob.url)? {
         Some(info) => info.page,
-        None => new_page_info(db, &url, None)?,
+        None => new_page_info(db, &visit_ob.url, None)?,
     };
     let mut update_change_counter = false;
     let mut update_frec = false;
@@ -1852,7 +1850,7 @@ mod tests {
         apply_observation(
             &conn,
             VisitObservation::new(pi.url.clone())
-                .with_preview_image_url(Some("https://www.example.com/preview.png".to_string())),
+                .with_preview_image_url(Some(Url::parse("https://www.example.com/preview.png").unwrap())),
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
@@ -2765,7 +2763,7 @@ mod tests {
         assert!(apply_observation(
             &conn,
             VisitObservation::new(url1.clone())
-                .with_preview_image_url(Some("https://www.example.com/image.png".to_string()))
+                .with_preview_image_url(Some(Url::parse("https://www.example.com/image.png").unwrap()))
         )
         .unwrap()
         .is_none());
@@ -2809,7 +2807,7 @@ mod tests {
         let another_visit_id = apply_observation(
             &conn,
             VisitObservation::new(Url::parse("https://www.example.com/another/").unwrap())
-                .with_preview_image_url(Some("https://www.example.com/funky/image.png".to_string()))
+                .with_preview_image_url(Some(Url::parse("https://www.example.com/funky/image.png").unwrap()))
                 .with_visit_type(VisitTransition::Link),
         )
         .unwrap();
@@ -2826,34 +2824,6 @@ mod tests {
         assert_eq!(
             Some("https://www.example.com/funky/image.png".to_string()),
             db_preview_url
-        );
-    }
-
-    #[test]
-    fn test_bad_preview_url() {
-        let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).unwrap();
-
-        // Observing a bad preview url as part of a visit observation fails.
-        assert!(
-            apply_observation(
-                &conn,
-                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                    .with_visit_type(VisitTransition::Link)
-                    .with_preview_image_url(Some("not at all a url".to_string())),
-            )
-            .is_err(),
-            "expected bad preview url to fail an observation"
-        );
-
-        // Observing a bad preview url by itself also fails.
-        assert!(
-            apply_observation(
-                &conn,
-                VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
-                    .with_preview_image_url(Some("not at all a url".to_string())),
-            )
-            .is_err(),
-            "expected bad preview url to fail an observation"
         );
     }
 
@@ -2878,7 +2848,7 @@ mod tests {
             &conn,
             VisitObservation::new(Url::parse("https://www.example.com/").unwrap())
                 .with_visit_type(VisitTransition::Link)
-                .with_preview_image_url(url),
+                .with_preview_image_url(Url::parse(&url).unwrap()),
         )
         .unwrap();
         assert!(
