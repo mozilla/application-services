@@ -381,7 +381,7 @@ pub struct HistoryVisitInfo {
     pub url: Url,
     pub title: Option<String>,
     pub timestamp: Timestamp,
-    pub visit_type: i32,
+    pub visit_type: VisitTransition,
     pub is_hidden: bool,
     pub preview_image_url: Option<Url>,
 }

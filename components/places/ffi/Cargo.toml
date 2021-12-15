@@ -24,8 +24,8 @@ interrupt-support = { path = "../../support/interrupt" }
 sql-support = { path = "../../support/sql" }
 sync-guid = { path = "../../support/guid" }
 types = { path = "../../support/types" }
-uniffi = "^0.15"
-uniffi_macros = "^0.15"
+uniffi = "^0.16"
+uniffi_macros = "^0.16"
 
 [dependencies.sync15]
 path = "../../sync15"
