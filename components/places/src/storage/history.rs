@@ -1849,8 +1849,9 @@ mod tests {
         // An observation with just a preview_image_url should not update it.
         apply_observation(
             &conn,
-            VisitObservation::new(pi.url.clone())
-                .with_preview_image_url(Some(Url::parse("https://www.example.com/preview.png").unwrap())),
+            VisitObservation::new(pi.url.clone()).with_preview_image_url(Some(
+                Url::parse("https://www.example.com/preview.png").unwrap(),
+            )),
         )?;
         pi = fetch_page_info(&conn, &pi.url)?
             .expect("page should exist")
@@ -2762,8 +2763,9 @@ mod tests {
         // Can observe preview url without an associated visit.
         assert!(apply_observation(
             &conn,
-            VisitObservation::new(url1.clone())
-                .with_preview_image_url(Some(Url::parse("https://www.example.com/image.png").unwrap()))
+            VisitObservation::new(url1.clone()).with_preview_image_url(Some(
+                Url::parse("https://www.example.com/image.png").unwrap()
+            ))
         )
         .unwrap()
         .is_none());
@@ -2807,7 +2809,9 @@ mod tests {
         let another_visit_id = apply_observation(
             &conn,
             VisitObservation::new(Url::parse("https://www.example.com/another/").unwrap())
-                .with_preview_image_url(Some(Url::parse("https://www.example.com/funky/image.png").unwrap()))
+                .with_preview_image_url(Some(
+                    Url::parse("https://www.example.com/funky/image.png").unwrap(),
+                ))
                 .with_visit_type(VisitTransition::Link),
         )
         .unwrap();

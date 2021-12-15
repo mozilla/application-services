@@ -39,7 +39,7 @@ pub struct VisitObservation {
 impl VisitObservation {
     pub fn new(url: Url) -> Self {
         VisitObservation {
-            url: url,
+            url,
             title: None,
             visit_type: None,
             is_error: None,

@@ -197,7 +197,7 @@ impl HistoryVisitInfo {
             url: Url::parse(&url)?,
             title: row.get("title")?,
             timestamp: visit_date,
-            visit_type: visit_type as i32,
+            visit_type,
             is_hidden: row.get("hidden")?,
             preview_image_url: match preview_image_url {
                 Some(s) => Some(Url::parse(&s)?),
