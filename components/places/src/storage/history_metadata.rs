@@ -1323,7 +1323,7 @@ mod tests {
         let observation1 = VisitObservation::new(Url::parse("https://www.cbc.ca/news/politics/federal-budget-2021-freeland-zimonjic-1.5991021").unwrap())
                 .with_at(now)
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
-                .with_preview_image_url(Some(String::from("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg")))
+                .with_preview_image_url(Some(Url::parse("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg").unwrap()))
                 .with_is_remote(false)
                 .with_visit_type(VisitTransition::Link);
         apply_observation(&conn, observation1).unwrap();

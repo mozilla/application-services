@@ -227,8 +227,7 @@ dictionary HistoryVisitInfo {
     Url url;
     string? title;
     Timestamp timestamp;
-    // XXX - This should use the VisitType enum when it gets uniffied
-    i32 visit_type;
+    VisitTransition visit_type;
     boolean is_hidden;
     Url? preview_image_url;
 };
@@ -244,16 +243,16 @@ dictionary HistoryVisitInfosWithBound {
  * or both. Use [VisitType.UPDATE_PLACE] to differentiate an update from a visit.
  */
 dictionary VisitObservation {
-    string url;
+    Url url;
     string? title = null;
     VisitTransition? visit_type;
     boolean? is_error = null;
     boolean? is_redirect_source = null;
     boolean? is_permanent_redirect_source = null;
     Timestamp? at = null;
-    string? referrer = null;
+    Url? referrer = null;
     boolean? is_remote = null;
-    string? preview_image_url = null;
+    Url? preview_image_url = null;
 };
 
 // Exists just to convince uniffi to generate `liftSequence*` helpers!
