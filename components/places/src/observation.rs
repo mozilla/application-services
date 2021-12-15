@@ -21,9 +21,6 @@ use url::Url;
 /// no observation.
 #[derive(Debug)]
 pub struct VisitObservation {
-    /// Ideally, we'd use url::Url here with `serde_url`, but we really would
-    /// like to expose these errors over the FFI as UrlParseErrors and not json
-    /// errors, and we also would like to do so without parsing strings.
     pub url: Url,
     pub title: Option<String>,
     pub visit_type: Option<VisitTransition>,

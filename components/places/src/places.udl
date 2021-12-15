@@ -227,7 +227,6 @@ dictionary HistoryVisitInfo {
     Url url;
     string? title;
     Timestamp timestamp;
-    // XXX - This should use the VisitType enum when it gets uniffied
     VisitTransition visit_type;
     boolean is_hidden;
     Url? preview_image_url;
