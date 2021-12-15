@@ -1,3 +1,17 @@
+# v87.2.0 (_2021-12-15_)
+
+[Full Changelog](https://github.com/mozilla/application-services/compare/v87.1.0...v87.2.0)
+
+### ✨✨ What's New ✨✨
+
+#### ⛅️🔭🔬 Nimbus
+
+- Initial release of the Nimbus Feature Manifest Language tool (`nimbus-fml`).
+  - This is a significant upgrade to the Variables API, adding code-generation to Kotlin and Experimenter compatible manifest JSON.
+  - [RFC for language specification](https://github.com/mozilla/experimenter-docs/pull/156).
+  - This is the first release it is made available to client app's build processes.
+  - [Build on CI](https://github.com/mozilla/application-services/pull/4701) ready for application build processes to download.
+
 # v87.1.0 (_2021-12-02_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v87.0.0...v87.1.0)
