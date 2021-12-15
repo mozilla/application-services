@@ -52,6 +52,7 @@ pub(crate) struct Types {
 pub(crate) struct FeatureBody {
     description: String,
     variables: HashMap<String, FieldBody>,
+    #[serde(alias = "defaults")]
     default: Option<serde_json::Value>,
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -291,7 +292,7 @@ fn collect_channel_defaults(
 ///      "positive": {
 ///        "alt-text": "Go Ahead!"
 ///      }
-/// }   
+/// }
 /// ```
 ///
 /// The result of the algorithm would be a default that looks like:
@@ -304,7 +305,7 @@ fn collect_channel_defaults(
 ///         "color": "green",
 ///         "alt-text": "Go Ahead!"
 ///     }
-///         
+///
 /// ```
 ///
 /// - The `label` comes from the original field level default
