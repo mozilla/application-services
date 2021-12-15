@@ -468,6 +468,9 @@ jobs:
   release-nimbus-fml:
     executor: macos
     steps:
+      - full-checkout
+      - attach_workspace:
+          at: .
       - install-ghr
       - run:
           name: Release nimbus-fml archive and checksum on Github
