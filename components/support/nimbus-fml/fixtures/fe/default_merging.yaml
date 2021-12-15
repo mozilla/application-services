@@ -30,7 +30,7 @@ features:
           "child": {},
           "adult": {}
         }
-    default:
+    defaults:
       - channel: release
         value: {
           "positive": {
