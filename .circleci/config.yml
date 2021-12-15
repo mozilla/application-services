@@ -156,7 +156,6 @@ commands:
             - Carthage
   test-setup:
     steps:
-      - full-checkout
       - build-desktop-libs
       - setup-rust-target-version
       - setup-sccache
@@ -175,11 +174,6 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py nss-bindings
-  bench-all:
-    steps:
-      - run:
-          name: Build and Run Benchmarks
-          command: cargo bench --all
   restore-sccache-cache:
     steps:
       - restore_cache:
@@ -244,14 +238,16 @@ jobs:
   Lint Rust with clippy:
     executor: docker
     steps:
-      - test-setup
+      - full-checkout
       - restore-sccache-cache
+      - test-setup
       - run: ./automation/tests.py rust-clippy
       - save-sccache-cache
   Generate code coverage:
     executor: docker
     resource_class: large
     steps:
+      - full-checkout
       - test-setup
       - install-grcov
       # Test coverage support in Rust has been evolving rapidly, use nightly
@@ -283,8 +279,9 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
-      - test-setup
+      - full-checkout
       - restore-sccache-cache
+      - test-setup
       - run-tests
       - save-sccache-cache
   Rust tests - min supported rust version:
@@ -292,8 +289,9 @@ jobs:
     # We have to use a machine with more RAM for tests so we don't run out of memory.
     resource_class: large
     steps:
-      - test-setup
+      - full-checkout
       - restore-sccache-cache
+      - test-setup
       - setup-rust-min-version
       # tests.py doesn't support skipping tests, and we need to skip the systests on this rust version.
       # It's not in the default workspace members, so just `cargo test` is OK.
@@ -304,18 +302,11 @@ jobs:
     executor: docker
     resource_class: large
     steps:
-      - test-setup
+      - full-checkout
       - restore-sccache-cache
+      - test-setup
       - run: rustup override set beta
       - run-tests
-      - save-sccache-cache
-  Rust benchmarks:
-    executor: docker
-    resource_class: large
-    steps:
-      - test-setup
-      - restore-sccache-cache
-      - bench-all
       - save-sccache-cache
   iOS build and test:
     executor: macos
@@ -506,7 +497,6 @@ workflows:
   run-tests:
     jobs:
       - Rust tests
-      - Rust benchmarks
   run-tests-min-supported-version:
     jobs:
       - Rust tests - min supported rust version
