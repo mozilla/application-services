@@ -188,7 +188,8 @@ commands:
           # We have multiple keys to increase the chance of a cache hit
           # in case the Cargo.lock is updated, we still want to retrieve
           # some cache
-            - sccache-cache-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
+            - sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}
             - sccache-cache-stable-{{ arch }}
 
   save-sccache-cache:
@@ -201,7 +202,7 @@ commands:
           name: Save sccache cache
           # We only upload a new cache if our Cargo.lock changed
           # otherwise, we update the exact same key
-          key: sccache-cache-stable-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: sccache-cache-stable-{{ arch }}-{{ .Environment.CIRCLE_JOB }}-{{ checksum "Cargo.lock" }}
           paths:
             - <<parameters.path>>
       - sccache-stats-and-logs
