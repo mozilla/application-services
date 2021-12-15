@@ -14,7 +14,7 @@ use crate::db::PlacesDb;
 use crate::error::{ErrorKind, InvalidPlaceInfo, Result};
 use crate::ffi::HistoryVisitInfo;
 use crate::ffi::TopFrecentSiteInfo;
-use crate::types::{SyncStatus, VisitTransition};
+use crate::types::{SyncStatus, VisitType};
 use rusqlite::types::{FromSql, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 use rusqlite::Result as RusqliteResult;
 use rusqlite::Row;
@@ -185,11 +185,11 @@ fn new_page_info(db: &PlacesDb, url: &Url, new_guid: Option<SyncGuid>) -> Result
 
 impl HistoryVisitInfo {
     pub(crate) fn from_row(row: &rusqlite::Row<'_>) -> Result<Self> {
-        let visit_type = VisitTransition::from_primitive(row.get::<_, u8>("visit_type")?)
+        let visit_type = VisitType::from_primitive(row.get::<_, u8>("visit_type")?)
             // Do we have an existing error we use for this? For now they
             // probably don't care too much about VisitTransition, so this
             // is fine.
-            .unwrap_or(VisitTransition::Link);
+            .unwrap_or(VisitType::Link);
         let visit_date: Timestamp = row.get("visit_date")?;
         let url: String = row.get("url")?;
         let preview_image_url: Option<String> = row.get("preview_image_url")?;

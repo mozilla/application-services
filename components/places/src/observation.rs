@@ -26,7 +26,7 @@ pub struct VisitObservation {
     /// errors, and we also would like to do so without parsing strings.
     pub url: Url,
     pub title: Option<String>,
-    pub visit_type: Option<VisitTransition>,
+    pub visit_type: Option<VisitType>,
     pub is_error: Option<bool>,
     pub is_redirect_source: Option<bool>,
     pub is_permanent_redirect_source: Option<bool>,
@@ -60,7 +60,7 @@ impl VisitObservation {
         self
     }
 
-    pub fn with_visit_type(mut self, t: impl Into<Option<VisitTransition>>) -> Self {
+    pub fn with_visit_type(mut self, t: impl Into<Option<VisitType>>) -> Self {
         self.visit_type = t.into();
         self
     }
@@ -104,7 +104,7 @@ impl VisitObservation {
     pub fn get_redirect_frecency_boost(&self) -> bool {
         self.is_redirect_source.is_some()
             && match self.visit_type {
-                Some(t) => t != VisitTransition::Typed,
+                Some(t) => t != VisitType::Typed,
                 _ => true,
             }
     }
@@ -114,8 +114,8 @@ impl VisitObservation {
         match self.visit_type {
             Some(visit_type) => {
                 self.is_redirect_source.is_some()
-                    || visit_type == VisitTransition::FramedLink
-                    || visit_type == VisitTransition::Embed
+                    || visit_type == VisitType::FramedLink
+                    || visit_type == VisitType::Embed
             }
             None => false,
         }

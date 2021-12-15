@@ -40,7 +40,7 @@ fn init_db(db: &mut PlacesDb) -> places::Result<()> {
             let obs = places::VisitObservation::new(url.clone())
                 .with_title(entry.title.clone())
                 .with_is_remote(i < 10)
-                .with_visit_type(places::VisitTransition::Link)
+                .with_visit_type(places::VisitType::Link)
                 .with_at(Timestamp(now.0 - day_ms * (1 + i)));
             places::storage::history::apply_observation_direct(db, obs)?;
         }

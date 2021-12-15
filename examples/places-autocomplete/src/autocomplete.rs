@@ -6,7 +6,7 @@
 
 use anyhow::Result;
 use clap::value_t;
-use places::{PlacesDb, VisitObservation, VisitTransition};
+use places::{PlacesDb, VisitObservation, VisitType};
 use rusqlite::NO_PARAMS;
 use sql_support::ConnExt;
 use std::io::prelude::*;
@@ -70,9 +70,7 @@ impl LegacyPlace {
         let url = Url::parse(&self.url)?;
         for v in self.visits {
             let obs = VisitObservation::new(url.clone())
-                .with_visit_type(
-                    VisitTransition::from_primitive(v.visit_type).unwrap_or(VisitTransition::Link),
-                )
+                .with_visit_type(VisitType::from_primitive(v.visit_type).unwrap_or(VisitType::Link))
                 .with_at(types::Timestamp((v.date / 1000) as u64))
                 .with_title(self.title.clone())
                 .with_is_remote(rand::random::<f64>() < options.remote_probability);

@@ -2,7 +2,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-use super::{InvalidVisitType, VisitTransition};
+use super::{InvalidVisitType, VisitType};
 use rusqlite::types::ToSqlOutput;
 use std::convert::{TryFrom, TryInto};
 
@@ -11,15 +11,15 @@ pub struct VisitTransitionSet {
     pub(crate) bits: u16,
 }
 
-const ALL_BITS_SET: u16 = (1u16 << (VisitTransition::Link as u8))
-    | (1u16 << (VisitTransition::Typed as u8))
-    | (1u16 << (VisitTransition::Bookmark as u8))
-    | (1u16 << (VisitTransition::Embed as u8))
-    | (1u16 << (VisitTransition::RedirectPermanent as u8))
-    | (1u16 << (VisitTransition::RedirectTemporary as u8))
-    | (1u16 << (VisitTransition::Download as u8))
-    | (1u16 << (VisitTransition::FramedLink as u8))
-    | (1u16 << (VisitTransition::Reload as u8));
+const ALL_BITS_SET: u16 = (1u16 << (VisitType::Link as u8))
+    | (1u16 << (VisitType::Typed as u8))
+    | (1u16 << (VisitType::Bookmark as u8))
+    | (1u16 << (VisitType::Embed as u8))
+    | (1u16 << (VisitType::RedirectPermanent as u8))
+    | (1u16 << (VisitType::RedirectTemporary as u8))
+    | (1u16 << (VisitType::Download as u8))
+    | (1u16 << (VisitType::FramedLink as u8))
+    | (1u16 << (VisitType::Reload as u8));
 
 impl VisitTransitionSet {
     pub const fn new() -> Self {
@@ -34,13 +34,13 @@ impl VisitTransitionSet {
         Self { bits: ALL_BITS_SET }
     }
 
-    pub const fn single(ty: VisitTransition) -> Self {
+    pub const fn single(ty: VisitType) -> Self {
         Self {
             bits: (1u16 << (ty as u8)),
         }
     }
 
-    pub fn for_specific(tys: &[VisitTransition]) -> Self {
+    pub fn for_specific(tys: &[VisitType]) -> Self {
         tys.iter().cloned().collect()
     }
 
@@ -52,15 +52,15 @@ impl VisitTransitionSet {
         v.try_into()
     }
 
-    pub fn contains(self, t: VisitTransition) -> bool {
+    pub fn contains(self, t: VisitType) -> bool {
         (self.bits & (1 << (t as u32))) != 0
     }
 
-    pub fn insert(&mut self, t: VisitTransition) {
+    pub fn insert(&mut self, t: VisitType) {
         self.bits |= 1 << (t as u8);
     }
 
-    pub fn remove(&mut self, t: VisitTransition) {
+    pub fn remove(&mut self, t: VisitType) {
         self.bits &= !(1 << (t as u8));
     }
 
@@ -91,7 +91,7 @@ impl TryFrom<u16> for VisitTransitionSet {
 }
 
 impl IntoIterator for VisitTransitionSet {
-    type Item = VisitTransition;
+    type Item = VisitType;
     type IntoIter = VisitTransitionSetIter;
     fn into_iter(self) -> VisitTransitionSetIter {
         VisitTransitionSetIter {
@@ -107,7 +107,7 @@ pub struct VisitTransitionSetIter {
 }
 
 impl Iterator for VisitTransitionSetIter {
-    type Item = VisitTransition;
+    type Item = VisitType;
     fn next(&mut self) -> Option<Self::Item> {
         if self.bits == 0 {
             return None;
@@ -117,7 +117,7 @@ impl Iterator for VisitTransitionSetIter {
             self.bits >>= 1;
         }
         // Should always be fine unless VisitTransitionSet has a bug.
-        let result: VisitTransition = self.pos.try_into().expect("Bug in VisitTransitionSet");
+        let result: VisitType = self.pos.try_into().expect("Bug in VisitTransitionSet");
         self.pos += 1;
         self.bits >>= 1;
         Some(result)
@@ -135,10 +135,10 @@ impl From<VisitTransitionSet> for u16 {
     }
 }
 
-impl Extend<VisitTransition> for VisitTransitionSet {
+impl Extend<VisitType> for VisitTransitionSet {
     fn extend<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = VisitTransition>,
+        I: IntoIterator<Item = VisitType>,
     {
         for element in iter {
             self.insert(element);
@@ -146,10 +146,10 @@ impl Extend<VisitTransition> for VisitTransitionSet {
     }
 }
 
-impl std::iter::FromIterator<VisitTransition> for VisitTransitionSet {
+impl std::iter::FromIterator<VisitType> for VisitTransitionSet {
     fn from_iter<I>(iterator: I) -> Self
     where
-        I: IntoIterator<Item = VisitTransition>,
+        I: IntoIterator<Item = VisitType>,
     {
         let mut ret = Self::new();
         ret.extend(iterator);
@@ -167,16 +167,16 @@ impl rusqlite::ToSql for VisitTransitionSet {
 mod test {
     use super::*;
 
-    const ALL_TRANSITIONS: &[VisitTransition] = &[
-        VisitTransition::Link,
-        VisitTransition::Typed,
-        VisitTransition::Bookmark,
-        VisitTransition::Embed,
-        VisitTransition::RedirectPermanent,
-        VisitTransition::RedirectTemporary,
-        VisitTransition::Download,
-        VisitTransition::FramedLink,
-        VisitTransition::Reload,
+    const ALL_TRANSITIONS: &[VisitType] = &[
+        VisitType::Link,
+        VisitType::Typed,
+        VisitType::Bookmark,
+        VisitType::Embed,
+        VisitType::RedirectPermanent,
+        VisitType::RedirectTemporary,
+        VisitType::Download,
+        VisitType::FramedLink,
+        VisitType::Reload,
     ];
     #[test]
     fn test_vtset() {
@@ -192,9 +192,9 @@ mod test {
         assert_eq!(vts_all, vts);
 
         let to_remove = &[
-            VisitTransition::Typed,
-            VisitTransition::RedirectPermanent,
-            VisitTransition::RedirectTemporary,
+            VisitType::Typed,
+            VisitType::RedirectPermanent,
+            VisitType::RedirectTemporary,
         ];
         for &r in to_remove {
             assert!(vts.contains(r));
@@ -218,9 +218,9 @@ mod test {
         assert_eq!(&vts.into_iter().collect::<Vec<_>>()[..], ALL_TRANSITIONS);
 
         let to_remove = &[
-            VisitTransition::Typed,
-            VisitTransition::RedirectPermanent,
-            VisitTransition::RedirectTemporary,
+            VisitType::Typed,
+            VisitType::RedirectPermanent,
+            VisitType::RedirectTemporary,
         ];
 
         for &r in to_remove {
@@ -228,12 +228,12 @@ mod test {
         }
 
         let want = &[
-            VisitTransition::Link,
-            VisitTransition::Bookmark,
-            VisitTransition::Embed,
-            VisitTransition::Download,
-            VisitTransition::FramedLink,
-            VisitTransition::Reload,
+            VisitType::Link,
+            VisitType::Bookmark,
+            VisitType::Embed,
+            VisitType::Download,
+            VisitType::FramedLink,
+            VisitType::Reload,
         ];
         assert_eq!(&vts.into_iter().collect::<Vec<_>>()[..], want);
 
@@ -249,7 +249,7 @@ mod test {
 
         assert_eq!(
             VisitTransitionSet::try_from(2),
-            Ok(VisitTransitionSet::single(VisitTransition::Link)),
+            Ok(VisitTransitionSet::single(VisitType::Link)),
         );
 
         assert!(VisitTransitionSet::try_from(ALL_BITS_SET + 1).is_err(),);

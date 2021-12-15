@@ -1314,7 +1314,7 @@ mod tests {
     fn test_query() {
         use crate::observation::VisitObservation;
         use crate::storage::history::apply_observation;
-        use crate::types::VisitTransition;
+        use crate::types::VisitType;
 
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
         let now = Timestamp::now();
@@ -1325,7 +1325,7 @@ mod tests {
                 .with_title(Some(String::from("Budget vows to build &#x27;for the long term&#x27; as it promises child care cash, projects massive deficits | CBC News")))
                 .with_preview_image_url(Some(Url::parse("https://i.cbc.ca/1.5993583.1618861792!/cpImage/httpImage/image.jpg_gen/derivatives/16x9_620/fedbudget-20210419.jpg").unwrap()))
                 .with_is_remote(false)
-                .with_visit_type(VisitTransition::Link);
+                .with_visit_type(VisitType::Link);
         apply_observation(&conn, observation1).unwrap();
 
         note_observation!(
@@ -1641,7 +1641,7 @@ mod tests {
         // The cleanup functionality lives as a TRIGGER in `create_shared_triggers`.
         use crate::observation::VisitObservation;
         use crate::storage::history::{apply_observation, wipe_local};
-        use crate::types::VisitTransition;
+        use crate::types::VisitType;
 
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
@@ -1655,13 +1655,13 @@ mod tests {
             .with_at(now)
             .with_title(Some(String::from("Test page 0")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
 
         let observation2 = VisitObservation::new(parent_url.clone())
             .with_at(now)
             .with_title(Some(String::from("Test page 1")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
 
         apply_observation(&conn, observation1).expect("Should apply visit");
         apply_observation(&conn, observation2).expect("Should apply visit");
@@ -1725,7 +1725,7 @@ mod tests {
         // The cleanup functionality lives as a TRIGGER in `create_shared_triggers`.
         use crate::observation::VisitObservation;
         use crate::storage::history::{apply_observation, delete_visits_between, wipe_local};
-        use crate::types::VisitTransition;
+        use crate::types::VisitType;
 
         let conn = PlacesDb::open_in_memory(ConnectionType::ReadWrite).expect("memory db");
 
@@ -1734,19 +1734,19 @@ mod tests {
             .with_at(now)
             .with_title(Some(String::from("Test page 1")))
             .with_is_remote(false)
-            .with_visit_type(VisitTransition::Link);
+            .with_visit_type(VisitType::Link);
         let observation2 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/another/").unwrap())
                 .with_at(Timestamp((now.as_millis() + 10000) as u64))
                 .with_title(Some(String::from("Test page 3")))
                 .with_is_remote(false)
-                .with_visit_type(VisitTransition::Link);
+                .with_visit_type(VisitType::Link);
         let observation3 =
             VisitObservation::new(Url::parse("https://www.mozilla.org/first/").unwrap())
                 .with_at(Timestamp((now.as_millis() - 10000) as u64))
                 .with_title(Some(String::from("Test page 0")))
                 .with_is_remote(true)
-                .with_visit_type(VisitTransition::Link);
+                .with_visit_type(VisitType::Link);
         apply_observation(&conn, observation1).expect("Should apply visit");
         apply_observation(&conn, observation2).expect("Should apply visit");
         apply_observation(&conn, observation3).expect("Should apply visit");

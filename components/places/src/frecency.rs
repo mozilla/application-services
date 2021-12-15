@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::error::*;
-use crate::types::VisitTransition;
+use crate::types::VisitType;
 use rusqlite::Connection;
 use types::Timestamp;
 
@@ -80,7 +80,7 @@ impl FrecencySettings {
     // Note: in Places, `redirect` defaults to false.
     pub fn get_transition_bonus(
         &self,
-        visit_type: Option<VisitTransition>,
+        visit_type: Option<VisitType>,
         visited: bool,
         redirect: bool,
     ) -> i32 {
@@ -88,19 +88,20 @@ impl FrecencySettings {
             return self.redirect_source_visit_bonus;
         }
         match (visit_type, visited) {
-            (Some(VisitTransition::Link), _) => self.link_visit_bonus,
-            (Some(VisitTransition::Embed), _) => self.embed_visit_bonus,
-            (Some(VisitTransition::FramedLink), _) => self.framed_link_visit_bonus,
-            (Some(VisitTransition::RedirectPermanent), _) => self.temporary_redirect_visit_bonus,
-            (Some(VisitTransition::RedirectTemporary), _) => self.permanent_redirect_visit_bonus,
-            (Some(VisitTransition::Download), _) => self.download_visit_bonus,
-            (Some(VisitTransition::Reload), _) => self.reload_visit_bonus,
-            (Some(VisitTransition::Typed), true) => self.typed_visit_bonus,
-            (Some(VisitTransition::Typed), false) => self.unvisited_typed_bonus,
-            (Some(VisitTransition::Bookmark), true) => self.bookmark_visit_bonus,
-            (Some(VisitTransition::Bookmark), false) => self.unvisited_bookmark_bonus,
+            (Some(VisitType::Link), _) => self.link_visit_bonus,
+            (Some(VisitType::Embed), _) => self.embed_visit_bonus,
+            (Some(VisitType::FramedLink), _) => self.framed_link_visit_bonus,
+            (Some(VisitType::RedirectPermanent), _) => self.temporary_redirect_visit_bonus,
+            (Some(VisitType::RedirectTemporary), _) => self.permanent_redirect_visit_bonus,
+            (Some(VisitType::Download), _) => self.download_visit_bonus,
+            (Some(VisitType::Reload), _) => self.reload_visit_bonus,
+            (Some(VisitType::Typed), true) => self.typed_visit_bonus,
+            (Some(VisitType::Typed), false) => self.unvisited_typed_bonus,
+            (Some(VisitType::Bookmark), true) => self.bookmark_visit_bonus,
+            (Some(VisitType::Bookmark), false) => self.unvisited_bookmark_bonus,
             // 0 == undefined (see bug 375777 in bugzilla for details)
-            (None, _) => self.default_visit_bonus,
+            // XX: Should a VisitType::UpdatePlaces have a default visit bonus?
+            (_, _) => self.default_visit_bonus,
         }
     }
 
@@ -190,8 +191,8 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
              WHERE v.place_id = :page_id
              ORDER BY v.visit_date DESC
              LIMIT {max_visits}",
-            redirect_permanent = VisitTransition::RedirectPermanent as u8,
-            redirect_temporary = VisitTransition::RedirectTemporary as u8,
+            redirect_permanent = VisitType::RedirectPermanent as u8,
+            redirect_temporary = VisitType::RedirectTemporary as u8,
             // in practice this is constant, so caching the query is fine.
             // (rusqlite has a max cache size too should things change)
             max_visits = self.settings.num_visits,
@@ -210,8 +211,8 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
                 let age_in_days =
                     (now.as_millis() as f64 - visit_date.as_millis() as f64) / 86_400_000.0;
                 Ok((
-                    VisitTransition::from_primitive(visit_type),
-                    VisitTransition::from_primitive(target_visit_type),
+                    VisitType::from_primitive(visit_type),
+                    VisitType::from_primitive(target_visit_type),
                     age_in_days.round() as i32,
                 ))
             },
@@ -229,9 +230,9 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
             let use_redirect_bonus = if self.most_recent_redirect_bonus == RedirectBonus::Unknown
                 || num_sampled_visits > 0
             {
-                target_visit_type == Some(VisitTransition::RedirectPermanent)
-                    || (target_visit_type == Some(VisitTransition::RedirectTemporary)
-                        && visit_type != Some(VisitTransition::Typed))
+                target_visit_type == Some(VisitType::RedirectPermanent)
+                    || (target_visit_type == Some(VisitType::RedirectTemporary)
+                        && visit_type != Some(VisitType::Typed))
             } else {
                 self.most_recent_redirect_bonus == RedirectBonus::Redirect
             };
@@ -241,11 +242,9 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
                     .get_transition_bonus(visit_type, true, use_redirect_bonus);
 
             if self.has_bookmark() {
-                bonus += self.settings.get_transition_bonus(
-                    Some(VisitTransition::Bookmark),
-                    true,
-                    false,
-                );
+                bonus += self
+                    .settings
+                    .get_transition_bonus(Some(VisitType::Bookmark), true, false);
             }
             if bonus != 0 {
                 let weight = self.settings.get_frecency_aged_weight(age_in_days) as f32;
@@ -275,13 +274,13 @@ impl<'db, 's> FrecencyComputation<'db, 's> {
     fn compute_unvisited_bookmark_frecency(&self) -> i32 {
         // Make it so something bookmarked and typed will have a higher frecency
         // than something just typed or just bookmarked.
-        let mut bonus =
-            self.settings
-                .get_transition_bonus(Some(VisitTransition::Bookmark), false, false);
+        let mut bonus = self
+            .settings
+            .get_transition_bonus(Some(VisitType::Bookmark), false, false);
         if self.typed != 0 {
             bonus += self
                 .settings
-                .get_transition_bonus(Some(VisitTransition::Typed), false, false);
+                .get_transition_bonus(Some(VisitType::Typed), false, false);
         }
 
         // Assume "now" as our age_in_days, so use the first bucket.

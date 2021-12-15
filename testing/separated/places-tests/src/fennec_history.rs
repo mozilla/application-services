@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use places::import::fennec::history::HistoryMigrationResult;
-use places::{api::places_api::PlacesApi, types::VisitTransition, ErrorKind, Result};
+use places::{api::places_api::PlacesApi, types::VisitType, ErrorKind, Result};
 use rusqlite::{Connection, NO_PARAMS};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -61,7 +61,7 @@ impl FennecHistory {
 #[derive(Clone, Debug)]
 struct FennecVisit<'a> {
     history: &'a FennecHistory,
-    visit_type: VisitTransition,
+    visit_type: VisitType,
     date: Timestamp,
     is_local: bool,
 }
@@ -210,55 +210,55 @@ fn test_import() -> Result<()> {
     let visits = [
         FennecVisit {
             history: &history[0],
-            visit_type: VisitTransition::Typed,
+            visit_type: VisitType::Typed,
             date: Timestamp::from(1_565_117_389_897),
             is_local: true,
         },
         FennecVisit {
             history: &history[0],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_389_898),
             is_local: false,
         },
         FennecVisit {
             history: &history[1],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1), // Invalid timestamp should get corrected!
             is_local: false,
         },
         FennecVisit {
             history: &history[1],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_123_123_123), // Microsecond timestamp should be imported.
             is_local: false,
         },
         FennecVisit {
             history: &history[3],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_389_898),
             is_local: true,
         },
         FennecVisit {
             history: &history[4],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_389_898),
             is_local: true,
         },
         FennecVisit {
             history: &history[5],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_389_898),
             is_local: true,
         },
         FennecVisit {
             history: &history[7],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_389_898),
             is_local: true,
         },
         FennecVisit {
             history: &history[8],
-            visit_type: VisitTransition::Link,
+            visit_type: VisitType::Link,
             date: Timestamp::from(1_565_117_389_898),
             is_local: false,
         },

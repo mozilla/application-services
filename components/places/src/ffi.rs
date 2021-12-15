@@ -15,7 +15,7 @@ use crate::storage::{history, history_metadata};
 use crate::types::VisitTransitionSet;
 use crate::ConnectionType;
 use crate::VisitObservation;
-use crate::VisitTransition;
+use crate::VisitType;
 use crate::{msg_types, storage};
 use crate::{PlacesApi, PlacesDb};
 use ffi_support::{
@@ -381,7 +381,7 @@ pub struct HistoryVisitInfo {
     pub url: Url,
     pub title: Option<String>,
     pub timestamp: Timestamp,
-    pub visit_type: VisitTransition,
+    pub visit_type: VisitType,
     pub is_hidden: bool,
     pub preview_image_url: Option<Url>,
 }

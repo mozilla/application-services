@@ -18,9 +18,9 @@ pub struct InvalidVisitType;
 // NOTE: These discriminator values are the same as those used by Desktop
 // Firefox and are what is written to the database. We also duplicate them
 // as constants in visit_transition_set.rs
-#[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum VisitTransition {
+pub enum VisitType {
+    UpdatePlace = -1,
     // This transition type means the user followed a link.
     Link = 1,
 
@@ -38,64 +38,64 @@ pub enum VisitTransition {
     Reload = 9,
 }
 
-impl ToSql for VisitTransition {
+impl ToSql for VisitType {
     fn to_sql(&self) -> RusqliteResult<ToSqlOutput<'_>> {
         Ok(ToSqlOutput::from(*self as u8))
     }
 }
 
-impl VisitTransition {
+impl VisitType {
     pub fn from_primitive(p: u8) -> Option<Self> {
         match p {
-            1 => Some(VisitTransition::Link),
-            2 => Some(VisitTransition::Typed),
-            3 => Some(VisitTransition::Bookmark),
-            4 => Some(VisitTransition::Embed),
-            5 => Some(VisitTransition::RedirectPermanent),
-            6 => Some(VisitTransition::RedirectTemporary),
-            7 => Some(VisitTransition::Download),
-            8 => Some(VisitTransition::FramedLink),
-            9 => Some(VisitTransition::Reload),
+            1 => Some(VisitType::Link),
+            2 => Some(VisitType::Typed),
+            3 => Some(VisitType::Bookmark),
+            4 => Some(VisitType::Embed),
+            5 => Some(VisitType::RedirectPermanent),
+            6 => Some(VisitType::RedirectTemporary),
+            7 => Some(VisitType::Download),
+            8 => Some(VisitType::FramedLink),
+            9 => Some(VisitType::Reload),
             _ => None,
         }
     }
 }
 
-impl TryFrom<u8> for VisitTransition {
+impl TryFrom<u8> for VisitType {
     type Error = InvalidVisitType;
     fn try_from(p: u8) -> Result<Self, Self::Error> {
-        VisitTransition::from_primitive(p).ok_or(InvalidVisitType)
+        VisitType::from_primitive(p).ok_or(InvalidVisitType)
     }
 }
 
 struct VisitTransitionSerdeVisitor;
 
 impl<'de> serde::de::Visitor<'de> for VisitTransitionSerdeVisitor {
-    type Value = VisitTransition;
+    type Value = VisitType;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str("positive integer representing VisitTransition")
     }
 
-    fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitTransition, E> {
+    fn visit_u64<E: serde::de::Error>(self, value: u64) -> Result<VisitType, E> {
         use std::u8::MAX as U8_MAX;
         if value > u64::from(U8_MAX) {
             // In practice this is *way* out of the valid range of VisitTransition, but
             // serde requires us to implement this as visit_u64 so...
             return Err(E::custom(format!("value out of u8 range: {}", value)));
         }
-        VisitTransition::from_primitive(value as u8)
+        VisitType::from_primitive(value as u8)
             .ok_or_else(|| E::custom(format!("unknown VisitTransition value: {}", value)))
     }
 }
 
-impl serde::Serialize for VisitTransition {
+impl serde::Serialize for VisitType {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_u64(*self as u64)
     }
 }
 
-impl<'de> serde::Deserialize<'de> for VisitTransition {
+impl<'de> serde::Deserialize<'de> for VisitType {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_u64(VisitTransitionSerdeVisitor)
     }
@@ -219,10 +219,7 @@ mod tests {
 
     #[test]
     fn test_primitive() {
-        assert_eq!(
-            Some(VisitTransition::Link),
-            VisitTransition::from_primitive(1)
-        );
-        assert_eq!(None, VisitTransition::from_primitive(99));
+        assert_eq!(Some(VisitType::Link), VisitType::from_primitive(1));
+        assert_eq!(None, VisitType::from_primitive(99));
     }
 }

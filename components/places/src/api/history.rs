@@ -34,7 +34,7 @@ pub struct AddablePlaceInfo {
 #[derive(Debug)]
 pub struct AddableVisit {
     pub date: Timestamp,
-    pub transition: VisitTransition,
+    pub transition: VisitType,
     pub referrer: Option<Url>,
     pub is_local: bool,
 }
@@ -68,7 +68,7 @@ mod tests {
         let date = Timestamp::now();
         let visits = vec![AddableVisit {
             date,
-            transition: VisitTransition::Link,
+            transition: VisitType::Link,
             referrer: None,
             is_local: true,
         }];
@@ -154,7 +154,7 @@ pub fn visit_uri(
     // To be more honest, this would *not* take a VisitTransition,
     // but instead other "internal" nsIHistory flags, from which
     // it would deduce the VisitTransition.
-    transition: VisitTransition,
+    transition: VisitType,
     redirect_source: Option<RedirectSourceType>,
     is_error_page: bool,
 ) -> Result<()> {
@@ -186,7 +186,7 @@ pub fn visit_uri(
 
     // EMBED visits are session-persistent and should not go through the database.
     // They exist only to keep track of isVisited status during the session.
-    if transition == VisitTransition::Embed {
+    if transition == VisitType::Embed {
         log::warn!("Embed visit, but in-memory storage of these isn't done yet");
         return Ok(());
     }

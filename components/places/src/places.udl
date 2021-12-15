@@ -172,7 +172,9 @@ enum DocumentType {
     "Media",
 };
 
-enum VisitTransition {
+enum VisitType {
+    // This isn't a visit, but a request to update meta data about a page
+    "UpdatePlace",
     // This transition type means the user followed a link.
     "Link",
     // This transition type means that the user typed the page's URL in the
@@ -227,8 +229,7 @@ dictionary HistoryVisitInfo {
     Url url;
     string? title;
     Timestamp timestamp;
-    // XXX - This should use the VisitType enum when it gets uniffied
-    VisitTransition visit_type;
+    VisitType visit_type;
     boolean is_hidden;
     Url? preview_image_url;
 };
@@ -246,7 +247,7 @@ dictionary HistoryVisitInfosWithBound {
 dictionary VisitObservation {
     Url url;
     string? title = null;
-    VisitTransition? visit_type;
+    VisitType? visit_type;
     boolean? is_error = null;
     boolean? is_redirect_source = null;
     boolean? is_permanent_redirect_source = null;

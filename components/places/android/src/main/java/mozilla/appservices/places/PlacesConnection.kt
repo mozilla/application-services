@@ -19,6 +19,7 @@ import mozilla.appservices.places.uniffi.PlacesApi as UniffiPlacesApi
 import mozilla.appservices.places.uniffi.PlacesConnection as UniffiPlacesConnection
 import mozilla.appservices.places.uniffi.placesApiNew
 import mozilla.appservices.places.uniffi.VisitObservation
+import mozilla.appservices.places.uniffi.VisitType
 import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
 import mozilla.appservices.places.uniffi.SearchResult
@@ -443,10 +444,25 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
     }
 }
 
+internal fun VisitType.typeValue(): Int {
+    return when (this) {
+        VisitType.UPDATE_PLACE -> -1
+        VisitType.LINK -> 1
+        VisitType.TYPED -> 2
+        VisitType.BOOKMARK -> 3
+        VisitType.EMBED -> 4
+        VisitType.REDIRECT_PERMANENT -> 5
+        VisitType.REDIRECT_TEMPORARY -> 6
+        VisitType.DOWNLOAD -> 7
+        VisitType.FRAMED_LINK -> 8
+        VisitType.RELOAD -> 9
+    }
+}
+
 fun visitTransitionSet(l: List<VisitType>): Int {
     var res = 0
     for (ty in l) {
-        res = res or (1 shl ty.type)
+        res = res or (1 shl ty.typeValue())
     }
     return res
 }
@@ -1083,25 +1099,6 @@ interface WritableHistoryConnection : ReadableHistoryConnection {
      * @param url The chosen URL string
      */
     fun acceptResult(searchString: String, url: String)
-}
-
-enum class VisitType(val type: Int) {
-    /** This isn't a visit, but a request to update meta data about a page */
-    UPDATE_PLACE(-1),
-    /** This transition type means the user followed a link. */
-    LINK(1),
-    /** This transition type means that the user typed the page's URL in the
-     *  URL bar or selected it from UI (URL bar autocomplete results, etc).
-     */
-    TYPED(2),
-    // TODO: rest of docs
-    BOOKMARK(3),
-    EMBED(4),
-    REDIRECT_PERMANENT(5),
-    REDIRECT_TEMPORARY(6),
-    DOWNLOAD(7),
-    FRAMED_LINK(8),
-    RELOAD(9)
 }
 
 /**
