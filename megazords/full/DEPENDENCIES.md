@@ -482,7 +482,7 @@ The following text applies to code linked from these dependencies:
 [pkg-config](https://github.com/rust-lang/pkg-config-rs),
 [ppv-lite86](https://github.com/cryptocorrosion/cryptocorrosion),
 [proc-macro-hack](https://github.com/dtolnay/proc-macro-hack),
-[proc-macro2](https://github.com/alexcrichton/proc-macro2),
+[proc-macro2](https://github.com/dtolnay/proc-macro2),
 [prost-derive](https://github.com/tokio-rs/prost),
 [prost](https://github.com/tokio-rs/prost),
 [quote](https://github.com/dtolnay/quote),

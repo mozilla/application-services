@@ -175,38 +175,6 @@ commands:
     steps:
       - run: automation/tests.py rust-tests
       - run: automation/tests.py nss-bindings
-
-  dependency-checks:
-    steps:
-      - run:
-          name: Check for security vulnerabilities in dependencies
-          command: |
-            cargo install cargo-audit
-            # Explanation for ignored issues:
-            #  * RUSTSEC-2021-0019:  Soundness issues in `xcb`, a clipboard library we only use for examples.
-            #                        There is currently no fixed version available.
-            #  * RUSTSEC-2020-0159:  A possible Segfault in `chrono`'s `localtime_r' invocation, at the time of this
-            #                        patch, there is no fixed versions available, but an issue is filed on chrono: https://github.com/chronotope/chrono/issues/602
-            #  * RUSTSEC-2020-0071: Related to the one above, `chrono` pulls in a version of `time` that has the same problem, where invocations of
-            #                       `localtime_r` could segfault, our code base doesn't trigger this, there is a PR on chrono that should
-            #                       fix this: https://github.com/chronotope/chrono/pull/578
-            #                       note that both the Nimbus-SDK and glean use chrono, so if we would like to move away from it, both projects
-            #                       need to do that before we can remove the ignores (assuming `chrono` doesn't release a fixed version)
-            #  * RUSTSEC-2018-0006: Uncontrolled recursion in `yaml-rust`, which is included by `clap` v2. `clap` itself already updated to a safe
-            #                       version of `yaml-rust`, which will be released in `v3` and additionally,
-            #                       reading https://github.com/rustsec/advisory-db/issues/288, this is a false
-            #                       positive for clap and based on our dependency tree, we only use `yaml-rust` in `clap`.
-            cargo audit --ignore RUSTSEC-2021-0019 --ignore RUSTSEC-2020-0159 --ignore RUSTSEC-2020-0071 --ignore RUSTSEC-2018-0006
-      - run:
-          name: Check for any unrecorded changes in our dependency trees
-          command: |
-            pip3 install --require-hashes -r ./tools/requirements.txt
-            cargo metadata --locked > /dev/null
-            python3 ./tools/dependency_summary.py --check ./DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-ios-targets --package megazord_ios --check megazords/ios/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-ios-targets --package ios_rust --check megazords/ios-rust/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --check megazords/full/DEPENDENCIES.md
-            python3 ./tools/dependency_summary.py --all-android-targets --package megazord --format pom --check megazords/full/android/dependency-licenses.xml
   bench-all:
     steps:
       - test-setup
@@ -302,14 +270,6 @@ jobs:
       - run:
           name: Lint Bash scripts with shellcheck
           command: sh automation/lint_bash_scripts.sh
-  Check Rust dependencies:
-    # This check has to be done on a mac, to be able to detect iOS-specific dependencies.
-    executor: macos
-    steps:
-      - install-rust
-      - full-checkout
-      - setup-rust-target-version
-      - dependency-checks
   Rust tests:
     executor: docker
     # We have to use a machine with more RAM for tests so we don't run out of memory.
@@ -532,16 +492,6 @@ workflows:
   bash-lint:
     jobs:
       - Lint Bash scripts
-  check-dependencies-periodically:
-    jobs:
-      - Check Rust dependencies
-    triggers:
-      - schedule:
-          cron: "0 7 * * *"
-          filters:
-            branches:
-              only:
-                - main
   run-beta-tests-periodically:
     jobs:
       - Rust tests - beta
