@@ -176,6 +176,9 @@ pub enum PlacesError {
     #[error("UrlParseFailed: {0}")]
     UrlParseFailed(String),
 
+    #[error("JsonParseFailed: {0}")]
+    JsonParseFailed(String),
+
     #[error("PlacesConnectionBusy error: {0}")]
     PlacesConnectionBusy(String),
 
@@ -303,5 +306,11 @@ fn make_places_error(error: &Error) -> PlacesError {
 impl From<Error> for PlacesError {
     fn from(e: Error) -> PlacesError {
         make_places_error(&e)
+    }
+}
+
+impl From<serde_json::Error> for PlacesError {
+    fn from(e: serde_json::Error) -> PlacesError {
+        PlacesError::JsonParseFailed(format!("{}", e))
     }
 }

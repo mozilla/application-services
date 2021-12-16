@@ -83,7 +83,7 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
     // Later we will want to get smarter around guids - currently we will
     // fail to do this twice due to guid dupes - but that's OK for now.
     let folder = match root {
-        BookmarkTreeNode::Folder(folder_node) => folder_node,
+        BookmarkTreeNode::Folder { f } => f,
         _ => {
             println!("Imported node isn't a folder structure");
             return Ok(());
@@ -101,7 +101,7 @@ fn do_import(db: &PlacesDb, root: BookmarkTreeNode) -> Result<()> {
 
     for sub_root_node in folder.children {
         let sub_root_folder = match sub_root_node {
-            BookmarkTreeNode::Folder(folder_node) => folder_node,
+            BookmarkTreeNode::Folder { f } => f,
             _ => {
                 println!("Child of the root isn't a folder - skipping...");
                 continue;

@@ -1671,30 +1671,34 @@ mod tests {
         // add bookmark for the page we have a metadata entry
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableItem::Bookmark(InsertableBookmark {
-                parent_guid: BookmarkRootGuid::Unfiled.into(),
-                position: BookmarkPosition::Append,
-                date_added: None,
-                last_modified: None,
-                guid: Some(SyncGuid::from("cccccccccccc")),
-                url,
-                title: None,
-            }),
+            &InsertableItem::Bookmark {
+                b: InsertableBookmark {
+                    parent_guid: BookmarkRootGuid::Unfiled.into(),
+                    position: BookmarkPosition::Append,
+                    date_added: None,
+                    last_modified: None,
+                    guid: Some(SyncGuid::from("cccccccccccc")),
+                    url,
+                    title: None,
+                },
+            },
         )
         .expect("bookmark insert worked");
 
         // add another bookmark to the "parent" of our metadata entry
         bookmarks::insert_bookmark(
             &conn,
-            &InsertableItem::Bookmark(InsertableBookmark {
-                parent_guid: BookmarkRootGuid::Unfiled.into(),
-                position: BookmarkPosition::Append,
-                date_added: None,
-                last_modified: None,
-                guid: Some(SyncGuid::from("ccccccccccca")),
-                url: parent_url,
-                title: None,
-            }),
+            &InsertableItem::Bookmark {
+                b: InsertableBookmark {
+                    parent_guid: BookmarkRootGuid::Unfiled.into(),
+                    position: BookmarkPosition::Append,
+                    date_added: None,
+                    last_modified: None,
+                    guid: Some(SyncGuid::from("ccccccccccca")),
+                    url: parent_url,
+                    title: None,
+                },
+            },
         )
         .expect("bookmark insert worked");
 

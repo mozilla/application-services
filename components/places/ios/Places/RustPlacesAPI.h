@@ -60,10 +60,6 @@ void places_note_observation(PlacesConnectionHandle handle,
                              const char *_Nonnull observation_json,
                              PlacesRustError *_Nonnull out_err);
 
-void places_bookmarks_import_from_ios(PlacesAPIHandle handle,
-                                      const char *_Nonnull db_path,
-                                      PlacesRustError *_Nonnull out_err);
-
 // XXX we should move this to protobufs rather than port it to swift.
 // char *_Nullable places_get_visited(PlacesConnectionHandle handle,
 //                                    char const *_Nonnull const *_Nonnull urls,
@@ -136,51 +132,6 @@ char *_Nonnull sync15_bookmarks_sync(PlacesAPIHandle handle,
 RawPlacesInterruptHandle *_Nullable
 places_new_sync_conn_interrupt_handle(PlacesAPIHandle handle,
                                       PlacesRustError *_Nonnull out_err);
-
-// MARK: Bookmarks APIs
-
-PlacesRustBuffer bookmarks_get_by_guid(PlacesConnectionHandle handle,
-                                       char const *_Nonnull guid,
-                                       uint8_t getDirectChildren,
-                                       PlacesRustError *_Nonnull out_err);
-
-PlacesRustBuffer bookmarks_get_all_with_url(PlacesConnectionHandle handle,
-                                            char const *_Nonnull url,
-                                            PlacesRustError *_Nonnull out_err);
-
-char *_Nullable bookmarks_get_url_for_keyword(PlacesConnectionHandle handle,
-                                              char const *_Nonnull keyword,
-                                              PlacesRustError *_Nonnull out_err);
-
-PlacesRustBuffer bookmarks_search(PlacesConnectionHandle handle,
-                                  char const *_Nonnull query,
-                                  int32_t limit,
-                                  PlacesRustError *_Nonnull out_err);
-
-PlacesRustBuffer bookmarks_get_recent(PlacesConnectionHandle handle,
-                                      int32_t limit,
-                                      PlacesRustError *_Nonnull out_err);
-
-PlacesRustBuffer bookmarks_get_tree(PlacesConnectionHandle handle,
-                                    char const *_Nullable root_guid,
-                                    PlacesRustError *_Nonnull out_err);
-
-char *_Nullable bookmarks_insert(PlacesConnectionHandle handle,
-                                 uint8_t const *_Nonnull data,
-                                 int32_t len,
-                                 PlacesRustError *_Nonnull out_err);
-
-void bookmarks_update(PlacesConnectionHandle handle,
-                      uint8_t const *_Nonnull data,
-                      int32_t len,
-                      PlacesRustError *_Nonnull out_err);
-
-uint8_t bookmarks_delete(PlacesConnectionHandle handle,
-                         char const *_Nonnull guid_to_delete,
-                         PlacesRustError *_Nonnull out_err);
-
-void bookmarks_reset(PlacesAPIHandle handle,
-                     PlacesRustError *_Nonnull out_err);
 
 // MARK: memory/lifecycle management
 

@@ -2469,15 +2469,17 @@ mod tests {
         for (guid, url) in &[&b0, &b1, &b2] {
             bookmarks::insert_bookmark(
                 &conn,
-                &InsertableItem::Bookmark(InsertableBookmark {
-                    parent_guid: BookmarkRootGuid::Unfiled.into(),
-                    position: BookmarkPosition::Append,
-                    date_added: None,
-                    last_modified: None,
-                    guid: Some(guid.clone()),
-                    url: url.clone(),
-                    title: None,
-                }),
+                &InsertableItem::Bookmark {
+                    b: InsertableBookmark {
+                        parent_guid: BookmarkRootGuid::Unfiled.into(),
+                        position: BookmarkPosition::Append,
+                        date_added: None,
+                        last_modified: None,
+                        guid: Some(guid.clone()),
+                        url: url.clone(),
+                        title: None,
+                    },
+                },
             )
             .unwrap();
         }

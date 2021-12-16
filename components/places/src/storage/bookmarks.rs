@@ -79,7 +79,7 @@ pub fn create_bookmark_roots(db: &Connection) -> rusqlite::Result<()> {
 
 #[derive(Debug, Copy, Clone)]
 pub enum BookmarkPosition {
-    Specific(u32),
+    Specific { pos: u32 },
     Append,
 }
 
@@ -99,8 +99,8 @@ fn resolve_pos_for_insert(
     parent: &RawBookmark,
 ) -> Result<u32> {
     Ok(match pos {
-        BookmarkPosition::Specific(specified) => {
-            let actual = min(specified, parent.child_count);
+        BookmarkPosition::Specific { pos } => {
+            let actual = min(pos, parent.child_count);
             // must reorder existing children.
             db.execute_named_cached(
                 "UPDATE moz_bookmarks SET position = position + 1
@@ -139,7 +139,7 @@ fn update_pos_for_move(
     // Note the additional -1's below are to account for the item already being
     // in the folder.
     let new_index = match pos {
-        BookmarkPosition::Specific(specified) => min(specified, parent.child_count - 1),
+        BookmarkPosition::Specific { pos } => min(pos, parent.child_count - 1),
         BookmarkPosition::Append => parent.child_count - 1,
     };
     db.execute_named_cached(
@@ -174,8 +174,8 @@ pub struct InsertableBookmark {
 }
 
 impl From<InsertableBookmark> for InsertableItem {
-    fn from(bmk: InsertableBookmark) -> Self {
-        InsertableItem::Bookmark(bmk)
+    fn from(b: InsertableBookmark) -> Self {
+        InsertableItem::Bookmark { b }
     }
 }
 
@@ -189,8 +189,8 @@ pub struct InsertableSeparator {
 }
 
 impl From<InsertableSeparator> for InsertableItem {
-    fn from(sep: InsertableSeparator) -> Self {
-        InsertableItem::Separator(sep)
+    fn from(s: InsertableSeparator) -> Self {
+        InsertableItem::Separator { s }
     }
 }
 
@@ -205,17 +205,17 @@ pub struct InsertableFolder {
 }
 
 impl From<InsertableFolder> for InsertableItem {
-    fn from(folder: InsertableFolder) -> Self {
-        InsertableItem::Folder(folder)
+    fn from(f: InsertableFolder) -> Self {
+        InsertableItem::Folder { f }
     }
 }
 
 // The type used to insert the actual item.
 #[derive(Debug, Clone)]
 pub enum InsertableItem {
-    Bookmark(InsertableBookmark),
-    Separator(InsertableSeparator),
-    Folder(InsertableFolder),
+    Bookmark { b: InsertableBookmark },
+    Separator { s: InsertableSeparator },
+    Folder { f: InsertableFolder },
 }
 
 // We allow all "common" fields from the sub-types to be getters on the
@@ -224,9 +224,9 @@ macro_rules! impl_common_bookmark_getter {
     ($getter_name:ident, $T:ty) => {
         fn $getter_name(&self) -> &$T {
             match self {
-                InsertableItem::Bookmark(b) => &b.$getter_name,
-                InsertableItem::Separator(s) => &s.$getter_name,
-                InsertableItem::Folder(f) => &f.$getter_name,
+                InsertableItem::Bookmark { b } => &b.$getter_name,
+                InsertableItem::Separator { s } => &s.$getter_name,
+                InsertableItem::Folder { f } => &f.$getter_name,
             }
         }
     };
@@ -235,9 +235,9 @@ macro_rules! impl_common_bookmark_getter {
 impl InsertableItem {
     fn bookmark_type(&self) -> BookmarkType {
         match self {
-            InsertableItem::Bookmark(_) => BookmarkType::Bookmark,
-            InsertableItem::Separator(_) => BookmarkType::Separator,
-            InsertableItem::Folder(_) => BookmarkType::Folder,
+            InsertableItem::Bookmark { .. } => BookmarkType::Bookmark,
+            InsertableItem::Separator { .. } => BookmarkType::Separator,
+            InsertableItem::Folder { .. } => BookmarkType::Folder,
         }
     }
     impl_common_bookmark_getter!(parent_guid, SyncGuid);
@@ -282,10 +282,10 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
     // markh isn't clear how we could perform the insert) - it probably doesn't
     // matter in practice though...
     let fk = match bm {
-        InsertableItem::Bookmark(ref bm) => {
-            let page_info = match fetch_page_info(db, &bm.url)? {
+        InsertableItem::Bookmark { ref b } => {
+            let page_info = match fetch_page_info(db, &b.url)? {
                 Some(info) => info.page,
-                None => new_page_info(db, &bm.url, None)?,
+                None => new_page_info(db, &b.url, None)?,
             };
             Some(page_info.row_id)
         }
@@ -307,7 +307,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
 
     let bookmark_type = bm.bookmark_type();
     match bm {
-        InsertableItem::Bookmark(ref b) => {
+        InsertableItem::Bookmark { ref b } => {
             let title = maybe_truncate_title(&b.title.as_deref());
             db.execute_named_cached(
                 sql,
@@ -325,7 +325,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
                 ],
             )?;
         }
-        InsertableItem::Separator(ref _s) => {
+        InsertableItem::Separator { .. } => {
             db.execute_named_cached(
                 sql,
                 &[
@@ -340,7 +340,7 @@ fn insert_bookmark_in_tx(db: &PlacesDb, bm: &InsertableItem) -> Result<SyncGuid>
                 ],
             )?;
         }
-        InsertableItem::Folder(ref f) => {
+        InsertableItem::Folder { ref f } => {
             let title = maybe_truncate_title(&f.title.as_deref());
             db.execute_named_cached(
                 sql,
@@ -415,14 +415,144 @@ fn delete_bookmark_in_tx(db: &PlacesDb, guid: &SyncGuid) -> Result<bool> {
 // Used to specify how the location of the item in the tree should be updated.
 #[derive(Debug, Clone)]
 pub enum UpdateTreeLocation {
-    None,                               // no change
-    Position(BookmarkPosition),         // new position in the same folder.
-    Parent(SyncGuid, BookmarkPosition), // new parent
+    None, // no change
+    Position {
+        pos: BookmarkPosition,
+    }, // new position in the same folder.
+    Parent {
+        guid: SyncGuid,
+        pos: BookmarkPosition,
+    }, // new parent
 }
 
 impl Default for UpdateTreeLocation {
     fn default() -> Self {
         UpdateTreeLocation::None
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct BookmarkData {
+    pub guid: SyncGuid,
+    pub parent_guid: Option<SyncGuid>,
+    // Always 0 if parent_guid is None
+    pub position: u32,
+    pub date_added: Timestamp,
+    pub last_modified: Timestamp,
+    pub url: Url,
+    pub title: Option<String>,
+}
+
+impl From<BookmarkData> for Item {
+    fn from(b: BookmarkData) -> Self {
+        Item::Bookmark { b }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Separator {
+    pub guid: SyncGuid,
+    pub date_added: Timestamp,
+    pub last_modified: Timestamp,
+    pub parent_guid: Option<SyncGuid>,
+    pub position: u32,
+}
+
+impl From<Separator> for Item {
+    fn from(s: Separator) -> Self {
+        Item::Separator { s }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Folder {
+    pub guid: SyncGuid,
+    pub date_added: Timestamp,
+    pub last_modified: Timestamp,
+    pub parent_guid: Option<SyncGuid>,
+    pub position: u32,
+    pub title: Option<String>,
+    pub child_guids: Option<Vec<SyncGuid>>,
+    pub child_nodes: Option<Vec<Item>>,
+}
+
+impl From<Folder> for Item {
+    fn from(f: Folder) -> Self {
+        Item::Folder { f }
+    }
+}
+
+// The type used to update the actual item.
+#[derive(Debug, Clone)]
+pub enum Item {
+    Bookmark { b: BookmarkData },
+    Separator { s: Separator },
+    Folder { f: Folder },
+}
+
+impl Item {
+    pub fn guid(&self) -> &SyncGuid {
+        match self {
+            Item::Bookmark { b } => &b.guid,
+            Item::Folder { f } => &f.guid,
+            Item::Separator { s } => &s.guid,
+        }
+    }
+}
+
+impl From<PublicNode> for Item {
+    fn from(n: PublicNode) -> Self {
+        match n.node_type {
+            BookmarkType::Bookmark => Item::Bookmark {
+                b: BookmarkData {
+                    guid: n.guid,
+                    parent_guid: n.parent_guid,
+                    position: n.position,
+                    date_added: n.date_added,
+                    last_modified: n.last_modified,
+                    // We can assume that the URL for an existing bookmark is populated
+                    // but we're covering the None case for the sake of the conversion.
+                    url: n.url.expect("bookmark to have a url"),
+                    title: n.title,
+                },
+            },
+            BookmarkType::Separator => Item::Separator {
+                s: Separator {
+                    guid: n.guid,
+                    date_added: n.date_added,
+                    last_modified: n.last_modified,
+                    parent_guid: n.parent_guid,
+                    position: n.position,
+                },
+            },
+            BookmarkType::Folder => {
+                let child_nodes = n
+                    .child_nodes
+                    .clone()
+                    .map(|cn| cn.into_iter().map(Item::from).collect());
+
+                let child_guids: Option<Vec<SyncGuid>> =
+                    if n.child_guids.is_none() && child_nodes.is_some() {
+                        n.child_nodes
+                            .map(|cn| cn.into_iter().map(|n| n.guid).collect())
+                    } else {
+                        n.child_guids
+                    };
+
+                Item::Folder {
+                    f: Folder {
+                        guid: n.guid,
+                        date_added: n.date_added,
+                        last_modified: n.last_modified,
+                        parent_guid: n.parent_guid,
+                        position: n.position,
+                        title: n.title,
+                        child_guids,
+                        child_nodes,
+                    },
+                }
+            }
+        }
     }
 }
 
@@ -438,8 +568,8 @@ pub struct UpdatableBookmark {
 }
 
 impl From<UpdatableBookmark> for UpdatableItem {
-    fn from(bmk: UpdatableBookmark) -> Self {
-        UpdatableItem::Bookmark(bmk)
+    fn from(b: UpdatableBookmark) -> Self {
+        UpdatableItem::Bookmark { b }
     }
 }
 
@@ -449,8 +579,8 @@ pub struct UpdatableSeparator {
 }
 
 impl From<UpdatableSeparator> for UpdatableItem {
-    fn from(sep: UpdatableSeparator) -> Self {
-        UpdatableItem::Separator(sep)
+    fn from(s: UpdatableSeparator) -> Self {
+        UpdatableItem::Separator { s }
     }
 }
 
@@ -461,36 +591,71 @@ pub struct UpdatableFolder {
 }
 
 impl From<UpdatableFolder> for UpdatableItem {
-    fn from(folder: UpdatableFolder) -> Self {
-        UpdatableItem::Folder(folder)
+    fn from(f: UpdatableFolder) -> Self {
+        UpdatableItem::Folder { f }
     }
 }
 
 // The type used to update the actual item.
 #[derive(Debug, Clone)]
 pub enum UpdatableItem {
-    Bookmark(UpdatableBookmark),
-    Separator(UpdatableSeparator),
-    Folder(UpdatableFolder),
+    Bookmark { b: UpdatableBookmark },
+    Separator { s: UpdatableSeparator },
+    Folder { f: UpdatableFolder },
 }
 
 impl UpdatableItem {
     fn bookmark_type(&self) -> BookmarkType {
         match self {
-            UpdatableItem::Bookmark(_) => BookmarkType::Bookmark,
-            UpdatableItem::Separator(_) => BookmarkType::Separator,
-            UpdatableItem::Folder(_) => BookmarkType::Folder,
+            UpdatableItem::Bookmark { .. } => BookmarkType::Bookmark,
+            UpdatableItem::Separator { .. } => BookmarkType::Separator,
+            UpdatableItem::Folder { .. } => BookmarkType::Folder,
         }
     }
 
     pub fn location(&self) -> &UpdateTreeLocation {
         match self {
-            UpdatableItem::Bookmark(b) => &b.location,
-            UpdatableItem::Separator(s) => &s.location,
-            UpdatableItem::Folder(f) => &f.location,
+            UpdatableItem::Bookmark { b } => &b.location,
+            UpdatableItem::Separator { s } => &s.location,
+            UpdatableItem::Folder { f } => &f.location,
         }
     }
 }
+
+/// We don't require bookmark type for updates on the other side of the FFI,
+/// since the type is immutable, and iOS wants to be able to move bookmarks by
+/// GUID. We also don't/can't enforce as much in the Kotlin/Swift type system
+/// as we can/do in Rust.
+///
+/// This is a type that represents the data we get from the FFI, which we then
+/// turn into a `UpdatableItem` that we can actually use (we do this by
+/// reading the type out of the DB, but we can do that transactionally, so it's
+/// not a problem).
+///
+/// It's basically an intermediate between the protobuf message format and
+/// `UpdatableItem`, used to avoid needing to pass in the `type` to update, and
+/// to give us a place to check things that we can't enforce in Swift/Kotlin's
+/// type system, but that we do in Rust's.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BookmarkUpdateInfo {
+    pub guid: SyncGuid,
+    pub title: Option<String>,
+    pub url: Option<String>,
+    pub parent_guid: Option<SyncGuid>,
+    pub position: Option<u32>,
+}
+
+pub fn update_bookmark_from_info(db: &PlacesDb, info: BookmarkUpdateInfo) -> Result<()> {
+    let tx = db.begin_transaction()?;
+    let existing = get_raw_bookmark(db, &info.guid)?
+        .ok_or_else(|| InvalidPlaceInfo::NoSuchGuid(info.guid.to_string()))?;
+    let (guid, updatable) = info.into_updatable(existing.bookmark_type)?;
+
+    update_bookmark_in_tx(db, &guid, &updatable, existing)?;
+    tx.commit()?;
+    Ok(())
+}
+
 pub fn update_bookmark(db: &PlacesDb, guid: &SyncGuid, item: &UpdatableItem) -> Result<()> {
     let tx = db.begin_transaction()?;
     let existing = get_raw_bookmark(db, guid)?
@@ -542,7 +707,7 @@ fn update_bookmark_in_tx(
             update_old_parent_status = false;
             update_new_parent_status = false;
         }
-        UpdateTreeLocation::Position(pos) => {
+        UpdateTreeLocation::Position { pos } => {
             parent_id = existing_parent_id;
             update_old_parent_status = true;
             update_new_parent_status = false;
@@ -551,7 +716,10 @@ fn update_bookmark_in_tx(
             })?;
             position = update_pos_for_move(db, *pos, &raw, &parent)?;
         }
-        UpdateTreeLocation::Parent(new_parent_guid, pos) => {
+        UpdateTreeLocation::Parent {
+            guid: new_parent_guid,
+            pos,
+        } => {
             if new_parent_guid == BookmarkRootGuid::Root {
                 return Err(InvalidPlaceInfo::CannotUpdateRoot(BookmarkRootGuid::Root).into());
             }
@@ -571,7 +739,7 @@ fn update_bookmark_in_tx(
         }
     };
     let place_id = match item {
-        UpdatableItem::Bookmark(b) => match &b.url {
+        UpdatableItem::Bookmark { b } => match &b.url {
             None => raw.place_id,
             Some(url) => {
                 let page_info = match fetch_page_info(db, url)? {
@@ -592,9 +760,9 @@ fn update_bookmark_in_tx(
     // via, say `title = NULLIF(IFNULL(:title, title), '')`, this code needs
     // to know if it changed so the sync counter can be managed correctly.
     let update_title = match item {
-        UpdatableItem::Bookmark(b) => &b.title,
-        UpdatableItem::Folder(f) => &f.title,
-        UpdatableItem::Separator(_) => &None,
+        UpdatableItem::Bookmark { b } => &b.title,
+        UpdatableItem::Folder { f } => &f.title,
+        UpdatableItem::Separator { .. } => &None,
     };
 
     let title: Option<String> = match update_title {
@@ -708,8 +876,8 @@ pub struct BookmarkNode {
 }
 
 impl From<BookmarkNode> for BookmarkTreeNode {
-    fn from(node: BookmarkNode) -> Self {
-        BookmarkTreeNode::Bookmark(node)
+    fn from(b: BookmarkNode) -> Self {
+        BookmarkTreeNode::Bookmark { b }
     }
 }
 
@@ -732,8 +900,8 @@ pub struct SeparatorNode {
 }
 
 impl From<SeparatorNode> for BookmarkTreeNode {
-    fn from(node: SeparatorNode) -> Self {
-        BookmarkTreeNode::Separator(node)
+    fn from(s: SeparatorNode) -> Self {
+        BookmarkTreeNode::Separator { s }
     }
 }
 
@@ -756,8 +924,8 @@ pub struct FolderNode {
 }
 
 impl From<FolderNode> for BookmarkTreeNode {
-    fn from(node: FolderNode) -> Self {
-        BookmarkTreeNode::Folder(node)
+    fn from(f: FolderNode) -> Self {
+        BookmarkTreeNode::Folder { f }
     }
 }
 
@@ -775,25 +943,25 @@ impl PartialEq for FolderNode {
 #[derive(Debug)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum BookmarkTreeNode {
-    Bookmark(BookmarkNode),
-    Separator(SeparatorNode),
-    Folder(FolderNode),
+    Bookmark { b: BookmarkNode },
+    Separator { s: SeparatorNode },
+    Folder { f: FolderNode },
 }
 
 impl BookmarkTreeNode {
     pub fn node_type(&self) -> BookmarkType {
         match self {
-            BookmarkTreeNode::Bookmark(_) => BookmarkType::Bookmark,
-            BookmarkTreeNode::Folder(_) => BookmarkType::Folder,
-            BookmarkTreeNode::Separator(_) => BookmarkType::Separator,
+            BookmarkTreeNode::Bookmark { .. } => BookmarkType::Bookmark,
+            BookmarkTreeNode::Folder { .. } => BookmarkType::Folder,
+            BookmarkTreeNode::Separator { .. } => BookmarkType::Separator,
         }
     }
 
     pub fn guid(&self) -> &SyncGuid {
         let guid = match self {
-            BookmarkTreeNode::Bookmark(b) => b.guid.as_ref(),
-            BookmarkTreeNode::Folder(f) => f.guid.as_ref(),
-            BookmarkTreeNode::Separator(s) => s.guid.as_ref(),
+            BookmarkTreeNode::Bookmark { b } => b.guid.as_ref(),
+            BookmarkTreeNode::Folder { f } => f.guid.as_ref(),
+            BookmarkTreeNode::Separator { s } => s.guid.as_ref(),
         };
         // Can this happen? Why is this an Option?
         guid.expect("Missing guid?")
@@ -801,9 +969,9 @@ impl BookmarkTreeNode {
 
     pub fn created_modified(&self) -> (Timestamp, Timestamp) {
         let (created, modified) = match self {
-            BookmarkTreeNode::Bookmark(b) => (b.date_added, b.last_modified),
-            BookmarkTreeNode::Folder(f) => (f.date_added, f.last_modified),
-            BookmarkTreeNode::Separator(s) => (s.date_added, s.last_modified),
+            BookmarkTreeNode::Bookmark { b } => (b.date_added, b.last_modified),
+            BookmarkTreeNode::Folder { f } => (f.date_added, f.last_modified),
+            BookmarkTreeNode::Separator { s } => (s.date_added, s.last_modified),
         };
         (
             created.unwrap_or_else(Timestamp::now),
@@ -821,7 +989,7 @@ impl Serialize for BookmarkTreeNode {
     {
         let mut state = serializer.serialize_struct("BookmarkTreeNode", 2)?;
         match self {
-            BookmarkTreeNode::Bookmark(b) => {
+            BookmarkTreeNode::Bookmark { b } => {
                 state.serialize_field("type", &BookmarkType::Bookmark)?;
                 state.serialize_field("guid", &b.guid)?;
                 state.serialize_field("date_added", &b.date_added)?;
@@ -829,13 +997,13 @@ impl Serialize for BookmarkTreeNode {
                 state.serialize_field("title", &b.title)?;
                 state.serialize_field("url", &b.url.to_string())?;
             }
-            BookmarkTreeNode::Separator(s) => {
+            BookmarkTreeNode::Separator { s } => {
                 state.serialize_field("type", &BookmarkType::Separator)?;
                 state.serialize_field("guid", &s.guid)?;
                 state.serialize_field("date_added", &s.date_added)?;
                 state.serialize_field("last_modified", &s.last_modified)?;
             }
-            BookmarkTreeNode::Folder(f) => {
+            BookmarkTreeNode::Folder { f } => {
                 state.serialize_field("type", &BookmarkType::Folder)?;
                 state.serialize_field("guid", &f.guid)?;
                 state.serialize_field("date_added", &f.date_added)?;
@@ -939,19 +1107,23 @@ mod test_serialize {
     #[test]
     fn test_tree_serialize() -> Result<()> {
         let guid = SyncGuid::random();
-        let tree = BookmarkTreeNode::Folder(FolderNode {
-            guid: Some(guid.clone()),
-            date_added: None,
-            last_modified: None,
-            title: None,
-            children: vec![BookmarkTreeNode::Bookmark(BookmarkNode {
-                guid: None,
+        let tree = BookmarkTreeNode::Folder {
+            f: FolderNode {
+                guid: Some(guid.clone()),
                 date_added: None,
                 last_modified: None,
-                title: Some("the bookmark".into()),
-                url: Url::parse("https://www.example.com")?,
-            })],
-        });
+                title: None,
+                children: vec![BookmarkTreeNode::Bookmark {
+                    b: BookmarkNode {
+                        guid: None,
+                        date_added: None,
+                        last_modified: None,
+                        title: Some("the bookmark".into()),
+                        url: Url::parse("https://www.example.com")?,
+                    },
+                }],
+            },
+        };
         // round-trip the tree via serde.
         let json = serde_json::to_string_pretty(&tree)?;
         let deser: BookmarkTreeNode = serde_json::from_str(&json)?;
@@ -1000,7 +1172,7 @@ mod test_serialize {
         });
         let deser_tree: BookmarkTreeNode = serde_json::from_value(jtree).expect("should deser");
         let folder = match deser_tree {
-            BookmarkTreeNode::Folder(f) => f,
+            BookmarkTreeNode::Folder { f } => f,
             _ => panic!("must be a folder"),
         };
 
@@ -1008,21 +1180,23 @@ mod test_serialize {
         assert_eq!(children.len(), 4);
 
         assert!(match &children[0] {
-            BookmarkTreeNode::Folder(f) => f.title == Some("bookmark with invalid URL".to_string()),
+            BookmarkTreeNode::Folder { f } =>
+                f.title == Some("bookmark with invalid URL".to_string()),
             _ => false,
         });
         assert!(match &children[1] {
-            BookmarkTreeNode::Folder(f) => f.title == Some("bookmark with missing URL".to_string()),
+            BookmarkTreeNode::Folder { f } =>
+                f.title == Some("bookmark with missing URL".to_string()),
             _ => false,
         });
         assert!(match &children[2] {
-            BookmarkTreeNode::Folder(f) => {
+            BookmarkTreeNode::Folder { f } => {
                 f.title == Some("bookmark with missing type, no URL".to_string())
             }
             _ => false,
         });
         assert!(match &children[3] {
-            BookmarkTreeNode::Bookmark(b) => {
+            BookmarkTreeNode::Bookmark { b } => {
                 b.title == Some("bookmark with missing type, valid URL".to_string())
             }
             _ => false,
@@ -1038,7 +1212,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
     insert_infos.reserve(tree.children.len());
     for child in &tree.children {
         match child {
-            BookmarkTreeNode::Bookmark(b) => insert_infos.push(
+            BookmarkTreeNode::Bookmark { b } => insert_infos.push(
                 InsertableBookmark {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
@@ -1050,7 +1224,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                 }
                 .into(),
             ),
-            BookmarkTreeNode::Separator(s) => insert_infos.push(
+            BookmarkTreeNode::Separator { s } => insert_infos.push(
                 InsertableSeparator {
                     parent_guid: parent.clone(),
                     position: BookmarkPosition::Append,
@@ -1060,7 +1234,7 @@ fn add_subtree_infos(parent: &SyncGuid, tree: &FolderNode, insert_infos: &mut Ve
                 }
                 .into(),
             ),
-            BookmarkTreeNode::Folder(f) => {
+            BookmarkTreeNode::Folder { f } => {
                 let my_guid = f.guid.clone().unwrap_or_else(SyncGuid::random);
                 // must add the folder before we recurse into children.
                 insert_infos.push(
@@ -1160,7 +1334,7 @@ fn inflate(
     parent: &mut BookmarkTreeNode,
     pseudo_tree: &mut HashMap<SyncGuid, Vec<BookmarkTreeNode>>,
 ) {
-    if let BookmarkTreeNode::Folder(parent) = parent {
+    if let BookmarkTreeNode::Folder { f: parent } = parent {
         if let Some(children) = parent
             .guid
             .as_ref()
@@ -1188,19 +1362,19 @@ pub fn fetch_tree(
         WITH RECURSIVE
         descendants(fk, level, type, id, guid, parent, parentGuid, position,
                     title, dateAdded, lastModified) AS (
-          SELECT b1.fk, 0, b1.type, b1.id, b1.guid, b1.parent,
-                 (SELECT guid FROM moz_bookmarks WHERE id = b1.parent),
-                 b1.position, b1.title, b1.dateAdded, b1.lastModified
-          FROM moz_bookmarks b1 WHERE b1.guid=:item_guid
-          UNION ALL
-          SELECT b2.fk, level + 1, b2.type, b2.id, b2.guid, b2.parent,
-                 descendants.guid, b2.position, b2.title, b2.dateAdded,
-                 b2.lastModified
-          FROM moz_bookmarks b2
-          JOIN descendants ON b2.parent = descendants.id) -- AND b2.id <> :tags_folder)
+        SELECT b1.fk, 0, b1.type, b1.id, b1.guid, b1.parent,
+                (SELECT guid FROM moz_bookmarks WHERE id = b1.parent),
+                b1.position, b1.title, b1.dateAdded, b1.lastModified
+        FROM moz_bookmarks b1 WHERE b1.guid=:item_guid
+        UNION ALL
+        SELECT b2.fk, level + 1, b2.type, b2.id, b2.guid, b2.parent,
+                descendants.guid, b2.position, b2.title, b2.dateAdded,
+                b2.lastModified
+        FROM moz_bookmarks b2
+        JOIN descendants ON b2.parent = descendants.id) -- AND b2.id <> :tags_folder)
         SELECT d.level, d.id, d.guid, d.parent, d.parentGuid, d.type,
-               d.position, NULLIF(d.title, '') AS title, d.dateAdded,
-               d.lastModified, h.url
+            d.position, NULLIF(d.title, '') AS title, d.dateAdded,
+            d.lastModified, h.url
 --               (SELECT icon_url FROM moz_icons i
 --                      JOIN moz_icons_to_pages ON icon_id = i.id
 --                      JOIN moz_pages_w_icons pi ON page_id = pi.id
@@ -1286,7 +1460,7 @@ pub fn fetch_tree(
     };
 
     // Skip the rest and return if root is not a folder
-    if let BookmarkTreeNode::Bookmark(_) | BookmarkTreeNode::Separator(_) = root {
+    if let BookmarkTreeNode::Bookmark { .. } | BookmarkTreeNode::Separator { .. } = root {
         return Ok(Some((root, parent_guid, position)));
     }
 
@@ -1460,11 +1634,11 @@ fn reset_in_tx(db: &PlacesDb, assoc: &EngineSyncAssociation) -> Result<()> {
     db.execute_batch(&format!(
         "DELETE FROM moz_bookmarks_synced;
 
-         DELETE FROM moz_bookmarks_deleted;
+        DELETE FROM moz_bookmarks_deleted;
 
-         UPDATE moz_bookmarks
-         SET syncChangeCounter = 1,
-             syncStatus = {}",
+        UPDATE moz_bookmarks
+        SET syncChangeCounter = 1,
+            syncStatus = {}",
         (SyncStatus::New as u8)
     ))?;
 
@@ -1518,11 +1692,11 @@ pub mod bookmark_sync {
         ) -> rusqlite::Result<()> {
             db.execute_batch(&format!(
                 "INSERT OR IGNORE INTO moz_bookmarks_synced(guid, parentGuid, kind)
-                 VALUES('{guid}', '{parent_guid}', {kind});
+                VALUES('{guid}', '{parent_guid}', {kind});
 
-                 INSERT OR IGNORE INTO moz_bookmarks_synced_structure(
-                     guid, parentGuid, position)
-                 VALUES('{guid}', '{parent_guid}', {pos});",
+                INSERT OR IGNORE INTO moz_bookmarks_synced_structure(
+                    guid, parentGuid, position)
+                VALUES('{guid}', '{parent_guid}', {pos});",
                 guid = guid.as_str(),
                 parent_guid = parent_guid.as_str(),
                 kind = SyncedBookmarkKind::Folder as u8,
@@ -1654,15 +1828,17 @@ mod tests {
 
         let global_change_tracker = conn.global_bookmark_change_tracker();
         assert!(!global_change_tracker.changed(), "can't start as changed!");
-        let bm = InsertableItem::Bookmark(InsertableBookmark {
-            parent_guid: BookmarkRootGuid::Unfiled.into(),
-            position: BookmarkPosition::Append,
-            date_added: None,
-            last_modified: None,
-            guid: None,
-            url: url.clone(),
-            title: Some("the title".into()),
-        });
+        let bm = InsertableItem::Bookmark {
+            b: InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: url.clone(),
+                title: Some("the title".into()),
+            },
+        };
         let guid = insert_bookmark(&conn, &bm)?;
 
         // re-fetch it.
@@ -1691,28 +1867,32 @@ mod tests {
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
-        let bm = InsertableItem::Bookmark(InsertableBookmark {
-            parent_guid: BookmarkRootGuid::Unfiled.into(),
-            position: BookmarkPosition::Append,
-            date_added: None,
-            last_modified: None,
-            guid: None,
-            url: url.clone(),
-            title: Some("".into()),
-        });
+        let bm = InsertableItem::Bookmark {
+            b: InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url: url.clone(),
+                title: Some("".into()),
+            },
+        };
         let guid = insert_bookmark(&conn, &bm)?;
         let rb = get_raw_bookmark(&conn, &guid)?.expect("should get the bookmark");
         assert_eq!(rb.title, None);
 
-        let bm2 = InsertableItem::Bookmark(InsertableBookmark {
-            parent_guid: BookmarkRootGuid::Unfiled.into(),
-            position: BookmarkPosition::Append,
-            date_added: None,
-            last_modified: None,
-            guid: None,
-            url,
-            title: None,
-        });
+        let bm2 = InsertableItem::Bookmark {
+            b: InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Append,
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url,
+                title: None,
+            },
+        };
         let guid2 = insert_bookmark(&conn, &bm2)?;
         let rb2 = get_raw_bookmark(&conn, &guid2)?.expect("should get the bookmark");
         assert_eq!(rb2.title, None);
@@ -1801,15 +1981,17 @@ mod tests {
         let conn = new_mem_connection();
         let url = Url::parse("https://www.example.com")?;
 
-        let bm = InsertableItem::Bookmark(InsertableBookmark {
-            parent_guid: BookmarkRootGuid::Unfiled.into(),
-            position: BookmarkPosition::Specific(100),
-            date_added: None,
-            last_modified: None,
-            guid: None,
-            url,
-            title: Some("the title".into()),
-        });
+        let bm = InsertableItem::Bookmark {
+            b: InsertableBookmark {
+                parent_guid: BookmarkRootGuid::Unfiled.into(),
+                position: BookmarkPosition::Specific { pos: 100 },
+                date_added: None,
+                last_modified: None,
+                guid: None,
+                url,
+                title: Some("the title".into()),
+            },
+        };
         let guid = insert_bookmark(&conn, &bm)?;
 
         // re-fetch it.
@@ -1831,7 +2013,7 @@ mod tests {
                 &conn,
                 &guid.into(),
                 &UpdatableBookmark {
-                    location: UpdateTreeLocation::Position(pos),
+                    location: UpdateTreeLocation::Position { pos },
                     ..Default::default()
                 }
                 .into(),
@@ -1883,7 +2065,7 @@ mod tests {
         ]));
 
         // Move a bookmark to its existing position
-        do_move("bookmark3___", BookmarkPosition::Specific(1));
+        do_move("bookmark3___", BookmarkPosition::Specific { pos: 1 });
         check_tree(json!([
             {"url": "https://www.example1.com/"},
             {"url": "https://www.example3.com/"},
@@ -1891,7 +2073,7 @@ mod tests {
         ]));
 
         // Move a bookmark back 1 position.
-        do_move("bookmark2___", BookmarkPosition::Specific(1));
+        do_move("bookmark2___", BookmarkPosition::Specific { pos: 1 });
         check_tree(json!([
             {"url": "https://www.example1.com/"},
             {"url": "https://www.example2.com/"},
@@ -1899,7 +2081,7 @@ mod tests {
         ]));
 
         // Move a bookmark forward 1 position.
-        do_move("bookmark2___", BookmarkPosition::Specific(2));
+        do_move("bookmark2___", BookmarkPosition::Specific { pos: 2 });
         check_tree(json!([
             {"url": "https://www.example1.com/"},
             {"url": "https://www.example3.com/"},
@@ -1907,7 +2089,7 @@ mod tests {
         ]));
 
         // Move a bookmark beyond the end.
-        do_move("bookmark1___", BookmarkPosition::Specific(10));
+        do_move("bookmark1___", BookmarkPosition::Specific { pos: 10 });
         check_tree(json!([
             {"url": "https://www.example3.com/"},
             {"url": "https://www.example2.com/"},
@@ -1991,7 +2173,9 @@ mod tests {
             &conn,
             &"bookmark6___".into(),
             &UpdatableBookmark {
-                location: UpdateTreeLocation::Position(BookmarkPosition::Specific(2)),
+                location: UpdateTreeLocation::Position {
+                    pos: BookmarkPosition::Specific { pos: 2 },
+                },
                 ..Default::default()
             }
             .into(),
@@ -2002,10 +2186,10 @@ mod tests {
             &conn,
             &"bookmark2___".into(),
             &UpdatableBookmark {
-                location: UpdateTreeLocation::Parent(
-                    "folder1_____".into(),
-                    BookmarkPosition::Specific(1),
-                ),
+                location: UpdateTreeLocation::Parent {
+                    guid: "folder1_____".into(),
+                    pos: BookmarkPosition::Specific { pos: 1 },
+                },
                 ..Default::default()
             }
             .into(),
@@ -2230,7 +2414,9 @@ mod tests {
             &conn,
             &"bookmark1___".into(),
             &UpdatableBookmark {
-                location: UpdateTreeLocation::Position(BookmarkPosition::Append),
+                location: UpdateTreeLocation::Position {
+                    pos: BookmarkPosition::Append,
+                },
                 ..Default::default()
             }
             .into(),
@@ -2245,10 +2431,10 @@ mod tests {
             &conn,
             &"bookmark1___".into(),
             &UpdatableBookmark {
-                location: UpdateTreeLocation::Parent(
-                    "folder2_____".into(),
-                    BookmarkPosition::Append,
-                ),
+                location: UpdateTreeLocation::Parent {
+                    guid: "folder2_____".into(),
+                    pos: BookmarkPosition::Append,
+                },
                 ..Default::default()
             }
             .into(),
@@ -2310,10 +2496,10 @@ mod tests {
             &conn,
             &"bookmark1___".into(),
             &UpdatableBookmark {
-                location: UpdateTreeLocation::Parent(
-                    "bookmark2___".into(),
-                    BookmarkPosition::Specific(1),
-                ),
+                location: UpdateTreeLocation::Parent {
+                    guid: "bookmark2___".into(),
+                    pos: BookmarkPosition::Specific { pos: 1 },
+                },
                 ..Default::default()
             }
             .into(),
@@ -2325,10 +2511,10 @@ mod tests {
             &conn,
             &"bookmark1___".into(),
             &UpdatableBookmark {
-                location: UpdateTreeLocation::Parent(
-                    BookmarkRootGuid::Root.as_guid(),
-                    BookmarkPosition::Specific(1),
-                ),
+                location: UpdateTreeLocation::Parent {
+                    guid: BookmarkRootGuid::Root.as_guid(),
+                    pos: BookmarkPosition::Specific { pos: 1 },
+                },
                 ..Default::default()
             }
             .into(),
@@ -2344,7 +2530,7 @@ mod tests {
         let (t, _, _) =
             fetch_tree(&conn, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
         let f = match t {
-            BookmarkTreeNode::Folder(ref f) => f,
+            BookmarkTreeNode::Folder { ref f } => f,
             _ => panic!("tree root must be a folder"),
         };
         assert_eq!(f.guid, Some(BookmarkRootGuid::Root.into()));
@@ -2514,14 +2700,14 @@ mod tests {
 
         let (tree, _, _) =
             fetch_tree(&conn, &BookmarkRootGuid::Root.into(), &FetchDepth::Deepest)?.unwrap();
-        if let BookmarkTreeNode::Folder(root) = tree {
+        if let BookmarkTreeNode::Folder { f: root } = tree {
             assert_eq!(root.children.len(), 4);
             let unfiled = root
                 .children
                 .iter()
                 .find(|c| c.guid() == BookmarkRootGuid::Unfiled.guid())
                 .expect("Should return unfiled root");
-            if let BookmarkTreeNode::Folder(unfiled) = unfiled {
+            if let BookmarkTreeNode::Folder { f: unfiled } = unfiled {
                 assert!(unfiled.children.is_empty());
             } else {
                 panic!("The unfiled root should be a folder");

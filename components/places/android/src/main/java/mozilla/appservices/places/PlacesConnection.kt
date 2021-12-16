@@ -4,8 +4,8 @@
 
 package mozilla.appservices.places
 
-import com.sun.jna.Native
 import com.sun.jna.Pointer
+import mozilla.appservices.places.uniffi.BookmarkPosition
 import mozilla.appservices.places.uniffi.ConnectionType
 import mozilla.appservices.places.uniffi.DocumentType
 import mozilla.appservices.places.uniffi.FrecencyThresholdOption
@@ -23,7 +23,12 @@ import mozilla.appservices.places.uniffi.HistoryVisitInfo
 import mozilla.appservices.places.uniffi.HistoryVisitInfosWithBound
 import mozilla.appservices.places.uniffi.SearchResult
 import mozilla.appservices.places.uniffi.SqlInterruptHandle
-import mozilla.appservices.support.native.toNioDirectBuffer
+import mozilla.appservices.places.uniffi.BookmarkItem
+import mozilla.appservices.places.uniffi.InsertableBookmark
+import mozilla.appservices.places.uniffi.InsertableBookmarkFolder
+import mozilla.appservices.places.uniffi.InsertableBookmarkItem
+import mozilla.appservices.places.uniffi.InsertableBookmarkSeparator
+import mozilla.appservices.places.uniffi.BookmarkUpdateInfo
 import mozilla.appservices.sync15.SyncTelemetryPing
 import mozilla.components.service.glean.private.CounterMetricType
 import mozilla.components.service.glean.private.LabeledMetricType
@@ -33,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong
 import org.mozilla.appservices.places.GleanMetrics.PlacesManager as PlacesManagerMetrics
 
 typealias Url = String
+typealias Guid = String
 
 /**
  * An implementation of a [PlacesManager] backed by a Rust Places library.
@@ -135,32 +141,17 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun importBookmarksFromFennec(path: String): JSONObject {
-        val json = rustCallForString(this) { error ->
-            LibPlacesFFI.INSTANCE.places_bookmarks_import_from_fennec(this.handle.get(), path, error)
-        }
-        return JSONObject(json)
+        val metrics = this.api.placesBookmarksImportFromFennec(path)
+        return JSONObject(metrics)
     }
 
     override fun importPinnedSitesFromFennec(path: String): List<BookmarkItem> {
-        val rustBuf = rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.places_pinned_sites_import_from_fennec(
-                this.handle.get(), path, error
-            )
-        }
-
-        try {
-            val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-            return unpackProtobufItemList(message)
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
-        }
+        return this.api.placesPinnedSitesImportFromFennec(path)
     }
 
     override fun importVisitsFromFennec(path: String): JSONObject {
-        val json = rustCallForString(this) { error ->
-            LibPlacesFFI.INSTANCE.places_history_import_from_fennec(this.handle.get(), path, error)
-        }
-        return JSONObject(json)
+        val metrics = this.api.placesHistoryImportFromFennec(path)
+        return JSONObject(metrics)
     }
 
     override fun resetHistorySyncMetadata() {
@@ -168,9 +159,7 @@ class PlacesApi(path: String) : PlacesManager, AutoCloseable {
     }
 
     override fun resetBookmarkSyncMetadata() {
-        rustCall(this) { error ->
-            LibPlacesFFI.INSTANCE.bookmarks_reset(this.handle.get(), error)
-        }
+        return this.api.bookmarksReset()
     }
 }
 
@@ -280,7 +269,7 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
         return this.conn.queryAutocomplete(query, limit)
     }
 
-    override fun matchUrl(query: String): String? {
+    override fun matchUrl(query: String): Url? {
         return this.conn.matchUrl(query)
     }
 
@@ -352,86 +341,39 @@ open class PlacesReaderConnection internal constructor(connHandle: Long, conn: U
         }
     }
 
-    override fun getBookmark(guid: String): BookmarkTreeNode? {
-        readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
-                LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), guid, 0.toByte(), err)
-            }
-            try {
-                return rustBuf.asCodedInputStream()?.let { stream ->
-                    unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream))
-                }
-            } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
-            }
+    override fun getBookmark(guid: Guid): BookmarkItem? {
+        return readQueryCounters.measure {
+            this.conn.bookmarksGetByGuid(guid, false)
         }
     }
 
-    override fun getBookmarksTree(rootGUID: String, recursive: Boolean): BookmarkTreeNode? {
-        val rustBuf = rustCall { err ->
-            if (recursive) {
-                LibPlacesFFI.INSTANCE.bookmarks_get_tree(this.handle.get(), rootGUID, err)
-            } else {
-                LibPlacesFFI.INSTANCE.bookmarks_get_by_guid(this.handle.get(), rootGUID, 1.toByte(), err)
-            }
-        }
-        try {
-            return rustBuf.asCodedInputStream()?.let { stream ->
-                unpackProtobuf(MsgTypes.BookmarkNode.parseFrom(stream))
-            }
-        } finally {
-            LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
+    override fun getBookmarksTree(rootGUID: Guid, recursive: Boolean): BookmarkItem? {
+        if (recursive) {
+            return this.conn.bookmarksGetTree(rootGUID)
+        } else {
+            return this.conn.bookmarksGetByGuid(rootGUID, true)
         }
     }
 
-    override fun getBookmarksWithURL(url: String): List<BookmarkItem> {
-        readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
-                LibPlacesFFI.INSTANCE.bookmarks_get_all_with_url(this.handle.get(), url, err)
-            }
-
-            try {
-                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-                return unpackProtobufItemList(message)
-            } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
-            }
+    override fun getBookmarksWithURL(url: Url): List<BookmarkItem> {
+        return readQueryCounters.measure {
+            this.conn.bookmarksGetAllWithUrl(url)
         }
     }
 
-    override fun getBookmarkUrlForKeyword(keyword: String): String? {
-        return rustCallForOptString { error ->
-            LibPlacesFFI.INSTANCE.bookmarks_get_url_for_keyword(this.handle.get(), keyword, error)
-        }
+    override fun getBookmarkUrlForKeyword(keyword: String): Url? {
+        return this.conn.bookmarksGetUrlForKeyword(keyword)
     }
 
     override fun searchBookmarks(query: String, limit: Int): List<BookmarkItem> {
-        readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
-                LibPlacesFFI.INSTANCE.bookmarks_search(this.handle.get(), query, limit, err)
-            }
-
-            try {
-                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-                return unpackProtobufItemList(message)
-            } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
-            }
+        return readQueryCounters.measure {
+            this.conn.bookmarksSearch(query, limit)
         }
     }
 
     override fun getRecentBookmarks(limit: Int): List<BookmarkItem> {
-        readQueryCounters.measure {
-            val rustBuf = rustCall { err ->
-                LibPlacesFFI.INSTANCE.bookmarks_get_recent(this.handle.get(), limit, err)
-            }
-
-            try {
-                val message = MsgTypes.BookmarkNodeList.parseFrom(rustBuf.asCodedInputStream()!!)
-                return unpackProtobufItemList(message)
-            } finally {
-                LibPlacesFFI.INSTANCE.places_destroy_bytebuffer(rustBuf)
-            }
+        return readQueryCounters.measure {
+            this.conn.bookmarksGetRecent(limit)
         }
     }
 
@@ -512,18 +454,13 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
 
     override fun deleteAllBookmarks() {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                LibPlacesFFI.INSTANCE.bookmarks_delete_everything(this.handle.get(), error)
-            }
+            this.conn.bookmarksDeleteEverything()
         }
     }
 
-    override fun deleteBookmarkNode(guid: String): Boolean {
+    override fun deleteBookmarkNode(guid: Guid): Boolean {
         return writeQueryCounters.measure {
-            rustCall { error ->
-                val existedByte = LibPlacesFFI.INSTANCE.bookmarks_delete(this.handle.get(), guid, error)
-                existedByte.toInt() != 0
-            }
+            this.conn.bookmarksDelete(guid)
         }
     }
 
@@ -574,52 +511,52 @@ class PlacesWriterConnection internal constructor(connHandle: Long, conn: Uniffi
         }
     }
 
-    // Does the shared insert work, takes the position just because
-    // its a little tedious to type out setting it
-    private fun doInsert(builder: MsgTypes.BookmarkNode.Builder, position: Int?): String {
-        position?.let { builder.setPosition(position) }
-        val buf = builder.build()
-        val (nioBuf, len) = buf.toNioDirectBuffer()
-        writeQueryCounters.measure {
-            return rustCallForString { err ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                LibPlacesFFI.INSTANCE.bookmarks_insert(this.handle.get(), ptr, len, err)
-            }
+    // Does the shared insert work.
+    private fun doInsert(item: InsertableBookmarkItem): Guid {
+        return writeQueryCounters.measure {
+            this.conn.bookmarksInsert(item)
         }
     }
 
-    override fun createFolder(parentGUID: String, title: String, position: Int?): String {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-            .setNodeType(BookmarkType.Folder.value)
-            .setParentGuid(parentGUID)
-            .setTitle(title)
-        return this.doInsert(builder, position)
+    override fun createFolder(parentGUID: Guid, title: String, position: Int?): Guid {
+        val p = if (position == null) {
+            BookmarkPosition.Append
+        } else {
+            BookmarkPosition.Specific(position.toUInt())
+        }
+        val folder = InsertableBookmarkFolder(parentGuid = parentGUID, position = p, title = title)
+        return this.doInsert(InsertableBookmarkItem.Folder(folder))
     }
 
-    override fun createSeparator(parentGUID: String, position: Int?): String {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-            .setNodeType(BookmarkType.Separator.value)
-            .setParentGuid(parentGUID)
-        return this.doInsert(builder, position)
+    override fun createSeparator(parentGUID: Guid, position: Int?): Guid {
+        val p = if (position == null) {
+            BookmarkPosition.Append
+        } else {
+            BookmarkPosition.Specific(position.toUInt())
+        }
+        val sep = InsertableBookmarkSeparator(parentGuid = parentGUID, position = p)
+        return this.doInsert(InsertableBookmarkItem.Separator(sep))
     }
 
-    override fun createBookmarkItem(parentGUID: String, url: String, title: String, position: Int?): String {
-        val builder = MsgTypes.BookmarkNode.newBuilder()
-            .setNodeType(BookmarkType.Bookmark.value)
-            .setParentGuid(parentGUID)
-            .setUrl(url)
-            .setTitle(title)
-        return this.doInsert(builder, position)
+    override fun createBookmarkItem(parentGUID: Guid, url: Url, title: String, position: Int?): Guid {
+        val p = if (position == null) {
+            BookmarkPosition.Append
+        } else {
+            BookmarkPosition.Specific(position.toUInt())
+        }
+        val bm = InsertableBookmark(parentGuid = parentGUID, position = p, url = url, title = title)
+        return this.doInsert(InsertableBookmarkItem.Bookmark(bm))
     }
 
-    override fun updateBookmark(guid: String, info: BookmarkUpdateInfo) {
-        val buf = info.toProtobuf(guid)
-        val (nioBuf, len) = buf.toNioDirectBuffer()
+    override fun updateBookmark(guid: Guid, parentGuid: Guid?, position: Int?, title: String?, url: Url?) {
+        val p: UInt? = if (position == null) {
+            null
+        } else {
+            position.toUInt()
+        }
         return writeQueryCounters.measure {
-            rustCall { err ->
-                val ptr = Native.getDirectBufferPointer(nioBuf)
-                LibPlacesFFI.INSTANCE.bookmarks_update(this.handle.get(), ptr, len, err)
-            }
+            val info = BookmarkUpdateInfo(guid = guid, title = title, url = url, parentGuid = parentGuid, position = p)
+            return this.conn.bookmarksUpdate(info)
         }
     }
 
