@@ -7,24 +7,27 @@
 use crate::api::matcher::{self, search_frecent, SearchParams};
 use crate::api::places_api::places_api_new;
 use crate::error::{Error, ErrorKind, InvalidPlaceInfo, PlacesError};
+use crate::import::fennec::import_bookmarks;
+use crate::import::fennec::import_history;
+use crate::import::fennec::import_pinned_sites;
+use crate::storage;
+use crate::storage::bookmarks;
+use crate::storage::bookmarks::BookmarkPosition;
 use crate::storage::history_metadata::{
     DocumentType, HistoryHighlight, HistoryHighlightWeights, HistoryMetadata,
     HistoryMetadataObservation,
 };
 use crate::storage::{history, history_metadata};
-use crate::types::VisitTransitionSet;
+use crate::types::{BookmarkType, VisitTransitionSet};
 use crate::ConnectionType;
 use crate::VisitObservation;
 use crate::VisitTransition;
-use crate::{msg_types, storage};
 use crate::{PlacesApi, PlacesDb};
-use ffi_support::{
-    implement_into_ffi_by_delegation, implement_into_ffi_by_protobuf, ConcurrentHandleMap,
-    ErrorCode, ExternError,
-};
+use ffi_support::{ConcurrentHandleMap, ErrorCode, ExternError};
 use parking_lot::Mutex;
 use sql_support::SqlInterruptHandle;
 use std::sync::Arc;
+use sync_guid::Guid;
 use types::Timestamp;
 use url::Url;
 
@@ -39,6 +42,20 @@ const SKIP_ONE_PAGE_FRECENCY_THRESHOLD: i64 = 101 + 1;
 // All of our functions in this module use a `Result` type with the error we throw over
 // the FFI.
 type Result<T> = std::result::Result<T, PlacesError>;
+
+// `bookmarks::InsertableItem` is clear for Rust code, but just `InsertableItem` is less
+// clear in the UDL - so change some of the type names.
+type InsertableBookmarkItem = crate::storage::bookmarks::InsertableItem;
+type InsertableBookmarkFolder = crate::storage::bookmarks::InsertableFolder;
+type InsertableBookmarkSeparator = crate::storage::bookmarks::InsertableSeparator;
+use crate::storage::bookmarks::InsertableBookmark;
+
+use crate::storage::bookmarks::BookmarkUpdateInfo;
+
+type BookmarkItem = crate::storage::bookmarks::Item;
+type BookmarkFolder = crate::storage::bookmarks::Folder;
+type BookmarkSeparator = crate::storage::bookmarks::Separator;
+use crate::storage::bookmarks::BookmarkData;
 
 impl UniffiCustomTypeWrapper for Url {
     type Wrapped = String;
@@ -76,6 +93,18 @@ impl UniffiCustomTypeWrapper for VisitTransitionSet {
 
     fn unwrap(obj: Self) -> Self::Wrapped {
         VisitTransitionSet::into_u16(obj) as i32
+    }
+}
+
+impl UniffiCustomTypeWrapper for Guid {
+    type Wrapped = String;
+
+    fn wrap(val: Self::Wrapped) -> uniffi::Result<Guid> {
+        Ok(Guid::new(val.as_str()))
+    }
+
+    fn unwrap(obj: Self) -> Self::Wrapped {
+        obj.into()
     }
 }
 
@@ -131,6 +160,34 @@ impl PlacesApi {
             &root_sync_key,
         )?;
         Ok(serde_json::to_string(&ping).unwrap())
+    }
+
+    fn places_pinned_sites_import_from_fennec(&self, db_path: String) -> Result<Vec<BookmarkItem>> {
+        let sites = import_pinned_sites(self, db_path.as_str())?
+            .into_iter()
+            .map(BookmarkItem::from)
+            .collect();
+        Ok(sites)
+    }
+
+    fn places_history_import_from_fennec(&self, db_path: String) -> Result<String> {
+        let metrics = import_history(self, db_path.as_str())?;
+        Ok(serde_json::to_string(&metrics)?)
+    }
+
+    fn places_bookmarks_import_from_fennec(&self, db_path: String) -> Result<String> {
+        let metrics = import_bookmarks(self, db_path.as_str())?;
+        Ok(serde_json::to_string(&metrics)?)
+    }
+
+    fn places_bookmarks_import_from_ios(&self, db_path: String) -> Result<()> {
+        import_bookmarks(self, db_path.as_str())?;
+        Ok(())
+    }
+
+    fn bookmarks_reset(&self) -> Result<()> {
+        self.reset_bookmarks()?;
+        Ok(())
     }
 }
 
@@ -374,6 +431,75 @@ impl PlacesConnection {
     fn match_url(&self, query: String) -> Result<Option<Url>> {
         self.with_conn(|conn| matcher::match_url(conn, query))
     }
+
+    fn bookmarks_get_tree(&self, item_guid: &Guid) -> Result<Option<BookmarkItem>> {
+        self.with_conn(|conn| {
+            let node = bookmarks::public_node::fetch_public_tree(conn, item_guid)?;
+            Ok(node.map(BookmarkItem::from))
+        })
+    }
+
+    fn bookmarks_get_by_guid(
+        &self,
+        guid: &Guid,
+        get_direct_children: bool,
+    ) -> Result<Option<BookmarkItem>> {
+        self.with_conn(|conn| {
+            let bookmark = bookmarks::public_node::fetch_bookmark(conn, guid, get_direct_children)?;
+            Ok(bookmark.map(BookmarkItem::from))
+        })
+    }
+
+    fn bookmarks_get_all_with_url(&self, url: Url) -> Result<Vec<BookmarkItem>> {
+        self.with_conn(|conn| {
+            let bookmarks = bookmarks::public_node::fetch_bookmarks_by_url(conn, &url)?
+                .into_iter()
+                .map(BookmarkItem::from)
+                .collect();
+            Ok(bookmarks)
+        })
+    }
+
+    fn bookmarks_search(&self, query: String, limit: i32) -> Result<Vec<BookmarkItem>> {
+        self.with_conn(|conn| {
+            let bookmarks =
+                bookmarks::public_node::search_bookmarks(conn, query.as_str(), limit as u32)?
+                    .into_iter()
+                    .map(BookmarkItem::from)
+                    .collect();
+            Ok(bookmarks)
+        })
+    }
+
+    fn bookmarks_get_recent(&self, limit: i32) -> Result<Vec<BookmarkItem>> {
+        self.with_conn(|conn| {
+            let bookmarks = bookmarks::public_node::recent_bookmarks(conn, limit as u32)?
+                .into_iter()
+                .map(BookmarkItem::from)
+                .collect();
+            Ok(bookmarks)
+        })
+    }
+
+    fn bookmarks_delete(&self, id: Guid) -> Result<bool> {
+        self.with_conn(|conn| bookmarks::delete_bookmark(conn, &id))
+    }
+
+    fn bookmarks_delete_everything(&self) -> Result<()> {
+        self.with_conn(|conn| bookmarks::delete_everything(conn))
+    }
+
+    fn bookmarks_get_url_for_keyword(&self, keyword: String) -> Result<Option<Url>> {
+        self.with_conn(|conn| bookmarks::bookmarks_get_url_for_keyword(conn, keyword.as_str()))
+    }
+
+    fn bookmarks_insert(&self, data: InsertableBookmarkItem) -> Result<Guid> {
+        self.with_conn(|conn| bookmarks::insert_bookmark(conn, &data))
+    }
+
+    fn bookmarks_update(&self, item: BookmarkUpdateInfo) -> Result<()> {
+        self.with_conn(|conn| bookmarks::update_bookmark_from_info(conn, item))
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -435,6 +561,7 @@ pub enum MatchReason {
     Bookmark,
     Tags,
 }
+
 pub mod error_codes {
     // Note: 0 (success) and -1 (panic) are reserved by ffi_support
 
@@ -564,13 +691,6 @@ impl From<Error> for ExternError {
         ExternError::new_error(get_code(&e), e.to_string())
     }
 }
-
-implement_into_ffi_by_protobuf!(msg_types::BookmarkNode);
-implement_into_ffi_by_protobuf!(msg_types::BookmarkNodeList);
-implement_into_ffi_by_delegation!(
-    crate::storage::bookmarks::PublicNode,
-    msg_types::BookmarkNode
-);
 
 uniffi_macros::include_scaffolding!("places");
 // Exists just to convince uniffi to generate `liftSequence*` helpers!

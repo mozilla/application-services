@@ -37,100 +37,10 @@ internal interface LibPlacesFFI : Library {
         out_err: RustError.ByReference
     ): PlacesConnectionHandle
 
-    // Returns a JSON string containing bookmark import metrics
-    fun places_bookmarks_import_from_fennec(
-        handle: PlacesApiHandle,
-        db_path: String,
-        out_err: RustError.ByReference
-    ): Pointer?
-
-    fun places_pinned_sites_import_from_fennec(
-        handle: PlacesApiHandle,
-        db_path: String,
-        out_err: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    // Returns a JSON string containing import metrics
-    fun places_history_import_from_fennec(
-        handle: PlacesApiHandle,
-        db_path: String,
-        out_err: RustError.ByReference
-    ): Pointer?
-
     fun places_note_observation(
         handle: PlacesConnectionHandle,
         json_observation_data: String,
         out_err: RustError.ByReference
-    )
-
-    fun bookmarks_get_all_with_url(
-        handle: PlacesConnectionHandle,
-        url: String,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun bookmarks_get_url_for_keyword(
-        handle: PlacesConnectionHandle,
-        keyword: String,
-        error: RustError.ByReference
-    ): Pointer?
-
-    fun bookmarks_get_tree(
-        handle: PlacesConnectionHandle,
-        optRootId: String?,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun bookmarks_get_by_guid(
-        handle: PlacesConnectionHandle,
-        optRootId: String?,
-        getDirectChildren: Byte,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun bookmarks_search(
-        handle: PlacesConnectionHandle,
-        search: String,
-        limit: Int,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    fun bookmarks_get_recent(
-        handle: PlacesConnectionHandle,
-        limit: Int,
-        error: RustError.ByReference
-    ): RustBuffer.ByValue
-
-    // Returns newly inserted guid
-    fun bookmarks_insert(
-        handle: PlacesConnectionHandle,
-        data: Pointer,
-        len: Int,
-        error: RustError.ByReference
-    ): Pointer?
-
-    fun bookmarks_update(
-        handle: PlacesConnectionHandle,
-        data: Pointer,
-        len: Int,
-        error: RustError.ByReference
-    )
-
-    // Returns 1 if the item existed and was deleted.
-    fun bookmarks_delete(
-        handle: PlacesConnectionHandle,
-        id: String,
-        error: RustError.ByReference
-    ): Byte
-
-    fun bookmarks_delete_everything(
-        handle: PlacesConnectionHandle,
-        error: RustError.ByReference
-    )
-
-    fun bookmarks_reset(
-        handle: PlacesApiHandle,
-        error: RustError.ByReference
     )
 
     /** Destroy strings returned from libplaces_ffi calls. */

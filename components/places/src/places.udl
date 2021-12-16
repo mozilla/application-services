@@ -8,7 +8,8 @@ typedef string Url;
 typedef i64 Timestamp;
 [Wrapped]
 typedef i32 VisitTransitionSet;
-
+[Wrapped]
+typedef string Guid;
 
 namespace places {
     [Throws=PlacesError]
@@ -43,6 +44,21 @@ interface PlacesApi {
 
     [Throws=PlacesError]
     string bookmarks_sync(string key_id, string access_token, string sync_key, Url tokenserver_url);
+
+    [Throws=PlacesError]
+    sequence<BookmarkItem> places_pinned_sites_import_from_fennec(string db_path);
+
+    [Throws=PlacesError]
+    string places_history_import_from_fennec(string db_path);
+
+    [Throws=PlacesError]
+    string places_bookmarks_import_from_fennec(string db_path);
+
+    [Throws=PlacesError]
+    void places_bookmarks_import_from_ios(string db_path);
+
+    [Throws=PlacesError]
+    void bookmarks_reset();
 };
 
 interface PlacesConnection {
@@ -133,6 +149,35 @@ interface PlacesConnection {
     [Throws=PlacesError]
     void run_maintenance();
 
+    [Throws=PlacesError]
+    BookmarkItem? bookmarks_get_tree([ByRef] Guid item_guid);
+
+    [Throws=PlacesError]
+    BookmarkItem? bookmarks_get_by_guid([ByRef] Guid guid, boolean get_direct_children);
+
+    [Throws=PlacesError]
+    sequence<BookmarkItem> bookmarks_get_all_with_url(Url url);
+
+    [Throws=PlacesError]
+    sequence<BookmarkItem> bookmarks_search(string query, i32 limit);
+
+    [Throws=PlacesError]
+    sequence<BookmarkItem> bookmarks_get_recent(i32 limit);
+
+    [Throws=PlacesError]
+    boolean bookmarks_delete(Guid id);
+
+    [Throws=PlacesError]
+    void bookmarks_delete_everything();
+
+    [Throws=PlacesError]
+    Url? bookmarks_get_url_for_keyword(string keyword);
+
+    [Throws=PlacesError]
+    void bookmarks_update(BookmarkUpdateInfo data);
+
+    [Throws=PlacesError]
+    Guid bookmarks_insert(InsertableBookmarkItem bookmark);
 };
 
 /**
@@ -270,13 +315,107 @@ dictionary TopFrecentSiteInfo {
 enum PlacesError {
     "UnexpectedPlacesException",
     "UrlParseFailed",
+    "JsonParseFailed",
     "PlacesConnectionBusy",
     "OperationInterrupted",
     "BookmarksCorruption",
     "InvalidParent",
     "UnknownBookmarkItem",
     "UrlTooLong",
-    "InvalidBookmarkUpdate",
+    "InvalidBookmarkUpdate", // XXX - can we kill this?
     "CannotUpdateRoot",
     "InternalPanic",
+};
+
+enum BookmarkType {
+    "Bookmark",
+    "Folder",
+    "Separator",
+};
+
+dictionary BookmarkData {
+    Guid guid;
+    Guid? parent_guid;
+    u32 position;
+    Timestamp date_added;
+    Timestamp last_modified;
+    Url url;
+    string? title;
+};
+
+dictionary BookmarkSeparator {
+    Guid guid;
+    Timestamp date_added;
+    Timestamp last_modified;
+    Guid? parent_guid;
+    u32 position;
+};
+
+dictionary BookmarkFolder {
+    Guid guid;
+    Timestamp date_added;
+    Timestamp last_modified;
+    Guid? parent_guid;
+    u32 position;
+    string? title;
+    sequence<Guid>? child_guids;
+    sequence<BookmarkItem>? child_nodes;
+};
+
+[Enum]
+interface BookmarkItem {
+    Bookmark(BookmarkData b);
+    Separator(BookmarkSeparator s);
+    Folder(BookmarkFolder f);
+};
+
+dictionary BookmarkUpdateInfo {
+    Guid guid;
+    string? title;
+    string? url;
+    Guid? parent_guid;
+    u32? position;
+};
+
+// Structs for inserting new bookmark items.
+
+// Where the item should be placed.
+[Enum]
+interface BookmarkPosition {
+    Specific(u32 pos);
+    Append();
+};
+
+dictionary InsertableBookmark {
+    Guid? guid = null;
+    Guid parent_guid;
+    BookmarkPosition position;
+    Timestamp? date_added = null;
+    Timestamp? last_modified = null;
+    Url url;
+    string? title = null;
+};
+
+dictionary InsertableBookmarkSeparator {
+    Guid? guid = null;
+    Guid parent_guid;
+    BookmarkPosition position;
+    Timestamp? date_added = null;
+    Timestamp? last_modified = null;
+};
+
+dictionary InsertableBookmarkFolder {
+    Guid? guid = null;
+    Guid parent_guid;
+    BookmarkPosition position;
+    Timestamp? date_added = null;
+    Timestamp? last_modified = null;
+    string? title = null;
+};
+
+[Enum]
+interface InsertableBookmarkItem {
+    Bookmark(InsertableBookmark b);
+    Folder(InsertableBookmarkFolder f);
+    Separator(InsertableBookmarkSeparator s);
 };
